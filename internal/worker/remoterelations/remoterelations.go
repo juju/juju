@@ -204,7 +204,8 @@ type Worker struct {
 	logger   loggo.Logger
 
 	runner *worker.Runner
-	mu     sync.Mutex
+	// mu protects applicationIdentities, not worker lifecycle or API calls.
+	mu sync.Mutex
 
 	// applicationIdentities records the identity observed for each SAAS name.
 	applicationIdentities map[string]remoteApplicationIdentity
@@ -249,9 +250,6 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) handleApplicationChanges(applicationIds []string) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	// TODO(wallyworld) - watcher should not give empty events
 	if len(applicationIds) == 0 {
 		return nil
@@ -279,7 +277,9 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		identityChanged := false
 		if !appGone {
 			remoteApp = result.Result
+			w.mu.Lock()
 			existingIdentity, ok := w.applicationIdentities[name]
+			w.mu.Unlock()
 			appGone = remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
 			identityChanged = ok && existingIdentity != applicationIdentity(remoteApp)
 		}
@@ -290,7 +290,9 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			if err != nil && !errors.IsNotFound(err) {
 				w.logger.Warningf("error stopping saas worker for %q: %v", name, err)
 			}
+			w.mu.Lock()
 			delete(w.applicationIdentities, name)
+			w.mu.Unlock()
 			if appGone {
 				continue
 			}
@@ -339,7 +341,9 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				return errors.Annotate(err, "error starting remote application worker")
 			}
 		}
+		w.mu.Lock()
 		w.applicationIdentities[name] = applicationIdentity(remoteApp)
+		w.mu.Unlock()
 	}
 	return nil
 }
@@ -379,11 +383,22 @@ func getRemoteApplication(facade RemoteRelationsFacade, name string) (*params.Re
 func (w *Worker) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	saasWorkers := make(map[string]interface{})
+	names := make([]string, 0, len(w.applicationIdentities))
 	for name := range w.applicationIdentities {
-		appWorker, err := w.runner.Worker(name, w.catacomb.Dying())
+		names = append(names, name)
+	}
+	w.mu.Unlock()
+
+	// Reporting must not wait for a worker's startup API call or restart delay.
+	abort := make(chan struct{})
+	close(abort)
+	saasWorkers := make(map[string]interface{})
+	for _, name := range names {
+		appWorker, err := w.runner.Worker(name, abort)
+		if err == worker.ErrAborted {
+			saasWorkers[name] = map[string]interface{}{"state": "starting"}
+			continue
+		}
 		if err != nil {
 			saasWorkers[name] = fmt.Sprintf("ERROR: %v", err)
 			continue

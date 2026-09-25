@@ -5,6 +5,7 @@ package remoterelations_test
 
 import (
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -1494,4 +1495,165 @@ func (s *remoteRelationsSuite) TestRemoteApplicationConsumeVersionChanged(c *gc.
 		{"WatchOfferStatus", []interface{}{"offer-mysql-uuid", macaroon.Slice{mac}}},
 	})
 	c.Check(workertest.CheckKilled(c, oldWorker), jc.ErrorIsNil)
+}
+
+func (s *remoteRelationsSuite) TestReport(c *gc.C) {
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	for _, name := range []string{"db2", "mysql"} {
+		_, err := s.config.Runner.Worker(name, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	c.Check(reportWithoutWaiting(c, w.(worker.Reporter)), jc.DeepEquals, map[string]interface{}{
+		"workers": map[string]interface{}{
+			"db2": map[string]interface{}{
+				"remote-model-uuid": "remote-model-uuid",
+				"saas-application":  true,
+				"offer-uuid":        "offer-db2-uuid",
+			},
+			"mysql": map[string]interface{}{
+				"remote-model-uuid": "remote-model-uuid",
+				"saas-application":  true,
+				"offer-uuid":        "offer-mysql-uuid",
+			},
+		},
+	})
+}
+
+func (s *remoteRelationsSuite) TestReportDuringApplicationRead(c *gc.C) {
+	s.assertReportDuringApplicationRead(c, 1, map[string]interface{}{})
+}
+
+func (s *remoteRelationsSuite) TestReportDuringWorkerStart(c *gc.C) {
+	s.assertReportDuringApplicationRead(c, 2, map[string]interface{}{
+		"mysql": map[string]interface{}{"state": "starting"},
+	})
+}
+
+func (s *remoteRelationsSuite) assertReportDuringApplicationRead(c *gc.C, blockAt int, expected map[string]interface{}) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	s.config.RelationsFacade = &blockingRemoteApplicationsFacade{
+		RemoteRelationsFacade: s.relationsFacade,
+		blockAt:               blockAt,
+		entered:               entered,
+		release:               release,
+	}
+	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+	// An unbuffered notification lets the test wait for the handler to finish.
+	changes := make(chan []string)
+	s.relationsFacade.remoteApplicationsWatcher.changes = changes
+	w, err := remoterelations.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+	defer func() {
+		close(release)
+		// Let the handler finish before killing the runner it starts workers on.
+		select {
+		case changes <- nil:
+		case <-time.After(coretesting.LongWait):
+			c.Error("application handler did not finish after releasing the read")
+		}
+	}()
+
+	select {
+	case changes <- []string{"mysql"}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("worker did not receive application notification")
+	}
+	select {
+	case <-entered:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("worker did not enter application read")
+	}
+	if blockAt == 2 {
+		// The startup read runs asynchronously. Ensure the parent has recorded
+		// the application before requesting its report.
+		select {
+		case changes <- nil:
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("application handler did not finish")
+		}
+	}
+	c.Check(reportWithoutWaiting(c, w), jc.DeepEquals, map[string]interface{}{
+		"workers": expected,
+	})
+}
+
+func (s *remoteRelationsSuite) TestReportDuringWorkerStop(c *gc.C) {
+	closing, release := make(chan struct{}), make(chan struct{})
+	facade := &blockingCloseFacade{
+		RemoteModelRelationsFacadeCloser: s.remoteRelationsFacade,
+		closing:                          closing,
+		release:                          release,
+	}
+	s.config.NewRemoteModelFacadeFunc = func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		return facade, nil
+	}
+	w := s.assertRemoteApplicationWorkers(c)
+	defer workertest.CleanKill(c, w)
+	defer close(release)
+
+	s.relationsFacade.removeApplication("mysql")
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	select {
+	case <-closing:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("worker did not start closing its facade")
+	}
+	report := reportWithoutWaiting(c, w.(worker.Reporter))
+	workers, ok := report["workers"].(map[string]interface{})
+	c.Assert(ok, jc.IsTrue)
+	c.Check(workers["mysql"], jc.DeepEquals, map[string]interface{}{
+		"remote-model-uuid": "remote-model-uuid",
+		"saas-application":  true,
+		"offer-uuid":        "offer-mysql-uuid",
+	})
+}
+
+func reportWithoutWaiting(c *gc.C, reporter worker.Reporter) map[string]interface{} {
+	reported := make(chan map[string]interface{}, 1)
+	go func() { reported <- reporter.Report() }()
+	select {
+	case report := <-reported:
+		return report
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("report blocked on worker activity")
+		return nil
+	}
+}
+
+type blockingRemoteApplicationsFacade struct {
+	remoterelations.RemoteRelationsFacade
+	mu      sync.Mutex
+	calls   int
+	blockAt int
+	entered chan struct{}
+	release <-chan struct{}
+}
+
+func (f *blockingRemoteApplicationsFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
+	f.mu.Lock()
+	f.calls++
+	block := f.calls == f.blockAt
+	f.mu.Unlock()
+	if block {
+		close(f.entered)
+		<-f.release
+	}
+	return f.RemoteRelationsFacade.RemoteApplications(names)
+}
+
+type blockingCloseFacade struct {
+	remoterelations.RemoteModelRelationsFacadeCloser
+	once    sync.Once
+	closing chan struct{}
+	release <-chan struct{}
+}
+
+func (f *blockingCloseFacade) Close() error {
+	f.once.Do(func() { close(f.closing) })
+	<-f.release
+	return f.RemoteModelRelationsFacadeCloser.Close()
 }
