@@ -7,7 +7,7 @@ myst:
 (worker-cont)=
 # Worker
 
-In Juju, a **worker** is any type that implements {ref}`the worker interface <worker-interface>`.
+In Juju, a **worker** is any type that implements the `worker.Worker` interface.
 
 Examples of workers include {ref}`the dependency engine <newengine>`, instances run by the dependency
 engine (the typical usage of the term "worker"),

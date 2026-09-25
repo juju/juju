@@ -6,7 +6,7 @@ myst:
 
 (write-a-unit-test)=
 # Write a unit test
-> See also: {ref}`unit-testing`
+> See also: {ref}`write-tests`
 
 This document demonstrates how to write a unit test for Juju.
 
@@ -30,7 +30,7 @@ import (
 
 ### Add a unit test suite
 
-> See also: {ref}`unit-test-suite`
+> See also: {ref}`write-tests`
 
 Also in `magic1_test.go`, add a unit test suite.
 
@@ -49,7 +49,7 @@ func TestMagicSuite(t *testing.T) {
 
 ## Write the test
 
-> See also: {ref}`checker`
+> See also: {ref}`checker <write-tests>`
 
 In `magic1_test.go`, below the test suite, start adding your unit test functions.
 
@@ -65,7 +65,7 @@ return a + b
 ```
 
 Then, in your `magic1_test.go` file you can write a test for it as follows (where `tc.Equals` is
-a {ref}`checker <checker>`:
+a {ref}`checker <write-tests>`:
 
 ```go
 // GIVEN a equals 5 AND b equals 3

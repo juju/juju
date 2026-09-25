@@ -6,7 +6,7 @@ myst:
 
 (create-a-unit-test-suite)=
 # Create a unit test suite
-> See also: {ref}`unit-test-suite`
+> See also: {ref}`write-tests`
 
 To create a new unit test suite, you can do something like:
 

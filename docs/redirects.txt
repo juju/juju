@@ -399,3 +399,17 @@ reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference
 reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju reference/cloud/list-of-supported-clouds/vmware-vsphere
 
 
+contributor/reference/high-availability reference/high-availability
+contributor/reference/worker-interface contributor/reference/worker
+contributor/reference/worker-package contributor/reference/worker
+contributor/reference/tomb-package contributor/reference/dependency-package
+contributor/reference/catacomb-package contributor/reference/dependency-package
+contributor/reference/binary-containeragent reference/containeragent
+contributor/reference/testing contributor/howto/write-tests
+contributor/reference/testing/unit-testing contributor/howto/write-a-unit-test
+contributor/reference/testing/unit-testing/util-suite contributor/howto/write-tests
+contributor/reference/testing/unit-testing/checker contributor/howto/write-tests
+contributor/reference/testing/unit-testing/unit-test-suite contributor/howto/create-a-unit-test-suite
+contributor/reference/testing/integration-testing contributor/howto/write-an-integration-test
+contributor/reference/testing/integration-testing/integration-test-suite contributor/howto/write-an-integration-test
+contributor/reference/testing/integration-testing/test-include contributor/howto/write-an-integration-test
