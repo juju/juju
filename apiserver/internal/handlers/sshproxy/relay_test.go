@@ -5,6 +5,7 @@ package sshproxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -16,11 +17,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	gliderssh "github.com/tailscale/gliderssh"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/permission"
 	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/pki/test"
 )
 
 const testModelUUID = "8419cd78-4993-4c3a-928e-c646226beeee"
@@ -29,6 +33,99 @@ type relaySuite struct{}
 
 func TestRelaySuite(t *testing.T) {
 	tc.Run(t, &relaySuite{})
+}
+
+// TestRelaySessionServedEndToEnd exercises the full relay flow over a real
+// connection: upgrade, destination resolution, and an SSH session served
+// by the terminating server built by the factory.
+func (s *relaySuite) TestRelaySessionServedEndToEnd(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	factory := NewMockTerminatingServerFactory(ctrl)
+
+	// Build a real terminating server with a session handler that greets
+	// the user, and a host key so the SSH handshake can complete.
+	sessionDone := make(chan struct{})
+	handlers := &stubProxyHandlers{sessionDone: sessionDone}
+	terminatingServer := gliderssh.Server{
+		ChannelHandlers: map[string]gliderssh.ChannelHandler{
+			"session": gliderssh.DefaultSessionHandler,
+		},
+		Handler: handlers.SessionHandler,
+	}
+	privateKey, err := test.InsecureKeyProfile()
+	c.Assert(err, tc.ErrorIsNil)
+	signer, err := gossh.NewSignerFromSigner(privateKey)
+	c.Assert(err, tc.ErrorIsNil)
+	terminatingServer.AddHostKey(signer)
+
+	destination := newMachineDestination(c, testModelUUID)
+	factory.EXPECT().New(gomock.Any(), destination).Return(&terminatingServer, nil)
+
+	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
+	injectJWT := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), RelayJWTKey{}, token)
+		handler := s.newHandler(c, factory)
+		handler.ServeHTTP(w, r.WithContext(ctx))
+	})
+	server := httptest.NewServer(injectJWT)
+	c.Cleanup(server.Close)
+
+	// Dial the relay endpoint and perform the upgrade, as JIMM's relay
+	// client would.
+	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = conn.Close() }()
+
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/ssh-relay/"+destination.String(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", coresshproxy.RelayUpgradeToken)
+	req.URL.RawQuery = ":virtualHostname=" + destination.String()
+
+	upgraded, err := coresshproxy.PerformUpgrade(req, conn)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Run an SSH session over the upgraded connection. The terminating
+	// server has no auth handlers, so gliderssh serves the connection
+	// with no client auth, as it does for relayed sessions.
+	sshConfig := &gossh.ClientConfig{
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+	clientConn, chans, reqs, err := gossh.NewClientConn(upgraded, "relay", sshConfig)
+	c.Assert(err, tc.ErrorIsNil)
+	client := gossh.NewClient(clientConn, chans, reqs)
+	defer func() { _ = client.Close() }()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = session.Close() }()
+
+	output, err := session.Output("")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(output), tc.Equals, "relayed session\n")
+
+	// The session handler has run, so the relay served the connection
+	// end to end.
+	select {
+	case <-sessionDone:
+	case <-time.After(5 * time.Second):
+		c.Fatal("timed out waiting for the relayed session to run")
+	}
+	ctrl.Finish()
+}
+
+// stubProxyHandlers provides a session handler that writes a greeting and
+// signals when a session has been served.
+type stubProxyHandlers struct {
+	sessionDone chan struct{}
+}
+
+// SessionHandler writes a greeting and signals session completion.
+func (h *stubProxyHandlers) SessionHandler(session gliderssh.Session) {
+	fmt.Fprintf(session, "relayed session\n")
+	_ = session.Exit(0)
+	close(h.sessionDone)
 }
 
 func (s *relaySuite) TestAdminAccessAuthorizes(c *tc.C) {
