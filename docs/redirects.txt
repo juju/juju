@@ -40,7 +40,7 @@ contributor/unsorted/test-failure-FAQ contributor
 contributor/unsorted/third-party-go-clients contributor
 contributor/unsorted/what-we-run-and-why contributor
 contributor/unsorted/simplestreams-metadata reference/metadata
-contributor/unsorted/high-availability contributor/reference/high-availability
+contributor/unsorted/high-availability reference/high-availability
 contributor/unsorted/observing-mongodb-performance contributor/howto/
 contributor/unsorted/writing-workers contributor/reference/writing-workers/
 contributor/unsorted contributor

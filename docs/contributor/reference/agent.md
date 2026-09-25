@@ -6,7 +6,6 @@ myst:
 
 (agent-cont)=
 # Agent
-> See first: {ref}`User docs | Agent <agent>`
 
 In Juju, an **agent** is any process that runs a dependency engine ([`dependency.NewEngine`](#newengine)) to start and manage {ref}`workers <worker-cont>` for a particular domain
 entity in a particular deployment environment.
