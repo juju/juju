@@ -16,7 +16,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -605,13 +604,13 @@ func (s *migrationSuite) TestImportK8sServicesImportLinkLayerDevicesError(c *tc.
 
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(s.fallbackSubnetInfo(), nil)
 	s.st.EXPECT().CreateK8sServices(gomock.Any(), gomock.Any()).Return(nil)
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), gomock.Any()).Return(errors.New("import devices error"))
+	s.st.EXPECT().ImportNetNodeAddresses(gomock.Any(), gomock.Any()).Return(errors.New("import addresses error"))
 
 	// Act
 	err := s.migrationService(c).ImportK8sServices(c.Context(), []internal.ImportK8sService{})
 
 	// Assert: the error from ImportLinkLayerDevices is passed through to the caller
-	c.Assert(err, tc.ErrorMatches, "importing link layer devices: import devices error")
+	c.Assert(err, tc.ErrorMatches, "importing k8s service addresses: import addresses error")
 }
 
 func (s *migrationSuite) TestImportK8sServicesErrorGetSubnetNoSubnet(c *tc.C) {
@@ -645,7 +644,6 @@ func (s *migrationSuite) TestImportK8sServicesIPv4AndIPv6Success(c *tc.C) {
 	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
-			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
@@ -683,8 +681,8 @@ func (s *migrationSuite) TestImportK8sServicesIPv4AndIPv6Success(c *tc.C) {
 			return nil
 		})
 
-	// Capture the arguments passed to ImportLinkLayerDevices
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
+	// Capture the arguments passed to ImportNetNodeAddresses
+	s.st.EXPECT().ImportNetNodeAddresses(gomock.Any(), k8sServiceAddressMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -708,7 +706,6 @@ func (s *migrationSuite) TestImportK8sServicesIPv4Success(c *tc.C) {
 	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
-			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
@@ -738,8 +735,8 @@ func (s *migrationSuite) TestImportK8sServicesIPv4Success(c *tc.C) {
 			return nil
 		})
 
-	// Capture the arguments passed to ImportLinkLayerDevices
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
+	// Capture the arguments passed to ImportNetNodeAddresses
+	s.st.EXPECT().ImportNetNodeAddresses(gomock.Any(), k8sServiceAddressMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -762,7 +759,6 @@ func (s *migrationSuite) TestImportK8sServicesIPv6Success(c *tc.C) {
 	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
-			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
@@ -792,8 +788,8 @@ func (s *migrationSuite) TestImportK8sServicesIPv6Success(c *tc.C) {
 			return nil
 		})
 
-	// Capture the arguments passed to ImportLinkLayerDevices
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
+	// Capture the arguments passed to ImportNetNodeAddresses
+	s.st.EXPECT().ImportNetNodeAddresses(gomock.Any(), k8sServiceAddressMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -815,7 +811,6 @@ func (s *migrationSuite) TestImportCloudServicesIPv4SuccessWithDiscoveredSubnet(
 	services := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid",
-			DeviceUUID:      "device-uuid",
 			NetNodeUUID:     "node-uuid",
 			ApplicationName: "test-app",
 			ProviderID:      "provider-id",
@@ -842,7 +837,7 @@ func (s *migrationSuite) TestImportCloudServicesIPv4SuccessWithDiscoveredSubnet(
 			c.Assert(svcs, tc.DeepEquals, services)
 			return nil
 		})
-	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), k8sServiceLLDMatcher{
+	s.st.EXPECT().ImportNetNodeAddresses(gomock.Any(), k8sServiceAddressMatcher{
 		c:    c,
 		from: services,
 		subnetUUIDs: map[string]string{
@@ -870,19 +865,19 @@ func (s *migrationSuite) fallbackSubnetInfo() corenetwork.SubnetInfos {
 	}
 }
 
-type k8sServiceLLDMatcher struct {
+type k8sServiceAddressMatcher struct {
 	c           *tc.C
 	from        []internal.ImportK8sService
 	subnetUUIDs map[string]string
 }
 
-func (m k8sServiceLLDMatcher) Matches(x any) bool {
-	input, ok := x.([]internal.ImportLinkLayerDevice)
+func (m k8sServiceAddressMatcher) Matches(x any) bool {
+	input, ok := x.([]internal.ImportNetNodeAddresses)
 	if !ok {
 		return false
 	}
 	inputByNodeUUID := transform.SliceToMap(input,
-		func(in internal.ImportLinkLayerDevice) (string, internal.ImportLinkLayerDevice) {
+		func(in internal.ImportNetNodeAddresses) (string, internal.ImportNetNodeAddresses) {
 			return in.NetNodeUUID, in
 		})
 	expectedByNodeUUID := transform.SliceToMap(m.from,
@@ -909,14 +904,8 @@ func (m k8sServiceLLDMatcher) Matches(x any) bool {
 		})
 
 		in.Addresses = nil
-		result = result && m.c.Check(in, tc.DeepEquals, internal.ImportLinkLayerDevice{
-			UUID:            expected.DeviceUUID,
-			IsAutoStart:     true,
-			IsEnabled:       true,
-			NetNodeUUID:     expected.NetNodeUUID,
-			Name:            "",
-			Type:            network.DeviceTypeUnknown,
-			VirtualPortType: corenetwork.NonVirtualPort,
+		result = result && m.c.Check(in, tc.DeepEquals, internal.ImportNetNodeAddresses{
+			NetNodeUUID: expected.NetNodeUUID,
 		})
 		if !m.c.Check(slices.Collect(maps.Keys(inputAddrByUUID)), tc.SameContents,
 			slices.Collect(maps.Keys(expectedAddrByUUID)),
@@ -939,8 +928,8 @@ func (m k8sServiceLLDMatcher) Matches(x any) bool {
 	return result
 }
 
-func (k8sServiceLLDMatcher) String() string {
-	return "matches args for ImportLinkLayerDevices"
+func (k8sServiceAddressMatcher) String() string {
+	return "matches args for ImportNetNodeAddresses"
 }
 
 func (s *migrationSuite) TestSetMachineNetConfigBadUUIDError(c *tc.C) {

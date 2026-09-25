@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -564,15 +563,6 @@ func makeK8sPodArg(k8sPod application.K8sPodParams) *application.K8sPod {
 		// For k8s we'll initially create a /32 subnet off the container address
 		// and add that to the default space.
 		result.Address = &application.K8sPodAddress{
-			// For k8s pods, the device is a placeholder without
-			// a MAC address and once inserted, not updated. It just exists
-			// to tie the address to the net node corresponding to the
-			// k8s pod.
-			Device: application.K8sPodDevice{
-				Name:              network.PlaceholderDeviceName,
-				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
-				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
-			},
 			Value:       k8sPod.Address.Value,
 			AddressType: ipaddress.MarshallAddressType(k8sPod.Address.AddressType()),
 			Scope:       ipaddress.MarshallScope(k8sPod.Address.Scope),

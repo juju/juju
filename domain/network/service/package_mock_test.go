@@ -66,6 +66,7 @@ type MockStateMockRecorder struct {
 	getUnitRelationEndpointNameExpects          []*gomock.Call3_2[context.Context, string, string, string, error]
 	getUnitUUIDByNameExpects                    []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	importLinkLayerDevicesExpects               []*gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
+	importNetNodeAddressesExpects               []*gomock.Call2_1[context.Context, []internal.ImportNetNodeAddresses, error]
 	isCaasUnitExpects                           []*gomock.Call2_2[context.Context, string, bool, error]
 	isMachineUnmanagedExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
 	mergeLinkLayerDeviceExpects                 []*gomock.Call3_1[context.Context, string, []network0.NetInterface, error]
@@ -703,6 +704,24 @@ func (mr *MockStateMockRecorder) ImportLinkLayerDevices(ctx, input any) *MockSta
 
 // MockStateImportLinkLayerDevicesCall is the typed call wrapper for ImportLinkLayerDevices.
 type MockStateImportLinkLayerDevicesCall = gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
+
+// ImportNetNodeAddresses mocks base method.
+func (m *MockState) ImportNetNodeAddresses(ctx context.Context, input []internal.ImportNetNodeAddresses) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.importNetNodeAddressesExpects, m.ctrl, m, "ImportNetNodeAddresses", ctx, input)
+}
+
+// ImportNetNodeAddresses indicates an expected call of ImportNetNodeAddresses.
+func (mr *MockStateMockRecorder) ImportNetNodeAddresses(ctx, input any) *MockStateImportNetNodeAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, []internal.ImportNetNodeAddresses, error](mr.mock.ctrl.T, mr.mock, "ImportNetNodeAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(input))
+	mr.importNetNodeAddressesExpects = append(mr.importNetNodeAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateImportNetNodeAddressesCall is the typed call wrapper for ImportNetNodeAddresses.
+type MockStateImportNetNodeAddressesCall = gomock.Call2_1[context.Context, []internal.ImportNetNodeAddresses, error]
 
 // IsCaasUnit mocks base method.
 func (m *MockState) IsCaasUnit(ctx context.Context, unitUUID string) (bool, error) {

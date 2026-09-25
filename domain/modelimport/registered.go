@@ -9,16 +9,22 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
+	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport/transformer"
 	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_1_0"
+	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_2_0"
 )
 
 // registered is the canonical list of version-to-version transformations
 // the controller knows about. It is consumed by NewTransformer (in
 // modelimport.go) alongside export.ExportVersions.
 var registered = []transformer.Transformation{
-	transformer.NewTransformation[v4_0_12.ModelExport, latest.ModelExport](
+	transformer.NewTransformation[v4_0_12.ModelExport, v4_1_0.ModelExport](
 		semversion.MustParse("4.0.12"), semversion.MustParse("4.1.0"),
 		to_v4_1_0.NewTransform(to_v4_1_0.NewDeltas()),
+	),
+	transformer.NewTransformation[v4_1_0.ModelExport, latest.ModelExport](
+		semversion.MustParse("4.1.0"), semversion.MustParse("4.2.0"),
+		to_v4_2_0.NewTransform(to_v4_2_0.NewDeltas()),
 	),
 }

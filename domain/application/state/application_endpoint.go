@@ -280,7 +280,7 @@ func (st *State) mergeApplicationEndpointBindings(ctx context.Context, tx *sqlai
 	// Fetch the current bindings and check whether any of the incoming
 	// bindings would actually change a stored value. If nothing would change,
 	// return early: the operation is a no-op and running validateUnitsInSpaces
-	// would be incorrect when link-layer device data has not yet been
+	// would be incorrect when address data has not yet been
 	// populated (e.g. immediately after bootstrap, before the instance poller
 	// has completed its first cycle).
 	currentBindings, err := st.getEndpointBindings(ctx, tx, coreapplication.UUID(appID))
@@ -497,8 +497,7 @@ app_unit_spaces AS (
            sn.space_uuid AS space_uuid,
            s.name AS space_name
     FROM   unit AS u
-    JOIN   link_layer_device AS lld ON u.net_node_uuid = lld.net_node_uuid
-    JOIN   ip_address AS ip ON lld.uuid = ip.device_uuid
+    JOIN   ip_address AS ip ON ip.net_node_uuid = u.net_node_uuid
     JOIN   subnet AS sn ON ip.subnet_uuid = sn.uuid
     JOIN   space AS s ON sn.space_uuid = s.uuid
     WHERE  u.application_uuid = $dbUUID.uuid

@@ -959,7 +959,7 @@ func (st *State) addAddressFromProvider(
 			ipAddresses = append(ipAddresses, ipAddressDML{
 				UUID:         ipAddrUUID.String(),
 				NodeUUID:     netNodeUUID,
-				DeviceUUID:   devUUID,
+				DeviceUUID:   sql.NullString{String: devUUID, Valid: true},
 				AddressValue: value,
 				SubnetUUID:   nilZeroPtr(subnetUUID),
 				TypeID:       lookups.addrType[addr.AddressType],

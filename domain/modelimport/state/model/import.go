@@ -10,12 +10,12 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	"github.com/juju/juju/internal/errors"
 )
 
 // Import inserts all model data carried by the transformed, target-version
-// payload for version 4.1.0 into the model DB. It is the
+// payload for version 4.2.0 into the model DB. It is the
 // write-mirror of the generated export state: each ordinary content table is
 // bulk-inserted from the matching payload slice. Target-local bootstrap tables
 // (model, model_life, agent_version, model_agent, model_migrating) and
@@ -28,929 +28,929 @@ import (
 // model's agent password into the bootstrap row, or resetting charm
 // blob-residency state) are hand-written, not generated, and run afterwards
 // once this transaction has committed.
-func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
+func (st *State) Import(ctx context.Context, p *v4_2_0.ModelExport) error {
 	// Prepare statements first using the typed samples from the generated types package.
-	stmtAgentStream, err := sqlair.Prepare(`INSERT INTO "agent_stream" (*) VALUES ($AgentStream.*) ON CONFLICT DO NOTHING`, v4_1_0.AgentStream{})
+	stmtAgentStream, err := sqlair.Prepare(`INSERT INTO "agent_stream" (*) VALUES ($AgentStream.*) ON CONFLICT DO NOTHING`, v4_2_0.AgentStream{})
 	if err != nil {
 		return errors.Errorf("preparing AgentStream insert statement: %w", err)
 	}
-	stmtAnnotationApplication, err := sqlair.Prepare(`INSERT INTO "annotation_application" (*) VALUES ($AnnotationApplication.*)`, v4_1_0.AnnotationApplication{})
+	stmtAnnotationApplication, err := sqlair.Prepare(`INSERT INTO "annotation_application" (*) VALUES ($AnnotationApplication.*)`, v4_2_0.AnnotationApplication{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationApplication insert statement: %w", err)
 	}
-	stmtAnnotationCharm, err := sqlair.Prepare(`INSERT INTO "annotation_charm" (*) VALUES ($AnnotationCharm.*)`, v4_1_0.AnnotationCharm{})
+	stmtAnnotationCharm, err := sqlair.Prepare(`INSERT INTO "annotation_charm" (*) VALUES ($AnnotationCharm.*)`, v4_2_0.AnnotationCharm{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationCharm insert statement: %w", err)
 	}
-	stmtAnnotationMachine, err := sqlair.Prepare(`INSERT INTO "annotation_machine" (*) VALUES ($AnnotationMachine.*)`, v4_1_0.AnnotationMachine{})
+	stmtAnnotationMachine, err := sqlair.Prepare(`INSERT INTO "annotation_machine" (*) VALUES ($AnnotationMachine.*)`, v4_2_0.AnnotationMachine{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationMachine insert statement: %w", err)
 	}
-	stmtAnnotationModel, err := sqlair.Prepare(`INSERT INTO "annotation_model" (*) VALUES ($AnnotationModel.*)`, v4_1_0.AnnotationModel{})
+	stmtAnnotationModel, err := sqlair.Prepare(`INSERT INTO "annotation_model" (*) VALUES ($AnnotationModel.*)`, v4_2_0.AnnotationModel{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationModel insert statement: %w", err)
 	}
-	stmtAnnotationStorageFilesystem, err := sqlair.Prepare(`INSERT INTO "annotation_storage_filesystem" (*) VALUES ($AnnotationStorageFilesystem.*)`, v4_1_0.AnnotationStorageFilesystem{})
+	stmtAnnotationStorageFilesystem, err := sqlair.Prepare(`INSERT INTO "annotation_storage_filesystem" (*) VALUES ($AnnotationStorageFilesystem.*)`, v4_2_0.AnnotationStorageFilesystem{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationStorageFilesystem insert statement: %w", err)
 	}
-	stmtAnnotationStorageInstance, err := sqlair.Prepare(`INSERT INTO "annotation_storage_instance" (*) VALUES ($AnnotationStorageInstance.*)`, v4_1_0.AnnotationStorageInstance{})
+	stmtAnnotationStorageInstance, err := sqlair.Prepare(`INSERT INTO "annotation_storage_instance" (*) VALUES ($AnnotationStorageInstance.*)`, v4_2_0.AnnotationStorageInstance{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationStorageInstance insert statement: %w", err)
 	}
-	stmtAnnotationStorageVolume, err := sqlair.Prepare(`INSERT INTO "annotation_storage_volume" (*) VALUES ($AnnotationStorageVolume.*)`, v4_1_0.AnnotationStorageVolume{})
+	stmtAnnotationStorageVolume, err := sqlair.Prepare(`INSERT INTO "annotation_storage_volume" (*) VALUES ($AnnotationStorageVolume.*)`, v4_2_0.AnnotationStorageVolume{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationStorageVolume insert statement: %w", err)
 	}
-	stmtAnnotationUnit, err := sqlair.Prepare(`INSERT INTO "annotation_unit" (*) VALUES ($AnnotationUnit.*)`, v4_1_0.AnnotationUnit{})
+	stmtAnnotationUnit, err := sqlair.Prepare(`INSERT INTO "annotation_unit" (*) VALUES ($AnnotationUnit.*)`, v4_2_0.AnnotationUnit{})
 	if err != nil {
 		return errors.Errorf("preparing AnnotationUnit insert statement: %w", err)
 	}
-	stmtApplication, err := sqlair.Prepare(`INSERT INTO "application" (*) VALUES ($Application.*)`, v4_1_0.Application{})
+	stmtApplication, err := sqlair.Prepare(`INSERT INTO "application" (*) VALUES ($Application.*)`, v4_2_0.Application{})
 	if err != nil {
 		return errors.Errorf("preparing Application insert statement: %w", err)
 	}
-	stmtApplicationAgent, err := sqlair.Prepare(`INSERT INTO "application_agent" (*) VALUES ($ApplicationAgent.*)`, v4_1_0.ApplicationAgent{})
+	stmtApplicationAgent, err := sqlair.Prepare(`INSERT INTO "application_agent" (*) VALUES ($ApplicationAgent.*)`, v4_2_0.ApplicationAgent{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationAgent insert statement: %w", err)
 	}
-	stmtApplicationChannel, err := sqlair.Prepare(`INSERT INTO "application_channel" (*) VALUES ($ApplicationChannel.*)`, v4_1_0.ApplicationChannel{})
+	stmtApplicationChannel, err := sqlair.Prepare(`INSERT INTO "application_channel" (*) VALUES ($ApplicationChannel.*)`, v4_2_0.ApplicationChannel{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationChannel insert statement: %w", err)
 	}
-	stmtApplicationConfig, err := sqlair.Prepare(`INSERT INTO "application_config" (*) VALUES ($ApplicationConfig.*)`, v4_1_0.ApplicationConfig{})
+	stmtApplicationConfig, err := sqlair.Prepare(`INSERT INTO "application_config" (*) VALUES ($ApplicationConfig.*)`, v4_2_0.ApplicationConfig{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationConfig insert statement: %w", err)
 	}
-	stmtApplicationConfigHash, err := sqlair.Prepare(`INSERT INTO "application_config_hash" (*) VALUES ($ApplicationConfigHash.*)`, v4_1_0.ApplicationConfigHash{})
+	stmtApplicationConfigHash, err := sqlair.Prepare(`INSERT INTO "application_config_hash" (*) VALUES ($ApplicationConfigHash.*)`, v4_2_0.ApplicationConfigHash{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationConfigHash insert statement: %w", err)
 	}
-	stmtApplicationConstraint, err := sqlair.Prepare(`INSERT INTO "application_constraint" (*) VALUES ($ApplicationConstraint.*)`, v4_1_0.ApplicationConstraint{})
+	stmtApplicationConstraint, err := sqlair.Prepare(`INSERT INTO "application_constraint" (*) VALUES ($ApplicationConstraint.*)`, v4_2_0.ApplicationConstraint{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationConstraint insert statement: %w", err)
 	}
-	stmtApplicationController, err := sqlair.Prepare(`INSERT INTO "application_controller" (*) VALUES ($ApplicationController.*)`, v4_1_0.ApplicationController{})
+	stmtApplicationController, err := sqlair.Prepare(`INSERT INTO "application_controller" (*) VALUES ($ApplicationController.*)`, v4_2_0.ApplicationController{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationController insert statement: %w", err)
 	}
-	stmtApplicationEndpoint, err := sqlair.Prepare(`INSERT INTO "application_endpoint" (*) VALUES ($ApplicationEndpoint.*)`, v4_1_0.ApplicationEndpoint{})
+	stmtApplicationEndpoint, err := sqlair.Prepare(`INSERT INTO "application_endpoint" (*) VALUES ($ApplicationEndpoint.*)`, v4_2_0.ApplicationEndpoint{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationEndpoint insert statement: %w", err)
 	}
-	stmtApplicationExposedEndpointCidr, err := sqlair.Prepare(`INSERT INTO "application_exposed_endpoint_cidr" (*) VALUES ($ApplicationExposedEndpointCidr.*)`, v4_1_0.ApplicationExposedEndpointCidr{})
+	stmtApplicationExposedEndpointCidr, err := sqlair.Prepare(`INSERT INTO "application_exposed_endpoint_cidr" (*) VALUES ($ApplicationExposedEndpointCidr.*)`, v4_2_0.ApplicationExposedEndpointCidr{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationExposedEndpointCidr insert statement: %w", err)
 	}
-	stmtApplicationExposedEndpointSpace, err := sqlair.Prepare(`INSERT INTO "application_exposed_endpoint_space" (*) VALUES ($ApplicationExposedEndpointSpace.*)`, v4_1_0.ApplicationExposedEndpointSpace{})
+	stmtApplicationExposedEndpointSpace, err := sqlair.Prepare(`INSERT INTO "application_exposed_endpoint_space" (*) VALUES ($ApplicationExposedEndpointSpace.*)`, v4_2_0.ApplicationExposedEndpointSpace{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationExposedEndpointSpace insert statement: %w", err)
 	}
-	stmtApplicationExtraEndpoint, err := sqlair.Prepare(`INSERT INTO "application_extra_endpoint" (*) VALUES ($ApplicationExtraEndpoint.*)`, v4_1_0.ApplicationExtraEndpoint{})
+	stmtApplicationExtraEndpoint, err := sqlair.Prepare(`INSERT INTO "application_extra_endpoint" (*) VALUES ($ApplicationExtraEndpoint.*)`, v4_2_0.ApplicationExtraEndpoint{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationExtraEndpoint insert statement: %w", err)
 	}
-	stmtApplicationK8sResourcesManaged, err := sqlair.Prepare(`INSERT INTO "application_k8s_resources_managed" (*) VALUES ($ApplicationK8sResourcesManaged.*)`, v4_1_0.ApplicationK8sResourcesManaged{})
+	stmtApplicationK8sResourcesManaged, err := sqlair.Prepare(`INSERT INTO "application_k8s_resources_managed" (*) VALUES ($ApplicationK8sResourcesManaged.*)`, v4_2_0.ApplicationK8sResourcesManaged{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationK8sResourcesManaged insert statement: %w", err)
 	}
-	stmtApplicationPlatform, err := sqlair.Prepare(`INSERT INTO "application_platform" (*) VALUES ($ApplicationPlatform.*)`, v4_1_0.ApplicationPlatform{})
+	stmtApplicationPlatform, err := sqlair.Prepare(`INSERT INTO "application_platform" (*) VALUES ($ApplicationPlatform.*)`, v4_2_0.ApplicationPlatform{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationPlatform insert statement: %w", err)
 	}
-	stmtApplicationRemoteConsumer, err := sqlair.Prepare(`INSERT INTO "application_remote_consumer" (*) VALUES ($ApplicationRemoteConsumer.*)`, v4_1_0.ApplicationRemoteConsumer{})
+	stmtApplicationRemoteConsumer, err := sqlair.Prepare(`INSERT INTO "application_remote_consumer" (*) VALUES ($ApplicationRemoteConsumer.*)`, v4_2_0.ApplicationRemoteConsumer{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationRemoteConsumer insert statement: %w", err)
 	}
-	stmtApplicationRemoteOfferer, err := sqlair.Prepare(`INSERT INTO "application_remote_offerer" (*) VALUES ($ApplicationRemoteOfferer.*)`, v4_1_0.ApplicationRemoteOfferer{})
+	stmtApplicationRemoteOfferer, err := sqlair.Prepare(`INSERT INTO "application_remote_offerer" (*) VALUES ($ApplicationRemoteOfferer.*)`, v4_2_0.ApplicationRemoteOfferer{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationRemoteOfferer insert statement: %w", err)
 	}
-	stmtApplicationRemoteOffererRelationMacaroon, err := sqlair.Prepare(`INSERT INTO "application_remote_offerer_relation_macaroon" (*) VALUES ($ApplicationRemoteOffererRelationMacaroon.*)`, v4_1_0.ApplicationRemoteOffererRelationMacaroon{})
+	stmtApplicationRemoteOffererRelationMacaroon, err := sqlair.Prepare(`INSERT INTO "application_remote_offerer_relation_macaroon" (*) VALUES ($ApplicationRemoteOffererRelationMacaroon.*)`, v4_2_0.ApplicationRemoteOffererRelationMacaroon{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationRemoteOffererRelationMacaroon insert statement: %w", err)
 	}
-	stmtApplicationRemoteOffererStatus, err := sqlair.Prepare(`INSERT INTO "application_remote_offerer_status" (*) VALUES ($ApplicationRemoteOffererStatus.*)`, v4_1_0.ApplicationRemoteOffererStatus{})
+	stmtApplicationRemoteOffererStatus, err := sqlair.Prepare(`INSERT INTO "application_remote_offerer_status" (*) VALUES ($ApplicationRemoteOffererStatus.*)`, v4_2_0.ApplicationRemoteOffererStatus{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationRemoteOffererStatus insert statement: %w", err)
 	}
-	stmtApplicationResource, err := sqlair.Prepare(`INSERT INTO "application_resource" (*) VALUES ($ApplicationResource.*)`, v4_1_0.ApplicationResource{})
+	stmtApplicationResource, err := sqlair.Prepare(`INSERT INTO "application_resource" (*) VALUES ($ApplicationResource.*)`, v4_2_0.ApplicationResource{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationResource insert statement: %w", err)
 	}
-	stmtApplicationScale, err := sqlair.Prepare(`INSERT INTO "application_scale" (*) VALUES ($ApplicationScale.*)`, v4_1_0.ApplicationScale{})
+	stmtApplicationScale, err := sqlair.Prepare(`INSERT INTO "application_scale" (*) VALUES ($ApplicationScale.*)`, v4_2_0.ApplicationScale{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationScale insert statement: %w", err)
 	}
-	stmtApplicationSetting, err := sqlair.Prepare(`INSERT INTO "application_setting" (*) VALUES ($ApplicationSetting.*)`, v4_1_0.ApplicationSetting{})
+	stmtApplicationSetting, err := sqlair.Prepare(`INSERT INTO "application_setting" (*) VALUES ($ApplicationSetting.*)`, v4_2_0.ApplicationSetting{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationSetting insert statement: %w", err)
 	}
-	stmtApplicationStatus, err := sqlair.Prepare(`INSERT INTO "application_status" (*) VALUES ($ApplicationStatus.*)`, v4_1_0.ApplicationStatus{})
+	stmtApplicationStatus, err := sqlair.Prepare(`INSERT INTO "application_status" (*) VALUES ($ApplicationStatus.*)`, v4_2_0.ApplicationStatus{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationStatus insert statement: %w", err)
 	}
-	stmtApplicationStorageDirective, err := sqlair.Prepare(`INSERT INTO "application_storage_directive" (*) VALUES ($ApplicationStorageDirective.*)`, v4_1_0.ApplicationStorageDirective{})
+	stmtApplicationStorageDirective, err := sqlair.Prepare(`INSERT INTO "application_storage_directive" (*) VALUES ($ApplicationStorageDirective.*)`, v4_2_0.ApplicationStorageDirective{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationStorageDirective insert statement: %w", err)
 	}
-	stmtApplicationWorkloadVersion, err := sqlair.Prepare(`INSERT INTO "application_workload_version" (*) VALUES ($ApplicationWorkloadVersion.*)`, v4_1_0.ApplicationWorkloadVersion{})
+	stmtApplicationWorkloadVersion, err := sqlair.Prepare(`INSERT INTO "application_workload_version" (*) VALUES ($ApplicationWorkloadVersion.*)`, v4_2_0.ApplicationWorkloadVersion{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationWorkloadVersion insert statement: %w", err)
 	}
-	stmtArchitecture, err := sqlair.Prepare(`INSERT INTO "architecture" (*) VALUES ($Architecture.*) ON CONFLICT DO NOTHING`, v4_1_0.Architecture{})
+	stmtArchitecture, err := sqlair.Prepare(`INSERT INTO "architecture" (*) VALUES ($Architecture.*) ON CONFLICT DO NOTHING`, v4_2_0.Architecture{})
 	if err != nil {
 		return errors.Errorf("preparing Architecture insert statement: %w", err)
 	}
-	stmtAvailabilityZone, err := sqlair.Prepare(`INSERT INTO "availability_zone" (*) VALUES ($AvailabilityZone.*)`, v4_1_0.AvailabilityZone{})
+	stmtAvailabilityZone, err := sqlair.Prepare(`INSERT INTO "availability_zone" (*) VALUES ($AvailabilityZone.*)`, v4_2_0.AvailabilityZone{})
 	if err != nil {
 		return errors.Errorf("preparing AvailabilityZone insert statement: %w", err)
 	}
-	stmtAvailabilityZoneSubnet, err := sqlair.Prepare(`INSERT INTO "availability_zone_subnet" (*) VALUES ($AvailabilityZoneSubnet.*)`, v4_1_0.AvailabilityZoneSubnet{})
+	stmtAvailabilityZoneSubnet, err := sqlair.Prepare(`INSERT INTO "availability_zone_subnet" (*) VALUES ($AvailabilityZoneSubnet.*)`, v4_2_0.AvailabilityZoneSubnet{})
 	if err != nil {
 		return errors.Errorf("preparing AvailabilityZoneSubnet insert statement: %w", err)
 	}
-	stmtBlockCommand, err := sqlair.Prepare(`INSERT INTO "block_command" (*) VALUES ($BlockCommand.*)`, v4_1_0.BlockCommand{})
+	stmtBlockCommand, err := sqlair.Prepare(`INSERT INTO "block_command" (*) VALUES ($BlockCommand.*)`, v4_2_0.BlockCommand{})
 	if err != nil {
 		return errors.Errorf("preparing BlockCommand insert statement: %w", err)
 	}
-	stmtBlockCommandType, err := sqlair.Prepare(`INSERT INTO "block_command_type" (*) VALUES ($BlockCommandType.*) ON CONFLICT DO NOTHING`, v4_1_0.BlockCommandType{})
+	stmtBlockCommandType, err := sqlair.Prepare(`INSERT INTO "block_command_type" (*) VALUES ($BlockCommandType.*) ON CONFLICT DO NOTHING`, v4_2_0.BlockCommandType{})
 	if err != nil {
 		return errors.Errorf("preparing BlockCommandType insert statement: %w", err)
 	}
-	stmtBlockDevice, err := sqlair.Prepare(`INSERT INTO "block_device" (*) VALUES ($BlockDevice.*)`, v4_1_0.BlockDevice{})
+	stmtBlockDevice, err := sqlair.Prepare(`INSERT INTO "block_device" (*) VALUES ($BlockDevice.*)`, v4_2_0.BlockDevice{})
 	if err != nil {
 		return errors.Errorf("preparing BlockDevice insert statement: %w", err)
 	}
-	stmtBlockDeviceLinkDevice, err := sqlair.Prepare(`INSERT INTO "block_device_link_device" (*) VALUES ($BlockDeviceLinkDevice.*)`, v4_1_0.BlockDeviceLinkDevice{})
+	stmtBlockDeviceLinkDevice, err := sqlair.Prepare(`INSERT INTO "block_device_link_device" (*) VALUES ($BlockDeviceLinkDevice.*)`, v4_2_0.BlockDeviceLinkDevice{})
 	if err != nil {
 		return errors.Errorf("preparing BlockDeviceLinkDevice insert statement: %w", err)
 	}
-	stmtBlockDeviceProvenance, err := sqlair.Prepare(`INSERT INTO "block_device_provenance" (*) VALUES ($BlockDeviceProvenance.*) ON CONFLICT DO NOTHING`, v4_1_0.BlockDeviceProvenance{})
+	stmtBlockDeviceProvenance, err := sqlair.Prepare(`INSERT INTO "block_device_provenance" (*) VALUES ($BlockDeviceProvenance.*) ON CONFLICT DO NOTHING`, v4_2_0.BlockDeviceProvenance{})
 	if err != nil {
 		return errors.Errorf("preparing BlockDeviceProvenance insert statement: %w", err)
 	}
-	stmtCharm, err := sqlair.Prepare(`INSERT INTO "charm" (*) VALUES ($Charm.*)`, v4_1_0.Charm{})
+	stmtCharm, err := sqlair.Prepare(`INSERT INTO "charm" (*) VALUES ($Charm.*)`, v4_2_0.Charm{})
 	if err != nil {
 		return errors.Errorf("preparing Charm insert statement: %w", err)
 	}
-	stmtCharmAction, err := sqlair.Prepare(`INSERT INTO "charm_action" (*) VALUES ($CharmAction.*)`, v4_1_0.CharmAction{})
+	stmtCharmAction, err := sqlair.Prepare(`INSERT INTO "charm_action" (*) VALUES ($CharmAction.*)`, v4_2_0.CharmAction{})
 	if err != nil {
 		return errors.Errorf("preparing CharmAction insert statement: %w", err)
 	}
-	stmtCharmCategory, err := sqlair.Prepare(`INSERT INTO "charm_category" (*) VALUES ($CharmCategory.*)`, v4_1_0.CharmCategory{})
+	stmtCharmCategory, err := sqlair.Prepare(`INSERT INTO "charm_category" (*) VALUES ($CharmCategory.*)`, v4_2_0.CharmCategory{})
 	if err != nil {
 		return errors.Errorf("preparing CharmCategory insert statement: %w", err)
 	}
-	stmtCharmConfig, err := sqlair.Prepare(`INSERT INTO "charm_config" (*) VALUES ($CharmConfig.*)`, v4_1_0.CharmConfig{})
+	stmtCharmConfig, err := sqlair.Prepare(`INSERT INTO "charm_config" (*) VALUES ($CharmConfig.*)`, v4_2_0.CharmConfig{})
 	if err != nil {
 		return errors.Errorf("preparing CharmConfig insert statement: %w", err)
 	}
-	stmtCharmConfigType, err := sqlair.Prepare(`INSERT INTO "charm_config_type" (*) VALUES ($CharmConfigType.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmConfigType{})
+	stmtCharmConfigType, err := sqlair.Prepare(`INSERT INTO "charm_config_type" (*) VALUES ($CharmConfigType.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmConfigType{})
 	if err != nil {
 		return errors.Errorf("preparing CharmConfigType insert statement: %w", err)
 	}
-	stmtCharmContainer, err := sqlair.Prepare(`INSERT INTO "charm_container" (*) VALUES ($CharmContainer.*)`, v4_1_0.CharmContainer{})
+	stmtCharmContainer, err := sqlair.Prepare(`INSERT INTO "charm_container" (*) VALUES ($CharmContainer.*)`, v4_2_0.CharmContainer{})
 	if err != nil {
 		return errors.Errorf("preparing CharmContainer insert statement: %w", err)
 	}
-	stmtCharmContainerMount, err := sqlair.Prepare(`INSERT INTO "charm_container_mount" (*) VALUES ($CharmContainerMount.*)`, v4_1_0.CharmContainerMount{})
+	stmtCharmContainerMount, err := sqlair.Prepare(`INSERT INTO "charm_container_mount" (*) VALUES ($CharmContainerMount.*)`, v4_2_0.CharmContainerMount{})
 	if err != nil {
 		return errors.Errorf("preparing CharmContainerMount insert statement: %w", err)
 	}
-	stmtCharmDevice, err := sqlair.Prepare(`INSERT INTO "charm_device" (*) VALUES ($CharmDevice.*)`, v4_1_0.CharmDevice{})
+	stmtCharmDevice, err := sqlair.Prepare(`INSERT INTO "charm_device" (*) VALUES ($CharmDevice.*)`, v4_2_0.CharmDevice{})
 	if err != nil {
 		return errors.Errorf("preparing CharmDevice insert statement: %w", err)
 	}
-	stmtCharmDownloadInfo, err := sqlair.Prepare(`INSERT INTO "charm_download_info" (*) VALUES ($CharmDownloadInfo.*)`, v4_1_0.CharmDownloadInfo{})
+	stmtCharmDownloadInfo, err := sqlair.Prepare(`INSERT INTO "charm_download_info" (*) VALUES ($CharmDownloadInfo.*)`, v4_2_0.CharmDownloadInfo{})
 	if err != nil {
 		return errors.Errorf("preparing CharmDownloadInfo insert statement: %w", err)
 	}
-	stmtCharmExtraBinding, err := sqlair.Prepare(`INSERT INTO "charm_extra_binding" (*) VALUES ($CharmExtraBinding.*)`, v4_1_0.CharmExtraBinding{})
+	stmtCharmExtraBinding, err := sqlair.Prepare(`INSERT INTO "charm_extra_binding" (*) VALUES ($CharmExtraBinding.*)`, v4_2_0.CharmExtraBinding{})
 	if err != nil {
 		return errors.Errorf("preparing CharmExtraBinding insert statement: %w", err)
 	}
-	stmtCharmManifestBase, err := sqlair.Prepare(`INSERT INTO "charm_manifest_base" (*) VALUES ($CharmManifestBase.*)`, v4_1_0.CharmManifestBase{})
+	stmtCharmManifestBase, err := sqlair.Prepare(`INSERT INTO "charm_manifest_base" (*) VALUES ($CharmManifestBase.*)`, v4_2_0.CharmManifestBase{})
 	if err != nil {
 		return errors.Errorf("preparing CharmManifestBase insert statement: %w", err)
 	}
-	stmtCharmMetadata, err := sqlair.Prepare(`INSERT INTO "charm_metadata" (*) VALUES ($CharmMetadata.*)`, v4_1_0.CharmMetadata{})
+	stmtCharmMetadata, err := sqlair.Prepare(`INSERT INTO "charm_metadata" (*) VALUES ($CharmMetadata.*)`, v4_2_0.CharmMetadata{})
 	if err != nil {
 		return errors.Errorf("preparing CharmMetadata insert statement: %w", err)
 	}
-	stmtCharmProvenance, err := sqlair.Prepare(`INSERT INTO "charm_provenance" (*) VALUES ($CharmProvenance.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmProvenance{})
+	stmtCharmProvenance, err := sqlair.Prepare(`INSERT INTO "charm_provenance" (*) VALUES ($CharmProvenance.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmProvenance{})
 	if err != nil {
 		return errors.Errorf("preparing CharmProvenance insert statement: %w", err)
 	}
-	stmtCharmRelation, err := sqlair.Prepare(`INSERT INTO "charm_relation" (*) VALUES ($CharmRelation.*)`, v4_1_0.CharmRelation{})
+	stmtCharmRelation, err := sqlair.Prepare(`INSERT INTO "charm_relation" (*) VALUES ($CharmRelation.*)`, v4_2_0.CharmRelation{})
 	if err != nil {
 		return errors.Errorf("preparing CharmRelation insert statement: %w", err)
 	}
-	stmtCharmRelationRole, err := sqlair.Prepare(`INSERT INTO "charm_relation_role" (*) VALUES ($CharmRelationRole.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmRelationRole{})
+	stmtCharmRelationRole, err := sqlair.Prepare(`INSERT INTO "charm_relation_role" (*) VALUES ($CharmRelationRole.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmRelationRole{})
 	if err != nil {
 		return errors.Errorf("preparing CharmRelationRole insert statement: %w", err)
 	}
-	stmtCharmRelationScope, err := sqlair.Prepare(`INSERT INTO "charm_relation_scope" (*) VALUES ($CharmRelationScope.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmRelationScope{})
+	stmtCharmRelationScope, err := sqlair.Prepare(`INSERT INTO "charm_relation_scope" (*) VALUES ($CharmRelationScope.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmRelationScope{})
 	if err != nil {
 		return errors.Errorf("preparing CharmRelationScope insert statement: %w", err)
 	}
-	stmtCharmResource, err := sqlair.Prepare(`INSERT INTO "charm_resource" (*) VALUES ($CharmResource.*)`, v4_1_0.CharmResource{})
+	stmtCharmResource, err := sqlair.Prepare(`INSERT INTO "charm_resource" (*) VALUES ($CharmResource.*)`, v4_2_0.CharmResource{})
 	if err != nil {
 		return errors.Errorf("preparing CharmResource insert statement: %w", err)
 	}
-	stmtCharmResourceKind, err := sqlair.Prepare(`INSERT INTO "charm_resource_kind" (*) VALUES ($CharmResourceKind.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmResourceKind{})
+	stmtCharmResourceKind, err := sqlair.Prepare(`INSERT INTO "charm_resource_kind" (*) VALUES ($CharmResourceKind.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmResourceKind{})
 	if err != nil {
 		return errors.Errorf("preparing CharmResourceKind insert statement: %w", err)
 	}
-	stmtCharmRunAsKind, err := sqlair.Prepare(`INSERT INTO "charm_run_as_kind" (*) VALUES ($CharmRunAsKind.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmRunAsKind{})
+	stmtCharmRunAsKind, err := sqlair.Prepare(`INSERT INTO "charm_run_as_kind" (*) VALUES ($CharmRunAsKind.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmRunAsKind{})
 	if err != nil {
 		return errors.Errorf("preparing CharmRunAsKind insert statement: %w", err)
 	}
-	stmtCharmSource, err := sqlair.Prepare(`INSERT INTO "charm_source" (*) VALUES ($CharmSource.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmSource{})
+	stmtCharmSource, err := sqlair.Prepare(`INSERT INTO "charm_source" (*) VALUES ($CharmSource.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmSource{})
 	if err != nil {
 		return errors.Errorf("preparing CharmSource insert statement: %w", err)
 	}
-	stmtCharmStorage, err := sqlair.Prepare(`INSERT INTO "charm_storage" (*) VALUES ($CharmStorage.*)`, v4_1_0.CharmStorage{})
+	stmtCharmStorage, err := sqlair.Prepare(`INSERT INTO "charm_storage" (*) VALUES ($CharmStorage.*)`, v4_2_0.CharmStorage{})
 	if err != nil {
 		return errors.Errorf("preparing CharmStorage insert statement: %w", err)
 	}
-	stmtCharmStorageKind, err := sqlair.Prepare(`INSERT INTO "charm_storage_kind" (*) VALUES ($CharmStorageKind.*) ON CONFLICT DO NOTHING`, v4_1_0.CharmStorageKind{})
+	stmtCharmStorageKind, err := sqlair.Prepare(`INSERT INTO "charm_storage_kind" (*) VALUES ($CharmStorageKind.*) ON CONFLICT DO NOTHING`, v4_2_0.CharmStorageKind{})
 	if err != nil {
 		return errors.Errorf("preparing CharmStorageKind insert statement: %w", err)
 	}
-	stmtCharmStorageProperty, err := sqlair.Prepare(`INSERT INTO "charm_storage_property" (*) VALUES ($CharmStorageProperty.*)`, v4_1_0.CharmStorageProperty{})
+	stmtCharmStorageProperty, err := sqlair.Prepare(`INSERT INTO "charm_storage_property" (*) VALUES ($CharmStorageProperty.*)`, v4_2_0.CharmStorageProperty{})
 	if err != nil {
 		return errors.Errorf("preparing CharmStorageProperty insert statement: %w", err)
 	}
-	stmtCharmTag, err := sqlair.Prepare(`INSERT INTO "charm_tag" (*) VALUES ($CharmTag.*)`, v4_1_0.CharmTag{})
+	stmtCharmTag, err := sqlair.Prepare(`INSERT INTO "charm_tag" (*) VALUES ($CharmTag.*)`, v4_2_0.CharmTag{})
 	if err != nil {
 		return errors.Errorf("preparing CharmTag insert statement: %w", err)
 	}
-	stmtCharmTerm, err := sqlair.Prepare(`INSERT INTO "charm_term" (*) VALUES ($CharmTerm.*)`, v4_1_0.CharmTerm{})
+	stmtCharmTerm, err := sqlair.Prepare(`INSERT INTO "charm_term" (*) VALUES ($CharmTerm.*)`, v4_2_0.CharmTerm{})
 	if err != nil {
 		return errors.Errorf("preparing CharmTerm insert statement: %w", err)
 	}
-	stmtConstraint, err := sqlair.Prepare(`INSERT INTO "constraint" (*) VALUES ($Constraint.*)`, v4_1_0.Constraint{})
+	stmtConstraint, err := sqlair.Prepare(`INSERT INTO "constraint" (*) VALUES ($Constraint.*)`, v4_2_0.Constraint{})
 	if err != nil {
 		return errors.Errorf("preparing Constraint insert statement: %w", err)
 	}
-	stmtConstraintSpace, err := sqlair.Prepare(`INSERT INTO "constraint_space" (*) VALUES ($ConstraintSpace.*)`, v4_1_0.ConstraintSpace{})
+	stmtConstraintSpace, err := sqlair.Prepare(`INSERT INTO "constraint_space" (*) VALUES ($ConstraintSpace.*)`, v4_2_0.ConstraintSpace{})
 	if err != nil {
 		return errors.Errorf("preparing ConstraintSpace insert statement: %w", err)
 	}
-	stmtConstraintTag, err := sqlair.Prepare(`INSERT INTO "constraint_tag" (*) VALUES ($ConstraintTag.*)`, v4_1_0.ConstraintTag{})
+	stmtConstraintTag, err := sqlair.Prepare(`INSERT INTO "constraint_tag" (*) VALUES ($ConstraintTag.*)`, v4_2_0.ConstraintTag{})
 	if err != nil {
 		return errors.Errorf("preparing ConstraintTag insert statement: %w", err)
 	}
-	stmtConstraintZone, err := sqlair.Prepare(`INSERT INTO "constraint_zone" (*) VALUES ($ConstraintZone.*)`, v4_1_0.ConstraintZone{})
+	stmtConstraintZone, err := sqlair.Prepare(`INSERT INTO "constraint_zone" (*) VALUES ($ConstraintZone.*)`, v4_2_0.ConstraintZone{})
 	if err != nil {
 		return errors.Errorf("preparing ConstraintZone insert statement: %w", err)
 	}
-	stmtContainerType, err := sqlair.Prepare(`INSERT INTO "container_type" (*) VALUES ($ContainerType.*) ON CONFLICT DO NOTHING`, v4_1_0.ContainerType{})
+	stmtContainerType, err := sqlair.Prepare(`INSERT INTO "container_type" (*) VALUES ($ContainerType.*) ON CONFLICT DO NOTHING`, v4_2_0.ContainerType{})
 	if err != nil {
 		return errors.Errorf("preparing ContainerType insert statement: %w", err)
 	}
-	stmtDeviceConstraint, err := sqlair.Prepare(`INSERT INTO "device_constraint" (*) VALUES ($DeviceConstraint.*)`, v4_1_0.DeviceConstraint{})
+	stmtDeviceConstraint, err := sqlair.Prepare(`INSERT INTO "device_constraint" (*) VALUES ($DeviceConstraint.*)`, v4_2_0.DeviceConstraint{})
 	if err != nil {
 		return errors.Errorf("preparing DeviceConstraint insert statement: %w", err)
 	}
-	stmtDeviceConstraintAttribute, err := sqlair.Prepare(`INSERT INTO "device_constraint_attribute" (*) VALUES ($DeviceConstraintAttribute.*)`, v4_1_0.DeviceConstraintAttribute{})
+	stmtDeviceConstraintAttribute, err := sqlair.Prepare(`INSERT INTO "device_constraint_attribute" (*) VALUES ($DeviceConstraintAttribute.*)`, v4_2_0.DeviceConstraintAttribute{})
 	if err != nil {
 		return errors.Errorf("preparing DeviceConstraintAttribute insert statement: %w", err)
 	}
-	stmtFqdnAddress, err := sqlair.Prepare(`INSERT INTO "fqdn_address" (*) VALUES ($FqdnAddress.*)`, v4_1_0.FqdnAddress{})
+	stmtFqdnAddress, err := sqlair.Prepare(`INSERT INTO "fqdn_address" (*) VALUES ($FqdnAddress.*)`, v4_2_0.FqdnAddress{})
 	if err != nil {
 		return errors.Errorf("preparing FqdnAddress insert statement: %w", err)
 	}
-	stmtHashKind, err := sqlair.Prepare(`INSERT INTO "hash_kind" (*) VALUES ($HashKind.*) ON CONFLICT DO NOTHING`, v4_1_0.HashKind{})
+	stmtHashKind, err := sqlair.Prepare(`INSERT INTO "hash_kind" (*) VALUES ($HashKind.*) ON CONFLICT DO NOTHING`, v4_2_0.HashKind{})
 	if err != nil {
 		return errors.Errorf("preparing HashKind insert statement: %w", err)
 	}
-	stmtHostnameAddress, err := sqlair.Prepare(`INSERT INTO "hostname_address" (*) VALUES ($HostnameAddress.*)`, v4_1_0.HostnameAddress{})
+	stmtHostnameAddress, err := sqlair.Prepare(`INSERT INTO "hostname_address" (*) VALUES ($HostnameAddress.*)`, v4_2_0.HostnameAddress{})
 	if err != nil {
 		return errors.Errorf("preparing HostnameAddress insert statement: %w", err)
 	}
-	stmtInstanceTag, err := sqlair.Prepare(`INSERT INTO "instance_tag" (*) VALUES ($InstanceTag.*)`, v4_1_0.InstanceTag{})
+	stmtInstanceTag, err := sqlair.Prepare(`INSERT INTO "instance_tag" (*) VALUES ($InstanceTag.*)`, v4_2_0.InstanceTag{})
 	if err != nil {
 		return errors.Errorf("preparing InstanceTag insert statement: %w", err)
 	}
-	stmtIpAddress, err := sqlair.Prepare(`INSERT INTO "ip_address" (*) VALUES ($IpAddress.*)`, v4_1_0.IpAddress{})
+	stmtIpAddress, err := sqlair.Prepare(`INSERT INTO "ip_address" (*) VALUES ($IpAddress.*)`, v4_2_0.IpAddress{})
 	if err != nil {
 		return errors.Errorf("preparing IpAddress insert statement: %w", err)
 	}
-	stmtIpAddressConfigType, err := sqlair.Prepare(`INSERT INTO "ip_address_config_type" (*) VALUES ($IpAddressConfigType.*) ON CONFLICT DO NOTHING`, v4_1_0.IpAddressConfigType{})
+	stmtIpAddressConfigType, err := sqlair.Prepare(`INSERT INTO "ip_address_config_type" (*) VALUES ($IpAddressConfigType.*) ON CONFLICT DO NOTHING`, v4_2_0.IpAddressConfigType{})
 	if err != nil {
 		return errors.Errorf("preparing IpAddressConfigType insert statement: %w", err)
 	}
-	stmtIpAddressOrigin, err := sqlair.Prepare(`INSERT INTO "ip_address_origin" (*) VALUES ($IpAddressOrigin.*) ON CONFLICT DO NOTHING`, v4_1_0.IpAddressOrigin{})
+	stmtIpAddressOrigin, err := sqlair.Prepare(`INSERT INTO "ip_address_origin" (*) VALUES ($IpAddressOrigin.*) ON CONFLICT DO NOTHING`, v4_2_0.IpAddressOrigin{})
 	if err != nil {
 		return errors.Errorf("preparing IpAddressOrigin insert statement: %w", err)
 	}
-	stmtIpAddressScope, err := sqlair.Prepare(`INSERT INTO "ip_address_scope" (*) VALUES ($IpAddressScope.*) ON CONFLICT DO NOTHING`, v4_1_0.IpAddressScope{})
+	stmtIpAddressScope, err := sqlair.Prepare(`INSERT INTO "ip_address_scope" (*) VALUES ($IpAddressScope.*) ON CONFLICT DO NOTHING`, v4_2_0.IpAddressScope{})
 	if err != nil {
 		return errors.Errorf("preparing IpAddressScope insert statement: %w", err)
 	}
-	stmtIpAddressType, err := sqlair.Prepare(`INSERT INTO "ip_address_type" (*) VALUES ($IpAddressType.*) ON CONFLICT DO NOTHING`, v4_1_0.IpAddressType{})
+	stmtIpAddressType, err := sqlair.Prepare(`INSERT INTO "ip_address_type" (*) VALUES ($IpAddressType.*) ON CONFLICT DO NOTHING`, v4_2_0.IpAddressType{})
 	if err != nil {
 		return errors.Errorf("preparing IpAddressType insert statement: %w", err)
 	}
-	stmtK8sPod, err := sqlair.Prepare(`INSERT INTO "k8s_pod" (*) VALUES ($K8sPod.*)`, v4_1_0.K8sPod{})
+	stmtK8sPod, err := sqlair.Prepare(`INSERT INTO "k8s_pod" (*) VALUES ($K8sPod.*)`, v4_2_0.K8sPod{})
 	if err != nil {
 		return errors.Errorf("preparing K8sPod insert statement: %w", err)
 	}
-	stmtK8sPodPort, err := sqlair.Prepare(`INSERT INTO "k8s_pod_port" (*) VALUES ($K8sPodPort.*)`, v4_1_0.K8sPodPort{})
+	stmtK8sPodPort, err := sqlair.Prepare(`INSERT INTO "k8s_pod_port" (*) VALUES ($K8sPodPort.*)`, v4_2_0.K8sPodPort{})
 	if err != nil {
 		return errors.Errorf("preparing K8sPodPort insert statement: %w", err)
 	}
-	stmtK8sPodStatus, err := sqlair.Prepare(`INSERT INTO "k8s_pod_status" (*) VALUES ($K8sPodStatus.*)`, v4_1_0.K8sPodStatus{})
+	stmtK8sPodStatus, err := sqlair.Prepare(`INSERT INTO "k8s_pod_status" (*) VALUES ($K8sPodStatus.*)`, v4_2_0.K8sPodStatus{})
 	if err != nil {
 		return errors.Errorf("preparing K8sPodStatus insert statement: %w", err)
 	}
-	stmtK8sPodStatusValue, err := sqlair.Prepare(`INSERT INTO "k8s_pod_status_value" (*) VALUES ($K8sPodStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.K8sPodStatusValue{})
+	stmtK8sPodStatusValue, err := sqlair.Prepare(`INSERT INTO "k8s_pod_status_value" (*) VALUES ($K8sPodStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.K8sPodStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing K8sPodStatusValue insert statement: %w", err)
 	}
-	stmtK8sService, err := sqlair.Prepare(`INSERT INTO "k8s_service" (*) VALUES ($K8sService.*)`, v4_1_0.K8sService{})
+	stmtK8sService, err := sqlair.Prepare(`INSERT INTO "k8s_service" (*) VALUES ($K8sService.*)`, v4_2_0.K8sService{})
 	if err != nil {
 		return errors.Errorf("preparing K8sService insert statement: %w", err)
 	}
-	stmtLife, err := sqlair.Prepare(`INSERT INTO "life" (*) VALUES ($Life.*) ON CONFLICT DO NOTHING`, v4_1_0.Life{})
+	stmtLife, err := sqlair.Prepare(`INSERT INTO "life" (*) VALUES ($Life.*) ON CONFLICT DO NOTHING`, v4_2_0.Life{})
 	if err != nil {
 		return errors.Errorf("preparing Life insert statement: %w", err)
 	}
-	stmtLinkLayerDevice, err := sqlair.Prepare(`INSERT INTO "link_layer_device" (*) VALUES ($LinkLayerDevice.*)`, v4_1_0.LinkLayerDevice{})
+	stmtLinkLayerDevice, err := sqlair.Prepare(`INSERT INTO "link_layer_device" (*) VALUES ($LinkLayerDevice.*)`, v4_2_0.LinkLayerDevice{})
 	if err != nil {
 		return errors.Errorf("preparing LinkLayerDevice insert statement: %w", err)
 	}
-	stmtLinkLayerDeviceDnsAddress, err := sqlair.Prepare(`INSERT INTO "link_layer_device_dns_address" (*) VALUES ($LinkLayerDeviceDnsAddress.*)`, v4_1_0.LinkLayerDeviceDnsAddress{})
+	stmtLinkLayerDeviceDnsAddress, err := sqlair.Prepare(`INSERT INTO "link_layer_device_dns_address" (*) VALUES ($LinkLayerDeviceDnsAddress.*)`, v4_2_0.LinkLayerDeviceDnsAddress{})
 	if err != nil {
 		return errors.Errorf("preparing LinkLayerDeviceDnsAddress insert statement: %w", err)
 	}
-	stmtLinkLayerDeviceDnsDomain, err := sqlair.Prepare(`INSERT INTO "link_layer_device_dns_domain" (*) VALUES ($LinkLayerDeviceDnsDomain.*)`, v4_1_0.LinkLayerDeviceDnsDomain{})
+	stmtLinkLayerDeviceDnsDomain, err := sqlair.Prepare(`INSERT INTO "link_layer_device_dns_domain" (*) VALUES ($LinkLayerDeviceDnsDomain.*)`, v4_2_0.LinkLayerDeviceDnsDomain{})
 	if err != nil {
 		return errors.Errorf("preparing LinkLayerDeviceDnsDomain insert statement: %w", err)
 	}
-	stmtLinkLayerDeviceParent, err := sqlair.Prepare(`INSERT INTO "link_layer_device_parent" (*) VALUES ($LinkLayerDeviceParent.*)`, v4_1_0.LinkLayerDeviceParent{})
+	stmtLinkLayerDeviceParent, err := sqlair.Prepare(`INSERT INTO "link_layer_device_parent" (*) VALUES ($LinkLayerDeviceParent.*)`, v4_2_0.LinkLayerDeviceParent{})
 	if err != nil {
 		return errors.Errorf("preparing LinkLayerDeviceParent insert statement: %w", err)
 	}
-	stmtLinkLayerDeviceRoute, err := sqlair.Prepare(`INSERT INTO "link_layer_device_route" (*) VALUES ($LinkLayerDeviceRoute.*)`, v4_1_0.LinkLayerDeviceRoute{})
+	stmtLinkLayerDeviceRoute, err := sqlair.Prepare(`INSERT INTO "link_layer_device_route" (*) VALUES ($LinkLayerDeviceRoute.*)`, v4_2_0.LinkLayerDeviceRoute{})
 	if err != nil {
 		return errors.Errorf("preparing LinkLayerDeviceRoute insert statement: %w", err)
 	}
-	stmtLinkLayerDeviceType, err := sqlair.Prepare(`INSERT INTO "link_layer_device_type" (*) VALUES ($LinkLayerDeviceType.*) ON CONFLICT DO NOTHING`, v4_1_0.LinkLayerDeviceType{})
+	stmtLinkLayerDeviceType, err := sqlair.Prepare(`INSERT INTO "link_layer_device_type" (*) VALUES ($LinkLayerDeviceType.*) ON CONFLICT DO NOTHING`, v4_2_0.LinkLayerDeviceType{})
 	if err != nil {
 		return errors.Errorf("preparing LinkLayerDeviceType insert statement: %w", err)
 	}
-	stmtMachine, err := sqlair.Prepare(`INSERT INTO "machine" (*) VALUES ($Machine.*)`, v4_1_0.Machine{})
+	stmtMachine, err := sqlair.Prepare(`INSERT INTO "machine" (*) VALUES ($Machine.*)`, v4_2_0.Machine{})
 	if err != nil {
 		return errors.Errorf("preparing Machine insert statement: %w", err)
 	}
-	stmtMachineAgentPresence, err := sqlair.Prepare(`INSERT INTO "machine_agent_presence" (*) VALUES ($MachineAgentPresence.*)`, v4_1_0.MachineAgentPresence{})
+	stmtMachineAgentPresence, err := sqlair.Prepare(`INSERT INTO "machine_agent_presence" (*) VALUES ($MachineAgentPresence.*)`, v4_2_0.MachineAgentPresence{})
 	if err != nil {
 		return errors.Errorf("preparing MachineAgentPresence insert statement: %w", err)
 	}
-	stmtMachineAgentVersion, err := sqlair.Prepare(`INSERT INTO "machine_agent_version" (*) VALUES ($MachineAgentVersion.*)`, v4_1_0.MachineAgentVersion{})
+	stmtMachineAgentVersion, err := sqlair.Prepare(`INSERT INTO "machine_agent_version" (*) VALUES ($MachineAgentVersion.*)`, v4_2_0.MachineAgentVersion{})
 	if err != nil {
 		return errors.Errorf("preparing MachineAgentVersion insert statement: %w", err)
 	}
-	stmtMachineCloudInstance, err := sqlair.Prepare(`INSERT INTO "machine_cloud_instance" (*) VALUES ($MachineCloudInstance.*)`, v4_1_0.MachineCloudInstance{})
+	stmtMachineCloudInstance, err := sqlair.Prepare(`INSERT INTO "machine_cloud_instance" (*) VALUES ($MachineCloudInstance.*)`, v4_2_0.MachineCloudInstance{})
 	if err != nil {
 		return errors.Errorf("preparing MachineCloudInstance insert statement: %w", err)
 	}
-	stmtMachineCloudInstanceStatus, err := sqlair.Prepare(`INSERT INTO "machine_cloud_instance_status" (*) VALUES ($MachineCloudInstanceStatus.*)`, v4_1_0.MachineCloudInstanceStatus{})
+	stmtMachineCloudInstanceStatus, err := sqlair.Prepare(`INSERT INTO "machine_cloud_instance_status" (*) VALUES ($MachineCloudInstanceStatus.*)`, v4_2_0.MachineCloudInstanceStatus{})
 	if err != nil {
 		return errors.Errorf("preparing MachineCloudInstanceStatus insert statement: %w", err)
 	}
-	stmtMachineCloudInstanceStatusValue, err := sqlair.Prepare(`INSERT INTO "machine_cloud_instance_status_value" (*) VALUES ($MachineCloudInstanceStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.MachineCloudInstanceStatusValue{})
+	stmtMachineCloudInstanceStatusValue, err := sqlair.Prepare(`INSERT INTO "machine_cloud_instance_status_value" (*) VALUES ($MachineCloudInstanceStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.MachineCloudInstanceStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing MachineCloudInstanceStatusValue insert statement: %w", err)
 	}
-	stmtMachineConstraint, err := sqlair.Prepare(`INSERT INTO "machine_constraint" (*) VALUES ($MachineConstraint.*)`, v4_1_0.MachineConstraint{})
+	stmtMachineConstraint, err := sqlair.Prepare(`INSERT INTO "machine_constraint" (*) VALUES ($MachineConstraint.*)`, v4_2_0.MachineConstraint{})
 	if err != nil {
 		return errors.Errorf("preparing MachineConstraint insert statement: %w", err)
 	}
-	stmtMachineContainerType, err := sqlair.Prepare(`INSERT INTO "machine_container_type" (*) VALUES ($MachineContainerType.*)`, v4_1_0.MachineContainerType{})
+	stmtMachineContainerType, err := sqlair.Prepare(`INSERT INTO "machine_container_type" (*) VALUES ($MachineContainerType.*)`, v4_2_0.MachineContainerType{})
 	if err != nil {
 		return errors.Errorf("preparing MachineContainerType insert statement: %w", err)
 	}
-	stmtMachineFilesystem, err := sqlair.Prepare(`INSERT INTO "machine_filesystem" (*) VALUES ($MachineFilesystem.*)`, v4_1_0.MachineFilesystem{})
+	stmtMachineFilesystem, err := sqlair.Prepare(`INSERT INTO "machine_filesystem" (*) VALUES ($MachineFilesystem.*)`, v4_2_0.MachineFilesystem{})
 	if err != nil {
 		return errors.Errorf("preparing MachineFilesystem insert statement: %w", err)
 	}
-	stmtMachineLxdProfile, err := sqlair.Prepare(`INSERT INTO "machine_lxd_profile" (*) VALUES ($MachineLxdProfile.*)`, v4_1_0.MachineLxdProfile{})
+	stmtMachineLxdProfile, err := sqlair.Prepare(`INSERT INTO "machine_lxd_profile" (*) VALUES ($MachineLxdProfile.*)`, v4_2_0.MachineLxdProfile{})
 	if err != nil {
 		return errors.Errorf("preparing MachineLxdProfile insert statement: %w", err)
 	}
-	stmtMachineManual, err := sqlair.Prepare(`INSERT INTO "machine_manual" (*) VALUES ($MachineManual.*)`, v4_1_0.MachineManual{})
+	stmtMachineManual, err := sqlair.Prepare(`INSERT INTO "machine_manual" (*) VALUES ($MachineManual.*)`, v4_2_0.MachineManual{})
 	if err != nil {
 		return errors.Errorf("preparing MachineManual insert statement: %w", err)
 	}
-	stmtMachineParent, err := sqlair.Prepare(`INSERT INTO "machine_parent" (*) VALUES ($MachineParent.*)`, v4_1_0.MachineParent{})
+	stmtMachineParent, err := sqlair.Prepare(`INSERT INTO "machine_parent" (*) VALUES ($MachineParent.*)`, v4_2_0.MachineParent{})
 	if err != nil {
 		return errors.Errorf("preparing MachineParent insert statement: %w", err)
 	}
-	stmtMachinePlacement, err := sqlair.Prepare(`INSERT INTO "machine_placement" (*) VALUES ($MachinePlacement.*)`, v4_1_0.MachinePlacement{})
+	stmtMachinePlacement, err := sqlair.Prepare(`INSERT INTO "machine_placement" (*) VALUES ($MachinePlacement.*)`, v4_2_0.MachinePlacement{})
 	if err != nil {
 		return errors.Errorf("preparing MachinePlacement insert statement: %w", err)
 	}
-	stmtMachinePlacementScope, err := sqlair.Prepare(`INSERT INTO "machine_placement_scope" (*) VALUES ($MachinePlacementScope.*) ON CONFLICT DO NOTHING`, v4_1_0.MachinePlacementScope{})
+	stmtMachinePlacementScope, err := sqlair.Prepare(`INSERT INTO "machine_placement_scope" (*) VALUES ($MachinePlacementScope.*) ON CONFLICT DO NOTHING`, v4_2_0.MachinePlacementScope{})
 	if err != nil {
 		return errors.Errorf("preparing MachinePlacementScope insert statement: %w", err)
 	}
-	stmtMachinePlatform, err := sqlair.Prepare(`INSERT INTO "machine_platform" (*) VALUES ($MachinePlatform.*)`, v4_1_0.MachinePlatform{})
+	stmtMachinePlatform, err := sqlair.Prepare(`INSERT INTO "machine_platform" (*) VALUES ($MachinePlatform.*)`, v4_2_0.MachinePlatform{})
 	if err != nil {
 		return errors.Errorf("preparing MachinePlatform insert statement: %w", err)
 	}
-	stmtMachineReprovision, err := sqlair.Prepare(`INSERT INTO "machine_reprovision" (*) VALUES ($MachineReprovision.*)`, v4_1_0.MachineReprovision{})
+	stmtMachineReprovision, err := sqlair.Prepare(`INSERT INTO "machine_reprovision" (*) VALUES ($MachineReprovision.*)`, v4_2_0.MachineReprovision{})
 	if err != nil {
 		return errors.Errorf("preparing MachineReprovision insert statement: %w", err)
 	}
-	stmtMachineRequiresReboot, err := sqlair.Prepare(`INSERT INTO "machine_requires_reboot" (*) VALUES ($MachineRequiresReboot.*)`, v4_1_0.MachineRequiresReboot{})
+	stmtMachineRequiresReboot, err := sqlair.Prepare(`INSERT INTO "machine_requires_reboot" (*) VALUES ($MachineRequiresReboot.*)`, v4_2_0.MachineRequiresReboot{})
 	if err != nil {
 		return errors.Errorf("preparing MachineRequiresReboot insert statement: %w", err)
 	}
-	stmtMachineSshHostKey, err := sqlair.Prepare(`INSERT INTO "machine_ssh_host_key" (*) VALUES ($MachineSshHostKey.*)`, v4_1_0.MachineSshHostKey{})
+	stmtMachineSshHostKey, err := sqlair.Prepare(`INSERT INTO "machine_ssh_host_key" (*) VALUES ($MachineSshHostKey.*)`, v4_2_0.MachineSshHostKey{})
 	if err != nil {
 		return errors.Errorf("preparing MachineSshHostKey insert statement: %w", err)
 	}
-	stmtMachineStatus, err := sqlair.Prepare(`INSERT INTO "machine_status" (*) VALUES ($MachineStatus.*)`, v4_1_0.MachineStatus{})
+	stmtMachineStatus, err := sqlair.Prepare(`INSERT INTO "machine_status" (*) VALUES ($MachineStatus.*)`, v4_2_0.MachineStatus{})
 	if err != nil {
 		return errors.Errorf("preparing MachineStatus insert statement: %w", err)
 	}
-	stmtMachineStatusValue, err := sqlair.Prepare(`INSERT INTO "machine_status_value" (*) VALUES ($MachineStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.MachineStatusValue{})
+	stmtMachineStatusValue, err := sqlair.Prepare(`INSERT INTO "machine_status_value" (*) VALUES ($MachineStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.MachineStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing MachineStatusValue insert statement: %w", err)
 	}
-	stmtMachineVirtualSshHostKey, err := sqlair.Prepare(`INSERT INTO "machine_virtual_ssh_host_key" (*) VALUES ($MachineVirtualSshHostKey.*)`, v4_1_0.MachineVirtualSshHostKey{})
+	stmtMachineVirtualSshHostKey, err := sqlair.Prepare(`INSERT INTO "machine_virtual_ssh_host_key" (*) VALUES ($MachineVirtualSshHostKey.*)`, v4_2_0.MachineVirtualSshHostKey{})
 	if err != nil {
 		return errors.Errorf("preparing MachineVirtualSshHostKey insert statement: %w", err)
 	}
-	stmtMachineVolume, err := sqlair.Prepare(`INSERT INTO "machine_volume" (*) VALUES ($MachineVolume.*)`, v4_1_0.MachineVolume{})
+	stmtMachineVolume, err := sqlair.Prepare(`INSERT INTO "machine_volume" (*) VALUES ($MachineVolume.*)`, v4_2_0.MachineVolume{})
 	if err != nil {
 		return errors.Errorf("preparing MachineVolume insert statement: %w", err)
 	}
-	stmtModelConfig, err := sqlair.Prepare(`INSERT INTO "model_config" (*) VALUES ($ModelConfig.*)`, v4_1_0.ModelConfig{})
+	stmtModelConfig, err := sqlair.Prepare(`INSERT INTO "model_config" (*) VALUES ($ModelConfig.*)`, v4_2_0.ModelConfig{})
 	if err != nil {
 		return errors.Errorf("preparing ModelConfig insert statement: %w", err)
 	}
-	stmtModelConstraint, err := sqlair.Prepare(`INSERT INTO "model_constraint" (*) VALUES ($ModelConstraint.*)`, v4_1_0.ModelConstraint{})
+	stmtModelConstraint, err := sqlair.Prepare(`INSERT INTO "model_constraint" (*) VALUES ($ModelConstraint.*)`, v4_2_0.ModelConstraint{})
 	if err != nil {
 		return errors.Errorf("preparing ModelConstraint insert statement: %w", err)
 	}
-	stmtModelStoragePool, err := sqlair.Prepare(`INSERT INTO "model_storage_pool" (*) VALUES ($ModelStoragePool.*)`, v4_1_0.ModelStoragePool{})
+	stmtModelStoragePool, err := sqlair.Prepare(`INSERT INTO "model_storage_pool" (*) VALUES ($ModelStoragePool.*)`, v4_2_0.ModelStoragePool{})
 	if err != nil {
 		return errors.Errorf("preparing ModelStoragePool insert statement: %w", err)
 	}
-	stmtNetNode, err := sqlair.Prepare(`INSERT INTO "net_node" (*) VALUES ($NetNode.*)`, v4_1_0.NetNode{})
+	stmtNetNode, err := sqlair.Prepare(`INSERT INTO "net_node" (*) VALUES ($NetNode.*)`, v4_2_0.NetNode{})
 	if err != nil {
 		return errors.Errorf("preparing NetNode insert statement: %w", err)
 	}
-	stmtNetNodeFqdnAddress, err := sqlair.Prepare(`INSERT INTO "net_node_fqdn_address" (*) VALUES ($NetNodeFqdnAddress.*)`, v4_1_0.NetNodeFqdnAddress{})
+	stmtNetNodeFqdnAddress, err := sqlair.Prepare(`INSERT INTO "net_node_fqdn_address" (*) VALUES ($NetNodeFqdnAddress.*)`, v4_2_0.NetNodeFqdnAddress{})
 	if err != nil {
 		return errors.Errorf("preparing NetNodeFqdnAddress insert statement: %w", err)
 	}
-	stmtNetNodeHostnameAddress, err := sqlair.Prepare(`INSERT INTO "net_node_hostname_address" (*) VALUES ($NetNodeHostnameAddress.*)`, v4_1_0.NetNodeHostnameAddress{})
+	stmtNetNodeHostnameAddress, err := sqlair.Prepare(`INSERT INTO "net_node_hostname_address" (*) VALUES ($NetNodeHostnameAddress.*)`, v4_2_0.NetNodeHostnameAddress{})
 	if err != nil {
 		return errors.Errorf("preparing NetNodeHostnameAddress insert statement: %w", err)
 	}
-	stmtNetworkAddressScope, err := sqlair.Prepare(`INSERT INTO "network_address_scope" (*) VALUES ($NetworkAddressScope.*) ON CONFLICT DO NOTHING`, v4_1_0.NetworkAddressScope{})
+	stmtNetworkAddressScope, err := sqlair.Prepare(`INSERT INTO "network_address_scope" (*) VALUES ($NetworkAddressScope.*) ON CONFLICT DO NOTHING`, v4_2_0.NetworkAddressScope{})
 	if err != nil {
 		return errors.Errorf("preparing NetworkAddressScope insert statement: %w", err)
 	}
-	stmtOffer, err := sqlair.Prepare(`INSERT INTO "offer" (*) VALUES ($Offer.*)`, v4_1_0.Offer{})
+	stmtOffer, err := sqlair.Prepare(`INSERT INTO "offer" (*) VALUES ($Offer.*)`, v4_2_0.Offer{})
 	if err != nil {
 		return errors.Errorf("preparing Offer insert statement: %w", err)
 	}
-	stmtOfferConnection, err := sqlair.Prepare(`INSERT INTO "offer_connection" (*) VALUES ($OfferConnection.*)`, v4_1_0.OfferConnection{})
+	stmtOfferConnection, err := sqlair.Prepare(`INSERT INTO "offer_connection" (*) VALUES ($OfferConnection.*)`, v4_2_0.OfferConnection{})
 	if err != nil {
 		return errors.Errorf("preparing OfferConnection insert statement: %w", err)
 	}
-	stmtOfferEndpoint, err := sqlair.Prepare(`INSERT INTO "offer_endpoint" (*) VALUES ($OfferEndpoint.*)`, v4_1_0.OfferEndpoint{})
+	stmtOfferEndpoint, err := sqlair.Prepare(`INSERT INTO "offer_endpoint" (*) VALUES ($OfferEndpoint.*)`, v4_2_0.OfferEndpoint{})
 	if err != nil {
 		return errors.Errorf("preparing OfferEndpoint insert statement: %w", err)
 	}
-	stmtOperation, err := sqlair.Prepare(`INSERT INTO "operation" (*) VALUES ($Operation.*)`, v4_1_0.Operation{})
+	stmtOperation, err := sqlair.Prepare(`INSERT INTO "operation" (*) VALUES ($Operation.*)`, v4_2_0.Operation{})
 	if err != nil {
 		return errors.Errorf("preparing Operation insert statement: %w", err)
 	}
-	stmtOperationAction, err := sqlair.Prepare(`INSERT INTO "operation_action" (*) VALUES ($OperationAction.*)`, v4_1_0.OperationAction{})
+	stmtOperationAction, err := sqlair.Prepare(`INSERT INTO "operation_action" (*) VALUES ($OperationAction.*)`, v4_2_0.OperationAction{})
 	if err != nil {
 		return errors.Errorf("preparing OperationAction insert statement: %w", err)
 	}
-	stmtOperationMachineTask, err := sqlair.Prepare(`INSERT INTO "operation_machine_task" (*) VALUES ($OperationMachineTask.*)`, v4_1_0.OperationMachineTask{})
+	stmtOperationMachineTask, err := sqlair.Prepare(`INSERT INTO "operation_machine_task" (*) VALUES ($OperationMachineTask.*)`, v4_2_0.OperationMachineTask{})
 	if err != nil {
 		return errors.Errorf("preparing OperationMachineTask insert statement: %w", err)
 	}
-	stmtOperationParameter, err := sqlair.Prepare(`INSERT INTO "operation_parameter" (*) VALUES ($OperationParameter.*)`, v4_1_0.OperationParameter{})
+	stmtOperationParameter, err := sqlair.Prepare(`INSERT INTO "operation_parameter" (*) VALUES ($OperationParameter.*)`, v4_2_0.OperationParameter{})
 	if err != nil {
 		return errors.Errorf("preparing OperationParameter insert statement: %w", err)
 	}
-	stmtOperationTask, err := sqlair.Prepare(`INSERT INTO "operation_task" (*) VALUES ($OperationTask.*)`, v4_1_0.OperationTask{})
+	stmtOperationTask, err := sqlair.Prepare(`INSERT INTO "operation_task" (*) VALUES ($OperationTask.*)`, v4_2_0.OperationTask{})
 	if err != nil {
 		return errors.Errorf("preparing OperationTask insert statement: %w", err)
 	}
-	stmtOperationTaskLog, err := sqlair.Prepare(`INSERT INTO "operation_task_log" (*) VALUES ($OperationTaskLog.*)`, v4_1_0.OperationTaskLog{})
+	stmtOperationTaskLog, err := sqlair.Prepare(`INSERT INTO "operation_task_log" (*) VALUES ($OperationTaskLog.*)`, v4_2_0.OperationTaskLog{})
 	if err != nil {
 		return errors.Errorf("preparing OperationTaskLog insert statement: %w", err)
 	}
-	stmtOperationTaskStatus, err := sqlair.Prepare(`INSERT INTO "operation_task_status" (*) VALUES ($OperationTaskStatus.*)`, v4_1_0.OperationTaskStatus{})
+	stmtOperationTaskStatus, err := sqlair.Prepare(`INSERT INTO "operation_task_status" (*) VALUES ($OperationTaskStatus.*)`, v4_2_0.OperationTaskStatus{})
 	if err != nil {
 		return errors.Errorf("preparing OperationTaskStatus insert statement: %w", err)
 	}
-	stmtOperationTaskStatusValue, err := sqlair.Prepare(`INSERT INTO "operation_task_status_value" (*) VALUES ($OperationTaskStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.OperationTaskStatusValue{})
+	stmtOperationTaskStatusValue, err := sqlair.Prepare(`INSERT INTO "operation_task_status_value" (*) VALUES ($OperationTaskStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.OperationTaskStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing OperationTaskStatusValue insert statement: %w", err)
 	}
-	stmtOperationUnitTask, err := sqlair.Prepare(`INSERT INTO "operation_unit_task" (*) VALUES ($OperationUnitTask.*)`, v4_1_0.OperationUnitTask{})
+	stmtOperationUnitTask, err := sqlair.Prepare(`INSERT INTO "operation_unit_task" (*) VALUES ($OperationUnitTask.*)`, v4_2_0.OperationUnitTask{})
 	if err != nil {
 		return errors.Errorf("preparing OperationUnitTask insert statement: %w", err)
 	}
-	stmtOperatorStatus, err := sqlair.Prepare(`INSERT INTO "operator_status" (*) VALUES ($OperatorStatus.*)`, v4_1_0.OperatorStatus{})
+	stmtOperatorStatus, err := sqlair.Prepare(`INSERT INTO "operator_status" (*) VALUES ($OperatorStatus.*)`, v4_2_0.OperatorStatus{})
 	if err != nil {
 		return errors.Errorf("preparing OperatorStatus insert statement: %w", err)
 	}
-	stmtOs, err := sqlair.Prepare(`INSERT INTO "os" (*) VALUES ($Os.*) ON CONFLICT DO NOTHING`, v4_1_0.Os{})
+	stmtOs, err := sqlair.Prepare(`INSERT INTO "os" (*) VALUES ($Os.*) ON CONFLICT DO NOTHING`, v4_2_0.Os{})
 	if err != nil {
 		return errors.Errorf("preparing Os insert statement: %w", err)
 	}
-	stmtPasswordHashAlgorithm, err := sqlair.Prepare(`INSERT INTO "password_hash_algorithm" (*) VALUES ($PasswordHashAlgorithm.*) ON CONFLICT DO NOTHING`, v4_1_0.PasswordHashAlgorithm{})
+	stmtPasswordHashAlgorithm, err := sqlair.Prepare(`INSERT INTO "password_hash_algorithm" (*) VALUES ($PasswordHashAlgorithm.*) ON CONFLICT DO NOTHING`, v4_2_0.PasswordHashAlgorithm{})
 	if err != nil {
 		return errors.Errorf("preparing PasswordHashAlgorithm insert statement: %w", err)
 	}
-	stmtPendingApplicationResource, err := sqlair.Prepare(`INSERT INTO "pending_application_resource" (*) VALUES ($PendingApplicationResource.*)`, v4_1_0.PendingApplicationResource{})
+	stmtPendingApplicationResource, err := sqlair.Prepare(`INSERT INTO "pending_application_resource" (*) VALUES ($PendingApplicationResource.*)`, v4_2_0.PendingApplicationResource{})
 	if err != nil {
 		return errors.Errorf("preparing PendingApplicationResource insert statement: %w", err)
 	}
-	stmtPortRange, err := sqlair.Prepare(`INSERT INTO "port_range" (*) VALUES ($PortRange.*)`, v4_1_0.PortRange{})
+	stmtPortRange, err := sqlair.Prepare(`INSERT INTO "port_range" (*) VALUES ($PortRange.*)`, v4_2_0.PortRange{})
 	if err != nil {
 		return errors.Errorf("preparing PortRange insert statement: %w", err)
 	}
-	stmtProtocol, err := sqlair.Prepare(`INSERT INTO "protocol" (*) VALUES ($Protocol.*) ON CONFLICT DO NOTHING`, v4_1_0.Protocol{})
+	stmtProtocol, err := sqlair.Prepare(`INSERT INTO "protocol" (*) VALUES ($Protocol.*) ON CONFLICT DO NOTHING`, v4_2_0.Protocol{})
 	if err != nil {
 		return errors.Errorf("preparing Protocol insert statement: %w", err)
 	}
-	stmtProviderIpAddress, err := sqlair.Prepare(`INSERT INTO "provider_ip_address" (*) VALUES ($ProviderIpAddress.*)`, v4_1_0.ProviderIpAddress{})
+	stmtProviderIpAddress, err := sqlair.Prepare(`INSERT INTO "provider_ip_address" (*) VALUES ($ProviderIpAddress.*)`, v4_2_0.ProviderIpAddress{})
 	if err != nil {
 		return errors.Errorf("preparing ProviderIpAddress insert statement: %w", err)
 	}
-	stmtProviderLinkLayerDevice, err := sqlair.Prepare(`INSERT INTO "provider_link_layer_device" (*) VALUES ($ProviderLinkLayerDevice.*)`, v4_1_0.ProviderLinkLayerDevice{})
+	stmtProviderLinkLayerDevice, err := sqlair.Prepare(`INSERT INTO "provider_link_layer_device" (*) VALUES ($ProviderLinkLayerDevice.*)`, v4_2_0.ProviderLinkLayerDevice{})
 	if err != nil {
 		return errors.Errorf("preparing ProviderLinkLayerDevice insert statement: %w", err)
 	}
-	stmtProviderNetwork, err := sqlair.Prepare(`INSERT INTO "provider_network" (*) VALUES ($ProviderNetwork.*)`, v4_1_0.ProviderNetwork{})
+	stmtProviderNetwork, err := sqlair.Prepare(`INSERT INTO "provider_network" (*) VALUES ($ProviderNetwork.*)`, v4_2_0.ProviderNetwork{})
 	if err != nil {
 		return errors.Errorf("preparing ProviderNetwork insert statement: %w", err)
 	}
-	stmtProviderNetworkSubnet, err := sqlair.Prepare(`INSERT INTO "provider_network_subnet" (*) VALUES ($ProviderNetworkSubnet.*)`, v4_1_0.ProviderNetworkSubnet{})
+	stmtProviderNetworkSubnet, err := sqlair.Prepare(`INSERT INTO "provider_network_subnet" (*) VALUES ($ProviderNetworkSubnet.*)`, v4_2_0.ProviderNetworkSubnet{})
 	if err != nil {
 		return errors.Errorf("preparing ProviderNetworkSubnet insert statement: %w", err)
 	}
-	stmtProviderSpace, err := sqlair.Prepare(`INSERT INTO "provider_space" (*) VALUES ($ProviderSpace.*)`, v4_1_0.ProviderSpace{})
+	stmtProviderSpace, err := sqlair.Prepare(`INSERT INTO "provider_space" (*) VALUES ($ProviderSpace.*)`, v4_2_0.ProviderSpace{})
 	if err != nil {
 		return errors.Errorf("preparing ProviderSpace insert statement: %w", err)
 	}
-	stmtProviderSubnet, err := sqlair.Prepare(`INSERT INTO "provider_subnet" (*) VALUES ($ProviderSubnet.*)`, v4_1_0.ProviderSubnet{})
+	stmtProviderSubnet, err := sqlair.Prepare(`INSERT INTO "provider_subnet" (*) VALUES ($ProviderSubnet.*)`, v4_2_0.ProviderSubnet{})
 	if err != nil {
 		return errors.Errorf("preparing ProviderSubnet insert statement: %w", err)
 	}
-	stmtRelation, err := sqlair.Prepare(`INSERT INTO "relation" (*) VALUES ($Relation.*)`, v4_1_0.Relation{})
+	stmtRelation, err := sqlair.Prepare(`INSERT INTO "relation" (*) VALUES ($Relation.*)`, v4_2_0.Relation{})
 	if err != nil {
 		return errors.Errorf("preparing Relation insert statement: %w", err)
 	}
-	stmtRelationApplicationSetting, err := sqlair.Prepare(`INSERT INTO "relation_application_setting" (*) VALUES ($RelationApplicationSetting.*)`, v4_1_0.RelationApplicationSetting{})
+	stmtRelationApplicationSetting, err := sqlair.Prepare(`INSERT INTO "relation_application_setting" (*) VALUES ($RelationApplicationSetting.*)`, v4_2_0.RelationApplicationSetting{})
 	if err != nil {
 		return errors.Errorf("preparing RelationApplicationSetting insert statement: %w", err)
 	}
-	stmtRelationApplicationSettingsHash, err := sqlair.Prepare(`INSERT INTO "relation_application_settings_hash" (*) VALUES ($RelationApplicationSettingsHash.*)`, v4_1_0.RelationApplicationSettingsHash{})
+	stmtRelationApplicationSettingsHash, err := sqlair.Prepare(`INSERT INTO "relation_application_settings_hash" (*) VALUES ($RelationApplicationSettingsHash.*)`, v4_2_0.RelationApplicationSettingsHash{})
 	if err != nil {
 		return errors.Errorf("preparing RelationApplicationSettingsHash insert statement: %w", err)
 	}
-	stmtRelationEndpoint, err := sqlair.Prepare(`INSERT INTO "relation_endpoint" (*) VALUES ($RelationEndpoint.*)`, v4_1_0.RelationEndpoint{})
+	stmtRelationEndpoint, err := sqlair.Prepare(`INSERT INTO "relation_endpoint" (*) VALUES ($RelationEndpoint.*)`, v4_2_0.RelationEndpoint{})
 	if err != nil {
 		return errors.Errorf("preparing RelationEndpoint insert statement: %w", err)
 	}
-	stmtRelationNetworkEgress, err := sqlair.Prepare(`INSERT INTO "relation_network_egress" (*) VALUES ($RelationNetworkEgress.*)`, v4_1_0.RelationNetworkEgress{})
+	stmtRelationNetworkEgress, err := sqlair.Prepare(`INSERT INTO "relation_network_egress" (*) VALUES ($RelationNetworkEgress.*)`, v4_2_0.RelationNetworkEgress{})
 	if err != nil {
 		return errors.Errorf("preparing RelationNetworkEgress insert statement: %w", err)
 	}
-	stmtRelationNetworkIngress, err := sqlair.Prepare(`INSERT INTO "relation_network_ingress" (*) VALUES ($RelationNetworkIngress.*)`, v4_1_0.RelationNetworkIngress{})
+	stmtRelationNetworkIngress, err := sqlair.Prepare(`INSERT INTO "relation_network_ingress" (*) VALUES ($RelationNetworkIngress.*)`, v4_2_0.RelationNetworkIngress{})
 	if err != nil {
 		return errors.Errorf("preparing RelationNetworkIngress insert statement: %w", err)
 	}
-	stmtRelationStatus, err := sqlair.Prepare(`INSERT INTO "relation_status" (*) VALUES ($RelationStatus.*)`, v4_1_0.RelationStatus{})
+	stmtRelationStatus, err := sqlair.Prepare(`INSERT INTO "relation_status" (*) VALUES ($RelationStatus.*)`, v4_2_0.RelationStatus{})
 	if err != nil {
 		return errors.Errorf("preparing RelationStatus insert statement: %w", err)
 	}
-	stmtRelationStatusType, err := sqlair.Prepare(`INSERT INTO "relation_status_type" (*) VALUES ($RelationStatusType.*) ON CONFLICT DO NOTHING`, v4_1_0.RelationStatusType{})
+	stmtRelationStatusType, err := sqlair.Prepare(`INSERT INTO "relation_status_type" (*) VALUES ($RelationStatusType.*) ON CONFLICT DO NOTHING`, v4_2_0.RelationStatusType{})
 	if err != nil {
 		return errors.Errorf("preparing RelationStatusType insert statement: %w", err)
 	}
-	stmtRelationUnit, err := sqlair.Prepare(`INSERT INTO "relation_unit" (*) VALUES ($RelationUnit.*)`, v4_1_0.RelationUnit{})
+	stmtRelationUnit, err := sqlair.Prepare(`INSERT INTO "relation_unit" (*) VALUES ($RelationUnit.*)`, v4_2_0.RelationUnit{})
 	if err != nil {
 		return errors.Errorf("preparing RelationUnit insert statement: %w", err)
 	}
-	stmtRelationUnitSetting, err := sqlair.Prepare(`INSERT INTO "relation_unit_setting" (*) VALUES ($RelationUnitSetting.*)`, v4_1_0.RelationUnitSetting{})
+	stmtRelationUnitSetting, err := sqlair.Prepare(`INSERT INTO "relation_unit_setting" (*) VALUES ($RelationUnitSetting.*)`, v4_2_0.RelationUnitSetting{})
 	if err != nil {
 		return errors.Errorf("preparing RelationUnitSetting insert statement: %w", err)
 	}
-	stmtRelationUnitSettingArchive, err := sqlair.Prepare(`INSERT INTO "relation_unit_setting_archive" (*) VALUES ($RelationUnitSettingArchive.*)`, v4_1_0.RelationUnitSettingArchive{})
+	stmtRelationUnitSettingArchive, err := sqlair.Prepare(`INSERT INTO "relation_unit_setting_archive" (*) VALUES ($RelationUnitSettingArchive.*)`, v4_2_0.RelationUnitSettingArchive{})
 	if err != nil {
 		return errors.Errorf("preparing RelationUnitSettingArchive insert statement: %w", err)
 	}
-	stmtRelationUnitSettingsHash, err := sqlair.Prepare(`INSERT INTO "relation_unit_settings_hash" (*) VALUES ($RelationUnitSettingsHash.*)`, v4_1_0.RelationUnitSettingsHash{})
+	stmtRelationUnitSettingsHash, err := sqlair.Prepare(`INSERT INTO "relation_unit_settings_hash" (*) VALUES ($RelationUnitSettingsHash.*)`, v4_2_0.RelationUnitSettingsHash{})
 	if err != nil {
 		return errors.Errorf("preparing RelationUnitSettingsHash insert statement: %w", err)
 	}
-	stmtRemoval, err := sqlair.Prepare(`INSERT INTO "removal" (*) VALUES ($Removal.*)`, v4_1_0.Removal{})
+	stmtRemoval, err := sqlair.Prepare(`INSERT INTO "removal" (*) VALUES ($Removal.*)`, v4_2_0.Removal{})
 	if err != nil {
 		return errors.Errorf("preparing Removal insert statement: %w", err)
 	}
-	stmtRemovalType, err := sqlair.Prepare(`INSERT INTO "removal_type" (*) VALUES ($RemovalType.*) ON CONFLICT DO NOTHING`, v4_1_0.RemovalType{})
+	stmtRemovalType, err := sqlair.Prepare(`INSERT INTO "removal_type" (*) VALUES ($RemovalType.*) ON CONFLICT DO NOTHING`, v4_2_0.RemovalType{})
 	if err != nil {
 		return errors.Errorf("preparing RemovalType insert statement: %w", err)
 	}
-	stmtResolveMode, err := sqlair.Prepare(`INSERT INTO "resolve_mode" (*) VALUES ($ResolveMode.*) ON CONFLICT DO NOTHING`, v4_1_0.ResolveMode{})
+	stmtResolveMode, err := sqlair.Prepare(`INSERT INTO "resolve_mode" (*) VALUES ($ResolveMode.*) ON CONFLICT DO NOTHING`, v4_2_0.ResolveMode{})
 	if err != nil {
 		return errors.Errorf("preparing ResolveMode insert statement: %w", err)
 	}
-	stmtResource, err := sqlair.Prepare(`INSERT INTO "resource" (*) VALUES ($Resource.*)`, v4_1_0.Resource{})
+	stmtResource, err := sqlair.Prepare(`INSERT INTO "resource" (*) VALUES ($Resource.*)`, v4_2_0.Resource{})
 	if err != nil {
 		return errors.Errorf("preparing Resource insert statement: %w", err)
 	}
-	stmtResourceOriginType, err := sqlair.Prepare(`INSERT INTO "resource_origin_type" (*) VALUES ($ResourceOriginType.*) ON CONFLICT DO NOTHING`, v4_1_0.ResourceOriginType{})
+	stmtResourceOriginType, err := sqlair.Prepare(`INSERT INTO "resource_origin_type" (*) VALUES ($ResourceOriginType.*) ON CONFLICT DO NOTHING`, v4_2_0.ResourceOriginType{})
 	if err != nil {
 		return errors.Errorf("preparing ResourceOriginType insert statement: %w", err)
 	}
-	stmtResourceRetrievedBy, err := sqlair.Prepare(`INSERT INTO "resource_retrieved_by" (*) VALUES ($ResourceRetrievedBy.*)`, v4_1_0.ResourceRetrievedBy{})
+	stmtResourceRetrievedBy, err := sqlair.Prepare(`INSERT INTO "resource_retrieved_by" (*) VALUES ($ResourceRetrievedBy.*)`, v4_2_0.ResourceRetrievedBy{})
 	if err != nil {
 		return errors.Errorf("preparing ResourceRetrievedBy insert statement: %w", err)
 	}
-	stmtResourceRetrievedByType, err := sqlair.Prepare(`INSERT INTO "resource_retrieved_by_type" (*) VALUES ($ResourceRetrievedByType.*) ON CONFLICT DO NOTHING`, v4_1_0.ResourceRetrievedByType{})
+	stmtResourceRetrievedByType, err := sqlair.Prepare(`INSERT INTO "resource_retrieved_by_type" (*) VALUES ($ResourceRetrievedByType.*) ON CONFLICT DO NOTHING`, v4_2_0.ResourceRetrievedByType{})
 	if err != nil {
 		return errors.Errorf("preparing ResourceRetrievedByType insert statement: %w", err)
 	}
-	stmtResourceState, err := sqlair.Prepare(`INSERT INTO "resource_state" (*) VALUES ($ResourceState.*) ON CONFLICT DO NOTHING`, v4_1_0.ResourceState{})
+	stmtResourceState, err := sqlair.Prepare(`INSERT INTO "resource_state" (*) VALUES ($ResourceState.*) ON CONFLICT DO NOTHING`, v4_2_0.ResourceState{})
 	if err != nil {
 		return errors.Errorf("preparing ResourceState insert statement: %w", err)
 	}
-	stmtSchema, err := sqlair.Prepare(`INSERT INTO "schema" (*) VALUES ($Schema.*) ON CONFLICT DO NOTHING`, v4_1_0.Schema{})
+	stmtSchema, err := sqlair.Prepare(`INSERT INTO "schema" (*) VALUES ($Schema.*) ON CONFLICT DO NOTHING`, v4_2_0.Schema{})
 	if err != nil {
 		return errors.Errorf("preparing Schema insert statement: %w", err)
 	}
-	stmtSecret, err := sqlair.Prepare(`INSERT INTO "secret" (*) VALUES ($Secret.*)`, v4_1_0.Secret{})
+	stmtSecret, err := sqlair.Prepare(`INSERT INTO "secret" (*) VALUES ($Secret.*)`, v4_2_0.Secret{})
 	if err != nil {
 		return errors.Errorf("preparing Secret insert statement: %w", err)
 	}
-	stmtSecretApplicationOwner, err := sqlair.Prepare(`INSERT INTO "secret_application_owner" (*) VALUES ($SecretApplicationOwner.*)`, v4_1_0.SecretApplicationOwner{})
+	stmtSecretApplicationOwner, err := sqlair.Prepare(`INSERT INTO "secret_application_owner" (*) VALUES ($SecretApplicationOwner.*)`, v4_2_0.SecretApplicationOwner{})
 	if err != nil {
 		return errors.Errorf("preparing SecretApplicationOwner insert statement: %w", err)
 	}
-	stmtSecretContent, err := sqlair.Prepare(`INSERT INTO "secret_content" (*) VALUES ($SecretContent.*)`, v4_1_0.SecretContent{})
+	stmtSecretContent, err := sqlair.Prepare(`INSERT INTO "secret_content" (*) VALUES ($SecretContent.*)`, v4_2_0.SecretContent{})
 	if err != nil {
 		return errors.Errorf("preparing SecretContent insert statement: %w", err)
 	}
-	stmtSecretDeletedValueRef, err := sqlair.Prepare(`INSERT INTO "secret_deleted_value_ref" (*) VALUES ($SecretDeletedValueRef.*)`, v4_1_0.SecretDeletedValueRef{})
+	stmtSecretDeletedValueRef, err := sqlair.Prepare(`INSERT INTO "secret_deleted_value_ref" (*) VALUES ($SecretDeletedValueRef.*)`, v4_2_0.SecretDeletedValueRef{})
 	if err != nil {
 		return errors.Errorf("preparing SecretDeletedValueRef insert statement: %w", err)
 	}
-	stmtSecretGrantScopeType, err := sqlair.Prepare(`INSERT INTO "secret_grant_scope_type" (*) VALUES ($SecretGrantScopeType.*) ON CONFLICT DO NOTHING`, v4_1_0.SecretGrantScopeType{})
+	stmtSecretGrantScopeType, err := sqlair.Prepare(`INSERT INTO "secret_grant_scope_type" (*) VALUES ($SecretGrantScopeType.*) ON CONFLICT DO NOTHING`, v4_2_0.SecretGrantScopeType{})
 	if err != nil {
 		return errors.Errorf("preparing SecretGrantScopeType insert statement: %w", err)
 	}
-	stmtSecretGrantSubjectType, err := sqlair.Prepare(`INSERT INTO "secret_grant_subject_type" (*) VALUES ($SecretGrantSubjectType.*) ON CONFLICT DO NOTHING`, v4_1_0.SecretGrantSubjectType{})
+	stmtSecretGrantSubjectType, err := sqlair.Prepare(`INSERT INTO "secret_grant_subject_type" (*) VALUES ($SecretGrantSubjectType.*) ON CONFLICT DO NOTHING`, v4_2_0.SecretGrantSubjectType{})
 	if err != nil {
 		return errors.Errorf("preparing SecretGrantSubjectType insert statement: %w", err)
 	}
-	stmtSecretMetadata, err := sqlair.Prepare(`INSERT INTO "secret_metadata" (*) VALUES ($SecretMetadata.*)`, v4_1_0.SecretMetadata{})
+	stmtSecretMetadata, err := sqlair.Prepare(`INSERT INTO "secret_metadata" (*) VALUES ($SecretMetadata.*)`, v4_2_0.SecretMetadata{})
 	if err != nil {
 		return errors.Errorf("preparing SecretMetadata insert statement: %w", err)
 	}
-	stmtSecretModelOwner, err := sqlair.Prepare(`INSERT INTO "secret_model_owner" (*) VALUES ($SecretModelOwner.*)`, v4_1_0.SecretModelOwner{})
+	stmtSecretModelOwner, err := sqlair.Prepare(`INSERT INTO "secret_model_owner" (*) VALUES ($SecretModelOwner.*)`, v4_2_0.SecretModelOwner{})
 	if err != nil {
 		return errors.Errorf("preparing SecretModelOwner insert statement: %w", err)
 	}
-	stmtSecretPermission, err := sqlair.Prepare(`INSERT INTO "secret_permission" (*) VALUES ($SecretPermission.*)`, v4_1_0.SecretPermission{})
+	stmtSecretPermission, err := sqlair.Prepare(`INSERT INTO "secret_permission" (*) VALUES ($SecretPermission.*)`, v4_2_0.SecretPermission{})
 	if err != nil {
 		return errors.Errorf("preparing SecretPermission insert statement: %w", err)
 	}
-	stmtSecretReference, err := sqlair.Prepare(`INSERT INTO "secret_reference" (*) VALUES ($SecretReference.*)`, v4_1_0.SecretReference{})
+	stmtSecretReference, err := sqlair.Prepare(`INSERT INTO "secret_reference" (*) VALUES ($SecretReference.*)`, v4_2_0.SecretReference{})
 	if err != nil {
 		return errors.Errorf("preparing SecretReference insert statement: %w", err)
 	}
-	stmtSecretRemoteUnitConsumer, err := sqlair.Prepare(`INSERT INTO "secret_remote_unit_consumer" (*) VALUES ($SecretRemoteUnitConsumer.*)`, v4_1_0.SecretRemoteUnitConsumer{})
+	stmtSecretRemoteUnitConsumer, err := sqlair.Prepare(`INSERT INTO "secret_remote_unit_consumer" (*) VALUES ($SecretRemoteUnitConsumer.*)`, v4_2_0.SecretRemoteUnitConsumer{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRemoteUnitConsumer insert statement: %w", err)
 	}
-	stmtSecretReservation, err := sqlair.Prepare(`INSERT INTO "secret_reservation" (*) VALUES ($SecretReservation.*)`, v4_1_0.SecretReservation{})
+	stmtSecretReservation, err := sqlair.Prepare(`INSERT INTO "secret_reservation" (*) VALUES ($SecretReservation.*)`, v4_2_0.SecretReservation{})
 	if err != nil {
 		return errors.Errorf("preparing SecretReservation insert statement: %w", err)
 	}
-	stmtSecretRevision, err := sqlair.Prepare(`INSERT INTO "secret_revision" (*) VALUES ($SecretRevision.*)`, v4_1_0.SecretRevision{})
+	stmtSecretRevision, err := sqlair.Prepare(`INSERT INTO "secret_revision" (*) VALUES ($SecretRevision.*)`, v4_2_0.SecretRevision{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRevision insert statement: %w", err)
 	}
-	stmtSecretRevisionExpire, err := sqlair.Prepare(`INSERT INTO "secret_revision_expire" (*) VALUES ($SecretRevisionExpire.*)`, v4_1_0.SecretRevisionExpire{})
+	stmtSecretRevisionExpire, err := sqlair.Prepare(`INSERT INTO "secret_revision_expire" (*) VALUES ($SecretRevisionExpire.*)`, v4_2_0.SecretRevisionExpire{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRevisionExpire insert statement: %w", err)
 	}
-	stmtSecretRevisionObsolete, err := sqlair.Prepare(`INSERT INTO "secret_revision_obsolete" (*) VALUES ($SecretRevisionObsolete.*)`, v4_1_0.SecretRevisionObsolete{})
+	stmtSecretRevisionObsolete, err := sqlair.Prepare(`INSERT INTO "secret_revision_obsolete" (*) VALUES ($SecretRevisionObsolete.*)`, v4_2_0.SecretRevisionObsolete{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRevisionObsolete insert statement: %w", err)
 	}
-	stmtSecretRole, err := sqlair.Prepare(`INSERT INTO "secret_role" (*) VALUES ($SecretRole.*) ON CONFLICT DO NOTHING`, v4_1_0.SecretRole{})
+	stmtSecretRole, err := sqlair.Prepare(`INSERT INTO "secret_role" (*) VALUES ($SecretRole.*) ON CONFLICT DO NOTHING`, v4_2_0.SecretRole{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRole insert statement: %w", err)
 	}
-	stmtSecretRotatePolicy, err := sqlair.Prepare(`INSERT INTO "secret_rotate_policy" (*) VALUES ($SecretRotatePolicy.*) ON CONFLICT DO NOTHING`, v4_1_0.SecretRotatePolicy{})
+	stmtSecretRotatePolicy, err := sqlair.Prepare(`INSERT INTO "secret_rotate_policy" (*) VALUES ($SecretRotatePolicy.*) ON CONFLICT DO NOTHING`, v4_2_0.SecretRotatePolicy{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRotatePolicy insert statement: %w", err)
 	}
-	stmtSecretRotation, err := sqlair.Prepare(`INSERT INTO "secret_rotation" (*) VALUES ($SecretRotation.*)`, v4_1_0.SecretRotation{})
+	stmtSecretRotation, err := sqlair.Prepare(`INSERT INTO "secret_rotation" (*) VALUES ($SecretRotation.*)`, v4_2_0.SecretRotation{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRotation insert statement: %w", err)
 	}
-	stmtSecretUnitConsumer, err := sqlair.Prepare(`INSERT INTO "secret_unit_consumer" (*) VALUES ($SecretUnitConsumer.*)`, v4_1_0.SecretUnitConsumer{})
+	stmtSecretUnitConsumer, err := sqlair.Prepare(`INSERT INTO "secret_unit_consumer" (*) VALUES ($SecretUnitConsumer.*)`, v4_2_0.SecretUnitConsumer{})
 	if err != nil {
 		return errors.Errorf("preparing SecretUnitConsumer insert statement: %w", err)
 	}
-	stmtSecretUnitOwner, err := sqlair.Prepare(`INSERT INTO "secret_unit_owner" (*) VALUES ($SecretUnitOwner.*)`, v4_1_0.SecretUnitOwner{})
+	stmtSecretUnitOwner, err := sqlair.Prepare(`INSERT INTO "secret_unit_owner" (*) VALUES ($SecretUnitOwner.*)`, v4_2_0.SecretUnitOwner{})
 	if err != nil {
 		return errors.Errorf("preparing SecretUnitOwner insert statement: %w", err)
 	}
-	stmtSecretValueRef, err := sqlair.Prepare(`INSERT INTO "secret_value_ref" (*) VALUES ($SecretValueRef.*)`, v4_1_0.SecretValueRef{})
+	stmtSecretValueRef, err := sqlair.Prepare(`INSERT INTO "secret_value_ref" (*) VALUES ($SecretValueRef.*)`, v4_2_0.SecretValueRef{})
 	if err != nil {
 		return errors.Errorf("preparing SecretValueRef insert statement: %w", err)
 	}
-	stmtSequence, err := sqlair.Prepare(`INSERT INTO "sequence" (*) VALUES ($Sequence.*)`, v4_1_0.Sequence{})
+	stmtSequence, err := sqlair.Prepare(`INSERT INTO "sequence" (*) VALUES ($Sequence.*)`, v4_2_0.Sequence{})
 	if err != nil {
 		return errors.Errorf("preparing Sequence insert statement: %w", err)
 	}
-	stmtSpace, err := sqlair.Prepare(`INSERT INTO "space" (*) VALUES ($Space.*) ON CONFLICT DO NOTHING`, v4_1_0.Space{})
+	stmtSpace, err := sqlair.Prepare(`INSERT INTO "space" (*) VALUES ($Space.*) ON CONFLICT DO NOTHING`, v4_2_0.Space{})
 	if err != nil {
 		return errors.Errorf("preparing Space insert statement: %w", err)
 	}
-	stmtSshConnectionRequest, err := sqlair.Prepare(`INSERT INTO "ssh_connection_request" (*) VALUES ($SshConnectionRequest.*)`, v4_1_0.SshConnectionRequest{})
+	stmtSshConnectionRequest, err := sqlair.Prepare(`INSERT INTO "ssh_connection_request" (*) VALUES ($SshConnectionRequest.*)`, v4_2_0.SshConnectionRequest{})
 	if err != nil {
 		return errors.Errorf("preparing SshConnectionRequest insert statement: %w", err)
 	}
-	stmtSshKeyAlgorithmType, err := sqlair.Prepare(`INSERT INTO "ssh_key_algorithm_type" (*) VALUES ($SshKeyAlgorithmType.*) ON CONFLICT DO NOTHING`, v4_1_0.SshKeyAlgorithmType{})
+	stmtSshKeyAlgorithmType, err := sqlair.Prepare(`INSERT INTO "ssh_key_algorithm_type" (*) VALUES ($SshKeyAlgorithmType.*) ON CONFLICT DO NOTHING`, v4_2_0.SshKeyAlgorithmType{})
 	if err != nil {
 		return errors.Errorf("preparing SshKeyAlgorithmType insert statement: %w", err)
 	}
-	stmtStorageAttachment, err := sqlair.Prepare(`INSERT INTO "storage_attachment" (*) VALUES ($StorageAttachment.*)`, v4_1_0.StorageAttachment{})
+	stmtStorageAttachment, err := sqlair.Prepare(`INSERT INTO "storage_attachment" (*) VALUES ($StorageAttachment.*)`, v4_2_0.StorageAttachment{})
 	if err != nil {
 		return errors.Errorf("preparing StorageAttachment insert statement: %w", err)
 	}
-	stmtStorageFilesystem, err := sqlair.Prepare(`INSERT INTO "storage_filesystem" (*) VALUES ($StorageFilesystem.*)`, v4_1_0.StorageFilesystem{})
+	stmtStorageFilesystem, err := sqlair.Prepare(`INSERT INTO "storage_filesystem" (*) VALUES ($StorageFilesystem.*)`, v4_2_0.StorageFilesystem{})
 	if err != nil {
 		return errors.Errorf("preparing StorageFilesystem insert statement: %w", err)
 	}
-	stmtStorageFilesystemAttachment, err := sqlair.Prepare(`INSERT INTO "storage_filesystem_attachment" (*) VALUES ($StorageFilesystemAttachment.*)`, v4_1_0.StorageFilesystemAttachment{})
+	stmtStorageFilesystemAttachment, err := sqlair.Prepare(`INSERT INTO "storage_filesystem_attachment" (*) VALUES ($StorageFilesystemAttachment.*)`, v4_2_0.StorageFilesystemAttachment{})
 	if err != nil {
 		return errors.Errorf("preparing StorageFilesystemAttachment insert statement: %w", err)
 	}
-	stmtStorageFilesystemStatus, err := sqlair.Prepare(`INSERT INTO "storage_filesystem_status" (*) VALUES ($StorageFilesystemStatus.*)`, v4_1_0.StorageFilesystemStatus{})
+	stmtStorageFilesystemStatus, err := sqlair.Prepare(`INSERT INTO "storage_filesystem_status" (*) VALUES ($StorageFilesystemStatus.*)`, v4_2_0.StorageFilesystemStatus{})
 	if err != nil {
 		return errors.Errorf("preparing StorageFilesystemStatus insert statement: %w", err)
 	}
-	stmtStorageFilesystemStatusValue, err := sqlair.Prepare(`INSERT INTO "storage_filesystem_status_value" (*) VALUES ($StorageFilesystemStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.StorageFilesystemStatusValue{})
+	stmtStorageFilesystemStatusValue, err := sqlair.Prepare(`INSERT INTO "storage_filesystem_status_value" (*) VALUES ($StorageFilesystemStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.StorageFilesystemStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing StorageFilesystemStatusValue insert statement: %w", err)
 	}
-	stmtStorageInstance, err := sqlair.Prepare(`INSERT INTO "storage_instance" (*) VALUES ($StorageInstance.*)`, v4_1_0.StorageInstance{})
+	stmtStorageInstance, err := sqlair.Prepare(`INSERT INTO "storage_instance" (*) VALUES ($StorageInstance.*)`, v4_2_0.StorageInstance{})
 	if err != nil {
 		return errors.Errorf("preparing StorageInstance insert statement: %w", err)
 	}
-	stmtStorageInstanceFilesystem, err := sqlair.Prepare(`INSERT INTO "storage_instance_filesystem" (*) VALUES ($StorageInstanceFilesystem.*)`, v4_1_0.StorageInstanceFilesystem{})
+	stmtStorageInstanceFilesystem, err := sqlair.Prepare(`INSERT INTO "storage_instance_filesystem" (*) VALUES ($StorageInstanceFilesystem.*)`, v4_2_0.StorageInstanceFilesystem{})
 	if err != nil {
 		return errors.Errorf("preparing StorageInstanceFilesystem insert statement: %w", err)
 	}
-	stmtStorageInstanceVolume, err := sqlair.Prepare(`INSERT INTO "storage_instance_volume" (*) VALUES ($StorageInstanceVolume.*)`, v4_1_0.StorageInstanceVolume{})
+	stmtStorageInstanceVolume, err := sqlair.Prepare(`INSERT INTO "storage_instance_volume" (*) VALUES ($StorageInstanceVolume.*)`, v4_2_0.StorageInstanceVolume{})
 	if err != nil {
 		return errors.Errorf("preparing StorageInstanceVolume insert statement: %w", err)
 	}
-	stmtStorageKind, err := sqlair.Prepare(`INSERT INTO "storage_kind" (*) VALUES ($StorageKind.*) ON CONFLICT DO NOTHING`, v4_1_0.StorageKind{})
+	stmtStorageKind, err := sqlair.Prepare(`INSERT INTO "storage_kind" (*) VALUES ($StorageKind.*) ON CONFLICT DO NOTHING`, v4_2_0.StorageKind{})
 	if err != nil {
 		return errors.Errorf("preparing StorageKind insert statement: %w", err)
 	}
-	stmtStoragePool, err := sqlair.Prepare(`INSERT INTO "storage_pool" (*) VALUES ($StoragePool.*)`, v4_1_0.StoragePool{})
+	stmtStoragePool, err := sqlair.Prepare(`INSERT INTO "storage_pool" (*) VALUES ($StoragePool.*)`, v4_2_0.StoragePool{})
 	if err != nil {
 		return errors.Errorf("preparing StoragePool insert statement: %w", err)
 	}
-	stmtStoragePoolAttribute, err := sqlair.Prepare(`INSERT INTO "storage_pool_attribute" (*) VALUES ($StoragePoolAttribute.*)`, v4_1_0.StoragePoolAttribute{})
+	stmtStoragePoolAttribute, err := sqlair.Prepare(`INSERT INTO "storage_pool_attribute" (*) VALUES ($StoragePoolAttribute.*)`, v4_2_0.StoragePoolAttribute{})
 	if err != nil {
 		return errors.Errorf("preparing StoragePoolAttribute insert statement: %w", err)
 	}
-	stmtStoragePoolOrigin, err := sqlair.Prepare(`INSERT INTO "storage_pool_origin" (*) VALUES ($StoragePoolOrigin.*) ON CONFLICT DO NOTHING`, v4_1_0.StoragePoolOrigin{})
+	stmtStoragePoolOrigin, err := sqlair.Prepare(`INSERT INTO "storage_pool_origin" (*) VALUES ($StoragePoolOrigin.*) ON CONFLICT DO NOTHING`, v4_2_0.StoragePoolOrigin{})
 	if err != nil {
 		return errors.Errorf("preparing StoragePoolOrigin insert statement: %w", err)
 	}
-	stmtStorageProvisionScope, err := sqlair.Prepare(`INSERT INTO "storage_provision_scope" (*) VALUES ($StorageProvisionScope.*) ON CONFLICT DO NOTHING`, v4_1_0.StorageProvisionScope{})
+	stmtStorageProvisionScope, err := sqlair.Prepare(`INSERT INTO "storage_provision_scope" (*) VALUES ($StorageProvisionScope.*) ON CONFLICT DO NOTHING`, v4_2_0.StorageProvisionScope{})
 	if err != nil {
 		return errors.Errorf("preparing StorageProvisionScope insert statement: %w", err)
 	}
-	stmtStorageUnitOwner, err := sqlair.Prepare(`INSERT INTO "storage_unit_owner" (*) VALUES ($StorageUnitOwner.*)`, v4_1_0.StorageUnitOwner{})
+	stmtStorageUnitOwner, err := sqlair.Prepare(`INSERT INTO "storage_unit_owner" (*) VALUES ($StorageUnitOwner.*)`, v4_2_0.StorageUnitOwner{})
 	if err != nil {
 		return errors.Errorf("preparing StorageUnitOwner insert statement: %w", err)
 	}
-	stmtStorageVolume, err := sqlair.Prepare(`INSERT INTO "storage_volume" (*) VALUES ($StorageVolume.*)`, v4_1_0.StorageVolume{})
+	stmtStorageVolume, err := sqlair.Prepare(`INSERT INTO "storage_volume" (*) VALUES ($StorageVolume.*)`, v4_2_0.StorageVolume{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolume insert statement: %w", err)
 	}
-	stmtStorageVolumeAttachment, err := sqlair.Prepare(`INSERT INTO "storage_volume_attachment" (*) VALUES ($StorageVolumeAttachment.*)`, v4_1_0.StorageVolumeAttachment{})
+	stmtStorageVolumeAttachment, err := sqlair.Prepare(`INSERT INTO "storage_volume_attachment" (*) VALUES ($StorageVolumeAttachment.*)`, v4_2_0.StorageVolumeAttachment{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolumeAttachment insert statement: %w", err)
 	}
-	stmtStorageVolumeAttachmentPlan, err := sqlair.Prepare(`INSERT INTO "storage_volume_attachment_plan" (*) VALUES ($StorageVolumeAttachmentPlan.*)`, v4_1_0.StorageVolumeAttachmentPlan{})
+	stmtStorageVolumeAttachmentPlan, err := sqlair.Prepare(`INSERT INTO "storage_volume_attachment_plan" (*) VALUES ($StorageVolumeAttachmentPlan.*)`, v4_2_0.StorageVolumeAttachmentPlan{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolumeAttachmentPlan insert statement: %w", err)
 	}
-	stmtStorageVolumeAttachmentPlanAttr, err := sqlair.Prepare(`INSERT INTO "storage_volume_attachment_plan_attr" (*) VALUES ($StorageVolumeAttachmentPlanAttr.*)`, v4_1_0.StorageVolumeAttachmentPlanAttr{})
+	stmtStorageVolumeAttachmentPlanAttr, err := sqlair.Prepare(`INSERT INTO "storage_volume_attachment_plan_attr" (*) VALUES ($StorageVolumeAttachmentPlanAttr.*)`, v4_2_0.StorageVolumeAttachmentPlanAttr{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolumeAttachmentPlanAttr insert statement: %w", err)
 	}
-	stmtStorageVolumeDeviceType, err := sqlair.Prepare(`INSERT INTO "storage_volume_device_type" (*) VALUES ($StorageVolumeDeviceType.*) ON CONFLICT DO NOTHING`, v4_1_0.StorageVolumeDeviceType{})
+	stmtStorageVolumeDeviceType, err := sqlair.Prepare(`INSERT INTO "storage_volume_device_type" (*) VALUES ($StorageVolumeDeviceType.*) ON CONFLICT DO NOTHING`, v4_2_0.StorageVolumeDeviceType{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolumeDeviceType insert statement: %w", err)
 	}
-	stmtStorageVolumeStatus, err := sqlair.Prepare(`INSERT INTO "storage_volume_status" (*) VALUES ($StorageVolumeStatus.*)`, v4_1_0.StorageVolumeStatus{})
+	stmtStorageVolumeStatus, err := sqlair.Prepare(`INSERT INTO "storage_volume_status" (*) VALUES ($StorageVolumeStatus.*)`, v4_2_0.StorageVolumeStatus{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolumeStatus insert statement: %w", err)
 	}
-	stmtStorageVolumeStatusValue, err := sqlair.Prepare(`INSERT INTO "storage_volume_status_value" (*) VALUES ($StorageVolumeStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.StorageVolumeStatusValue{})
+	stmtStorageVolumeStatusValue, err := sqlair.Prepare(`INSERT INTO "storage_volume_status_value" (*) VALUES ($StorageVolumeStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.StorageVolumeStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing StorageVolumeStatusValue insert statement: %w", err)
 	}
-	stmtSubnet, err := sqlair.Prepare(`INSERT INTO "subnet" (*) VALUES ($Subnet.*)`, v4_1_0.Subnet{})
+	stmtSubnet, err := sqlair.Prepare(`INSERT INTO "subnet" (*) VALUES ($Subnet.*)`, v4_2_0.Subnet{})
 	if err != nil {
 		return errors.Errorf("preparing Subnet insert statement: %w", err)
 	}
-	stmtUnit, err := sqlair.Prepare(`INSERT INTO "unit" (*) VALUES ($Unit.*)`, v4_1_0.Unit{})
+	stmtUnit, err := sqlair.Prepare(`INSERT INTO "unit" (*) VALUES ($Unit.*)`, v4_2_0.Unit{})
 	if err != nil {
 		return errors.Errorf("preparing Unit insert statement: %w", err)
 	}
-	stmtUnitAgentPresence, err := sqlair.Prepare(`INSERT INTO "unit_agent_presence" (*) VALUES ($UnitAgentPresence.*)`, v4_1_0.UnitAgentPresence{})
+	stmtUnitAgentPresence, err := sqlair.Prepare(`INSERT INTO "unit_agent_presence" (*) VALUES ($UnitAgentPresence.*)`, v4_2_0.UnitAgentPresence{})
 	if err != nil {
 		return errors.Errorf("preparing UnitAgentPresence insert statement: %w", err)
 	}
-	stmtUnitAgentStatus, err := sqlair.Prepare(`INSERT INTO "unit_agent_status" (*) VALUES ($UnitAgentStatus.*)`, v4_1_0.UnitAgentStatus{})
+	stmtUnitAgentStatus, err := sqlair.Prepare(`INSERT INTO "unit_agent_status" (*) VALUES ($UnitAgentStatus.*)`, v4_2_0.UnitAgentStatus{})
 	if err != nil {
 		return errors.Errorf("preparing UnitAgentStatus insert statement: %w", err)
 	}
-	stmtUnitAgentStatusValue, err := sqlair.Prepare(`INSERT INTO "unit_agent_status_value" (*) VALUES ($UnitAgentStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.UnitAgentStatusValue{})
+	stmtUnitAgentStatusValue, err := sqlair.Prepare(`INSERT INTO "unit_agent_status_value" (*) VALUES ($UnitAgentStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.UnitAgentStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing UnitAgentStatusValue insert statement: %w", err)
 	}
-	stmtUnitAgentVersion, err := sqlair.Prepare(`INSERT INTO "unit_agent_version" (*) VALUES ($UnitAgentVersion.*)`, v4_1_0.UnitAgentVersion{})
+	stmtUnitAgentVersion, err := sqlair.Prepare(`INSERT INTO "unit_agent_version" (*) VALUES ($UnitAgentVersion.*)`, v4_2_0.UnitAgentVersion{})
 	if err != nil {
 		return errors.Errorf("preparing UnitAgentVersion insert statement: %w", err)
 	}
-	stmtUnitPrincipal, err := sqlair.Prepare(`INSERT INTO "unit_principal" (*) VALUES ($UnitPrincipal.*)`, v4_1_0.UnitPrincipal{})
+	stmtUnitPrincipal, err := sqlair.Prepare(`INSERT INTO "unit_principal" (*) VALUES ($UnitPrincipal.*)`, v4_2_0.UnitPrincipal{})
 	if err != nil {
 		return errors.Errorf("preparing UnitPrincipal insert statement: %w", err)
 	}
-	stmtUnitResolved, err := sqlair.Prepare(`INSERT INTO "unit_resolved" (*) VALUES ($UnitResolved.*)`, v4_1_0.UnitResolved{})
+	stmtUnitResolved, err := sqlair.Prepare(`INSERT INTO "unit_resolved" (*) VALUES ($UnitResolved.*)`, v4_2_0.UnitResolved{})
 	if err != nil {
 		return errors.Errorf("preparing UnitResolved insert statement: %w", err)
 	}
-	stmtUnitResource, err := sqlair.Prepare(`INSERT INTO "unit_resource" (*) VALUES ($UnitResource.*)`, v4_1_0.UnitResource{})
+	stmtUnitResource, err := sqlair.Prepare(`INSERT INTO "unit_resource" (*) VALUES ($UnitResource.*)`, v4_2_0.UnitResource{})
 	if err != nil {
 		return errors.Errorf("preparing UnitResource insert statement: %w", err)
 	}
-	stmtUnitState, err := sqlair.Prepare(`INSERT INTO "unit_state" (*) VALUES ($UnitState.*)`, v4_1_0.UnitState{})
+	stmtUnitState, err := sqlair.Prepare(`INSERT INTO "unit_state" (*) VALUES ($UnitState.*)`, v4_2_0.UnitState{})
 	if err != nil {
 		return errors.Errorf("preparing UnitState insert statement: %w", err)
 	}
-	stmtUnitStateCharm, err := sqlair.Prepare(`INSERT INTO "unit_state_charm" (*) VALUES ($UnitStateCharm.*)`, v4_1_0.UnitStateCharm{})
+	stmtUnitStateCharm, err := sqlair.Prepare(`INSERT INTO "unit_state_charm" (*) VALUES ($UnitStateCharm.*)`, v4_2_0.UnitStateCharm{})
 	if err != nil {
 		return errors.Errorf("preparing UnitStateCharm insert statement: %w", err)
 	}
-	stmtUnitStateRelation, err := sqlair.Prepare(`INSERT INTO "unit_state_relation" (*) VALUES ($UnitStateRelation.*)`, v4_1_0.UnitStateRelation{})
+	stmtUnitStateRelation, err := sqlair.Prepare(`INSERT INTO "unit_state_relation" (*) VALUES ($UnitStateRelation.*)`, v4_2_0.UnitStateRelation{})
 	if err != nil {
 		return errors.Errorf("preparing UnitStateRelation insert statement: %w", err)
 	}
-	stmtUnitStorageDirective, err := sqlair.Prepare(`INSERT INTO "unit_storage_directive" (*) VALUES ($UnitStorageDirective.*)`, v4_1_0.UnitStorageDirective{})
+	stmtUnitStorageDirective, err := sqlair.Prepare(`INSERT INTO "unit_storage_directive" (*) VALUES ($UnitStorageDirective.*)`, v4_2_0.UnitStorageDirective{})
 	if err != nil {
 		return errors.Errorf("preparing UnitStorageDirective insert statement: %w", err)
 	}
-	stmtUnitVirtualSshHostKey, err := sqlair.Prepare(`INSERT INTO "unit_virtual_ssh_host_key" (*) VALUES ($UnitVirtualSshHostKey.*)`, v4_1_0.UnitVirtualSshHostKey{})
+	stmtUnitVirtualSshHostKey, err := sqlair.Prepare(`INSERT INTO "unit_virtual_ssh_host_key" (*) VALUES ($UnitVirtualSshHostKey.*)`, v4_2_0.UnitVirtualSshHostKey{})
 	if err != nil {
 		return errors.Errorf("preparing UnitVirtualSshHostKey insert statement: %w", err)
 	}
-	stmtUnitWorkloadStatus, err := sqlair.Prepare(`INSERT INTO "unit_workload_status" (*) VALUES ($UnitWorkloadStatus.*)`, v4_1_0.UnitWorkloadStatus{})
+	stmtUnitWorkloadStatus, err := sqlair.Prepare(`INSERT INTO "unit_workload_status" (*) VALUES ($UnitWorkloadStatus.*)`, v4_2_0.UnitWorkloadStatus{})
 	if err != nil {
 		return errors.Errorf("preparing UnitWorkloadStatus insert statement: %w", err)
 	}
-	stmtUnitWorkloadVersion, err := sqlair.Prepare(`INSERT INTO "unit_workload_version" (*) VALUES ($UnitWorkloadVersion.*)`, v4_1_0.UnitWorkloadVersion{})
+	stmtUnitWorkloadVersion, err := sqlair.Prepare(`INSERT INTO "unit_workload_version" (*) VALUES ($UnitWorkloadVersion.*)`, v4_2_0.UnitWorkloadVersion{})
 	if err != nil {
 		return errors.Errorf("preparing UnitWorkloadVersion insert statement: %w", err)
 	}
-	stmtVirtualPortType, err := sqlair.Prepare(`INSERT INTO "virtual_port_type" (*) VALUES ($VirtualPortType.*) ON CONFLICT DO NOTHING`, v4_1_0.VirtualPortType{})
+	stmtVirtualPortType, err := sqlair.Prepare(`INSERT INTO "virtual_port_type" (*) VALUES ($VirtualPortType.*) ON CONFLICT DO NOTHING`, v4_2_0.VirtualPortType{})
 	if err != nil {
 		return errors.Errorf("preparing VirtualPortType insert statement: %w", err)
 	}
-	stmtWorkloadStatusValue, err := sqlair.Prepare(`INSERT INTO "workload_status_value" (*) VALUES ($WorkloadStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.WorkloadStatusValue{})
+	stmtWorkloadStatusValue, err := sqlair.Prepare(`INSERT INTO "workload_status_value" (*) VALUES ($WorkloadStatusValue.*) ON CONFLICT DO NOTHING`, v4_2_0.WorkloadStatusValue{})
 	if err != nil {
 		return errors.Errorf("preparing WorkloadStatusValue insert statement: %w", err)
 	}

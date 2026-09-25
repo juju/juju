@@ -828,15 +828,6 @@ func makeK8sPodArg(k8sPod application.K8sPodParams) *application.K8sPod {
 		// For k8s we'll initially create a /32 subnet off the container address
 		// and add that to the default space.
 		result.Address = &application.K8sPodAddress{
-			// For k8s pods, the device is a placeholder without
-			// a MAC address and once inserted, not updated. It just exists
-			// to tie the address to the net node corresponding to the
-			// k8s pod.
-			Device: application.K8sPodDevice{
-				Name:              network.PlaceholderDeviceName,
-				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
-				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
-			},
 			Value:       k8sPod.Address.Value,
 			AddressType: ipaddress.MarshallAddressType(k8sPod.Address.AddressType()),
 			// The k8s container must have the lowest scope. This is needed to
@@ -2080,8 +2071,7 @@ SELECT
 FROM
 	unit AS u
 LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
-LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
-LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
+LEFT JOIN ip_address ip ON ip.net_node_uuid = u.net_node_uuid
 LEFT JOIN k8s_pod_port kpp ON kpp.unit_uuid = u.uuid
 WHERE
 	u.life_id != $entityLife.life_id
@@ -2140,8 +2130,7 @@ SELECT    k.provider_id AS &unitK8sPodInfo.provider_id,
           ip.address_value AS &unitK8sPodInfo.address
 FROM      unit AS u
 LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid
-LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
-LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
+LEFT JOIN ip_address ip ON ip.net_node_uuid = u.net_node_uuid
 WHERE     u.name = $unitName.name`
 	infoStmt, err := st.Prepare(infoQuery, unitK8sPodInfo{}, unitName)
 	if err != nil {

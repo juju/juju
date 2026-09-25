@@ -93,9 +93,3 @@ func stringLengthBetween(value string, minLength, maxLength uint) bool {
 	length := uint(len(value))
 	return length >= minLength && length <= maxLength
 }
-
-// PlaceholderDeviceName is the device name used for placeholder link-layer
-// devices created for k8s cloud containers and services. These are not real
-// network interfaces and must never carry a descriptive name that could leak
-// via network-get.
-const PlaceholderDeviceName = ""

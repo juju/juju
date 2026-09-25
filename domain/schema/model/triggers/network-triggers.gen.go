@@ -31,7 +31,7 @@ AFTER UPDATE ON ip_address FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
-	NEW.device_uuid != OLD.device_uuid OR
+	(NEW.device_uuid != OLD.device_uuid OR (NEW.device_uuid IS NOT NULL AND OLD.device_uuid IS NULL) OR (NEW.device_uuid IS NULL AND OLD.device_uuid IS NOT NULL)) OR
 	NEW.address_value != OLD.address_value OR
 	(NEW.subnet_uuid != OLD.subnet_uuid OR (NEW.subnet_uuid IS NOT NULL AND OLD.subnet_uuid IS NULL) OR (NEW.subnet_uuid IS NULL AND OLD.subnet_uuid IS NOT NULL)) OR
 	NEW.type_id != OLD.type_id OR

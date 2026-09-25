@@ -180,10 +180,10 @@ endpoint_address AS (
     JOIN   v_unit_relation_network AS urn
            ON urn.unit_uuid = $entityUUID.uuid
           AND urn.space_uuid = es.space_uuid
-    JOIN   lld ON urn.device_uuid = lld.uuid
+    LEFT JOIN lld ON urn.device_uuid = lld.uuid
     LEFT JOIN selected_ingress AS si
            ON si.endpoint_name = es.endpoint_name
-          AND si.device_uuid = urn.device_uuid
+          AND si.device_uuid IS urn.device_uuid
           AND si.address_value = urn.address_value
 )
 SELECT &endpointNetworkInfoRow.*
@@ -362,9 +362,9 @@ unit_address AS (
            si.is_secondary AS ingress_is_secondary,
            si.device_type_id AS ingress_device_type_id
     FROM   v_unit_relation_network AS urn
-    JOIN   lld ON urn.device_uuid = lld.uuid
+    LEFT JOIN lld ON urn.device_uuid = lld.uuid
     LEFT JOIN selected_ingress AS si
-           ON si.device_uuid = urn.device_uuid
+           ON si.device_uuid IS urn.device_uuid
           AND si.address_value = urn.address_value
     WHERE  urn.unit_uuid = $entityUUID.uuid
 )

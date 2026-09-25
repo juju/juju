@@ -10,24 +10,24 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
-type importStateSuiteV4_1_0 struct {
+type importStateSuiteV4_2_0 struct {
 	schematesting.ModelSuite
 }
 
-func TestImportStateSuiteV4_1_0(t *testing.T) {
-	tc.Run(t, &importStateSuiteV4_1_0{})
+func TestImportStateSuiteV4_2_0(t *testing.T) {
+	tc.Run(t, &importStateSuiteV4_2_0{})
 }
 
 // TestImportEmptyPayloadIsNoOp asserts that importing a payload with no rows
 // in any content table succeeds without writing anything. Model-agent
 // merging and other business-logic corrections are hand-written, not
 // generated, and are exercised in fixups_test.go.
-func (s *importStateSuiteV4_1_0) TestImportEmptyPayloadIsNoOp(c *tc.C) {
+func (s *importStateSuiteV4_2_0) TestImportEmptyPayloadIsNoOp(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	err := st.Import(c.Context(), &v4_1_0.ModelExport{})
+	err := st.Import(c.Context(), &v4_2_0.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 }

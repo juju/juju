@@ -9,7 +9,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/domain/export/types/latest"
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -35,7 +35,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsEmptyPayload(c *tc.C) 
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsEmptyMap(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-id"},
 		},
 	}
@@ -45,11 +45,11 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsEmptyMap(c *tc.C) {
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsRewriteValueRefs(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1", RevisionID: "rid-1"},
 			{RevisionUUID: "rev-2", BackendUUID: "source-2", RevisionID: "rid-2"},
 		},
-		SecretDeletedValueRef: []v4_1_0.SecretDeletedValueRef{
+		SecretDeletedValueRef: []v4_2_0.SecretDeletedValueRef{
 			{RevisionUUID: "rev-3", BackendUUID: "source-3", RevisionID: "rid-3"},
 		},
 	}
@@ -75,7 +75,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsRewriteValueRefs(c *tc
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsMissingRevision(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
 		},
 	}
@@ -90,7 +90,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsMissingRevision(c *tc.
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsOnlyDeletedRefs(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretDeletedValueRef: []v4_1_0.SecretDeletedValueRef{
+		SecretDeletedValueRef: []v4_2_0.SecretDeletedValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
 		},
 	}
@@ -102,7 +102,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsOnlyDeletedRefs(c *tc.
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsDistinctBackends(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "src-a"},
 			{RevisionUUID: "rev-2", BackendUUID: "src-b"},
 		},
@@ -121,7 +121,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsDistinctBackends(c *tc
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsOnlyValueRefs(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
 		},
 	}
@@ -135,7 +135,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsOnlyValueRefs(c *tc.C)
 
 func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsNoMappedDeletedRefs(c *tc.C) {
 	payload := &latest.ModelExport{
-		SecretDeletedValueRef: []v4_1_0.SecretDeletedValueRef{
+		SecretDeletedValueRef: []v4_2_0.SecretDeletedValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
 		},
 	}
@@ -152,7 +152,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsNoRows(c *tc.C) {
 		SecretValueRef:        nil,
 		SecretDeletedValueRef: nil,
 		// Some other payload fields to show it's a real payload.
-		Sequence: []v4_1_0.Sequence{{Namespace: "test", Value: 42}},
+		Sequence: []v4_2_0.Sequence{{Namespace: "test", Value: 42}},
 	}
 
 	revisionMap := map[string]string{"rev-1": "target-1"}

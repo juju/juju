@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -728,14 +727,6 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 			ProviderID: "provider-id",
 			Ports:      new([]string{"666"}),
 			Address: &application.K8sPodAddress{
-				// The device name must stay empty; placeholder devices are
-				// not real interfaces and must not leak an internal name
-				// via tools like network-get.
-				Device: application.K8sPodDevice{
-					Name:              "",
-					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
-					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
-				},
 				Value:       "10.1.0.1/24",
 				AddressType: ipaddress.AddressTypeIPv4,
 				Scope:       ipaddress.ScopeCloudLocal,

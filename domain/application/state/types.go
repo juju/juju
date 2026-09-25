@@ -200,22 +200,6 @@ type k8sService struct {
 	ProviderID      string `db:"provider_id"`
 }
 
-type k8sServiceDevice struct {
-	UUID              string `db:"uuid"`
-	Name              string `db:"name"`
-	NetNodeID         string `db:"net_node_uuid"`
-	DeviceTypeID      int    `db:"device_type_id"`
-	VirtualPortTypeID int    `db:"virtual_port_type_id"`
-}
-
-type k8sPodDevice struct {
-	UUID              string `db:"uuid"`
-	Name              string `db:"name"`
-	NetNodeID         string `db:"net_node_uuid"`
-	DeviceTypeID      int    `db:"device_type_id"`
-	VirtualPortTypeID int    `db:"virtual_port_type_id"`
-}
-
 type k8sPodPort struct {
 	Port string `db:"port"`
 }
@@ -231,15 +215,15 @@ type unitK8sPodInfo struct {
 }
 
 type ipAddress struct {
-	AddressUUID  string `db:"uuid"`
-	Value        string `db:"address_value"`
-	NetNodeUUID  string `db:"net_node_uuid"`
-	SubnetUUID   string `db:"subnet_uuid"`
-	ConfigTypeID int    `db:"config_type_id"`
-	TypeID       int    `db:"type_id"`
-	OriginID     int    `db:"origin_id"`
-	ScopeID      int    `db:"scope_id"`
-	DeviceID     string `db:"device_uuid"`
+	AddressUUID  string         `db:"uuid"`
+	Value        string         `db:"address_value"`
+	NetNodeUUID  string         `db:"net_node_uuid"`
+	SubnetUUID   string         `db:"subnet_uuid"`
+	ConfigTypeID int            `db:"config_type_id"`
+	TypeID       int            `db:"type_id"`
+	OriginID     int            `db:"origin_id"`
+	ScopeID      int            `db:"scope_id"`
+	DeviceID     sql.NullString `db:"device_uuid"`
 }
 
 // fqdnAddress is the DB representation of a row in the fqdn_address table.

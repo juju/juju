@@ -213,9 +213,8 @@ func (m k8sServiceMatcher) Matches(x any) bool {
 	// remove it to enable SameContents checks over the other fields.
 	input = transform.Slice(input, func(in internal.ImportK8sService) internal.ImportK8sService {
 		m.c.Check(in.UUID, tc.Not(tc.Equals), "")
-		m.c.Check(in.DeviceUUID, tc.Not(tc.Equals), "")
 		m.c.Check(in.NetNodeUUID, tc.Not(tc.Equals), "")
-		in.UUID, in.DeviceUUID, in.NetNodeUUID = "", "", ""
+		in.UUID, in.NetNodeUUID = "", ""
 		return in
 	})
 

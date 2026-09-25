@@ -19,7 +19,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/export/types/latest"
-	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
+	v4_2_0 "github.com/juju/juju/domain/export/types/v4_2_0"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	domainservicestesting "github.com/juju/juju/domain/services/testing"
@@ -117,10 +117,10 @@ func (s *modelImporterSuite) TestImportModelNoSecretBackendRewriteRows(c *tc.C) 
 
 	passwordHash := "some-hash"
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{
+		ModelAgent: []v4_2_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
-		Sequence: []v4_1_0.Sequence{{Namespace: "machine", Value: 7}},
+		Sequence: []v4_2_0.Sequence{{Namespace: "machine", Value: 7}},
 	}
 
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
@@ -200,22 +200,22 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 	passwordHash := "some-hash"
 
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{
+		ModelAgent: []v4_2_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
-		Secret: []v4_1_0.Secret{
+		Secret: []v4_2_0.Secret{
 			{ID: secretID},
 		},
-		SecretMetadata: []v4_1_0.SecretMetadata{
+		SecretMetadata: []v4_2_0.SecretMetadata{
 			{SecretID: secretID, Version: 1, RotatePolicyID: 0, CreateTime: now, UpdateTime: now},
 		},
-		SecretRevision: []v4_1_0.SecretRevision{
+		SecretRevision: []v4_2_0.SecretRevision{
 			{UUID: revUUID1, SecretID: secretID, Revision: 1, CreateTime: now},
 		},
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: revUUID1, BackendUUID: sourceBackendUUID, RevisionID: "ext-rev-1"},
 		},
-		SecretDeletedValueRef: []v4_1_0.SecretDeletedValueRef{
+		SecretDeletedValueRef: []v4_2_0.SecretDeletedValueRef{
 			{RevisionUUID: revUUID2, BackendUUID: sourceBackendUUID, RevisionID: "ext-rev-2"},
 		},
 	}
@@ -292,19 +292,19 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 	passwordHash := "some-hash"
 
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{
+		ModelAgent: []v4_2_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
-		Secret: []v4_1_0.Secret{
+		Secret: []v4_2_0.Secret{
 			{ID: secretID},
 		},
-		SecretMetadata: []v4_1_0.SecretMetadata{
+		SecretMetadata: []v4_2_0.SecretMetadata{
 			{SecretID: secretID, Version: 1, RotatePolicyID: 0, CreateTime: now, UpdateTime: now},
 		},
-		SecretRevision: []v4_1_0.SecretRevision{
+		SecretRevision: []v4_2_0.SecretRevision{
 			{UUID: revUUID, SecretID: secretID, Revision: 1, CreateTime: now},
 		},
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: revUUID, BackendUUID: sourceBackendUUID, RevisionID: "ext-rev-1"},
 		},
 	}
@@ -360,19 +360,19 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingBackend(c
 	passwordHash := "some-hash"
 
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{
+		ModelAgent: []v4_2_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
-		Secret: []v4_1_0.Secret{
+		Secret: []v4_2_0.Secret{
 			{ID: secretID},
 		},
-		SecretMetadata: []v4_1_0.SecretMetadata{
+		SecretMetadata: []v4_2_0.SecretMetadata{
 			{SecretID: secretID, Version: 1, RotatePolicyID: 0, CreateTime: now, UpdateTime: now},
 		},
-		SecretRevision: []v4_1_0.SecretRevision{
+		SecretRevision: []v4_2_0.SecretRevision{
 			{UUID: revUUID, SecretID: secretID, Revision: 1, CreateTime: now},
 		},
-		SecretValueRef: []v4_1_0.SecretValueRef{
+		SecretValueRef: []v4_2_0.SecretValueRef{
 			{RevisionUUID: revUUID, BackendUUID: sourceBackendUUID, RevisionID: "ext-rev-1"},
 		},
 	}

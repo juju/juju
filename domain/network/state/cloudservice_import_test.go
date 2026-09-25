@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -35,14 +36,12 @@ func (s *k8sServiceImportSuite) TestCreateK8sServices(c *tc.C) {
 	args := []internal.ImportK8sService{
 		{
 			UUID:            "service-uuid-1",
-			DeviceUUID:      "device-uuid-1",
 			NetNodeUUID:     "net-node-uuid-1",
 			ApplicationName: "super-app-1",
 			ProviderID:      "provider-id-1",
 		},
 		{
 			UUID:            "service-uuid-2",
-			DeviceUUID:      "device-uuid-2",
 			NetNodeUUID:     "net-node-uuid-2",
 			ApplicationName: "super-app-2",
 			ProviderID:      "provider-id-2",
@@ -148,4 +147,198 @@ func (s *k8sServiceImportSuite) fetchNetNodeUUIDs(c *tc.C) []string {
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to check DB: %v"))
 	return nodes
+}
+
+// TestImportNetNodeAddresses covers the Kubernetes import path: addresses are
+// written against their net node with a NULL device reference, and no link
+// layer devices are created.
+func (s *k8sServiceImportSuite) TestImportNetNodeAddresses(c *tc.C) {
+	// Arrange
+	nodeUUID1 := s.addNetNode(c)
+	nodeUUID2 := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+	subnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+
+	input := []internal.ImportNetNodeAddresses{
+		{
+			NetNodeUUID: nodeUUID1,
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         "address-uuid-1",
+					Type:         corenetwork.IPv4Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigStatic,
+					Origin:       corenetwork.OriginProvider,
+					ProviderID:   new("provider-ip-1"),
+					AddressValue: "10.0.0.1/24",
+					SubnetUUID:   subnetUUID,
+				},
+				{
+					UUID:         "address-uuid-2",
+					Type:         corenetwork.IPv6Address,
+					Scope:        corenetwork.ScopeCloudLocal,
+					ConfigType:   corenetwork.ConfigDHCP,
+					Origin:       corenetwork.OriginProvider,
+					AddressValue: "fd42::1/64",
+				},
+			},
+		},
+		{
+			NetNodeUUID: nodeUUID2,
+			Addresses: []internal.ImportIPAddress{
+				{
+					UUID:         "address-uuid-3",
+					Type:         corenetwork.IPv4Address,
+					Scope:        corenetwork.ScopePublic,
+					ConfigType:   corenetwork.ConfigStatic,
+					Origin:       corenetwork.OriginProvider,
+					ProviderID:   new("provider-ip-3"),
+					AddressValue: "10.0.0.3/24",
+					SubnetUUID:   subnetUUID,
+				},
+			},
+		},
+	}
+
+	// Act
+	err := s.state.ImportNetNodeAddresses(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkRowCount(c, "ip_address", 3)
+	s.checkRowCount(c, "provider_ip_address", 2)
+	// No placeholder link layer devices are created for the addresses.
+	s.checkRowCount(c, "link_layer_device", 0)
+
+	type ipAddress struct {
+		UUID         string
+		NetNodeUUID  string
+		DeviceUUID   *string
+		AddressValue string
+		SubnetUUID   *string
+	}
+	var addresses []ipAddress
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx,
+			`SELECT uuid, net_node_uuid, device_uuid, address_value, subnet_uuid FROM ip_address`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var addr ipAddress
+			if err := rows.Scan(&addr.UUID, &addr.NetNodeUUID, &addr.DeviceUUID,
+				&addr.AddressValue, &addr.SubnetUUID); err != nil {
+				return err
+			}
+			addresses = append(addresses, addr)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.SameContents, []ipAddress{
+		{
+			UUID:         "address-uuid-1",
+			NetNodeUUID:  nodeUUID1,
+			DeviceUUID:   nil,
+			AddressValue: "10.0.0.1/24",
+			SubnetUUID:   &subnetUUID,
+		},
+		{
+			UUID:         "address-uuid-2",
+			NetNodeUUID:  nodeUUID1,
+			DeviceUUID:   nil,
+			AddressValue: "fd42::1/64",
+			SubnetUUID:   nil,
+		},
+		{
+			UUID:         "address-uuid-3",
+			NetNodeUUID:  nodeUUID2,
+			DeviceUUID:   nil,
+			AddressValue: "10.0.0.3/24",
+			SubnetUUID:   &subnetUUID,
+		},
+	})
+
+	type providerAddress struct {
+		ProviderID  string
+		AddressUUID string
+	}
+	var providerAddresses []providerAddress
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx,
+			`SELECT provider_id, address_uuid FROM provider_ip_address`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var addr providerAddress
+			if err := rows.Scan(&addr.ProviderID, &addr.AddressUUID); err != nil {
+				return err
+			}
+			providerAddresses = append(providerAddresses, addr)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providerAddresses, tc.SameContents, []providerAddress{
+		{ProviderID: "provider-ip-1", AddressUUID: "address-uuid-1"},
+		{ProviderID: "provider-ip-3", AddressUUID: "address-uuid-3"},
+	})
+}
+
+// TestImportNetNodeAddressesLookupErrors verifies that addresses with values
+// that cannot be resolved against the network lookup tables are rejected.
+func (s *k8sServiceImportSuite) TestImportNetNodeAddressesLookupErrors(c *tc.C) {
+	validAddress := internal.ImportIPAddress{
+		UUID:         "address-uuid",
+		Type:         corenetwork.IPv4Address,
+		Scope:        corenetwork.ScopePublic,
+		ConfigType:   corenetwork.ConfigStatic,
+		Origin:       corenetwork.OriginProvider,
+		AddressValue: "10.0.0.1/24",
+	}
+
+	testCases := []struct {
+		summary string
+		mutate  func(*internal.ImportIPAddress)
+		expect  string
+	}{
+		{
+			summary: "unknown address type",
+			mutate:  func(a *internal.ImportIPAddress) { a.Type = "bogus" },
+			expect:  `unknown address type "bogus"`,
+		},
+		{
+			summary: "unknown address config type",
+			mutate:  func(a *internal.ImportIPAddress) { a.ConfigType = "bogus" },
+			expect:  `unknown address config type "bogus"`,
+		},
+		{
+			summary: "unknown address origin",
+			mutate:  func(a *internal.ImportIPAddress) { a.Origin = "bogus" },
+			expect:  `unknown address origin "bogus"`,
+		},
+		{
+			summary: "unknown address scope",
+			mutate:  func(a *internal.ImportIPAddress) { a.Scope = "bogus" },
+			expect:  `unknown address scope "bogus"`,
+		},
+	}
+
+	for _, test := range testCases {
+		c.Logf("test: %s", test.summary)
+		addr := validAddress
+		test.mutate(&addr)
+
+		nodeUUID := s.addNetNode(c)
+		err := s.state.ImportNetNodeAddresses(c.Context(), []internal.ImportNetNodeAddresses{
+			{NetNodeUUID: nodeUUID, Addresses: []internal.ImportIPAddress{addr}},
+		})
+		c.Check(err, tc.ErrorMatches, test.expect)
+	}
+
+	// Nothing was persisted.
+	s.checkRowCount(c, "ip_address", 0)
 }

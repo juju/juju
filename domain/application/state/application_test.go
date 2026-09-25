@@ -1367,16 +1367,13 @@ func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingEmptyAddresses
 
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
-		var resultDeviceNames []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			resultAddresses = nil
-			resultDeviceNames = nil
 
 			rows, err := tx.QueryContext(ctx, `
-SELECT address_value, lld.name
+SELECT address_value, device_uuid
 FROM ip_address
-JOIN link_layer_device AS lld ON lld.uuid = ip_address.device_uuid
-JOIN net_node ON net_node.uuid = lld.net_node_uuid
+JOIN net_node ON net_node.uuid = ip_address.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 WHERE application_uuid = ?
 			`, appUUID)
@@ -1387,22 +1384,33 @@ WHERE application_uuid = ?
 
 			for rows.Next() {
 				var addressVal string
-				var deviceName string
-				if err := rows.Scan(&addressVal, &deviceName); err != nil {
+				var deviceUUID *string
+				if err := rows.Scan(&addressVal, &deviceUUID); err != nil {
 					return err
 				}
+				// Kubernetes service addresses are tied to the
+				// service's net node directly; they have no link
+				// layer device.
+				c.Check(deviceUUID, tc.IsNil)
 				resultAddresses = append(resultAddresses, addressVal)
-				resultDeviceNames = append(resultDeviceNames, deviceName)
 			}
 			return rows.Err()
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
-		// Placeholder devices for k8s services must never carry a name,
-		// otherwise it leaks via network-get.
-		for _, deviceName := range resultDeviceNames {
-			c.Check(deviceName, tc.Equals, "")
-		}
+
+		// No placeholder link layer devices are created for the service.
+		var deviceCount int
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM link_layer_device
+JOIN k8s_service ON k8s_service.net_node_uuid = link_layer_device.net_node_uuid
+WHERE application_uuid = ?
+			`, appUUID).Scan(&deviceCount)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(deviceCount, tc.Equals, 0)
 	}
 
 	checkAddresses(c, "10.0.0.1/8", "10.0.0.2/8")
@@ -1439,16 +1447,13 @@ func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingWithAddresses(
 
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
-		var resultDeviceNames []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			resultAddresses = nil
-			resultDeviceNames = nil
 
 			rows, err := tx.QueryContext(ctx, `
-SELECT address_value, lld.name
+SELECT address_value, device_uuid
 FROM ip_address
-JOIN link_layer_device AS lld ON lld.uuid = ip_address.device_uuid
-JOIN net_node ON net_node.uuid = lld.net_node_uuid
+JOIN net_node ON net_node.uuid = ip_address.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 WHERE application_uuid = ?
 			`, appUUID)
@@ -1459,22 +1464,33 @@ WHERE application_uuid = ?
 
 			for rows.Next() {
 				var addressVal string
-				var deviceName string
-				if err := rows.Scan(&addressVal, &deviceName); err != nil {
+				var deviceUUID *string
+				if err := rows.Scan(&addressVal, &deviceUUID); err != nil {
 					return err
 				}
+				// Kubernetes service addresses are tied to the
+				// service's net node directly; they have no link
+				// layer device.
+				c.Check(deviceUUID, tc.IsNil)
 				resultAddresses = append(resultAddresses, addressVal)
-				resultDeviceNames = append(resultDeviceNames, deviceName)
 			}
 			return rows.Err()
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(resultAddresses, tc.SameContents, expectedAddresses)
-		// Placeholder devices for k8s services must never carry a name,
-		// otherwise it leaks via network-get.
-		for _, deviceName := range resultDeviceNames {
-			c.Check(deviceName, tc.Equals, "")
-		}
+
+		// No placeholder link layer devices are created for the service.
+		var deviceCount int
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM link_layer_device
+JOIN k8s_service ON k8s_service.net_node_uuid = link_layer_device.net_node_uuid
+WHERE application_uuid = ?
+			`, appUUID).Scan(&deviceCount)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(deviceCount, tc.Equals, 0)
 	}
 
 	checkAddresses(c, "10.0.0.1/24", "10.0.0.2/24")
@@ -1531,8 +1547,7 @@ func (s *applicationStateSuite) TestUpsertCloudServiceWithDiscoveredSubnet(c *tc
 		return tx.QueryRowContext(ctx, `
 SELECT subnet.cidr
 FROM ip_address
-JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
-JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN net_node ON net_node.uuid = ip_address.net_node_uuid
 JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
 JOIN subnet ON subnet.uuid = ip_address.subnet_uuid
 WHERE k8s_service.application_uuid = ?

@@ -93,7 +93,6 @@ type UnitAddress struct {
 
 type ImportK8sService struct {
 	UUID        string // generated during import
-	DeviceUUID  string // generated during import
 	NetNodeUUID string // generated during import
 
 	ApplicationName string
@@ -109,4 +108,13 @@ type ImportK8sServiceAddress struct {
 	Scope   string
 	Origin  string
 	SpaceID string
+}
+
+// ImportNetNodeAddresses represents a set of IP addresses to import for a
+// single net node. The addresses have no link layer device: this is used
+// for Kubernetes pods and services, which have no OS-level NICs managed
+// by Juju.
+type ImportNetNodeAddresses struct {
+	NetNodeUUID string
+	Addresses   []ImportIPAddress
 }

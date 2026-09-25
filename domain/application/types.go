@@ -128,20 +128,11 @@ type K8sService struct {
 // ServiceAddress contains parameters for a cloud service address.
 // This may be from a load balancer, or cluster service etc.
 type ServiceAddress struct {
-	Device      K8sServiceDevice
 	Value       string
 	AddressType ipaddress.AddressType
 	Scope       ipaddress.Scope
 	Origin      ipaddress.Origin
 	ConfigType  ipaddress.ConfigType
-}
-
-// K8sServiceDevice is the placeholder link layer device
-// used to tie the cloud service IP address to the application.
-type K8sServiceDevice struct {
-	Name              string
-	DeviceTypeID      domainnetwork.DeviceType
-	VirtualPortTypeID domainnetwork.VirtualPortType
 }
 
 // Origin contains parameters for an application's origin.
@@ -182,20 +173,8 @@ type K8sPod struct {
 	FQDNScope int
 }
 
-// K8sPodDevice is the placeholder link layer device
-// used to tie the k8s pod IP address to the pod.
-type K8sPodDevice struct {
-	Name              string
-	DeviceTypeID      domainnetwork.DeviceType
-	VirtualPortTypeID domainnetwork.VirtualPortType
-}
-
 // K8sPodAddress contains parameters for a k8s pod address.
-// Device is an attribute of address rather than k8s pod
-// since it's a placeholder used to tie the address to the
-// k8s pod and is only needed if the address exists.
 type K8sPodAddress struct {
-	Device      K8sPodDevice
 	Value       string
 	AddressType ipaddress.AddressType
 	Scope       ipaddress.Scope

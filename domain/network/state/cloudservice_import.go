@@ -12,6 +12,42 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// ImportNetNodeAddresses imports IP addresses associated with net nodes
+// without any link layer device. This is used for Kubernetes pods and
+// services, which have no OS-level NICs managed by Juju.
+func (st *State) ImportNetNodeAddresses(ctx context.Context, input []internal.ImportNetNodeAddresses) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		lookups, err := st.getNetConfigLookups(ctx, tx)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		var addresses []ipAddressDML
+		var providerAddresses []providerIpAddressDML
+		for _, node := range input {
+			nodeAddrs, nodeProviders, err := transformImportAddresses(
+				lookups, node.NetNodeUUID, "", node.Addresses)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			addresses = append(addresses, nodeAddrs...)
+			providerAddresses = append(providerAddresses, nodeProviders...)
+		}
+		if err := st.importIpAddresses(ctx, tx, addresses); err != nil {
+			return errors.Capture(err)
+		}
+		if err := st.importProviderIpAddresses(ctx, tx, providerAddresses); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+}
+
 // CreateK8sServices creates cloud service in state.
 // It creates the associated net node uuid and links it to the application
 // through the provided application name.

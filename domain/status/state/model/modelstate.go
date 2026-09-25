@@ -1626,9 +1626,7 @@ WITH selected_k8s_service_address AS (
     (
       SELECT ipa.address_value
       FROM   k8s_service AS candidate_svc
-      JOIN   link_layer_device AS lld
-             ON lld.net_node_uuid = candidate_svc.net_node_uuid
-      JOIN   ip_address AS ipa ON ipa.device_uuid = lld.uuid
+      JOIN   ip_address AS ipa ON ipa.net_node_uuid = candidate_svc.net_node_uuid
       WHERE  candidate_svc.application_uuid = svc.application_uuid
       AND    ipa.scope_id IN (1, 2) /* public, local-cloud */
       AND    ipa.type_id IN (0, 1) /* IPv4, IPv6 */

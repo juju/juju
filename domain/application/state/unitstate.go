@@ -411,7 +411,7 @@ WHERE unit_uuid = $k8sPod.unit_uuid
 	}
 
 	if cc.Address != nil {
-		if err := st.upsertK8sPodAddress(ctx, tx, unitName, netNodeUUID, *cc.Address); err != nil {
+		if err := st.upsertK8sPodAddress(ctx, tx, netNodeUUID, *cc.Address); err != nil {
 			return errors.Errorf("updating k8s pod address for unit %q: %w", unitName, err)
 		}
 	}
@@ -429,52 +429,8 @@ WHERE unit_uuid = $k8sPod.unit_uuid
 }
 
 func (st *State) upsertK8sPodAddress(
-	ctx context.Context, tx *sqlair.TX, unitName, netNodeUUID string, address application.K8sPodAddress,
+	ctx context.Context, tx *sqlair.TX, netNodeUUID string, address application.K8sPodAddress,
 ) error {
-	// First ensure the address link layer device is upserted.
-	// For k8s pods, the device is a placeholder without
-	// a MAC address. It just exits to tie the address to the
-	// net node corresponding to the k8s pod.
-	k8sPodDeviceInfo := k8sPodDevice{
-		Name:              address.Device.Name,
-		NetNodeID:         netNodeUUID,
-		DeviceTypeID:      int(address.Device.DeviceTypeID),
-		VirtualPortTypeID: int(address.Device.VirtualPortTypeID),
-	}
-
-	selectK8sPodDeviceStmt, err := st.Prepare(`
-SELECT &k8sPodDevice.uuid
-FROM link_layer_device
-WHERE net_node_uuid = $k8sPodDevice.net_node_uuid
-`, k8sPodDeviceInfo)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	insertK8sPodDeviceStmt, err := st.Prepare(`
-INSERT INTO link_layer_device (*) VALUES ($k8sPodDevice.*)
-`, k8sPodDeviceInfo)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// See if the link layer device exists, if not insert it.
-	err = tx.Query(ctx, selectK8sPodDeviceStmt, k8sPodDeviceInfo).Get(&k8sPodDeviceInfo)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying k8s pod link layer device for unit %q: %w", unitName, err)
-	}
-	if errors.Is(err, sqlair.ErrNoRows) {
-		deviceUUID, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Capture(err)
-		}
-		k8sPodDeviceInfo.UUID = deviceUUID.String()
-		if err := tx.Query(ctx, insertK8sPodDeviceStmt, k8sPodDeviceInfo).Run(); err != nil {
-			return errors.Errorf("inserting k8s pod device for unit %q: %w", unitName, err)
-		}
-	}
-	deviceUUID := k8sPodDeviceInfo.UUID
-
 	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)
@@ -487,7 +443,9 @@ INSERT INTO link_layer_device (*) VALUES ($k8sPodDevice.*)
 		return errors.Errorf("subnet for address type %v not found", address.AddressType)
 	}
 
-	// Now process the address details.
+	// Now process the address details. Kubernetes pods have no link layer
+	// device managed by Juju, so the address is tied to the pod's net node
+	// without a device.
 	ipAddr := ipAddress{
 		Value:        address.Value,
 		SubnetUUID:   subnetUUID,
@@ -496,13 +454,12 @@ INSERT INTO link_layer_device (*) VALUES ($k8sPodDevice.*)
 		TypeID:       int(address.AddressType),
 		OriginID:     int(address.Origin),
 		ScopeID:      int(address.Scope),
-		DeviceID:     deviceUUID,
 	}
 
 	selectAddressUUIDStmt, err := st.Prepare(`
 SELECT &ipAddress.uuid
 FROM   ip_address
-WHERE  device_uuid = $ipAddress.device_uuid;
+WHERE  net_node_uuid = $ipAddress.net_node_uuid;
 `, ipAddr)
 	if err != nil {
 		return errors.Capture(err)
@@ -527,7 +484,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 	// First see if there's an existing address recorded.
 	err = tx.Query(ctx, selectAddressUUIDStmt, ipAddr).Get(&ipAddr)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying existing k8s pod address for device %q: %w", deviceUUID, err)
+		return errors.Errorf("querying existing k8s pod address for net node %q: %w", netNodeUUID, err)
 	}
 
 	// Create a UUID for new addresses.
@@ -541,7 +498,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 	// Update the address values.
 	if err = tx.Query(ctx, upsertAddressStmt, ipAddr).Run(); err != nil {
-		return errors.Errorf("updating k8s pod address attributes for device %q: %w", deviceUUID, err)
+		return errors.Errorf("updating k8s pod address attributes for net node %q: %w", netNodeUUID, err)
 	}
 	return nil
 }

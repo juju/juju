@@ -4,6 +4,7 @@
 package state
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -93,7 +94,7 @@ func (s *typesSuite) TestNetAddrToDMLSuccess(c *tc.C) {
 	c.Check(dml, tc.DeepEquals, ipAddressDML{
 		UUID:         "some-addr-uuid",
 		NodeUUID:     "some-node-uuid",
-		DeviceUUID:   "some-device-uuid",
+		DeviceUUID:   sql.NullString{String: "some-device-uuid", Valid: true},
 		AddressValue: "10.0.0.13/24",
 		SubnetUUID:   nil,
 		TypeID:       0,
@@ -112,6 +113,17 @@ func (s *typesSuite) TestNetAddrToDMLBadAddressTypeError(c *tc.C) {
 	_, err := netAddrToDML(
 		addr, "some-node-uuid", "some-device-uuid", map[string]string{"10.0.0.13/24": "some-addr-uuid"}, getNetAddressTypes())
 	c.Assert(err, tc.ErrorMatches, "unsupported address type.*")
+}
+
+// TestNetAddrToDMLNoDeviceError verifies that reconciliation cannot write an
+// address without a device: only Kubernetes pod and service addresses carry
+// a NULL device, and those are written via a different path.
+func (s *typesSuite) TestNetAddrToDMLNoDeviceError(c *tc.C) {
+	addr := getNetAddr()
+
+	_, err := netAddrToDML(
+		addr, "some-node-uuid", "", map[string]string{"10.0.0.13/24": "some-addr-uuid"}, getNetAddressTypes())
+	c.Assert(err, tc.ErrorMatches, `no device UUID associated with IP "10.0.0.13/24" on device "eth0"`)
 }
 
 func getNetInterface() network.NetInterface {

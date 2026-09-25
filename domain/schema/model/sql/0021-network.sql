@@ -38,7 +38,7 @@ CREATE TABLE link_layer_device (
     net_node_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     mtu INT,
-    -- NULL for a placeholder link layer device.
+    -- Not every observed device reports a MAC address; NULL when unknown.
     mac_address TEXT,
     device_type_id INT NOT NULL,
     virtual_port_type_id INT NOT NULL,
@@ -192,9 +192,13 @@ INSERT INTO ip_address_config_type VALUES
 
 CREATE TABLE ip_address (
     uuid TEXT NOT NULL PRIMARY KEY,
-    -- the link layer device this address belongs to.
+    -- the net node this address belongs to.
     net_node_uuid TEXT NOT NULL,
-    device_uuid TEXT NOT NULL,
+    -- The link layer device the address is assigned to. Kubernetes
+    -- pods and services have no OS-level NICs managed by Juju, so
+    -- their addresses carry no device and this is NULL. The net node
+    -- association is maintained by net_node_uuid.
+    device_uuid TEXT,
     -- The IP address *including the subnet mask*.
     address_value TEXT NOT NULL,
     -- NOTE (manadart 2025-03--25): The fact that this is nullable is a wart
@@ -426,7 +430,7 @@ candidate AS (
         END AS scope_rank
     FROM unit_net_node AS unn
     JOIN ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
-    JOIN link_layer_device AS lld ON ipa.device_uuid = lld.uuid
+    LEFT JOIN link_layer_device AS lld ON ipa.device_uuid = lld.uuid
     JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
     JOIN ip_address_type AS iat ON ipa.type_id = iat.id
     JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id

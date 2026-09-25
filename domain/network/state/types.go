@@ -393,18 +393,20 @@ func netInterfaceToDML(
 }
 
 // ipAddressDML is for writing data to the ip_address table.
+// DeviceUUID is empty for addresses that are not associated with a
+// link layer device, such as those of Kubernetes pods and services.
 type ipAddressDML struct {
-	UUID         string  `db:"uuid"`
-	NodeUUID     string  `db:"net_node_uuid"`
-	DeviceUUID   string  `db:"device_uuid"`
-	AddressValue string  `db:"address_value"`
-	SubnetUUID   *string `db:"subnet_uuid"`
-	TypeID       int     `db:"type_id"`
-	ConfigTypeID int     `db:"config_type_id"`
-	OriginID     int     `db:"origin_id"`
-	ScopeID      int     `db:"scope_id"`
-	IsSecondary  bool    `db:"is_secondary"`
-	IsShadow     bool    `db:"is_shadow"`
+	UUID         string         `db:"uuid"`
+	NodeUUID     string         `db:"net_node_uuid"`
+	DeviceUUID   sql.NullString `db:"device_uuid"`
+	AddressValue string         `db:"address_value"`
+	SubnetUUID   *string        `db:"subnet_uuid"`
+	TypeID       int            `db:"type_id"`
+	ConfigTypeID int            `db:"config_type_id"`
+	OriginID     int            `db:"origin_id"`
+	ScopeID      int            `db:"scope_id"`
+	IsSecondary  bool           `db:"is_secondary"`
+	IsShadow     bool           `db:"is_shadow"`
 }
 
 // providerIpAddressDML represents the mapping between an IP address and
@@ -455,10 +457,18 @@ func netAddrToDML(
 		return dml, errors.Errorf("unsupported address scope: %q", addr.Scope)
 	}
 
+	// Addresses on machine devices always reference their device. Kubernetes
+	// pod and service addresses are written via a different path with a NULL
+	// device; an empty device UUID here indicates broken reconciliation.
+	if devUUID == "" {
+		return dml, errors.Errorf("no device UUID associated with IP %q on device %q",
+			addr.AddressValue, addr.InterfaceName)
+	}
+
 	dml = ipAddressDML{
 		UUID:         addrUUID,
 		NodeUUID:     nodeUUID,
-		DeviceUUID:   devUUID,
+		DeviceUUID:   sql.NullString{String: devUUID, Valid: true},
 		AddressValue: addr.AddressValue,
 		SubnetUUID:   nil,
 		TypeID:       addrTypeID,

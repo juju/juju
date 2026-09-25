@@ -35,8 +35,7 @@ func (st *State) ImportLinkLayerDevices(ctx context.Context, input []internal.Im
 			return errors.Capture(err)
 		}
 
-		addresses, providerAddresses, err := transformAddressesFromImportData(input,
-			lookups.addrType, lookups.addrConfigType, lookups.origin, lookups.scope)
+		addresses, providerAddresses, err := transformAddressesFromImportData(input, lookups)
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -230,58 +229,82 @@ func transformImportData(
 	return llds, parents, providers, nil
 }
 
+// transformAddressesFromImportData converts the addresses of every imported
+// link layer device into persistence rows, keyed by the owning device.
 func transformAddressesFromImportData(
 	input []internal.ImportLinkLayerDevice,
-	typeMap map[network.AddressType]int,
-	configTypeMap map[network.AddressConfigType]int,
-	originTypeMap map[network.Origin]int,
-	scopeTypeMap map[network.Scope]int,
+	lookups netConfigLookups,
 ) ([]ipAddressDML, []providerIpAddressDML, error) {
-	var providerIds []providerIpAddressDML
-	var addresses []ipAddressDML
-
+	var (
+		addresses   []ipAddressDML
+		providerIDs []providerIpAddressDML
+	)
 	for _, lld := range input {
-		for _, address := range lld.Addresses {
-			typeID, ok := typeMap[address.Type]
-			if !ok {
-				return nil, nil, errors.Errorf("unknown address type %q", address.Type)
-			}
-			configTypeID, ok := configTypeMap[address.ConfigType]
-			if !ok {
-				return nil, nil, errors.Errorf("unknown address config type %q", address.ConfigType)
-			}
-			originID, ok := originTypeMap[address.Origin]
-			if !ok {
-				return nil, nil, errors.Errorf("unknown address origin %q", address.Origin)
-			}
-			scopeID, ok := scopeTypeMap[address.Scope]
-			if !ok {
-				return nil, nil, errors.Errorf("unknown address scope %q", address.Scope)
-			}
+		addrs, providers, err := transformImportAddresses(
+			lookups, lld.NetNodeUUID, lld.UUID, lld.Addresses)
+		if err != nil {
+			return nil, nil, errors.Capture(err)
+		}
+		addresses = append(addresses, addrs...)
+		providerIDs = append(providerIDs, providers...)
+	}
+	return addresses, providerIDs, nil
+}
 
-			addresses = append(addresses, ipAddressDML{
-				UUID:         address.UUID,
-				NodeUUID:     lld.NetNodeUUID,
-				DeviceUUID:   lld.UUID,
-				AddressValue: address.AddressValue,
-				SubnetUUID:   nilZeroPtr(address.SubnetUUID),
-				TypeID:       typeID,
-				ConfigTypeID: configTypeID,
-				OriginID:     originID,
-				ScopeID:      scopeID,
-				IsSecondary:  address.IsSecondary,
-				IsShadow:     address.IsShadow,
+// transformImportAddresses converts import IP addresses into the persistence
+// rows for a single net node. Addresses on machine devices pass the UUID of
+// the owning link layer device; device-less addresses (Kubernetes pods and
+// services) pass an empty UUID, persisted as a NULL device reference.
+func transformImportAddresses(
+	lookups netConfigLookups,
+	nodeUUID, deviceUUID string,
+	input []internal.ImportIPAddress,
+) ([]ipAddressDML, []providerIpAddressDML, error) {
+	var (
+		addresses   []ipAddressDML
+		providerIDs []providerIpAddressDML
+	)
+
+	for _, address := range input {
+		typeID, ok := lookups.addrType[address.Type]
+		if !ok {
+			return nil, nil, errors.Errorf("unknown address type %q", address.Type)
+		}
+		configTypeID, ok := lookups.addrConfigType[address.ConfigType]
+		if !ok {
+			return nil, nil, errors.Errorf("unknown address config type %q", address.ConfigType)
+		}
+		originID, ok := lookups.origin[address.Origin]
+		if !ok {
+			return nil, nil, errors.Errorf("unknown address origin %q", address.Origin)
+		}
+		scopeID, ok := lookups.scope[address.Scope]
+		if !ok {
+			return nil, nil, errors.Errorf("unknown address scope %q", address.Scope)
+		}
+
+		addresses = append(addresses, ipAddressDML{
+			UUID:         address.UUID,
+			NodeUUID:     nodeUUID,
+			DeviceUUID:   sql.NullString{String: deviceUUID, Valid: deviceUUID != ""},
+			AddressValue: address.AddressValue,
+			SubnetUUID:   nilZeroPtr(address.SubnetUUID),
+			TypeID:       typeID,
+			ConfigTypeID: configTypeID,
+			OriginID:     originID,
+			ScopeID:      scopeID,
+			IsSecondary:  address.IsSecondary,
+			IsShadow:     address.IsShadow,
+		})
+		if address.ProviderID != nil && *address.ProviderID != "" {
+			providerIDs = append(providerIDs, providerIpAddressDML{
+				AddressUUID: address.UUID,
+				ProviderID:  *address.ProviderID,
 			})
-			if address.ProviderID != nil && *address.ProviderID != "" {
-				providerIds = append(providerIds, providerIpAddressDML{
-					AddressUUID: address.UUID,
-					ProviderID:  *address.ProviderID,
-				})
-			}
 		}
 	}
 
-	return addresses, providerIds, nil
+	return addresses, providerIDs, nil
 }
 
 // AllMachinesAndNetNodes is part of the [service.LinkLayerDeviceState]

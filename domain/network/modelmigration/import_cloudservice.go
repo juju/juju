@@ -95,10 +95,6 @@ func (i *importK8sServiceOperation) encodeK8sServices(
 		if err != nil {
 			return nil, errors.Errorf("creating net node uuid: %w", err)
 		}
-		deviceUUID, err := uuid.NewUUID()
-		if err != nil {
-			return nil, errors.Errorf("creating device uuid: %w", err)
-		}
 
 		addresses, err := transform.SliceOrErr(k8sService.Addresses(),
 			func(addr description.Address) (internal.ImportK8sServiceAddress, error) {
@@ -123,7 +119,6 @@ func (i *importK8sServiceOperation) encodeK8sServices(
 		k8sServices = append(k8sServices, internal.ImportK8sService{
 			UUID:            serviceUUID.String(),
 			NetNodeUUID:     netNodeUUID.String(),
-			DeviceUUID:      deviceUUID.String(),
 			ApplicationName: app.Name(),
 			ProviderID:      k8sService.ProviderId(),
 			Addresses:       addresses,

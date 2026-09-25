@@ -1240,72 +1240,15 @@ func (st *State) upsertK8sServiceAddresses(
 	applicationName string,
 	addresses network.ProviderAddresses,
 ) error {
-	var linkLayerDeviceUUID dbUUID
-	queryLinkLayerDeviceFromServiceStmt, err := st.Prepare(`
-SELECT lld.uuid AS &dbUUID.uuid
-FROM   link_layer_device AS lld
-WHERE  lld.net_node_uuid = $k8sService.net_node_uuid
-			`, linkLayerDeviceUUID, serviceInfo)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Retrieve the link layer device UUID for the service.
-	var lldUUIDStr string
-	err = tx.Query(ctx, queryLinkLayerDeviceFromServiceStmt, serviceInfo).Get(&linkLayerDeviceUUID)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
-	} else if errors.Is(err, sqlair.ErrNoRows) {
-		// Ensure the address link layer device is inserted.
-		lldUUID, err := st.insertK8sServiceDevice(ctx, tx, serviceInfo.NetNodeUUID)
-		if err != nil {
-			return errors.Errorf("inserting cloud service link layer device for application %q: %w", serviceInfo.ApplicationUUID, err)
-		}
-		lldUUIDStr = lldUUID.String()
-	} else {
-		lldUUIDStr = linkLayerDeviceUUID.UUID
-	}
-
 	// Before inserting the new addresses, we need to remove any existing
 	// ones for the given application and provider id.
 	if err := st.deleteK8sServiceAddresses(ctx, tx, serviceInfo.ApplicationUUID, serviceInfo.ProviderID); err != nil {
 		return errors.Capture(err)
 	}
-	if err := st.insertK8sServiceAddresses(ctx, tx, lldUUIDStr, serviceInfo.NetNodeUUID, addresses); err != nil {
+	if err := st.insertK8sServiceAddresses(ctx, tx, serviceInfo.NetNodeUUID, addresses); err != nil {
 		return errors.Errorf("inserting cloud service addresses for application %q: %w", applicationName, err)
 	}
 	return nil
-}
-
-func (st *State) insertK8sServiceDevice(
-	ctx context.Context, tx *sqlair.TX, netNodeUUID string,
-) (uuid.UUID, error) {
-	// For cloud services, the device is a placeholder without
-	// a MAC address and once inserted, not updated. It just exists
-	// to tie the address to the net node corresponding to the
-	// cloud service.
-	devUUID, err := uuid.NewUUID()
-	if err != nil {
-		return uuid.UUID{}, errors.Capture(err)
-	}
-	k8sServiceDeviceInfo := k8sServiceDevice{
-		UUID:              devUUID.String(),
-		Name:              network.PlaceholderDeviceName,
-		DeviceTypeID:      int(domainnetwork.DeviceTypeUnknown),
-		VirtualPortTypeID: int(domainnetwork.NonVirtualPortType),
-		NetNodeID:         netNodeUUID,
-	}
-	insertK8sServiceDeviceStmt, err := st.Prepare(`
-INSERT INTO link_layer_device (*) VALUES ($k8sServiceDevice.*)
-`, k8sServiceDeviceInfo)
-	if err != nil {
-		return uuid.UUID{}, errors.Capture(err)
-	}
-
-	if err := tx.Query(ctx, insertK8sServiceDeviceStmt, k8sServiceDeviceInfo).Run(); err != nil {
-		return uuid.UUID{}, errors.Capture(err)
-	}
-	return devUUID, nil
 }
 
 func (st *State) deleteK8sServiceAddresses(ctx context.Context, tx *sqlair.TX, appUUID, providerID string) error {
@@ -1314,15 +1257,14 @@ func (st *State) deleteK8sServiceAddresses(ctx context.Context, tx *sqlair.TX, a
 		ProviderID:      providerID,
 	}
 	deleteAddressStmt, err := st.Prepare(`
-WITH lld_uuids AS (
-	SELECT lld.uuid
-	FROM   link_layer_device AS lld
-	JOIN   k8s_service AS ks ON ks.net_node_uuid = lld.net_node_uuid
+WITH service_node AS (
+	SELECT ks.net_node_uuid
+	FROM   k8s_service AS ks
 	WHERE  ks.application_uuid = $k8sService.application_uuid
 	AND    ks.provider_id = $k8sService.provider_id
 )
 DELETE FROM ip_address
-WHERE device_uuid IN lld_uuids;
+WHERE net_node_uuid IN service_node;
 `, k8sService)
 	if err != nil {
 		return errors.Capture(err)
@@ -1349,7 +1291,7 @@ func addressTypeForUnspecifiedCIDR(cidr string) network.AddressType {
 }
 
 func (st *State) insertK8sServiceAddresses(
-	ctx context.Context, tx *sqlair.TX, linkLayerDeviceUUID string, netNodeUUID string, addresses network.ProviderAddresses) error {
+	ctx context.Context, tx *sqlair.TX, netNodeUUID string, addresses network.ProviderAddresses) error {
 	if len(addresses) == 0 {
 		return nil
 	}
@@ -1382,7 +1324,6 @@ func (st *State) insertK8sServiceAddresses(
 			TypeID:       int(ipaddress.MarshallAddressType(address.AddressType())),
 			OriginID:     int(ipaddress.MarshallOrigin(network.OriginProvider)),
 			ScopeID:      int(ipaddress.MarshallScope(address.AddressScope())),
-			DeviceID:     linkLayerDeviceUUID,
 		}
 	}
 
@@ -1606,8 +1547,7 @@ SELECT ip.address_value AS &spaceAddress.address_value,
        ip.scope_id AS &spaceAddress.scope_id,
        sn.space_uuid AS &spaceAddress.space_uuid
 FROM   net_node nn
-       JOIN link_layer_device lld ON lld.net_node_uuid = nn.uuid
-       JOIN ip_address ip ON ip.device_uuid = lld.uuid
+       JOIN ip_address ip ON ip.net_node_uuid = nn.uuid
        LEFT JOIN subnet sn ON sn.uuid = ip.subnet_uuid
 WHERE  nn.uuid = $netNodeUUID.uuid;
 `, netNodeUUID, spaceAddress{})

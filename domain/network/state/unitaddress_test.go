@@ -401,6 +401,46 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasServiceAddressOmitte
 	c.Assert(addr, tc.DeepEquals, domainnetwork.ControllerAPIAddresses{})
 }
 
+// TestGetControllerAPIAddressesCaasPodAddressNoDevice covers the Kubernetes
+// case: pod addresses have no link layer device (device_uuid is NULL). The
+// address must still be returned, with an unknown device type.
+func (s *unitAddressSuite) TestGetControllerAPIAddressesCaasPodAddressNoDevice(c *tc.C) {
+	podNodeUUID := s.addNetNode(c)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	s.query(c, `
+INSERT INTO ip_address (uuid, device_uuid, address_value, net_node_uuid, subnet_uuid, type_id, config_type_id, origin_id, scope_id)
+SELECT ?, NULL, ?, ?, ?, 0, 4, 1, scope.id
+FROM ip_address_scope AS scope
+WHERE scope.name = ?
+`, uuid.MustNewUUID().String(), "10.0.0.1", podNodeUUID, subnetUUID,
+		string(corenetwork.ScopeMachineLocal))
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, s.addNetNode(c), appUUID)
+
+	addr, err := s.state.GetControllerAPIAddresses(c.Context(), unitUUID.String())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, domainnetwork.ControllerAPIAddresses{{
+		SpaceAddress: corenetwork.SpaceAddress{
+			SpaceID: corenetwork.SpaceUUID(spaceUUID),
+			Origin:  corenetwork.OriginProvider,
+			MachineAddress: corenetwork.MachineAddress{
+				Value:      "10.0.0.1",
+				CIDR:       cidr,
+				Type:       corenetwork.IPv4Address,
+				Scope:      corenetwork.Scope("local-cloud"),
+				ConfigType: corenetwork.ConfigStatic,
+			},
+		},
+		DeviceType: domainnetwork.DeviceTypeUnknown,
+	}})
+}
+
 func (s *unitAddressSuite) TestGetUnitAddresses(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)

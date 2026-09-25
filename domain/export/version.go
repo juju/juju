@@ -48,7 +48,8 @@ import (
 // delete the superseded types directory when a non-own entry moves.
 var exportVersionStrings = []string{
 	"4.0.12",
-	"4.1.0", // mutable, not released
+	"4.1.0",
+	"4.2.0", // mutable, not released
 }
 
 // ExportVersions lists each semantic version for which there is a new export
