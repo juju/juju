@@ -26,11 +26,11 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
+	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
-	sshserver "github.com/juju/juju/internal/worker/sshserver"
 	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
@@ -342,7 +342,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	// Fetch the terminating server factory from the sshserver worker's
 	// manifold output. Relay authorization happens in the relay handler
 	// using the verified JWT.
-	var serverFactory sshserver.TerminatingServerFactory
+	var serverFactory coresshproxy.TerminatingServerFactory
 	if err := getter.Get(config.SSHServerName, &serverFactory); err != nil {
 		return nil, errors.Trace(err)
 	}

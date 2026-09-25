@@ -4,11 +4,9 @@
 package sshproxy
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
-	ssh "github.com/tailscale/gliderssh"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
@@ -36,7 +34,7 @@ type RelayHandlerConfig struct {
 	// Logger is used for logging.
 	Logger logger.Logger
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory TerminatingServerFactory
+	ServerFactory coresshproxy.TerminatingServerFactory
 }
 
 // Validate checks whether the configuration is valid.
@@ -48,15 +46,6 @@ func (cfg RelayHandlerConfig) Validate() error {
 		return errors.New("nil ServerFactory")
 	}
 	return nil
-}
-
-// TerminatingServerFactory builds terminating SSH servers for routed
-// destinations. It is satisfied by the SSH server worker's factory, whose
-// output the apiserver manifold consumes.
-type TerminatingServerFactory interface {
-	// New returns a terminating SSH server for the destination, with proxy
-	// handlers and the destination's host key configured.
-	New(ctx context.Context, destination virtualhostname.Info) (*ssh.Server, error)
 }
 
 // NewRelayHandler returns a new JIMM relay endpoint handler.

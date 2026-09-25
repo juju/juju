@@ -118,7 +118,7 @@ func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	ctrl.Finish()
 }
 
-func (s *relaySuite) newHandler(c *tc.C, factory TerminatingServerFactory) *RelayHandler {
+func (s *relaySuite) newHandler(c *tc.C, factory coresshproxy.TerminatingServerFactory) *RelayHandler {
 	handler, err := NewRelayHandler(RelayHandlerConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
 		ServerFactory: factory,
@@ -129,7 +129,7 @@ func (s *relaySuite) newHandler(c *tc.C, factory TerminatingServerFactory) *Rela
 
 // serveRelay dispatches a relay request and returns the response recorder.
 // An empty access produces no JWT, testing the missing-token path.
-func (s *relaySuite) serveRelay(c *tc.C, factory TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
+func (s *relaySuite) serveRelay(c *tc.C, factory coresshproxy.TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)

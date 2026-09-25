@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
+	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -34,7 +35,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ServerFactory           TerminatingServerFactory
+	ServerFactory           coresshproxy.TerminatingServerFactory
 	Metrics                 *Collector
 }
 
