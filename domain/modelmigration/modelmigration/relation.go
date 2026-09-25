@@ -29,6 +29,13 @@ func ContainsRelationEndpointApplicationName(rel description.Relation, applicati
 
 // GetUniqueRemoteConsumersNames returns the set of remote consumer applications
 // that are involved in the given remote relations.
+//
+// Being a consumer proxy is how a legacy model marks the remote application
+// standing in for the consuming application, and it is the only way to tell
+// the two sides of a cross model relation apart here. A model description that
+// does not set it is indistinguishable from a remote application offerer, and
+// its relations would be imported by the relation domain rather than created
+// by the cross model relation domain.
 func GetUniqueRemoteConsumersNames(remoteApps []description.RemoteApplication) set.Strings {
 	// If there are no remote applications, then there can't be any remote
 	// relations.

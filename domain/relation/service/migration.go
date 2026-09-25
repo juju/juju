@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/errors"
 )
@@ -132,6 +133,48 @@ func (s *MigrationService) importRelation(ctx context.Context, arg relation.Impo
 	return nil
 }
 
+// ImportRelationData imports the endpoint data of relations that already exist
+// in the model: the application settings of each endpoint, and the settings
+// and relation scope membership of each of its units.
+//
+// It is for the relations that migration imports without this domain creating
+// them, which are the relations of remote application consumers: those are
+// created by the cross model relation import, because the offer connections it
+// imports need them, and it hands their data over here because relation
+// settings and unit scope membership belong to this domain.
+//
+// The relation is located by its UUID, which the caller must have resolved
+// before calling. ID and Key are validated and reported, but play no part in
+// locating anything, and Scope is not used, as nothing about the relation
+// itself is written here. Both the relation and its endpoints must already
+// exist, and every unit must belong to an application of the relation, which
+// the state layer enforces.
+//
+// Re-importing a relation is not an error, so an import that failed part way
+// through can be retried.
+func (s *MigrationService) ImportRelationData(ctx context.Context, args relation.ImportRelationsArgs) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, arg := range args {
+		if err := arg.UUID.Validate(); err != nil {
+			return errors.Errorf("validating relation UUID for relation %d: %w", arg.ID, err)
+		}
+		if err := arg.Key.Validate(); err != nil {
+			return errors.Errorf("validating relation key for relation %d: %w", arg.ID, err)
+		}
+
+		for _, ep := range arg.Endpoints {
+			if err := s.importRelationEndpoint(ctx, arg.UUID, ep); err != nil {
+				return errors.Errorf("importing %q endpoint data for relation %d: %w",
+					ep.ApplicationName, arg.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// importRelationEndpoint imports the data of a single endpoint of a relation.
 func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID corerelation.UUID, ep relation.ImportEndpoint) error {
 	appID, err := s.st.GetApplicationUUIDByName(ctx, ep.ApplicationName)
 	if err != nil {
@@ -161,7 +204,14 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 			return err
 		}
 		_, err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
-		if err != nil {
+		if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
+			// The unit is already in scope, and keeps the settings it was given
+			// when it first entered, which EnterScope writes in the same
+			// transaction as the scope membership. Nothing is left to do, so
+			// the error is ignored, which keeps an import that failed part way
+			// through retriable.
+			continue
+		} else if err != nil {
 			return err
 		}
 	}

@@ -16,6 +16,7 @@ import (
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -102,6 +103,108 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 
 	// Act
 	err := s.service.ImportRelations(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestImportRelationData(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	args := relation.ImportRelationsArgs{
+		{
+			UUID: relUUID,
+			ID:   7,
+			Key:  key,
+			Endpoints: []relation.ImportEndpoint{
+				{
+					ApplicationName:     ep[0].ApplicationName,
+					EndpointName:        ep[0].EndpointName,
+					ApplicationSettings: map[string]any{"password": "keep-me"},
+				}, {
+					ApplicationName:     ep[1].ApplicationName,
+					EndpointName:        ep[1].EndpointName,
+					ApplicationSettings: map[string]any{"database": "keep-me-too"},
+					UnitSettings: map[string]map[string]any{
+						"remote-13ea/0": {"request": "keep-unit-data"},
+					},
+				},
+			},
+		},
+	}
+
+	app1ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[0].ApplicationName)
+	app2ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[1].ApplicationName)
+	s.expectSetRelationApplicationSettings(relUUID, app1ID, args[0].Endpoints[0].ApplicationSettings)
+	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[0].Endpoints[1].ApplicationSettings)
+	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "remote-13ea/0"), args[0].Endpoints[1].UnitSettings["remote-13ea/0"])
+
+	// The relation is not created by ImportRelationData, it already exists.
+	s.state.EXPECT().ImportRelation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	s.state.EXPECT().ImportPeerRelation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	// Act
+	err := s.service.ImportRelationData(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestImportRelationDataInvalidUUID(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+
+	// Act
+	err := s.service.ImportRelationData(c.Context(), relation.ImportRelationsArgs{{
+		UUID: "not-a-uuid",
+		ID:   7,
+		Key:  key,
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "validating relation UUID for relation 7:.*")
+}
+
+// An import that failed part way through is retried, so a unit that is already
+// in the relation scope is not an error: it is in scope, with the settings it
+// was given when it first entered, which EnterScope records alongside the
+// scope membership.
+func (s *migrationServiceSuite) TestImportRelationDataUnitAlreadyInScope(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	unitSettings := map[string]any{"request": "keep-unit-data"}
+	args := relation.ImportRelationsArgs{{
+		UUID: relUUID,
+		ID:   7,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
+			UnitSettings: map[string]map[string]any{
+				"remote-13ea/0": unitSettings,
+			},
+		}},
+	}}
+
+	appID := s.expectGetApplicationUUIDByName(c, ep[1].ApplicationName)
+	s.expectSetRelationApplicationSettings(relUUID, appID, nil)
+	converted, _ := settingsMap(func(string) {}, unitSettings)
+	s.state.EXPECT().EnterScope(gomock.Any(), relUUID,
+		coreunittesting.GenNewName(c, "remote-13ea/0"), converted).
+		Return(internal.SubordinateUnitStatusHistoryData{},
+			relationerrors.RelationUnitAlreadyExists)
+
+	// Act
+	err := s.service.ImportRelationData(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
