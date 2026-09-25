@@ -492,7 +492,7 @@ type MockStateMockRecorder struct {
 	registerCAASUnitExpects                                   []*gomock.Call3_1[context.Context, string, application0.RegisterCAASUnitArg, error]
 	resolveCharmDownloadExpects                               []*gomock.Call3_1[context.Context, charm.ID, application0.ResolvedCharmDownload, error]
 	resolveMigratingUploadedCharmExpects                      []*gomock.Call3_2[context.Context, charm.ID, charm0.ResolvedMigratingUploadedCharm, charm0.CharmLocator, error]
-	setApplicationCharmExpects                                []*gomock.Call4_1[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, error]
+	setApplicationCharmExpects                                []*gomock.Call4_2[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, string, error]
 	setApplicationConstraintsExpects                          []*gomock.Call3_1[context.Context, application.UUID, constraints0.Constraints, error]
 	setApplicationHasK8sResourcesExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
 	setApplicationScalingStateExpects                         []*gomock.Call4_1[context.Context, string, int, bool, error]
@@ -2815,22 +2815,22 @@ func (mr *MockStateMockRecorder) ResolveMigratingUploadedCharm(arg0, arg1, arg2 
 type MockStateResolveMigratingUploadedCharmCall = gomock.Call3_2[context.Context, charm.ID, charm0.ResolvedMigratingUploadedCharm, charm0.CharmLocator, error]
 
 // SetApplicationCharm mocks base method.
-func (m *MockState) SetApplicationCharm(ctx context.Context, appUUID application.UUID, charmID charm.ID, params application0.SetCharmStateParams) error {
+func (m *MockState) SetApplicationCharm(ctx context.Context, appUUID application.UUID, charmID charm.ID, params application0.SetCharmStateParams) (string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.setApplicationCharmExpects, m.ctrl, m, "SetApplicationCharm", ctx, appUUID, charmID, params)
+	return gomock.Dispatch4_2(&m.recorder.setApplicationCharmExpects, m.ctrl, m, "SetApplicationCharm", ctx, appUUID, charmID, params)
 }
 
 // SetApplicationCharm indicates an expected call of SetApplicationCharm.
 func (mr *MockStateMockRecorder) SetApplicationCharm(ctx, appUUID, charmID, params any) *MockStateSetApplicationCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, error](mr.mock.ctrl.T, mr.mock, "SetApplicationCharm", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(charmID), gomock.EnsureMatcher(params))
+	call := gomock.NewCall4_2[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, string, error](mr.mock.ctrl.T, mr.mock, "SetApplicationCharm", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(charmID), gomock.EnsureMatcher(params))
 	mr.setApplicationCharmExpects = append(mr.setApplicationCharmExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateSetApplicationCharmCall is the typed call wrapper for SetApplicationCharm.
-type MockStateSetApplicationCharmCall = gomock.Call4_1[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, error]
+type MockStateSetApplicationCharmCall = gomock.Call4_2[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, string, error]
 
 // SetApplicationConstraints mocks base method.
 func (m *MockState) SetApplicationConstraints(ctx context.Context, appUUID application.UUID, cons constraints0.Constraints) error {

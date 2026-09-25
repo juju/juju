@@ -1098,7 +1098,7 @@ func (s *applicationStateSuite) TestCheckApplicationsForMigrationUnitUpgrading(c
 	charmT.Revision = charmT.Revision + 1
 	newCharmID, _, err := s.state.AddCharm(c.Context(), charmT, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
-	err = s.state.SetApplicationCharm(c.Context(), appUUID, newCharmID, application.SetCharmStateParams{})
+	_, err = s.state.SetApplicationCharm(c.Context(), appUUID, newCharmID, application.SetCharmStateParams{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Act:

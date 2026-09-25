@@ -1749,18 +1749,29 @@ func (st *State) GetCharmByApplicationUUID(ctx context.Context, appUUID coreappl
 // Some validation needs to be transactional:
 // - relation compatibility needs to be transactional, since a new or removed
 // relation can change the validation result.
+// The UUID of the application's prior charm is returned, so the caller can
+// schedule its removal if it has become unused.
 func (st *State) SetApplicationCharm(
 	ctx context.Context,
 	appID coreapplication.UUID,
 	chID corecharm.ID,
 	params application.SetCharmStateParams,
-) error {
+) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	appAndCharmPair := applicationAndCharmUUID{ApplicationUUID: appID.String(), CharmUUID: chID.String()}
+
+	getCurrentCharmStmt, err := st.Prepare(`
+SELECT charm_uuid AS &applicationAndCharmUUID.charm_uuid
+FROM   application
+WHERE  uuid = $applicationAndCharmUUID.application_uuid
+`, applicationAndCharmUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing get application charm: %w", err)
+	}
 
 	setAppCharmStmt, err := st.Prepare(`
 UPDATE application
@@ -1768,7 +1779,7 @@ SET    charm_uuid = $applicationAndCharmUUID.charm_uuid
 WHERE  uuid = $applicationAndCharmUUID.application_uuid
 `, applicationAndCharmUUID{})
 	if err != nil {
-		return errors.Errorf("preparing set application charm: %w", err)
+		return "", errors.Errorf("preparing set application charm: %w", err)
 	}
 
 	updateCharmModifiedVersionStmt, err := st.Prepare(`
@@ -1777,9 +1788,10 @@ SET    charm_modified_version = $charmModifiedVersion.charm_modified_version
 WHERE  uuid = $entityUUID.uuid
 `, charmModifiedVersion{}, entityUUID{})
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
+	var priorCharmUUID string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkApplicationNotDead(ctx, tx, appID); err != nil {
 			return errors.Capture(err)
@@ -1826,6 +1838,14 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
+		// Capture the current charm before repointing the application, so
+		// the caller can schedule its removal if it becomes unused.
+		currentCharm := applicationAndCharmUUID{ApplicationUUID: appID.String()}
+		if err := tx.Query(ctx, getCurrentCharmStmt, currentCharm).Get(&currentCharm); err != nil {
+			return errors.Errorf("getting current application charm: %w", err)
+		}
+		priorCharmUUID = currentCharm.CharmUUID
+
 		if err := tx.Query(ctx, setAppCharmStmt, appAndCharmPair).Run(); err != nil {
 			return errors.Errorf("setting application charm: %w", err)
 		}
@@ -1867,10 +1887,10 @@ WHERE  uuid = $entityUUID.uuid
 		return nil
 	})
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	return nil
+	return priorCharmUUID, nil
 }
 
 func (st *State) upsertApplicationChannel(ctx context.Context, tx *sqlair.TX, channel deployment.Channel, appID string) error {

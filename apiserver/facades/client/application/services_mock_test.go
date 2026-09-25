@@ -380,7 +380,7 @@ type MockApplicationServiceMockRecorder struct {
 	mergeApplicationEndpointBindingsExpects    []*gomock.Call4_1[context.Context, application.UUID, map[string]network.SpaceName, bool, error]
 	mergeExposeSettingsExpects                 []*gomock.Call3_1[context.Context, string, map[string]application0.ExposedEndpoint, error]
 	resolveApplicationConstraintsExpects       []*gomock.Call2_2[context.Context, constraints.Value, constraints0.Constraints, error]
-	setApplicationCharmExpects                 []*gomock.Call4_1[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, error]
+	setApplicationCharmExpects                 []*gomock.Call4_2[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, string, error]
 	setApplicationConstraintsExpects           []*gomock.Call3_1[context.Context, application.UUID, constraints.Value, error]
 	setApplicationScaleExpects                 []*gomock.Call3_1[context.Context, string, int, error]
 	unsetApplicationConfigKeysExpects          []*gomock.Call3_1[context.Context, application.UUID, []string, error]
@@ -1035,22 +1035,22 @@ func (mr *MockApplicationServiceMockRecorder) ResolveApplicationConstraints(ctx,
 type MockApplicationServiceResolveApplicationConstraintsCall = gomock.Call2_2[context.Context, constraints.Value, constraints0.Constraints, error]
 
 // SetApplicationCharm mocks base method.
-func (m *MockApplicationService) SetApplicationCharm(ctx context.Context, appName string, locator charm0.CharmLocator, arg3 application0.SetCharmParams) error {
+func (m *MockApplicationService) SetApplicationCharm(ctx context.Context, appName string, locator charm0.CharmLocator, arg3 application0.SetCharmParams) (string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.setApplicationCharmExpects, m.ctrl, m, "SetApplicationCharm", ctx, appName, locator, arg3)
+	return gomock.Dispatch4_2(&m.recorder.setApplicationCharmExpects, m.ctrl, m, "SetApplicationCharm", ctx, appName, locator, arg3)
 }
 
 // SetApplicationCharm indicates an expected call of SetApplicationCharm.
 func (mr *MockApplicationServiceMockRecorder) SetApplicationCharm(ctx, appName, locator, arg3 any) *MockApplicationServiceSetApplicationCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, error](mr.mock.ctrl.T, mr.mock, "SetApplicationCharm", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(locator), gomock.EnsureMatcher(arg3))
+	call := gomock.NewCall4_2[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, string, error](mr.mock.ctrl.T, mr.mock, "SetApplicationCharm", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(locator), gomock.EnsureMatcher(arg3))
 	mr.setApplicationCharmExpects = append(mr.setApplicationCharmExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationServiceSetApplicationCharmCall is the typed call wrapper for SetApplicationCharm.
-type MockApplicationServiceSetApplicationCharmCall = gomock.Call4_1[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, error]
+type MockApplicationServiceSetApplicationCharmCall = gomock.Call4_2[context.Context, string, charm0.CharmLocator, application0.SetCharmParams, string, error]
 
 // SetApplicationConstraints mocks base method.
 func (m *MockApplicationService) SetApplicationConstraints(arg0 context.Context, arg1 application.UUID, arg2 constraints.Value) error {
@@ -1606,6 +1606,7 @@ type MockRemovalServiceMockRecorder struct {
 	removeRelationWithRemoteOffererExpects []*gomock.Call4_2[context.Context, relation.UUID, bool, time.Duration, removal.UUID, error]
 	removeRemoteApplicationOffererExpects  []*gomock.Call4_2[context.Context, remoteapplication.UUID, bool, time.Duration, removal.UUID, error]
 	removeUnitExpects                      []*gomock.Call5_2[context.Context, unit.UUID, bool, bool, time.Duration, removal.UUID, error]
+	scheduleCharmRemovalExpects            []*gomock.Call2_1[context.Context, string, error]
 }
 
 // NewMockRemovalService creates a new mock instance.
@@ -1709,6 +1710,24 @@ func (mr *MockRemovalServiceMockRecorder) RemoveUnit(ctx, unitUUID, destroyStora
 
 // MockRemovalServiceRemoveUnitCall is the typed call wrapper for RemoveUnit.
 type MockRemovalServiceRemoveUnitCall = gomock.Call5_2[context.Context, unit.UUID, bool, bool, time.Duration, removal.UUID, error]
+
+// ScheduleCharmRemoval mocks base method.
+func (m *MockRemovalService) ScheduleCharmRemoval(ctx context.Context, charmUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.scheduleCharmRemovalExpects, m.ctrl, m, "ScheduleCharmRemoval", ctx, charmUUID)
+}
+
+// ScheduleCharmRemoval indicates an expected call of ScheduleCharmRemoval.
+func (mr *MockRemovalServiceMockRecorder) ScheduleCharmRemoval(ctx, charmUUID any) *MockRemovalServiceScheduleCharmRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "ScheduleCharmRemoval", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(charmUUID))
+	mr.scheduleCharmRemovalExpects = append(mr.scheduleCharmRemovalExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockRemovalServiceScheduleCharmRemovalCall is the typed call wrapper for ScheduleCharmRemoval.
+type MockRemovalServiceScheduleCharmRemovalCall = gomock.Call2_1[context.Context, string, error]
 
 // MockExternalControllerService is a mock of ExternalControllerService interface.
 type MockExternalControllerService struct {

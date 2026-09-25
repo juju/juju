@@ -77,7 +77,7 @@ type MockApplicationServiceMockRecorder struct {
 	prepareUnitAddStorageExpects            []*gomock.Call4_2[context.Context, storage.Name, unit.UUID, uint32, storage0.IAASUnitAddStorageArg, error]
 	setUnitWorkloadVersionExpects           []*gomock.Call3_1[context.Context, unit.Name, string, error]
 	shouldAllowCharmUpgradeOnErrorExpects   []*gomock.Call2_2[context.Context, string, bool, error]
-	updateUnitCharmExpects                  []*gomock.Call3_1[context.Context, unit.Name, charm.CharmLocator, error]
+	updateUnitCharmExpects                  []*gomock.Call3_2[context.Context, unit.Name, charm.CharmLocator, string, error]
 	watchApplicationExpects                 []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
 	watchApplicationConfigHashExpects       []*gomock.Call2_2[context.Context, string, watcher.StringsWatcher, error]
 	watchUnitAddressesHashExpects           []*gomock.Call2_2[context.Context, unit.Name, watcher.StringsWatcher, error]
@@ -493,22 +493,22 @@ func (mr *MockApplicationServiceMockRecorder) ShouldAllowCharmUpgradeOnError(ctx
 type MockApplicationServiceShouldAllowCharmUpgradeOnErrorCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // UpdateUnitCharm mocks base method.
-func (m *MockApplicationService) UpdateUnitCharm(arg0 context.Context, arg1 unit.Name, arg2 charm.CharmLocator) error {
+func (m *MockApplicationService) UpdateUnitCharm(arg0 context.Context, arg1 unit.Name, arg2 charm.CharmLocator) (string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateUnitCharmExpects, m.ctrl, m, "UpdateUnitCharm", arg0, arg1, arg2)
+	return gomock.Dispatch3_2(&m.recorder.updateUnitCharmExpects, m.ctrl, m, "UpdateUnitCharm", arg0, arg1, arg2)
 }
 
 // UpdateUnitCharm indicates an expected call of UpdateUnitCharm.
 func (mr *MockApplicationServiceMockRecorder) UpdateUnitCharm(arg0, arg1, arg2 any) *MockApplicationServiceUpdateUnitCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, unit.Name, charm.CharmLocator, error](mr.mock.ctrl.T, mr.mock, "UpdateUnitCharm", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	call := gomock.NewCall3_2[context.Context, unit.Name, charm.CharmLocator, string, error](mr.mock.ctrl.T, mr.mock, "UpdateUnitCharm", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
 	mr.updateUnitCharmExpects = append(mr.updateUnitCharmExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockApplicationServiceUpdateUnitCharmCall is the typed call wrapper for UpdateUnitCharm.
-type MockApplicationServiceUpdateUnitCharmCall = gomock.Call3_1[context.Context, unit.Name, charm.CharmLocator, error]
+type MockApplicationServiceUpdateUnitCharmCall = gomock.Call3_2[context.Context, unit.Name, charm.CharmLocator, string, error]
 
 // WatchApplication mocks base method.
 func (m *MockApplicationService) WatchApplication(ctx context.Context, name string) (watcher.NotifyWatcher, error) {
@@ -1738,6 +1738,7 @@ type MockRemovalServiceMockRecorder struct {
 	markStorageAttachmentAsDeadExpects []*gomock.Call2_1[context.Context, storage0.StorageAttachmentUUID, error]
 	markUnitAsDeadExpects              []*gomock.Call2_1[context.Context, unit.UUID, error]
 	removeUnitExpects                  []*gomock.Call5_2[context.Context, unit.UUID, bool, bool, time.Duration, removal.UUID, error]
+	scheduleCharmRemovalExpects        []*gomock.Call2_1[context.Context, string, error]
 }
 
 // NewMockRemovalService creates a new mock instance.
@@ -1823,6 +1824,24 @@ func (mr *MockRemovalServiceMockRecorder) RemoveUnit(ctx, unitUUID, destroyStora
 
 // MockRemovalServiceRemoveUnitCall is the typed call wrapper for RemoveUnit.
 type MockRemovalServiceRemoveUnitCall = gomock.Call5_2[context.Context, unit.UUID, bool, bool, time.Duration, removal.UUID, error]
+
+// ScheduleCharmRemoval mocks base method.
+func (m *MockRemovalService) ScheduleCharmRemoval(ctx context.Context, charmUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.scheduleCharmRemovalExpects, m.ctrl, m, "ScheduleCharmRemoval", ctx, charmUUID)
+}
+
+// ScheduleCharmRemoval indicates an expected call of ScheduleCharmRemoval.
+func (mr *MockRemovalServiceMockRecorder) ScheduleCharmRemoval(ctx, charmUUID any) *MockRemovalServiceScheduleCharmRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "ScheduleCharmRemoval", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(charmUUID))
+	mr.scheduleCharmRemovalExpects = append(mr.scheduleCharmRemovalExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockRemovalServiceScheduleCharmRemovalCall is the typed call wrapper for ScheduleCharmRemoval.
+type MockRemovalServiceScheduleCharmRemovalCall = gomock.Call2_1[context.Context, string, error]
 
 // MockStorageProvisioningService is a mock of StorageProvisioningService interface.
 type MockStorageProvisioningService struct {

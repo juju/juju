@@ -700,7 +700,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		return errors.Trace(err)
 	}
 
-	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
+	priorCharmUUID, err := api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
 		CharmOrigin:               charmOrigin,
 		CharmUpgradeOnError:       args.Force,
 		ForceBase:                 args.ForceBase,
@@ -777,6 +777,16 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		)
 	case err != nil:
 		return err
+	}
+
+	// Schedule removal of the application's prior charm. If units still
+	// reference it, their refreshes will schedule new jobs as they move to
+	// the new charm; the periodic scan for unused charms is the backstop,
+	// so a failure to schedule is only logged.
+	if priorCharmUUID != "" {
+		if err := api.removalService.ScheduleCharmRemoval(ctx, priorCharmUUID); err != nil {
+			api.logger.Warningf(ctx, "scheduling removal for charm %q: %v", priorCharmUUID, err)
+		}
 	}
 
 	return nil

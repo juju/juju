@@ -185,7 +185,9 @@ type ApplicationService interface {
 
 	// SetApplicationCharm sets a new charm for the application, validating that
 	// aspects such as storage are still viable with the new charm.
-	SetApplicationCharm(ctx context.Context, appName string, locator applicationcharm.CharmLocator, params application.SetCharmParams) error
+	// The UUID of the application's prior charm is returned, or an empty
+	// string if the charm was unchanged.
+	SetApplicationCharm(ctx context.Context, appName string, locator applicationcharm.CharmLocator, params application.SetCharmParams) (string, error)
 
 	// SetApplicationScale sets the application's desired scale value.
 	// This is used on CAAS models.
@@ -527,6 +529,11 @@ type RelationService interface {
 
 // RemovalService defines operations for removing juju entities.
 type RemovalService interface {
+	// ScheduleCharmRemoval schedules a removal job for the charm with the
+	// input UUID, for immediate execution. If the charm is still referenced
+	// when the job executes, the job completes without effect.
+	ScheduleCharmRemoval(ctx context.Context, charmUUID string) error
+
 	// RemoveApplication checks if a application with the input application UUID
 	// exists. If it does, the application is guaranteed after this call to:
 	// - Not be alive.

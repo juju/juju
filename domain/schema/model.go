@@ -186,6 +186,7 @@ var modelPostPatchFilesByVersion = []struct {
 	files: []string{
 		"0062-storage-filesystem-provider-id-unique.PATCH.sql",
 		"0063-agent-stream-cleanup.PATCH.sql",
+		"0064-charm-removal.PATCH.sql",
 	},
 }}
 

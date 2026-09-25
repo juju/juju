@@ -1563,12 +1563,12 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			c.Assert(params.Channel, tc.DeepEquals, channel)
-			return nil
+			return "", nil
 		})
 
-	err = s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err = s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1591,11 +1591,11 @@ func (s *applicationServiceSuite) TestSetApplicationCharmEmptyChannel(c *tc.C) {
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1633,16 +1633,16 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithPlatformChange(c *t
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			// Verify that platform was correctly encoded and passed through.
 			c.Assert(params.Platform, tc.NotNil)
 			c.Assert(params.Platform.OSType, tc.Equals, deployment.Ubuntu)
 			c.Assert(params.Platform.Architecture, tc.Equals, architecture.AMD64)
 			c.Assert(params.Platform.Channel, tc.Equals, "22.04")
-			return nil
+			return "", nil
 		})
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1676,7 +1676,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmRejectsIncompatibleBase
 		},
 	}, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIs, applicationerrors.IncompatibleBase)
 }
 
@@ -1709,9 +1709,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmAllowsIncompatibleBaseW
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1780,9 +1780,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameAdded(c 
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1827,7 +1827,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageNameRemoved(
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var storageNameRemovedErr applicationerrors.CharmStorageDefinitionRemoved
 	c.Assert(errors.As(err, &storageNameRemovedErr), tc.IsTrue)
 	c.Assert(storageNameRemovedErr.StorageName, tc.Equals, "logs")
@@ -1868,7 +1868,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageTypeChanged(
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var storageTypeChangedErr applicationerrors.CharmStorageTypeChanged
 	c.Assert(errors.As(err, &storageTypeChangedErr), tc.IsTrue)
 	c.Assert(storageTypeChangedErr.StorageName, tc.Equals, "data")
@@ -1911,7 +1911,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeMinimumI
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var sizeMinViolationErr applicationerrors.CharmStorageDefinitionMinSizeViolation
 	c.Assert(errors.As(err, &sizeMinViolationErr), tc.IsTrue)
 	c.Assert(sizeMinViolationErr.StorageName, tc.Equals, "data")
@@ -1975,9 +1975,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmStorageSizeMinimumDecre
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2016,7 +2016,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMinimum
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var countMinViolationErr applicationerrors.CharmStorageDefinitionMinCountViolation
 	c.Assert(errors.As(err, &countMinViolationErr), tc.IsTrue)
 	c.Assert(countMinViolationErr.StorageName, tc.Equals, "data")
@@ -2080,9 +2080,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMinimum
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2143,9 +2143,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2185,7 +2185,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var countMaxViolationErr applicationerrors.CharmStorageDefinitionMaxCountViolation
 	c.Assert(errors.As(err, &countMaxViolationErr), tc.IsTrue)
 	c.Assert(countMaxViolationErr.StorageName, tc.Equals, "data")
@@ -2228,7 +2228,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorMatches, `validating new charm storage against existing charm storage: storage definition "data" new maximum count 100 is less than existing maximum count \(unbounded\)`)
 	var countMaxViolationErr applicationerrors.CharmStorageDefinitionMaxCountViolation
 	c.Assert(errors.As(err, &countMaxViolationErr), tc.IsTrue)
@@ -2293,9 +2293,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2354,9 +2354,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2383,7 +2383,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountInvalid
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(newCharmStorages, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorMatches, `.*minimum count 5 greater than maximum count 3.*`)
 }
 
@@ -2423,7 +2423,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountMaximum
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var singleToMultipleErr applicationerrors.CharmStorageDefinitionSingleToMultipleViolation
 	c.Assert(errors.As(err, &singleToMultipleErr), tc.IsTrue)
 	c.Assert(singleToMultipleErr.StorageName, tc.Equals, "data")
@@ -2487,9 +2487,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSingletonWit
 		nil,
 	)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return(nil)
+	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).Return("", nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -2515,7 +2515,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChange
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var got applicationerrors.CharmStorageDefinitionSharedChanged
 	c.Assert(errors.As(err, &got), tc.IsTrue)
 	c.Assert(got.StorageName, tc.Equals, "data")
@@ -2545,7 +2545,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChan
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var got applicationerrors.CharmStorageDefinitionReadOnlyChanged
 	c.Assert(errors.As(err, &got), tc.IsTrue)
 	c.Assert(got.StorageName, tc.Equals, "data")
@@ -2575,7 +2575,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChan
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	var got applicationerrors.CharmStorageDefinitionLocationChanged
 	c.Assert(errors.As(err, &got), tc.IsTrue)
 	c.Assert(got.StorageName, tc.Equals, "data")
@@ -2606,7 +2606,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSizeChangedC
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -2633,7 +2633,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageCountChanged
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -2660,7 +2660,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageSharedChange
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -2687,7 +2687,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageReadOnlyChan
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -2714,7 +2714,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageLocationChan
 	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(currentCharmStorages), nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -2793,7 +2793,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesCh
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	// Expect complex changes: update data count, delete cache, add logs
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			c.Assert(params.StorageDirectivesToCreate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 
@@ -2807,10 +2807,10 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesCh
 			c.Assert(params.StorageDirectivesToUpdate[0].Count, tc.Equals, uint32(2))
 			c.Assert(params.StorageDirectivesToUpdate[0].Size, tc.Equals, uint64(1024))
 
-			return nil
+			return "", nil
 		})
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, application.SetCharmParams{})
 	c.Assert(err, tc.IsNil)
 }
 
@@ -2877,7 +2877,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage "data" cannot exceed 3 storage instances`)
 }
 
@@ -2949,18 +2949,18 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 	// Expect the pool change to be applied in the update directives.
 	// Count should still be updated to the new charm minimum, but size should remain unchanged as there is no override for it.
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			c.Assert(params.StorageDirectivesToCreate, tc.HasLen, 0)
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")
 			c.Assert(params.StorageDirectivesToUpdate[0].PoolUUID, tc.Equals, poolUUID)
 			c.Assert(params.StorageDirectivesToUpdate[0].Count, tc.Equals, uint32(2))
-			return nil
+			return "", nil
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.IsNil)
 }
 
@@ -3030,7 +3030,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, "validating storage directives: storage directive pool .* does not support charm storage type filesystem")
 }
 
@@ -3093,7 +3093,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		errors.Errorf(`storage directive data references unknown pool %q`, unknownPoolUUID),
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage directive data references unknown pool ".*"`)
 }
 
@@ -3161,16 +3161,16 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")
 			c.Assert(params.StorageDirectivesToUpdate[0].PoolUUID, tc.Equals, *modelStoragePools.BlockDevicePoolUUID)
 			c.Assert(params.StorageDirectivesToUpdate[0].Count, tc.Equals, uint32(4))
-			return nil
+			return "", nil
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.IsNil)
 }
 
@@ -3245,7 +3245,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage "data" cannot have less than 3 storage instances`)
 }
 
@@ -3319,7 +3319,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage "data" cannot exceed 5 storage instances`)
 }
 
@@ -3388,15 +3388,15 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")
 			c.Assert(params.StorageDirectivesToUpdate[0].Size, tc.Equals, uint64(2048))
-			return nil
+			return "", nil
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.IsNil)
 }
 
@@ -3469,7 +3469,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage directive size 512 is less than the charm minimum requirement of 1024`)
 }
 
@@ -3538,15 +3538,15 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
+		func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) (string, error) {
 			c.Assert(params.StorageDirectivesToUpdate, tc.HasLen, 1)
 			c.Assert(params.StorageDirectivesToUpdate[0].Name.String(), tc.Equals, "data")
 			c.Assert(params.StorageDirectivesToUpdate[0].Size, tc.Equals, uint64(1024))
-			return nil
+			return "", nil
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.IsNil)
 }
 
@@ -3603,7 +3603,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage directive not-data does not exist in the application`)
 }
 
@@ -3657,7 +3657,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		errors.New(`storage directive "not-data" references an invalid pool uuid ""`),
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage directive "not-data" references an invalid pool uuid ""`)
 }
 
@@ -3711,7 +3711,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		errors.Errorf(`storage directive data references unknown pool %q`, missingPoolUUID),
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage directive data references unknown pool ".*"`)
 }
 
@@ -3776,7 +3776,7 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithStorageDirectivesOv
 		},
 	)
 
-	err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
+	_, err := s.service.SetApplicationCharm(c.Context(), appName, applicationcharm.CharmLocator{}, params)
 	c.Assert(err, tc.ErrorMatches, `validating storage directives: storage directive not-data does not exist in the application`)
 }
 

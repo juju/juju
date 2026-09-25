@@ -1058,32 +1058,34 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 
 // UpdateUnitCharm updates the currently running charm marker for the given
 // unit.
+// The UUID of the unit's prior charm is returned, or an empty string if the
+// charm was unchanged.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
 // - [applicationerrors.CharmNotFound] if the charm charm does not exist.
-func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) error {
+func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit.Name, locator charm.CharmLocator) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	err := unitName.Validate()
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	unitUUID, err := s.st.GetUnitUUIDByName(ctx, unitName)
 	if err != nil {
-		return errors.Errorf("getting uuid of unit %q: %w", unitName, err)
+		return "", errors.Errorf("getting uuid of unit %q: %w", unitName, err)
 	}
 
 	charmUUID, err := s.getCharmID(ctx, argsFromLocator(locator))
 	if err != nil {
-		return errors.Errorf("getting charm UUID: %w", err)
+		return "", errors.Errorf("getting charm UUID: %w", err)
 	}
 
 	args, err := s.st.GetUnitStorageRefreshArgs(ctx, unitUUID, charmUUID)
 	if err != nil {
-		return errors.Errorf(
+		return "", errors.Errorf(
 			"getting current and next unit %q storage directives", unitName,
 		).Add(err)
 	}
@@ -1091,12 +1093,12 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 	if args.CurrentCharmUUID == args.RefreshCharmUUID {
 		// The charm is already at the correct version. This happens when the
 		// uniter starts.
-		return nil
+		return "", nil
 	}
 
 	sic, sac, err := s.st.GetUnitOwnedStorageInstances(ctx, unitUUID)
 	if err != nil {
-		return errors.Errorf(
+		return "", errors.Errorf(
 			"getting unit %q storage instances and attachments: %w",
 			unitName, err,
 		)
@@ -1111,7 +1113,7 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 		sac,
 	)
 	if err != nil {
-		return errors.Errorf("making storage for unit %q: %w", unitName, err)
+		return "", errors.Errorf("making storage for unit %q: %w", unitName, err)
 	}
 
 	updateArgs := applicationinternal.UpdateUnitCharmArg{
@@ -1125,7 +1127,7 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 			ctx, unitStorageArgs.StorageInstances,
 		)
 		if err != nil {
-			return errors.Errorf(
+			return "", errors.Errorf(
 				"making IAAS storage arguments for IAAS unit: %w", err,
 			)
 		}
@@ -1135,12 +1137,12 @@ func (s *ProviderService) UpdateUnitCharm(ctx context.Context, unitName coreunit
 
 	err = s.st.UpdateUnitCharm(ctx, updateArgs)
 	if err != nil {
-		return errors.Errorf(
+		return "", errors.Errorf(
 			"updating unit %q charm to %q", unitName, charmUUID,
 		).Add(err)
 	}
 
-	return nil
+	return args.CurrentCharmUUID.String(), nil
 }
 
 // GetUnitUUID returns the UUID for the named unit.

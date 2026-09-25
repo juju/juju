@@ -923,7 +923,7 @@ func (u *UniterAPI) SetCharm(ctx context.Context, args params.EntitiesCharmURL) 
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = u.applicationService.UpdateUnitCharm(ctx, unitName, charmLocator)
+		priorCharmUUID, err := u.applicationService.UpdateUnitCharm(ctx, unitName, charmLocator)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ParamsErrorf(params.CodeNotFound, "unit %q not found", unitName)
 			continue
@@ -933,6 +933,16 @@ func (u *UniterAPI) SetCharm(ctx context.Context, args params.EntitiesCharmURL) 
 		} else if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
+		}
+
+		// Schedule removal of the unit's prior charm. If other units or the
+		// application still reference it, the job completes without effect;
+		// the periodic scan for unused charms is the backstop, so a failure
+		// to schedule is only logged.
+		if priorCharmUUID != "" {
+			if err := u.removalService.ScheduleCharmRemoval(ctx, priorCharmUUID); err != nil {
+				u.logger.Warningf(ctx, "scheduling removal for charm %q: %v", priorCharmUUID, err)
+			}
 		}
 	}
 	return result, nil
