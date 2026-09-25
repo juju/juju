@@ -77,6 +77,7 @@ func ImportOperations(
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, clock, logger.Child("access"))
 	network.RegisterImportSubnets(coordinator, logger.Child("subnets"))
+	model.RegisterModelConstraintsImport(coordinator, logger.Child("modelconstraints"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
 	// Storage pools must be imported before applications so that application
@@ -97,6 +98,9 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	// Relation networks must be imported after relations, as they are
+	// located by relation key which requires the relations to exist.
+	crossmodelrelation.RegisterImportRelationNetworks(coordinator, clock, logger.Child("crossmodelrelation"))
 	access.RegisterOfferAccessImport(coordinator, clock, logger.Child("offeraccess"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))

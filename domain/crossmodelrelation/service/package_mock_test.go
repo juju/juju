@@ -1171,6 +1171,8 @@ type MockModelMigrationState struct {
 // MockModelMigrationStateMockRecorder is the mock recorder for MockModelMigrationState.
 type MockModelMigrationStateMockRecorder struct {
 	mock                                        *MockModelMigrationState
+	addRelationNetworkEgressExpects             []*gomock.Call3_1[context.Context, string, []string, error]
+	addRelationNetworkIngressExpects            []*gomock.Call3_1[context.Context, string, []string, error]
 	getApplicationUUIDByNameExpects             []*gomock.Call2_2[context.Context, string, string, error]
 	getRelationUUIDByRelationKeyExpects         []*gomock.Call2_2[context.Context, relation.Key, string, error]
 	getUnitUUIDExpects                          []*gomock.Call2_2[context.Context, string, string, error]
@@ -1195,6 +1197,42 @@ func NewMockModelMigrationState(ctrl *gomock.Controller) *MockModelMigrationStat
 func (m *MockModelMigrationState) EXPECT() *MockModelMigrationStateMockRecorder {
 	return m.recorder
 }
+
+// AddRelationNetworkEgress mocks base method.
+func (m *MockModelMigrationState) AddRelationNetworkEgress(ctx context.Context, relationUUID string, cidrs []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.addRelationNetworkEgressExpects, m.ctrl, m, "AddRelationNetworkEgress", ctx, relationUUID, cidrs)
+}
+
+// AddRelationNetworkEgress indicates an expected call of AddRelationNetworkEgress.
+func (mr *MockModelMigrationStateMockRecorder) AddRelationNetworkEgress(ctx, relationUUID, cidrs any) *MockModelMigrationStateAddRelationNetworkEgressCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "AddRelationNetworkEgress", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(cidrs))
+	mr.addRelationNetworkEgressExpects = append(mr.addRelationNetworkEgressExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelMigrationStateAddRelationNetworkEgressCall is the typed call wrapper for AddRelationNetworkEgress.
+type MockModelMigrationStateAddRelationNetworkEgressCall = gomock.Call3_1[context.Context, string, []string, error]
+
+// AddRelationNetworkIngress mocks base method.
+func (m *MockModelMigrationState) AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.addRelationNetworkIngressExpects, m.ctrl, m, "AddRelationNetworkIngress", ctx, relationUUID, cidrs)
+}
+
+// AddRelationNetworkIngress indicates an expected call of AddRelationNetworkIngress.
+func (mr *MockModelMigrationStateMockRecorder) AddRelationNetworkIngress(ctx, relationUUID, cidrs any) *MockModelMigrationStateAddRelationNetworkIngressCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "AddRelationNetworkIngress", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(cidrs))
+	mr.addRelationNetworkIngressExpects = append(mr.addRelationNetworkIngressExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelMigrationStateAddRelationNetworkIngressCall is the typed call wrapper for AddRelationNetworkIngress.
+type MockModelMigrationStateAddRelationNetworkIngressCall = gomock.Call3_1[context.Context, string, []string, error]
 
 // GetApplicationUUIDByName mocks base method.
 func (m *MockModelMigrationState) GetApplicationUUIDByName(ctx context.Context, name string) (string, error) {

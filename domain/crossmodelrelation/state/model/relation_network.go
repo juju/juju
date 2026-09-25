@@ -33,6 +33,7 @@ func (st *State) AddRelationNetworkIngress(ctx context.Context, relationUUID str
 	insertStmt, err := st.Prepare(`
 INSERT INTO relation_network_ingress (*)
 VALUES ($relationNetworkIngress.*)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING
 `, relationNetworkIngress{})
 	if err != nil {
 		return errors.Errorf("preparing insert relation network ingress query: %w", err)
@@ -56,6 +57,42 @@ VALUES ($relationNetworkIngress.*)
 
 		if err := tx.Query(ctx, insertStmt, ingress).Run(); err != nil {
 			return errors.Errorf("inserting relation network ingress for relation %q with CIDR %v: %w", relationUUID, cidrs, err)
+		}
+		return nil
+	})
+
+	return errors.Capture(err)
+}
+
+// AddRelationNetworkEgress adds egress network CIDRs for the specified
+// relation. The relation UUID is resolved by the caller, so it is expected
+// to exist; the insert is rejected by the foreign key constraint otherwise.
+func (st *State) AddRelationNetworkEgress(ctx context.Context, relationUUID string, cidrs []string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO relation_network_egress (*)
+VALUES ($relationNetworkEgress.*)
+ON CONFLICT (relation_uuid, cidr) DO NOTHING
+`, relationNetworkEgress{})
+	if err != nil {
+		return errors.Errorf("preparing insert relation network egress query: %w", err)
+	}
+
+	var egress []relationNetworkEgress
+	for _, cidr := range cidrs {
+		egress = append(egress, relationNetworkEgress{
+			RelationUUID: relationUUID,
+			CIDR:         cidr,
+		})
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, insertStmt, egress).Run(); err != nil {
+			return errors.Errorf("inserting relation network egress for relation %q with CIDR %v: %w", relationUUID, cidrs, err)
 		}
 		return nil
 	})
