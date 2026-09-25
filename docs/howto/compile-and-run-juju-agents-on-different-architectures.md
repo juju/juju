@@ -7,6 +7,9 @@ myst:
 (compile-and-run-juju-agents-on-different-architectures)=
 # Compile and run Juju agents on different architectures
 
+```{audience} juju-dev
+```
+
 It's often common practice that a Juju developer needs to test out new Juju code
 on machines that are not the same operating system or architecture to that of
 their current host. Alternatively in this workflow it is commonplace to want to perform Juju upgrades.
@@ -63,7 +66,7 @@ juju bootstrap cloudx
 ```
 
 ```{note}
-You may need to specify additional `bootstrap-constrains` to help juju
+You may need to specify additional `--bootstrap-constraints` to help juju
 choose the correct architecture.
 ```
 

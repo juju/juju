@@ -41,6 +41,8 @@ Manage storage pools <manage-storage-pools>
 Manage spaces <manage-spaces>
 Manage subnets <manage-subnets>
 Define resource tags in a cloud <define-resource-tags-in-a-cloud>
+Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>
+Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>
 
 ```
 
@@ -100,3 +102,10 @@ Deploy, configure, integrate, scale, etc., charmed applications. This will autom
 - {ref}`Manage storage pools <manage-storage-pools>`
 - {ref}`Manage spaces <manage-spaces>`
 - {ref}`Manage subnets <manage-subnets>`
+
+## Develop and debug Juju
+
+For Juju developers: reproduce and debug a Dqlite core dump on a controller, and build Juju agents for other architectures and upgrade a controller with them.
+
+- {ref}`Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>`
+- {ref}`Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>`

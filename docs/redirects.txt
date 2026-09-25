@@ -22,7 +22,7 @@ contributor/unsorted/bootstrapping/ contributor
 contributor/unsorted/managing-complexity/ contributor
 contributor/unsorted/commands/ contributor
 contributor/unsorted/hacking-state/ contributor
-contributor/unsorted/cross-platform-development/ contributor/howto/compile-and-run-juju-agents-on-different-architectures.md
+contributor/unsorted/cross-platform-development/ howto/compile-and-run-juju-agents-on-different-architectures
 contributor/unsorted/FAQ/ contributor
 contributor/unsorted/debugging-races/ contributor/howto/write-a-unit-test/
 contributor/unsorted/death-and-destruction/ contributor/reference/entity-lifecycle/
@@ -417,3 +417,5 @@ contributor/reference/testing/unit-testing/util-suite contributor/howto/write-te
 contributor/reference/testing/unit-testing/checker contributor/howto/write-tests
 contributor/reference/testing/unit-testing/unit-test-suite contributor/howto/write-tests
 contributor/reference/worker reference/worker
+contributor/howto/compile-and-run-juju-agents-on-different-architectures howto/compile-and-run-juju-agents-on-different-architectures
+contributor/howto/debug-a-dqlite-core-dump-issue howto/debug-a-dqlite-core-dump-issue
