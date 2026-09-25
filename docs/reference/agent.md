@@ -11,8 +11,11 @@ In Juju, an **agent** is a {ref}`jujud` / {ref}`containeragent` process that wor
 
 On machines, an agent is managed by `systemd`.
 
+(the-agents-records)=
+## The agent's records
+
 (the-agent-record)=
-## The agent record
+### The agent's identity
 
 An agent is a process, not a database record: there is no agent table.
 The records are the **served entity's** agent satellites -- the
@@ -25,8 +28,28 @@ an agent is its **tag**: the entity it serves -- a machine's number, a
 unit's name, an application's name, or `controller-0` for the
 controller agent.
 
+(the-agent-in-the-data-model)=
+### The agent in the data model
+
+The agent's records hang off the entities: the machine and the unit
+each carry an agent-version record (the version that agent reported
+running) and the machine a presence record (the last time its agent
+was seen); the machine's and the controller node's passwords are
+agent credentials; and the model database carries the model-level
+agent-version singleton -- the target and latest versions, with the
+agent stream they come from (released, proposed, testing, devel).
+
+(the-agent-states)=
+### Agent states
+
+An agent has no state machine: it runs or it does not. Its liveness
+is *presence* -- the controller records the agent's last login -- and
+a silent agent reads as `lost` in the status projections, a display
+rule computed on read (see {ref}`unit status <unit-status>` and the
+{ref}`Status domains <status>` view).
+
 (types-of-agents)=
-## Types of agents
+### Types of agents
 
 An agent's kind is the entity it serves, and the kinds are exclusive
 by construction -- one process serves one entity. The `jujud` binary
@@ -46,7 +69,7 @@ hosts, and the model agent runs a model's workers; on Kubernetes,
 
 
 (controller-agent)=
-### Controller agent
+#### Controller agent
 
 On machine and Kubernetes clouds, a `jujud` process running workers responsible for a {ref}`controller <controller>`. This includes, among others, the `apiserver` worker, which is responsible for running the Juju API server.
 
@@ -58,46 +81,33 @@ On machine and Kubernetes clouds, a `jujud` process running workers responsible 
 ```
 
 (machine-agent)=
-### Machine agent
+#### Machine agent
 
 On machine clouds, a `jujud` process running workers responsible for a {ref}`machine <machine>`.
 
 (model-agent)=
-### Model agent
+#### Model agent
 
 On machine and Kubernetes clouds, a `jujud` process running workers responsible for all the {ref}`models <model>` associated with a given controller.
 
 (unit-agent)=
-### Unit agent
+#### Unit agent
 
 On machine / Kubernetes clouds, a `jujud` / `containeragent` process responsible for a {ref}`unit <unit>`.
 
 When a Juju user uses the client (e.g., types a command in the CLI), this goes to the controller agent's `apiserver`, which passes it on to the database. The database runs a background process that checks if anything has changed and, if so, emits an event (think "I've seen something that's changed. Do you care about it?"). The event cascades through Juju. The unit agent becomes aware of it by always polling the controller agent as part of a reconciliation loop trying to reconcile the unit agent's local state to the remote state on the controller (i.e., the state in the controller's database).
 
-(the-agent-in-the-data-model)=
-## The agent in the data model
+(the-agents-machinery)=
+## The agent's machinery
 
-The agent's records hang off the entities: the machine and the unit
-each carry an agent-version record (the version that agent reported
-running) and the machine a presence record (the last time its agent
-was seen); the machine's and the controller node's passwords are
-agent credentials; and the model database carries the model-level
-agent-version singleton -- the target and latest versions, with the
-agent stream they come from (released, proposed, testing, devel).
-
-(the-agent-states)=
-## Agent states
-
-An agent has no state machine: it runs or it does not. Its liveness
-is *presence* -- the controller records the agent's last login -- and
-a silent agent reads as `lost` in the status projections, a display
-rule computed on read (see {ref}`unit status <unit-status>` and the
-{ref}`Status domains <status>` view).
+An agent has machinery of its own: it is a running process -- a jujud
+role (the controller, machine and unit agents) -- that starts with its
+entity, reports the version it runs, and takes targeted upgrades.
 
 (the-agent-operations)=
-## Agent operations
+### Agent operations
 
-### Starting agents
+#### Starting agents
 
 The machine agent starts with its machine (via `systemd`) and the
 model agent with the model's workers; the machine agent starts a unit
@@ -105,7 +115,7 @@ agent per unit it hosts. Bootstrap creates the first agent -- the
 controller's -- with a one-time nonce (see
 {ref}`controller bootstrap <controller-bootstrap>`).
 
-### Agent version targeting and reporting
+#### Agent version targeting and reporting
 
 The model's target agent version (and its stream) is what an upgrade
 sets; each agent reports the version it actually runs into its
@@ -113,7 +123,7 @@ entity's agent-version record, and the controller's nodes do the same
 controller-side (see {ref}`upgrading things <upgrading-things>`).
 
 (the-agent-watchers)=
-## Agent watchers
+### Agent watchers
 
 Agents are the *consumers* of nearly every watch surface in the model
 -- each domain's watchers exist so an agent can reconcile without
@@ -136,7 +146,7 @@ presence machinery records agent logins, and that is the input the
   cannot impersonate another.
 
 (related-entities-agent)=
-## Related entities
+## Entities related to the agent
 
 - **The controller, models, machines and units** are what agents
   serve -- one process per entity (see {ref}`controller <controller>`,

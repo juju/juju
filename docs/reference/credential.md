@@ -21,10 +21,13 @@ Clouds can have one or more sets of credentials associated with them.
 
 When you create a  {ref}`model <model>` in Juju it must always be associated with a cloud/credential pair -- the model needs that to create resources on the underlying cloud.
 
-(the-credential-record)=
-## The credential record
+(the-credentials-records)=
+## The credential's records
 
-A credential is a record in the **controller** database, identified by
+(the-credential-record)=
+### The credential's identity
+
+In the **controller** database, a credential is a record identified by
 its natural key -- the {ref}`cloud <cloud>`, the owning
 {ref}`user <user>`, and its name -- plus its authentication type and
 its attributes (the key/value pairs the cloud's auth type requires).
@@ -34,7 +37,7 @@ The model database keeps only a read-only, denormalised copy of the
 credential each model uses.
 
 (the-credential-in-the-data-model)=
-## The credential in the data model
+### The credential in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -44,8 +47,18 @@ credential each model uses.
 :alt: User record, cloud record, credential record, and model record with FK arrows.
 ```
 
+(the-credential-states)=
+### Credential states
+
+A credential carries two standing flags rather than a life cycle:
+**revoked** (the user withdrew it) and **invalid** (the cloud or the
+model checks found it unusable, with the reason recorded). Adding a
+credential already marked invalid is rejected; the real validity
+check is per model -- opening a provider connection with the
+credential is what proves it.
+
 (types-of-credential)=
-## Types of credential
+### Types of credential
 
 A credential's type is its **authentication type** -- the scheme the
 cloud authenticates with. Juju seeds one shared list of them:
@@ -58,7 +71,7 @@ business: see the relevant {ref}`cloud reference page
 <list-of-supported-clouds>` for details.
 
 (client-vs-controller-credential)=
-### Client vs. controller credential
+#### Client vs. controller credential
 
 Juju credentials can be created for either the Juju client or the Juju controller or both -- where a **client credential** (previously known as a 'local credential') denotes a credential that the client is aware of and a **controller credential** (previously known as a 'remote credential') denotes a credential that a controller is aware of. When you bootstrap a controller and use a client credential, this credential gets automatically uploaded to the controller, so it becomes a controller credential also.
 
@@ -66,18 +79,15 @@ Juju credentials can be created for either the Juju client or the Juju controlle
 The set of client credentials and controller credentials can end up being the same. However, they don't have to.
 ```
 
-(the-credential-states)=
-## Credential states
+(the-credentials-machinery)=
+## The credential's machinery
 
-A credential carries two standing flags rather than a life cycle:
-**revoked** (the user withdrew it) and **invalid** (the cloud or the
-model checks found it unusable, with the reason recorded). Adding a
-credential already marked invalid is rejected; the real validity
-check is per model -- opening a provider connection with the
-credential is what proves it.
+A credential has no machinery of its own: the controller stores the
+records and validates them against their cloud; the one watch surface
+(credential changes) reports the stored set.
 
 (the-credential-operations)=
-## Credential operations
+### Credential operations
 
 Adding a credential (`juju add-credential`) inserts the record with
 its attributes; updating is an upsert of the same natural key;
@@ -87,7 +97,7 @@ check-credentials operation validates, per model, that the model's
 credential actually opens the cloud.
 
 (the-credential-watchers)=
-## Credential watchers
+### Credential watchers
 
 One watch surface: **a single credential's changes** -- the
 provisioning machinery of a model that uses the credential watches it
@@ -115,7 +125,7 @@ The errors that encode them: `credential not found`,
 `unknown cloud`, `user not found`.
 
 (related-entities-credential)=
-## Related entities
+## Entities related to the credential
 
 - **Clouds** are what a credential authenticates against, and they
   define the admitted auth types (see {ref}`cloud <cloud>`).

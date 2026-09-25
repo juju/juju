@@ -13,10 +13,12 @@ See also: {ref}`manage-ssh-keys`
 
 An **SSH key** is an access  key in the [SSH](https://www.ssh.com/academy/ssh-keys) protocol. In Juju it refers to a way of accessing a machine provisioned by Juju individually.
 
-(the-ssh-key-record)=
-## The SSH key record
+(the-ssh-keys-records)=
+## The SSH key's records
 
-An SSH key is a record in the **controller** database, owned by a
+### The SSH key's identity
+
+In the **controller** database, an SSH key is a record owned by a
 {ref}`user <user>`: the public key material, its fingerprint (with the
 hash algorithm it was fingerprinted with -- MD5 or SHA-256), and a
 comment. Uniqueness is per user: the same user cannot add the same
@@ -25,7 +27,7 @@ a **projection** record -- one row per (model, key) pair -- which is
 what each model's machines are told about.
 
 (the-ssh-key-in-the-data-model)=
-## The SSH key in the data model
+### The SSH key in the data model
 
 Three record sets: the user's public keys (controller database), the
 model projections naming which of them each model authorises, and --
@@ -34,22 +36,29 @@ keys the machines present, as opposed to the keys that access them).
 The projection view excludes the keys of removed or disabled users.
 
 (the-ssh-key-states)=
-## SSH key states
+### SSH key states
 
 An SSH key has no state machine: it is added, listed, or deleted --
 nothing transitions.
 
-(the-ssh-key-operations)=
-## SSH key operations
+(the-ssh-keys-machinery)=
+## The SSH key's machinery
 
-### Adding and importing keys
+An SSH key has no machinery of its own: the controller stores the
+records and projects them to the machines -- the key updater carries
+each user's keys out as machines come up.
+
+(the-ssh-key-operations)=
+### SSH key operations
+
+#### Adding and importing keys
 
 Keys are added verbatim (`juju add-ssh-key`) or imported from a key
 source (`juju import-ssh-key`, e.g. a Launchpad or GitHub user name);
 the import resolves the source's public keys and stores them under
 the importing user.
 
-### Projecting keys to machines
+#### Projecting keys to machines
 
 Juju maintains a per-model cache of public SSH keys which it copies to each machine (including machines already deployed). Any key added to the model is placed on all machines (present and future) in the model.
 
@@ -60,7 +69,7 @@ updater worker fetches the model's authorised keys and rewrites the
 `ubuntu` account's `authorized_keys`, prefixing Juju-managed keys
 with a reserved comment and leaving non-Juju keys alone.
 
-### Deleting keys
+#### Deleting keys
 
 Deleting a key removes it from the owner's set and from every
 model's projection; the machines drop it on their next key update.
@@ -68,7 +77,7 @@ model's projection; the machines drop it on their next key update.
 To use an SSH key to run commands inside a machine using the `juju ssh` command, the user's public SSH key needs to be added to the containing model and the user needs to have `admin` access to the model.
 
 (the-ssh-key-watchers)=
-## SSH key watchers
+### SSH key watchers
 
 The key domain exposes no watch surface of its own: the machine
 agents' key updaters consume the API's key-update notifications, and
@@ -90,7 +99,7 @@ re-fetch when it changes.
   found`).
 
 (related-entities-ssh-key)=
-## Related entities
+## Entities related to the SSH key
 
 - **Users** own the keys -- keys are per-user records, projected into
   models (see {ref}`user <user>`).

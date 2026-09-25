@@ -18,10 +18,13 @@ cloud/list-of-supported-clouds/index
 
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
-(the-cloud-record)=
-## The cloud record
+(the-clouds-records)=
+## The cloud's records
 
-A cloud is a record in the **controller** database: its name (unique),
+(the-cloud-record)=
+### The cloud's identity
+
+In the **controller** database, a cloud is a record: its name (unique),
 its cloud type, the endpoints Juju talks to (the cloud's API, identity
 and storage endpoints, and whether to skip TLS verification), its
 {ref}`regions <list-of-supported-clouds>` with their per-region
@@ -31,34 +34,8 @@ values, and its CA certificate for TLS. The cloud a
 record at bootstrap; a user with controller superuser access can add
 further clouds.
 
-(cloud-types)=
-## Types of clouds
-
-Juju supports two types of cloud: machine clouds and Kubernetes clouds. The cloud **type** is the record's stored discriminator, and it is what Juju reads to decide which machinery a {ref}`model <model>` on the cloud runs: a Kubernetes cloud makes a CAAS model; every other type makes an IAAS one (see
-{ref}`IAAS and CAAS models <iaas-caas-models>`). The seeded type list
-is: `ec2`, `gce`, `azure`, `openstack`, `vsphere`, `oci`, `maas`,
-`lxd`, `unmanaged`, `kubernetes`.
-
-(machine-cloud)=
-### Machine cloud
-
-```{ibnote}
-See more: {ref}`List of supported machine clouds <list-of-supported-machine-clouds>`
-```
-
-A **machine cloud** is a cloud that provides machine-level infrastructure. Juju uses the cloud API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage resources those machines require.
-
-(kubernetes-cloud)=
-### Kubernetes cloud
-
-A **Kubernetes cloud** is a cloud backed by an existing Kubernetes cluster. Juju uses the Kubernetes API to deploy and manage applications in that cluster, rather than provisioning machine-level infrastructure directly.
-
-```{ibnote}
-See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`
-```
-
 (the-cloud-in-the-data-model)=
-## The cloud in the data model
+### The cloud in the data model
 
 The cloud's records live in the controller database: the cloud row,
 its regions and per-region defaults, its admitted authentication
@@ -71,14 +48,47 @@ auth types it supports -- is per cloud type: see the relevant
 {ref}`cloud reference page <list-of-supported-clouds>` for details.
 
 (the-cloud-states)=
-## Cloud states
+### Cloud states
 
 A cloud has no state machine: it is a definition record -- added,
 updated, or removed. Its reachability is discovered per operation, not
 tracked as state.
 
+(cloud-types)=
+### Types of clouds
+
+Juju supports two types of cloud: machine clouds and Kubernetes clouds. The cloud **type** is the record's stored discriminator, and it is what Juju reads to decide which machinery a {ref}`model <model>` on the cloud runs: a Kubernetes cloud makes a CAAS model; every other type makes an IAAS one (see
+{ref}`IAAS and CAAS models <iaas-caas-models>`). The seeded type list
+is: `ec2`, `gce`, `azure`, `openstack`, `vsphere`, `oci`, `maas`,
+`lxd`, `unmanaged`, `kubernetes`.
+
+(machine-cloud)=
+#### Machine cloud
+
+```{ibnote}
+See more: {ref}`List of supported machine clouds <list-of-supported-machine-clouds>`
+```
+
+A **machine cloud** is a cloud that provides machine-level infrastructure. Juju uses the cloud API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage resources those machines require.
+
+(kubernetes-cloud)=
+#### Kubernetes cloud
+
+A **Kubernetes cloud** is a cloud backed by an existing Kubernetes cluster. Juju uses the Kubernetes API to deploy and manage applications in that cluster, rather than provisioning machine-level infrastructure directly.
+
+```{ibnote}
+See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`
+```
+
+(the-clouds-machinery)=
+## The cloud's machinery
+
+A cloud has no machinery of its own: it is a stored definition the
+controller reads when it talks to the provider; the one watch surface
+(cloud changes) reports the stored set.
+
 (the-cloud-operations)=
-## Cloud operations
+### Cloud operations
 
 Adding a cloud requires controller superuser access; updating rewrites
 the definition; removing a cloud refuses while
@@ -87,7 +97,7 @@ the definition; removing a cloud refuses while
 cloud cannot be removed while its controller stands.
 
 (the-cloud-watchers)=
-## Cloud watchers
+### Cloud watchers
 
 One watch surface: **a single cloud's changes** -- whoever resolves
 cloud details on demand (the model creation machinery, the
@@ -114,7 +124,7 @@ and the consumer fetches the current state and reconciles.
 The structure of a cloud definition and its supported authentication types and configuration keys depend on the specific cloud. See the relevant {ref}`cloud reference page <list-of-supported-clouds>` for details.
 
 (related-entities-cloud)=
-## Related entities
+## Entities related to the cloud
 
 - **Credentials** authenticate against clouds -- one half of the
   model's cloud/credential pair (see {ref}`credential <credential>`).

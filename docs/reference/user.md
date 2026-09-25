@@ -29,10 +29,13 @@ Multiple users can be accommodated by the same Juju client. However, there can o
 
 ```
 
-(the-user-record)=
-## The user record
+(the-users-records)=
+## The user's records
 
-A user is a record in the controller database: its name (one active
+(the-user-record)=
+### The user's identity
+
+In the controller database, a user is a record: its name (one active
 user per name), its display name, whether it is an
 {ref}`external <types-of-user>` identity, who created it, and whether
 it has been removed. The authentication records hang beside it: the
@@ -44,7 +47,7 @@ Users are created in two ways: implicitly by bootstrapping a controller into a c
 A user logs in to a Juju controller using a username and a password. The user created implicitly gets the username `admin` and  is prompted to create a password the first time they attempt to log out. A user created explicitly gets the username assigned to them when being added (via `juju add-user`) and is prompted to create login details when they register the new controller with their Juju client.
 
 (the-user-in-the-data-model)=
-## The user in the data model
+### The user in the data model
 
 The user's own records are the identity and authentication records;
 the user's *reach* is the **permission** table: one row per grant,
@@ -57,21 +60,21 @@ lookup of their own: `login` and `superuser` for controllers,
 models, `read`, `consume` and `admin` for offers.
 
 (user-access-levels)=
-## User access levels
+### User access levels
 
 A Juju user may have different abilities, according to the access level they have been granted. This document describes the various access levels and the corresponding abilities.
 
-### Valid access levels for controllers
+#### Valid access levels for controllers
 
 (user-access-controller-login)=
-#### `login`
+##### `login`
 
 Granted: Via `juju register.
 
 Abilities: Log in to the controller.
 
 (user-access-controller-superuser)=
-#### `superuser`
+##### `superuser`
 
 Granted: Automatically by bootstrapping a controller or by having the username 'admin'.
 
@@ -85,72 +88,82 @@ A person logged into the `jaas` controller automatically has the login access le
 Since multiple controllers—and therefore multiple controller administrators—are possible, there is no such thing as an overarching "Juju administrator". Nevertheless, a user with the superuser access level is usually what people refer to as "the admin".
 ```
 
-### Valid access levels for clouds
+#### Valid access levels for clouds
 
 A controller can manage models on many clouds. With cloud-level access you can give a user permission to access one cloud but not another related to that controller.
 
 (user-access-cloud-add-model)=
-#### `add-model`
+##### `add-model`
 
 Granted: Via {ref}`command-juju-grant-cloud`.
 
 Abilities: Add a model. Grant another user model-level permissions.
 
 (user-access-cloud-admin)=
-#### `admin`
+##### `admin`
 
 Granted: Via {ref}`command-juju-grant-cloud`.
 
 Abilities: You can do anything that it is possible to do at the level of a cloud.
 
-### Valid access levels for models
+#### Valid access levels for models
 
 (user-access-model-read)=
-#### `read`
+##### `read`
 
 Granted: Via {ref}`command-juju-grant`.
 
 Abilities: View the content of a model without changing it. Use any of the read commands.
 
 (user-access-model-write)=
-#### `write`
+##### `write`
 
 Granted: Via {ref}`command-juju-grant`.
 
 Abilities: Deploy and manage applications on the model.
 
 (user-access-model-admin)=
-#### `admin`
+##### `admin`
 
 Granted: Via {ref}`command-juju-grant`.
 
 Abilities: Do anything that it is possible to do at the level of a model.
 
-### Valid access levels for application offers
+#### Valid access levels for application offers
 
 (user-access-offer-read)=
-#### `read`
+##### `read`
 
 Granted: Via {ref}`command-juju-grant`.
 
 Abilities: View offers during a search with {ref}`command-juju-find-offers`.
 
 (user-access-offer-consume)=
-#### `consume`
+##### `consume`
 
 Granted: Via {ref}`command-juju-grant`.
 
 Abilities: Relate an application to the offer.
 
 (user-access-offer-admin)=
-#### `admin`
+##### `admin`
 
 Granted: Via {ref}`command-juju-grant`.
 
 Abilities: You can do anything that it is possible to do at the level of an offer.
 
+(the-user-states)=
+### User states
+
+A user's record carries two toggles rather than a life cycle: the
+**authentication disabled** flag (the user exists but cannot log in)
+and the **removed** flag (the name is retired; its records are kept
+for audit and the name cannot be re-created while the removed row is
+the active one). There is no alive/dying/dead for users -- disable
+and remove are direct writes.
+
 (types-of-user)=
-## Types of user
+### Types of user
 
 The user record carries one discriminator: the **external** flag. A
 **local user** is created in Juju and authenticates against Juju's
@@ -163,47 +176,44 @@ a user created explicitly starts with the controller `login` level --
 they can register the controller and log in, and nothing more, until
 granted a higher level.
 
-(the-user-states)=
-## User states
+(the-users-machinery)=
+## The user's machinery
 
-A user's record carries two toggles rather than a life cycle: the
-**authentication disabled** flag (the user exists but cannot log in)
-and the **removed** flag (the name is retired; its records are kept
-for audit and the name cannot be re-created while the removed row is
-the active one). There is no alive/dying/dead for users -- disable
-and remove are direct writes.
+A user has no machinery of their own: what acts on the user's records
+is the controller itself -- the permission checks on every request and
+the authentication at login.
 
 (the-user-operations)=
-## User operations
+### User operations
 
-### Adding a user
+#### Adding a user
 
 Adding a user (`juju add-user`) creates the record and issues an
 **activation key**: the new user completes registration by setting
 their password with it (a user who is given a password directly skips
 the activation step).
 
-### Passwords and authentication
+#### Passwords and authentication
 
 Setting or resetting a password writes a new hash (a reset issues a
 new activation key -- users cannot reset their own password
 directly); disabling authentication locks the user out without
 removing them; re-enabling restores access.
 
-### Granting access
+#### Granting access
 
 Grants are the permission service's writes: create, update or delete a
 permission row -- the user's access level on a cloud, the controller,
 a model, or an offer (the access levels above).
 
-### Importing external users
+#### Importing external users
 
 Users from an identity provider are imported in bulk or ensured on
 first use -- the record is created (marked external) if it does not
 exist yet.
 
 (the-user-watchers)=
-## User watchers
+### User watchers
 
 The user domain exposes no watch surfaces: user and permission
 changes are read on demand (the client lists access when it needs it),
@@ -232,7 +242,7 @@ The errors that encode them: `user not found`, `user name not
 valid`, `user unauthorized`, `user authentication disabled`.
 
 (related-entities-user)=
-## Related entities
+## Entities related to the user
 
 - **The controller** is what a user logs in to; its database keeps the
   user and permission records (see {ref}`controller <controller>`).

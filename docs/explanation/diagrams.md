@@ -124,7 +124,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Agent taxonomy (who runs what)
 
-**Insert at:** § Types of agents.
+**Insert at:** § The agent's records → § Types of agents.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -135,7 +135,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Worker tree (controller)
 
-**Insert at:** § Controller agent.
+**Insert at:** § The agent's records → § Types of agents → § Controller agent.
 
 `````{grid} 2
 ````{grid-item}
@@ -242,7 +242,7 @@ crops).
 
 #### Configuration levels (where each lives)
 
-**Insert at:** § Controller configuration.
+**Insert at:** § The controller's machinery → § Controller operations → § Controller configuration.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -256,7 +256,7 @@ crops).
 
 #### Bootstrap K8s
 
-**Insert at:** § Controller bootstrap.
+**Insert at:** § The controller's machinery → § Controller operations → § Controller bootstrap.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -280,7 +280,7 @@ crops).
 
 #### Controller bootstrap (machines slideshow)
 
-**Insert at:** new § Controller bootstrap (homed; also on
+**Insert at:** § The controller's machinery → § Controller operations → § Controller bootstrap (homed; also on
 explanation/architecture.md § Bootstrap per the multi-home
 precedent).
 
@@ -297,7 +297,7 @@ precedent).
 
 #### Credential chain
 
-**Insert at:** § Credential definition.
+**Insert at:** § The credential's records → § The credential's identity.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -669,7 +669,7 @@ precedent).
 
 #### Network spaces
 
-**Insert at:** § Spaces as constraints and bindings. also: reference/subnet.md.
+**Insert at:** § The space's records → § The space in the data model. also: reference/subnet.md.
 
 ```{ggarch}
 :file: ../juju.ggarch

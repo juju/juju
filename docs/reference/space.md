@@ -18,10 +18,13 @@ A space is used to help segment network traffic for the purpose of:
 * Security
 * Controlling the scope of regulatory compliance
 
-(the-space-record)=
-## The space record
+(the-spaces-records)=
+## The space's records
 
-A space is a record in the model database: its name and UUID. Two
+(the-space-record)=
+### The space's identity
+
+In the model database, a space is a record: its name and UUID. Two
 satellites complete it: the **provider space** record (the cloud's
 own identifier for the same grouping, where the provider has one) and
 the space's subnets -- pointed *at* the space: each
@@ -29,7 +32,7 @@ the space's subnets -- pointed *at* the space: each
 subnet belongs to exactly one space or to none.
 
 (the-space-in-the-data-model)=
-## The space in the data model
+### The space in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -49,33 +52,40 @@ spaces to the outside; and {ref}`constraints <constraint>` can name
 the spaces a machine's subnets must come from.
 
 (the-space-states)=
-## Space states
+### Space states
 
 A space has no state machine and no life column: it is a naming
 record, created, renamed, or removed -- nothing transitions.
 
-(the-space-operations)=
-## Space operations
+(the-spaces-machinery)=
+## The space's machinery
 
-### Adding, renaming and removing a space
+A space has no machinery of its own: it is a grouping the controller
+maintains -- subnets are moved into it and reloaded from the provider,
+and the one watch surface (subnet changes) reports what changed.
+
+(the-space-operations)=
+### Space operations
+
+#### Adding, renaming and removing a space
 
 Adding a space (`juju add-space`) creates the record; renaming rewrites
 the name; removing (with a dry-run mode that reports what would break)
 deletes it -- subnets that pointed at it return to no space.
 
-### Moving subnets
+#### Moving subnets
 
 Subnets are moved between spaces (for example, `juju move-subnet`):
 the move rewrites the subnet's space pointer.
 
-### Reloading spaces from the provider
+#### Reloading spaces from the provider
 
 The provider can be asked to rediscover its spaces and subnets: where
 the cloud exposes its own space notion, the reload adopts it; where it
 does not, everything falls into the default `alpha` space.
 
 (the-space-watchers)=
-## Space watchers
+### Space watchers
 
 The network domain exposes one watch surface: **subnet changes** --
 the surfaces that need the network's shape (the provisioning and
@@ -127,7 +137,7 @@ Endpoint bindings can be specified during deployment with `juju deploy --bind` o
 Support for spaces may vary from one cloud to another. For cloud-specific details, see the networking behavior section in each cloud's reference doc: {ref}`Amazon EC2 <cloud-ec2>`, {ref}`Microsoft Azure <cloud-azure>`, {ref}`OpenStack <cloud-openstack>`, {ref}`LXD <cloud-lxd>`, {ref}`MAAS <cloud-maas>`, {ref}`Unmanaged <cloud-unmanaged>`.
 
 (related-entities-space)=
-## Related entities
+## Entities related to the space
 
 - **Subnets** are what a space groups; the membership pointer lives
   on the subnet (see {ref}`subnet <subnet>`).

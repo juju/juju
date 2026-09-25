@@ -21,8 +21,11 @@ In software design, a **controller** is an architectural component responsible f
 - It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
 - It stores state in the internal Dqlite {ref}`database <database>`.
 
+(the-controllers-records)=
+## The controller's records
+
 (the-controller-record)=
-## The controller record
+### The controller's identity
 
 A controller is a **singleton row** in the controller database -- the
 schema enforces that exactly one exists: its UUID, the UUID of its
@@ -33,16 +36,8 @@ configuration (key/value) and the **controller nodes** -- one record
 per Dqlite node in the {ref}`high-availability <high-availability>`
 cluster, carrying the node's Dqlite identity and bind address.
 
-(types-of-controller)=
-## Types of controller
-
-A controller has no subtypes: one deployment, one controller.
-{ref}`High availability <high-availability>` does not make a second
-controller -- it makes more **controller nodes** running the same
-controller's database and API.
-
 (the-controller-in-the-data-model)=
-## The controller in the data model
+### The controller in the data model
 
 The controller database is the controller's own record set: the
 controller row, its configuration, its nodes, and everything that
@@ -54,7 +49,7 @@ leases, and the {ref}`migration <the-model-migration>` bookkeeping.
 The per-model databases are the other half: one Dqlite database per
 model (see {ref}`the full spine <data-model-full-spine>`).
 
-### Controller storage
+#### Controller storage
 
 The controller has two persistent stores: the Dqlite databases and
 blob storage. By default, Juju will use the filesystem of the controller's supporting infrastructure for both.
@@ -105,18 +100,33 @@ Also, Juju will apply default S3 policy permissions, but you are free to change 
 ```
 
 (the-controller-states)=
-## Controller states
+### Controller states
 
 A controller has no state machine: there is no life column and no
 status vocabulary -- the controller is up, and its nodes' liveness is
 the Dqlite cluster's business (see
 {ref}`high availability <high-availability>`).
 
+(types-of-controller)=
+### Types of controller
+
+A controller has no subtypes: one deployment, one controller.
+{ref}`High availability <high-availability>` does not make a second
+controller -- it makes more **controller nodes** running the same
+controller's database and API.
+
+(the-controllers-machinery)=
+## The controller's machinery
+
+A controller has machinery of its own: in the controller machine's
+jujud, the API server and every model worker runs -- bootstrap creates
+it, and high availability adds controller nodes.
+
 (the-controller-operations)=
-## Controller operations
+### Controller operations
 
 (controller-bootstrap)=
-### Controller bootstrap
+#### Controller bootstrap
 
 A controller comes into being through the {ref}`bootstrap <bootstrap-a-controller>` process: `juju bootstrap` turns an empty cloud into a running control plane. The mechanism and the state it leaves:
 
@@ -134,7 +144,7 @@ database gets the controller row, the `admin`
 the bootstrapped {ref}`cloud <cloud>` and
 {ref}`credential <credential>` records.
 
-### Controller configuration
+#### Controller configuration
 
 The controller configuration is the controller's key/value record,
 read and written through the controller config service -- and its
@@ -148,7 +158,7 @@ See more: {ref}`manage-controllers`
 ```
 
 (the-controller-watchers)=
-## Controller watchers
+### Controller watchers
 
 The controller side exposes these watch surfaces:
 
@@ -175,7 +185,7 @@ and the consumer fetches the current state and reconciles.
   {ref}`models <model>`.
 
 (related-entities-controller)=
-## Related entities
+## Entities related to the controller
 
 - **The controller model** is the model that hosts the controller
   application and its workers (see {ref}`model <model>`).
