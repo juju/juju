@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujuagentd/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	caasprovider "github.com/juju/juju/internal/provider/kubernetes"
@@ -219,7 +220,7 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
 		Agent:                  agent.APIHostPortsSetter{Agent: m},
 		AgentConfigChanged:     m.configChangedVal,
-		NewContainerBrokerFunc: caas.New,
+		NewContainerBrokerFunc: newContainerBroker,
 		Port:                   port,
 		LogSource:              m.bufferedLogger.Logs(),
 		ServiceName:            svcName,
@@ -247,4 +248,20 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 	}
 
 	return e, nil
+}
+
+// newContainerBroker opens the model operator's CAAS broker directly from
+// the kubernetes provider. Unlike caas.New, it does not consult the global
+// provider registry, which the machine agent does not populate; any
+// registry-based lookup would work only as a side effect of the provider
+// package's own init registration.
+func newContainerBroker(
+	ctx context.Context,
+	args environs.OpenParams,
+	invalidator environs.CredentialInvalidator,
+) (caas.Broker, error) {
+	if args.Cloud.Type != caasconstants.CAASProviderType {
+		return nil, errors.NotSupportedf("cloud type %q", args.Cloud.Type)
+	}
+	return caasprovider.Provider().Open(ctx, args, invalidator)
 }
