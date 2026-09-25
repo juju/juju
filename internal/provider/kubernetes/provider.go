@@ -67,6 +67,13 @@ var providerInstance = kubernetesEnvironProvider{
 	},
 }
 
+// Provider returns the kubernetes CAAS environ provider. It lets callers
+// that link the provider directly, such as the CAAS model operator, open
+// brokers without consulting the global provider registry.
+func Provider() caas.ContainerEnvironProvider {
+	return providerInstance
+}
+
 // Version is part of the EnvironProvider interface.
 func (kubernetesEnvironProvider) Version() int {
 	return 0

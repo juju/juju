@@ -656,7 +656,6 @@ snap run %[6]s.bootstrap-state --timeout %[7]s`,
 
 	return nil
 }
-
 func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 	if w.icfg.Bootstrap == nil {
 		return nil
