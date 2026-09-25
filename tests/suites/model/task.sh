@@ -16,6 +16,14 @@ test_model() {
 
 	# Tests that need to be run are added here.
 	test_model_config
+	test_model_migration_36
+	test_model_migration_36_cmr_offering
+	test_model_migration_36_cmr_consuming
+	test_model_migration_36_cmr_spaces
+	test_model_migration_36_cmr_secrets_consumer
+	test_model_migration_36_cmr_secrets_offerer
+	test_model_migration_36_abort
+	test_model_migration_36_users_permissions
 	test_model_multi
 	test_model_metrics
 	test_model_destroy

@@ -376,7 +376,14 @@ run_test() {
 if [[ $# -gt 0 ]]; then
 	# shellcheck disable=SC2143
 	if [[ "$(echo "${2}" | grep -E "^run_")" ]]; then
-		TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs sed -rn 's/.*(test_\w+)\s+?\(\)\s+?\{/\1/p')"
+		# Pick the test wrapper that actually contains the run call, not
+		# every test_ function defined in the matched file (suites with
+		# multiple run_ subtests in one file would otherwise pass all
+		# wrapper names as arguments to the first wrapper).
+		TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs awk -v target="${2}" '
+			/^test_[[:alnum:]_]+\(\)/ { fn=$1; sub(/\(\).*/, "", fn) }
+			$0 ~ "run \"" target "\"" { print fn }
+		' | head -n1)"
 		if [[ -z ${TEST} ]]; then
 			echo "==> Unable to find parent test for ${2}."
 			echo "    Try and run the parent test directly."
