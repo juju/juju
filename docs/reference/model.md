@@ -6,6 +6,9 @@ myst:
 
 (model)=
 # Model
+```{audience} user
+```
+
 ```{ibnote}
 See also: {ref}`manage-models`
 ```
@@ -138,6 +141,9 @@ See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
 (the-model-migration)=
 #### Model migration
 
+```{audience} juju-dev
+```
+
 ```{ggarch}
 :file: ../juju.ggarch
 :sequence: Model migration
@@ -189,6 +195,9 @@ deletes its own database -- the Undertaker does.
 (the-model-watchers)=
 ### Model watchers
 
+```{audience} juju-dev
+```
+
 The model domain's watchable service exposes these watch surfaces --
 what a watcher fires on, not who consumes it:
 
@@ -209,6 +218,9 @@ and the consumer fetches the current state and reconciles.
 
 (the-model-rules-and-errors)=
 ## Model rules and errors
+
+```{audience} charm-dev
+```
 
 The rules a **model identity** must satisfy:
 
