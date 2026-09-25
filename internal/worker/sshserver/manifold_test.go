@@ -341,10 +341,6 @@ func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.Request
 	return nil, errors.NotImplementedf("unexpected RequestTunnel call")
 }
 
-func (stubTunnelTracker) AuthenticateTunnel(string, string) (string, error) {
-	return "", errors.NotImplementedf("unexpected AuthenticateTunnel call")
-}
-
-func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) error {
-	return errors.NotImplementedf("unexpected PushTunnel call")
+func (stubTunnelTracker) PushTunnel(context.Context, string, string, net.Conn) (<-chan struct{}, error) {
+	return nil, errors.NotImplementedf("unexpected PushTunnel call")
 }

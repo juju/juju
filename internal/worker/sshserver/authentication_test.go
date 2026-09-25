@@ -14,7 +14,6 @@ import (
 	ssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
-	coressh "github.com/juju/juju/core/ssh"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki/test"
 )
@@ -76,35 +75,6 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidJIMMJWT(c 
 	c.Check(authenticated, tc.IsFalse)
 	c.Check(ctx.values[userJWT{}], tc.IsNil)
 	c.Check(parser.password, tc.Equals, "invalid-jwt")
-}
-
-func (s *authenticationSuite) TestPasswordAuthenticationAcceptsReverseTunnel(c *tc.C) {
-	ctx := &stubAuthenticationContext{user: coressh.ReverseTunnelUser, values: map[any]any{}}
-	tunnelTracker := &stubTunnelAuthenticator{tunnelID: "tunnel-uuid"}
-
-	auth := authenticator{tunnelTracker: tunnelTracker}
-	authenticated, err := auth.PasswordAuthentication(ctx, "tunnel-password")
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(authenticated, tc.IsTrue)
-	c.Check(ctx.values[tunnelIDKey{}], tc.Equals, "tunnel-uuid")
-	c.Check(tunnelTracker.username, tc.Equals, coressh.ReverseTunnelUser)
-	c.Check(tunnelTracker.password, tc.Equals, "tunnel-password")
-}
-
-func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidReverseTunnel(c *tc.C) {
-	ctx := &stubAuthenticationContext{user: coressh.ReverseTunnelUser, values: map[any]any{}}
-	tunnelTracker := &stubTunnelAuthenticator{err: errors.New("invalid credentials")}
-
-	auth := authenticator{
-		logger:        loggertesting.WrapCheckLog(c),
-		tunnelTracker: tunnelTracker,
-	}
-	authenticated, err := auth.PasswordAuthentication(ctx, "invalid-password")
-	c.Check(err, tc.ErrorMatches, "authenticating reverse SSH tunnel: invalid credentials")
-	c.Check(authenticated, tc.IsFalse)
-	c.Check(ctx.values[tunnelIDKey{}], tc.IsNil)
-	c.Check(tunnelTracker.username, tc.Equals, coressh.ReverseTunnelUser)
-	c.Check(tunnelTracker.password, tc.Equals, "invalid-password")
 }
 
 func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C) {
@@ -178,19 +148,6 @@ type stubJWTParser struct {
 func (s *stubJWTParser) Parse(_ context.Context, password string) (jwt.Token, error) {
 	s.password = password
 	return s.token, s.err
-}
-
-type stubTunnelAuthenticator struct {
-	tunnelID string
-	err      error
-	username string
-	password string
-}
-
-func (s *stubTunnelAuthenticator) AuthenticateTunnel(username, password string) (string, error) {
-	s.username = username
-	s.password = password
-	return s.tunnelID, s.err
 }
 
 type stubUserPublicKeyService struct {
