@@ -122,11 +122,11 @@ func IsUnsupportedBaseError(err error) bool {
 }
 
 // IsLocalCharmPath reports whether the given path refers to a local charm
-// or bundle rather than a charmhub identifier. A path is considered local if
-// it is empty or starts with "/", "./", or "../".
+// or bundle rather than a charmhub identifier. A path is considered local
+// if it starts with "/", "./", or "../". An empty path is not considered
+// local.
 func IsLocalCharmPath(path string) bool {
-	return path == "" ||
-		strings.HasPrefix(path, "/") ||
+	return strings.HasPrefix(path, "/") ||
 		strings.HasPrefix(path, "./") ||
 		strings.HasPrefix(path, "../")
 }
