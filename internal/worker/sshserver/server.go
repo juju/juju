@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/virtualhostname"
+	coressh "github.com/juju/juju/internal/ssh"
 )
 
 // SessionHandler is an interface that proxies SSH sessions to a target unit/machine.
@@ -293,7 +294,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to set write deadline: %v", err)
 			}
-			_, err = conn.Write([]byte("too many connections.\n"))
+			err = coressh.WritePreBannerError(conn, "too many connections.")
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to write to connection: %v", err)
 			}
