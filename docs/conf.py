@@ -308,6 +308,7 @@ extensions = [
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
     'ibnote',
+    'audience',
     'sphinxcontrib.mermaid',
     'sphinxcontrib_d2',
     'ggarch.sphinxcontrib_ggarch',
@@ -352,6 +353,7 @@ html_css_files = [
     "css/cookie-banner.css",
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
+    "css/audience.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'

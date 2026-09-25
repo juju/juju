@@ -1,0 +1,8 @@
+/* Audience tags ({audience} directive): backgrounded like the ibnote --
+   always present, non-intrusive (small, muted, no box). */
+p.audience {
+  font-size: var(--font-size--small);
+  margin: 0 0 0.75em 0;
+  line-height: 1.4;
+  color: var(--color-foreground-muted);
+}
