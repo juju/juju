@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -78,4 +80,26 @@ func HasPermission(
 		return false, nil
 	}
 	return true, nil
+}
+
+// HighestAccess returns the first level in levels (given highest first)
+// that the authorizer grants the caller on target, or
+// [permission.NoAccess] if none match. Any error other than the caller
+// missing the checked permission is returned immediately.
+func HighestAccess(
+	ctx context.Context,
+	authorizer facade.Authorizer,
+	target names.Tag,
+	levels []permission.Access,
+) (permission.Access, error) {
+	for _, access := range levels {
+		err := authorizer.HasPermission(ctx, access, target)
+		if err == nil {
+			return access, nil
+		}
+		if !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+			return permission.NoAccess, errors.Capture(err)
+		}
+	}
+	return permission.NoAccess, nil
 }

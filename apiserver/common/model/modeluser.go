@@ -20,14 +20,18 @@ type modelService interface {
 	// GetModelUsers will retrieve basic information about users with
 	// permissions on the given model UUID.
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
-	// GetModelUser will retrieve basic information about the specified model
-	// user.
+	// GetModelUser retrieves basic information about the specified
+	// model user. A user with no local permission row is still returned,
+	// with an empty access level.
 	GetModelUser(ctx context.Context, modelUUID coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error)
 }
 
 // ModelUserInfo gets model user info from the modelService and converts it
-// into params.ModelUserInfo.
-func ModelUserInfo(ctx context.Context, service modelService, modelTag names.ModelTag, apiUser user.Name, isAdmin bool) ([]params.ModelUserInfo, error) {
+// into params.ModelUserInfo. When a non-admin caller has no local
+// permission row (for example an external JWT user), their access level
+// is taken from fallbackAccess, which the caller resolves from the
+// authorizer.
+func ModelUserInfo(ctx context.Context, service modelService, modelTag names.ModelTag, apiUser user.Name, isAdmin bool, fallbackAccess permission.Access) ([]params.ModelUserInfo, error) {
 	var userInfo []coremodel.ModelUserInfo
 	var err error
 	if isAdmin {
@@ -35,6 +39,9 @@ func ModelUserInfo(ctx context.Context, service modelService, modelTag names.Mod
 	} else {
 		var ui coremodel.ModelUserInfo
 		ui, err = service.GetModelUser(ctx, coremodel.UUID(modelTag.Id()), apiUser)
+		if err == nil && ui.Access == permission.NoAccess {
+			ui.Access = fallbackAccess
+		}
 		userInfo = append(userInfo, ui)
 	}
 	if err != nil {

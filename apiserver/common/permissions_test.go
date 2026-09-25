@@ -10,7 +10,9 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -223,4 +225,79 @@ func (r *PermissionSuite) TestUnknownTargetKindReturnsNoPermission(c *tc.C) {
 	hasPermission, err := common.HasPermission(c.Context(), (&fakeUserAccess{}).call, userTag, permission.ReadAccess, target)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasPermission, tc.IsFalse)
+}
+
+// fakeAuthorizer answers HasPermission from a fixed set of granted
+// access levels, so tests can drive HighestAccess without a real
+// authorizer.
+type fakeAuthorizer struct {
+	facade.Authorizer
+
+	granted map[permission.Access]bool
+	err     error
+	calls   []permission.Access
+}
+
+func (f *fakeAuthorizer) HasPermission(_ context.Context, operation permission.Access, _ names.Tag) error {
+	f.calls = append(f.calls, operation)
+	if f.err != nil {
+		return f.err
+	}
+	if f.granted[operation] {
+		return nil
+	}
+	return authentication.ErrorEntityMissingPermission
+}
+
+func (r *PermissionSuite) TestHighestAccessReturnsFirstMatchingLevel(c *tc.C) {
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	authorizer := &fakeAuthorizer{granted: map[permission.Access]bool{
+		permission.WriteAccess: true,
+		permission.ReadAccess:  true,
+	}}
+	access, err := common.HighestAccess(c.Context(), authorizer, target, []permission.Access{
+		permission.AdminAccess,
+		permission.WriteAccess,
+		permission.ReadAccess,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.WriteAccess)
+	// AdminAccess is checked and missed, then WriteAccess matches.
+	// ReadAccess is never checked once a match is found.
+	c.Check(authorizer.calls, tc.DeepEquals, []permission.Access{
+		permission.AdminAccess,
+		permission.WriteAccess,
+	})
+}
+
+func (r *PermissionSuite) TestHighestAccessNoneGranted(c *tc.C) {
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	authorizer := &fakeAuthorizer{granted: map[permission.Access]bool{}}
+	access, err := common.HighestAccess(c.Context(), authorizer, target, []permission.Access{
+		permission.AdminAccess,
+		permission.WriteAccess,
+		permission.ReadAccess,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+	c.Check(authorizer.calls, tc.DeepEquals, []permission.Access{
+		permission.AdminAccess,
+		permission.WriteAccess,
+		permission.ReadAccess,
+	})
+}
+
+func (r *PermissionSuite) TestHighestAccessPropagatesUnexpectedError(c *tc.C) {
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	authorizer := &fakeAuthorizer{err: errors.New("database connection failed")}
+	access, err := common.HighestAccess(c.Context(), authorizer, target, []permission.Access{
+		permission.AdminAccess,
+		permission.WriteAccess,
+	})
+	c.Assert(err, tc.ErrorMatches, ".*database connection failed.*")
+	c.Check(access, tc.Equals, permission.NoAccess)
+	// The loop stops at the first unexpected error.
+	c.Check(authorizer.calls, tc.DeepEquals, []permission.Access{
+		permission.AdminAccess,
+	})
 }
