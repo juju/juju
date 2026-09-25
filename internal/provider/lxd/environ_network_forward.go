@@ -81,6 +81,7 @@ func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Co
 	}
 
 	// Wait for all guest addresses before allocating any external addresses.
+	logger.Debugf(ctx, "Waiting for OVN network addresses for instance %q", container.Name)
 	var state *api.InstanceState
 	err = retry.Call(retry.CallArgs{
 		Clock:    clk,
