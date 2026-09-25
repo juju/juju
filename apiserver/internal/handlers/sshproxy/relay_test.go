@@ -61,26 +61,7 @@ func (s *relaySuite) TestRelaySessionServedEndToEnd(c *tc.C) {
 	destination := newMachineDestination(c, testModelUUID)
 	factory.EXPECT().New(gomock.Any(), destination).Return(&terminatingServer, nil)
 
-	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
-	injectJWT := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), RelayJWTKey{}, token)
-		handler := s.newHandler(c, factory)
-		handler.ServeHTTP(w, r.WithContext(ctx))
-	})
-	server := httptest.NewServer(injectJWT)
-	c.Cleanup(server.Close)
-
-	// Dial the relay endpoint and perform the upgrade, as JIMM's relay
-	// client would.
-	conn, err := net.Dial("tcp", server.Listener.Addr().String())
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = conn.Close() }()
-
-	req, err := http.NewRequest(http.MethodGet, server.URL+"/ssh-relay/"+destination.String(), nil)
-	c.Assert(err, tc.ErrorIsNil)
-	req.Header.Set("Connection", "Upgrade")
-	req.Header.Set("Upgrade", coresshproxy.RelayUpgradeToken)
-	req.URL.RawQuery = ":virtualHostname=" + destination.String()
+	conn, req := s.dialRelay(c, factory)
 
 	upgraded, err := coresshproxy.PerformUpgrade(req, conn)
 	c.Assert(err, tc.ErrorIsNil)
@@ -128,54 +109,18 @@ func (h *stubProxyHandlers) SessionHandler(session gliderssh.Session) {
 	close(h.sessionDone)
 }
 
-func (s *relaySuite) TestAdminAccessAuthorizes(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	factory := NewMockTerminatingServerFactory(ctrl)
-	w := s.serveRelay(c, factory, testModelUUID, string(permission.AdminAccess))
-
-	// Authorization passed: the handler attempts to hijack the connection,
-	// which httptest.NewRecorder does not support, so it logs and returns
-	// without writing a status. Resolution happens after the upgrade, so
-	// the factory is not reached here.
-	c.Check(w.Code, tc.Not(tc.Equals), http.StatusForbidden)
-	ctrl.Finish()
-}
-
 func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	factory := NewMockTerminatingServerFactory(ctrl)
 	factory.EXPECT().New(gomock.Any(), gomock.Any()).
 		Return(nil, errors.New("no such destination"))
-	handler, err := NewRelayHandler(RelayHandlerConfig{
-		Logger:        loggertesting.WrapCheckLog(c),
-		ServerFactory: factory,
-	})
-	c.Assert(err, tc.ErrorIsNil)
 
-	// Inject the verified JWT into the request context server-side, as the
-	// apiserver's HTTP authentication layer would.
-	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
-	injectJWT := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := context.WithValue(r.Context(), RelayJWTKey{}, token)
-		handler.ServeHTTP(w, r.WithContext(ctx))
-	})
-	server := httptest.NewServer(injectJWT)
-	c.Cleanup(server.Close)
-
-	destination := newMachineDestination(c, testModelUUID)
-	req, err := http.NewRequest(http.MethodGet, server.URL+"/ssh-relay/"+destination.String(), nil)
-	c.Assert(err, tc.ErrorIsNil)
-	req.Header.Set("Connection", "Upgrade")
-	req.Header.Set("Upgrade", coresshproxy.RelayUpgradeToken)
-	req.URL.RawQuery = ":virtualHostname=" + destination.String()
+	conn, req := s.dialRelay(c, factory)
 
 	// Write the upgrade request over a raw connection. After the 101
 	// response the hijacked connection stays open on the server side,
 	// which writes the resolve error as pre-banner text before closing.
-	conn, err := net.Dial("tcp", server.Listener.Addr().String())
-	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = conn.Close() }()
-	err = req.Write(conn)
+	err := req.Write(conn)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -213,6 +158,32 @@ func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	w := s.serveRelay(c, factory, testModelUUID, "")
 	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
 	ctrl.Finish()
+}
+
+// dialRelay starts a relay test server with the given factory, injects
+// an admin JWT as the HTTP authentication layer would, and returns a raw
+// connection to it along with an upgrade request ready to write.
+func (s *relaySuite) dialRelay(c *tc.C, factory coresshproxy.TerminatingServerFactory) (net.Conn, *http.Request) {
+	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
+	injectJWT := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), RelayJWTKey{}, token)
+		handler := s.newHandler(c, factory)
+		handler.ServeHTTP(w, r.WithContext(ctx))
+	})
+	server := httptest.NewServer(injectJWT)
+	c.Cleanup(server.Close)
+
+	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() { _ = conn.Close() })
+
+	destination := newMachineDestination(c, testModelUUID)
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/ssh-relay/"+destination.String(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", coresshproxy.RelayUpgradeToken)
+	req.URL.RawQuery = ":virtualHostname=" + destination.String()
+	return conn, req
 }
 
 func (s *relaySuite) newHandler(c *tc.C, factory coresshproxy.TerminatingServerFactory) *RelayHandler {

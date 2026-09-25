@@ -39,7 +39,7 @@ func newRelayAuthInfo(delegator authentication.PermissionDelegator) authenticati
 // withAuthInfo injects auth info into the request context by running the
 // request through a real httpcontext.AuthHandler with a stub authenticator,
 // so the production authInfoKey is used.
-func withAuthInfo(c *tc.C, r *http.Request, authInfo authentication.AuthInfo) *http.Request {
+func withAuthInfo(t *testing.T, r *http.Request, authInfo authentication.AuthInfo) *http.Request {
 	var out *http.Request
 	authHandler := &httpcontext.AuthHandler{
 		NextHandler: http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func withAuthInfo(c *tc.C, r *http.Request, authInfo authentication.AuthInfo) *h
 	}
 	w := httptest.NewRecorder()
 	authHandler.ServeHTTP(w, r)
-	c.Assert(w.Code, tc.Equals, http.StatusOK)
+	tc.Assert(t, w.Code, tc.Equals, http.StatusOK)
 	return out
 }
 
@@ -87,7 +87,7 @@ func (s *relayAuthSuite) TestRelayWrapperInjectsDelegatorToken(c *tc.C) {
 	token := s.newToken(c)
 
 	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
-	r = withAuthInfo(c, r, newRelayAuthInfo(&authjwt.PermissionDelegator{Token: token}))
+	r = withAuthInfo(c.T, r, newRelayAuthInfo(&authjwt.PermissionDelegator{Token: token}))
 
 	captured := &captureJWT{}
 	wrapper := srv.sshRelayRequestWrapper(captured)
@@ -97,49 +97,32 @@ func (s *relayAuthSuite) TestRelayWrapperInjectsDelegatorToken(c *tc.C) {
 	c.Check(captured.token, tc.Equals, token)
 }
 
-func (s *relayAuthSuite) TestRelayWrapperRejectsMissingAuthInfo(c *tc.C) {
+func (s *relayAuthSuite) TestRelayWrapperRejectsUnauthorizedAuthInfo(c *tc.C) {
 	srv := &Server{}
 	captured := &captureJWT{}
 	wrapper := srv.sshRelayRequestWrapper(captured)
 
-	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
-	w := httptest.NewRecorder()
-	wrapper.ServeHTTP(w, r)
+	for _, test := range []struct {
+		name     string
+		authInfo authentication.AuthInfo
+	}{
+		{"missing auth info", authentication.AuthInfo{}},
+		{"non-JWT delegator", newRelayAuthInfo(stubPermissionDelegator{})},
+		{"nil delegator", newRelayAuthInfo(nil)},
+	} {
+		c.Run(test.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
+			if test.authInfo.Delegator != nil || test.authInfo.Tag != nil {
+				r = withAuthInfo(t, r, test.authInfo)
+			}
 
-	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
-	c.Check(captured.ok, tc.IsFalse)
-}
+			w := httptest.NewRecorder()
+			wrapper.ServeHTTP(w, r)
 
-func (s *relayAuthSuite) TestRelayWrapperRejectsNonJWTDelegator(c *tc.C) {
-	srv := &Server{}
-	captured := &captureJWT{}
-	wrapper := srv.sshRelayRequestWrapper(captured)
-
-	// A non-JWT delegator (e.g. the state authenticator's) must not
-	// reach the relay handler.
-	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
-	r = withAuthInfo(c, r, newRelayAuthInfo(stubPermissionDelegator{}))
-
-	w := httptest.NewRecorder()
-	wrapper.ServeHTTP(w, r)
-
-	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
-	c.Check(captured.ok, tc.IsFalse)
-}
-
-func (s *relayAuthSuite) TestRelayWrapperRejectsNilDelegator(c *tc.C) {
-	srv := &Server{}
-	captured := &captureJWT{}
-	wrapper := srv.sshRelayRequestWrapper(captured)
-
-	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
-	r = withAuthInfo(c, r, newRelayAuthInfo(nil))
-
-	w := httptest.NewRecorder()
-	wrapper.ServeHTTP(w, r)
-
-	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
-	c.Check(captured.ok, tc.IsFalse)
+			tc.Check(t, w.Code, tc.Equals, http.StatusUnauthorized)
+			tc.Check(t, captured.ok, tc.IsFalse)
+		})
+	}
 }
 
 // stubPermissionDelegator is a PermissionDelegator that is not a
