@@ -2671,6 +2671,7 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 
 	var uuids []relationUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuids = nil
 		err = tx.Query(ctx, stmt, e1, e2).GetAll(&uuids)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return relationerrors.RelationNotFound
@@ -2685,6 +2686,74 @@ AND    e2.endpoint_name    = $endpointIdentifier2.endpoint_name
 		return "", errors.Errorf("found multiple relations for endpoint pair")
 	}
 	return uuids[0].UUID, nil
+}
+
+// GetPeerRelationUUIDByEndpointIdentifiers gets the UUID of a peer
+// relation specified by a single endpoint identifier.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] is returned if endpoint cannot be
+//     found.
+//
+// Note: this method is a near-verbatim copy of
+// (*domain/relation/state.State).GetPeerRelationUUIDByEndpointIdentifiers.
+// The query is duplicated here intentionally so that domain/secret remains
+// self-contained at the state layer (each domain owns its own SQL).
+// Keep this method in sync with the relation-state implementation if the
+// underlying schema changes.
+func (st State) GetPeerRelationUUIDByEndpointIdentifiers(
+	ctx context.Context,
+	endpoint corerelation.EndpointIdentifier,
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	e := endpointIdentifier{
+		ApplicationName: endpoint.ApplicationName,
+		EndpointName:    endpoint.EndpointName,
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &relationUUIDAndRole.*
+FROM   relation r
+JOIN   v_relation_endpoint e ON r.uuid = e.relation_uuid
+WHERE  e.application_name = $endpointIdentifier.application_name
+AND    e.endpoint_name    = $endpointIdentifier.endpoint_name
+`, relationUUIDAndRole{}, e)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var uuidAndRole []relationUUIDAndRole
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuidAndRole = nil
+		err = tx.Query(ctx, stmt, e).GetAll(&uuidAndRole)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	if len(uuidAndRole) > 1 {
+		return "", errors.Errorf(
+			"found multiple relations for peer application %q endpoint %q",
+			e.ApplicationName, e.EndpointName,
+		)
+	}
+
+	// Verify that the role is peer. Endpoint names are unique per charm, so if
+	// the role is not peer the application does not have a peer relation with
+	// the specified endpoint name, so return RelationNotFound.
+	if uuidAndRole[0].Role != string(charm.RolePeer) {
+		return "", relationerrors.RelationNotFound
+	}
+
+	return uuidAndRole[0].UUID, nil
 }
 
 // GetRelationEndpoints returns relation endpoints for the given relation UUID.
