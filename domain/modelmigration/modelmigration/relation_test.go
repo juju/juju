@@ -326,6 +326,140 @@ func (s *relationSuite) TestUniqueRemoteOfferApplicationsInvalidEndpoints(c *tc.
 	c.Assert(err, tc.ErrorMatches, "multiple remote application offerers with the same offer UUID.*but different endpoints.*")
 }
 
+// TestRewriteUnitName checks the unit name rewrite rule shared by the
+// relation and crossmodelrelation domain imports: a unit name is re-written
+// onto a new application name only when its application segment matches the
+// old name exactly, so a prefix match cannot rename another application's
+// units, and names that are not valid unit names are an error.
+func (s *relationSuite) TestRewriteUnitName(c *tc.C) {
+	tests := []struct {
+		name               string
+		unitName           string
+		oldApplicationName string
+		newApplicationName string
+		expected           string
+		expectedErr        string
+	}{
+		{
+			name:               "unit name belonging to the old application",
+			unitName:           "second/0",
+			oldApplicationName: "second",
+			newApplicationName: "first",
+			expected:           "first/0",
+		},
+		{
+			name:               "unit name of an application sharing a prefix",
+			unitName:           "secondaire/0",
+			oldApplicationName: "second",
+			newApplicationName: "first",
+			expected:           "secondaire/0",
+		},
+		{
+			name:               "unit name belonging to another application",
+			unitName:           "other/0",
+			oldApplicationName: "second",
+			newApplicationName: "first",
+			expected:           "other/0",
+		},
+		{
+			name:               "name without a unit number",
+			unitName:           "second",
+			oldApplicationName: "second",
+			newApplicationName: "first",
+			expectedErr:        `parsing unit name "second": invalid unit name: "second"`,
+		},
+		{
+			name:               "empty name",
+			unitName:           "",
+			oldApplicationName: "second",
+			newApplicationName: "first",
+			expectedErr:        `parsing unit name "": invalid unit name: ""`,
+		},
+		{
+			name:               "invalid new application name",
+			unitName:           "second/0",
+			oldApplicationName: "second",
+			newApplicationName: "First",
+			expectedErr:        `rewriting unit name "second/0": invalid unit name: "First/0"`,
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("Test case: %s", test.name)
+
+		result, err := RewriteUnitName(
+			test.unitName, test.oldApplicationName, test.newApplicationName)
+
+		if test.expectedErr != "" {
+			c.Assert(err, tc.ErrorMatches, test.expectedErr)
+			continue
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.Equals, test.expected)
+	}
+}
+
+// TestRemoteApplicationOffererRewriteUnitName checks re-writing unit names
+// belonging to the primary remote application or any of the offerer's
+// duplicate aliases onto the primary application name; names that are not
+// valid unit names are an error.
+func (s *relationSuite) TestRemoteApplicationOffererRewriteUnitName(c *tc.C) {
+	m := description.NewModel(description.ModelArgs{})
+	offerer := RemoteApplicationOfferer{
+		Primary: m.AddRemoteApplication(description.RemoteApplicationArgs{Name: "first"}),
+		Duplicates: []description.RemoteApplication{
+			m.AddRemoteApplication(description.RemoteApplicationArgs{Name: "second"}),
+			m.AddRemoteApplication(description.RemoteApplicationArgs{Name: "third"}),
+		},
+	}
+
+	tests := []struct {
+		name        string
+		unitName    string
+		expected    string
+		expectedErr string
+	}{
+		{
+			name:     "unit name belonging to the primary",
+			unitName: "first/0",
+			expected: "first/0",
+		},
+		{
+			name:     "unit name belonging to the first alias",
+			unitName: "second/0",
+			expected: "first/0",
+		},
+		{
+			name:     "unit name belonging to the second alias",
+			unitName: "third/7",
+			expected: "first/7",
+		},
+		{
+			name:     "unit name of an application sharing a prefix",
+			unitName: "secondaire/0",
+			expected: "secondaire/0",
+		},
+		{
+			name:        "name without a unit number",
+			unitName:    "second",
+			expectedErr: `parsing unit name "second": invalid unit name: "second"`,
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("Test case: %s", test.name)
+
+		result, err := offerer.RewriteUnitName(test.unitName)
+
+		if test.expectedErr != "" {
+			c.Assert(err, tc.ErrorMatches, test.expectedErr)
+			continue
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(result, tc.Equals, test.expected)
+	}
+}
+
 func newModel() description.Model {
 	m := description.NewModel(description.ModelArgs{})
 

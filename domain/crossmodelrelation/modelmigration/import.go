@@ -257,6 +257,11 @@ func (i *importOperation) importRemoteApplicationOfferers(
 			}
 			syntheticApplicationUUID = generated
 		}
+		units, err := remoteApplicationOffererUnits(duplicatedRemoteApps, remoteAppUnits)
+		if err != nil {
+			return errors.Errorf("rewriting units for remote application %q: %w",
+				primaryRemoteApp.Name(), err)
+		}
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
 				Name:            primaryRemoteApp.Name(),
@@ -264,7 +269,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				URL:             primaryRemoteApp.URL(),
 				SourceModelUUID: primaryRemoteApp.SourceModelUUID(),
 				Macaroon:        primaryRemoteApp.Macaroon(),
-				Units:           remoteAppUnits[primaryRemoteApp.Name()],
+				Units:           units,
 				Endpoints:       endpoints,
 			},
 			OffererApplicationUUID: syntheticApplicationUUID,
@@ -274,6 +279,53 @@ func (i *importOperation) importRemoteApplicationOfferers(
 		return nil
 	}
 	return i.importService.ImportRemoteApplicationOfferers(ctx, input)
+}
+
+// remoteApplicationOffererUnits returns the synthetic unit names to create
+// for the primary remote application of the offerer. Relations may reference
+// any of the offerer's aliases, with unit settings keyed under the alias's
+// unit names. The relation domain import re-keys those settings onto the
+// primary name; the alias unit names are re-written here with the same
+// RemoteApplicationOfferer.RewriteUnitName rule, so that the re-keyed
+// settings address synthetic units that exist. The names are de-duplicated
+// and sorted; nil is returned when there are none. Unit names that are not
+// valid unit names are an error.
+func remoteApplicationOffererUnits(
+	offerer domainmodelmigration.RemoteApplicationOfferer,
+	remoteAppUnits map[string][]string,
+) ([]string, error) {
+	seen := make(map[string]struct{})
+	addUnitNames := func(names []string) error {
+		for _, unitName := range names {
+			// Re-write the alias's unit names onto the primary name, in the
+			// same way the relation domain import re-keys unit settings.
+			rewritten, err := offerer.RewriteUnitName(unitName)
+			if err != nil {
+				return err
+			}
+			seen[rewritten] = struct{}{}
+		}
+		return nil
+	}
+
+	if err := addUnitNames(remoteAppUnits[offerer.Primary.Name()]); err != nil {
+		return nil, err
+	}
+	for _, duplicate := range offerer.Duplicates {
+		if err := addUnitNames(remoteAppUnits[duplicate.Name()]); err != nil {
+			return nil, err
+		}
+	}
+	if len(seen) == 0 {
+		return nil, nil
+	}
+
+	units := make([]string, 0, len(seen))
+	for unitName := range seen {
+		units = append(units, unitName)
+	}
+	sort.Strings(units)
+	return units, nil
 }
 
 func (i *importOperation) importRemoteApplicationConsumers(
