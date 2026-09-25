@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -134,6 +135,204 @@ func (st *State) GetUserUUIDByName(ctx context.Context, userName coreuser.Name) 
 		return internaluuid.UUID{}, errors.Capture(err)
 	}
 	return result, nil
+}
+
+// UpdateOfferPermission updates the access permission for the specified
+// user on the given offer. It handles both granting and revoking access,
+// following the same semantics as the access domain's UpdatePermission
+// for offer targets. The permissionUUID is persisted when the grant
+// creates a new permission for a user without one on the offer.
+func (st *State) UpdateOfferPermission(
+	ctx context.Context,
+	permissionUUID string,
+	args crossmodelrelation.UpdateOfferPermissionArgs,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		subjectUUID, err := st.getUserUUIDByName(ctx, tx, args.Username)
+		if err != nil {
+			return errors.Errorf("looking up user %q: %w", args.Username, err)
+		}
+
+		switch args.Change {
+		case corepermission.Grant:
+			return st.grantOfferPermission(ctx, tx, permissionUUID, subjectUUID, args)
+		case corepermission.Revoke:
+			return st.revokeOfferPermission(ctx, tx, args)
+		default:
+			return errors.Errorf("unsupported change type %q", args.Change)
+		}
+	})
+	return errors.Capture(err)
+}
+
+func (st *State) grantOfferPermission(
+	ctx context.Context,
+	tx *sqlair.TX,
+	permissionUUID string,
+	subjectUUID string,
+	args crossmodelrelation.UpdateOfferPermissionArgs,
+) error {
+	inOut := permInOut{
+		Name:    args.Username.Name(),
+		GrantOn: args.OfferUUID,
+	}
+
+	readStmt, err := st.Prepare(`
+SELECT p.access_type AS &permInOut.access_type
+FROM   v_permission_offer AS p
+JOIN   v_user_auth AS u ON p.grant_to = u.uuid
+WHERE  u.name = $permInOut.name
+AND    u.disabled = false
+AND    u.removed = false
+AND    p.grant_on = $permInOut.grant_on
+`, inOut)
+	if err != nil {
+		return errors.Errorf("preparing read current offer permission: %w", err)
+	}
+
+	err = tx.Query(ctx, readStmt, inOut).Get(&inOut)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		perm := permission{
+			UUID:       permissionUUID,
+			GrantOn:    args.OfferUUID,
+			GrantTo:    subjectUUID,
+			AccessType: args.Access.String(),
+			ObjectType: corepermission.Offer.String(),
+		}
+		return insertPermission(ctx, tx, perm)
+	} else if err != nil {
+		return errors.Errorf("reading current offer permission: %w", err)
+	}
+
+	spec := corepermission.AccessSpec{
+		Target: corepermission.ID{
+			ObjectType: corepermission.Offer,
+			Key:        args.OfferUUID,
+		},
+		Access: corepermission.Access(inOut.Access),
+	}
+
+	if spec.EqualOrGreaterThan(args.Access) {
+		return errors.Errorf("user %q already has %q %w", args.Username, args.Access, accesserrors.PermissionAccessGreater)
+	}
+
+	return st.updateOfferPermission(ctx, tx, args.Username.Name(), args.OfferUUID, args.Access.String())
+}
+
+func (st *State) revokeOfferPermission(
+	ctx context.Context,
+	tx *sqlair.TX,
+	args crossmodelrelation.UpdateOfferPermissionArgs,
+) error {
+	inOut := permInOut{
+		Name:    args.Username.Name(),
+		GrantOn: args.OfferUUID,
+	}
+	readStmt, err := st.Prepare(`
+SELECT p.access_type AS &permInOut.access_type
+FROM   v_permission_offer AS p
+JOIN   v_user_auth AS u ON p.grant_to = u.uuid
+WHERE  u.name = $permInOut.name
+AND    u.disabled = false
+AND    u.removed = false
+AND    p.grant_on = $permInOut.grant_on
+`, inOut)
+	if err != nil {
+		return errors.Errorf("preparing read current offer permission: %w", err)
+	}
+	err = tx.Query(ctx, readStmt, inOut).Get(&inOut)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("offer permission for %q on %q %w", args.Username, args.OfferUUID, accesserrors.PermissionNotFound)
+	} else if err != nil {
+		return errors.Errorf("reading current offer permission: %w", err)
+	}
+
+	spec := corepermission.AccessSpec{
+		Target: corepermission.ID{
+			ObjectType: corepermission.Offer,
+			Key:        args.OfferUUID,
+		},
+		Access: args.Access,
+	}
+	newAccess := spec.RevokeAccess()
+	if newAccess == corepermission.NoAccess {
+		return st.deleteOfferPermission(ctx, tx, args.Username.Name(), args.OfferUUID)
+	}
+	return st.updateOfferPermission(ctx, tx, args.Username.Name(), args.OfferUUID, newAccess.String())
+}
+
+func (st *State) updateOfferPermission(
+	ctx context.Context,
+	tx *sqlair.TX,
+	subjectName, grantOn, access string,
+) error {
+	inOut := permInOut{
+		Name:    subjectName,
+		GrantOn: grantOn,
+		Access:  access,
+	}
+
+	updateStmt, err := st.Prepare(`
+UPDATE permission
+SET    access_type_id = (
+           SELECT id
+           FROM   permission_access_type
+           WHERE  type = $permInOut.access_type
+       )
+WHERE  grant_on = $permInOut.grant_on
+AND    grant_to IN (
+           SELECT uuid
+           FROM   v_user_auth
+           WHERE  name = $permInOut.name
+           AND    removed = false
+           AND    disabled = false
+       )
+`, inOut)
+	if err != nil {
+		return errors.Errorf("preparing update offer permission: %w", err)
+	}
+
+	if err := tx.Query(ctx, updateStmt, inOut).Run(); err != nil {
+		return errors.Errorf("updating offer permission for %q on %q to %q: %w", subjectName, grantOn, access, err)
+	}
+	return nil
+}
+
+func (st *State) deleteOfferPermission(
+	ctx context.Context,
+	tx *sqlair.TX,
+	subjectName, grantOn string,
+) error {
+	inOut := permInOut{
+		Name:    subjectName,
+		GrantOn: grantOn,
+	}
+
+	deleteStmt, err := st.Prepare(`
+DELETE FROM permission
+WHERE  grant_on = $permInOut.grant_on
+AND    grant_to IN (
+           SELECT uuid
+           FROM   v_user_auth
+           WHERE  name = $permInOut.name
+           AND    removed = false
+           AND    disabled = false
+       )
+`, inOut)
+	if err != nil {
+		return errors.Errorf("preparing delete offer permission: %w", err)
+	}
+
+	err = tx.Query(ctx, deleteStmt, inOut).Run()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("deleting offer permission for %q on %q: %w", subjectName, grantOn, err)
+	}
+	return nil
 }
 
 // getUserUUIDByName finds the user UUID provided exists, hasn't been removed
@@ -272,4 +471,55 @@ AND    u.removed = false
 		results[one.OfferUUID] = append(results[one.OfferUUID], offerUser)
 	}
 	return results, nil
+}
+
+// IsUserControllerOrModelAdmin returns true if the user has superuser
+// access on the controller or admin access on the given model.
+func (st *State) IsUserControllerOrModelAdmin(
+	ctx context.Context,
+	userName coreuser.Name,
+	modelUUIDStr coremodel.UUID,
+) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	type adminCheck struct {
+		Check string `db:"check"`
+	}
+
+	user := name{Name: userName.Name()}
+	model := modelUUID{ModelUUID: modelUUIDStr.String()}
+
+	adminStmt, err := st.Prepare(`
+SELECT 'x' AS &adminCheck.check
+FROM   v_user_auth u
+JOIN   v_permission p ON u.uuid = p.grant_to
+WHERE  u.name = $name.name
+AND    u.disabled = false
+AND    u.removed = false
+AND    (
+           (p.object_type = 'controller' AND p.access_type = 'superuser')
+           OR
+           (p.object_type = 'model' AND p.grant_on = $modelUUID.model_uuid AND p.access_type IN ('admin', 'superuser'))
+       )
+LIMIT 1
+`, adminCheck{}, name{}, modelUUID{})
+	if err != nil {
+		return false, errors.Errorf("preparing admin check: %w", err)
+	}
+
+	var check adminCheck
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, adminStmt, user, model).Get(&check)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return check.Check == "x", nil
 }

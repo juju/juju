@@ -70,6 +70,15 @@ type CrossModelRelationService interface {
 		filters []crossmodelrelationservice.OfferFilter,
 	) ([]*crossmodelrelation.OfferDetail, error)
 
+	// UpdateOfferPermission updates the access permission for the specified
+	// user on the given offer. When revoking access that results in
+	// below-Consume level, all cross-model relations that the user has
+	// against the offer are suspended automatically.
+	UpdateOfferPermission(
+		ctx context.Context,
+		args crossmodelrelation.UpdateOfferPermissionArgs,
+	) error
+
 	// CreateOffer updates an existing offer, or creates a new offer if it does
 	// not exist. Permissions are created for a new offer only.
 	CreateOffer(

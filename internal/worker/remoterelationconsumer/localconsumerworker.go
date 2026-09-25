@@ -15,6 +15,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/macaroon.v2"
@@ -43,12 +44,22 @@ const (
 	// whilst the relation is in a dying state. This is a terminal error and
 	// requires the worker to be restarted to recover.
 	ErrPermissionRevokedWhilstDying = internalerrors.ConstError("relation permission revoked whilst dying")
+
+	// ErrOfferStatusDischargeError is returned when the offer status watcher
+	// cannot be established due to a discharge (macaroon) failure. It signals
+	// the caller to enter degraded mode.
+	ErrOfferStatusDischargeError = internalerrors.ConstError("offer status watcher cannot be established")
 )
 
 const (
 	// defaultBakeryVersion is the default bakery version to use when
 	// communicating with the offerer model.
 	defaultBakeryVersion = bakery.LatestVersion
+
+	// degradedModeDelayDuration is the interval between retry attempts when the
+	// worker is in degraded mode (e.g. after a discharge failure) and
+	// periodically re-attempts to establish the offer status watcher.
+	degradedModeDelayDuration = 30 * time.Second
 )
 
 // LocalConsumerWorkerConfig defines the configuration for a local consumer
@@ -150,6 +161,9 @@ type localConsumerWorker struct {
 	offererRelationUnitChanges  chan offererunitrelations.RelationUnitChange
 	offererRelationChanges      chan offererrelations.RelationChange
 
+	// offerStatusWatcher watches for status changes on the remote offer. It may
+	// be nil during degraded mode and set later once a retry succeeds.
+	offerStatusWatcher   watcher.OfferStatusWatcher
 	secretChangesWatcher watcher.SecretsRevisionWatcher
 	secretChanges        watcher.SecretRevisionChannel
 
@@ -172,9 +186,17 @@ func NewLocalConsumerWorker(config LocalConsumerWorkerConfig) (ReportableWorker,
 		IsFatal: func(err error) bool {
 			return false
 		},
-		ShouldRestart: internalworker.ShouldRunnerRestart,
-		Clock:         config.Clock,
-		Logger:        internalworker.WrapLogger(config.Logger),
+		ShouldRestart: func(err error) bool {
+			// Do not restart workers when the offer permission has been revoked, the
+			// macaroon can no longer be discharged and any restart would fail in the
+			// same way.
+			if params.ErrCode(err) == params.CodeDischargeRequired {
+				return false
+			}
+			return internalworker.ShouldRunnerRestart(err)
+		},
+		Clock:  config.Clock,
+		Logger: internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -313,14 +335,51 @@ func (w *localConsumerWorker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
-	offerStatusWatcher, err := w.watchRemoteOfferStatus(ctx)
-	if err != nil {
+	w.offerStatusWatcher, err = w.watchRemoteOfferStatus(ctx)
+	if err != nil && !errors.Is(err, ErrOfferStatusDischargeError) {
 		return errors.Trace(err)
-	}
+	} else if errors.Is(err, ErrOfferStatusDischargeError) {
+		// Offer status changes cannot be observed, so run in a degraded mode
+		// until connection is re-established. If this is caused by revoked
+		// permissions, the worker will not be able to recover until the
+		// permission is re-granted.
+		//
+		// When in degraded mode, periodically re-attempt to establish the offer
+		// status watcher so the worker can recover once the permission is
+		// re-granted.
+		err = retry.Call(retry.CallArgs{
+			Attempts: -1, // retry forever
+			Delay:    degradedModeDelayDuration,
+			Stop:     ctx.Done(),
+			Clock:    w.clock,
+			NotifyFunc: func(lastErr error, attempts int) {
+				w.logger.Infof(ctx, "failed to establish offer status watcher for %q: %v", w.offerUUID, lastErr)
+			},
+			IsFatalError: func(err error) bool {
+				return retry.IsRetryStopped(err) || errors.Is(err, context.Canceled)
+			},
+			Func: func() error {
+				w.logger.Infof(ctx, "retrying to establish offer status watcher for %q", w.offerUUID)
 
-	// Store a reference to the channel here as it might become nil if the offer
-	// is terminated.
-	offerStatusWatcherChanges := offerStatusWatcher.Changes()
+				watcher, err := w.watchRemoteOfferStatus(ctx)
+				if err != nil {
+					return errors.Annotatef(err, "retrying offer status watcher for %q", w.offerUUID)
+				}
+				w.offerStatusWatcher = watcher
+				return nil
+			},
+		})
+		if err != nil {
+			// If the retry was interrupted because the worker is dying,
+			// return ErrDying so the worker exits cleanly.
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+			default:
+				return errors.Trace(err)
+			}
+		}
+	}
 
 	for {
 		select {
@@ -397,7 +456,7 @@ func (w *localConsumerWorker) loop() (err error) {
 				return errors.Annotatef(err, "handling offerer relation change for %q", change.ConsumerRelationUUID)
 			}
 
-		case changes, ok := <-offerStatusWatcherChanges:
+		case changes, ok := <-w.offerStatusWatcher.Changes():
 			if !ok {
 				select {
 				case <-w.catacomb.Dying():
@@ -425,6 +484,7 @@ func (w *localConsumerWorker) loop() (err error) {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 			}
+
 		case changes, ok := <-w.secretChanges:
 			if !ok {
 				select {
@@ -475,6 +535,22 @@ func (w *localConsumerWorker) watchRemoteOfferStatus(ctx context.Context) (watch
 	if isNotFound(err) {
 		return nil, w.remoteOfferRemoved(ctx)
 	} else if err != nil {
+		// If the macaroon cannot be discharged, the offer permission has been
+		// revoked (or the macaroon is otherwise no longer valid). Rather than
+		// killing the worker, which would crash loop as the permission cannot be
+		// re-acquired, run in a degraded mode: the local relations are suspended
+		// as they are processed, and no offer status changes are observed. The
+		// worker recovers on the next restart once the permission is re-granted.
+		if params.ErrCode(err) == params.CodeDischargeRequired {
+			w.logger.Warningf(ctx,
+				"cannot watch status of offer %q, offer permission revoked, running in degraded mode: %v",
+				w.offerUUID, err)
+			if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
+				w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v",
+					w.applicationName, w.offererModelUUID, statusErr)
+			}
+			return nil, ErrOfferStatusDischargeError
+		}
 		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
 			w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, statusErr)
 		}
@@ -728,6 +804,20 @@ func (w *localConsumerWorker) handleRelationConsumption(
 		offerEndpointName,
 	)
 	if err != nil {
+		// If the macaroon cannot be discharged, the offer permission has
+		// been revoked. Suspend the relation locally and leave the worker
+		// in a degraded state; the relation is not registered with the
+		// offering model until the permission is re-granted and the
+		// worker restarts.
+		if params.ErrCode(err) == params.CodeDischargeRequired {
+			if dischargeErr := w.processDischargeRequiredError(ctx, err, details.UUID); dischargeErr != nil {
+				return errors.Annotatef(dischargeErr, "suspending relation %q after discharge error", details.UUID)
+			}
+			w.logger.Warningf(ctx,
+				"cannot register relation %q with offering model, offer permission revoked: %v",
+				details.UUID, err)
+			return nil
+		}
 		if statusErr := w.setApplicationOffererStatusMacaroonError(ctx, err); statusErr != nil {
 			w.logger.Errorf(ctx, "failed updating remote application %v status from remote model %v: %v", w.applicationName, w.offererModelUUID, statusErr)
 		}
@@ -1021,6 +1111,16 @@ func (w *localConsumerWorker) handleConsumerUnitChange(ctx context.Context, chan
 			w.logger.Errorf(ctx, "discharge error processing for consumer unit change for relation %q: %v", change.RelationUUID, dischargeErr)
 		}
 
+		// If the macaroon cannot be discharged, the offer permission has been
+		// revoked. The relation has been suspended locally above; leave the worker
+		// running in a degraded state.
+		if params.ErrCode(err) == params.CodeDischargeRequired {
+			w.logger.Warningf(ctx,
+				"cannot publish consumer relation %q change to offerer, offer permission revoked: %v",
+				change.RelationUUID, err)
+			return nil
+		}
+
 		// If the relation no longer exists in the offering model, we should
 		// expect to see a new event from the offerer relation worker, which will
 		// clean up the local relation.
@@ -1091,7 +1191,9 @@ func (w *localConsumerWorker) processDischargeRequiredError(ctx context.Context,
 	// aware of the relation changes anymore. In that case, we need to put the
 	// relation into a suspended state. This will hopefully prevent any further
 	// changes to the relation without mirroring them to the offerer side.
-	if err := w.crossModelService.SetRemoteRelationSuspendedState(ctx, relationUUID, true, "Offer permission revoked"); err != nil {
+	w.logger.Warningf(ctx, "discharge required for relation %q, suspending local consumer relation: %v",
+		relationUUID, err)
+	if err := w.crossModelService.SetRemoteRelationSuspendedState(ctx, relationUUID, true, "offer access revoked"); err != nil {
 		return errors.Annotatef(err, "setting relation %q to suspended after discharge error", relationUUID)
 	}
 
@@ -1172,7 +1274,8 @@ func (w *localConsumerWorker) handleOffererRelationRemoved(ctx context.Context, 
 }
 
 func (w *localConsumerWorker) handleOffererRelationSuspendedState(ctx context.Context, suspended bool, reason string, details relation.RelationDetails) error {
-	w.logger.Debugf(ctx, "offerer relation %q is suspended, suspending local consumer relation", details.UUID)
+	w.logger.Debugf(ctx, "offerer relation %q is suspended (%t), suspending local consumer relation",
+		details.UUID, suspended)
 
 	return w.crossModelService.SetRemoteRelationSuspendedState(ctx, details.UUID, suspended, reason)
 }
@@ -1235,6 +1338,9 @@ func (w *localConsumerWorker) handleDepartedUnits(ctx context.Context, relationU
 }
 
 func (w *localConsumerWorker) handleOffererRelationChange(ctx context.Context, change offererrelations.RelationChange) error {
+	w.logger.Debugf(ctx, "offerer relation %q changed: life=%q suspended=%t reason=%q",
+		change.ConsumerRelationUUID, change.Life, change.Suspended, change.SuspendedReason)
+
 	// Handle the dying/dead case of the relation. We do this **after** setting
 	// the settings, so that the removal of the relation doesn't prevent us from
 	// setting the settings.

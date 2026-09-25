@@ -162,7 +162,6 @@ WHERE  uuid = $uuid.uuid`, uuid{})
 	offer := uuid{UUID: offerUUID.String()}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
 		if err = st.deleteOfferEndpoints(ctx, tx, offerUUID.String()); err != nil {
 			return nil
 		}
@@ -481,9 +480,7 @@ ORDER BY offer_name, endpoint_name
 func encodeOfferFilter(in crossmodelrelation.OfferFilter) ([]offerFilter, error) {
 	result := make([]offerFilter, 0)
 	if !in.EmptyModuloEndpoints() {
-		var (
-			offerName, applicationDescription string
-		)
+		var offerName, applicationDescription string
 		if in.ApplicationDescription != "" {
 			applicationDescription = fmt.Sprintf("%%%s%%", in.ApplicationDescription)
 		}
@@ -751,6 +748,109 @@ WHERE  oc.offer_uuid IN ($uuids[:])
 		}
 		return res
 	}), nil
+}
+
+// SuspendOfferConnectionsForUser sets suspended=true and updates the relation
+// status to "suspending" for all cross-model relations that the given user has
+// against the specified offer, skipping those already suspended.
+func (st *State) SuspendOfferConnectionsForUser(
+	ctx context.Context,
+	offerUUID string,
+	username string,
+	reason string,
+) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	filter := suspensionFilter{
+		OfferUUID: offerUUID,
+		Username:  username,
+	}
+
+	findRelationsStmt, err := st.Prepare(`
+SELECT r.uuid AS &suspendedRelation.uuid
+FROM   offer_connection AS oc
+JOIN   relation AS r ON oc.remote_relation_uuid = r.uuid
+WHERE  oc.offer_uuid = $suspensionFilter.offer_uuid
+AND    oc.username   = $suspensionFilter.username
+AND    r.suspended   = FALSE
+`, filter, suspendedRelation{})
+	if err != nil {
+		return errors.Errorf("preparing find relations to suspend query: %w", err)
+	}
+
+	updateRelationStmt, err := st.Prepare(`
+UPDATE relation
+SET    suspended = $relationSuspendedUpdate.suspended,
+       suspended_reason = $relationSuspendedUpdate.suspended_reason
+WHERE  uuid IN ($suspendedRelationUUIDs[:])
+AND    suspended = FALSE
+`, suspendedRelationUUIDs{}, relationSuspendedUpdate{})
+	if err != nil {
+		return errors.Errorf("preparing update relation suspended query: %w", err)
+	}
+
+	updateStatusStmt, err := st.Prepare(`
+INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
+SELECT r.uuid,
+       rst.id,
+       $relationSuspendStatus.message,
+       $relationSuspendStatus.updated_at
+FROM   relation AS r
+CROSS JOIN relation_status_type AS rst
+WHERE  r.uuid IN ($suspendedRelationUUIDs[:])
+AND    rst.name = 'suspending'
+ON CONFLICT(relation_uuid) DO UPDATE SET
+    relation_status_type_id = excluded.relation_status_type_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at
+`, suspendedRelationUUIDs{}, relationSuspendStatus{})
+	if err != nil {
+		return errors.Errorf("preparing update relation status query: %w", err)
+	}
+
+	var toSuspend []suspendedRelation
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, findRelationsStmt, filter).GetAll(&toSuspend)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			toSuspend = nil
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("finding relations to suspend: %w", err)
+		}
+		if len(toSuspend) == 0 {
+			return nil
+		}
+
+		uuids := make(suspendedRelationUUIDs, len(toSuspend))
+		for i, rel := range toSuspend {
+			uuids[i] = rel.UUID
+		}
+
+		suspendUpdate := relationSuspendedUpdate{
+			Suspended: true,
+			Reason:    reason,
+		}
+		if err := tx.Query(ctx, updateRelationStmt, uuids, suspendUpdate).Run(); err != nil {
+			return errors.Errorf("suspending offer relations: %w", err)
+		}
+
+		statusUpdate := relationSuspendStatus{
+			Message:   reason,
+			UpdatedAt: st.clock.Now().UTC(),
+		}
+		if err := tx.Query(ctx, updateStatusStmt, uuids, statusUpdate).Run(); err != nil {
+			return errors.Errorf("updating relation status for suspended relations: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 func (st *State) createOfferEndpoints(ctx context.Context, tx *sqlair.TX, offerUUID, applicationUUID string, endpoints []string) error {
