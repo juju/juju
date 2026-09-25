@@ -712,7 +712,8 @@ func (s *importSuite) TestImportRemoteApplicationOfferersWithAliasUnits(c *tc.C)
 // offerer's aliases onto the primary name: duplicates are de-duplicated,
 // including when the primary and an alias hold the same unit number, names
 // are sorted, unit names belonging to a different application pass through
-// unchanged, and an offerer without units yields nil.
+// unchanged, an offerer without units yields nil, and unit names that are
+// not valid unit names are an error.
 func (s *importSuite) TestRemoteApplicationOffererUnits(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	offerer := domainmodelmigration.RemoteApplicationOfferer{
@@ -726,29 +727,43 @@ func (s *importSuite) TestRemoteApplicationOffererUnits(c *tc.C) {
 	// Units from the primary and every alias are merged onto the primary
 	// name, de-duplicated and sorted; unit names belonging to a different
 	// application pass through unchanged.
-	c.Check(remoteApplicationOffererUnits(offerer, map[string][]string{
+	units, err := remoteApplicationOffererUnits(offerer, map[string][]string{
 		"first":  {"first/0"},
 		"second": {"second/0", "second/1", "secondaire/0"},
 		"third":  {"third/1"},
-	}), tc.DeepEquals, []string{"first/0", "first/1", "secondaire/0"})
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []string{"first/0", "first/1", "secondaire/0"})
 
 	// A model may relate to both the primary and an alias, with the same
 	// unit number in scope on each; those yield a single synthetic unit.
-	c.Check(remoteApplicationOffererUnits(offerer, map[string][]string{
+	units, err = remoteApplicationOffererUnits(offerer, map[string][]string{
 		"first":  {"first/0"},
 		"second": {"second/0"},
-	}), tc.DeepEquals, []string{"first/0"})
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []string{"first/0"})
 
 	// An offerer without duplicates keeps its own units.
 	primaryOnly := domainmodelmigration.RemoteApplicationOfferer{
 		Primary: offerer.Primary,
 	}
-	c.Check(remoteApplicationOffererUnits(primaryOnly, map[string][]string{
+	units, err = remoteApplicationOffererUnits(primaryOnly, map[string][]string{
 		"first": {"first/1", "first/0"},
-	}), tc.DeepEquals, []string{"first/0", "first/1"})
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.DeepEquals, []string{"first/0", "first/1"})
 
 	// No units at all yields nil.
-	c.Check(remoteApplicationOffererUnits(offerer, nil), tc.IsNil)
+	units, err = remoteApplicationOffererUnits(offerer, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.IsNil)
+
+	// A unit name that is not a valid unit name is an error.
+	_, err = remoteApplicationOffererUnits(offerer, map[string][]string{
+		"first": {"first/0", "second"},
+	})
+	c.Assert(err, tc.ErrorMatches, `parsing unit name "second": invalid unit name: "second"`)
 }
 
 func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {

@@ -254,8 +254,13 @@ func (i *importOperation) createRemoteImportArg(
 					// The unit settings are keyed by unit name, which embeds
 					// the application name. Re-key the settings so that they
 					// continue to address the units of the renamed endpoint.
-					unitSettings = renameUnitSettings(
+					unitSettings, err = renameUnitSettings(
 						unitSettings, remoteApp.Name(), primaryApplicationName)
+					if err != nil {
+						return relation.ImportRelationArg{}, errors.Errorf(
+							"re-keying unit settings for remote application %q: %w",
+							remoteApp.Name(), err)
+					}
 					break
 				}
 			}
@@ -281,18 +286,22 @@ func (i *importOperation) createRemoteImportArg(
 // endpoint's application name. The re-keyed unit names must match the
 // synthetic units that the crossmodelrelation domain import creates for the
 // renamed remote application; both use the shared
-// domain/modelmigration/modelmigration.RewriteUnitName rule.
+// domain/modelmigration/modelmigration.RewriteUnitName rule. Keys that are
+// not valid unit names are an error.
 func renameUnitSettings(
 	settings map[string]map[string]any,
 	oldApplicationName, newApplicationName string,
-) map[string]map[string]any {
+) (map[string]map[string]any, error) {
 	out := make(map[string]map[string]any, len(settings))
 	for unitName, unitSettings := range settings {
-		unitName = domainmodelmigration.RewriteUnitName(
+		rewritten, err := domainmodelmigration.RewriteUnitName(
 			unitName, oldApplicationName, newApplicationName)
-		out[unitName] = unitSettings
+		if err != nil {
+			return nil, err
+		}
+		out[rewritten] = unitSettings
 	}
-	return out
+	return out, nil
 }
 
 func getRemoteRelation(rel description.Relation, remoteApps map[string]domainmodelmigration.RemoteApplicationOfferer) (domainmodelmigration.RemoteApplicationOfferer, bool) {

@@ -244,6 +244,11 @@ func (i *importOperation) importRemoteApplicationOfferers(
 			return errors.Errorf("finding application UUID for remote application %q: %w",
 				primaryRemoteApp.Name(), err)
 		}
+		units, err := remoteApplicationOffererUnits(duplicatedRemoteApps, remoteAppUnits)
+		if err != nil {
+			return errors.Errorf("rewriting units for remote application %q: %w",
+				primaryRemoteApp.Name(), err)
+		}
 		input = append(input, service.RemoteApplicationOffererImport{
 			RemoteApplicationImport: service.RemoteApplicationImport{
 				Name:            primaryRemoteApp.Name(),
@@ -251,7 +256,7 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				URL:             primaryRemoteApp.URL(),
 				SourceModelUUID: primaryRemoteApp.SourceModelUUID(),
 				Macaroon:        primaryRemoteApp.Macaroon(),
-				Units:           remoteApplicationOffererUnits(duplicatedRemoteApps, remoteAppUnits),
+				Units:           units,
 				Endpoints:       endpoints,
 			},
 			OffererApplicationUUID: offererApplicationUUID,
@@ -270,26 +275,36 @@ func (i *importOperation) importRemoteApplicationOfferers(
 // primary name; the alias unit names are re-written here with the same
 // RemoteApplicationOfferer.RewriteUnitName rule, so that the re-keyed
 // settings address synthetic units that exist. The names are de-duplicated
-// and sorted; nil is returned when there are none.
+// and sorted; nil is returned when there are none. Unit names that are not
+// valid unit names are an error.
 func remoteApplicationOffererUnits(
 	offerer domainmodelmigration.RemoteApplicationOfferer,
 	remoteAppUnits map[string][]string,
-) []string {
+) ([]string, error) {
 	seen := make(map[string]struct{})
-	addUnitNames := func(names []string) {
+	addUnitNames := func(names []string) error {
 		for _, unitName := range names {
 			// Re-write the alias's unit names onto the primary name, in the
 			// same way the relation domain import re-keys unit settings.
-			seen[offerer.RewriteUnitName(unitName)] = struct{}{}
+			rewritten, err := offerer.RewriteUnitName(unitName)
+			if err != nil {
+				return err
+			}
+			seen[rewritten] = struct{}{}
 		}
+		return nil
 	}
 
-	addUnitNames(remoteAppUnits[offerer.Primary.Name()])
+	if err := addUnitNames(remoteAppUnits[offerer.Primary.Name()]); err != nil {
+		return nil, err
+	}
 	for _, duplicate := range offerer.Duplicates {
-		addUnitNames(remoteAppUnits[duplicate.Name()])
+		if err := addUnitNames(remoteAppUnits[duplicate.Name()]); err != nil {
+			return nil, err
+		}
 	}
 	if len(seen) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	units := make([]string, 0, len(seen))
@@ -297,7 +312,7 @@ func remoteApplicationOffererUnits(
 		units = append(units, unitName)
 	}
 	sort.Strings(units)
-	return units
+	return units, nil
 }
 
 func (i *importOperation) importRemoteApplicationConsumers(

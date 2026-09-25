@@ -321,27 +321,37 @@ func (s *importSuite) TestImportLegacyAliasInvalidRemoteEntityToken(c *tc.C) {
 }
 
 // TestRenameUnitSettings checks the re-keying contract: only unit names whose
-// application segment matches the renamed alias are re-keyed. Keys without a
-// unit-number segment and keys belonging to a different application pass
-// through unchanged, so a prefix match cannot rename another application's
-// units.
+// application segment matches the renamed alias are re-keyed. Unit names
+// belonging to a different application pass through unchanged, so a prefix
+// match cannot rename another application's units, and keys that are not
+// valid unit names are an error.
 func (s *importSuite) TestRenameUnitSettings(c *tc.C) {
-	c.Check(renameUnitSettings(map[string]map[string]any{
+	settings, err := renameUnitSettings(map[string]map[string]any{
 		"second/0": {"token": "keep-me"},
 		"second/1": {"token": "and-me"},
-	}, "second", "first"), tc.DeepEquals, map[string]map[string]any{
+	}, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]map[string]any{
 		"first/0": {"token": "keep-me"},
 		"first/1": {"token": "and-me"},
 	})
 
-	c.Check(renameUnitSettings(map[string]map[string]any{
+	settings, err = renameUnitSettings(map[string]map[string]any{
 		"secondaire/0": {"token": "other-app"},
-		"second":       {"token": "no-unit-number"},
-	}, "second", "first"), tc.DeepEquals, map[string]map[string]any{
+	}, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]map[string]any{
 		"secondaire/0": {"token": "other-app"},
-		"second":       {"token": "no-unit-number"},
 	})
 
-	c.Check(renameUnitSettings(nil, "second", "first"), tc.DeepEquals,
-		map[string]map[string]any{})
+	// A key that is not a valid unit name is an error, rather than being
+	// passed through.
+	_, err = renameUnitSettings(map[string]map[string]any{
+		"second": {"token": "no-unit-number"},
+	}, "second", "first")
+	c.Assert(err, tc.ErrorMatches, `parsing unit name "second": invalid unit name: "second"`)
+
+	settings, err = renameUnitSettings(nil, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]map[string]any{})
 }
