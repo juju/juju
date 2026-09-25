@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	"gopkg.in/tomb.v2"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
@@ -25,7 +26,14 @@ import (
 // same external-auth flow the API server already supports on HTTP
 // endpoints). After the upgrade, the user's SSH session - relayed blind by
 // JIMM - terminates in the embedded SSH server built here.
+//
+// The handler is a worker: the apiserver attaches it to its catacomb,
+// so killing it cancels the request contexts of in-flight relays. Each
+// relay watches its request context and closes its hijacked connection
+// when the handler dies, draining the relays on apiserver shutdown
+// (hijacked connections are invisible to http.Server.Shutdown).
 type RelayHandler struct {
+	tomb   tomb.Tomb
 	config RelayHandlerConfig
 }
 
@@ -53,12 +61,36 @@ func NewRelayHandler(config RelayHandlerConfig) (*RelayHandler, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Errorf("validating relay handler config: %w", err)
 	}
-	return &RelayHandler{config: config}, nil
+	h := &RelayHandler{config: config}
+	// Without a tracked goroutine the tomb never reaches dead, so Wait
+	// would block forever.
+	h.tomb.Go(func() error {
+		<-h.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return h, nil
+}
+
+// Kill implements worker.Worker.Kill. It cancels the request contexts of
+// in-flight relays, whose dying watches close their connections.
+func (h *RelayHandler) Kill() {
+	h.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait. It blocks until the handler is
+// killed. In-flight relays observe the cancellation through their request
+// contexts and close their connections.
+func (h *RelayHandler) Wait() error {
+	return h.tomb.Wait()
 }
 
 // ServeHTTP implements http.Handler.
 func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	// The request context is cancelled when the handler's tomb starts
+	// dying, so in-flight relays observe shutdown and their connections
+	// are closed by the tomb goroutine.
+	ctx := h.tomb.Context(r.Context())
+	r = r.WithContext(ctx)
 
 	virtualHostname := r.URL.Query().Get(":virtualHostname")
 	destination, err := virtualhostname.Parse(virtualHostname)
@@ -97,6 +129,20 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer func() { _ = conn.Close() }()
+
+	// HandleConn blocks for the life of the SSH session and cannot be
+	// cancelled, so watch the request context and close the connection
+	// when the handler dies. The watch goroutine exits when the session
+	// ends, so it does not outlive the connection.
+	sessionDone := make(chan struct{})
+	defer close(sessionDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = conn.Close()
+		case <-sessionDone:
+		}
+	}()
 
 	// Resolve after the upgrade. Failures reach the user's client as SSH
 	// pre-banner text through JIMM's blind relay.

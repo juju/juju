@@ -1028,6 +1028,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := srv.catacomb.Add(relayHandler); err != nil {
+		return nil, errors.Trace(err)
+	}
 	sshRelayHandler := srv.sshRelayRequestWrapper(relayHandler)
 
 	// HTTP handler for application offer macaroon authentication.
