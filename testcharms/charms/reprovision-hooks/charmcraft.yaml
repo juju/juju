@@ -1,0 +1,15 @@
+name: reprovision-hooks
+summary: Records lifecycle hooks during machine reprovisioning tests.
+description: |
+  A minimal machine charm that logs its lifecycle hooks for reprovisioning
+  integration tests.
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+parts:
+  charm:
+    plugin: dump
+    source: .
+    prime:
+      - hooks
