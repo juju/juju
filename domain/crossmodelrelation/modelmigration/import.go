@@ -292,12 +292,6 @@ func (i *importOperation) importRemoteApplicationConsumers(
 			continue
 		}
 
-		endpoints, err := extractRemoteEndpoints(remoteApp)
-		if err != nil {
-			return errors.Errorf("extracting endpoints for remote application %q: %w",
-				remoteApp.Name(), err)
-		}
-
 		consumerApplicationUUID, ok := applicationRemoteEntities[remoteApp.Name()]
 		if !ok {
 			return errors.Errorf("no consumer application UUID found for remote application %q",
@@ -323,7 +317,8 @@ func (i *importOperation) importRemoteApplicationConsumers(
 		for _, offerConnection := range conns {
 			// The username of the offer connection tells us who made the
 			// original offer connection request in the source model.
-			relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
+			var relationUUID string
+			relationUUID, err = findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
 			if err != nil {
 				return errors.Errorf("finding relation UUID for remote application %q: %w",
 					remoteApp.Name(), err)
@@ -343,13 +338,26 @@ func (i *importOperation) importRemoteApplicationConsumers(
 					offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
 			}
 
+			// The synthetic charm for the consuming side of the relation is
+			// built from the relation's own consumer endpoint. The proxy's
+			// stored endpoints cannot be used for that: a 3.6 proxy is
+			// created with the endpoint of its first relation only and is
+			// never updated when the consuming application relates to
+			// further offered applications, so an additional connection can
+			// reference an endpoint name that the proxy does not hold.
+			consumerEndpoint, err := consumerEndpointFromRelation(remoteApp.Name(), rel.Rel)
+			if err != nil {
+				return errors.Errorf("extracting consumer endpoint for remote application %q: %w",
+					remoteApp.Name(), err)
+			}
+
 			input = append(input, service.RemoteApplicationConsumerImport{
 				RemoteApplicationImport: service.RemoteApplicationImport{
 					Name:      remoteApp.Name(),
 					OfferUUID: offerConnection.OfferUUID,
 					URL:       remoteApp.URL(),
 					Macaroon:  remoteApp.Macaroon(),
-					Endpoints: endpoints,
+					Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{consumerEndpoint},
 					Units:     remoteAppUnits[remoteApp.Name()],
 				},
 				RelationUUID:            relationUUID,
@@ -445,6 +453,31 @@ func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmod
 		})
 	}
 	return endpoints, nil
+}
+
+// consumerEndpointFromRelation returns the endpoint of the given relation
+// that belongs to the application with the given name. The relation of a
+// consumer proxy must reference the proxy application, otherwise the
+// description is inconsistent and the import fails instead of importing a
+// relation whose synthetic application is missing its endpoint.
+func consumerEndpointFromRelation(appName string, rel description.Relation) (crossmodelrelation.RemoteApplicationEndpoint, error) {
+	for _, ep := range rel.Endpoints() {
+		if ep.ApplicationName() != appName {
+			continue
+		}
+		role, err := parseRelationRole(ep.Role())
+		if err != nil {
+			return crossmodelrelation.RemoteApplicationEndpoint{}, errors.Errorf("parsing role for endpoint %q: %w",
+				ep.Name(), err)
+		}
+		return crossmodelrelation.RemoteApplicationEndpoint{
+			Name:      ep.Name(),
+			Role:      role,
+			Interface: ep.Interface(),
+		}, nil
+	}
+	return crossmodelrelation.RemoteApplicationEndpoint{}, errors.Errorf(
+		"no endpoint for application %q in relation %q", appName, rel.Key())
 }
 
 // importRelation holds the canonical relation key, along with the relation

@@ -239,9 +239,9 @@ type RemoteApplicationConsumerImport struct {
 	ConsumerModelUUID string
 
 	// ConsumerApplicationUUID is the UUID of the consuming application in
-	// the consuming model. It is the token that the consuming model uses
-	// to reference the offered application, and it is shared by every
-	// offer connection of the same consuming application.
+	// the consuming model. The consuming model presents this UUID as its
+	// application token identifying itself to this model, and it is
+	// shared by every offer connection of the same consuming application.
 	ConsumerApplicationUUID string
 
 	// ConsumerApplicationEndpoint is the relation endpoint name of the

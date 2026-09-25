@@ -652,6 +652,38 @@ WHERE uuid IN (?, ?)
 		}
 	}
 
+	// The synthetic units belong to the first synthetic application only;
+	// the additional connection has no units of its own.
+	type unitOwnershipRow struct {
+		name            string
+		applicationUUID string
+	}
+	var unitRows []unitOwnershipRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT name, application_uuid
+FROM unit
+WHERE application_uuid IN (?, ?)
+`, synthAppUUID1, synthAppUUID2)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var row unitOwnershipRow
+			if err := rows.Scan(&row.name, &row.applicationUUID); err != nil {
+				return err
+			}
+			unitRows = append(unitRows, row)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	if c.Check(unitRows, tc.HasLen, 1) {
+		c.Check(unitRows[0].name, tc.Equals, name1+"/0")
+		c.Check(unitRows[0].applicationUUID, tc.Equals, synthAppUUID1)
+	}
+
 	// Both relations of the consuming application must be imported, each
 	// connected to its own offerer application and synthetic application.
 	for n, consumer := range input {
