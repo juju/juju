@@ -7,6 +7,9 @@ myst:
 (writing-workers)=
 # Writing workers
 
+```{audience} juju-dev
+```
+
 If you're writing a worker -- and almost everything that juju does happens inside a worker -- you should be aware of the
 following guidelines. They're not necessarily comprehensive, and not *necessarily* to be followed without question; but
 if you're not following the advice on this page, you should have a very good reason.

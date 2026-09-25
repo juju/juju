@@ -4,7 +4,11 @@ myst:
     description: "Understand entity lifecycle states (Alive, Dying, Dead) for Juju entities, including machines, units, applications, relations."
 ---
 
+(entity-lifecycle)=
 # Entity lifecycle
+
+```{audience} juju-dev
+```
 
 In Juju, certain fundamental state entities have "lifecycles". These entities
 are:

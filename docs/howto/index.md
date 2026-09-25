@@ -43,6 +43,7 @@ Manage subnets <manage-subnets>
 Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>
 Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>
+Write a worker <writing-workers>
 
 ```
 
@@ -109,3 +110,4 @@ For Juju developers: reproduce and debug a Dqlite core dump on a controller, and
 
 - {ref}`Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>`
 - {ref}`Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>`
+- {ref}`Write a worker <writing-workers>`
