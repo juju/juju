@@ -19,7 +19,6 @@ import (
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -203,6 +202,13 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 		if err != nil {
 			return errors.Capture(err)
 		}
+		machineUUID := entityUUID{UUID: target.UUID}
+		unitRenames, err := st.allocateReprovisionUnitRenames(
+			ctx, tx, targetUnitsStmt, unitNameExistsStmt, machineUUID,
+		)
+		if err != nil {
+			return errors.Errorf("allocating replacement unit ordinals: %w", err)
+		}
 
 		if err := runReprovisionStatements(
 			ctx, tx, networkStmts, netNode{UUID: target.NetNodeUUID},
@@ -210,7 +216,6 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 			return errors.Errorf("clearing network state: %w", err)
 		}
 
-		machineUUID := entityUUID{UUID: target.UUID}
 		if err := runReprovisionStatements(ctx, tx, blockDeviceStmts, machineUUID); err != nil {
 			return errors.Errorf("clearing block devices: %w", err)
 		}
@@ -224,11 +229,11 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 			return errors.Errorf("departing relation scopes: %w", err)
 		}
 		if err := st.renameReprovisionUnits(
-			ctx, tx, targetUnitsStmt, unitNameExistsStmt, renameUnitStmt,
+			ctx, tx, unitRenames, renameUnitStmt,
 			resetUnitUniterStateStmt, resetUnitCharmStateStmt,
-			resetUnitRelationStateStmt, machineUUID,
+			resetUnitRelationStateStmt,
 		); err != nil {
-			return errors.Errorf("allocating replacement unit ordinals: %w", err)
+			return errors.Errorf("renaming reprovision units: %w", err)
 		}
 
 		if err := runReprovisionStatements(ctx, tx, machineDataStmts, machineUUID); err != nil {
@@ -259,32 +264,32 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 	})
 }
 
-func (st *State) renameReprovisionUnits(
+func (st *State) allocateReprovisionUnitRenames(
 	ctx context.Context,
 	tx *sqlair.TX,
-	targetUnitsStmt, unitNameExistsStmt, renameUnitStmt, resetUnitUniterStateStmt,
-	resetUnitCharmStateStmt, resetUnitRelationStateStmt *sqlair.Statement,
+	targetUnitsStmt, unitNameExistsStmt *sqlair.Statement,
 	machineUUID entityUUID,
-) error {
+) ([]reprovisionUnitRename, error) {
 	var units []reprovisionUnit
 	if err := tx.Query(ctx, targetUnitsStmt, machineUUID).GetAll(&units); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return nil, nil
 		}
-		return errors.Errorf("getting machine units: %w", err)
+		return nil, errors.Errorf("getting machine units: %w", err)
 	}
 
+	renames := make([]reprovisionUnitRename, 0, len(units))
 	for _, unit := range units {
 		namespace := sequence.MakePrefixNamespace(
 			domainapplication.ApplicationSequenceNamespace, unit.ApplicationName,
 		)
 		ordinal, err := sequencestate.NextValue(ctx, st, tx, namespace)
 		if err != nil {
-			return errors.Errorf("getting unit sequence for application %q: %w", unit.ApplicationName, err)
+			return nil, errors.Errorf("getting unit sequence for application %q: %w", unit.ApplicationName, err)
 		}
 		name, err := coreunit.NewNameFromParts(unit.ApplicationName, int(ordinal))
 		if err != nil {
-			return errors.Errorf("creating replacement unit name: %w", err)
+			return nil, errors.Errorf("creating replacement unit name: %w", err)
 		}
 		rename := reprovisionUnitRename{
 			UUID: unit.UUID,
@@ -292,29 +297,49 @@ func (st *State) renameReprovisionUnits(
 		}
 		var existing reprovisionUnitRename
 		if err := tx.Query(ctx, unitNameExistsStmt, rename).Get(&existing); err == nil {
-			return replacementUnitNameCollisionError(unit.Name, rename.Name)
+			return nil, replacementUnitNameCollisionError(unit.Name, rename.Name)
 		} else if !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("checking replacement unit name %q: %w", rename.Name, err)
+			return nil, errors.Errorf("checking replacement unit name %q: %w", rename.Name, err)
 		}
-		if err := tx.Query(ctx, renameUnitStmt, rename).Run(); database.IsErrConstraintUnique(err) {
-			return replacementUnitNameCollisionError(unit.Name, rename.Name)
-		} else if err != nil {
-			return errors.Errorf("renaming unit %q: %w", unit.UUID, err)
+		renames = append(renames, rename)
+	}
+	return renames, nil
+}
+
+func (st *State) renameReprovisionUnits(
+	ctx context.Context,
+	tx *sqlair.TX,
+	renames []reprovisionUnitRename,
+	renameUnitStmt, resetUnitUniterStateStmt, resetUnitCharmStateStmt,
+	resetUnitRelationStateStmt *sqlair.Statement,
+) error {
+	for _, rename := range renames {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, renameUnitStmt, rename).Get(&outcome); err != nil {
+			return errors.Errorf("renaming unit %q: %w", rename.UUID, err)
+		}
+		if affected, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("checking renamed unit %q: %w", rename.UUID, err)
+		} else if affected != 1 {
+			return errors.Errorf(
+				"renaming unit %q: expected 1 row affected, got %d",
+				rename.UUID, affected,
+			)
 		}
 		if err := tx.Query(ctx, resetUnitUniterStateStmt, reprovisionUnitRename{
-			UUID: unit.UUID,
+			UUID: rename.UUID,
 		}).Run(); err != nil {
-			return errors.Errorf("resetting unit state %q: %w", unit.UUID, err)
+			return errors.Errorf("resetting unit state %q: %w", rename.UUID, err)
 		}
 		if err := tx.Query(ctx, resetUnitCharmStateStmt, reprovisionUnitRename{
-			UUID: unit.UUID,
+			UUID: rename.UUID,
 		}).Run(); err != nil {
-			return errors.Errorf("resetting unit charm state %q: %w", unit.UUID, err)
+			return errors.Errorf("resetting unit charm state %q: %w", rename.UUID, err)
 		}
 		if err := tx.Query(ctx, resetUnitRelationStateStmt, reprovisionUnitRename{
-			UUID: unit.UUID,
+			UUID: rename.UUID,
 		}).Run(); err != nil {
-			return errors.Errorf("resetting unit relation state %q: %w", unit.UUID, err)
+			return errors.Errorf("resetting unit relation state %q: %w", rename.UUID, err)
 		}
 	}
 
