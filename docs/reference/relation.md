@@ -6,6 +6,8 @@ myst:
 
 (relation)=
 # Relation (integration)
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-relations`
@@ -356,6 +358,8 @@ the remote model as well, so both halves agree on the suspended
 state.
 
 ### Relation watchers
+```{audience} juju-dev
+```
 
 Nothing about a relation is polled: agents and clients watch it. The
 relation domain's watchable service exposes five watch surfaces:
@@ -385,6 +389,8 @@ receive one final change carrying the relation key, so they can clean
 up the state they hold under that key.
 
 ## Relation rules and errors
+```{audience} charm-dev
+```
 
 The relation domain encodes its rules as a typed error taxonomy; each
 error names the rule it enforces. The rules matter to charm

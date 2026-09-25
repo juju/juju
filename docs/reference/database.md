@@ -6,6 +6,8 @@ myst:
 
 (database)=
 # Database
+```{audience} juju-dev
+```
 
 ```{ibnote}
 See also: {ref}`manage-the-databases`

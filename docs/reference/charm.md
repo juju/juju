@@ -6,6 +6,8 @@ myst:
 
 (charm)=
 # Charm
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-charms`
@@ -342,6 +344,8 @@ they appear -- as placeholders, so a later {ref}`refresh
 
 (the-charm-watchers)=
 ### Charm watchers
+```{audience} juju-dev
+```
 
 The charm domain exposes one watch surface: **charm changes** -- it
 fires on any change to the model's charm records: a revision reserved,
@@ -357,6 +361,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-charm-rules-and-errors)=
 ## Charm rules and errors
+```{audience} charm-dev
+```
 
 The rules a **charm URL** must satisfy:
 

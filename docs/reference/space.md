@@ -6,6 +6,8 @@ myst:
 
 (space)=
 # Space
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-spaces`
@@ -86,6 +88,8 @@ does not, everything falls into the default `alpha` space.
 
 (the-space-watchers)=
 ### Space watchers
+```{audience} juju-dev
+```
 
 The network domain exposes one watch surface: **subnet changes** --
 the surfaces that need the network's shape (the provisioning and
@@ -99,6 +103,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-space-rules-and-errors)=
 ## Space rules and errors
+```{audience} charm-dev
+```
 
 The rules a **space name** must satisfy:
 

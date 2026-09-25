@@ -6,6 +6,8 @@ myst:
 
 (ssh-key)=
 # SSH key
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-ssh-keys`
@@ -78,6 +80,8 @@ To use an SSH key to run commands inside a machine using the `juju ssh` command,
 
 (the-ssh-key-watchers)=
 ### SSH key watchers
+```{audience} juju-dev
+```
 
 The key domain exposes no watch surface of its own: the machine
 agents' key updaters consume the API's key-update notifications, and
@@ -86,6 +90,8 @@ re-fetch when it changes.
 
 (the-ssh-key-rules-and-errors)=
 ## SSH key rules and errors
+```{audience} charm-dev
+```
 
 - a user's keys are unique by fingerprint and by material -- the same
   key cannot be added twice under one user;

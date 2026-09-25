@@ -6,6 +6,8 @@ myst:
 
 (offer)=
 # Offer
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-offers`
@@ -105,6 +107,8 @@ changed -- deploy a new offer instead.
 
 (the-offer-watchers)=
 ### Offer watchers
+```{audience} juju-dev
+```
 
 The offer has no watch surfaces of its own: nothing polls or watches
 the offer record. What moves around an offer -- the remote relation's
@@ -114,6 +118,8 @@ cross-model relation machinery (see
 
 (the-offer-rules-and-errors)=
 ## Offer rules and errors
+```{audience} charm-dev
+```
 
 The rules an **offer URL** must satisfy:
 

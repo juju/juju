@@ -6,6 +6,8 @@ myst:
 
 (storage)=
 # Storage
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-storage`
@@ -234,6 +236,8 @@ Filesystem-type. Creates a temporary file storage facility that appears as a mou
 
 (the-storage-watchers)=
 ### Storage watchers
+```{audience} juju-dev
+```
 
 The provisioning machinery exposes these watch surfaces -- what a
 watcher fires on, not who consumes it (the storage provisioner worker
@@ -256,6 +260,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-storage-rules-and-errors)=
 ## Storage rules and errors
+```{audience} charm-dev
+```
 
 The rules a **storage directive** must satisfy:
 

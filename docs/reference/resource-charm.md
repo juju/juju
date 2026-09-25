@@ -6,6 +6,8 @@ myst:
 
 (charm-resource)=
 # Resource (charm)
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-charm-resources`
@@ -136,6 +138,8 @@ copy, distinct from the application's.
 
 (the-resource-watchers)=
 ### Resource watchers
+```{audience} juju-dev
+```
 
 The resource domain exposes no watch surfaces: resources are pushed
 (upload, deploy, revision polling), not watched -- a charm learns of
@@ -145,6 +149,8 @@ stream.
 
 (the-resource-rules-and-errors)=
 ## Resource rules and errors
+```{audience} charm-dev
+```
 
 - a resource's name must match one of the charm's definitions --
   resources cannot be invented per application, and an application's

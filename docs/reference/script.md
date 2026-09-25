@@ -6,6 +6,8 @@ myst:
 
 (script)=
 # Script
+```{audience} user
+```
 
 In Juju, a **script** refers to any script you execute on a {ref}`compute resource <resource-compute>` provisioned by Juju, whether it is a charm {ref}`action <action>` or another kind of script, e.g., a terminal command.
 
@@ -73,6 +75,8 @@ status and results; the user cancels with `juju cancel-task`.
 
 (the-script-rules-and-errors)=
 ## Script rules and errors
+```{audience} charm-dev
+```
 
 - the command and its timeout are stored as the operation's
   parameters;

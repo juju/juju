@@ -6,6 +6,8 @@ myst:
 
 (secret)=
 # Secret
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-secrets`, {ref}`manage-secret-backends`
@@ -355,6 +357,8 @@ and rewrites the payload references.
 
 (the-secret-watchers)=
 ### Secret watchers
+```{audience} juju-dev
+```
 
 The secret domain's watchable service exposes these watch surfaces --
 what a watcher fires on, not who subscribes beyond the named
@@ -380,6 +384,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-secret-rules-and-errors)=
 ## Secret rules and errors
+```{audience} charm-dev
+```
 
 The rules a **secret identifier** must satisfy:
 

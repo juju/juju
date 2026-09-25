@@ -6,6 +6,8 @@ myst:
 
 (machine)=
 # Machine
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-machines`
@@ -281,6 +283,8 @@ compute provisioner takes it from there.
 
 (machine-provisioning)=
 #### Machine provisioning
+```{audience} juju-dev
+```
 
 The controller's compute provisioner is a model worker that watches
 the model's unprovisioned machines: for each pending machine it asks
@@ -318,6 +322,8 @@ machine's record keeps the manual flag (see {ref}`Manual machine
 
 (machine-watchers)=
 ### Machine watchers
+```{audience} juju-dev
+```
 
 Nothing about a machine is polled by the things that act on it: they
 watch it. The machine domain's watchable service exposes these watch
@@ -346,6 +352,8 @@ and the consumer fetches the current state and reconciles.
 
 (machine-rules-and-errors)=
 ## Machine rules and errors
+```{audience} charm-dev
+```
 
 The machine domain encodes its rules as a typed error taxonomy; each
 error names the rule it enforces. The rules matter to Juju users

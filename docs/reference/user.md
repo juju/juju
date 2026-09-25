@@ -6,6 +6,8 @@ myst:
 
 (user)=
 # User
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-users`
@@ -214,6 +216,8 @@ exist yet.
 
 (the-user-watchers)=
 ### User watchers
+```{audience} juju-dev
+```
 
 The user domain exposes no watch surfaces: user and permission
 changes are read on demand (the client lists access when it needs it),
@@ -221,6 +225,8 @@ not watched.
 
 (the-user-rules-and-errors)=
 ## User rules and errors
+```{audience} charm-dev
+```
 
 The rules a **user identity** must satisfy:
 

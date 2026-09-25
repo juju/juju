@@ -6,6 +6,8 @@ myst:
 
 (credential)=
 # Credential
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-credentials`
@@ -98,6 +100,8 @@ credential actually opens the cloud.
 
 (the-credential-watchers)=
 ### Credential watchers
+```{audience} juju-dev
+```
 
 One watch surface: **a single credential's changes** -- the
 provisioning machinery of a model that uses the credential watches it
@@ -110,6 +114,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-credential-rules-and-errors)=
 ## Credential rules and errors
+```{audience} charm-dev
+```
 
 - the natural key -- cloud, owner, name -- is unique: re-adding
   updates, it does not duplicate;

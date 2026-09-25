@@ -6,6 +6,8 @@ myst:
 
 (zone)=
 # Zone
+```{audience} user
+```
 
 A(n availability) **`zone`** is a  {ref}`constraint <constraint>` or a {ref}`placement directive <placement-directive>` that can be used to customise where the hardware spawned by Juju is provisioned in order to achieve better redundancy in case of an outage.
 
@@ -60,6 +62,8 @@ not model state with a change stream.
 
 (the-zone-rules-and-errors)=
 ## Zone rules and errors
+```{audience} charm-dev
+```
 
 - valid zone values are the cloud's own zone names -- Juju validates
   nothing beyond what the provider accepts at provisioning time;

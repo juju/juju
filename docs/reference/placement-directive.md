@@ -6,6 +6,8 @@ myst:
 
 (placement-directive)=
 # Placement directive
+```{audience} user
+```
 
 In Juju, a **placement directive** is an option based on the `--to` flag that can be passed to certain commands to specify a deploy location, where the commands include {ref}`command-juju-add-machine` ,  {ref}`command-juju-add-unit`,  {ref}`command-juju-bootstrap`,  {ref}`command-juju-deploy`, and the location is  (1) an existing or a new machine or (2) a key-value pair specifying a subnet, system ID, or an availability zone.
 
@@ -104,6 +106,8 @@ resolves into have their own.
 
 (the-placement-directive-rules-and-errors)=
 ## Placement directive rules and errors
+```{audience} charm-dev
+```
 
 ```{caution}
 

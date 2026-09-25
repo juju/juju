@@ -6,6 +6,9 @@ myst:
 
 (cloud)=
 # Cloud
+```{audience} user
+```
+
 ```{ibnote}
 See also: {ref}`manage-clouds`
 ```
@@ -98,6 +101,8 @@ cloud cannot be removed while its controller stands.
 
 (the-cloud-watchers)=
 ### Cloud watchers
+```{audience} juju-dev
+```
 
 One watch surface: **a single cloud's changes** -- whoever resolves
 cloud details on demand (the model creation machinery, the
@@ -111,6 +116,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-cloud-rules-and-errors)=
 ## Cloud rules and errors
+```{audience} charm-dev
+```
 
 - the cloud name is unique;
 - the cloud type must be one of Juju's known types;

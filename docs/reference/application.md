@@ -6,6 +6,8 @@ myst:
 
 (application)=
 # Application
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-applications`
@@ -256,6 +258,8 @@ the provisioner still manages its resources.
 
 (the-application-watchers)=
 ### Application watchers
+```{audience} juju-dev
+```
 
 Nothing about an application is polled by the things that act on it:
 they watch it. The application domain's watchable service exposes
@@ -291,6 +295,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-application-rules-and-errors)=
 ## Application rules and errors
+```{audience} charm-dev
+```
 
 The application domain encodes its rules as a typed error taxonomy;
 each error names the rule it enforces. The rules matter to charm

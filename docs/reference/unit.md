@@ -6,6 +6,8 @@ myst:
 
 (unit)=
 # Unit
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-units`
@@ -198,6 +200,8 @@ the unit's leadership lease is revoked as part of the teardown.
 
 (the-unit-watchers)=
 ### Unit watchers
+```{audience} juju-dev
+```
 
 Nothing about a unit is polled by the things that act on it: they
 watch it. The unit's watch surfaces are exposed by the application
@@ -221,6 +225,8 @@ and the consumer fetches the current state and reconciles.
 
 (the-unit-rules-and-errors)=
 ## Unit rules and errors
+```{audience} charm-dev
+```
 
 The unit domain encodes its rules as a typed error taxonomy; each
 error names the rule it enforces. The rules matter to charm authors

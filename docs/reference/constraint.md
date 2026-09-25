@@ -6,6 +6,8 @@ myst:
 
 (constraint)=
 # Constraint
+```{audience} user
+```
 
 In Juju, a **constraint** is a key-value pair that represents a specification that can be passed to certain `juju` commands /command flags to customise the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju.
 
@@ -74,6 +76,8 @@ provisioning reads them at the moment it provisions.
 
 (the-constraint-rules-and-errors)=
 ## Constraint rules and errors
+```{audience} charm-dev
+```
 
 ```{caution}
 

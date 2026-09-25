@@ -6,6 +6,8 @@ myst:
 
 (bundle)=
 # Bundle
+```{audience} user
+```
 
 ```{ibnote}
 See also: {ref}`manage-charms`
@@ -89,6 +91,8 @@ the entities a bundle created have their own
 
 (the-bundle-rules-and-errors)=
 ## Bundle rules and errors
+```{audience} charm-dev
+```
 
 The rules the **bundle YAML** must satisfy:
 
