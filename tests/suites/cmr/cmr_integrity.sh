@@ -325,8 +325,10 @@ run_cmr_force_remove_relation_offer_side() {
 	juju remove-saas dummy-offer 2>/dev/null || true
 	juju switch model-offer-relforce
 	juju remove-offer "admin/model-offer-relforce.dummy-offer" --force -y 2>/dev/null || true
-	destroy_model "model-offer-relforce"
-	destroy_model "model-consume-relforce"
+	# Forced relation removal can interrupt a running hook. The integrity
+	# assertions above have passed, so do not wait for those hooks in cleanup.
+	juju destroy-model --force --destroy-storage --no-prompt model-offer-relforce
+	juju destroy-model --force --destroy-storage --no-prompt model-consume-relforce
 }
 
 # Re-consume doesn't corrupt counts.
@@ -482,8 +484,8 @@ run_cmr_goal_state_missing_saas() {
 			juju remove-relation dummy-sink dummy-offer --force 2>/dev/null || true
 			juju switch model-offer-gs
 			juju remove-offer "admin/model-offer-gs.dummy-offer" --force -y 2>/dev/null || true
-			destroy_model "model-consume-gs"
-			destroy_model "model-offer-gs"
+			juju destroy-model --force --destroy-storage --no-prompt model-consume-gs
+			juju destroy-model --force --destroy-storage --no-prompt model-offer-gs
 			return 1
 		fi
 
@@ -491,8 +493,8 @@ run_cmr_goal_state_missing_saas() {
 		juju remove-relation dummy-sink dummy-offer --force 2>/dev/null || true
 		juju switch model-offer-gs
 		juju remove-offer "admin/model-offer-gs.dummy-offer" --force -y 2>/dev/null || true
-		destroy_model "model-consume-gs"
-		destroy_model "model-offer-gs"
+		juju destroy-model --force --destroy-storage --no-prompt model-consume-gs
+		juju destroy-model --force --destroy-storage --no-prompt model-offer-gs
 		return 1
 	fi
 
@@ -507,8 +509,11 @@ run_cmr_goal_state_missing_saas() {
 	# test, then force-remove everything.
 	( wait_for null '.offers."dummy-offer"."total-connected-count"' 60 ) || true
 	juju remove-offer "admin/model-offer-gs.dummy-offer" --force -y 2>/dev/null || true
-	destroy_model "model-consume-gs"
-	destroy_model "model-offer-gs"
+	# Forced SAAS removal can interrupt a relation hook. The goal-state
+	# assertion is complete, so force-destroy the fixtures without waiting
+	# for those hooks to recover.
+	juju destroy-model --force --destroy-storage --no-prompt model-consume-gs
+	juju destroy-model --force --destroy-storage --no-prompt model-offer-gs
 }
 
 test_cmr_integrity() {
