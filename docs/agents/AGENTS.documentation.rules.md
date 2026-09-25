@@ -400,7 +400,7 @@ Apply these rules to every diagram:
 - **Clarify direction.** Show the direction of data or control flow with labeled edges (`Juju API`, `hook commands`, `Pebble API`). Use solid lines for the primary path and dashed lines for the control/API path where helpful.
 - **Match the surrounding terminology.** Use the same names for components as the reference pages they point to.
 - **Provide an italic caption** under each diagram describing what it shows; this aids accessibility and search.
-- **Reuse across docs, don't duplicate.** If the same diagram would serve two pages, put it in one place and cross-reference it from the others.
+- **Never duplicate a diagram; vary the emphasis.** The same content must not communicate twice: each diagram lives in exactly one place. A related page that needs the same focus does not embed or cross-reference a copy -- it gets its own rendering of the same view with a different element made preattentive (highlighted, bolded, or otherwise promoted to figure). E.g., an application-and-units diagram appears on both the application and the unit page, but the application page's rendering emphasizes the application, the unit page's rendering emphasizes the unit. Same view, one focus each -- the reader's eye lands on what the page is about.
 - **Use subgraphs to show boundaries directly.** Two databases, two processes, two deployment modes -- each gets its own subgraph. Never describe a boundary only in the caption while the diagram itself is flat.
 
 ## Architecture Documentation
