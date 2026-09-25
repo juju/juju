@@ -246,6 +246,34 @@ func (s *forwardAddressSuite) TestNetworkInterfacesCheckExtensionOnce(c *tc.C) {
 	}
 }
 
+func (s *forwardAddressSuite) TestNetworkInterfacesWithoutOVNSkipsInstanceLookups(c *tc.C) {
+	s.srv.EXPECT().HasExtension("network_forward").Return(true)
+	s.srv.EXPECT().GetNetworks().Return([]api.Network{
+		{Name: "br0", Type: "bridge"},
+		{Name: "uplink", Type: "physical"},
+	}, nil)
+	ids := []instance.Id{"instance0", "instance1"}
+	for _, id := range ids {
+		s.srv.EXPECT().GetInstanceState(string(id)).Return(&api.InstanceState{
+			Network: map[string]api.InstanceStateNetwork{"eth0": {
+				Addresses: []api.InstanceStateNetworkAddress{{Family: "inet", Address: "10.0.0.2", Netmask: "24"}},
+			}},
+		}, "", nil)
+	}
+	// Only the state calls above are needed per instance. Network discovery
+	// is shared, with no GetInstance or GetNetworkForwards calls.
+	infos, err := s.env.NetworkInterfaces(c.Context(), ids)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(infos, tc.HasLen, 2)
+	for _, interfaces := range infos {
+		c.Assert(interfaces, tc.HasLen, 1)
+		c.Check(interfaces[0].Addresses, tc.DeepEquals, network.ProviderAddresses{
+			network.NewMachineAddress("10.0.0.2", network.WithCIDR("10.0.0.0/24"), network.WithConfigType(network.ConfigStatic)).AsProviderAddress(),
+		})
+		c.Check(interfaces[0].ShadowAddresses, tc.HasLen, 0)
+	}
+}
+
 func (s *forwardAddressSuite) TestNoForwardExtension(c *tc.C) {
 	guest := network.NewMachineAddress("10.0.0.2").AsProviderAddress()
 	s.srv.EXPECT().ContainerAddresses(s.container.Name).Return([]network.ProviderAddress{guest}, nil)
@@ -262,6 +290,7 @@ func (s *forwardAddressSuite) TestNoNamedNICs(c *tc.C) {
 		"disk": {"type": "disk", "network": "ovn0"},
 	}
 	s.expectInstance()
+	s.expectNetworks()
 	addresses, err := ovnForwardAddresses(c.Context(), s.srv, s.container.Name)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addresses, tc.HasLen, 0)
@@ -298,6 +327,7 @@ func (s *forwardAddressSuite) TestInstanceAddressError(c *tc.C) {
 func (s *forwardAddressSuite) TestInstanceLookupError(c *tc.C) {
 	failure := errors.New("instance unavailable")
 	s.srv.EXPECT().HasExtension("network_forward").Return(true)
+	s.expectNetworks()
 	s.srv.EXPECT().GetInstance(s.container.Name).Return(nil, "", failure)
 	_, err := ovnForwardAddresses(c.Context(), s.srv, s.container.Name)
 	c.Assert(err, tc.ErrorIs, failure)
@@ -305,7 +335,7 @@ func (s *forwardAddressSuite) TestInstanceLookupError(c *tc.C) {
 
 func (s *forwardAddressSuite) TestNetworkLookupError(c *tc.C) {
 	failure := errors.New("networks unavailable")
-	s.expectInstance()
+	s.srv.EXPECT().HasExtension("network_forward").Return(true)
 	s.srv.EXPECT().GetNetworks().Return(nil, failure)
 	_, err := ovnForwardAddresses(c.Context(), s.srv, s.container.Name)
 	c.Assert(err, tc.ErrorIs, failure)

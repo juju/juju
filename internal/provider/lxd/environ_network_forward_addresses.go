@@ -45,6 +45,25 @@ func (l *ovnForwardAddressLookup) addresses(ctx context.Context, instanceName st
 	if !l.supported {
 		return nil, nil
 	}
+	if l.networks == nil {
+		networks, err := l.srv.GetNetworks()
+		if err != nil {
+			return nil, errors.Annotate(err, "retrieving networks")
+		}
+		l.networks = set.NewStrings()
+		for _, details := range networks {
+			if details.Type == networkTypeOVN {
+				l.networks.Add(details.Name)
+			}
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	// Avoid per-instance lookups when the project has no OVN networks.
+	if len(l.networks) == 0 {
+		return nil, nil
+	}
 	container, _, err := l.srv.GetInstance(instanceName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -65,18 +84,6 @@ func (l *ovnForwardAddressLookup) addresses(ctx context.Context, instanceName st
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
-	}
-	if l.networks == nil {
-		networks, err := l.srv.GetNetworks()
-		if err != nil {
-			return nil, errors.Annotate(err, "retrieving networks")
-		}
-		l.networks = set.NewStrings()
-		for _, details := range networks {
-			if details.Type == networkTypeOVN {
-				l.networks.Add(details.Name)
-			}
-		}
 	}
 	addresses := make(map[string]network.ProviderAddresses)
 	seen := make(map[string]set.Strings)

@@ -91,6 +91,8 @@ func ensureOVNNetworkForwards(ctx context.Context, srv Server, container *lxd.Co
 			return !errors.Is(err, errors.NotAssigned)
 		},
 		Func: func() error {
+			// Stop only interrupts retry's wait; Func can still be invoked
+			// after cancellation. Avoid starting another LXD request.
 			if err := ctx.Err(); err != nil {
 				return err
 			}

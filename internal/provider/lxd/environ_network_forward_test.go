@@ -347,6 +347,21 @@ func (s *ovnForwardSuite) TestAlreadyCancelled(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
+func (s *ovnForwardSuite) TestCancelledBeforeFirstAddressAttempt(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	s.expectNetworks()
+	clk := mocks.NewMockClock(s.ctrl)
+	// Cancel after discovery, when retry.Call reads its start time. It still
+	// invokes Func once, but the callback must not issue an LXD state request.
+	clk.EXPECT().Now().DoAndReturn(func() time.Time {
+		cancel()
+		return time.Now()
+	})
+	err := ensureOVNNetworkForwards(ctx, s.srv, s.container, clk)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+}
+
 func (s *ovnForwardSuite) TestCancelAddressWait(c *tc.C) {
 	ctx, cancel := context.WithCancel(c.Context())
 	defer cancel()
