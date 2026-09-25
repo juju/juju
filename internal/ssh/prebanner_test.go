@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/juju/tc"
 )
@@ -77,7 +78,27 @@ func (*preBannerSuite) TestWritePreBannerErrorCapsLength(c *tc.C) {
 	}()
 
 	out := readPreBanner(c, client, done)
-	c.Check(out, tc.Equals, strings.Repeat("x", 200)+"\r\n")
+	c.Check(out, tc.Equals, strings.Repeat("x", 80)+"\r\n")
+}
+
+func (*preBannerSuite) TestWritePreBannerErrorCapsLengthOnRuneBoundary(c *tc.C) {
+	client, server := net.Pipe()
+	defer func() { _ = client.Close() }()
+
+	// é is two bytes in UTF-8. 41 runes are 82 bytes, so the byte cap
+	// at 80 would split the final rune; the backup to a rune boundary
+	// must drop it and emit 40 valid runes.
+	msg := strings.Repeat("é", 41)
+
+	done := make(chan error, 1)
+	go func() {
+		done <- WritePreBannerError(server, msg)
+		_ = server.Close()
+	}()
+
+	out := readPreBanner(c, client, done)
+	c.Check(out, tc.Equals, strings.Repeat("é", 40)+"\r\n")
+	c.Check(utf8.ValidString(out), tc.IsTrue)
 }
 
 func (*preBannerSuite) TestWritePreBannerErrorWriteFailure(c *tc.C) {
