@@ -644,7 +644,7 @@ precedent).
 
 #### Secret lifecycle (state machine)
 
-**Insert at:** § Secret states.
+**Insert at:** § The secret's records → § Secret states.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -656,7 +656,7 @@ precedent).
 
 #### Secret attributes (ERD slice)
 
-**Insert at:** § The secret in the data model.
+**Insert at:** § The secret's records → § The secret in the data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
