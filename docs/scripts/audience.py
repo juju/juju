@@ -67,7 +67,7 @@ class AudienceDirective(Directive):
 def _line(tokens):
     """The one render authority: the HTML and the llms output carry
     the same line."""
-    return "For: %s." % ", ".join(_labels(tokens))
+    return "For: %s" % ", ".join(_labels(tokens))
 
 
 def html_visit_audience(self, node):
