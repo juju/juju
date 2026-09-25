@@ -9,8 +9,12 @@ myst:
 
 If you're writing a worker -- and almost everything that juju does happens inside a worker -- you should be aware of the
 following guidelines. They're not necessarily comprehensive, and not *necessarily* to be followed without question; but
-if you're not following the advice on this page, you should have a very good reason and have talked it through with
-fwereade.
+if you're not following the advice on this page, you should have a very good reason.
+
+The base workers named below moved with the internal-worker
+reorganisation: `NewSimpleWorker` lives in `internal/worker/simpleworker`,
+`NewPeriodicWorker` in `internal/worker/periodicworker.go`, and
+`NewNotifyWorker`/`NewStringsWorker` in `internal/worker/watcher`.
 
 * If you really just want to run a dumb function on its own goroutine, use `worker.NewSimpleWorker`.
 
@@ -25,9 +29,11 @@ fwereade.
 * To restate the previous point: basically *never* do a naked channel send/receive. If you're building a structure that
   makes you think you need them, you're most likely building the wrong structure.
 
-* If you're writing a custom worker, and not using a `tomb.Tomb`, you are almost certainly doing it wrong. Read
-  the [blog post](http://blog.labix.org/2011/10/09/death-of-goroutines-under-control), or just
-  the [code](http://launchpad.net/tomb) -- it's less than 200 lines and it's about 50% comments.
+* If you're writing a custom worker, use a catacomb
+  (`github.com/juju/worker/v5/catacomb`). It is the standard carrier in the
+  current codebase -- a catacomb embeds a tomb, so the lifetime mechanics below
+  are the same, and it adds the coordination of child workers. A bare
+  `tomb.Tomb` is correct only for a worker that can have no children.
 
 * If you're letting `tomb.ErrDying` leak out of your workers to any clients, you are definitely doing it wrong -- you
   risk stopping another worker with that same error, which will quite rightly panic (because that tomb is *not* yet
@@ -42,13 +48,16 @@ fwereade.
   requests. Full stop. Whatever started the component needs to know why it failed, but that parent is usually not the
   same entity as the client that's calling methods.
 
-* If you're using `worker/singular`, you are quite likely to be doing it wrong, because you've written a worker that
+* If you're using `internal/worker/singular` (formerly `worker/singular`), you are quite likely to be doing it wrong, because you've written a worker that
   breaks when distributed. Things like provisioner and firewaller only work that way because we weren't smart enough to
   write them better; but you should generally be writing workers that collaborate correctly with themselves, and
   eschewing the temptation to depend on the funky layer-breaking of singular.
 
-* If you're passing a \*state.State into your worker, you are almost certainly doing it wrong. The layers go worker->
-  apiserver->state, and any attempt to skip past the apiserver layer should be viewed with *extreme* suspicion.
+* Don't pass a \*state.State into your worker. The pre-services layering this
+  guideline policed (worker->apiserver->state) is gone: the internal workers
+  hold no `*state.State` at all -- dependencies arrive as narrow interfaces
+  through the manifold's config, and state access belongs to the domain
+  services behind the API server.
 
 * Don't try to make a worker into a singleton (this isn't particularly related to workers, really, singleton is enough
   of an antipattern on its own). Singletons are basically the same as global variables, except even worse, and if you
@@ -86,7 +95,7 @@ type ValuePasser struct {
 
     // It's very convenient to keep dependencies and configuration values
     // tucked away in their own struct for easy validation and many other
-    // reasons. See howto page elsewhere on the wiki.
+    // reasons.
     config Config
 
     // For runtime state, use your judgment re fields vs vars in the loop
