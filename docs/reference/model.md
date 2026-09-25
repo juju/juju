@@ -38,6 +38,21 @@ carries the model's {ref}`configuration <model-configuration>`,
 {ref}`constraints <constraint>`, {ref}`storage pools <storage>` and
 the target agent version as separate records.
 
+The record's other stored discriminator is a role, not a type: the
+controller-model flag marks the one model that runs Juju itself, and
+either type can carry it -- a controller bootstrapped on a
+Kubernetes cloud runs a CAAS controller model.
+
+(the-controller-model)=
+#### The controller model
+
+**The controller model (`controller`).** This is your Juju management model. A Juju deployment will have just one controller model, which is created by default when you create a controller (`juju bootstrap`). It typically contains a single machine, for the controller (since Juju `3.0`, the `controller` application). If controller {ref}`high availability <high-availability>` is enabled, then the controller model would contain multiple instances. The `controller` model may also contain certain applications which it makes sense to deploy near the controller -- e.g., starting with Juju `3.0`, the `juju-dashboard` application.
+
+(regular-model)=
+#### Regular model
+
+**Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
+
 (the-model-in-the-data-model)=
 ### The model in the data model
 
@@ -75,33 +90,19 @@ facsimile is updated alongside -- it is what the model-side processes
 read.
 
 (types-of-model)=
+(iaas-caas-models)=
 ### Types of model
 
 Unlike the application or the unit, the model record does carry its
-two discriminators as stored columns -- and each axis is exclusive:
-the type column (`iaas` or `caas`) is set at creation from the cloud's
-type, and the controller-model flag marks the one model that runs Juju
-itself.
-
-(the-controller-model)=
-#### The controller model
-
-**The controller model (`controller`).** This is your Juju management model. A Juju deployment will have just one controller model, which is created by default when you create a controller (`juju bootstrap`). It typically contains a single machine, for the controller (since Juju `3.0`, the `controller` application). If controller {ref}`high availability <high-availability>` is enabled, then the controller model would contain multiple instances. The `controller` model may also contain certain applications which it makes sense to deploy near the controller -- e.g., starting with Juju `3.0`, the `juju-dashboard` application.
-
-(regular-model)=
-#### Regular model
-
-**Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
-
-(iaas-caas-models)=
-#### IAAS and CAAS models
-
-The model's **type** is derived from the cloud at creation: a
-Kubernetes cloud makes the model `caas`; every other cloud makes it
-`iaas`. The type is more than a label -- it selects the machinery the
-model runs on, down to which {ref}`secret <secret>` backend its
-secrets live in and whether its applications scale by
-{ref}`pods <application>` or {ref}`machines <machine>`.
+discriminator as a stored column. The model's **type** is derived
+from the cloud at creation -- a Kubernetes cloud makes the model
+`caas`; every other cloud makes it `iaas` -- and a model is one or
+the other, never both. The type is more than a label: it selects the
+machinery the model runs on, down to which {ref}`secret <secret>`
+backend its secrets live in and whether its applications scale by
+{ref}`pods <application>` or {ref}`machines <machine>`. The other
+stored discriminator, the controller-model flag, is a role, not a
+type (see {ref}`The model's identity <the-model-record>`).
 
 (the-models-machinery)=
 ## The model's machinery
