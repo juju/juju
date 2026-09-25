@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storageprovisioner
+package model
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/worker/storageprovisioner"
 )
 
 // ModelManifoldConfig defines a storage provisioner's configuration and dependencies.
@@ -25,7 +26,7 @@ type ModelManifoldConfig struct {
 	Clock      clock.Clock
 	Model      names.ModelTag
 	StorageDir string
-	NewWorker  func(config Config) (worker.Worker, error)
+	NewWorker  func(config storageprovisioner.Config) (worker.Worker, error)
 	Logger     logger.Logger
 }
 
@@ -77,7 +78,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				clock:          config.Clock,
 			}
 
-			w, err := config.NewWorker(Config{
+			w, err := config.NewWorker(storageprovisioner.Config{
 				Model:       config.Model,
 				Scope:       config.Model,
 				StorageDir:  config.StorageDir,
