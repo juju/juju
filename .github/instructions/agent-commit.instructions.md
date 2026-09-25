@@ -30,7 +30,7 @@ Guidelines are provided for each Component.
 
 ## **body** Component
 
-- A detailed explanation of the change: what was before, and what is after; avoid contextual terms like "now".
+- A detailed explanation of the change; may consist of several paragraphs; states what was before, and what is after, and avoids contextual terms like "now".
 - SHOULD be on the form:
   - Before this commit `<it behaves like that>`
   - After this commit `<it behaves like that>`
@@ -51,11 +51,11 @@ Guidelines are provided for each Component.
 - **fix!**: Bug or performance fix in non-test code that breaks compatibility
 - **refactor**: Changes in non-test code that change the structure or algorithms used but preserves functionality. 
   **refactor** SHALL NOT be used where the commit contains an inseparable bug fix.
+- **style**: Changes that do not affect the meaning of the code (formatting, whitespace)
+- **perf**: A code change that improves performance
 - **test**: Adding, deleting or updating tests
 - **build**: Build system changes (e.g. to Makefile or functional changes that affect build artefacts)
 - **ci**: CI configuration changes (e.g. to not test specific shell scripts in the tests directory or to GitHub actions)
-- **style**: Changes that do not affect the meaning of the code
-- **perf**: A code change that improves performance
 - **revert**: Revert previous commit
 - **docs**: Documentation changes, **docs** MUST be used where the change affects documentation files and MUST NOT 
   contain changes that are better defined by other commit types. **chore** or any other relevant commit type MAY 
@@ -122,6 +122,8 @@ Fixes #123
 - **Format correctly on first attempt** - you cannot rewrite history after pushing
 - **PRs with non-compliant commits will be blocked** by commitlint in CI
 - Validation runs automatically via `.github/commitlint.config.mjs`
+- The pull request title MUST use the commit-message format of the most-significant
+  commit included in the pull request: `<type>(<scope>): <short description>`
 
 ## Pull Request Description
 

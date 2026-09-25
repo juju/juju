@@ -243,6 +243,9 @@ redirects = {
 'contributor/reference/dependency-package': 'https://pkg.go.dev/github.com/juju/worker/v5/dependency',
 # The CVE process lives in the repo-root SECURITY.md.
 'contributor/reference/cve': 'https://github.com/juju/juju/security',
+# The commit-format guidance was folded into the agent-commit
+# instructions (the CONTRIBUTING step-10 link points there too).
+'contributor/reference/conventional-commits': 'https://github.com/juju/juju/blob/HEAD/.github/instructions/agent-commit.instructions.md',
 }
 
 ###########################

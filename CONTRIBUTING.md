@@ -212,7 +212,7 @@ git pull upstream 3.6 --rebase
 10. Stage, commit and push regularly to your fork. Make sure your commit messages
     comply with conventional commits ([see upstream
     standard](https://www.conventionalcommits.org/en/v1.0.0/), [see adaptation in
-    Juju](./docs/contributor/reference/conventional-commits.md)). E.g.,
+    Juju](./.github/instructions/agent-commit.instructions.md)). E.g.,
 
 ```
 git add .
