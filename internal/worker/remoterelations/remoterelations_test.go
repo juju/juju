@@ -317,8 +317,8 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *gc.C) {
-	// Checks that when a remote offer is terminated, the application worker
+func (s *remoteRelationsSuite) TestRemoteApplicationDead(c *gc.C) {
+	// Checks that when a remote application is dead, the application worker
 	// and relation worker are killed.
 	w := s.assertRemoteApplicationWorkers(c)
 	defer workertest.CleanKill(c, w)
@@ -327,9 +327,11 @@ func (s *remoteRelationsSuite) TestRemoteApplicationTerminated(c *gc.C) {
 	appWorker, err := s.config.Runner.Worker("mysql", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatchers["mysql"]
+	relWatcher, ok := s.relationsFacade.remoteApplicationRelationsWatcher("mysql")
 	c.Assert(ok, jc.IsTrue)
-	s.relationsFacade.remoteApplications["mysql"].status = status.Terminated
+	s.relationsFacade.mu.Lock()
+	s.relationsFacade.remoteApplications["mysql"].life = life.Dead
+	s.relationsFacade.mu.Unlock()
 	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
 
 	expected := []jujutesting.StubCall{

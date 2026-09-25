@@ -153,7 +153,6 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 					Life:            app.life,
 					ModelUUID:       app.modelUUID,
 					IsConsumerProxy: app.registered,
-					Status:          string(app.status),
 					ConsumeVersion:  app.consumeVersion,
 					Macaroon:        mac,
 				},
@@ -465,7 +464,6 @@ type mockRemoteApplication struct {
 	life           life.Value
 	modelUUID      string
 	registered     bool
-	status         status.Status
 	consumeVersion int
 }
 

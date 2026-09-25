@@ -280,7 +280,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			w.mu.Lock()
 			existingIdentity, ok := w.applicationIdentities[name]
 			w.mu.Unlock()
-			appGone = remoteApp.Status == string(status.Terminated) || remoteApp.Life == life.Dead
+			appGone = remoteApp.Life == life.Dead
 			identityChanged = ok && existingIdentity != applicationIdentity(remoteApp)
 		}
 		if appGone || identityChanged {
@@ -305,7 +305,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if remoteApp.Life == life.Dead || remoteApp.Status == string(status.Terminated) {
+			if remoteApp.Life == life.Dead {
 				return nil, errors.NotFoundf("live remote application %q", name)
 			}
 			appWorker := &remoteApplicationWorker{
