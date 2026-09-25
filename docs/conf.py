@@ -241,6 +241,8 @@ redirects = {
 # (doc.go); point their old paths at the rendered Go docs.
 'contributor/reference/agent': 'https://pkg.go.dev/github.com/juju/juju/cmd/jujud/agent',
 'contributor/reference/dependency-package': 'https://pkg.go.dev/github.com/juju/worker/v5/dependency',
+# The CVE process lives in the repo-root SECURITY.md.
+'contributor/reference/cve': 'https://github.com/juju/juju/security',
 }
 
 ###########################

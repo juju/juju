@@ -23,8 +23,25 @@ message.
 - **type**: The type of change (REQUIRED)
 - **scope**: Single-word identifier for the singular affected semantic scope (OPTIONAL)
 - **short description**: Brief summary of the change (REQUIRED)
+- **body**: Detailed explanation of the change (OPTIONAL for small/trivial fixes only; REQUIRED for `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`)
+- **footer**: One or more [Git trailers](https://git-scm.com/docs/git-interpret-trailers), e.g. `BREAKING CHANGE: ...` or `Fixes #999` (OPTIONAL)
 
 Guidelines are provided for each Component.
+
+## **body** Component
+
+- A detailed explanation of the change: what was before, and what is after; avoid contextual terms like "now".
+- SHOULD be on the form:
+  - Before this commit `<it behaves like that>`
+  - After this commit `<it behaves like that>`
+
+## **footer** Component
+
+- The footer starts at the first occurrence of a blank line, followed by a Git trailer.
+- Each trailer starts on its own line, using the format `<key><sep><value>`.
+- The trailer `<key>` is either `BREAKING CHANGE` or one or more words grouped by hyphens (e.g. `Co-Authored-By`, `fixes`).
+- The trailer `<sep>` is one of `:<space>` or `<space>#`, supporting both `Co-Authored-By: Name <email>` and `Fixes #999`.
+- The trailer `<value>` MUST be present and can span multiple lines or paragraphs.
 
 ## **type** Component
 
@@ -37,6 +54,8 @@ Guidelines are provided for each Component.
 - **test**: Adding, deleting or updating tests
 - **build**: Build system changes (e.g. to Makefile or functional changes that affect build artefacts)
 - **ci**: CI configuration changes (e.g. to not test specific shell scripts in the tests directory or to GitHub actions)
+- **style**: Changes that do not affect the meaning of the code
+- **perf**: A code change that improves performance
 - **revert**: Revert previous commit
 - **docs**: Documentation changes, **docs** MUST be used where the change affects documentation files and MUST NOT 
   contain changes that are better defined by other commit types. **chore** or any other relevant commit type MAY 
@@ -68,6 +87,8 @@ The short description MUST be:
 
 ## Examples
 
+Subject only:
+
 ```
 feat(api): add user authentication endpoint
 ```
@@ -78,6 +99,22 @@ fix(storage): race condition when attaching a volume
 
 ```
 docs: add CLA requirements to contributing guidelines
+```
+
+With a body and a footer:
+
+```
+feat(api): add user authentication feature
+
+This commit adds user authentication to the API. Users can now sign up,
+log in, and log out. Passwords are hashed using bcrypt. Token-based
+authentication is implemented using JWT.
+
+BREAKING CHANGE: The user authentication changes the login endpoint
+from `/api/login` to `/api/v1/login`. All previous tokens are now invalid,
+and users will need to reauthenticate.
+
+Fixes #123
 ```
 
 ## Critical Requirements
@@ -96,5 +133,4 @@ strikethrough (`~text~`) for items that are not applicable.
 ## References
 
 - [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-- [Project guidelines](../../docs/contributor/reference/conventional-commits.md)
 - [Contributing guide](../../CONTRIBUTING.md)
