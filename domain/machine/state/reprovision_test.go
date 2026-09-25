@@ -202,6 +202,29 @@ WHERE  namespace = ?`, "application_reprovision").Scan(&sequenceValue)
 	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
 }
 
+func (s *stateSuite) TestDetachLostMachineCloudInstanceErrorsWhenUnitDisappearsBeforeRename(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionRelationScope(c)
+	s.runQuery(c, `
+CREATE TRIGGER delete_reprovision_unit
+AFTER DELETE ON relation_unit
+WHEN OLD.unit_uuid = 'reprovision-unit'
+BEGIN
+    DELETE FROM unit WHERE uuid = OLD.unit_uuid;
+END`)
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorMatches,
+		`renaming reprovision units: renaming unit "reprovision-unit": expected 1 row affected, got 0`)
+
+	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "reprovision-relation-unit"), tc.Equals, 1)
+}
+
 func (s *stateSuite) TestDetachLostMachineCloudInstanceDepartsRelationScopes(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
