@@ -1,8 +1,12 @@
-/* Audience tags ({audience} directive): backgrounded like the ibnote --
-   always present, non-intrusive (small, muted, no box). */
+/* Audience tags ({audience} directive): backgrounded exactly like the
+   ibnote -- small, indented, muted. There like a page number in a
+   book: present, never at issue. */
 p.audience {
+  display: block;
   font-size: var(--font-size--small);
-  margin: 0 0 0.75em 0;
+  margin-left: 1em;
+  margin-top: 1em;
+  margin-bottom: 1.5em;
   line-height: 1.4;
   color: var(--color-foreground-muted);
 }
