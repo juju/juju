@@ -507,7 +507,7 @@ precedent).
 
 #### Model removal
 
-**Insert at:** § Model lifecycle → § Model removal. also: explanation/architecture.md § Remove.
+**Insert at:** § The model's machinery → § Model operations → § Model removal. also: explanation/architecture.md § Remove.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -519,7 +519,7 @@ precedent).
 
 #### Model migration (sequence)
 
-**Insert at:** § Model operations → § Model migration.
+**Insert at:** § The model's machinery → § Model operations → § Model migration.
 
 ```{ggarch}
 :file: ../juju.ggarch
