@@ -39,6 +39,7 @@ type MockFirewallerAPIMockRecorder struct {
 	mock                             *MockFirewallerAPI
 	allSpaceInfosExpects             []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
 	controllerAPIInfoForModelExpects []*gomock.Call2_2[context.Context, string, *api.Info, error]
+	controllerFirewallPortsExpects   []*gomock.Call1_2[context.Context, []network.PortRange, error]
 	machineExpects                   []*gomock.Call2_2[context.Context, names.MachineTag, firewaller0.Machine, error]
 	modelConfigExpects               []*gomock.Call1_2[context.Context, *config.Config, error]
 	modelFirewallRulesExpects        []*gomock.Call1_2[context.Context, firewall.IngressRules, error]
@@ -97,6 +98,24 @@ func (mr *MockFirewallerAPIMockRecorder) ControllerAPIInfoForModel(ctx, modelUUI
 
 // MockFirewallerAPIControllerAPIInfoForModelCall is the typed call wrapper for ControllerAPIInfoForModel.
 type MockFirewallerAPIControllerAPIInfoForModelCall = gomock.Call2_2[context.Context, string, *api.Info, error]
+
+// ControllerFirewallPorts mocks base method.
+func (m *MockFirewallerAPI) ControllerFirewallPorts(arg0 context.Context) ([]network.PortRange, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.controllerFirewallPortsExpects, m.ctrl, m, "ControllerFirewallPorts", arg0)
+}
+
+// ControllerFirewallPorts indicates an expected call of ControllerFirewallPorts.
+func (mr *MockFirewallerAPIMockRecorder) ControllerFirewallPorts(arg0 any) *MockFirewallerAPIControllerFirewallPortsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []network.PortRange, error](mr.mock.ctrl.T, mr.mock, "ControllerFirewallPorts", gomock.EnsureMatcher(arg0))
+	mr.controllerFirewallPortsExpects = append(mr.controllerFirewallPortsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockFirewallerAPIControllerFirewallPortsCall is the typed call wrapper for ControllerFirewallPorts.
+type MockFirewallerAPIControllerFirewallPortsCall = gomock.Call1_2[context.Context, []network.PortRange, error]
 
 // Machine mocks base method.
 func (m *MockFirewallerAPI) Machine(ctx context.Context, tag names.MachineTag) (firewaller0.Machine, error) {
