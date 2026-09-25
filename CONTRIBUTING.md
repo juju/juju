@@ -298,4 +298,25 @@ can replace these with any source and target branch.
    patches in your merge, use
    `git log upstream/<TARGET-BRANCH>..upstream/<SOURCE-BRANCH> --first-parent --oneline --no-decorate | sed 's~.*\(#[0-9]*\)/.*~- \1~g'`
 
+## Contributor docs and rules
+
+Beyond this guide, contributor knowledge lives in a few other places:
+
+- **The agents files.** `AGENTS.md` at the repo root -- with
+  `AGENTS.architecture-rules.md` and `AGENTS.core-domain-rules.md` -- carries
+  the rules that any code change must follow. The documentation has the same:
+  `docs/agents/` holds the documentation rules, including the docstring rules
+  (`AGENTS.doc-dot-go-rules.md`).
+- **The package docs.** Juju packages document themselves in `doc.go` files
+  (for example, `cmd/jujud/agent/doc.go`), rendered on pkg.go.dev -- see
+  [github.com/juju/juju/cmd/jujud/agent](https://pkg.go.dev/github.com/juju/juju/cmd/jujud/agent)
+  and
+  [github.com/juju/worker/v5/dependency](https://pkg.go.dev/github.com/juju/worker/v5/dependency).
+- **The developer-tagged docs.** The pages written for Juju developers in the
+  [reference](https://documentation.ubuntu.com/juju/reference/) and
+  [how-to](https://documentation.ubuntu.com/juju/how-to/) sections of the
+  documentation -- the worker, the entity lifecycle, writing workers, the
+  Dqlite core-dump and cross-compilation guides -- carry the "Juju
+  developers" tag.
+
 Congratulations and thank you!

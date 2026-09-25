@@ -11,7 +11,8 @@ create the issue, affected versions, and, if known, mitigations for
 the issue.
 
 The preferred way to report a security issue is through
-[GitHub's security advisory for this project](https://github.com/juju/juju/security/advisories/new). See
+[GitHub's security advisory for this project](https://github.com/juju/juju/security/advisories/new). The advisory is private
+by default; repo admins review it. See
 [Privately reporting a security
 vulnerability](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability)
 for instructions on reporting using GitHub's security advisory feature.
@@ -25,24 +26,17 @@ and what we expect from you.
 
 In software, a CVE (common vulnerability and exposure) is a security issue
 that meets certain standard identifiers (see more: the
-[CVE website](https://www.cve.org/)). In Juju, the process around CVEs is as
-follows:
+[CVE website](https://www.cve.org/)). In Juju, once a security advisory has
+been filed as described above, the process is as follows:
 
-People noticing a potential vulnerability in the Juju codebase create a
-security advisory (see
-https://github.com/juju/juju/security/advisories/new).
-
-The advisory is by default private. Repo admins review it. If it's confirmed
-as a CVE, all the usual CVE protocols apply: It gets assigned a CVE number;
-an embargo is set in place; and a countdown starts for when the CVE must be
-made public. This also triggers a countdown for when, ideally, a fix must be
-released.
+If the advisory is confirmed as a CVE, all the usual CVE protocols apply: it
+gets assigned a CVE number; an embargo is set in place; and a countdown
+starts for when the CVE must be made public. This also triggers a countdown
+for when, ideally, a fix must be released.
 
 When the fix is ready, its release must be prepared privately, that is, from
-a private branch. The process is as described in
-[Privately reporting a security vulnerability - GitHub
-Docs](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability),
-with the following mention about solutions QA:
+a private branch. The process is as described in the GitHub documentation
+linked above, with the following mention about solutions QA:
 
 - If the timing is such that it doesn't align with the normal release
   cadence, the private branch is created from the latest release tag and the
