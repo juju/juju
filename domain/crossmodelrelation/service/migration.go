@@ -301,9 +301,35 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// A legacy consumer proxy application can relate to several offered
+	// applications, in which case the migration imports one entry per offer
+	// connection, all sharing the identity of the consuming application.
+	// The model holds one synthetic application per offer connection, so
+	// the first connection of each consuming application keeps the
+	// identity of the legacy proxy application, and every additional
+	// connection is represented by a fresh synthetic application.
+	importedConsumers := make(map[string]struct{}, len(imports))
 	consumers := make([]crossmodelrelation.RemoteApplicationConsumerImport, 0, len(imports))
 	for _, rApp := range imports {
-		consumer, err := s.constructApplicationConsumer(ctx, rApp)
+		syntheticAppName := rApp.Name
+		syntheticApplicationUUID := rApp.ConsumerApplicationUUID
+		if _, ok := importedConsumers[rApp.ConsumerApplicationUUID]; ok {
+			// This is an additional offer connection of a consuming
+			// application whose synthetic application is already being
+			// imported, so represent this connection with a fresh
+			// synthetic application. The synthetic units belong to the
+			// first application, which keeps the legacy proxy name.
+			synthAppUUID, err := application.NewUUID()
+			if err != nil {
+				return internalerrors.Errorf("creating application UUID: %w", err)
+			}
+			syntheticAppName = application.RemoteApplicationNameFromUUID(synthAppUUID)
+			syntheticApplicationUUID = synthAppUUID.String()
+			rApp.Units = nil
+		}
+		importedConsumers[rApp.ConsumerApplicationUUID] = struct{}{}
+
+		consumer, err := s.constructApplicationConsumer(ctx, rApp, syntheticAppName, syntheticApplicationUUID)
 		if err != nil {
 			return internalerrors.Errorf("constructing remote application consumer for %q: %w", rApp.Name, err)
 		}
@@ -375,7 +401,18 @@ func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports [
 	return nil
 }
 
-func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rApp RemoteApplicationConsumerImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
+// constructApplicationConsumer constructs the state import argument for a
+// remote application consumer. The synthetic application representing the
+// consumer is imported with the given synthetic application name and UUID,
+// which for an additional offer connection of an already imported consuming
+// application are freshly generated, as the model requires one synthetic
+// application per offer connection.
+func (s *MigrationService) constructApplicationConsumer(
+	ctx context.Context,
+	rApp RemoteApplicationConsumerImport,
+	syntheticAppName string,
+	syntheticApplicationUUID string,
+) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
 	if err := rApp.RelationKey.Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating relation key: %w", err).Add(errors.NotValid)
@@ -405,8 +442,12 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating consumer application UUID: %w", err).Add(errors.NotValid)
 	}
+	if err := application.UUID(syntheticApplicationUUID).Validate(); err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating synthetic application UUID: %w", err).Add(errors.NotValid)
+	}
 
-	synthCharm, err := s.constructConsumedSyntheticCharm(rApp.Name, rApp.Endpoints)
+	synthCharm, err := s.constructConsumedSyntheticCharm(syntheticAppName, rApp.Endpoints)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"constructing synthetic charm: %w", err)
@@ -421,7 +462,10 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 	}
 
 	// We can now extract the offering and consuming application endpoints
-	// from the relation key.
+	// from the relation key. The relation key references the consuming
+	// application by the legacy name of the consumer proxy, not by the name
+	// of the synthetic application that may have been generated for an
+	// additional offer connection.
 	var (
 		offererApplicationEndpoint  string
 		consumerApplicationEndpoint string
@@ -453,7 +497,7 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 
 	return crossmodelrelation.RemoteApplicationConsumerImport{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-			Name:                   rApp.Name,
+			Name:                   syntheticAppName,
 			OfferUUID:              rApp.OfferUUID,
 			URL:                    rApp.URL,
 			Macaroon:               rApp.Macaroon,
@@ -471,6 +515,7 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
 		OffererApplicationEndpoint:  offererApplicationEndpoint,
 		UserName:                    rApp.UserName,
+		SyntheticApplicationUUID:    syntheticApplicationUUID,
 		SyntheticCharmUUID:          charmUUID.String(),
 	}, nil
 }

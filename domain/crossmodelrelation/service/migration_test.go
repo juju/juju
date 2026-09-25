@@ -354,6 +354,7 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 
 	c.Check(got[0].RelationUUID, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac2")
 	c.Check(got[0].ConsumerApplicationUUID, tc.Equals, "13ea2791-5e78-40d8-88c5-e9451444b45d")
+	c.Check(got[0].SyntheticApplicationUUID, tc.Equals, "13ea2791-5e78-40d8-88c5-e9451444b45d")
 	c.Check(got[0].OffererApplicationUUID, tc.Equals, offererAppUUID)
 	c.Check(got[0].ConsumerApplicationEndpoint, tc.Equals, "source")
 	c.Check(got[0].OffererApplicationEndpoint, tc.Equals, "sink")
@@ -361,10 +362,102 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 
 	c.Check(got[1].RelationUUID, tc.Equals, "ed736d84-0007-438c-8c0e-eac6e0d6dadd")
 	c.Check(got[1].ConsumerApplicationUUID, tc.Equals, "a50f2955-5631-4aa4-803f-766a8802e33a")
+	c.Check(got[1].SyntheticApplicationUUID, tc.Equals, "a50f2955-5631-4aa4-803f-766a8802e33a")
 	c.Check(got[1].OffererApplicationUUID, tc.Equals, offererAppUUID)
 	c.Check(got[1].ConsumerApplicationEndpoint, tc.Equals, "source")
 	c.Check(got[1].OffererApplicationEndpoint, tc.Equals, "sink")
 	c.Check(got[1].UserName, tc.Equals, "admin")
+}
+
+// TestImportRemoteApplicationConsumersMultipleOfferConnections imports the
+// offer connections of a single legacy consumer proxy that relates to two
+// offered applications. The first connection keeps the identity of the
+// legacy proxy, and every additional connection is represented by a fresh
+// synthetic application, as the model holds one application per offer
+// connection.
+func (s *migrationSuite) TestImportRemoteApplicationConsumersMultipleOfferConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	const proxyName = "remote-13ea27915e7840d888c5e9451444b45d"
+	const consumerAppUUID = "13ea2791-5e78-40d8-88c5-e9451444b45d"
+
+	newInput := func(offererName, offerUUID, relationUUID string) RemoteApplicationConsumerImport {
+		key, err := relation.NewKeyFromString(offererName + ":db " + proxyName + ":db")
+		c.Assert(err, tc.ErrorIsNil)
+		return RemoteApplicationConsumerImport{
+			RemoteApplicationImport: RemoteApplicationImport{
+				Name:      proxyName,
+				OfferUUID: offerUUID,
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "db",
+						Role:      charm.RoleRequirer,
+						Interface: "db",
+					},
+				},
+				Units: []string{proxyName + "/0"},
+			},
+			RelationUUID:            relationUUID,
+			RelationID:              41,
+			RelationScope:           charm.ScopeGlobal,
+			RelationKey:             key,
+			ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
+			ConsumerApplicationUUID: consumerAppUUID,
+			UserName:                "admin",
+		}
+	}
+
+	input := []RemoteApplicationConsumerImport{
+		newInput("mysql", "cfa46843-ebf2-4fff-8519-c1fb5a9816f0", "6049aa01-76c9-462d-8440-964a6e26aac0"),
+		newInput("postgres", "cfa46843-ebf2-4fff-8519-c1fb5a9816f1", "6049aa01-76c9-462d-8440-964a6e26aac1"),
+	}
+
+	offererAppUUID := tc.Must0(c, coreapplication.NewUUID).String()
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mysql").
+		Return(offererAppUUID, nil)
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "postgres").
+		Return(offererAppUUID, nil)
+
+	var got []crossmodelrelation.RemoteApplicationConsumerImport
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationConsumers(
+		gomock.Any(),
+		gomock.Any(),
+	).DoAndReturn(func(ctx context.Context, raci []crossmodelrelation.RemoteApplicationConsumerImport) error {
+		got = raci
+		return nil
+	})
+
+	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(got, tc.HasLen, 2)
+
+	// The first connection keeps the identity of the legacy consumer
+	// proxy, along with its synthetic units.
+	first, second := got[0], got[1]
+	c.Check(first.Name, tc.Equals, proxyName)
+	c.Check(first.SyntheticApplicationUUID, tc.Equals, consumerAppUUID)
+	c.Check(first.SyntheticCharm.Metadata.Name, tc.Equals, proxyName)
+	c.Check(first.Units, tc.DeepEquals, []string{proxyName + "/0"})
+	c.Check(first.ConsumerApplicationUUID, tc.Equals, consumerAppUUID)
+	c.Check(first.ConsumerApplicationEndpoint, tc.Equals, "db")
+	c.Check(first.OffererApplicationEndpoint, tc.Equals, "db")
+	c.Check(first.OfferUUID, tc.Equals, "cfa46843-ebf2-4fff-8519-c1fb5a9816f0")
+	c.Check(first.RelationUUID, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac0")
+
+	// The additional connection is represented by a fresh synthetic
+	// application, with no synthetic units of its own.
+	c.Check(second.SyntheticApplicationUUID != consumerAppUUID, tc.IsTrue)
+	c.Check(coreapplication.UUID(second.SyntheticApplicationUUID).Validate(), tc.ErrorIsNil)
+	c.Check(second.Name, tc.Equals,
+		coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(second.SyntheticApplicationUUID)))
+	c.Check(second.SyntheticCharm.Metadata.Name, tc.Equals, second.Name)
+	c.Check(second.Units, tc.HasLen, 0)
+	c.Check(second.ConsumerApplicationUUID, tc.Equals, consumerAppUUID)
+	c.Check(second.ConsumerApplicationEndpoint, tc.Equals, "db")
+	c.Check(second.OffererApplicationEndpoint, tc.Equals, "db")
+	c.Check(second.OfferUUID, tc.Equals, "cfa46843-ebf2-4fff-8519-c1fb5a9816f1")
+	c.Check(second.RelationUUID, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac1")
 }
 
 func (s *migrationSuite) TestImportRelationNetworks(c *tc.C) {

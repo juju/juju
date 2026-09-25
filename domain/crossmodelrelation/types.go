@@ -238,7 +238,10 @@ type RemoteApplicationConsumerImport struct {
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
 
-	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
+	// ConsumerApplicationUUID is the UUID of the consuming application in
+	// the consuming model. It is the token that the consuming model uses
+	// to reference the offered application, and it is shared by every
+	// offer connection of the same consuming application.
 	ConsumerApplicationUUID string
 
 	// ConsumerApplicationEndpoint is the relation endpoint name of the
@@ -252,6 +255,13 @@ type RemoteApplicationConsumerImport struct {
 	// UserName is the name of the user who made the original offer connection
 	// request.
 	UserName string
+
+	// SyntheticApplicationUUID is the UUID of the synthetic application
+	// created in this model to represent the remote application consumer.
+	// The application, offer connection and remote application consumer
+	// records all share this UUID, as required by the offer connection
+	// lookups of the cross model relation facades.
+	SyntheticApplicationUUID string
 
 	// SyntheticCharmUUID is the UUID to assign to the synthetic charm
 	// representing the remote application, on the consuming model. This is used
