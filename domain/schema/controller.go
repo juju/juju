@@ -24,6 +24,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/logging-triggers.gen.go -package=triggers -tables=logging_loki_config
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/tracing-triggers.gen.go -package=triggers -tables=workload_tracing_config
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-database-deletion-triggers.gen.go -package=triggers -tables=model_database_deletion
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/ssh-triggers.gen.go -package=triggers -tables=controller_ssh_server_port
 
 //go:embed controller/sql/*.sql
 var controllerSchemaDir embed.FS
@@ -54,6 +55,7 @@ const (
 	tableWorkloadTracingConfig
 	tableModelDatabaseDeletion
 	tableModelMigrationImport
+	tableControllerSSHServerPort
 )
 
 // controllerPostPatchFilesByVersion is used to categorise the post patch files
@@ -113,6 +115,7 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForLoggingLokiConfig("uuid", tableLoggingLokiConfig),
 		triggers.ChangeLogTriggersForWorkloadTracingConfig("key", tableWorkloadTracingConfig),
 		triggers.ChangeLogTriggersForModelDatabaseDeletion("namespace", tableModelDatabaseDeletion),
+		triggers.ChangeLogTriggersForControllerSshServerPort("port", tableControllerSSHServerPort),
 	)
 
 	// Generic triggers.

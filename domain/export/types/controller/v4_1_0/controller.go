@@ -212,6 +212,10 @@ type ControllerSshHostKey struct {
 	PublicKey       []byte `db:"public_key" json:"public_key" yaml:"public_key"`
 }
 
+type ControllerSshServerPort struct {
+	Port int64 `db:"port" json:"port" yaml:"port"`
+}
+
 type ExternalController struct {
 	UUID   string  `db:"uuid" json:"uuid" yaml:"uuid"`
 	Alias  *string `db:"alias" json:"alias" yaml:"alias"`
@@ -637,6 +641,7 @@ type ControllerExport struct {
 	ControllerNodeNonce                         []ControllerNodeNonce                         `json:"controller_node_nonce" yaml:"controller_node_nonce"`
 	ControllerNodePassword                      []ControllerNodePassword                      `json:"controller_node_password" yaml:"controller_node_password"`
 	ControllerSshHostKey                        []ControllerSshHostKey                        `json:"controller_ssh_host_key" yaml:"controller_ssh_host_key"`
+	ControllerSshServerPort                     []ControllerSshServerPort                     `json:"controller_ssh_server_port" yaml:"controller_ssh_server_port"`
 	ExternalController                          []ExternalController                          `json:"external_controller" yaml:"external_controller"`
 	ExternalControllerAddress                   []ExternalControllerAddress                   `json:"external_controller_address" yaml:"external_controller_address"`
 	ExternalModel                               []ExternalModel                               `json:"external_model" yaml:"external_model"`

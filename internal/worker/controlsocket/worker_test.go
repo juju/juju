@@ -42,6 +42,7 @@ type workerSuite struct {
 	tracingService     *MockTracingService
 	loggingService     *MockLoggingService
 	objectStoreService *MockControllerObjectStoreService
+	sshServerService   *MockSSHServerService
 
 	controllerModelID permission.ID
 	metricsUserName   coreuser.Name
@@ -81,6 +82,14 @@ func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.ObjectStoreService = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *workerSuite) TestConfigValidateNilSSHServerService(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.SSHServerService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -1395,18 +1404,95 @@ func (s *workerSuite) TestRemoveLokiEndpointError(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestSetSSHServerPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The handler persists the port to the SSH server service, which the SSH
+	// server worker watches and reacts to.
+	s.sshServerService.EXPECT().SetSSHServerPort(gomock.Any(), 17099).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       `{"port":17099}`,
+		statusCode: http.StatusOK,
+		response:   ".*updated ssh server port to 17099.*",
+	})
+}
+
+func (s *workerSuite) TestSetSSHServerPortInvalidPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// An out-of-range port is rejected before touching controller config.
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       `{"port":70000}`,
+		statusCode: http.StatusBadRequest,
+		response:   ".*invalid ssh server port.*",
+	})
+}
+
+func (s *workerSuite) TestSetSSHServerPortMissingBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       "",
+		statusCode: http.StatusBadRequest,
+		response:   ".*missing request body.*",
+	})
+}
+
+func (s *workerSuite) TestSetSSHServerPortServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.sshServerService.EXPECT().SetSSHServerPort(gomock.Any(), 17099).Return(internalerrors.New("database error"))
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/ssh-server-port",
+		body:       `{"port":17099}`,
+		statusCode: http.StatusInternalServerError,
+		response:   ".*saving ssh server port.*",
+	})
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.accessService = NewMockAccessService(ctrl)
 	s.tracingService = NewMockTracingService(ctrl)
 	s.loggingService = NewMockLoggingService(ctrl)
 	s.objectStoreService = NewMockControllerObjectStoreService(ctrl)
+	s.sshServerService = NewMockSSHServerService(ctrl)
 
 	c.Cleanup(func() {
 		s.accessService = nil
 		s.tracingService = nil
 		s.loggingService = nil
 		s.objectStoreService = nil
+		s.sshServerService = nil
 	})
 
 	return ctrl
@@ -1432,6 +1518,7 @@ func (s *workerSuite) newValidConfig(c *tc.C) Config {
 		TracingService:      s.tracingService,
 		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
+		SSHServerService:    s.sshServerService,
 		Logger:              loggertesting.WrapCheckLog(c),
 		MetricsCollector:    NewMetricsCollector(),
 		SocketName:          "/tmp/test.socket",
@@ -1453,6 +1540,7 @@ func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 		TracingService:      s.tracingService,
 		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
+		SSHServerService:    s.sshServerService,
 		Logger:              loggertesting.WrapCheckLog(c),
 		MetricsCollector:    NewMetricsCollector(),
 		SocketName:          socket,

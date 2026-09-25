@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/core/watcher"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	"github.com/juju/juju/environs/cloudspec"
@@ -56,10 +57,11 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 	})
 }
 
-// GetControllerSSHHostKeyService gets the controller SSH host key service from
-// the controller domain services dependency.
-func GetControllerSSHService(getter dependency.Getter, name string) (*controllersshservice.Service, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) *controllersshservice.Service {
+// GetControllerSSHService gets the controller SSH service from the controller
+// domain services dependency. It is watchable so the SSH server port can be
+// watched for changes.
+func GetControllerSSHService(getter dependency.Getter, name string) (*controllersshservice.WatchableService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) *controllersshservice.WatchableService {
 		return factory.SSHServerHostKey()
 	})
 }
@@ -105,7 +107,7 @@ type ManifoldConfig struct {
 	GetControllerConfigService GetControllerConfigServiceFunc
 	// GetControllerSSHService is used to get the concrete controller SSH service
 	// from the manifold.
-	GetControllerSSHService func(getter dependency.Getter, name string) (*controllersshservice.Service, error)
+	GetControllerSSHService func(getter dependency.Getter, name string) (*controllersshservice.WatchableService, error)
 	// GetDomainServicesGetter is used to get the model domain services getter
 	// from the manifold.
 	GetDomainServicesGetter GetDomainServicesGetterFunc
@@ -260,7 +262,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 //     by the time we reach the service, and instead, we must call the methods WITH the UUID received
 //     from the virtual host name.
 type sshService struct {
-	controllerSSHService *controllersshservice.Service
+	controllerSSHService *controllersshservice.WatchableService
 	domainServicesGetter services.DomainServicesGetter
 	getSSHService        GetSSHServiceFunc
 	controllerUUID       corecontroller.UUID
@@ -296,6 +298,17 @@ func (s sshService) PublicKeys(ctx context.Context, username string) ([]publicKe
 // SSHServerHostKey returns the controller SSH server host key.
 func (s sshService) SSHServerHostKey(ctx context.Context) (string, error) {
 	return s.controllerSSHService.SSHServerHostKey(ctx)
+}
+
+// GetSSHServerPort returns the port the controller SSH jump server listens on.
+func (s sshService) GetSSHServerPort(ctx context.Context) (int, error) {
+	return s.controllerSSHService.GetSSHServerPort(ctx)
+}
+
+// WatchSSHServerPort returns a watcher that notifies when the controller SSH
+// server port changes.
+func (s sshService) WatchSSHServerPort(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return s.controllerSSHService.WatchSSHServerPort(ctx)
 }
 
 // VirtualHostKey returns the terminating SSH host key for a virtual hostname.

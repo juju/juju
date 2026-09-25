@@ -54,6 +54,13 @@ type SSHService interface {
 	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
 	// SSHServerHostKey returns the controller's SSH server host key.
 	SSHServerHostKey(context.Context) (string, error)
+	// GetSSHServerPort returns the port the controller SSH jump server listens
+	// on. The controller charm owns this value and pushes changes via the
+	// control socket.
+	GetSSHServerPort(context.Context) (int, error)
+	// WatchSSHServerPort returns a watcher that notifies when the controller
+	// SSH server port changes.
+	WatchSSHServerPort(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
@@ -171,7 +178,8 @@ func (ssw *serverWrapperWorker) loop() error {
 	ctx := ssw.catacomb.Context(context.Background())
 
 	// Watch for changes then acquire the latest controller configuration
-	// to avoid starting the server with stale config values.
+	// to avoid starting the server with stale config values. Controller config
+	// still owns the max concurrent connections value.
 	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -181,12 +189,27 @@ func (ssw *serverWrapperWorker) loop() error {
 	}
 	ssw.addWorkerReporter("controller-watcher", controllerConfigWatcher)
 
+	// The SSH server port is owned by the controller charm and pushed to the
+	// SSH server service via the control socket. Watch it separately so the
+	// server restarts when the charm changes the port.
+	sshServerPortWatcher, err := ssw.config.SSHService.WatchSSHServerPort(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := ssw.catacomb.Add(sshServerPortWatcher); err != nil {
+		return errors.Trace(err)
+	}
+	ssw.addWorkerReporter("ssh-server-port-watcher", sshServerPortWatcher)
+
 	config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	port := config.SSHServerPort()
+	port, err := ssw.config.SSHService.GetSSHServerPort(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	maxConns := config.SSHMaxConcurrentConnections()
 	jumpHostKey, err := ssw.config.SSHService.SSHServerHostKey(ctx)
 	if err != nil {
@@ -213,12 +236,13 @@ func (ssw *serverWrapperWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	changesChan := controllerConfigWatcher.Changes()
+	controllerConfigChanges := controllerConfigWatcher.Changes()
+	sshServerPortChanges := sshServerPortWatcher.Changes()
 	for {
 		select {
 		case <-ssw.catacomb.Dying():
 			return ssw.catacomb.ErrDying()
-		case _, ok := <-changesChan:
+		case _, ok := <-controllerConfigChanges:
 			if !ok {
 				return errors.New("controller config watcher closed")
 			}
@@ -227,9 +251,22 @@ func (ssw *serverWrapperWorker) loop() error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if maxConns == config.SSHMaxConcurrentConnections() &&
-				port == config.SSHServerPort() {
+			if maxConns == config.SSHMaxConcurrentConnections() {
 				ssw.config.Logger.Debugf(ctx, "controller configuration changed, but nothing changed for the ssh server")
+				continue
+			}
+			return errors.New("changes detected, stopping SSH server worker")
+		case _, ok := <-sshServerPortChanges:
+			if !ok {
+				return errors.New("ssh server port watcher closed")
+			}
+
+			currentPort, err := ssw.config.SSHService.GetSSHServerPort(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if port == currentPort {
+				ssw.config.Logger.Debugf(ctx, "ssh server port changed, but nothing changed for the ssh server")
 				continue
 			}
 			return errors.New("changes detected, stopping SSH server worker")

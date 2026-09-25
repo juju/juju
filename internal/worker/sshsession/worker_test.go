@@ -116,9 +116,11 @@ func newPublicKey(c *tc.C) []byte {
 func (s *workerSuite) startWorker(c *tc.C, machineName string, changes chan []string) (*sshSessionWorker, *watchertest.MockStringsWatcher) {
 	w := watchertest.NewMockStringsWatcher(changes)
 	s.facadeClient.EXPECT().WatchSSHConnRequest(gomock.Any()).Return(w, nil)
-	// The worker fetches the controller SSH port and host public key once at
-	// startup.
-	s.facadeClient.EXPECT().ControllerSSHPort(gomock.Any()).Return(2223, nil)
+	// The worker fetches the controller host public key once at startup. The
+	// controller SSH port is fetched per connection (it can change at runtime),
+	// so allow any number of calls here; connection-processing tests assert the
+	// value they need.
+	s.facadeClient.EXPECT().ControllerSSHPort(gomock.Any()).Return(2223, nil).AnyTimes()
 	s.facadeClient.EXPECT().ControllerPublicKey(gomock.Any()).Return(newPublicKey(c), nil)
 
 	worker, err := NewWorker(s.newConfig(c, machineName))

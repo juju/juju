@@ -3,4 +3,4 @@
 
 package controller
 
-//go:generate go run github.com/canonical/gomock/mockgen -package controller_test -destination state_mock_test.go github.com/juju/juju/domain/ssh/service/controller State
+//go:generate go run github.com/canonical/gomock/mockgen -package controller_test -destination state_mock_test.go github.com/juju/juju/domain/ssh/service/controller State,WatcherFactory

@@ -111,11 +111,14 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	if err := checkSSHJumpFacadeVersion(p.sshClient.BestAPIVersion()); err != nil {
 		return err
 	}
-	controllerConfig, err := p.controllerClient.ControllerConfig(ctx)
+	// Read the SSH server port from the controller rather than controller
+	// config: the port is owned by the controller charm and pushed to the SSH
+	// domain at runtime, so controller config may hold a stale value.
+	var err error
+	p.jumpHostPort, err = p.controllerClient.SSHServerPort(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	p.jumpHostPort = controllerConfig.SSHServerPort()
 
 	p.jumpServerHostKey, err = p.controllerClient.SSHServerHostKey(ctx)
 	if err != nil {

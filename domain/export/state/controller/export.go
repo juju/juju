@@ -137,6 +137,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerSshHostKey statement: %w", err)
 	}
+	stmtControllerSshServerPort, err := sqlair.Prepare(`SELECT &ControllerSshServerPort.* FROM "controller_ssh_server_port"`, v4_1_0.ControllerSshServerPort{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerSshServerPort statement: %w", err)
+	}
 	stmtExternalController, err := sqlair.Prepare(`SELECT &ExternalController.* FROM "external_controller"`, v4_1_0.ExternalController{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ExternalController statement: %w", err)
@@ -478,6 +482,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		}
 		if err := tx.Query(ctx, stmtControllerSshHostKey).GetAll(&controllerExport.ControllerSshHostKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerSshHostKey (table controller_ssh_host_key): %w", err)
+		}
+		if err := tx.Query(ctx, stmtControllerSshServerPort).GetAll(&controllerExport.ControllerSshServerPort); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerSshServerPort (table controller_ssh_server_port): %w", err)
 		}
 		if err := tx.Query(ctx, stmtExternalController).GetAll(&controllerExport.ExternalController); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ExternalController (table external_controller): %w", err)

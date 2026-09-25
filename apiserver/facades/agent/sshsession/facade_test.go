@@ -28,8 +28,7 @@ type facadeSuite struct {
 	testhelpers.IsolationSuite
 
 	service         *MockSSHConnRequestService
-	controllerCfg   *MockControllerConfigService
-	hostKeyService  *MockControllerSSHHostKeyService
+	controllerSSH   *MockControllerSSHService
 	watcherRegistry *MockWatcherRegistry
 }
 
@@ -40,8 +39,7 @@ func TestFacadeSuite(t *testing.T) {
 func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockSSHConnRequestService(ctrl)
-	s.controllerCfg = NewMockControllerConfigService(ctrl)
-	s.hostKeyService = NewMockControllerSSHHostKeyService(ctrl)
+	s.controllerSSH = NewMockControllerSSHService(ctrl)
 	s.watcherRegistry = NewMockWatcherRegistry(ctrl)
 	return ctrl
 }
@@ -50,7 +48,7 @@ func (s *facadeSuite) newFacade() *Facade {
 	// The facade always derives the machine from the authenticated tag, so the
 	// tests authenticate as machine "0".
 	authorizer := apiservertesting.FakeAuthorizer{Tag: names.NewMachineTag("0")}
-	return newFacade(authorizer, s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
+	return newFacade(authorizer, s.service, s.controllerSSH, s.watcherRegistry)
 }
 
 func (s *facadeSuite) TestWatchSSHConnRequest(c *tc.C) {
@@ -123,7 +121,7 @@ func (s *facadeSuite) TestWatchSSHConnRequestNonMachineDenied(c *tc.C) {
 	defer ctrl.Finish()
 
 	authorizer := apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("app/0")}
-	facade := newFacade(authorizer, s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
+	facade := newFacade(authorizer, s.service, s.controllerSSH, s.watcherRegistry)
 
 	_, err := facade.WatchSSHConnRequest(c.Context())
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
@@ -133,7 +131,7 @@ func (s *facadeSuite) TestControllerSSHPort(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.controllerCfg.EXPECT().GetSSHServerPort(gomock.Any()).Return(2223, nil)
+	s.controllerSSH.EXPECT().GetSSHServerPort(gomock.Any()).Return(2223, nil)
 
 	result, err := s.newFacade().ControllerSSHPort(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -150,7 +148,7 @@ func (s *facadeSuite) TestControllerPublicKey(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	publicKey := signer.PublicKey().Marshal()
 
-	s.hostKeyService.EXPECT().SSHServerHostPublicKey(gomock.Any()).Return(publicKey, nil)
+	s.controllerSSH.EXPECT().SSHServerHostPublicKey(gomock.Any()).Return(publicKey, nil)
 
 	result, err := s.newFacade().ControllerPublicKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

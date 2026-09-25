@@ -130,6 +130,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		TracingService:      domainServices.Tracing(),
 		LoggingService:      domainServices.Logging(),
 		ObjectStoreService:  controllerObjectStoreService,
+		SSHServerService:    domainServices.SSHServerHostKey(),
 		Logger:              cfg.Logger,
 		SocketName:          cfg.SocketName,
 		NewSocketListener:   cfg.NewSocketListener,
