@@ -11,8 +11,11 @@ In Juju, a **placement directive** is an option based on the `--to` flag that ca
 
 Example: `juju add-machine --to 1`, `juju deploy --to zone=us-east-1a`
 
+(the-placement-directives-records)=
+## The placement directive's records
+
 (the-placement-directive-record)=
-## The placement directive record
+### The placement directive's identity
 
 A placement directive is a **value, not an entity**: it is the
 request's answer to "where should this land?", and what persists is
@@ -21,10 +24,26 @@ the *resolution* -- a placement record on the
 machine -- plus the directive it was resolved from), written when the
 unit's machine record is created. The directive itself is not stored.
 
-## List of placement directive locations
+(the-placement-directive-in-the-data-model)=
+### The placement directive in the data model
+
+The resolved placement is the machine's placement record (scope plus
+directive); the un-resolved directive lives only in the request. The
+value forms the directive admits -- an existing or new
+{ref}`machine designation <machine-designations>`, a subnet, a MAAS
+system ID, an availability {ref}`zone <zone>` -- are the list above.
+
+(the-placement-directive-states)=
+### Placement directive states
+
+Not applicable -- a directive is request input: it is resolved when
+the machine record is written and does not exist as state.
+
+(list-of-placement-directive-locations)=
+### List of placement directive locations
 
 (placement-directive-machine)=
-### `<machine>`
+#### `<machine>`
 
 Depending on whether this is an existing machine or a new machine, this will be:
 
@@ -41,17 +60,17 @@ See more: {ref}`machine-designations`
 ```
 
 (placement-directive-subnet)=
-### `subnet=<subnet>`
+#### `subnet=<subnet>`
 
 Available for Azure and AWS EC2.
 
 (placement-directive-system-id)=
-### `system-id=<system ID>`
+#### `system-id=<system ID>`
 
 Available for MAAS.
 
 (placement-directive-zone)=
-### `zone=<zone>`
+#### `zone=<zone>`
 
 **Purpose:** To specify an availability zone.
 
@@ -63,30 +82,22 @@ The `zone` placement directive may be used to override a `zones` {ref}`constrain
 
 **Example:** `zone=us-east-1a`
 
-(the-placement-directive-in-the-data-model)=
-## The placement directive in the data model
+(the-placement-directives-machinery)=
+## The placement directive's machinery
 
-The resolved placement is the machine's placement record (scope plus
-directive); the un-resolved directive lives only in the request. The
-value forms the directive admits -- an existing or new
-{ref}`machine designation <machine-designations>`, a subnet, a MAAS
-system ID, an availability {ref}`zone <zone>` -- are the list above.
-
-(the-placement-directive-states)=
-## Placement directive states
-
-Not applicable -- a directive is request input: it is resolved when
-the machine record is written and does not exist as state.
+A placement directive has no machinery of its own: it is a request
+input -- what persists is the resolution, a placement record on the
+machine, written when compute is requested.
 
 (the-placement-directive-operations)=
-## Placement directive operations
+### Placement directive operations
 
 The directive is consumed where compute is requested -- deploy,
 add-machine, add-unit, bootstrap -- and resolved against the model's
 machines (an existing designation) or the provisioner (a new one).
 
 (the-placement-directive-watchers)=
-## Placement directive watchers
+### Placement directive watchers
 
 Not applicable -- nothing watches a directive; the machines it
 resolves into have their own.
@@ -108,7 +119,7 @@ When the location is a key-value pair, its availability and meaning may vary fro
   directive overrides the `zones` {ref}`constraint <constraint>`.
 
 (related-entities-placement-directive)=
-## Related entities
+## Entities related to the placement directive
 
 - **Machines** are what a directive resolves into, and the placement
   record is theirs (see {ref}`machine <machine>`).

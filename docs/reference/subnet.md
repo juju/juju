@@ -13,10 +13,13 @@ See also: {ref}`manage-subnets`
 
 A **subnet** is a range of IP addresses in CIDR notation.
 
-(the-subnet-record)=
-## The subnet record
+(the-subnets-records)=
+## The subnet's records
 
-A subnet is a record in the model database, cached from the cloud:
+(the-subnet-record)=
+### The subnet's identity
+
+In the model database, a subnet is a record cached from the cloud:
 its CIDR, its VLAN tag, and the {ref}`space <space>` it belongs to.
 Subnets can be grouped to form a {ref}`space <space>`. A subnet can only be in one space.
 
@@ -29,7 +32,7 @@ Subnets can be grouped to form a {ref}`space <space>`. A subnet can only be in o
 ```
 
 (the-subnet-in-the-data-model)=
-## The subnet in the data model
+### The subnet in the data model
 
 The subnet row carries the space pointer (a subnet belongs to at most
 one space), the provider's own identifier for it, and the VLAN tag.
@@ -38,20 +41,27 @@ the cloud's view -- and moved between spaces by the
 {ref}`space operations <the-space-operations>`.
 
 (the-subnet-states)=
-## Subnet states
+### Subnet states
 
 Not applicable -- a subnet is a cached cloud fact: discovered,
 listed, moved between spaces; nothing transitions.
 
+(the-subnets-machinery)=
+## The subnet's machinery
+
+A subnet has no machinery of its own: it is a cached cloud fact the
+network machinery reads -- the one watch surface (subnet changes)
+reports the mirroring, not any machinery of the subnet's.
+
 (the-subnet-operations)=
-## Subnet operations
+### Subnet operations
 
 Not applicable in the create/update sense: subnets are the cloud's.
 Juju lists them, adopts them on the space reload, and moves them
 between spaces (see {ref}`space <space>`).
 
 (the-subnet-watchers)=
-## Subnet watchers
+### Subnet watchers
 
 The network domain's one watch surface is **subnet changes** -- the
 provisioning and address machinery's input (see
@@ -71,7 +81,7 @@ and the consumer fetches the current state and reconciles.
   rewrites the single pointer.
 
 (related-entities-subnet)=
-## Related entities
+## Entities related to the subnet
 
 - **Spaces** group subnets -- the membership pointer is the subnet's
   (see {ref}`space <space>`).

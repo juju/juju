@@ -11,8 +11,11 @@ In Juju, a **constraint** is a key-value pair that represents a specification th
 
 If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
 
+(the-constraints-records)=
+## The constraint's records
+
 (the-constraint-record)=
-## The constraint record
+### The constraint's identity
 
 A constraint is a **value, not an entity**: it has no life, no status
 and no watchers of its own -- it is a stored key/value whose meaning
@@ -23,14 +26,8 @@ spawns), an {ref}`application's <application>` constraints record
 {ref}`machine's <machine>` constraints record (what that machine was
 provisioned with).
 
-(types-of-constraint)=
-## Types of constraint
-
-Not applicable -- constraints have no subtypes; each key below is one
-independent value.
-
 (the-constraint-in-the-data-model)=
-## The constraint in the data model
+### The constraint in the data model
 
 The constraint records live where the constrained entity lives: the
 model's constraint record in the model database, the application's and
@@ -40,13 +37,26 @@ overlap -- the constraint applied at the more specific level takes
 precedence (application over model, machine over application).
 
 (the-constraint-states)=
-## Constraint states
+### Constraint states
 
 Not applicable -- a constraint is a stored value: it is written when
 set and read at provisioning time; nothing transitions.
 
+(types-of-constraint)=
+### Types of constraint
+
+Not applicable -- constraints have no subtypes; each key below is one
+independent value.
+
+(the-constraints-machinery)=
+## The constraint's machinery
+
+A constraint has no machinery of its own: it is a stored value the
+compute provisioner reads at provisioning time -- setting it is a
+rewrite of the owner's record.
+
 (the-constraint-operations)=
-## Constraint operations
+### Constraint operations
 
 Constraints are set at the level that should own them -- on the model
 (`juju set-model-constraints`), the application (`juju
@@ -57,7 +67,7 @@ constraint entity to update later: setting is a rewrite of the
 owner's constraint record.
 
 (the-constraint-watchers)=
-## Constraint watchers
+### Constraint watchers
 
 Not applicable -- no watch surface exposes constraint records;
 provisioning reads them at the moment it provisions.
