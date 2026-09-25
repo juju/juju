@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
-	"github.com/juju/juju/cmd/jujuagentd/agent/model"
 	jjudcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
 	jjudmodel "github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
@@ -36,7 +35,7 @@ func main() {
 		useModelFlag       = flags.Bool("model", false, "use model manifolds")
 		transitiveDepsFlag = flags.Int("dependency-depth", 0, "include transitive dependencies and how many levels to include")
 		listManifoldsFlag  = flags.Bool("list-manifolds", false, "list all manifolds")
-		agentFlag          = flags.String("agent", "jujuagentd", "agent binary to use (jujuagentd|jujud)")
+		agentFlag          = flags.String("agent", "jujuagentd", "agent binary to use for machine/controller graphs; model graphs render jujud (jujuagentd|jujud)")
 
 		manifoldsFlag = stringslice{}
 	)
@@ -204,27 +203,13 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 	if useModel {
 		switch modelType {
 		case "iaas":
-			switch agent {
-			case "jujud":
-				return jjudmodel.IAASManifolds(jjudmodel.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			default:
-				return model.IAASManifolds(model.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			}
+			return jjudmodel.IAASManifolds(jjudmodel.ManifoldsConfig{
+				LoggingContext: internallogger.DefaultContext(),
+			})
 		case "caas":
-			switch agent {
-			case "jujud":
-				return jjudmodel.CAASManifolds(jjudmodel.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			default:
-				return model.CAASManifolds(model.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			}
+			return jjudmodel.CAASManifolds(jjudmodel.ManifoldsConfig{
+				LoggingContext: internallogger.DefaultContext(),
+			})
 		default:
 			panic("unknown model type for model manifolds")
 		}

@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storageprovisioner_test
+package model_test
 
 import (
 	"testing"
@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
+	"github.com/juju/juju/internal/worker/storageprovisioner/model"
 )
 
 type ManifoldSuite struct {
@@ -29,7 +30,7 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *ManifoldSuite) TestManifold(c *tc.C) {
-	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+	manifold := model.ModelManifold(model.ModelManifoldConfig{
 		DomainServicesName:  "domain-services",
 		StorageRegistryName: "environ",
 	})
@@ -40,7 +41,7 @@ func (s *ManifoldSuite) TestManifold(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingDomainServices(c *tc.C) {
-	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+	manifold := model.ModelManifold(model.ModelManifoldConfig{
 		DomainServicesName:  "domain-services",
 		StorageRegistryName: "environ",
 		Clock:               struct{ clock.Clock }{},
@@ -55,7 +56,7 @@ func (s *ManifoldSuite) TestMissingDomainServices(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
-	manifold := storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+	manifold := model.ModelManifold(model.ModelManifoldConfig{
 		DomainServicesName:  "domain-services",
 		StorageRegistryName: "environ",
 		Clock:               struct{ clock.Clock }{},

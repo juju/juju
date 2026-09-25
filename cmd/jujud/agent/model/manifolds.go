@@ -36,7 +36,8 @@ import (
 	"github.com/juju/juju/internal/worker/charmrevisioner"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
 	"github.com/juju/juju/internal/worker/controllerlogger"
-	"github.com/juju/juju/internal/worker/credentialvalidator"
+	credentialvalidator "github.com/juju/juju/internal/worker/credentialvalidator"
+	credentialvalidatormodel "github.com/juju/juju/internal/worker/credentialvalidator/model"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/instancepoller"
@@ -54,7 +55,8 @@ import (
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/singular"
-	"github.com/juju/juju/internal/worker/storageprovisioner"
+	storageprovisioner "github.com/juju/juju/internal/worker/storageprovisioner"
+	storageprovisionermodel "github.com/juju/juju/internal/worker/storageprovisioner/model"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -247,7 +249,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		// This flag runs on all models, and
 		// indicates if model's cloud credential is valid.
-		validCredentialFlagName: credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{
+		validCredentialFlagName: credentialvalidatormodel.ModelManifold(credentialvalidatormodel.ModelManifoldConfig{
 			DomainServicesName: domainServicesName,
 			ModelUUID:          config.ModelUUID,
 			NewWorker:          credentialvalidator.NewWorker,
@@ -359,7 +361,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:  config.Clock,
 		}))),
 
-		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+		storageProvisionerName: ifNotMigrating(storageprovisionermodel.ModelManifold(storageprovisionermodel.ModelManifoldConfig{
 			DomainServicesName:  domainServicesName,
 			Clock:               config.Clock,
 			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
