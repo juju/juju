@@ -246,6 +246,9 @@ redirects = {
 # The commit-format guidance was folded into the agent-commit
 # instructions (the CONTRIBUTING step-10 link points there too).
 'contributor/reference/conventional-commits': 'https://github.com/juju/juju/blob/HEAD/.github/instructions/agent-commit.instructions.md',
+# The forward-merge mechanics were folded into CONTRIBUTING.md
+# ("Merging patches forward", after the step list).
+'contributor/howto/merge-forward': 'https://github.com/juju/juju/blob/HEAD/CONTRIBUTING.md',
 }
 
 ###########################
