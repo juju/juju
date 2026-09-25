@@ -33,6 +33,20 @@ There are two fundamental truths in this system:
 Beyond the above rules, lifecycle shifts occur at different times for different
 kinds of entities.
 
+```{note}
+The state machine above -- Alive, Dying, Dead, no backward transitions --
+and the reference structure between the entities remain accurate in Juju 4.
+The command-by-command mechanics below, however, describe the pre-4.0
+state layer: the transactions they spell out are the MongoDB-era
+implementation, superseded in Juju 4 by the domain services over Dqlite
+(see {ref}`database <database>`), where removal marks the entities dying in
+one cascade and scheduled removal jobs delete each record only when its own
+teardown allows it. The current per-entity mechanics live in the entity
+reference: {ref}`unit removal <the-unit-removal>`,
+{ref}`application removal <the-application-removal>`,
+{ref}`model removal <the-model-removal>`.
+```
+
 (entity-creation)=
 ## Entity creation
 
