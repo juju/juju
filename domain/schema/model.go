@@ -187,6 +187,11 @@ var modelPostPatchFilesByVersion = []struct {
 		"0062-storage-filesystem-provider-id-unique.PATCH.sql",
 		"0063-agent-stream-cleanup.PATCH.sql",
 	},
+}, {
+	version: semversion.MustParse("4.0.16"),
+	files: []string{
+		"0064-application-current-operation.PATCH.sql",
+	},
 }}
 
 // ModelDDL is used to create model databases.

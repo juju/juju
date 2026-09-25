@@ -13,6 +13,7 @@ import (
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
@@ -166,6 +167,92 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 			Ports:         new([]string{"6666"}),
 		}),
 	}})
+}
+
+func (s *importSuite) TestApplicationImportProvisioningStateForCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The migration description only carries the legacy scaling boolean;
+	// the import converts it to the equivalent provisioning operation.
+	for _, test := range []struct {
+		provisioningState *description.ProvisioningStateArgs
+		expectedOperation coreapplication.ProvisioningOperation
+		expectedTarget    int
+	}{
+		{
+			provisioningState: &description.ProvisioningStateArgs{
+				Scaling:     true,
+				ScaleTarget: 3,
+			},
+			expectedOperation: coreapplication.ScaleOperation,
+			expectedTarget:    3,
+		},
+		{
+			provisioningState: &description.ProvisioningStateArgs{
+				Scaling:     false,
+				ScaleTarget: 3,
+			},
+			expectedOperation: coreapplication.NoOperation,
+			expectedTarget:    3,
+		},
+		{
+			provisioningState: nil,
+			expectedOperation: coreapplication.NoOperation,
+			expectedTarget:    0,
+		},
+	} {
+		model := description.NewModel(description.ModelArgs{
+			Type: coremodel.CAAS.String(),
+		})
+
+		appArgs := description.ApplicationArgs{
+			Name:     "prometheus",
+			CharmURL: "ch:prometheus-1",
+		}
+		app := model.AddApplication(appArgs)
+		if test.provisioningState != nil {
+			app.SetProvisioningState(test.provisioningState)
+		}
+		app.SetCharmMetadata(description.CharmMetadataArgs{
+			Name: "prometheus",
+		})
+		app.SetCharmManifest(description.CharmManifestArgs{
+			Bases: []description.CharmManifestBase{baseType{
+				name:          "ubuntu",
+				channel:       "24.04",
+				architectures: []string{"amd64"},
+			}},
+		})
+		app.SetCharmOrigin(description.CharmOriginArgs{
+			Source:   "charm-hub",
+			ID:       "1234",
+			Hash:     "deadbeef",
+			Revision: 1,
+			Channel:  "666/stable",
+			Platform: "arm64/ubuntu/24.04",
+		})
+
+		var importArgs service.ImportCAASApplicationArgs
+		s.importService.EXPECT().ImportCAASApplication(
+			gomock.Any(),
+			"prometheus",
+			gomock.Any(),
+		).DoAndReturn(func(_ context.Context, _ string, args service.ImportCAASApplicationArgs) error {
+			importArgs = args
+			return nil
+		})
+
+		importOp := importOperation{
+			service: s.importService,
+			logger:  loggertesting.WrapCheckLog(c),
+		}
+
+		err := importOp.Execute(c.Context(), model)
+		c.Assert(err, tc.ErrorIsNil)
+
+		c.Check(importArgs.ScaleState.CurrentOperation, tc.Equals, test.expectedOperation)
+		c.Check(importArgs.ScaleState.ScaleTarget, tc.Equals, test.expectedTarget)
+	}
 }
 
 func (s *importSuite) TestApplicationImportStorageDirectivesForCAAS(c *tc.C) {

@@ -32,7 +32,7 @@ func (s *versionSuite) TestLatestSupportedPayloadVersionCurrent(c *tc.C) {
 	c.Assert(
 		LatestSupportedPayloadVersion(),
 		tc.Equals,
-		semversion.MustParse("4.0.12"),
+		semversion.MustParse("4.0.16"),
 	)
 }
 

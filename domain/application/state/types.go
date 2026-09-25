@@ -98,10 +98,10 @@ type applicationDetails struct {
 }
 
 type applicationScale struct {
-	ApplicationID string `db:"application_uuid"`
-	Scaling       bool   `db:"scaling"`
-	Scale         int    `db:"scale"`
-	ScaleTarget   int    `db:"scale_target"`
+	ApplicationID    string                                `db:"application_uuid"`
+	CurrentOperation coreapplication.ProvisioningOperation `db:"current_operation"`
+	Scale            int                                   `db:"scale"`
+	ScaleTarget      int                                   `db:"scale_target"`
 }
 
 type unitUUID struct {

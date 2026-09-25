@@ -181,7 +181,7 @@ func (st *State) CreateCAASApplication(
 		ApplicationID: appUUIDStr,
 		Scale:         args.Scale,
 	}
-	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
+	createScale := `INSERT INTO application_provisioning_state (*) VALUES ($applicationScale.*)`
 	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -550,7 +550,7 @@ func (st *State) getApplicationScaleState(ctx context.Context, tx *sqlair.TX, ap
 	appScale := applicationScale{ApplicationID: appUUID}
 	queryScale := `
 SELECT &applicationScale.*
-FROM   application_scale
+FROM   application_provisioning_state
 WHERE  application_uuid = $applicationScale.application_uuid
 `
 	queryScaleStmt, err := st.Prepare(queryScale, appScale)
@@ -565,9 +565,9 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		return application.ScaleState{}, errors.Errorf("querying application %q scale: %w", appUUID, err)
 	}
 	return application.ScaleState{
-		Scaling:     appScale.Scaling,
-		Scale:       appScale.Scale,
-		ScaleTarget: appScale.ScaleTarget,
+		CurrentOperation: appScale.CurrentOperation,
+		Scale:            appScale.Scale,
+		ScaleTarget:      appScale.ScaleTarget,
 	}, nil
 }
 
@@ -889,7 +889,7 @@ func (st *State) SetDesiredApplicationScale(ctx context.Context, appUUID coreapp
 		Scale:         scale,
 	}
 	upsertApplicationScale := `
-UPDATE application_scale
+UPDATE application_provisioning_state
 SET    scale = $applicationScale.scale
 WHERE  application_uuid = $applicationScale.application_uuid
 `
@@ -915,7 +915,7 @@ func (st *State) UpdateApplicationScale(ctx context.Context, appUUID coreapplica
 	}
 
 	upsertApplicationScale := `
-UPDATE application_scale
+UPDATE application_provisioning_state
 SET    scale = $applicationScale.scale
 WHERE  application_uuid = $applicationScale.application_uuid
 `
@@ -947,16 +947,19 @@ WHERE  application_uuid = $applicationScale.application_uuid
 
 // SetApplicationScalingState sets the scaling details for the given caas
 // application Scale is optional and is only set if not nil.
-func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
+// It returns an error satisfying [applicationerrors.OperationInProgress] if
+// a different provisioning operation is already in progress for the
+// application.
+func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, op coreapplication.ProvisioningOperation) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	upsertApplicationScale := `
-UPDATE application_scale
+UPDATE application_provisioning_state
 SET    scale = $applicationScale.scale,
-       scaling = $applicationScale.scaling,
+       current_operation = $applicationScale.current_operation,
        scale_target = $applicationScale.scale_target
 WHERE  application_uuid = $applicationScale.application_uuid
 `
@@ -978,12 +981,21 @@ WHERE  application_uuid = $applicationScale.application_uuid
 			return errors.Capture(err)
 		}
 
+		// Reject a requested operation that conflicts with a different
+		// operation already in progress. Clearing the operation is
+		// always allowed.
+		if op != coreapplication.NoOperation &&
+			coreapplication.IsDifferentOperation(currentScaleState.CurrentOperation, op) {
+			return errors.Errorf("provisioning operation %q in progress", currentScaleState.CurrentOperation).
+				Add(applicationerrors.OperationInProgress)
+		}
+
 		var scale int
-		if scaling {
+		if op == coreapplication.ScaleOperation {
 			switch appDetails.LifeID {
 			case life.Alive:
 				// if starting a scale, ensure we are scaling to the same target.
-				if !currentScaleState.Scaling && currentScaleState.Scale != targetScale {
+				if currentScaleState.CurrentOperation != coreapplication.ScaleOperation && currentScaleState.Scale != targetScale {
 					return applicationerrors.ScalingStateInconsistent
 				}
 				// Make sure to leave the scale value unchanged.
@@ -998,10 +1010,10 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		}
 
 		scaleDetailsToUpdate := applicationScale{
-			ApplicationID: appDetails.UUID,
-			Scaling:       scaling,
-			Scale:         scale,
-			ScaleTarget:   targetScale,
+			ApplicationID:    appDetails.UUID,
+			CurrentOperation: op,
+			Scale:            scale,
+			ScaleTarget:      targetScale,
 		}
 		return tx.Query(ctx, upsertStmt, scaleDetailsToUpdate).Run()
 	})

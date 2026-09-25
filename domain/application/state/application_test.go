@@ -1526,7 +1526,7 @@ func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *tc.C) {
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appUUID).
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_provisioning_state WHERE application_uuid=?", appUUID).
 			Scan(&gotScale)
 		return err
 	})
@@ -1545,7 +1545,7 @@ func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
 
 	var gotScale int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appUUID).
+		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_provisioning_state WHERE application_uuid=?", appUUID).
 			Scan(&gotScale)
 		return err
 	})
@@ -1574,29 +1574,29 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			err := tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+				Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
+		Scale:            42,
+		ScaleTarget:      42,
+		CurrentOperation: coreapplication.ScaleOperation,
 	})
 
 	// Set scaling state but use the same target value as current scale.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
+		Scale:            42,
+		ScaleTarget:      42,
+		CurrentOperation: coreapplication.ScaleOperation,
 	})
 }
 
@@ -1609,7 +1609,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc
 
 	// Set scaling state but use a target value different than the current
 	// scale.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorMatches, "scaling state is inconsistent")
 }
 
@@ -1623,20 +1623,20 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			err := tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+				Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
+		Scale:            42,
+		ScaleTarget:      42,
+		CurrentOperation: coreapplication.ScaleOperation,
 	})
 }
 
@@ -1652,20 +1652,20 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			err := tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+				Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
+		Scale:            42,
+		ScaleTarget:      42,
+		CurrentOperation: coreapplication.ScaleOperation,
 	})
 }
 
@@ -1679,21 +1679,61 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 	checkResult := func(want application.ScaleState) {
 		var got application.ScaleState
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
+			err := tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+				Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
 			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 668, false)
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 668, coreapplication.NoOperation)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
-		Scale:       666,
-		ScaleTarget: 668,
-		Scaling:     false,
+		Scale:            666,
+		ScaleTarget:      668,
+		CurrentOperation: coreapplication.NoOperation,
 	})
+}
+
+func (s *applicationStateSuite) TestSetApplicationScalingStateConflictingOperation(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	// Set up the initial scale value.
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A storage update operation is allowed to start while no other
+	// operation is in progress.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.StorageUpdateOperation)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A scale operation is rejected while a storage update operation is
+	// in progress.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	c.Assert(err, tc.ErrorIs, applicationerrors.OperationInProgress)
+
+	// Clearing the operation is always allowed.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.NoOperation)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A scale operation is allowed once no other operation is in
+	// progress.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A storage update operation is rejected while a scale operation is
+	// in progress and must not clobber the in-flight operation.
+	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.StorageUpdateOperation)
+	c.Assert(err, tc.ErrorIs, applicationerrors.OperationInProgress)
+
+	var got application.ScaleState
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+			Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.CurrentOperation, tc.Equals, coreapplication.ScaleOperation)
 }
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
@@ -4168,8 +4208,8 @@ func (s *applicationStateSuite) assertCAASApplication(
 		if err != nil {
 			return err
 		}
-		err = tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", gotUUID).
-			Scan(&gotScale.Scale, &gotScale.Scaling, &gotScale.ScaleTarget)
+		err = tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", gotUUID).
+			Scan(&gotScale.Scale, &gotScale.CurrentOperation, &gotScale.ScaleTarget)
 		if err != nil {
 			return err
 		}
