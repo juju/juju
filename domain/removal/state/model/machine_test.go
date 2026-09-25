@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/unit"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -1522,6 +1523,170 @@ func (s *machineSuite) TestDeleteMachineWithForce(c *tc.C) {
 	err = s.DB().QueryRow("SELECT count(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+// addContainerMachinesOnHost creates a host machine with the input number
+// of child container machines on it, returning the host machine name and
+// UUID along with the child machine UUIDs.
+func (s *machineSuite) addContainerMachinesOnHost(
+	c *tc.C, numChildren int,
+) (string, coremachine.UUID, []coremachine.UUID) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	hostUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var childUUIDs []coremachine.UUID
+	for range numChildren {
+		containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "24.04",
+			},
+			Directive: deployment.Placement{
+				Type:      deployment.PlacementTypeContainer,
+				Container: deployment.ContainerTypeLXD,
+				Directive: machineRes.MachineName.String(),
+			},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(containerRes.ChildMachineName, tc.NotNil)
+		containerUUID, err := svc.GetMachineUUID(c.Context(), *containerRes.ChildMachineName)
+		c.Assert(err, tc.ErrorIsNil)
+		childUUIDs = append(childUUIDs, containerUUID)
+	}
+	return machineRes.MachineName.String(), hostUUID, childUUIDs
+}
+
+// addUnitOnMachine creates a single-unit application with the unit placed
+// on the machine with the input name, returning the unit UUID.
+func (s *machineSuite) addUnitOnMachine(c *tc.C, machineName string) unit.UUID {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app", applicationservice.AddIAASUnitArg{
+		AddUnitArg: applicationservice.AddUnitArg{
+			Placement: instance.MustParsePlacement(machineName),
+		},
+	})
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+	return unitUUIDs[0]
+}
+
+// deleteMachineViaRemovalJob advances the machine and its cloud instance
+// to the dead life, as the agent-driven lifecycle does, then deletes the
+// machine row as the machine removal job does.
+func (s *machineSuite) deleteMachineViaRemovalJob(c *tc.C, machineUUID coremachine.UUID) {
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// checkMachineRemovalJobs asserts that the input number of machine
+// removal jobs are scheduled for the machine with the input UUID.
+func (s *machineSuite) checkMachineRemovalJobs(
+	c *tc.C, machineUUID coremachine.UUID, expected int,
+) {
+	row := s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  t.name = 'machine' AND r.entity_uuid = ?`, machineUUID.String())
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, expected)
+}
+
+// TestDeleteMachineLastChildSchedulesParentRemovalJob covers the
+// container-host gap: the model removal cascade refuses hosts with child
+// machines and the unit removal cascade skips them, so deleting the last
+// child machine is the point where the host's death is paired with a
+// removal job.
+func (s *machineSuite) TestDeleteMachineLastChildSchedulesParentRemovalJob(c *tc.C) {
+	_, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 2)
+
+	// The host is dying, as the model removal cascade sets it.
+	s.advanceMachineLife(c, hostUUID, life.Dying)
+	s.advanceInstanceLife(c, hostUUID, life.Dying)
+
+	// Removing the first child machine does not schedule a job for the
+	// host: another child machine remains.
+	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
+	s.checkMachineRemovalJobs(c, hostUUID, 0)
+
+	// Removing the last child machine pairs the host's death with a
+	// machine removal job.
+	s.deleteMachineViaRemovalJob(c, childUUIDs[1])
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
+}
+
+// TestDeleteMachineChildDoesNotScheduleRemovalForAliveParent ensures that
+// removing child machines from a host that is still alive does not
+// schedule the host's removal.
+func (s *machineSuite) TestDeleteMachineChildDoesNotScheduleRemovalForAliveParent(c *tc.C) {
+	_, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
+
+	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
+	s.checkMachineRemovalJobs(c, hostUUID, 0)
+}
+
+// TestDeleteMachineLastChildWithAliveUnitOnParent ensures the host's
+// death is not paired with a removal job while it still hosts alive
+// units: the unit removal cascade pairs it when the last unit leaves.
+func (s *machineSuite) TestDeleteMachineLastChildWithAliveUnitOnParent(c *tc.C) {
+	hostName, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
+	s.addUnitOnMachine(c, hostName)
+
+	s.advanceMachineLife(c, hostUUID, life.Dying)
+	s.advanceInstanceLife(c, hostUUID, life.Dying)
+
+	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
+	s.checkMachineRemovalJobs(c, hostUUID, 0)
+}
+
+// TestDeleteMachineLastChildWithDyingUnitOnParent ensures the host's
+// death is still paired with a removal job when its last unit is not
+// alive but its row remains: the job's own gates keep the host row until
+// the unit row is gone.
+func (s *machineSuite) TestDeleteMachineLastChildWithDyingUnitOnParent(c *tc.C) {
+	hostName, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
+	unitUUID := s.addUnitOnMachine(c, hostName)
+
+	s.advanceMachineLife(c, hostUUID, life.Dying)
+	s.advanceInstanceLife(c, hostUUID, life.Dying)
+
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
+}
+
+// TestDeleteMachineLastChildDoesNotDuplicateRemovalJob ensures the pairing
+// is idempotent when a removal job has already been scheduled for the
+// host.
+func (s *machineSuite) TestDeleteMachineLastChildDoesNotDuplicateRemovalJob(c *tc.C) {
+	_, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
+
+	// A removal job has already been scheduled for the host, as the
+	// remove-machine flow does when it sets the machine dying.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MachineScheduleRemoval(
+		c.Context(), "removal-uuid", hostUUID.String(), false, time.Now().UTC(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceMachineLife(c, hostUUID, life.Dying)
+	s.advanceInstanceLife(c, hostUUID, life.Dying)
+
+	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
 }
 
 func (s *machineSuite) getMachineNetNode(c *tc.C, machineUUID coremachine.UUID) string {
