@@ -17,8 +17,11 @@ Depending on how things are set up during deployment, the data volume can be mac
 
 Most storage can be dynamically added to, and removed from, a unit. However, by their nature, some types of storage cannot be dynamically managed (see {ref}`storage-provider-maas`). Also, certain cloud providers may impose restrictions when attaching storage (see {ref}`storage-provider-ebs`).
 
+(the-storages-records)=
+## The storage's records
+
 (the-storage-record)=
-## The storage record
+### The storage's identity
 
 The persisted thing is the **storage instance**: one record per
 provisioned piece of storage, carrying its name (the charm's storage
@@ -33,7 +36,7 @@ once the cloud delivers it (see
 {ref}`Storage operations <the-storage-operations>`).
 
 (the-storage-in-the-data-model)=
-## The storage in the data model
+### The storage in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -57,7 +60,7 @@ machine on the provisioning side.
 
 (the-storage-pool)=
 (storage-pool)=
-### The storage pool
+#### The storage pool
 
 ```{ibnote}
 See also: {ref}`manage-storage-pools`
@@ -80,18 +83,8 @@ per-kind **default pool** record -- created at model creation from the
 provider's own defaults, and what an unnamed directive falls back to
 (see {ref}`the directive's defaults <the-storage-directive-defaults>`).
 
-(types-of-storage)=
-## Types of storage
-
-Storage carries two stored, exclusive discriminators: its **kind** --
-`block` (a volume) or `filesystem` (a mounted filesystem), fixed by
-the charm's definition -- and its **provision scope** -- `model`
-(machine-independent: it can outlive its machine) or `machine` (it
-dies with its machine). Every other distinction is the provider's
-(see {ref}`storage providers <the-storage-operations>`).
-
 (the-storage-states)=
-## Storage states
+### Storage states
 
 A storage instance has no state machine of its own: its life is the
 shared alive / dying / dead cycle, and the interesting state lives on
@@ -116,11 +109,29 @@ What constrains storage is, as everywhere, who writes:
   released the backing -- and a non-forced removal of the instance
   refuses until its backing reads dead *and* tombstoned.
 
+(types-of-storage)=
+### Types of storage
+
+Storage carries two stored, exclusive discriminators: its **kind** --
+`block` (a volume) or `filesystem` (a mounted filesystem), fixed by
+the charm's definition -- and its **provision scope** -- `model`
+(machine-independent: it can outlive its machine) or `machine` (it
+dies with its machine). Every other distinction is the provider's
+(see {ref}`storage providers <the-storage-operations>`).
+
+(the-storages-machinery)=
+## The storage's machinery
+
+Storage has machinery of its own: in the controller, the storage
+provisioner worker drives the instances' lifecycle -- provisioning
+volumes and filesystems, writing their statuses, and seeing removals
+through -- and the units' agents attach what it provisions.
+
 (the-storage-operations)=
-## Storage operations
+### Storage operations
 
 (the-storage-directives)=
-### Storage directives
+#### Storage directives
 
 (storage-directive)=
 In Juju, a **storage directive** is a collection of storage specifications that can be used to dictate how storage is allocated when provisioning storage for an application.
@@ -155,7 +166,7 @@ provisioner takes it from there. The charm's own definitions merge
 with the directive: the charm's count and minimum size are the floors
 the user's overrides cannot go below.
 
-### Storage pool operations
+#### Storage pool operations
 
 Pools are managed as their own records: create, update (a full
 replace), list (including the provider defaults), and delete. The
@@ -164,7 +175,7 @@ provider and re-written whenever the provider's recommendations
 change; a directive that names no pool resolves to the model's
 default for the storage kind.
 
-### Attaching storage
+#### Attaching storage
 
 The attachment record is what binds an instance to a unit; on Juju
 4.0 the detach operation is a stub (the service method is not yet
@@ -172,7 +183,7 @@ implemented on this branch) -- storage is released by removal instead
 (see {ref}`storage removal <the-storage-removal>`).
 
 (the-storage-removal)=
-### Storage removal
+#### Storage removal
 
 Removing storage (for example, `juju remove-storage`) is the
 cooperative removal at its strictest: the instance is marked dying,
@@ -182,21 +193,21 @@ is not alive, and the backing's delete job only once the provisioner
 has released the actual cloud resource and the backing reads dead and
 tombstoned. The `--force` mode skips the gates.
 
-### Storage providers
+#### Storage providers
 
 (storage-provider)=
 In Juju, a **storage provider** refers to the technology used to make storage available to a charm.
 
-#### List of storage providers
+##### List of storage providers
 
 There are three storage providers you can use with all clouds: `loop`, `rootfs`, and `tmpfs`. In addition, for some clouds there are also cloud-specific providers.
 
 (storage-provider-cloud-specific)=
-##### Cloud-specific storage providers
+###### Cloud-specific storage providers
 
 Many clouds provide additional storage providers beyond the generic ones. For the cloud-specific storage providers available on your cloud, see {ref}`list-of-supported-clouds` > `<cloud name>` > Storage.
 
-##### `loop`
+###### `loop`
 ```{ibnote}
 See also: [Wikipedia | Loop device](https://en.wikipedia.org/wiki/Loop_Device)
 ```
@@ -207,14 +218,14 @@ Block-type. Creates a file on the unit's root filesystem, associates a loop devi
 Loop devices require extra configuration to be used within LXD. See more: {ref}`storage-provider-lxd`.
 ```
 
-##### `rootfs`
+###### `rootfs`
 ```{ibnote}
 See also: [The Linux Kernel Archives | ramfs, rootfs and initramfs](https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt)
 ```
 
 Filesystem-type. Creates a sub-directory on the unit's root filesystem for the unit/charmed operator to use.
 
-##### `tmpfs`
+###### `tmpfs`
 ```{ibnote}
 See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
 ```
@@ -222,7 +233,7 @@ See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
 Filesystem-type. Creates a temporary file storage facility that appears as a mounted file system but is stored in volatile memory.
 
 (the-storage-watchers)=
-## Storage watchers
+### Storage watchers
 
 The provisioning machinery exposes these watch surfaces -- what a
 watcher fires on, not who consumes it (the storage provisioner worker
@@ -267,7 +278,7 @@ The rules a **storage mutation** must satisfy:
   `filesystem status transition not valid`).
 
 (related-entities-storage)=
-## Related entities
+## Entities related to the storage
 
 - **Charms** define the storage names, kinds, counts and minimum
   sizes the directives fill in (see {ref}`charm <charm>`).

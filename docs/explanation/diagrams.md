@@ -697,7 +697,7 @@ precedent).
 
 #### Storage model
 
-**Insert at:** § The storage in the data model. (Verdict round-32: Option A amended — single page, pools first-class.)
+**Insert at:** § The storage's records → § The storage in the data model. (Verdict round-32: Option A amended — single page, pools first-class.)
 
 ```{ggarch}
 :file: ../juju.ggarch
