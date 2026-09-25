@@ -114,8 +114,8 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Key:        destination.ModelUUID().String(),
 	})
 	if err != nil {
-		h.config.Logger.Errorf(ctx, "authorizing relay access: %v", err)
-		http.Error(w, "failed to authorize access to destination", http.StatusInternalServerError)
+		h.config.Logger.Warningf(ctx, "authorizing relay access: %v", err)
+		http.Error(w, "invalid access claims in relay JWT", http.StatusUnauthorized)
 		return
 	}
 	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
