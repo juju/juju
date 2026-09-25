@@ -298,63 +298,71 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				remoteApp.Name(), err)
 		}
 
-		// Note: we can't use the remoteApp.OfferUUID as it's not filled in for
-		// consumers, only offerers. This means that we have to go hunting for
-		// it in the offer connections.
-
-		// Extract the username from the offer connection, this should tell us
-		// who made the original offer connection request in the source model.
-		offerConnection, err := findOfferConnection(offerConnections, remoteApp.Name(), remoteApp.SourceModelUUID())
-		if err != nil {
-			return errors.Errorf("extracting offer connection user name for remote application %q: %w",
-				remoteApp.Name(), err)
-		}
-
-		relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
-		if err != nil {
-			return errors.Errorf("finding relation UUID for remote application %q: %w",
-				remoteApp.Name(), err)
-		}
-
 		consumerApplicationUUID, ok := applicationRemoteEntities[remoteApp.Name()]
 		if !ok {
 			return errors.Errorf("no consumer application UUID found for remote application %q",
 				remoteApp.Name())
 		}
 
-		rel, ok := relationKeys[offerConnection.RelationKeyStr]
-		if !ok {
-			return errors.Errorf("no relation key found for %q with remote application %q",
-				offerConnection.RelationKeyStr, remoteApp.Name())
+		// Note: we can't use the remoteApp.OfferUUID as it's not filled in for
+		// consumers, only offerers. This means that we have to go hunting for
+		// it in the offer connections.
+
+		// The consumer proxy stands for an application of the consuming
+		// model, which can relate to several offered applications. The
+		// description holds one offer connection for each of those
+		// relations, so every connection referencing the proxy must be
+		// imported, not just the first one. Each imported relation keeps
+		// its own offer and remote relation token.
+		conns, err := findOfferConnections(offerConnections, remoteApp.Name(), remoteApp.SourceModelUUID())
+		if err != nil {
+			return errors.Errorf("extracting offer connections for remote application %q: %w",
+				remoteApp.Name(), err)
 		}
 
-		// The offer connection records the relation it was created for, along
-		// with the relation itself. The two must agree, otherwise the
-		// description is inconsistent.
-		if offerConnection.RelationID != rel.Rel.Id() {
-			return errors.Errorf("offer connection relation ID %d does not match relation ID %d for relation %q",
-				offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
-		}
+		for _, offerConnection := range conns {
+			// The username of the offer connection tells us who made the
+			// original offer connection request in the source model.
+			relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
+			if err != nil {
+				return errors.Errorf("finding relation UUID for remote application %q: %w",
+					remoteApp.Name(), err)
+			}
 
-		input = append(input, service.RemoteApplicationConsumerImport{
-			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:      remoteApp.Name(),
-				OfferUUID: offerConnection.OfferUUID,
-				URL:       remoteApp.URL(),
-				Macaroon:  remoteApp.Macaroon(),
-				Endpoints: endpoints,
-				Units:     remoteAppUnits[remoteApp.Name()],
-			},
-			RelationUUID:            relationUUID,
-			RelationID:              rel.Rel.Id(),
-			RelationScope:           relationScopeFromEndpoints(rel.Rel),
-			RelationSuspended:       rel.Rel.Suspended(),
-			RelationSuspendedReason: rel.Rel.SuspendedReason(),
-			RelationKey:             rel.Key,
-			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
-			ConsumerApplicationUUID: consumerApplicationUUID,
-			UserName:                offerConnection.UserName,
-		})
+			rel, ok := relationKeys[offerConnection.RelationKeyStr]
+			if !ok {
+				return errors.Errorf("no relation key found for %q with remote application %q",
+					offerConnection.RelationKeyStr, remoteApp.Name())
+			}
+
+			// The offer connection records the relation it was created for,
+			// along with the relation itself. The two must agree, otherwise
+			// the description is inconsistent.
+			if offerConnection.RelationID != rel.Rel.Id() {
+				return errors.Errorf("offer connection relation ID %d does not match relation ID %d for relation %q",
+					offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
+			}
+
+			input = append(input, service.RemoteApplicationConsumerImport{
+				RemoteApplicationImport: service.RemoteApplicationImport{
+					Name:      remoteApp.Name(),
+					OfferUUID: offerConnection.OfferUUID,
+					URL:       remoteApp.URL(),
+					Macaroon:  remoteApp.Macaroon(),
+					Endpoints: endpoints,
+					Units:     remoteAppUnits[remoteApp.Name()],
+				},
+				RelationUUID:            relationUUID,
+				RelationID:              rel.Rel.Id(),
+				RelationScope:           relationScopeFromEndpoints(rel.Rel),
+				RelationSuspended:       rel.Rel.Suspended(),
+				RelationSuspendedReason: rel.Rel.SuspendedReason(),
+				RelationKey:             rel.Key,
+				ConsumerModelUUID:       remoteApp.SourceModelUUID(),
+				ConsumerApplicationUUID: consumerApplicationUUID,
+				UserName:                offerConnection.UserName,
+			})
+		}
 	}
 	if len(input) == 0 {
 		return nil
@@ -499,11 +507,17 @@ func relationKeyOrdered(key relation.Key) relation.Key {
 	return key
 }
 
-func findOfferConnection(offerConns []offerConnection, appName, modelUUID string) (offerConnection, error) {
+// findOfferConnections returns every offer connection that references the
+// given application in its relation key, for the given source model UUID.
+// A 3.6 consumer proxy is named after the consuming application, which can
+// relate to several offered applications, so more than one offer connection
+// can reference the same proxy.
+func findOfferConnections(offerConns []offerConnection, appName, modelUUID string) ([]offerConnection, error) {
 	if len(offerConns) == 0 {
-		return offerConnection{}, errors.Errorf("no offer connections for application %q", appName)
+		return nil, errors.Errorf("no offer connections for application %q", appName)
 	}
 
+	var conns []offerConnection
 	for _, conn := range offerConns {
 		if conn.SourceModelUUID != modelUUID {
 			continue
@@ -511,12 +525,16 @@ func findOfferConnection(offerConns []offerConnection, appName, modelUUID string
 
 		for _, key := range conn.RelationKey {
 			if key.ApplicationName == appName {
-				return conn, nil
+				conns = append(conns, conn)
+				break
 			}
 		}
 	}
 
-	return offerConnection{}, errors.Errorf("no offer connection contains application %q", appName)
+	if len(conns) == 0 {
+		return nil, errors.Errorf("no offer connection contains application %q", appName)
+	}
+	return conns, nil
 }
 
 func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey relation.Key) (string, error) {
