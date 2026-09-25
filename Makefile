@@ -132,6 +132,7 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 define BUILD_AGENT_TARGETS
 	$(call tool_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
@@ -139,7 +140,6 @@ endef
 # under the category of Juju agents, that are CGO. These targets are also the
 # ones we are more then likely wanting to cross compile.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
@@ -328,10 +328,9 @@ jujuc:
 
 .PHONY: jujuagentd
 jujuagentd: PACKAGE = github.com/juju/juju/cmd/jujuagentd
-jujuagentd: EXTRA_BUILD_TAGS += dqlite libsqlite3
-jujuagentd: musl-install-if-missing dqlite-install-if-missing
+jujuagentd:
 ## jujuagentd: Install jujuagentd without updating dependencies
-	${run_cgo_install}
+	${run_go_install}
 
 .PHONY: jujud
 jujud: PACKAGE = github.com/juju/juju/cmd/jujud
@@ -387,13 +386,9 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujuagentd: PACKAGE = github.com/juju/juju/cmd/jujuagentd
-${BUILD_DIR}/%/bin/jujuagentd: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/jujuagentd: phony_explicit musl-install-if-missing dqlite-install-if-missing
+${BUILD_DIR}/%/bin/jujuagentd: phony_explicit
 # build for jujuagentd
-	$(run_cgo_build)
-	$(eval OS = $(word 1,$(subst _, ,$*)))
-	$(eval ARCH = $(word 2,$(subst _, ,$*)))
-	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
