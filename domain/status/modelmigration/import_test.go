@@ -292,6 +292,57 @@ func (s *importSuite) TestImportRelationStatus(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *importSuite) TestImportRelationStatusRemoteConsumerRelation(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	clock := clock.WallClock
+	now := clock.Now().UTC()
+
+	model := description.NewModel(description.ModelArgs{})
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  42,
+		Key: "remote-13ea:db mysql:db",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "mysql",
+		Name:            "db",
+		Role:            "provider",
+		Interface:       "db",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "remote-13ea",
+		Name:            "db",
+		Role:            "requirer",
+		Interface:       "db",
+	})
+	rel.SetStatus(description.StatusArgs{
+		Value:   "joined",
+		Updated: now,
+	})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-13ea",
+		IsConsumerProxy: true,
+	})
+
+	// Relations of remote application consumers are created by the cross
+	// model relation import with the relation ID of the source model, so
+	// their statuses are imported the same way as any other relation.
+	s.importService.EXPECT().ImportRelationStatus(gomock.Any(), 42, corestatus.StatusInfo{
+		Status: corestatus.Joined,
+		Since:  new(now),
+	})
+
+	importOp := importOperation{
+		serviceGetter: func(u coremodel.UUID) ImportService {
+			return s.importService
+		},
+		clock: clock,
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSuite) TestImportRemoteApplicationOffererStatus(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
