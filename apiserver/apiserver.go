@@ -1022,7 +1022,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	sshTunnelHandler := srv.sshTunnelRequestWrapper(tunnelHandler)
 
 	relayHandler, err := sshproxy.NewRelayHandler(sshproxy.RelayHandlerConfig{
-		Logger:        logger.Child("sshtunnel"),
+		Logger:        logger.Child("sshrelay"),
 		ServerFactory: srv.sshTunnelConfig.ServerFactory,
 	})
 	if err != nil {
