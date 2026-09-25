@@ -638,7 +638,7 @@ install -D -m 600 /dev/null %[2]s
 echo %[3]s > %[2]s
 install -D -m 600 /dev/null %[4]s
 echo %[5]s > %[4]s
-cp -a /etc/os-release /var/snap/%[6]s/common/host-os-release
+cp -L /etc/os-release /var/snap/%[6]s/common/host-os-release
 snap run %[6]s.init %[1]s
 snap run %[6]s.bootstrap-state --timeout %[7]s`,
 		shquote(snapInitStagingDir),
