@@ -15,19 +15,46 @@ In Juju, a **charm resource** is additional content that a {ref}`charm <charm>` 
 
 Resources are used where a charm author needs to include large blobs (perhaps a database, media file, or otherwise) that may not need to be updated with the same cadence as the charm or workload itself. By keeping resources separate, they can control the lifecycle of these elements more carefully, and in some situations avoid the need for repeatedly downloading large files from Charmhub during routine upgrades/maintenance.
 
-(the-resource-record)=
-## The resource record
+(the-resources-records)=
+## The resource's records
 
-A resource has two records: the charm's **definition** -- the
-resource's name, its type, its storage path within the charm, and a
-description, declared in the charm's metadata -- and the **content**
-record: one per stored blob, carrying the revision (for store
-resources), the origin (a store revision or an upload), and the state
-of its store lifecycle, plus the record of which application is
-*using* it. The blob itself lives in the controller's object store.
+(the-resource-record)=
+### The resource's identity
+
+In the model database, a charm resource has two records: the charm's
+**definition** -- the resource's name, its type, its storage path within
+the charm, and a description, declared in the charm's metadata -- and
+the **content** record: one per stored blob, carrying the revision
+(for store resources), the origin (a store revision or an upload),
+and the state of its store lifecycle, plus the record of which
+application is *using* it. The blob itself lives in the controller's
+object store.
+
+(the-resource-in-the-data-model)=
+### The resource in the data model
+
+The stored records: the `charm_resource` rows are the charm's
+definitions (keyed by charm and name, with the type -- `file` or
+`oci-image` -- as a lookup). The `resource` rows are the stored
+blobs: a pointer to the charm's definition, the revision (empty for
+uploads), the origin, the store-lifecycle state, and the timestamps;
+`application_resource` says which application *uses* which stored
+blob -- it may name a resource from a different charm revision than
+the application currently runs -- and a pending-application record
+holds resources attached before the application exists. A
+retrieved-by record names who stored the blob (a user, a unit, or the
+application).
+
+(the-resource-states)=
+### Resource states
+
+A resource has no state machine of its own: the record carries store
+bookkeeping (its origin, its store-lifecycle state, who retrieved it),
+not a negotiated state graph -- the state churn is upload and
+revision bookkeeping, not a lifecycle.
 
 (types-of-resource)=
-## Types of resource
+### Types of resource
 
 A resource can have one of two basic types -- `file` and `oci-image`.
 These can be specified as follows:
@@ -72,33 +99,19 @@ password: supersecretpassword
 ```
 ````
 
-(the-resource-in-the-data-model)=
-## The resource in the data model
+(the-resources-machinery)=
+## The resource's machinery
 
-The stored records: the `charm_resource` rows are the charm's
-definitions (keyed by charm and name, with the type -- `file` or
-`oci-image` -- as a lookup). The `resource` rows are the stored
-blobs: a pointer to the charm's definition, the revision (empty for
-uploads), the origin, the store-lifecycle state, and the timestamps;
-`application_resource` says which application *uses* which stored
-blob -- it may name a resource from a different charm revision than
-the application currently runs -- and a pending-application record
-holds resources attached before the application exists. A
-retrieved-by record names who stored the blob (a user, a unit, or the
-application).
-
-(the-resource-states)=
-## Resource states
-
-A resource has no state machine of its own: the record carries store
-bookkeeping (its origin, its store-lifecycle state, who retrieved it),
-not a negotiated state graph -- the state churn is upload and
-revision bookkeeping, not a lifecycle.
+A charm resource has no machinery of its own: resources are pushed --
+uploaded, attached at deploy, polled for revisions -- and a charm
+learns of a new revision through its {ref}`upgrade
+<the-application-refresh>`, not through any machinery of the
+resource's.
 
 (the-resource-operations)=
-## Resource operations
+### Resource operations
 
-### Attaching resources at deploy time
+#### Attaching resources at deploy time
 
 Deploying with resources resolves each named resource up front: a
 store resource must carry its revision; an upload must not (the
@@ -106,7 +119,7 @@ upload's content becomes the revision). The blobs are stored before
 the application exists -- held by the pending-application record
 until it does.
 
-### Uploading and updating resources
+#### Uploading and updating resources
 
 Uploading a resource (for example, `juju attach-resource <app>
 <resource>`) stores a new blob -- a new resource record with no
@@ -116,13 +129,13 @@ application's charm-modified version. Revision updates work the other
 way: a repository revision is polled and recorded as a new stored
 blob, and the application is repointed.
 
-### Unit resources
+#### Unit resources
 
 A resource can also be attached to a single unit -- the unit's own
 copy, distinct from the application's.
 
 (the-resource-watchers)=
-## Resource watchers
+### Resource watchers
 
 The resource domain exposes no watch surfaces: resources are pushed
 (upload, deploy, revision polling), not watched -- a charm learns of
@@ -146,7 +159,7 @@ The errors that encode them: `resource not found`,
 `stored resource already exists`, `origin not valid`.
 
 (related-entities-resource)=
-## Related entities
+## Entities related to the resource
 
 - **Charms** define the resources (see {ref}`charm <charm>`).
 - **Applications** use one stored blob per resource, possibly from a

@@ -15,10 +15,13 @@ In Juju, an **offer** represents an {ref}`application <application>` that has be
 
 When you are integrating an application with an offer, what you're doing is consume + integrate, where consume = validate that your user has permission to consume the offer + create a local application proxy for the application and integrate is the usual local integrate.
 
-(the-offer-record)=
-## The offer record
+(the-offers-records)=
+## The offer's records
 
-An offer is a record in the offering model's database: its name (by
+(the-offer-record)=
+### The offer's identity
+
+In the offering model's database, an offer is a record: its name (by
 default the application's name) and its UUID, its
 {ref}`endpoints <application-endpoint>` (an offer's endpoints all
 belong to one application -- the schema enforces it), and one
@@ -40,14 +43,8 @@ application-name rules.
 :caption: Topology: The cross-model relation, record by record. The offering side stores the offer and its connections; the consuming side stores a proxy application and a remote-application record; both sides agree on the endpoint and relation records that carry the actual relation data. Nothing is shared between the two model databases except the offer URL and credentials.
 ```
 
-(types-of-offer)=
-## Types of offer
-
-An offer has no subtypes: it is one record shape -- an application's
-endpoints published for consumption -- and Juju adds no kind column.
-
 (the-offer-in-the-data-model)=
-## The offer in the data model
+### The offer in the data model
 
 The offer's stored records are the three drawn above: the `offer` row
 (name, UUID), the `offer_endpoint` rows (the offer's endpoints, each a
@@ -59,17 +56,30 @@ controller-side: creating an offer grants its owner admin access and
 everyone read access as permission rows on the offer's UUID.
 
 (the-offer-states)=
-## Offer states
+### Offer states
 
 An offer has no life column and no state machine: the record is static
 from its creation until it is removed, and its only moving quantity
 -- the number of active connections -- is derived from the
 connections' relations, not stored.
 
-(the-offer-operations)=
-## Offer operations
+(types-of-offer)=
+### Types of offer
 
-### Creating an offer
+An offer has no subtypes: it is one record shape -- an application's
+endpoints published for consumption -- and Juju adds no kind column.
+
+(the-offers-machinery)=
+## The offer's machinery
+
+An offer has no machinery of its own: it is a static record the
+controller serves -- creating, consuming and removing it are record
+writes, and what moves around an offer runs in the cross-model
+relation machinery.
+
+(the-offer-operations)=
+### Offer operations
+#### Creating an offer
 
 Creating an offer (for example, `juju offer mysql:mysql`) publishes an
 application's endpoint: the offer is named after the application by
@@ -77,14 +87,14 @@ default, an identical offer (same application and endpoints) is
 rejected rather than duplicated, and the owner-plus-everyone access
 rows are written controller-side.
 
-### Consuming an offer
+#### Consuming an offer
 
 Consuming validates the user's permission and creates the local proxy
 application and its remote-application record (the consume details
 service hands the consuming side its half; see the CMR view above and
 {ref}`cross-model relation <cross-model-relation>`).
 
-### Removing an offer
+#### Removing an offer
 
 Removing an offer refuses while the offer still has connections or
 active relations, unless the removal is forced; the removal also
@@ -94,7 +104,7 @@ There is no update operation: an existing offer's endpoints cannot be
 changed -- deploy a new offer instead.
 
 (the-offer-watchers)=
-## Offer watchers
+### Offer watchers
 
 The offer has no watch surfaces of its own: nothing polls or watches
 the offer record. What moves around an offer -- the remote relation's
@@ -129,7 +139,7 @@ The errors that encode them: `offer not found`,
 valid`, `missing endpoints`, `offer has relations`.
 
 (related-entities-offer)=
-## Related entities
+## Entities related to the offer
 
 - **Applications** are what an offer publishes -- one application's
   endpoints (see {ref}`application <application>`).

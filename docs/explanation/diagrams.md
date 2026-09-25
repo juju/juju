@@ -85,7 +85,7 @@ concept pages — one mechanism, data model, or process per page.
 
 #### Operation hierarchy
 
-**Insert at:** § The action in the data model. (Single home: moved
+**Insert at:** § The action's records → § The action in the data model. (Single home: moved
 off script.md, whose task/operation prose now points here.)
 
 ```{ggarch}
@@ -97,7 +97,7 @@ off script.md, whose task/operation prose now points here.)
 ```
 #### Action run flow (sequence)
 
-**Insert at:** § Action execution.
+**Insert at:** § The action's machinery → § Action operations → § Running an action.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -109,7 +109,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Action task status (state machine)
 
-**Insert at:** § Action states.
+**Insert at:** § The action's records → § Action states.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -164,7 +164,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Bundle deploy (sequence)
 
-**Insert at:** page top.
+**Insert at:** § The bundle's machinery → § Bundle operations.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -533,7 +533,7 @@ precedent).
 
 #### Cross-model relation (CMR)
 
-**Insert at:** § The offer record.
+**Insert at:** § The offer's records → § The offer's identity.
 
 `````{grid} 2
 ````{grid-item}

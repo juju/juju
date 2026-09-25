@@ -18,12 +18,15 @@ This may include anything from creating a snapshot of a database, adding a user 
 See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
 ```
 
-(the-action-record)=
-## The action record
+(the-actions-records)=
+## The action's records
 
-An action has two halves: the **definition**, a record of the
-{ref}`charm <charm>` -- the action's name, its description, its
-parameters schema, and its parallelism defaults -- and the **run**, a
+(the-action-record)=
+### The action's identity
+
+In the model database, an action has two halves: the **definition**,
+a record of the {ref}`charm <charm>` -- the action's name, its
+description, its parameters schema, and its parallelism defaults --
 pair of records Juju creates when the action is executed: the
 **operation** (one run across all the targeted units, carrying the
 supplied parameters and the parallelism settings) and one **task** per
@@ -53,18 +56,8 @@ If the action does use a hook command like `relation-set`, after the action comp
 {ref}`relation-changed hook <hook-relation-changed>`  will be emitted afterwards on the affected units.
 ```
 
-(types-of-action)=
-## Types of action
-
-An action has no subtypes: the charm defines a flat set of named
-actions, and Juju adds no kind column. The one split the data model
-records is action vs. an arbitrary script: a run carries an
-operation-action record only when it runs a charm action -- an exec
-run is modelled as the predefined `juju-exec` action instead (see
-{ref}`script <script>`).
-
 (the-action-in-the-data-model)=
-## The action in the data model
+### The action in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -85,7 +78,7 @@ status record, the log rows, and the output record pointing at the
 results blob in the object store.
 
 (the-action-states)=
-## Action states
+### Action states
 
 A task carries one status vocabulary, written by the side that owns
 each transition -- the running agent starts and finishes its tasks,
@@ -106,11 +99,28 @@ be one the task can legitimately report -- and the operation's own
 query priority reads running over aborting over pending over error
 over failed over cancelled over completed.
 
+(types-of-action)=
+### Types of action
+
+An action has no subtypes: the charm defines a flat set of named
+actions, and Juju adds no kind column. The one split the data model
+records is action vs. an arbitrary script: a run carries an
+operation-action record only when it runs a charm action -- an exec
+run is modelled as the predefined `juju-exec` action instead (see
+{ref}`script <script>`).
+
+(the-actions-machinery)=
+## The action's machinery
+
+An action has no machinery of its own -- its runs execute on the
+targeted units' agents; the controller only enqueues the operation and
+records the results.
+
 (the-action-operations)=
-## Action operations
+### Action operations
 
 (the-action-execution)=
-### Running an action
+#### Running an action
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -137,14 +147,14 @@ operation completes. Exec runs go through the same machinery -- the
 command and its timeout are stored as the operation's parameters.
 
 (the-action-cancellation)=
-### Cancelling an action
+#### Cancelling an action
 
 Cancelling (for example, `juju cancel-task`) marks a pending task
 cancelled; a running task is marked aborting and its agent kills the
 charm process, reporting the task aborted.
 
 (the-action-watchers)=
-## Action watchers
+### Action watchers
 
 The operation domain's watchable service exposes these watch
 surfaces:
@@ -190,7 +200,7 @@ The errors that encode them:
 - *State*: `task not pending`.
 
 (related-entities-action)=
-## Related entities
+## Entities related to the action
 
 - **Charms** define the actions: the definition record is the charm's,
   with its parameters schema and parallelism defaults
