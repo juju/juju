@@ -68,8 +68,7 @@ func addOfferWithAliases(
 // the alias or consistently remapping it can both satisfy the contract.
 func (s *importSuite) TestImportLegacyAliasPreservesRelationIdentityAndUnitSettings(c *tc.C) {
 	m := description.NewModel(description.ModelArgs{})
-	primary := m.AddRemoteApplication(description.RemoteApplicationArgs{Name: "first"})
-	duplicate := m.AddRemoteApplication(description.RemoteApplicationArgs{Name: "second"})
+	offerer := addOfferWithAliases(m, "first", "second")
 	r := m.AddRelation(description.RelationArgs{Id: 42, Key: "client:db second:db"})
 	r.AddEndpoint(description.EndpointArgs{ApplicationName: "client", Name: "db", Role: "requirer"})
 	ep := r.AddEndpoint(description.EndpointArgs{ApplicationName: "second", Name: "db", Role: "provider"})
@@ -77,11 +76,7 @@ func (s *importSuite) TestImportLegacyAliasPreservesRelationIdentityAndUnitSetti
 	key, err := corerelation.NewKeyFromString(r.Key())
 	c.Assert(err, tc.ErrorIsNil)
 	const token = "6049aa01-76c9-462d-8440-964a6e26aac2"
-	arg, err := (&importOperation{}).createRemoteImportArg(r,
-		domainmodelmigration.RemoteApplicationOfferer{
-			Primary:    primary,
-			Duplicates: []description.RemoteApplication{duplicate},
-		},
+	arg, err := (&importOperation{}).createRemoteImportArg(r, offerer,
 		[]relationRemoteEntity{{RelationKey: key, RelationUUID: token}},
 	)
 	c.Assert(err, tc.ErrorIsNil)

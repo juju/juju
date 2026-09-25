@@ -710,8 +710,9 @@ func (s *importSuite) TestImportRemoteApplicationOfferersWithAliasUnits(c *tc.C)
 
 // TestRemoteApplicationOffererUnits checks the merging of unit names from an
 // offerer's aliases onto the primary name: duplicates are de-duplicated,
-// names are sorted, unit names belonging to a different application pass
-// through unchanged, and an offerer without units yields nil.
+// including when the primary and an alias hold the same unit number, names
+// are sorted, unit names belonging to a different application pass through
+// unchanged, and an offerer without units yields nil.
 func (s *importSuite) TestRemoteApplicationOffererUnits(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{})
 	offerer := domainmodelmigration.RemoteApplicationOfferer{
@@ -730,6 +731,13 @@ func (s *importSuite) TestRemoteApplicationOffererUnits(c *tc.C) {
 		"second": {"second/0", "second/1", "secondaire/0"},
 		"third":  {"third/1"},
 	}), tc.DeepEquals, []string{"first/0", "first/1", "secondaire/0"})
+
+	// A model may relate to both the primary and an alias, with the same
+	// unit number in scope on each; those yield a single synthetic unit.
+	c.Check(remoteApplicationOffererUnits(offerer, map[string][]string{
+		"first":  {"first/0"},
+		"second": {"second/0"},
+	}), tc.DeepEquals, []string{"first/0"})
 
 	// An offerer without duplicates keeps its own units.
 	primaryOnly := domainmodelmigration.RemoteApplicationOfferer{

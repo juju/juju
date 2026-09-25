@@ -280,16 +280,16 @@ func (i *importOperation) createRemoteImportArg(
 // they are left keyed under a unit name that no longer matches the imported
 // endpoint's application name. The re-keyed unit names must match the
 // synthetic units that the crossmodelrelation domain import creates for the
-// renamed remote application.
+// renamed remote application; both use the shared
+// domain/modelmigration/modelmigration.RewriteUnitName rule.
 func renameUnitSettings(
 	settings map[string]map[string]any,
 	oldApplicationName, newApplicationName string,
 ) map[string]map[string]any {
 	out := make(map[string]map[string]any, len(settings))
 	for unitName, unitSettings := range settings {
-		if appName, number, ok := strings.Cut(unitName, "/"); ok && appName == oldApplicationName {
-			unitName = newApplicationName + "/" + number
-		}
+		unitName = domainmodelmigration.RewriteUnitName(
+			unitName, oldApplicationName, newApplicationName)
 		out[unitName] = unitSettings
 	}
 	return out

@@ -267,33 +267,26 @@ func (i *importOperation) importRemoteApplicationOfferers(
 // for the primary remote application of the offerer. Relations may reference
 // any of the offerer's aliases, with unit settings keyed under the alias's
 // unit names. The relation domain import re-keys those settings onto the
-// primary name (see renameUnitSettings in the relation modelmigration
-// package); the alias unit names are re-written here in the same way, so
-// that the re-keyed settings address synthetic units that exist. The names
-// are de-duplicated and sorted; nil is returned when there are none.
+// primary name; the alias unit names are re-written here with the same
+// RemoteApplicationOfferer.RewriteUnitName rule, so that the re-keyed
+// settings address synthetic units that exist. The names are de-duplicated
+// and sorted; nil is returned when there are none.
 func remoteApplicationOffererUnits(
 	offerer domainmodelmigration.RemoteApplicationOfferer,
 	remoteAppUnits map[string][]string,
 ) []string {
-	primaryName := offerer.Primary.Name()
-
 	seen := make(map[string]struct{})
-	addUnitNames := func(aliasName string, names []string) {
+	addUnitNames := func(names []string) {
 		for _, unitName := range names {
 			// Re-write the alias's unit names onto the primary name, in the
 			// same way the relation domain import re-keys unit settings.
-			// Unit names belonging to other applications, and names without
-			// a unit number, pass through unchanged.
-			if app, suffix, ok := strings.Cut(unitName, "/"); ok && app == aliasName {
-				unitName = primaryName + "/" + suffix
-			}
-			seen[unitName] = struct{}{}
+			seen[offerer.RewriteUnitName(unitName)] = struct{}{}
 		}
 	}
 
-	addUnitNames(primaryName, remoteAppUnits[primaryName])
+	addUnitNames(remoteAppUnits[offerer.Primary.Name()])
 	for _, duplicate := range offerer.Duplicates {
-		addUnitNames(duplicate.Name(), remoteAppUnits[duplicate.Name()])
+		addUnitNames(remoteAppUnits[duplicate.Name()])
 	}
 	if len(seen) == 0 {
 		return nil

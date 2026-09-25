@@ -88,6 +88,18 @@ func (o RemoteApplicationOfferer) IsEmpty() bool {
 	return o.Primary == nil
 }
 
+// RewriteUnitName rewrites a unit name belonging to one of the offerer's
+// duplicate aliases onto the primary remote application name. Unit names
+// are in the form "<application name>/<unit number>"; names belonging to
+// other applications, and names without a unit number, pass through
+// unchanged.
+func (o RemoteApplicationOfferer) RewriteUnitName(unitName string) string {
+	for _, duplicate := range o.Duplicates {
+		unitName = RewriteUnitName(unitName, duplicate.Name(), o.Primary.Name())
+	}
+	return unitName
+}
+
 // UniqueRemoteOfferApplications de-duplicates remote applications based on
 // offer UUID and endpoints, and verifies that there are no conflicting remote
 // applications with the same offer UUID.
@@ -125,6 +137,24 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (
 	}
 
 	return unique, nil
+}
+
+// RewriteUnitName rewrites a unit name belonging to the old application
+// name onto the new application name. Unit names are in the form
+// "<application name>/<unit number>"; names belonging to other
+// applications, and names without a unit number, pass through unchanged.
+//
+// The relation domain import re-keys alias unit settings with this rule,
+// and the crossmodelrelation domain import rewrites the synthetic unit
+// names those settings must address with the same rule, so the two stay in
+// lockstep.
+func RewriteUnitName(
+	unitName, oldApplicationName, newApplicationName string,
+) string {
+	if appName, number, ok := strings.Cut(unitName, "/"); ok && appName == oldApplicationName {
+		return newApplicationName + "/" + number
+	}
+	return unitName
 }
 
 func remoteEndpointsEqual(a, b []description.RemoteEndpoint) bool {
