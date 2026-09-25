@@ -145,6 +145,9 @@ type ApplicationState interface {
 
 	// SetApplicationScalingState sets the scaling details for the given caas
 	// application Scale is optional and is only set if not nil.
+	// It returns an error satisfying [applicationerrors.OperationInProgress]
+	// if a different provisioning operation is already in progress for the
+	// application.
 	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, op coreapplication.ProvisioningOperation) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
@@ -1059,6 +1062,8 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 
 // SetApplicationScalingState updates the scale state of an application, returning an error
 // satisfying [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+// An error satisfying [applicationerrors.OperationInProgress] is returned if a
+// different provisioning operation is already in progress for the application.
 // This is used on CAAS models.
 func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, op coreapplication.ProvisioningOperation) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
