@@ -616,7 +616,9 @@ func controllerCharmName(controllerCharmPath string) string {
 	// Local controller charm paths are uploaded to the controller and resolved
 	// by DeployLocalCharm. Only non-local values should be used as a charmhub
 	// charm name, otherwise MustParseURL will panic on a filesystem path.
-	if corecharm.IsLocalCharmPath(controllerCharmPath) {
+	// An empty path means the controller charm is resolved from charmhub
+	// using the configured channel.
+	if controllerCharmPath == "" || corecharm.IsLocalCharmPath(controllerCharmPath) {
 		return ""
 	}
 	return controllerCharmPath
