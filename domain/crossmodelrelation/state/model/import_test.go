@@ -460,6 +460,7 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 		ConsumerApplicationEndpoint: "db",
 		OffererApplicationEndpoint:  "offer-endpoint",
 		UserName:                    "consumer-user",
+		SyntheticApplicationUUID:    consumerApplicationUUID,
 		SyntheticCharmUUID:          charmUUID,
 	}})
 	c.Assert(err, tc.ErrorIsNil)
@@ -480,6 +481,229 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 	s.assertRelationSuspended(c, relationUUID, true, "imported suspended")
 
 	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), consumerApplicationUUID)
+}
+
+// TestImportRemoteApplicationConsumersSharedConsumerApplication imports two
+// remote application consumers that belong to the same consuming
+// application, as migrated from a 3.6 consumer proxy relating to several
+// offered applications. Each connection keeps its own synthetic application
+// and relation, while both records reference the same consuming application.
+func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsumersSharedConsumerApplication(c *tc.C) {
+	consumerModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	consumerApplicationUUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// The consuming application of the first connection keeps the identity
+	// of the legacy proxy, while the second connection is represented by a
+	// freshly generated synthetic application, as assigned by the service
+	// layer.
+	synthAppUUID1 := consumerApplicationUUID
+	synthAppUUID2 := tc.Must(c, coreapplication.NewUUID).String()
+	const name1 = "remote-13ea27915e7840d888c5e9451444b45d"
+	const name2 = "remote-a50f295556314aa4803f766a8802e33a"
+
+	// Offer resources needed for each of the two offered applications.
+	type offerer struct {
+		applicationUUID coreapplication.UUID
+		offerUUID       string
+		charmUUID       string
+	}
+	offerers := []offerer{
+		{applicationUUID: tc.Must(c, coreapplication.NewUUID)},
+		{applicationUUID: tc.Must(c, coreapplication.NewUUID)},
+	}
+	for n := range offerers {
+		offerers[n].offerUUID = tc.Must(c, internaluuid.NewUUID).String()
+		offerers[n].charmUUID = tc.Must(c, internaluuid.NewUUID).String()
+
+		s.createOffer(c, offerers[n].offerUUID)
+		s.createCharm(c, offerers[n].charmUUID)
+		charmRelationUUID := s.createCharmRelation(c, offerers[n].charmUUID, "offer-endpoint")
+		s.createApplication(c, offerers[n].applicationUUID, offerers[n].charmUUID, offerers[n].offerUUID)
+		s.addApplicationEndpoint(c, offerers[n].applicationUUID, charmRelationUUID)
+	}
+
+	newCharm := func(name string) appcharm.Charm {
+		return appcharm.Charm{
+			ReferenceName: name,
+			Source:        appcharm.CMRSource,
+			Metadata: appcharm.Metadata{
+				Name:        name,
+				Description: "remote consumer application",
+				Provides: map[string]appcharm.Relation{
+					"db": {
+						Name:      "db",
+						Role:      appcharm.RoleProvider,
+						Interface: "db",
+						Limit:     1,
+						Scope:     appcharm.ScopeGlobal,
+					},
+				},
+				Requires: map[string]appcharm.Relation{},
+				Peers:    map[string]appcharm.Relation{},
+			},
+		}
+	}
+
+	input := []crossmodelrelation.RemoteApplicationConsumerImport{{
+		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+			Name:                   name1,
+			OfferUUID:              offerers[0].offerUUID,
+			SyntheticCharm:         newCharm(name1),
+			Units:                  []string{name1 + "/0"},
+			OffererApplicationUUID: offerers[0].applicationUUID.String(),
+		},
+		RelationUUID:                tc.Must(c, internaluuid.NewUUID).String(),
+		RelationID:                  41,
+		RelationScope:               appcharm.ScopeGlobal,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		OffererApplicationEndpoint:  "offer-endpoint",
+		UserName:                    "consumer-user",
+		SyntheticApplicationUUID:    synthAppUUID1,
+		SyntheticCharmUUID:          tc.Must(c, internaluuid.NewUUID).String(),
+	}, {
+		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
+			Name:                   name2,
+			OfferUUID:              offerers[1].offerUUID,
+			SyntheticCharm:         newCharm(name2),
+			OffererApplicationUUID: offerers[1].applicationUUID.String(),
+		},
+		RelationUUID:                tc.Must(c, internaluuid.NewUUID).String(),
+		RelationID:                  42,
+		RelationScope:               appcharm.ScopeGlobal,
+		ConsumerModelUUID:           consumerModelUUID,
+		ConsumerApplicationUUID:     consumerApplicationUUID,
+		ConsumerApplicationEndpoint: "db",
+		OffererApplicationEndpoint:  "offer-endpoint",
+		UserName:                    "consumer-user",
+		SyntheticApplicationUUID:    synthAppUUID2,
+		SyntheticCharmUUID:          tc.Must(c, internaluuid.NewUUID).String(),
+	}}
+
+	err := s.state.ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Both offer connections must be recorded for the same consuming
+	// application, each with its own synthetic application UUID.
+	type arcRow struct {
+		offerConnectionUUID   string
+		consumerApplicationID string
+	}
+	var arcRows []arcRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT offer_connection_uuid, consumer_application_uuid
+FROM application_remote_consumer
+`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var row arcRow
+			if err := rows.Scan(&row.offerConnectionUUID, &row.consumerApplicationID); err != nil {
+				return err
+			}
+			arcRows = append(arcRows, row)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	if c.Check(arcRows, tc.HasLen, 2) {
+		c.Check(arcRows[0].consumerApplicationID, tc.Equals, consumerApplicationUUID)
+		c.Check(arcRows[1].consumerApplicationID, tc.Equals, consumerApplicationUUID)
+		c.Check([]string{arcRows[0].offerConnectionUUID, arcRows[1].offerConnectionUUID}, tc.SameContents,
+			[]string{synthAppUUID1, synthAppUUID2})
+	}
+
+	// Each synthetic application must exist with its own name.
+	type appRow struct {
+		uuid string
+		name string
+	}
+	var appRows []appRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT uuid, name FROM application
+WHERE uuid IN (?, ?)
+`, synthAppUUID1, synthAppUUID2)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var row appRow
+			if err := rows.Scan(&row.uuid, &row.name); err != nil {
+				return err
+			}
+			appRows = append(appRows, row)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	if c.Check(appRows, tc.HasLen, 2) {
+		byUUID := map[string]string{
+			synthAppUUID1: name1,
+			synthAppUUID2: name2,
+		}
+		for _, row := range appRows {
+			c.Check(row.name, tc.Equals, byUUID[row.uuid])
+		}
+	}
+
+	// The synthetic units belong to the first synthetic application only;
+	// the additional connection has no units of its own.
+	type unitOwnershipRow struct {
+		name            string
+		applicationUUID string
+	}
+	var unitRows []unitOwnershipRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT name, application_uuid
+FROM unit
+WHERE application_uuid IN (?, ?)
+`, synthAppUUID1, synthAppUUID2)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var row unitOwnershipRow
+			if err := rows.Scan(&row.name, &row.applicationUUID); err != nil {
+				return err
+			}
+			unitRows = append(unitRows, row)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	if c.Check(unitRows, tc.HasLen, 1) {
+		c.Check(unitRows[0].name, tc.Equals, name1+"/0")
+		c.Check(unitRows[0].applicationUUID, tc.Equals, synthAppUUID1)
+	}
+
+	// Both relations of the consuming application must be imported, each
+	// connected to its own offerer application and synthetic application.
+	for n, consumer := range input {
+		s.assertRelation(c, consumer.RelationUUID, consumer.RelationID)
+		s.assertRelationEndpoints(c, consumer.RelationUUID,
+			offerers[n].applicationUUID.String(), consumer.SyntheticApplicationUUID)
+	}
+
+	var offerConnections int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM offer_connection
+WHERE offer_uuid IN (?, ?)
+AND remote_relation_uuid IN (?, ?)
+`, offerers[0].offerUUID, offerers[1].offerUUID, input[0].RelationUUID, input[1].RelationUUID).
+			Scan(&offerConnections)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(offerConnections, tc.Equals, 2)
 }
 
 type importSecretSuite struct {

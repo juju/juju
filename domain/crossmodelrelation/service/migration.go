@@ -5,9 +5,7 @@ package service
 
 import (
 	"context"
-	"maps"
 	"net"
-	"slices"
 
 	"github.com/juju/collections/transform"
 
@@ -175,8 +173,10 @@ type RemoteApplicationConsumerImport struct {
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
 
-	// ConsumerApplicationUUID is the synthetic application UUID created in the
-	// consumer model to represent this remote application.
+	// ConsumerApplicationUUID is the UUID of the consuming application in
+	// the consuming model. It is shared by every offer connection of the
+	// consuming application, and it is not the UUID of the synthetic
+	// application created in this model, which is assigned during import.
 	ConsumerApplicationUUID string
 
 	// UserName is the name of the user who made the original offer connection
@@ -301,9 +301,40 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// A legacy consumer proxy application can relate to several offered
+	// applications, in which case the migration imports one entry per offer
+	// connection, all sharing the identity of the consuming application.
+	// The model holds one synthetic application per offer connection, so
+	// the first connection of each consuming application keeps the
+	// identity of the legacy proxy application, and every additional
+	// connection is represented by a fresh synthetic application.
+	// The imports are ordered by the migration description, so the
+	// connection that keeps the identity is deterministic for a given
+	// description.
+	importedConsumers := make(map[string]struct{}, len(imports))
 	consumers := make([]crossmodelrelation.RemoteApplicationConsumerImport, 0, len(imports))
 	for _, rApp := range imports {
-		consumer, err := s.constructApplicationConsumer(ctx, rApp)
+		syntheticAppName := rApp.Name
+		syntheticApplicationUUID := rApp.ConsumerApplicationUUID
+		if _, ok := importedConsumers[rApp.ConsumerApplicationUUID]; ok {
+			// This is an additional offer connection of a consuming
+			// application whose synthetic application is already being
+			// imported, so represent this connection with a fresh
+			// synthetic application. The synthetic units belong to the
+			// first application, which keeps the legacy proxy name.
+			// rApp is a copy of the slice element, so clearing its units
+			// only affects the argument passed to the state import below.
+			synthAppUUID, err := application.NewUUID()
+			if err != nil {
+				return internalerrors.Errorf("creating application UUID: %w", err)
+			}
+			syntheticAppName = application.RemoteApplicationNameFromUUID(synthAppUUID)
+			syntheticApplicationUUID = synthAppUUID.String()
+			rApp.Units = nil
+		}
+		importedConsumers[rApp.ConsumerApplicationUUID] = struct{}{}
+
+		consumer, err := s.constructApplicationConsumer(ctx, rApp, syntheticAppName, syntheticApplicationUUID)
 		if err != nil {
 			return internalerrors.Errorf("constructing remote application consumer for %q: %w", rApp.Name, err)
 		}
@@ -375,7 +406,18 @@ func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports [
 	return nil
 }
 
-func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rApp RemoteApplicationConsumerImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
+// constructApplicationConsumer constructs the state import argument for a
+// remote application consumer. The synthetic application representing the
+// consumer is imported with the given synthetic application name and UUID,
+// which for an additional offer connection of an already imported consuming
+// application are freshly generated, as the model requires one synthetic
+// application per offer connection.
+func (s *MigrationService) constructApplicationConsumer(
+	ctx context.Context,
+	rApp RemoteApplicationConsumerImport,
+	syntheticAppName string,
+	syntheticApplicationUUID string,
+) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
 	if err := rApp.RelationKey.Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating relation key: %w", err).Add(errors.NotValid)
@@ -405,8 +447,12 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating consumer application UUID: %w", err).Add(errors.NotValid)
 	}
+	if err := application.UUID(syntheticApplicationUUID).Validate(); err != nil {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating synthetic application UUID: %w", err).Add(errors.NotValid)
+	}
 
-	synthCharm, err := s.constructConsumedSyntheticCharm(rApp.Name, rApp.Endpoints)
+	synthCharm, err := s.constructConsumedSyntheticCharm(syntheticAppName, rApp.Endpoints)
 	if err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"constructing synthetic charm: %w", err)
@@ -421,7 +467,10 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 	}
 
 	// We can now extract the offering and consuming application endpoints
-	// from the relation key.
+	// from the relation key. The relation key references the consuming
+	// application by the legacy name of the consumer proxy, not by the name
+	// of the synthetic application that may have been generated for an
+	// additional offer connection.
 	var (
 		offererApplicationEndpoint  string
 		consumerApplicationEndpoint string
@@ -453,7 +502,7 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 
 	return crossmodelrelation.RemoteApplicationConsumerImport{
 		RemoteApplicationImport: crossmodelrelation.RemoteApplicationImport{
-			Name:                   rApp.Name,
+			Name:                   syntheticAppName,
 			OfferUUID:              rApp.OfferUUID,
 			URL:                    rApp.URL,
 			Macaroon:               rApp.Macaroon,
@@ -471,6 +520,7 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
 		OffererApplicationEndpoint:  offererApplicationEndpoint,
 		UserName:                    rApp.UserName,
+		SyntheticApplicationUUID:    syntheticApplicationUUID,
 		SyntheticCharmUUID:          charmUUID.String(),
 	}, nil
 }
@@ -522,7 +572,11 @@ func (s *MigrationService) constructConsumedSyntheticCharm(appName string, endpo
 }
 
 // ImportGrantedSecrets imports secrets granted by offerer applications to
-// consumer applications in the offerer model.
+// consumer applications in the offerer model. A grant scoped by a relation
+// that was not migrated, for example a relation of a legacy consumer proxy
+// that was re-keyed on import or a relation removed from the source model
+// before the export, only skips that grant with a warning instead of
+// failing the migration.
 func (s *MigrationService) ImportGrantedSecrets(ctx context.Context, grantedSecrets []GrantedSecretImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -553,32 +607,54 @@ func (s *MigrationService) ImportRemoteSecrets(ctx context.Context, remoteSecret
 func (s *MigrationService) importGrantedSecret(ctx context.Context, secret GrantedSecretImport) error {
 
 	// Fetch application and relation UUIDs.
-	grantByApplications := make(map[string]internal.RemoteApplicationSecretGrant, len(secret.ACLs))
+	// A grant scoped by a relation that was not migrated, for example a
+	// relation of a legacy consumer proxy that was re-keyed on import or a
+	// relation removed from the source model before the export, only skips
+	// that grant with a warning, the remaining grants are still imported.
+	grants := make([]internal.RemoteApplicationSecretGrant, 0, len(secret.ACLs))
+	grantByApplications := make(map[string]struct{}, len(secret.ACLs))
+	skippedGrantApps := make(map[string]struct{})
 	for _, acl := range secret.ACLs {
 		if acl.Role != secrets.RoleView {
 			return internalerrors.Errorf("unsupported role %q for remote secret %q", acl.Role, secret.SecretID)
+		}
+		relUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, acl.RelationKey)
+		if internalerrors.Is(err, relationerrors.RelationNotFound) {
+			// The relation was not migrated under its legacy key. Only
+			// this grant is skipped, the remaining grants are still
+			// imported.
+			s.logger.Warningf(ctx, "skipping secret grant for application %q on relation %q: %v",
+				acl.ApplicationName, acl.RelationKey, err)
+			skippedGrantApps[acl.ApplicationName] = struct{}{}
+			continue
+		} else if err != nil {
+			return internalerrors.Errorf("getting relation UUID by relation key %q: %w", acl.RelationKey, err)
 		}
 		appUUID, err := s.modelState.GetApplicationUUIDByName(ctx, acl.ApplicationName)
 		if err != nil {
 			return internalerrors.Errorf("getting application UUID by name %q: %w", acl.ApplicationName, err)
 		}
-		relUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, acl.RelationKey)
-		if err != nil {
-			return internalerrors.Errorf("getting relation UUID by relation key %q: %w", acl.RelationKey, err)
-		}
-		grantByApplications[acl.ApplicationName] = internal.RemoteApplicationSecretGrant{
+		grants = append(grants, internal.RemoteApplicationSecretGrant{
 			SecretID:        secret.SecretID,
 			ApplicationName: acl.ApplicationName,
 			ApplicationUUID: appUUID,
 			RelationKey:     acl.RelationKey.String(),
 			RelationUUID:    relUUID,
-		}
+		})
+		grantByApplications[acl.ApplicationName] = struct{}{}
 	}
 
 	// Verify that every consumer has a grant for the application.
 	var grantedConsumers []internal.RemoteUnitConsumer
 	for _, consumer := range secret.Consumers {
 		if _, ok := grantByApplications[consumer.Unit.Application()]; !ok {
+			if _, skipped := skippedGrantApps[consumer.Unit.Application()]; skipped {
+				// Every grant of the application was skipped, so its
+				// consumers are skipped as well.
+				s.logger.Warningf(ctx, "skipping secret consumer %q: grant for application %q was skipped",
+					consumer.Unit, consumer.Unit.Application())
+				continue
+			}
 			return internalerrors.Errorf("grant for application %q not found for remote secret %q", consumer.Unit.Application(), secret.SecretID)
 		}
 		grantedConsumers = append(grantedConsumers, internal.RemoteUnitConsumer{
@@ -588,13 +664,16 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 		})
 	}
 
-	if err := s.modelState.ImportRemoteApplicationSecretGrants(ctx,
-		slices.Collect(maps.Values(grantByApplications))); err != nil {
-		return internalerrors.Capture(err)
+	if len(grants) > 0 {
+		if err := s.modelState.ImportRemoteApplicationSecretGrants(ctx, grants); err != nil {
+			return internalerrors.Capture(err)
+		}
 	}
 
-	if err := s.modelState.ImportRemoteSecretConsumers(ctx, grantedConsumers); err != nil {
-		return internalerrors.Capture(err)
+	if len(grantedConsumers) > 0 {
+		if err := s.modelState.ImportRemoteSecretConsumers(ctx, grantedConsumers); err != nil {
+			return internalerrors.Capture(err)
+		}
 	}
 
 	return nil

@@ -192,9 +192,13 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 		return errors.Errorf("checking if application %q exists: %w", applicationName, err)
 	}
 
-	// Insert the application, along with the associated charm.
+	// Insert the application, along with the associated charm. The synthetic
+	// application, the offer connection and the remote application consumer
+	// record below all share the synthetic application UUID, while the
+	// consumer application UUID only identifies the consuming application in
+	// the consuming model.
 	if err := st.insertApplication(ctx, tx, applicationName, insertApplicationArgs{
-		ApplicationUUID: consumer.ConsumerApplicationUUID,
+		ApplicationUUID: consumer.SyntheticApplicationUUID,
 		CharmUUID:       consumer.SyntheticCharmUUID,
 		Charm:           consumer.SyntheticCharm,
 	}); err != nil {
@@ -217,7 +221,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 	// application_endpoints.
 	relEndpointArgs := addRelationEndpointArgs{
 		RelationUUID:       consumer.RelationUUID,
-		ApplicationOneUUID: consumer.ConsumerApplicationUUID,
+		ApplicationOneUUID: consumer.SyntheticApplicationUUID,
 		EndpointOneName:    consumer.ConsumerApplicationEndpoint,
 		ApplicationTwoUUID: consumer.OffererApplicationUUID,
 		EndpointTwoName:    consumer.OffererApplicationEndpoint,
@@ -228,7 +232,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Create an offer connection for this consumer.
 	offerConnectionUUID, err := st.insertOfferConnection(ctx, tx,
-		consumer.ConsumerApplicationUUID,
+		consumer.SyntheticApplicationUUID,
 		consumer.OfferUUID,
 		consumer.RelationUUID,
 		consumer.UserName,
@@ -250,7 +254,7 @@ func (st *State) importRemoteApplicationConsumer(ctx context.Context, tx *sqlair
 
 	// Create synthetic units for this remote application.
 	for _, unitName := range consumer.Units {
-		if err := st.insertUnit(ctx, tx, unitName, consumer.ConsumerApplicationUUID, consumer.SyntheticCharmUUID); err != nil {
+		if err := st.insertUnit(ctx, tx, unitName, consumer.SyntheticApplicationUUID, consumer.SyntheticCharmUUID); err != nil {
 			return errors.Errorf("inserting synthetic unit %q: %w",
 				unitName, err)
 		}

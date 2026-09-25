@@ -757,6 +757,57 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestFindOfferConnections checks that every offer connection referencing
+// the application in its relation key is returned, in order, for the given
+// source model, and that non-matching or duplicated references are
+// filtered out.
+func (s *importSuite) TestFindOfferConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	const proxyName = "remote-13ea27915e7840d888c5e9451444b45d"
+	const modelUUID = "4ddd6454-931d-4278-8779-b0b7208994d9"
+	newConn := func(offerUUID, key, sourceModelUUID string) offerConnection {
+		relationKey, err := relation.NewKeyFromString(key)
+		c.Assert(err, tc.ErrorIsNil)
+		return offerConnection{
+			OfferUUID:       offerUUID,
+			RelationID:      41,
+			RelationKey:     relationKey,
+			RelationKeyStr:  key,
+			SourceModelUUID: sourceModelUUID,
+			UserName:        "admin",
+		}
+	}
+
+	// No offer connections at all.
+	_, err := findOfferConnections(nil, proxyName, modelUUID)
+	c.Assert(err, tc.ErrorMatches,
+		`no offer connections for application "remote-13ea27915e7840d888c5e9451444b45d"`)
+
+	// Connections of another source model are filtered out.
+	_, err = findOfferConnections(
+		[]offerConnection{newConn("offer-0", proxyName+":db mysql:db", "other-model-uuid")},
+		proxyName, modelUUID)
+	c.Assert(err, tc.ErrorMatches,
+		`no offer connection contains application "remote-13ea27915e7840d888c5e9451444b45d"`)
+
+	// Every matching connection is returned in order, connections of other
+	// applications are filtered out, and a connection referencing the
+	// application twice in its relation key is only returned once.
+	conns := []offerConnection{
+		newConn("offer-1", proxyName+":db mysql:db", modelUUID),
+		newConn("offer-2", "other-app:db mysql:db", modelUUID),
+		newConn("offer-3", proxyName+":db postgres:db", modelUUID),
+		newConn("offer-4", proxyName+":db "+proxyName+":db", modelUUID),
+	}
+	got, err := findOfferConnections(conns, proxyName, modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 3)
+	c.Check(got[0].OfferUUID, tc.Equals, "offer-1")
+	c.Check(got[1].OfferUUID, tc.Equals, "offer-3")
+	c.Check(got[2].OfferUUID, tc.Equals, "offer-4")
+}
+
 // The offer connection records the relation it was created for, along with
 // the relation itself. The two must agree, otherwise the description is
 // inconsistent and the import fails instead of importing the relation with
