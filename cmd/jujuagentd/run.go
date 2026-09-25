@@ -39,7 +39,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	_ "github.com/juju/juju/internal/provider/all"         // Import the providers.
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/logsender"
