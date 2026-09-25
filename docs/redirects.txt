@@ -406,8 +406,8 @@ contributor/reference/high-availability reference/high-availability
 # them fight over the written file. Redirects to pkg.go.dev (the
 # doc.go demotions of the contributor package pages) live in conf.py's
 # `redirects` dict instead.
-contributor/reference/worker-interface contributor/reference/worker
-contributor/reference/worker-package contributor/reference/worker
+contributor/reference/worker-interface reference/worker
+contributor/reference/worker-package reference/worker
 contributor/reference/tomb-package contributor/reference/worker
 contributor/reference/catacomb-package contributor/reference/worker
 contributor/reference/binary-containeragent reference/containeragent
@@ -421,3 +421,4 @@ contributor/howto/create-a-unit-test-suite contributor/howto/write-tests
 contributor/reference/testing/integration-testing contributor/howto/write-an-integration-test
 contributor/reference/testing/integration-testing/integration-test-suite contributor/howto/write-an-integration-test
 contributor/reference/testing/integration-testing/test-include contributor/howto/write-an-integration-test
+contributor/reference/worker reference/worker

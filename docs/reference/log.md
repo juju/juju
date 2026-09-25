@@ -32,7 +32,7 @@ Agent log files (e.g., `/var/log/juju/unit-controller-0.log` ) contain the logs 
 
 ### Model log files
 
-Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the [workers](https://juju.is/docs/dev/worker) on a {ref}`model <model>`.
+Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the {ref}`workers <worker>` on a {ref}`model <model>`.
 
 ### The audit log file
 

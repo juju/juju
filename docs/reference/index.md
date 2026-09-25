@@ -93,6 +93,7 @@ On each machine, agents (`jujud` on machines, `containeragent` on Kubernetes) ex
 
 - {ref}`agent`
 - {ref}`jujud`
+- {ref}`worker`
 - {ref}`hook`
 - {ref}`hook-command`
 - {ref}`jujuc`
