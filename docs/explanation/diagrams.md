@@ -217,7 +217,7 @@ crops).
 
 #### Charm origins
 
-**Insert at:** § The charm record.
+**Insert at:** § The charm's records → § The charm's identity.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -229,7 +229,7 @@ crops).
 
 #### Charm attributes (ERD slice)
 
-**Insert at:** § The charm in the data model.
+**Insert at:** § The charm's records → § The charm in the data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -444,7 +444,7 @@ precedent).
 
 #### Machine designations (two provisioning paths)
 
-**Insert at:** § The machine record → § Machine designations.
+**Insert at:** § The machine's records → § The machine's identity → § Machine designations.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -456,7 +456,7 @@ precedent).
 
 #### Machine attributes (ERD slice)
 
-**Insert at:** § The machine in the data model.
+**Insert at:** § The machine's records → § The machine in the data model.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -467,7 +467,7 @@ precedent).
 
 #### Machine agent status (state machine)
 
-**Insert at:** § Machine states → § Machine status.
+**Insert at:** § The machine's records → § Machine states → § Machine status.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -479,7 +479,7 @@ precedent).
 
 #### Machine provisioning (state machine)
 
-**Insert at:** § Machine states → § Instance status.
+**Insert at:** § The machine's records → § Machine states → § Instance status.
 
 ```{ggarch}
 :file: ../juju.ggarch
