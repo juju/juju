@@ -16,7 +16,7 @@ Tutorial <tutorial/index>
 howto/index
 reference/index
 explanation/index
-For contributors <contributor/index>
+For contributors <contributor/reference/index>
 releasenotes/index
 ```
 

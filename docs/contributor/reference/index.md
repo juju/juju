@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Access technical reference documentation for Juju developers including architecture, workers, agents, and testing frameworks."
+    description: "Reference documentation for Juju developers: the entity lifecycle state machine and the worker writing guidelines."
 ---
 
 (contributor-reference)=

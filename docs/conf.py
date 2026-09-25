@@ -258,6 +258,15 @@ redirects = {
 'contributor/reference/testing/integration-testing': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
 'contributor/reference/testing/integration-testing/integration-test-suite': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
 'contributor/reference/testing/integration-testing/test-include': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing/test-includes': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+# The remaining unit-testing chains from the retired tree.
+'contributor/unsorted/debugging-races': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/create-unit-test-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing/util-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing/checker': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing/unit-test-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
 }
 
 ###########################
