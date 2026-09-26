@@ -363,7 +363,10 @@ query is the baseline snapshot -- and again on each qualifying change
 ```{audience} charm-dev
 ```
 
-The rules a **charm URL** must satisfy:
+A client gives Juju a **charm URL** whenever it addresses a charm --
+`juju deploy`, `juju refresh`, a local upload. Juju validates the URL
+when it resolves or stores the charm and rejects the ones that break
+these rules (the matching errors are listed below):
 
 - the schema is `ch` (Charmhub) or `local`; a URL without schema reads
   as `ch`;
