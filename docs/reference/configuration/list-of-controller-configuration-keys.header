@@ -3,9 +3,6 @@
 
 ```{toctree}
 :hidden:
-
-controller-config-audit-log-exclude-methods
-controller-config-juju-mgmt-space
 ```
 
 This document gives a list of all the configuration keys that can be applied to a Juju controller.

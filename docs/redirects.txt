@@ -110,8 +110,8 @@ user/reference/cloud/list-of-supported-clouds/the-microsoft-azure-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-openstack-cloud-and-juju reference/cloud/list-of-supported-clouds/openstack
 user/reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference/cloud/list-of-supported-clouds/oracle-oci
 user/reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juj reference/cloud/list-of-supported-clouds/vmware-vsphere
-user/reference/configuration/controller-config-audit-log-exclude-methods reference/configuration/controller-config-audit-log-exclude-methods
-user/reference/configuration/controller-config-juju-mgmt-space reference/configuration/controller-config-juju-mgmt-space
+user/reference/configuration/controller-config-audit-log-exclude-methods reference/configuration/list-of-controller-configuration-keys/#controller-config-audit-log-exclude-methods
+user/reference/configuration/controller-config-juju-mgmt-space reference/configuration/list-of-controller-configuration-keys/#controller-config-juju-mgmt-space
 user/reference/configuration reference/configuration
 user/reference/configuration/list-of-controller-configuration-key reference/configuration/list-of-controller-configuration-keys
 user/reference/configuration/list-of-model-configuration-key reference/configuration/list-of-model-configuration-keys

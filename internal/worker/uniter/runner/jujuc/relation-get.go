@@ -52,8 +52,8 @@ A unit can see its own settings by calling ` + "`relation-get - MYUNIT`" + `, th
 any changes that have been made with ` + "`relation-set`" + `.
 
 When reading remote relation data, a charm can call ` + "`relation-get --app -`" + ` to get
-the data for the application data bag that is set by the remote applications
-leader.
+the data for the application settings that the remote application's
+leader has set.
 
 Further details:
 ` + "`relation-get`" + ` reads the settings of the local unit, or of any remote unit, in a given

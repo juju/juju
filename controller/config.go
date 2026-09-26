@@ -183,14 +183,18 @@ const (
 
 	// MaxCharmStateSize is the maximum allowed size of charm-specific
 	// per-unit state data that charms can store to the controller in
-	// bytes. A value of 0 disables the quota checks although in
-	// principle, mongo imposes a hard (but configurable) limit of 16M.
+	// bytes. A value of 0 disables the quota checks.
+	// NOTE: in Juju 4, unit state is stored in the controller's Dqlite
+	// database and these size limits are not enforced (the API facade
+	// carries a TODO to factor them back into the service method).
 	MaxCharmStateSize = "max-charm-state-size"
 
 	// MaxAgentStateSize is the maximum allowed size of internal state
 	// data that agents can store to the controller in bytes. A value of 0
-	// disables the quota checks although in principle, mongo imposes a
-	// hard (but configurable) limit of 16M.
+	// disables the quota checks.
+	// NOTE: in Juju 4, unit state is stored in the controller's Dqlite
+	// database and these size limits are not enforced (the API facade
+	// carries a TODO to factor them back into the service method).
 	MaxAgentStateSize = "max-agent-state-size"
 
 	// MigrationMinionWaitMax is the maximum time that the migration-master
@@ -199,7 +203,10 @@ const (
 	MigrationMinionWaitMax = "migration-agent-wait-time"
 
 	// JujuManagementSpace is the network space that agents should use to
-	// communicate with controllers.
+	// communicate with controllers. Controller API addresses are filtered
+	// to those in the space; if the space is unknown, or the filter would
+	// remove every address, the unfiltered addresses are used so that
+	// agents never lose contact with the controller.
 	JujuManagementSpace = "juju-mgmt-space"
 
 	// CAASOperatorImagePath sets the URL of the docker image
@@ -209,7 +216,7 @@ const (
 	CAASOperatorImagePath = "caas-operator-image-path"
 
 	// CAASImageRepo sets the docker repo to use
-	// for the jujud operator and mongo images.
+	// for the jujud operator image.
 	// Note: the repository itself is read-only after bootstrap; only
 	// authentication credentials (for a private registry) can be updated.
 	CAASImageRepo = "caas-image-repo"
@@ -1023,7 +1030,7 @@ func (c Config) CAASOperatorImagePath() string {
 }
 
 // CAASImageRepo sets the URL of the docker repo
-// used for the jujud operator and mongo images.
+// used for the jujud operator image.
 func (c Config) CAASImageRepo() string {
 	return c.asString(CAASImageRepo)
 }
