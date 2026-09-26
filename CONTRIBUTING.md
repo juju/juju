@@ -15,7 +15,7 @@ You will need a GitHub account ([sign up](https://github.com/signup)).
 ### Open an issue for docs
 
 To open an issue for a specific doc, find it in [the published
-docs](https://documentation.ubuntu.com/juju),
+docs](https://canonical.com/juju/docs/),
 then use the **Give feedback** button.
 
 To open an issue for docs in general, do the same for the homepage of the docs
@@ -313,9 +313,9 @@ Beyond this guide, contributor knowledge lives in a few other places:
   and
   [github.com/juju/worker/v5/dependency](https://pkg.go.dev/github.com/juju/worker/v5/dependency).
 - **The developer-tagged docs.** The pages written for Juju developers in the
-  [reference](https://documentation.ubuntu.com/juju/reference/) and
-  [how-to](https://documentation.ubuntu.com/juju/how-to/) sections of the
-  documentation -- the worker, the entity lifecycle, writing workers, the
+  [reference](https://canonical.com/juju/docs/juju-cli/reference/) and
+  [how-to](https://canonical.com/juju/docs/juju-cli/how-to/) sections of the
+  documentation -- the worker, writing workers, the
   Dqlite core-dump and cross-compilation guides -- carry the "Juju
   developers" tag.
 
