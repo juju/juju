@@ -10,15 +10,17 @@ myst:
 ```{audience} juju-dev
 ```
 
-A **watcher** is a controller API object that fires when something the
-holder cares about changes in the controller database. Watchers are
-how everything that acts on the model reacts to change -- agents,
-client facades, controller workers -- and nothing polls: the thing
-that acts on a record watches it (see the per-entity surfaces, for
-example {ref}`application watchers <the-application-watchers>` and
+A **watcher** is a {ref}`controller <controller>` API object that
+fires when something the holder cares about changes in the
+{ref}`controller <controller>` database, the shared state of a
+{ref}`model <model>`. Watchers are how everything that acts on the
+model reacts to change -- {ref}`agents <agent>`, client facades,
+controller workers -- and nothing polls: the thing that acts on a
+record watches it (see the per-entity surfaces, for example
+{ref}`application watchers <the-application-watchers>` and
 {ref}`machine watchers <machine-watchers>`).
 
-## Signals, not data
+## The watcher concept: a signal, not data
 
 The key property: **a watcher delivers a signal, not data.** The
 change stream records only that something changed -- not what it
@@ -42,7 +44,7 @@ notification.
 Database triggers feed the change stream; the change stream wakes the
 watcher; the consumer fetches the current state and reconciles.
 
-## The two kinds
+## The watcher kinds
 
 - **NotifyWatcher** fires an empty `struct{}`: pure signal. "Something
   changed. Go find out what."
@@ -50,7 +52,7 @@ watcher; the consumer fetches the current state and reconciles.
   that changed: still no data, just enough to know which records to
   re-read.
 
-## The baseline guarantee
+## The watcher guarantee
 
 Every watcher is required to fire once immediately on creation,
 delivering the current state of the watched records before any
@@ -60,7 +62,7 @@ from its reconcile loop -- it subscribes, receives its initial event,
 and reconciles from there. After the baseline the watcher fires again
 on each qualifying change.
 
-## Who holds watchers
+## The watcher consumers
 
 The consumers are the {ref}`agents <agent>` and the workers inside
 them: an agent is a {ref}`tree of workers <worker>`, each concern
