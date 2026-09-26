@@ -6,7 +6,7 @@ myst:
 
 (controller)=
 # Controller
-```{audience} juju-dev
+```{audience} user
 ```
 
 ```{ibnote}
@@ -129,8 +129,6 @@ it, and high availability adds controller nodes.
 
 (controller-bootstrap)=
 #### Controller bootstrap
-```{audience} user
-```
 
 A controller comes into being through the {ref}`bootstrap <bootstrap-a-controller>` process: `juju bootstrap` turns an empty cloud into a running control plane. The mechanism and the state it leaves:
 
@@ -149,8 +147,6 @@ the bootstrapped {ref}`cloud <cloud>` and
 {ref}`credential <credential>` records.
 
 #### Controller configuration
-```{audience} user
-```
 
 The controller configuration is the controller's key/value record,
 read and written through the controller config service -- and its
@@ -165,6 +161,8 @@ See more: {ref}`manage-controllers`
 
 (the-controller-watchers)=
 ### Controller watchers
+```{audience} juju-dev
+```
 
 The controller side exposes these watch surfaces:
 
