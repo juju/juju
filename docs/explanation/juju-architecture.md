@@ -536,7 +536,7 @@ flowchart TB
 *A machine cloud deployment. A controller machine runs `jujud` with the controller and model agent workers and the Dqlite database, and talks to a workload machine over the Juju API. On the workload machine, a single `jujud` process hosts the machine agent workers and, nested within them, a set of unit agent workers per unit, which drive the charm code over a Unix socket. The workload machine also draws storage, in the form of an attached volume, and networking, in the form of a space or subnet, from the cloud.*
 
 ```{ibnote}
-See more: {ref}`machines-and-system-containers`, {ref}`machine`
+See more: {ref}`machines-and-units`, {ref}`machine`
 ```
 
 :::

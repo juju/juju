@@ -290,6 +290,7 @@ It is available as an opt-in to both machine  and Kubernetes models.
 
 Available starting with Juju 3.1.
 
+(secret-backend-configuration-options)=
 ##### Configuration options
 
 ###### Generic

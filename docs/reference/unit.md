@@ -125,6 +125,7 @@ application status write, the peer relation settings, secret access
 (see {ref}`Unit operations <the-unit-operations>` and
 {ref}`the unit agent <unit-agent>`).
 
+(subordinate-unit)=
 #### Subordinate unit
 
 A **subordinate unit** is a unit of a

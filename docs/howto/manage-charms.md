@@ -345,7 +345,7 @@ jhack pebble --container=concourse-worker concourse-worker/0 plan
 ````
 
 ```{ibnote}
-See more: {ref}`deploying-on-a-kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
+See more: {ref}`kubernetes-cloud`, [Pebble](https://documentation.ubuntu.com/pebble/)
 ```
 
 

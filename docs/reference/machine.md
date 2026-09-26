@@ -389,7 +389,6 @@ The errors that encode them:
 - *Provisioning*: `machine not provisioned`, `invalid machine
   constraints`, `machine constraint violation`.
 
-(machines-and-units)=
 (related-entities-machine)=
 ## Entities related to the machine
 

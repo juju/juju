@@ -133,9 +133,8 @@ through -- and the units' agents attach what it provisions.
 ### Storage operations
 
 (the-storage-directives)=
-#### Storage directives
-
 (storage-directive)=
+#### Storage directives
 In Juju, a **storage directive** is a collection of storage specifications that can be used to dictate how storage is allocated when provisioning storage for an application.
 
 This directive has the form
@@ -195,9 +194,8 @@ is not alive, and the backing's delete job only once the provisioner
 has released the actual cloud resource and the backing reads dead and
 tombstoned. The `--force` mode skips the gates.
 
-#### Storage providers
-
 (storage-provider)=
+#### Storage providers
 In Juju, a **storage provider** refers to the technology used to make storage available to a charm.
 
 ##### List of storage providers

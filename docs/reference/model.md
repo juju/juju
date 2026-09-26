@@ -132,7 +132,6 @@ model's workers. Migration creates a model too -- an *importing*
 model, unactivated until the migration's agents report success (see
 {ref}`Model migration <the-model-migration>`).
 
-(model-configuration)=
 #### Model configuration
 
 A model configuration is a rule or a set of rules that define the behavior of a model -- including the `controller` model. The keys and values are stored as rows on the model record and validated against the model config schema.

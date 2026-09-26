@@ -73,7 +73,7 @@ integration between applications flows -- there are no direct application-to-app
 connections.
 
 ```{ibnote}
-See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-system-containers`
+See more: {ref}`controller`, {ref}`unit`, {ref}`machines-and-units`
 ```
 
 ```{ggarch}
