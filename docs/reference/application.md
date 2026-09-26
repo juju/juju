@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju application reference: the application record, application kinds, the application in the data model, application states, operations, watchers, and rules."
+    description: "Juju application reference: application declaration, persistence (the record, satellites, states, types), execution (deployment, configuration, scaling, refresh, exposure, removal, watchers), and rules."
 ---
 
 (application)=
@@ -9,30 +9,38 @@ myst:
 ```{audience} user
 ```
 
-```{ibnote}
-See also: {ref}`manage-applications`
-```
-
 In Juju, an **application** is a running abstraction of a {ref}`charm <charm>` in the Juju {ref}`model <model>`: the software the charm defines, deployed and managed as one record. This could correspond to a traditional software package but it could also be less or more.
 
-An application consists of one or more {ref}`units <unit>`, and it can have {ref}`resources <charm-resource>`, {ref}`configuration <application-configuration>`, {ref}`relations <relation>` through its {ref}`endpoints <application-endpoint>`, and {ref}`actions <action>`.
+An application consists of one or more {ref}`units <unit>`, and it can have {ref}`resources <charm-resource>`, {ref}`configuration <application-configuration>`, {ref}`relations <relation>` through its {ref}`endpoints <application-endpoint>`, and {ref}`actions <action>`. A {ref}`constraint <constraint>` customises the compute its units request; an {ref}`offer <offer>` publishes its endpoints to {ref}`other models <cross-model-relation>`.
 
-(the-applications-records)=
-## The application's records
+(the-applications-declaration)=
+## Applications in the declaration layer
 
+You add an application to a model by deploying it, and you configure,
+scale, refresh, expose, or remove it through the same clients;
+deploying requires {ref}`model write access <user-access-model-write>`.
+
+```{ibnote}
+See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terraform Provider for Juju | Manage applications <tfjuju:manage-applications>`
+```
+
+(the-applications-persistence)=
 (the-application-record)=
-### The application's identity
+(the-application-in-the-data-model)=
+## Applications in the persistence layer
 
 In the model database, an application is a record identified by its
-**name** -- unique per model, lowercase letters, digits and hyphens --
-carrying the application's life (see {ref}`Application states
-<the-application-states>`), the {ref}`charm <charm>` it was deployed
-from (stored as the charm's UUID, not its URL), the charm revision the
+**name** -- lowercase letters, digits and hyphens; it starts with a
+letter and every hyphen-separated segment contains a letter
+(`my-app-2`, never `-myapp` or `MYAPP`) -- unique per model (the
+creation service checks the name against the model's existing
+applications and rejects a duplicate with `application already
+exists`) -- carrying the application's life (see {ref}`Application
+states <the-application-states>`), the {ref}`charm <charm>` it was
+deployed from (stored as the charm's UUID -- the URL is
+reconstructed from the charm's own fields), the charm revision the
 application is pinned to, and the {ref}`space <space>` its endpoints
 bind to by default.
-
-(the-application-in-the-data-model)=
-### The application in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -41,31 +49,25 @@ bind to by default.
 :caption: Entity relationship diagram: The application's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The application references the charm it deploys by UUID; its origin (track/risk/branch, with the base) and the endpoints it inherits from the charm are separate records; the status record and the config keys hang off the application itself.
 ```
 
-The application's state is spread across a handful of stored tables.
-The `application` record carries the name, the life, the charm
-reference (the charm's UUID -- the URL is reconstructed from the
-charm's own fields), the charm revision the application is pinned to,
-and the default-binding space. The `application_status` record is the
-application's aggregated status (see
+The application's state is spread across a handful of satellite records. The
+`application_status` record is the application's aggregated status (see
 {ref}`Application states <the-application-states>`); the
-`application_config` rows are the application's
-{ref}`configuration <application-configuration>` keys and values, with
-a hash record that tells watchers when the config changed; a
-one-boolean `application_setting` record holds the application's trust
-flag; the `application_channel` record (with the base from
-`application_platform`) pins the {ref}`charm <charm>` origin the
-application tracks; the `application_endpoint` records are the
-endpoints the charm defines, instantiated for this application.
+`application_config` rows are the application's {ref}`configuration
+<application-configuration>` keys and values, with a hash record that tells
+watchers when the config changed; a one-boolean `application_setting` record
+holds the application's trust flag; the `application_channel` record (with
+the base from `application_platform`) pins the {ref}`charm <charm>` origin
+the application tracks; the `application_endpoint` records are the endpoints
+the charm defines, instantiated for this application.
 
-Not drawn above: the controller-application marker, the Kubernetes
-scale record, the expose tables (which grant
-{ref}`spaces <space>` and CIDRs to endpoints), and the
-remote-offerer pair -- all covered under
-{ref}`Types of application <types-of-application>` and
-{ref}`Application operations <the-application-operations>`.
+Not drawn above: the controller-application marker, the Kubernetes scale
+record, the expose tables (which grant {ref}`spaces <space>` and CIDRs to
+endpoints), and the remote-offerer pair -- the marker and the remote-offerer
+pair under {ref}`Types of application <types-of-application>`, the scale
+record and the expose tables in the execution layer's operations.
 
 (application-endpoint)=
-#### Application endpoint
+### Application endpoint
 
 In Juju, an application **endpoint** is a struct defined in an
 {ref}`application <application>`'s {ref}`charm <charm>`'s
@@ -101,16 +103,13 @@ under the removal machinery, and a status write is a membership check
 (the value must be known) plus an owner check -- what constrains an
 application is who writes, not a transition matrix.
 
-#### Life
-
-An application is created alive. The removal machinery marks it dying
-(guarded one-way, cascading to its units, relations and machines) when
-the application is removed, and declares it dead only once no units
-and no relations are left; a scheduled removal job then deletes the
-records (see {ref}`Application removal
-<the-application-removal>`).
-
-#### Status
+An application is created alive. The removal machinery marks it
+dying (guarded one-way, cascading to its units, relations and
+machines) when the application is removed, and declares it dead only
+once no units and no relations are left -- the removal machinery in
+the execution layer drives it, the record here stores it; a
+scheduled removal job then deletes the records (see
+{ref}`Application removal <the-application-removal>`).
 
 The application's status is its own record, written only by the
 application's **leader unit** (through its agent; the charm hook
@@ -149,27 +148,23 @@ carrying the far model's identity and the offer URL. Nothing is
 deployed behind it -- the units live in the offering model (see
 {ref}`offer <offer>`).
 
-(the-applications-machinery)=
-## The application's machinery
-
-An application has no machinery of its own -- its units' agents
-execute it; the model side is controller bookkeeping (deployment,
-configuration, scaling, refresh, exposure and removal are
-controller-API operations, and only the status write is the leader
-unit's).
-
+(the-applications-execution)=
 (the-application-operations)=
-### Application operations
+## Applications in the execution layer
 
-Operations on applications split by concern: deployment creates the
-application and its units; configuration, scaling, refresh and
-exposure mutate the running application; removal tears it down. All of
-them are controller-API operations -- none is leader-gated; the leader
-only owns the status write (see
+By the time the command returns, the application's records exist --
+and its units may still be provisioning: the machinery that realizes
+the application is not the application's own. It has no machinery of
+its own -- its units' agents execute it; the model side is controller
+bookkeeping. Operations on applications split by concern: deployment
+creates the application and its units; configuration, scaling,
+refresh and exposure mutate the running application; removal tears it
+down. All of them are controller-API operations -- none is
+leader-gated; the leader only owns the status write (see
 {ref}`Application states <the-application-states>`).
 
 (the-application-deployment)=
-#### Application deployment
+### Application deployment
 
 Deploying an application adds its software to a {ref}`model <model>` and arranges for it to run on infrastructure. The intent -- the application name, the {ref}`charm <charm>`, the {ref}`constraints <constraint>` -- goes to the {ref}`controller <controller>` as an RPC call. The controller writes the application and {ref}`unit <unit>` records to the {ref}`database <database>`, then asks the cloud for resources (a virtual machine or a pod). Once the resource is ready the controller starts the {ref}`unit agent <unit-agent>`, which runs the install sequence: `install`, `config-changed`, `start`.
 
@@ -203,12 +198,8 @@ The mechanism and the state it leaves, per cloud type:
 
 :::::
 
-```{ibnote}
-See more: {ref}`manage-applications`
-```
-
 (the-application-configuration)=
-#### Application configuration
+### Application configuration
 
 Setting configuration (for example, `juju config mysql tune=fast`)
 writes the application's config keys and values -- validated against
@@ -217,7 +208,7 @@ what the application's config watchers fire on. Clearing a key removes
 the row; the trust flag lives in its own one-boolean record.
 
 (the-application-scaling)=
-#### Application scaling (Kubernetes)
+### Application scaling (Kubernetes)
 
 On Kubernetes models the application carries a scale record -- the
 current scale, the target, and whether scaling is in progress. Setting
@@ -226,7 +217,7 @@ negative values and inconsistent scaling states; the provisioner
 reconciles the pod count to the target.
 
 (the-application-refresh)=
-#### Application refresh
+### Application refresh
 
 Refreshing (for example, `juju refresh mysql`) swaps the charm the
 application references: the controller validates the new charm's
@@ -236,7 +227,7 @@ force-base flag; a charm that does not match the application's is
 rejected.
 
 (the-application-exposure)=
-#### Application exposure
+### Application exposure
 
 Exposing an application (for example, `juju expose mysql`) opens its
 endpoints to the outside: the expose records grant access per endpoint
@@ -244,7 +235,7 @@ either to a {ref}`space <space>` or to a CIDR, an omitted endpoint
 meaning all of them. Un-exposing removes the grants.
 
 (the-application-removal)=
-#### Application removal
+### Application removal
 
 Removal (for example, `juju remove-application mysql`) is initiated
 through the remove-application operation. Removal follows the same
@@ -296,28 +287,12 @@ query is the baseline snapshot -- and again on each qualifying change
 ## Application rules and errors
 
 The application domain encodes its rules as a typed error taxonomy;
-each error names the rule it enforces. The rules matter to charm
-authors deploying and configuring applications and to Juju developers,
-who maintain them as the domain's validation law.
-
-The rules an **application name** must satisfy:
-
-- lowercase letters, digits and hyphens; it starts with a letter and
-  every hyphen-separated segment contains a letter
-  (`my-app-2`, never `-myapp` or `MYAPP`);
-- the name is unique per model.
-
-The rules an **application mutation** must satisfy:
-
-- configuration is validated against the charm's config schema
-  (`invalid application configuration`);
-- a refresh must match the application's charm unless forced, and its
-  base must be compatible (`incompatible base`);
-- the scale must not go negative and the scaling state must be
-  consistent (`scale change invalid`, `scaling state inconsistent`);
-- an application can only be declared dead once it has no units and no
-  relations; the record cannot be deleted while it is alive
-  (see {ref}`Application removal <the-application-removal>`).
+each error names the rule it enforces. The rules themselves are stated
+where they belong: the name grammar in the persistence layer, the
+mutation gates in the execution layer's operations and states. The
+errors matter to charm authors deploying and configuring applications
+and to Juju developers, who maintain them as the domain's validation
+law.
 
 The errors that encode them:
 
@@ -326,36 +301,7 @@ The errors that encode them:
   `application is dead`, `charm not found`, `charm not resolved`.
 - *Names and validation*: `application name not valid`,
   `invalid application configuration`,
-  `invalid application constraints`.
+  `invalid application constraints`, `incompatible base`.
 - *Composition*: `application has units`, `application has relations`,
   `application has different charm`, `units upgrading`.
 - *Scaling*: `scale change invalid`, `scaling state inconsistent`.
-
-(related-entities-application)=
-## Entities related to the application
-
-- The application runs one **charm**, referenced by UUID and tracked
-  by origin; a refresh swaps it (see {ref}`charm <charm>`).
-- **Units** are the application's running instances -- one or more,
-  cascaded with the application on removal (see {ref}`unit <unit>`).
-- **Endpoints** are the charm-defined ports the application offers;
-  {ref}`relations <relation>` attach to them.
-- **Configuration** is the application's key/value payload, set
-  against the charm's schema (see
-  {ref}`application configuration <application-configuration>`).
-- **Constraints** customise the compute the application's units
-  request (see {ref}`constraint <constraint>`).
-- **Resources** and **actions** are the charm's extra payloads: files
-  attached at deploy time and named operations exposed to the user
-  (see {ref}`charm resource <charm-resource>`,
-  {ref}`action <action>`).
-- **Offers** publish the application's endpoints to other models
-  (see {ref}`offer <offer>`).
-- **Status** owns the application's status record, its writer rule and
-  the display aggregation (see
-  {ref}`Application states <the-application-states>`).
-- **Removal** owns the teardown that takes a dying application to
-  dead, units and relations cascading with it (see
-  {ref}`Application removal <the-application-removal>`).
-- **Spaces** provide the default binding the application's endpoints
-  use (see {ref}`space <space>`).
