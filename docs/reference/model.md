@@ -22,7 +22,7 @@ A model is created on a {ref}`controller <controller>`.  Both the model and the 
 One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
 
 (the-models-records)=
-## The model's records
+## What Juju stores
 
 (the-model-record)=
 ### The model's identity
@@ -111,14 +111,14 @@ stored discriminator, the controller-model flag, is a role, not a
 type (see {ref}`The model's identity <the-model-record>`).
 
 (the-models-machinery)=
-## The model's machinery
+## What happens in the background
 
 A model has machinery of its own: in the controller, the model's
 workers run -- creation starts them, the Undertaker takes dying models
 to dead, and migration moves a model between controllers.
 
 (the-model-operations)=
-### Model operations
+### How the model changes
 
 Operations on models: creation, configuration, credential and
 constraint updates, migration between controllers, and removal.
