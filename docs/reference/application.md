@@ -295,8 +295,6 @@ and the consumer fetches the current state and reconciles.
 
 (the-application-rules-and-errors)=
 ## Application rules and errors
-```{audience} charm-dev
-```
 
 The application domain encodes its rules as a typed error taxonomy;
 each error names the rule it enforces. The rules matter to charm

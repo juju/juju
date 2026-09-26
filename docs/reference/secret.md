@@ -384,8 +384,6 @@ and the consumer fetches the current state and reconciles.
 
 (the-secret-rules-and-errors)=
 ## Secret rules and errors
-```{audience} charm-dev
-```
 
 The rules a **secret identifier** must satisfy:
 

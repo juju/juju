@@ -9,7 +9,7 @@ myst:
 ```{audience} user
 ```
 
-In Juju, a **constraint** is a key-value pair that represents a specification that can be passed to certain `juju` commands /command flags to customise the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju.
+In Juju, a **constraint** is a key-value pair that represents a specification for the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju. Constraints can be set wherever a Juju resource is requested -- client flags (`juju deploy --constraints ...`), bundle files, or the Terraform provider.
 
 If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
 
@@ -76,8 +76,6 @@ provisioning reads them at the moment it provisions.
 
 (the-constraint-rules-and-errors)=
 ## Constraint rules and errors
-```{audience} charm-dev
-```
 
 ```{caution}
 

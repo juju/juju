@@ -124,7 +124,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Agent taxonomy (who runs what)
 
-**Insert at:** § The agent's records → § Types of agents.
+**Insert at:** § The agent's records → § Types of agent.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -135,7 +135,7 @@ off script.md, whose task/operation prose now points here.)
 
 #### Worker tree (controller)
 
-**Insert at:** § The agent's records → § Types of agents → § Controller agent.
+**Insert at:** § The agent's records → § Types of agent → § Controller agent.
 
 `````{grid} 2
 ````{grid-item}

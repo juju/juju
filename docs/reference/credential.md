@@ -114,8 +114,6 @@ and the consumer fetches the current state and reconciles.
 
 (the-credential-rules-and-errors)=
 ## Credential rules and errors
-```{audience} charm-dev
-```
 
 - the natural key -- cloud, owner, name -- is unique: re-adding
   updates, it does not duplicate;

@@ -106,8 +106,6 @@ resolves into have their own.
 
 (the-placement-directive-rules-and-errors)=
 ## Placement directive rules and errors
-```{audience} charm-dev
-```
 
 ```{caution}
 

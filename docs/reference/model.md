@@ -219,9 +219,6 @@ and the consumer fetches the current state and reconciles.
 (the-model-rules-and-errors)=
 ## Model rules and errors
 
-```{audience} charm-dev
-```
-
 The rules a **model identity** must satisfy:
 
 - the model name is not empty, and the qualifier (its owner) must be

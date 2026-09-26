@@ -57,8 +57,8 @@ A cloud has no state machine: it is a definition record -- added,
 updated, or removed. Its reachability is discovered per operation, not
 tracked as state.
 
-(cloud-types)=
-### Types of clouds
+(types-of-cloud)=
+### Types of cloud
 
 Juju supports two types of cloud: machine clouds and Kubernetes clouds. The cloud **type** is the record's stored discriminator, and it is what Juju reads to decide which machinery a {ref}`model <model>` on the cloud runs: a Kubernetes cloud makes a CAAS model; every other type makes an IAAS one (see
 {ref}`IAAS and CAAS models <iaas-caas-models>`). The seeded type list
@@ -116,8 +116,6 @@ and the consumer fetches the current state and reconciles.
 
 (the-cloud-rules-and-errors)=
 ## Cloud rules and errors
-```{audience} charm-dev
-```
 
 - the cloud name is unique;
 - the cloud type must be one of Juju's known types;

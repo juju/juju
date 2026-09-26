@@ -352,8 +352,6 @@ and the consumer fetches the current state and reconciles.
 
 (machine-rules-and-errors)=
 ## Machine rules and errors
-```{audience} charm-dev
-```
 
 The machine domain encodes its rules as a typed error taxonomy; each
 error names the rule it enforces. The rules matter to Juju users

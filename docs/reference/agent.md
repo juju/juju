@@ -50,8 +50,8 @@ a silent agent reads as `lost` in the status projections, a display
 rule computed on read (see {ref}`unit status <unit-status>` and the
 {ref}`Status domains <status>` view).
 
-(types-of-agents)=
-### Types of agents
+(types-of-agent)=
+### Types of agent
 
 An agent's kind is the entity it serves, and the kinds are exclusive
 by construction -- one process serves one entity. The `jujud` binary

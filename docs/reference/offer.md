@@ -118,8 +118,6 @@ cross-model relation machinery (see
 
 (the-offer-rules-and-errors)=
 ## Offer rules and errors
-```{audience} charm-dev
-```
 
 The rules an **offer URL** must satisfy:
 

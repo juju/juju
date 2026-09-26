@@ -75,8 +75,6 @@ status and results; the user cancels with `juju cancel-task`.
 
 (the-script-rules-and-errors)=
 ## Script rules and errors
-```{audience} charm-dev
-```
 
 - the command and its timeout are stored as the operation's
   parameters;
