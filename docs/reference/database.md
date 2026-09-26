@@ -37,9 +37,9 @@ The **controller database** stores global controller-level information across al
 
 There is one controller database per controller. This is a separate global database, not associated with any specific model. It is accessed via the `controller` namespace in the {ref}`juju-db-repl`.
 
+(data-model-full-spine)=
 ### Model databases
 
-(data-model-full-spine)=
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Data model (full spine)
