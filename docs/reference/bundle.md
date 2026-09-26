@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju bundles reference: multi-charm solutions with automated deployment, configuration, and relations. Overlay and regular bundles, deploy mechanics, and rules."
+    description: "Juju bundles reference: multi-charm solutions declared as YAML -- bundle declaration (the file, regular and overlay), persistence (none, by design), execution (the deploy expansion, watchers), and rules."
 ---
 
 (bundle)=
@@ -9,62 +9,58 @@ myst:
 ```{audience} user
 ```
 
-```{ibnote}
-See also: {ref}`manage-charms`
-```
-
 In Juju, a **bundle** is a collection of {ref}`charms <charm>` which have been carefully combined and configured in order to automate a multi-charm solution.
 
 For example, a bundle may include the `wordpress` charm, the `mysql` charm, and the relation between them.
 
-The operations are transparent to Juju and so the deployment can continue to be managed by Juju as if everything was performed manually (what you see in `juju status` is applications, relations, etc.; that is, not the bundle entity, but its contents).
+The operations are transparent to Juju and so the deployment can continue to be managed by Juju as if everything was performed manually (what you see in `juju status` is {ref}`applications <application>`, {ref}`relations <relation>`, etc. -- not the bundle entity, but its contents; those records, in the {ref}`model <model>`, are what persists).
 
-(the-bundles-records)=
-## The bundle's records
+(the-bundles-declaration)=
+## Bundles in the declaration layer
 
-(the-bundle-record)=
-### The bundle's identity
+A bundle is nothing but declaration material: you declare one by
+writing a YAML file that states the applications, their
+configuration, their relations and their machines, and you deploy it
+with one of Juju's clients -- an overlay customises it at deploy
+time, applied the same way.
 
-A bundle is not a record: it is a YAML artifact, and Juju does not
-persist it. Deploying a bundle expands it into ordinary operations --
-charms added, applications deployed, machines requested, relations
-joined -- and from then on the model holds only the results. There is
-no bundle table to update, no bundle record to remove: destroying the
-deployment means destroying the applications it created.
-
-(the-bundle-in-the-data-model)=
-### The bundle in the data model
-
-Nothing in the model database belongs to a bundle: the expansion
-writes ordinary charm, application, machine, relation and offer
-records (see {ref}`the full spine <data-model-full-spine>`). The one
-place a bundle exists as a unit is the deploy machinery's change
-graph, which lives only for the duration of the deploy.
-
-(the-bundle-states)=
-### Bundle states
-
-Not applicable -- there is no bundle record, hence no bundle state:
-the states that matter (the applications', the machines') belong to
-the entities the bundle expands into.
+```{ibnote}
+See also: {ref}`Juju | Manage charms <manage-charms>`
+```
 
 (types-of-bundle)=
 ### Types of bundle
+
+The distinction below is not a stored type -- a bundle has no record
+(see {ref}`the persistence layer <the-bundles-persistence>`) -- it is
+about how the file is used at deploy time.
 
 Whether regular or overlay, a bundle is fundamentally just a YAML file that contains all the applications, configurations, relations, etc., that you want your deployment to have. The two kinds are exclusive by construction -- a file is either deployed as the base or passed as an overlay.
 
 - An **overlay bundle** is a local bundle you pass to `juju deploy <charm/bundle>` via `--overlay <overlay bundle name>.yaml` if you want to customise an upstream charm / bundle (usually the latter, also known as a **base bundle**) for your own needs without modifying the existing charm / bundle directly. For example, you may wish to add extra applications, set custom machine constraints or modify the number of units being deployed. They are especially useful for keeping configuration local, while being able to make use of public bundles. It is also necessary in cases where certain bundle properties (e.g. offers, exposed endpoints) are deployment specific and can _only_ be provided by the bundle's user.
 - A **regular bundle** is any bundle that is not an overlay.
 
-(the-bundles-machinery)=
-## The bundle's machinery
+(the-bundles-persistence)=
+## Bundles in the persistence layer
 
-A bundle has no machinery of its own: it is a client-side YAML
-artifact; deploying it is a client-side expansion, and from then on
-the model holds only the results (which have their own machinery).
+Nothing here, by design. A bundle is not a record: Juju does not
+persist the bundle YAML. Deploying a bundle expands it into ordinary
+operations -- charms added, applications deployed, machines
+requested, relations joined -- and from then on the model holds only
+the results, which are the only records that persist (see
+{ref}`the full spine <data-model-full-spine>`). There is no bundle
+table to update, no bundle record to remove: destroying the
+deployment means destroying the applications it created. And no
+record means no states: the states that matter (the applications',
+the machines') belong to the entities the bundle expands into.
 
-(the-bundle-operations)=
-### Bundle operations
+(the-bundles-execution)=
+## Bundles in the execution layer
+
+By the time the command returns, the bundle itself has vanished: what
+exists is the applications, machines and relations it expanded into.
+A bundle has no machinery of its own; the one execution it has is the
+deploy, and even that is a client-side expansion:
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -99,16 +95,4 @@ The rules the **bundle YAML** must satisfy:
   overlay application with no properties removes the base's
   application;
 - the bundle's series (for example, `bundle: kubernetes`) becomes the
-  applications' series;
-- the expansion is all-or-nothing: any change that fails aborts the
-  whole apply, leaving the model as it was.
-
-(related-entities-bundle)=
-## Entities related to the bundle
-
-- A bundle deploys **charms** (see {ref}`charm <charm>`).
-- A bundle expands into **applications, machines, relations and
-  offers** -- the only records that persist
-  (see {ref}`application <application>`, {ref}`machine <machine>`,
-  {ref}`relation <relation>`, {ref}`offer <offer>`).
-- **The model** is where the results live (see {ref}`model <model>`).
+  applications' series.
