@@ -172,7 +172,7 @@ rebuild-ggarch: clean-ggarch
 # (strip-crossings, residuals, diagonals, label clashes) ride the
 # report, not the exit code.
 GGARCH_FILES := $(wildcard *.ggarch)
-GGARCH_GATED  := juju.ggarch principles.ggarch
+GGARCH_GATED  := juju.ggarch
 
 # Regenerate the synthesized view variants inside juju.ggarch.
 variants:

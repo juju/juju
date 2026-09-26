@@ -91,7 +91,7 @@ every subsequent change. Restart and normal operation are the same code path.
 The agent does not need to know what it missed.
 
 ```{ggarch}
-:file: ../principles.ggarch
+:file: ../juju.ggarch
 :slides: Initial event | Notify then pull
 :slide-captions: Sequence diagram: On creation every watcher fires once immediately. A restarting agent subscribes, receives the baseline signal, and enters the same loop. | Sequence diagram: Normal cycle. The watcher fires a signal -- no data. The agent fetches current state and reconciles.
 :alt: Watcher notification and pull sequence between controller DB and agent.
@@ -109,7 +109,7 @@ commands the charm calls during execution are mediated by the unit agent, not
 sent directly to the controller.
 
 ```{ggarch}
-:file: ../principles.ggarch
+:file: ../juju.ggarch
 :slides: Execution chain IAAS | Execution chain K8s
 :slide-captions: Topology: Machine cloud. The charm process is ephemeral -- it runs for one hook then exits. The jujuc server is its lifetime peer, mediating all hook command calls. | Topology: Kubernetes. The containeragent combines machine and unit agent roles in one process inside the unit pod.
 :alt: Execution chain from controller provisioner through to charm process and jujuc server.
@@ -123,7 +123,7 @@ goes through the controller. The controller is the single auditable source of
 truth for what two applications have agreed.
 
 ```{ggarch}
-:file: ../principles.ggarch
+:file: ../juju.ggarch
 :view: Star topology
 :caption: Topology: Every relation goes through the controller. The data bags live there; unit agents read and write through the controller API and receive watcher notifications from it.
 :alt: Controller in the centre top. Three unit agents below it. Each writes data up to the controller and receives event notifications down from it. No direct edges between agents.
