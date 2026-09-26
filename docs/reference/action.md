@@ -13,8 +13,14 @@ myst:
 See also: {ref}`manage-actions`
 ```
 
-Actions are defined by a  {ref}`charm <charm>` to allow a {ref}`user <user>` with the right {ref}`access level <user-access-levels>` to interact with an {ref}`application <application>` in ways specific to the application.
-This may include anything from creating a snapshot of a database, adding a user to a system, dumping debug information, etc.
+An **action** is an operation that a {ref}`charm <charm>` defines and
+a {ref}`user <user>` with the right {ref}`access level
+<user-access-levels>` invokes on demand against the charm's
+{ref}`application <application>` or one of its {ref}`units <unit>` --
+for example, snapshot a database, add a user to a system, or dump
+debug information. The charm declares each action's name, description
+and parameter schema; invoking an action creates an operation and one
+task per target (see {ref}`the action's records <the-actions-records>`).
 
 ```{ibnote}
 See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
