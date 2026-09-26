@@ -1,16 +1,12 @@
 ---
 myst:
   html_meta:
-    description: "Complete Juju charm reference: the charm record, charm kinds, the charm in the data model, charm states, operations, watchers, and rules. Charmhub integration."
+    description: "Complete Juju charm reference: charm declaration (channels, revisions), persistence (the record, states, the interpretive taxonomy), execution (bookkeeping, watchers), and rules."
 ---
 
 (charm)=
 # Charm
 ```{audience} user
-```
-
-```{ibnote}
-See also: {ref}`manage-charms`
 ```
 
 ```{toctree}
@@ -20,35 +16,35 @@ charm/charm-maturity
 
 In Juju, a **charm** is an operator -- software that wraps an {ref}`application <application>` and that contains all of the instructions necessary for deploying, configuring, scaling, integrating, etc., the application on any {ref}`Juju-supported cloud <list-of-supported-clouds>`.
 
-Charms are often published on [Charmhub](https://charmhub.io/).
+Charms are often published on [Charmhub](https://charmhub.io/). Applications run the charm: each application references one charm revision, and its {ref}`units <unit>` pin their own.
 
-(the-charms-records)=
-## The charm's records
+(the-charms-declaration)=
+## Charms in the declaration layer
 
-(the-charm-record)=
-### The charm's identity
+You declare a charm by adding it to a model -- resolving it from
+Charmhub by reference, or uploading a local archive -- and you move to
+another revision (a refresh) the same way.
 
-In the model database, a charm is one record per revision: each
-revision the model knows is a separate charm row, identified by its
-source (a local upload, the Charmhub store, or a cross-model
-import), its reference name, and its revision number. The row
-carries the charm's archive (a pointer into the controller's object
-store), its metadata (the name, description and subordinate-ness
-from `metadata.yaml`), and an **available** flag that says whether
-the archive has actually arrived (see {ref}`Charm states
-<the-charm-states>`).
-
-(the-charm-origins)=
-```{ggarch}
-:file: ../juju.ggarch
-:view: Charm origins
-:no-legend:
-:caption: Entity relationship diagram: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
-:alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
+```{ibnote}
+See also: {ref}`Juju | Manage charms <manage-charms>`, {ref}`Terraform Provider for Juju | Manage charms <tfjuju:manage-charms>`
 ```
 
+(charm-channel)=
+### Charm channels
+
+A **charm channel** identifies a charm release stream, written
+`<track>/<risk>/<branch>` (for example, `3/stable`). Channels are a
+[Charmhub](https://charmhub.io/) concept: tracks, risk levels
+(`stable` is the default), branches and their guardrails are defined
+and managed on the store side, and their detail lives in the
+Charmhub/charmcraft documentation. Juju touches a channel in exactly
+two places: `juju deploy` and `juju refresh` take a channel as input,
+and the channel an application tracks is recorded per application,
+not per charm (see {ref}`the application's origin
+<the-application-in-the-data-model>`).
+
 (charm-revision)=
-#### Charm revision
+### Charm revision
 
 A **charm revision** is a number that uniquely identifies the version of the charm that a charm author has uploaded to Charmhub.
 
@@ -58,14 +54,35 @@ The revision increases with every new version of the charm being uploaded to Cha
 
 A revision only becomes available for consumption once it's been released into a {ref}`channel <charm-channel>`. At that point, charm users will be able to see the revision at `charmhub.io/<charm/channel>` or access it via `juju info <charm>` or `juju deploy <charm> --channel`. And to inspect a specific revision of a charm, use the `--revision` flag. The syntax is `juju info <charm> --revision <revision>`.
 
-(the-charm-in-the-data-model)=
-### The charm in the data model
+(the-charms-persistence)=
+(the-charm-record)=
+(the-charm-origins)=
+## Charms in the persistence layer
+
+In the model database, a charm is one record per revision: each
+revision the model knows is a separate charm row, identified by its
+natural key -- its source (a local upload, the Charmhub store, or a
+cross-model import), its reference name, and its revision number. The
+row carries the charm's archive (a pointer into the controller's
+object store), its metadata (the name, description and
+subordinate-ness from `metadata.yaml`), and an **available** flag
+(see {ref}`Charm states <the-charm-states>`).
+
+The charm service in the controller performs the writes: resolving a
+revision from its channel and platform reserves the charm row as a
+*placeholder* -- the metadata, the config schema, the actions and the
+manifest, plus its download info -- and starts the store download. A
+local upload skips the store: the archive is stored and verified
+against its hash prefix. The store side -- publishing a charm, its
+listings, its promoted releases -- is Charmhub's domain, not the
+model's: the model only tracks what it has resolved.
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Charm attributes
-:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The charm's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
+:view: Charm origins
+:no-legend:
+:caption: Entity relationship diagram: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
 The charm row carries the identity (source, reference name, revision),
@@ -82,6 +99,13 @@ not drawn above -- the charm's storage definitions, devices,
 containers, terms, tags and store categories, plus the manifest of
 bases the charm supports.
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Charm attributes
+:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The charm's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
+```
+
 (the-charm-states)=
 ### Charm states
 
@@ -89,17 +113,17 @@ A charm has one state of its own: the **available** flag -- whether
 the archive has arrived. A charm row is created as a *placeholder*
 (reserved, not yet available) when the model resolves a revision it
 does not have yet; it becomes available when the archive lands in the
-object store. There is no life column on the charm: a charm is not an
-active thing -- charms are deleted as bookkeeping when the last
-application using them is removed (see
-{ref}`Charm operations <the-charm-operations>`).
+object store -- the downloader in the execution layer delivers it;
+the record here stores it. There is no life column on the charm: a
+charm is not an active thing.
 
 (types-of-charm)=
 ### Types of charm
 
-A charm's kinds are not mutually exclusive -- a Kubernetes charm can
+A charm's kinds are an interpretive taxonomy, not a stored
+discriminator -- they are not mutually exclusive (a Kubernetes charm can
 also be an Ops charm, a workloadless charm, and an integrator, all at
-once -- so they are not a partition; each group below names one
+once) -- so they are not a partition; each group below names one
 discriminating fact about the charm.
 
 (charm-taxonomy-by-substrate)=
@@ -278,56 +302,20 @@ Examples:
 - [Mediawiki](https://charmhub.io/mediawiki)
 - [Nrpe](https://charmhub.io/nrpe)
 
-(the-charms-machinery)=
-## The charm's machinery
+(the-charms-execution)=
+## Charms in the execution layer
 
-A charm has no machinery of its own -- its units' agents execute it;
-what the model runs on a charm's behalf is controller bookkeeping
-(resolving, downloading, and reserving revisions), not a charm
-process.
-
-(the-charm-operations)=
-### Charm operations
-
-Operations on charms are about getting the right revision into the
-model: resolving a revision from its channel, uploading a local
-archive, downloading the store archive, and keeping track of new
-revisions. The store side -- publishing a charm, its listings, its
-promoted releases -- is Charmhub's domain, not the model's: the model
-only tracks what it has resolved.
-
-(charm-channel)=
-#### Charm channels
-
-A **charm channel** identifies a charm release stream, written
-`<track>/<risk>/<branch>` (for example, `3/stable`). Channels are a
-[Charmhub](https://charmhub.io/) concept: tracks, risk levels
-(`stable` is the default), branches and their guardrails are defined
-and managed on the store side, and their detail lives in the
-Charmhub/charmcraft documentation. Juju touches a channel in exactly
-two places: `juju deploy` and `juju refresh` take a channel as input,
-and the channel an application tracks is recorded per application,
-not per charm (see {ref}`the application's origin
-<the-application-in-the-data-model>`).
-
-#### Charm resolution
-
-Deploying or refreshing resolves the charm before anything is written:
-the controller asks the Charmhub store for the revision that matches
-the requested channel and platform, reserves the charm row (a
-placeholder with its metadata, config schema, actions and manifest,
-and its download info) and starts the download; when the archive
-arrives, the charm becomes available and the
-{ref}`deployment <the-application-deployment>` proceeds. A local
-upload skips the store: the archive is stored, verified against its
-hash prefix, and the charm is available immediately.
-
-#### Charm revision updates
-
-The controller runs a revision updater that watches the store for the
-charms the model's applications track and reserves new revisions as
-they appear -- as placeholders, so a later {ref}`refresh
-<the-application-refresh>` finds the revision already resolved.
+By the time the command returns, the record exists -- and the archive
+may still be in flight: nothing has been executed, because a charm
+has no machinery of its own. Its units' agents execute it. What the
+model runs on a charm's behalf is controller bookkeeping: the
+downloader that delivers archives into the object store, and the
+revision updater that watches the store for the charms the model's
+applications track and reserves new revisions as placeholders, so a
+later {ref}`refresh <the-application-refresh>` finds the revision
+already resolved. Charms are deleted as bookkeeping when the last
+application using them is removed (see
+{ref}`application removal <the-application-removal>`).
 
 (the-charm-watchers)=
 ### Charm watchers
@@ -386,22 +374,3 @@ The errors that encode them:
   mismatch`, `charm already exists with different size`.
 - *From the store*: `channel not found`, `resource not found`,
   `rate limit exceeded`, `revision conflict`.
-
-(related-entities-charm)=
-## Entities related to the charm
-
-- **Applications** run the charm: each application references one
-  charm revision by UUID, and its units pin their own
-  (see {ref}`application <application>`, {ref}`unit <unit>`).
-- **Charmhub** is the store charms come from: the controller resolves
-  revisions and downloads archives from it; the model keeps the
-  per-model copy (see [Charmhub](https://charmhub.io/)).
-- **Endpoints, configuration, actions, storage and containers** are
-  the payloads the charm defines and the application instantiates
-  (see {ref}`application endpoint <application-endpoint>`,
-  {ref}`application configuration <application-configuration>`,
-  {ref}`action <action>`, {ref}`charm resource <charm-resource>`,
-  {ref}`storage <storage>`).
-- **Removal** deletes the model's charm records when the last
-  application using them goes (see
-  {ref}`application removal <the-application-removal>`).
