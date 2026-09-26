@@ -22,7 +22,7 @@ cloud/list-of-supported-clouds/index
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
 (the-clouds-records)=
-## The cloud's records
+## What Juju stores
 
 (the-cloud-record)=
 ### The cloud's identity
@@ -84,14 +84,14 @@ See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernete
 ```
 
 (the-clouds-machinery)=
-## The cloud's machinery
+## What happens in the background
 
 A cloud has no machinery of its own: it is a stored definition the
 controller reads when it talks to the provider; the one watch surface
 (cloud changes) reports the stored set.
 
 (the-cloud-operations)=
-### Cloud operations
+### How the cloud changes
 
 Adding a cloud requires controller superuser access; updating rewrites
 the definition; removing a cloud refuses while
