@@ -21,7 +21,7 @@ type formattedStatus struct {
 	Applications       map[string]applicationStatus       `json:"applications"`
 	RemoteApplications map[string]remoteApplicationStatus `json:"application-endpoints,omitempty" yaml:"application-endpoints,omitempty"`
 	Offers             map[string]offerStatus             `json:"offers,omitempty" yaml:"offers,omitempty"`
-	Relations          []relationStatus                   `json:"-" yaml:"-"`
+	Relations          []relationStatus                   `json:"relations,omitempty" yaml:"relations,omitempty"`
 	Storage            *storage.CombinedStorage           `json:"storage,omitempty" yaml:"storage,omitempty"`
 	Controller         *controllerStatus                  `json:"controller,omitempty" yaml:"controller,omitempty"`
 }
@@ -325,10 +325,10 @@ func (s unitStatus) MarshalYAML() (any, error) {
 }
 
 type relationStatus struct {
-	Provider  string
-	Requirer  string
-	Interface string
-	Type      string
-	Status    string
-	Message   string
+	Provider  string `json:"provider" yaml:"provider"`
+	Requirer  string `json:"requirer" yaml:"requirer"`
+	Interface string `json:"interface" yaml:"interface"`
+	Type      string `json:"type" yaml:"type"`
+	Status    string `json:"status,omitempty" yaml:"status,omitempty"`
+	Message   string `json:"message,omitempty" yaml:"message,omitempty"`
 }

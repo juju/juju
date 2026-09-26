@@ -107,6 +107,20 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
 	}
+	slices.SortFunc(out.Relations, func(a, b relationStatus) int {
+		if a.Provider != b.Provider {
+			if a.Provider < b.Provider {
+				return -1
+			}
+			return 1
+		}
+		if a.Requirer < b.Requirer {
+			return -1
+		} else if a.Requirer > b.Requirer {
+			return 1
+		}
+		return 0
+	})
 	if sf.storage != nil {
 		out.Storage = sf.storage
 	}
