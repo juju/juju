@@ -64,10 +64,7 @@ may also create units and machines.
 
   * New applications can always be added.
   * If the created application's charm defines any peer relations, a (runtime) peer
-    relation will be created for each. BUG: this is not done in the same
-    transaction as application creation; a connection failure at the wrong time
-    will create a broken and unfixable application (because peer relations cannot
-    be manipulated via the CLI).
+    relation will be created for each.
   * If the created application's charm is not subordinate, some number of units will
     be created; this number is controlled via the "--num-units" parameter which
     defaults to 1.
@@ -119,25 +116,24 @@ removal differ by entity, but there are common features:
         better, by using actual remote scope membership state to track relation
         membership (rather than using the existence of a local directory, whose
         true intent is to track the membership of *other* units, as a proxy).
-        This is actually a pretty serious BUG and should be addressed soon;
-        neither proposed solution is very challenging.
       * Undetected hardware failure is annoying, and can block progress at any
-        time, but can be observed via additional monitoring and resolved via out-
-        of-band termination of borked resources, which should be sufficient to
-        get the system moving again (assuming the above bug is fixed).
+        time, but can be observed via additional monitoring and resolved via
+        out-of-band termination of borked resources, which should be sufficient to
+        get the system moving again.
       * Unknown problems in juju, in which agents fail to fulfil the duties laid
         out in this document, could block progress at any time. Assuming a
         version of the agent code which does not exhibit the problem exists, it
         should always be possible to work around this situation by upgrading the
         agent; and, if that fails, by terminating the underlying provider
         resources out-of-band, as above, and waiting for the new agent version
-        to be deployed on a fresh system (with the same caveat as above).
+        to be deployed on a fresh system (caveat: this presumes the relation
+        issue in the first bullet above is fixed).
       * In light of the preceding two points, we don't *have* to implement
         "--force" options for `juju remove-machine` and `juju remove-unit`.
         This is good, because it will be tricky to implement them well.
 
-In general, the user can just forget about entities once she's destroyed them;
-the only caveat is that she may not create new applications with the same name, or
+In general, the user can just forget about entities once they've destroyed them;
+the only caveat is that they may not create new applications with the same name, or
 new relations identical to the destroyed ones, until those entities have
 finally been removed.
 
@@ -167,7 +163,8 @@ When a machine becomes Dead, the following operations occur:
   * A Provisioner (a task running in some other machine agent) observes the
     death, decommissions the machine's resources, and removes the machine.
 
-Removing a machine involves a single transaction defined as follows:
+The final removal of a machine (performed by the Provisioner, once the machine
+is Dead) is a single transaction defined as follows:
 
   * If the machine is not Dead, abort with an appropriate error.
   * Delete the machine document.
@@ -220,7 +217,7 @@ Removing a relation involves a single transaction defined as follows:
       * Delete the relation document.
       * Mark the relation's unit settings documents for future cleanup.
           * This is done by creating a single document for the attention of
-            some other part of the system (BUG: which doesn't exist), that is
+            some other part of the system, that is
             then responsible for mass-deleting the (potentially large number
             of) settings documents. This completely bypasses the mgo/txn
             mechanism, but we don't care because those documents are guaranteed
@@ -297,26 +294,16 @@ operations must occur in a single transaction:
   * While principal units are assigned to a machine, its lifecycle cannot change
     and `juju remove-machine` will fail.
   * When no principal units are assigned, `juju remove-machine` will set the
-    machine to Dying. (Future plans: allow a machine to become Dying when it
-    has principal units, so long as they are not Alive. For now it's extra
-    complexity with little direct benefit.)
+    machine to Dying.
   * When a machine has containers, `juju remove-machine` will fail, unless force
     is used.  However `juju destroy-controller` or `juju destroy-model` allows a
     machine to move to dying with containers.
   * Once a machine has been set to Dying, the corresponding Machine Agent (MA)
     is responsible for setting it to Dead. A dying machine cannot transition to
-    dead if there are containers. (Future plans: when Dying units are
-    assigned, wait for them to become Dead and remove them completely before
-    making the machine Dead; not an issue now because the machine can't yet
-    become Dying with units assigned.)
+    dead if there are containers.
   * Once a machine has been set to Dead, the agent for some other machine (with
     JobManageModel) will release the underlying instance back to the provider
-    and remove the machine entity from state. (Future uncertainty: should the
-    provisioner provision an instance for a Dying machine? At the moment, no,
-    because a Dying machine can't have any units in the first place; in the
-    future, er, maybe, because those Dying units may be attached to persistent
-    storage and should thus be allowed to continue to shut down cleanly as they
-    would usually do. Maybe.)
+    and remove the machine entity from state.
 
 ## Units
 
@@ -384,7 +371,7 @@ operations must occur in a single transaction:
         for a subordinate charm to require a container-scoped "juju-info"
         relation. These restrictions mean that the name can never cause
         actual ambiguity; nonetheless, support should be phased out smoothly
-        (see lp:1100076).
+        (see https://bugs.launchpad.net/bugs/1100076).
   * A relation, like an application, has no corresponding agent; and becomes Dead
     and is removed from the database in a single operation.
   * Similarly to an application, a relation cannot be created while an identical
@@ -408,8 +395,8 @@ operations must occur in a single transaction:
 
 ## References
 
-OK, that was a bit of a hail of bullets, and the motivations for the above are
-perhaps not always clear. To consider it from another angle:
+The preceding sections enumerate the individual transactions; this section
+gives the other angle -- what references what:
 
   * Subordinate units reference principal units.
   * Principal units reference machines.
@@ -502,24 +489,4 @@ responsible for:
   * detecting Dead machines with instance IDs, decommissioning the instance, and
     removing the machine.
 
-Machines can in theory have multiple jobs, but in current practice do not.
-
-<!--
-TODO: Rewrite this to match Juju 4.
-## Implementation
-
-All state change operations are mediated by the mgo/txn package, which provides
-multi-document transactions aginst MongoDB. This allows us to enforce the many
-conditions described above without experiencing races, so long as we are mindful
-when implementing them.
-
-Lifecycle support is not complete: relation lifecycles are, mostly, as are
-large parts of the unit and machine agent; but substantial parts of the
-machine, unit and application entity implementation still lack sophistication.
-This situation is being actively addressed.
-
-Beyond the plans detailed above, it is important to note that an agent that is
-failing to meet its responsibilities can have a somewhat distressing impact on
-the rest of the system. To counteract this, we have implemented a --force
-flag to remove-unit and remove-machine that forcibly sets an entity to
-Dead while maintaining consistency and sanity across all references. -->
+Machines can in theory have multiple jobs, but in practice do not.

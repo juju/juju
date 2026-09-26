@@ -14,16 +14,17 @@ If you're writing a worker -- and almost everything that juju does happens insid
 following guidelines. They're not necessarily comprehensive, and not *necessarily* to be followed without question; but
 if you're not following the advice on this page, you should have a very good reason.
 
-The base workers named below moved with the internal-worker
-reorganisation: `NewSimpleWorker` lives in `internal/worker/simpleworker`,
-`NewPeriodicWorker` in `internal/worker/periodicworker.go`, and
-`NewNotifyWorker`/`NewStringsWorker` in `internal/worker/watcher`.
+The base workers live in two packages: `NewSimpleWorker`
+(`internal/worker/simpleworker.go`) and `NewPeriodicWorker`
+(`internal/worker/periodicworker.go`) in package `worker`
+(`internal/worker`); `NewNotifyWorker`/`NewStringsWorker`
+in package `watcher` (`core/watcher`).
 
 * If you really just want to run a dumb function on its own goroutine, use `worker.NewSimpleWorker`.
 
 * If you just want to do something every \<period\>, use `worker.NewPeriodicWorker`.
 
-* If you want to react to watcher events, you should probably use `worker.NewNotifyWorker or worker.NewStringsWorker`.
+* If you want to react to watcher events, you should probably use `watcher.NewNotifyWorker` or `watcher.NewStringsWorker`.
 
 * If your worker has any methods outside the `worker.Worker` interface, DO NOT use any of the above callback-style
   workers. Those methods, that need to communicate with the main goroutine, *need* to know that goroutine's state, so
@@ -33,8 +34,8 @@ reorganisation: `NewSimpleWorker` lives in `internal/worker/simpleworker`,
   makes you think you need them, you're most likely building the wrong structure.
 
 * If you're writing a custom worker, use a catacomb
-  (`github.com/juju/worker/v5/catacomb`). It is the standard carrier in the
-  current codebase -- a catacomb embeds a tomb, so the lifetime mechanics below
+  (`github.com/juju/worker/v5/catacomb`). It is the standard carrier --
+  a catacomb embeds a tomb, so the lifetime mechanics below
   are the same, and it adds the coordination of child workers. A bare
   `tomb.Tomb` is correct only for a worker that can have no children.
 
@@ -51,8 +52,9 @@ reorganisation: `NewSimpleWorker` lives in `internal/worker/simpleworker`,
   requests. Full stop. Whatever started the component needs to know why it failed, but that parent is usually not the
   same entity as the client that's calling methods.
 
-* If you're using `internal/worker/singular` (formerly `worker/singular`), you are quite likely to be doing it wrong, because you've written a worker that
-  breaks when distributed. Things like provisioner and firewaller only work that way because we weren't smart enough to
+* If you're using `internal/worker/singular`, you are quite likely to be doing it
+  wrong, because you've written a worker that breaks when distributed. Things
+  like provisioner and firewaller only work that way because we weren't smart enough to
   write them better; but you should generally be writing workers that collaborate correctly with themselves, and
   eschewing the temptation to depend on the funky layer-breaking of singular.
 
