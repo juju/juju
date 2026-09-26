@@ -13,6 +13,15 @@ In Juju, a **configuration** is a rule or a set of rules that define the behavio
 (controller-configuration)=
 ## Controller configuration
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Configuration levels
+:no-legend:
+:caption: Topology: Three config levels, three homes: controller config lives in the controller DB (set by juju controller-config; bootstrap seeds it); model config lives in the model DB (set by juju model-config; defaults funnel from Juju -> provider -> cloud -> region); application config lives in per-application rows in the model DB (set by juju config -- there is NO config-set hook command; charms read via config-get). The application-level trust key is intercepted into its own boolean column and gates the uniter's cloud-credential access.
+:alt: User and controller above the three config records; charm beside application config (it reads, it cannot write).
+```
+
+
 Controller configuration affects the operation of the controller as a whole.
 
 ```{ibnote}

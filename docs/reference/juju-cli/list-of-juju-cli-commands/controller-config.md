@@ -95,7 +95,7 @@ Controller configuration keys:
       description: Determines if the controller records auditing information
     caas-image-repo:
       type: string
-      description: The docker repo to use for the jujud operator and mongo images
+      description: The docker repo to use for the jujud operator image
     controller-resource-download-limit:
       type: int
       description: The maximum number of concurrent resources downloads across all the

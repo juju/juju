@@ -387,6 +387,88 @@ This provides readers with a complete path: concept → reference details → pr
 
 > **Future enhancement:** Consider using sphinx tags to enforce and validate these cross-reference patterns automatically.
 
+## Diagrams
+
+All diagrams in Juju docs must use **text-based, version-controlled formats** so they can be reviewed and diffed in pull requests. Never commit binary diagram images (`.png`, `.jpeg`) generated from a tool whose editable source is not in the repository -- the image cannot be reviewed or regenerated.
+
+### The ggarch toolchain
+
+Juju diagrams are authored in [ggarch](https://github.com/tmihoc/ggarch), a text-based diagramming engine wired into the docs build as a Sphinx extension. All diagram sources live in `docs/*.ggarch` (currently `juju.ggarch`); every view a doc embeds must be declared there, and views are inserted via `{ggarch}` directives (`:file:`, `:view:`/`:sequence:`, `:caption:`, `:alt:`).
+
+- **Authoring guide:** `SKILL.md` in the ggarch repository is the definitive guide to writing views (models; node, edge, containment, lifecycle and salience semantics; sequences; slideshows).
+- **Binding decisions:** ratified design decisions live in `adr/` in the ggarch repository (ADR-001…011); where the style guidelines below leave a question open (composition, captions, edge grammar), the ADRs win.
+- **The catalogue is the product surface:** a view that is not in `docs/explanation/diagrams.md` does not count as delivered. New views land in the catalogue together with the page that embeds them, so a reviewer can inspect the effect of engine changes on all diagrams at once.
+- **Verification:** `make check-ggarch` in `docs/` validates every model (`ggarch check`), synthesized-variant freshness, grounding against the codebase (`tools/check-grounding.py`), and the geometry audit; `.github/workflows/ggarch-gate.yml` runs the same gate in CI.
+
+The style guidelines below are expressed through ggarch's semantic primitives, not caption prose: typed edges clarify direction, subgraph containment shows boundaries directly, and salience attributes give "same view, one focus" its mechanism. Encode the meaning in the diagram's structure -- a fact only in the caption does not survive re-layout.
+
+### Diagram style guidelines
+
+Apply these rules to every diagram:
+
+- **One idea per diagram.** If a diagram becomes crowded, split it and use progressive disclosure: open a section with a simple overview diagram, then expand into focused sub-diagrams.
+- **Keep labels short and concrete.** Use real names where possible (`unit agent`, `controller`, `containeragent`) rather than generic boxes. Avoid jargon that is not defined in the surrounding text.
+- **Clarify direction.** Show the direction of data or control flow with labeled edges (`Juju API`, `hook commands`, `Pebble API`). Use solid lines for the primary path and dashed lines for the control/API path where helpful.
+- **Match the surrounding terminology.** Use the same names for components as the reference pages they point to.
+- **Provide an italic caption** under each diagram describing what it shows; this aids accessibility and search.
+- **Never duplicate a diagram; vary the emphasis.** The same content must not communicate twice: each diagram lives in exactly one place. A related page that needs the same focus does not embed or cross-reference a copy -- it gets its own rendering of the same view with a different element made preattentive (highlighted, bolded, or otherwise promoted to figure). E.g., an application-and-units diagram appears on both the application and the unit page, but the application page's rendering emphasizes the application, the unit page's rendering emphasizes the unit. Same view, one focus each -- the reader's eye lands on what the page is about.
+- **Use subgraphs to show boundaries directly.** Two databases, two processes, two deployment modes -- each gets its own subgraph. Never describe a boundary only in the caption while the diagram itself is flat.
+
+## Architecture Documentation
+
+Architecture docs (in `docs/explanation/`) describe how a system is put together. The structure of an architecture doc should be **derivable from the codebase**, not chosen editorially. This means: before writing or restructuring an architecture doc, read the source artefacts (SQL schema files, package docs, worker entry points) and let their structure determine the doc's structure. A reader who inspects the same source files cold should arrive at the same organisation independently.
+
+### Three principles for architecture documentation structure
+
+**1. Hard boundaries are the primary partition.**
+
+If the codebase defines hard boundaries -- separate databases, separate binaries, separate processes -- those boundaries are the first-level organising principle of the doc. For Juju's data model: there are two Dqlite databases (`domain/schema/controller/sql/` and `domain/schema/model/sql/`), and this is the primary split. Every entity appears exactly once in the section that owns its table. Flat alphabetical lists violate this principle by mixing entities from different boundaries.
+
+**2. Within a boundary, cluster by cohesion.**
+
+Groups of tables that have FK chains only among themselves and are used, migrated, and reasoned about together form a cluster. Do not list 40 tables as 40 flat entries -- that is an inventory, not an explanation. Identify the FK subgraphs; those are your clusters. For Juju's model database: the deployment cluster (`application`, `unit`, `machine`), the integration cluster (`relation`, `offer`), the runtime cluster (`operation`, `storage`, `secret`, `resource`), and the network cluster (`space`, `subnet`, `port_range`) correspond directly to the schema's own FK structure.
+
+**3. Declared vs runtime is a structural distinction, not an editorial one.**
+
+Many systems store both *declarations* (schema, metadata, what something can do) and *runtime records* (instances, what is actually happening). When the schema encodes this distinction -- for example, `charm_action` (declared) vs `operation` (runtime invocation), `charm_resource` (declared) vs `resource` (downloaded blob) -- the doc must reflect it explicitly. Conflating declarations and runtime records produces diagrams and prose that are simultaneously wrong about both.
+
+### Applying these principles
+
+When writing or reviewing an architecture doc:
+
+1. **Read the source first.** For a data model doc, read all SQL schema files. For a software architecture doc, read the package docs (`doc.go`) and worker entry points. Do not rely on existing doc sections as a guide to what exists -- go to the source.
+
+2. **Identify the hard boundaries.** List the distinct databases, binaries, or processes. These become your top-level `##` or `###` sections.
+
+3. **Map the FK subgraphs** within each boundary. Each cohesive subgraph becomes a cluster subsection.
+
+4. **Identify declared vs runtime pairs.** Any table whose name is prefixed with the owning entity (e.g., `charm_action`, `charm_config`) is a declaration. Any table that references it at runtime (e.g., `operation_action`, `application_config`) is a runtime record. Separate them.
+
+5. **Write diagrams that reflect the boundary structure.** Use subgraphs to show database or process boundaries directly. Two databases = two subgraphs. Do not put all entities in one flat diagram and describe the boundary only in the caption.
+
+### What to avoid
+
+- **Alphabetical entity lists** -- these obscure boundaries and cohesion.
+- **One giant diagram** -- if a diagram has more than ~15 nodes it is trying to show everything at once; split it by boundary.
+- **Grounding structure in the existing doc** -- the existing doc may already be wrong; always go back to the source.
+- **Inventing groupings** -- if a proposed cluster does not correspond to a real FK subgraph or package boundary, it is editorial, not principled.
+
+### Section ordering: follow the system's logic
+
+The order of top-level sections in an architecture doc should match the **logical dependency order of the system itself**, not the order that feels most natural to explain. The test is: does each section introduce concepts that the next section depends on? If not, the order is working against the system.
+
+For Juju's architecture doc the correct order is **data model → software → operations**:
+
+1. **Data model first** -- the substrate. Every program reads and writes records; every operation is a state transition. Without knowing what records exist, descriptions of programs and sequences are hollow.
+2. **Software second** -- the machinery. Programs can now be described in terms of the records they act on. Communication paths (watchers, hook commands) can be explained with full vocabulary because the entities being watched and the data being written are already established.
+3. **Operations third** -- the dynamics. Operations are state transitions carried out by programs. Both programs and state are already defined, so a sequence diagram or numbered sequence has concrete nouns at every step.
+
+**The crossed-wire test:** if a concept in section N requires vocabulary from section N+1 to be meaningful, the order is wrong. For example, explaining watcher-based agent notification before the data model is defined produces a hollow sentence -- the reader cannot know what "a change relevant to that agent" means. Move the watcher explanation to the operations section (where reconciliation is discussed), or add a forward reference.
+
+**The progressive-reveal test:** a reader who stops after section N should have a coherent, self-contained picture -- incomplete but not misleading. Data model alone: you know what Juju stores. Data model + software: you know what acts on it and how. All three: you know how it moves.
+
+**Experiential vs logical order:** It is tempting to put software first because that is what users encounter first. Resist this when it creates crossed wires. The doc is an explanation, not a walkthrough; it is read to understand, not to follow. Logical order serves understanding; experiential order serves onboarding. Onboarding belongs in tutorials.
+
 ## Reference Documentation
 
 Reference docs (in `docs/reference/`) define **what things are** in Juju -- entities, tools, processes, and concepts. Think of an IKEA manual: when you open the package, you first get an inventory that defines each part. That's your reference documentation.
@@ -413,8 +495,8 @@ This allows readers to understand the big picture before diving into specifics.
 
 **Example (Database reference):**
 1. What the database is (intro)
-2. Database architecture (controller database, model databases)
-3. Database implementation (Dqlite technical details)
+2. The database's records (controller database, model databases)
+3. The database's machinery (Dqlite technical details)
 
 **Cross-references:** Place "See also" links to related how-to guides upfront, before or immediately after the intro, so readers can quickly navigate to operational docs if needed.
 
@@ -495,7 +577,7 @@ This pattern applies to CLI tools, REPLs, and other interactive tools.
 Choose section titles that reflect whether you're describing **mutually exclusive alternatives** or **coexisting parts**:
 
 **Use "Types of \<entity\>" or "\<Entity\> taxonomy" when classifying alternatives:**
-- Types of relations: A relation is EITHER peer OR non-peer (mutually exclusive)
+- Types of relations: A relation is EITHER a peer relation (the application relates to itself) OR a relation between two applications (mutually exclusive)
 - Types of charms: A charm is EITHER subordinate OR principal (mutually exclusive)
 - Types of secrets: A secret is EITHER a charm secret OR a user secret (mutually exclusive)
 

@@ -93,7 +93,7 @@ leader-set db-password="$new_password"
 ```
 # No `leader-get` / `leader-set`.
 
-# Use a peer relation and store shared data in the peer relation application databag
+# Use a peer relation and store shared data in the peer relation application settings
 # (leader writes, everyone reads).
 ```
 
@@ -253,7 +253,7 @@ st, err := client.Status(StatusArgs{})
 
 ### 5. `juju show-unit` relation `application-data` now uses the local side (was remote in `3.6`)
 
-In `4.0`, `juju show-unit <unit>` reports relation `application-data` set by the unit leader in the local application data bag. This differs from `3.6`, where the displayed `application-data` was set by the unit leader on the remote side of the relation. If automation previously parsed `application-data` from `juju show-unit wordpress/0` to inspect a related application's data, query a unit on the other side of that relation instead, for example `juju show-unit mysql/0`, or otherwise update the logic to use the local-side orientation.
+In `4.0`, `juju show-unit <unit>` reports relation `application-data` set by the unit leader in the local application settings. This differs from `3.6`, where the displayed `application-data` was set by the unit leader on the remote side of the relation. If automation previously parsed `application-data` from `juju show-unit wordpress/0` to inspect a related application's data, query a unit on the other side of that relation instead, for example `juju show-unit mysql/0`, or otherwise update the logic to use the local-side orientation.
 
 **Juju 3.6**
 

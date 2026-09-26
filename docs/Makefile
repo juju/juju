@@ -21,6 +21,7 @@ VALE_CONFIG      ?= $(SPHINX_DIR)/vale.ini
 PA11Y_CMD        ?= $(SPHINX_DIR)/node_modules/pa11y/bin/pa11y.js --config $(SPHINX_DIR)/pa11y.json
 CONFIRM_SUDO     ?= N
 CHECK_PATH       ?= $(filter-out $(DOCS_VENVDIR),$(wildcard *))
+GGARCH_SRC       ?= $(HOME)/git/ggarch/src
 
 # Put it first so that "make" without argument is like "make help".
 help:
@@ -63,6 +64,9 @@ $(DOCS_VENVDIR):
 	. $(DOCS_VENV); pip install $(PIPOPTS) --require-virtualenv \
 	    --upgrade -r requirements.txt \
             --log $(DOCS_VENVDIR)/pip_install.log
+	. $(DOCS_VENV); pip install --require-virtualenv -e $(HOME)/git/ggarch \
+            >> $(DOCS_VENVDIR)/pip_install.log 2>&1 || \
+            { echo "WARNING: ggarch not installed (~/git/ggarch not found) -- ggarch diagrams will not render"; }
 	@test ! -f $(DOCS_VENVDIR)/pip_list.txt || \
             mv $(DOCS_VENVDIR)/pip_list.txt $(DOCS_VENVDIR)/pip_list.txt.bak
 	@. $(DOCS_VENV); pip list --local --format=freeze > $(DOCS_VENVDIR)/pip_list.txt
@@ -119,6 +123,9 @@ run: install convert-excalidraw-to-svg autogenerate-docs
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py" \
+	 --pre-build "bash scripts/ggarch-invalidate-if-changed.sh $(GGARCH_SRC)" \
+	 --watch "$(DOCS_SOURCEDIR)/juju.ggarch" \
+	 --watch "$(GGARCH_SRC)" \
 	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
 
 run-go: install convert-excalidraw-to-svg regenerate-docs
@@ -147,6 +154,48 @@ clean: clean-doc
 clean-doc:
 	git clean -fx "$(DOCS_BUILDDIR)"
 	rm -rf $(SPHINX_DIR)/.doctrees
+
+clean-ggarch:
+	rm -f $(DOCS_BUILDDIR)/_images/ggarch-*.svg
+	rm -rf $(SPHINX_DIR)/.doctrees
+	@echo "ggarch SVG cache cleared — next build will regenerate all diagrams"
+
+rebuild-ggarch: clean-ggarch
+	@echo "Running full rebuild after ggarch renderer change..."
+	. $(DOCS_VENV); $(SPHINX_BUILD) -b dirhtml -E "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
+	@echo "Done. Diagrams regenerated. Restart 'make run' if autobuild is active."
+
+# CI gate (TODOS F1): docs that cannot lie. Three commands, one exit:
+# grounding resolves, every model validates, the geometry audit holds
+# its hard invariants (arrows over boxes, node strikes, wall
+# crossings, >2-bend routes, >2x traceability). Accepted tensions
+# (strip-crossings, residuals, diagonals, label clashes) ride the
+# report, not the exit code.
+GGARCH_FILES := $(wildcard *.ggarch)
+GGARCH_GATED  := juju.ggarch
+
+# Regenerate the synthesized view variants inside juju.ggarch.
+variants:
+	python3 scripts/make-variants.py
+
+elk-compare:
+	@. $(DOCS_VENV); python3 $(GGARCH_SRC)/../scripts/elk-compare.py juju.ggarch --out $(DOCS_BUILDDIR)/_images/elk-compare.html
+	@echo "wrote $(DOCS_BUILDDIR)/_images/elk-compare.html (floor | ELK per view)"
+
+check-ggarch:
+	@set -e; . $(DOCS_VENV); \
+	for f in $(GGARCH_FILES); do \
+	    echo "== ggarch check $$f"; \
+	    ggarch check $$f; \
+	done; \
+	echo "== synthesized-variant freshness (in-file)"; \
+	python3 scripts/make-variants.py --check; \
+	echo "== check-grounding juju.ggarch"; \
+	python3 tools/check-grounding.py juju.ggarch; \
+	echo "== audit-geometry --gate"; \
+	python3 $(GGARCH_SRC)/../scripts/audit-geometry.py \
+	    --gate $(GGARCH_GATED); \
+	echo "check-ggarch: PASS"
 
 linkcheck: install
 	. $(DOCS_VENV) ; $(SPHINX_BUILD) -b linkcheck -q "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) || { grep --color -F "[broken]" "$(DOCS_BUILDDIR)/output.txt"; exit 1; }

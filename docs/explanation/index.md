@@ -14,7 +14,16 @@ Discussion and clarification of key topics, providing background information and
 :hidden:
 :glob:
 
-Architecture <juju-architecture>
+Diagram POC <diagrams>
+Architecture (new draft) <architecture>
+Architecture: principles <architecture-principles>
+Architecture: principles v2 <architecture-principles-v2>
+Architecture: principles v3 <architecture-principles-v3>
+Architecture: principles v4 <architecture-principles-v4>
+Architecture: principles v5 <architecture-principles-v5>
+Architecture: principles v6 <architecture-principles-v6>
+Architecture v7 (draft) <architecture-principles-v7>
+Architecture v8 (draft) <architecture-principles-v8>
 Security <juju-security>
 Performance <juju-performance>
 Application modelling <application-modelling>
@@ -24,10 +33,17 @@ About charming history <charming-history>
 
 ## Juju at a glance
 
-Fundamental concepts about how Juju works, its architecture, security model, and performance characteristics.
 
 - {ref}`Architecture <juju-architecture>`
-- {ref}`Security <juju-security>`
+- {ref}`Diagram POC <diagrams>`
+- {ref}`Architecture: principles <architecture-principles>`
+- {ref}`Architecture: principles v2 <architecture-principles-v2>`
+- {ref}`Architecture: principles v3 <architecture-principles-v3>`
+- {ref}`Architecture: principles v4 <architecture-principles-v4>`
+- {ref}`Architecture: principles v5 <architecture-principles-v5>`
+- {ref}`Architecture: principles v6 <architecture-principles-v6>`
+- {ref}`Architecture v7 (draft) <architecture-principles-v7>`
+- {ref}`Architecture v8 (draft) <architecture-principles-v8>`
 - {ref}`Performance <performance-with-juju>`
 
 ## Juju vs. other operations solutions

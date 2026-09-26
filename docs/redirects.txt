@@ -18,35 +18,32 @@ reference/juju/juju-architecture explanation/juju-architecture
 user/reference/charm/channel/ reference/charm/
 user/reference/charm/revision/ reference/charm/
 user/reference/charm/charm-taxonomy/ reference/charm/
-contributor/unsorted/bootstrapping/ contributor
-contributor/unsorted/managing-complexity/ contributor
-contributor/unsorted/commands/ contributor
-contributor/unsorted/hacking-state/ contributor
-contributor/unsorted/cross-platform-development/ contributor/howto/compile-and-run-juju-agents-on-different-architectures.md
-contributor/unsorted/FAQ/ contributor
-contributor/unsorted/debugging-races/ contributor/howto/write-a-unit-test/
-contributor/unsorted/death-and-destruction/ contributor/reference/entity-lifecycle/
-contributor/unsorted/entity-creation/ contributor/reference/entity-lifecycle/
-contributor/unsorted/lifecycles/ contributor/reference/entity-lifecycle/
-contributor/unsorted/api-best-practices contributor
-contributor/unsorted/api-design-specification contributor
-contributor/unsorted/api-implementation-guide contributor
-contributor/unsorted/charms-in-action contributor
-contributor/unsorted/implementing-effective-config-structs contributor
-contributor/unsorted/review-checklist contributor
-contributor/unsorted/styleguide contributor
-contributor/unsorted/system-ssh-key contributor
-contributor/unsorted/test-failure-FAQ contributor
-contributor/unsorted/third-party-go-clients contributor
-contributor/unsorted/what-we-run-and-why contributor
+contributor/unsorted/bootstrapping/ reference/index
+contributor/unsorted/managing-complexity/ reference/index
+contributor/unsorted/commands/ reference/index
+contributor/unsorted/hacking-state/ reference/index
+contributor/unsorted/cross-platform-development/ howto/compile-and-run-juju-agents-on-different-architectures
+contributor/unsorted/FAQ/ reference/index
+contributor/unsorted/death-and-destruction/ reference/removing-things
+contributor/unsorted/entity-creation/ reference/index
+contributor/unsorted/lifecycles/ reference/removing-things
+contributor/unsorted/api-best-practices reference/index
+contributor/unsorted/api-design-specification reference/index
+contributor/unsorted/api-implementation-guide reference/index
+contributor/unsorted/charms-in-action reference/index
+contributor/unsorted/implementing-effective-config-structs reference/index
+contributor/unsorted/review-checklist reference/index
+contributor/unsorted/styleguide reference/index
+contributor/unsorted/system-ssh-key reference/index
+contributor/unsorted/test-failure-FAQ reference/index
+contributor/unsorted/third-party-go-clients reference/index
+contributor/unsorted/what-we-run-and-why reference/index
 contributor/unsorted/simplestreams-metadata reference/metadata
-contributor/unsorted/high-availability contributor/reference/high-availability
-contributor/unsorted/observing-mongodb-performance contributor/howto/
-contributor/unsorted/writing-workers contributor/reference/writing-workers/
-contributor/unsorted contributor
-contributor/tutorial contributor
-contributor/howto/create-unit-test-suite contributor/howto/create-a-unit-test-suite
-contributor/reference/testing/integration-testing/test-includes contributor/reference/testing/integration-testing/test-include
+contributor/unsorted/high-availability reference/high-availability
+contributor/unsorted/observing-mongodb-performance reference/database
+contributor/unsorted/writing-workers howto/writing-workers
+contributor/unsorted reference/index
+contributor/tutorial reference/index
 # redirects after promoting user docs and demoting contributor docs
 user/explanation/application-modelling explanation/application-modelling
 user/explanation/charming-history explanation/charming-history
@@ -113,8 +110,8 @@ user/reference/cloud/list-of-supported-clouds/the-microsoft-azure-cloud-and-juju
 user/reference/cloud/list-of-supported-clouds/the-openstack-cloud-and-juju reference/cloud/list-of-supported-clouds/openstack
 user/reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference/cloud/list-of-supported-clouds/oracle-oci
 user/reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juj reference/cloud/list-of-supported-clouds/vmware-vsphere
-user/reference/configuration/controller-config-audit-log-exclude-methods reference/configuration/controller-config-audit-log-exclude-methods
-user/reference/configuration/controller-config-juju-mgmt-space reference/configuration/controller-config-juju-mgmt-space
+user/reference/configuration/controller-config-audit-log-exclude-methods reference/configuration/list-of-controller-configuration-keys/#controller-config-audit-log-exclude-methods
+user/reference/configuration/controller-config-juju-mgmt-space reference/configuration/list-of-controller-configuration-keys/#controller-config-juju-mgmt-space
 user/reference/configuration reference/configuration
 user/reference/configuration/list-of-controller-configuration-key reference/configuration/list-of-controller-configuration-keys
 user/reference/configuration/list-of-model-configuration-key reference/configuration/list-of-model-configuration-keys
@@ -399,3 +396,23 @@ reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference
 reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju reference/cloud/list-of-supported-clouds/vmware-vsphere
 
 
+contributor/reference/high-availability reference/high-availability
+# NOTE: external (http(s)) redirect targets cannot live in this file —
+# rediraffe resolves every target against the build output and flags
+# unknown targets as broken, and a path present in both engines makes
+# them fight over the written file. Redirects to pkg.go.dev (the
+# doc.go demotions of the contributor package pages) live in conf.py's
+# `redirects` dict instead.
+contributor/reference/worker-interface reference/worker
+contributor/reference/worker-package reference/worker
+contributor/reference/tomb-package reference/worker
+contributor/reference/catacomb-package reference/worker
+contributor/reference/binary-containeragent reference/containeragent
+contributor/reference/worker reference/worker
+contributor/howto/compile-and-run-juju-agents-on-different-architectures howto/compile-and-run-juju-agents-on-different-architectures
+contributor/howto/debug-a-dqlite-core-dump-issue howto/debug-a-dqlite-core-dump-issue
+contributor/index reference/index
+contributor/howto/index howto/index
+contributor/reference/entity-lifecycle reference/removing-things
+contributor/reference/writing-workers howto/writing-workers
+contributor/reference/index reference/index

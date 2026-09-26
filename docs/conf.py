@@ -236,7 +236,37 @@ html_extra_path = ["robots.txt", "sitemapindex.xml"]
 
 redirects = {
 'user/reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/',
-'reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/'
+'reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/',
+# The contributor package pages were demoted to Go package docs
+# (doc.go); point their old paths at the rendered Go docs.
+'contributor/reference/agent': 'https://pkg.go.dev/github.com/juju/juju/cmd/jujud/agent',
+'contributor/reference/dependency-package': 'https://pkg.go.dev/github.com/juju/worker/v5/dependency',
+# The CVE process lives in the repo-root SECURITY.md.
+'contributor/reference/cve': 'https://github.com/juju/juju/security',
+# The commit-format guidance was folded into the agent-commit
+# instructions (the CONTRIBUTING step-10 link points there too).
+'contributor/reference/conventional-commits': 'https://github.com/juju/juju/blob/HEAD/.github/instructions/agent-commit.instructions.md',
+# The forward-merge mechanics were folded into CONTRIBUTING.md
+# ("Merging patches forward", after the step list).
+'contributor/howto/merge-forward': 'https://github.com/juju/juju/blob/HEAD/CONTRIBUTING.md',
+# The test howtos were retired: the unit-test conventions live in the
+# repo-root AGENTS.md, the integration framework in tests/README.md.
+'contributor/howto/write-tests': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/write-a-unit-test': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/create-a-unit-test-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/write-an-integration-test': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing/integration-test-suite': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing/test-include': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+'contributor/reference/testing/integration-testing/test-includes': 'https://github.com/juju/juju/blob/HEAD/tests/README.md',
+# The remaining unit-testing chains from the retired tree.
+'contributor/unsorted/debugging-races': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/howto/create-unit-test-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing/util-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing/checker': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
+'contributor/reference/testing/unit-testing/unit-test-suite': 'https://github.com/juju/juju/blob/HEAD/AGENTS.md',
 }
 
 ###########################
@@ -308,7 +338,18 @@ extensions = [
     'sphinx_new_tab_link',
     'sphinxcontrib.lightbox2',
     'ibnote',
+    'audience',
+    'sphinxcontrib.mermaid',
+    'sphinxcontrib_d2',
+    'ggarch.sphinxcontrib_ggarch',
 ]
+
+# D2 diagram configuration
+# Install d2: curl -fsSL https://d2lang.com/install.sh | sh
+d2_cmd = os.path.expanduser("~/.local/bin/d2")
+d2_layout = "elk"
+d2_light_theme = 0    # D2 default light theme
+d2_dark_theme = 200   # D2 default dark theme
 
 # Customize sphinx_llm.txt
 ## Add project summary:
@@ -342,6 +383,7 @@ html_css_files = [
     "css/cookie-banner.css",
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
+    "css/audience.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'

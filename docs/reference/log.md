@@ -15,6 +15,15 @@ A **log** is a computer-generated record about entities, activities, usage patte
 
 ## Juju agent logs - machines
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Log flow
+:no-legend:
+:caption: Sequence diagram: Agents buffer their log records in memory and ship them to the controller's /logsink websocket endpoint; the controller batches them as JSON lines into logsink.log, which juju debug-log tails through the API. On Kubernetes, agent logs also go to the container's stdout.
+:alt: Unit agent and machine agent buffer records and ship them to the controller; the controller batches them into logsink.log; the user tails via juju debug-log.
+```
+
+
 In machine deployments, Juju agent logs are organised into a number of files. These files are located on every machine that Juju creates, including the controller. Specifically, they can be found under `/var/log/juju`, and may include:
 
 ### Agent log files
@@ -23,7 +32,7 @@ Agent log files (e.g., `/var/log/juju/unit-controller-0.log` ) contain the logs 
 
 ### Model log files
 
-Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the [workers](https://juju.is/docs/dev/worker) on a {ref}`model <model>`.
+Model log files (e.g., `/var/log/juju/models/admin-test-3850c8.log`) contain the logs for all the {ref}`workers <worker>` on a {ref}`model <model>`.
 
 ### The audit log file
 
@@ -37,7 +46,7 @@ The audit log file can be found only on controller machines.
 
 ### The logsink log file
 
-The logsink file (`logsink.log`) contains all the agent logs shipped to the {ref}`controller <controller>`, in aggregated form. These logs will end up in Juju's internal database, MongoDB.
+The logsink file (`logsink.log`) contains all the agent logs shipped to the {ref}`controller <controller>`, in aggregated form. The controller writes the shipped records into this file, and the `juju debug-log` command reads them back through the API.
 
 ```{important}
 

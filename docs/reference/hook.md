@@ -31,15 +31,79 @@ See more: {ref}`list-of-hooks`
 (hook-execution)=
 ## Hook execution
 
-Hooks are run with environment variables set by Juju to expose relevant contextual configuration to the charm.
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Hook execution
+:no-legend:
+:alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook, then runs the hook by dispatch. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: flush writes. On failure: discard writes, set unit error.
+:caption: Sequence diagram: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+```
 
-The Juju environment variables are set in addition to those supplied by the execution environment itself.
+```{ggarch}
+:file: ../juju.ggarch
+:view: Uniter operation
+:no-legend:
+:alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
+:caption: State machine diagram: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.
+```
 
-All hooks get a common set of environment variables; in addition, some hooks (or hook kinds) also get hook (hook kind) specific environment variables, as specified in the documentation for each hook.
+A hook runs as one pass of a fixed cycle: a state change on the
+controller wakes the unit agent's watcher; the agent snapshots the
+remote state (reads the config, relation data, and secrets the hook
+will see into a local snapshot, which the hook then sees unchanged
+for its whole run), resolves the next hook, and dispatches it. Every
+hook command the charm calls is served by the agent acting as a
+proxy for the controller API -- the charm never calls the controller
+directly -- and the hook's writes are flushed all-or-nothing on a
+clean exit.
+
+Seen from inside the unit agent, that same pass is the uniter's
+operation executor: prepare the hook context, execute the hook,
+commit the recorded changes.
+
+The hook context the snapshot provides reaches the charm as
+environment variables set by Juju, in addition to those supplied by
+the execution environment itself. All hooks get a common set; some
+hooks (or hook kinds) also get hook (hook kind) specific environment
+variables, as specified in the documentation for each hook.
 
 ```{ibnote}
 See more: {ref}`list-of-hooks`
 ```
+
+(hook-execution-guarantees)=
+### Hook execution guarantees
+
+The cycle above runs under four invariants. The charm has no in-process memory of previous runs: everything it needs arrives via
+hook commands, on demand, from the controller database:
+
+- **One hook at a time per machine.** A machine-level lock covers the whole run, so
+  hooks of different units on the same machine never interleave. Different machines
+  run independently with no ordering guaranteed.
+- **Config is a stable snapshot.** Read once at hook start; does not change
+  mid-hook.
+- **Writes are all-or-nothing.** Relation data, secrets, and charm state are
+  buffered and flushed together on clean exit -- discarded on failure.
+  `status-set` is the one exception: it takes effect immediately.
+- **Leadership is a lease, not a lock.** A successful leadership check guarantees
+  leadership for about 30 seconds; it can change mid-hook.
+
+These invariants are independent: none builds on another, and none implies ordering
+across machines or across hooks of different units.
+
+The controller stores per model: application configuration, relations (their settings),
+secrets, application and unit status, leadership, and optionally charm state. Timing
+of access within a hook follows directly from the invariants:
+
+| State | When read | When written |
+|---|---|---|
+| Configuration | Once on first use, then cached | Not written by hooks |
+| Relation data | Lazily, on demand | Buffered; flushed on clean exit |
+| Secrets | Lazily, on demand | Buffered; flushed on clean exit |
+| Charm state | Lazily, on demand | Buffered; flushed on clean exit |
+| Action results | — | Buffered; flushed on clean exit |
+| Status | — | Immediate on each `status-set` |
+| Leadership | Fresh each check, never cached | Not written by hooks |
 
 ## Hook ordering
 
@@ -251,16 +315,16 @@ Additionally, a unit will receive a `relation-changed` event every time another 
 
 ```python
 # in charm `foo`
-relation.data[self.unit]['foo'] = 'bar'  # set unit databag
+relation.data[self.unit]['foo'] = 'bar'  # set the unit's settings
 if self.unit.is_leader():
-    relation.data[self.app]['foo'] = 'baz'  # set app databag
+    relation.data[self.app]['foo'] = 'baz'  # set the application settings
 ```
 
 When the hook returns, `bar` will receive a `relation-changed` event.
 
-Note that units only receive `relation-changed` events for **other** units' changes. The one exception to this rule is for peer relations' application data bags.
-The application leader will receive a `relation-changed` event for the changes that it writes to a peer relation's application data bag. This allows all units
-of an application to use a common event handler to react to changes in the peer relation's application data bag, independent of whether the unit is the current leader.
+Note that units only receive `relation-changed` events for **other** units' changes. The one exception to this rule is for peer relations' application settings.
+The application leader will receive a `relation-changed` event for the changes that it writes to a peer relation's application settings. This allows all units
+of an application to use a common event handler to react to changes in the peer relation's application settings, independent of whether the unit is the current leader.
 
 > **When is data synchronized?** <br>
 > Relation data is sent to the controller at the end of the hook's execution. If a charm author writes to local relation data multiple times during the a single hook run, the net change will be sent to the controller after the local code has finished executing. The controller inspects the data and determines whether the relation data has been changed. Related units then get the `relation-changed` event the next time they check in with the controller.
@@ -357,7 +421,7 @@ By the time this event is emitted, the only available data concerning the relati
  - the name of the joining unit.
  - the `private-address` of the joining unit.
 
-In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
+In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation settings. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
 
 From the perspective of an application called `foo`, which can relate to an application called `bar`:
 

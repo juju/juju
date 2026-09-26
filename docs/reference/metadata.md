@@ -26,6 +26,15 @@ work (eg use a different Ubuntu image), need to pay closer attention.
 
 ## Basic workflow
 
+```{ggarch}
+:file: ../juju.ggarch
+:sequence: Simplestreams lookup
+:no-legend:
+:caption: Sequence diagram: The metadata search path: the client walks the four locations in priority order — the controller database (a running model), the user-supplied URL (agent-metadata-url / image-metadata-url), provider-specific locations (for example the keystone product-streams endpoints on Openstack), and streams.canonical.com — trying each location signed (.sjson) first, then unsigned, and using the first location that answers. Signed metadata is verified with the public keys Juju ships with.
+:alt: User calls juju bootstrap or juju deploy; the client tries the controller database, then the user-supplied metadata URL, then the provider locations, then streams.canonical.com, each attempted signed first then unsigned; the client verifies signatures with the shipped public keys and uses the first hit.
+```
+
+
 Whether images or agent binaries, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
@@ -129,11 +138,7 @@ and vice versa.
 
 2. User specified URLs
 
-These are initially specified in the environments.yaml file (and then subsequently copied to the
-jenv file when the model is bootstrapped). For images, use "image-metadata-url"; for agent binaries,
-use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
-an address served by an HTTP server, or even a shared directory accessible by all node instances
-running in the cloud.
+These are set in the model configuration (`juju model-config`): for images, use `image-metadata-url`; for agent binaries, use `agent-metadata-url`. The URLs can point to a world readable container/bucket in the cloud, an address served by an HTTP server, or even a shared directory accessible by all node instances running in the cloud.
 
 For example, assume an Apache HTTP server with base URL `https://juju-metadata`, providing access to
 information at `<base>/images` and `<base>/tools`. The Juju model yaml file could have

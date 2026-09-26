@@ -28,7 +28,7 @@ On Microsoft Windows, the directory is in a different place (usually `C:\Users\{
 
 ## Backward compatibility
 
-`juju` has been designed to be backward compatible and can talk to older or newer existing controllers if the controller and the client are on the same major version (2.x and 3.x). As such, performing simple commands can be achieved without upgrading the client. At the same time, it is always recommended to be up-to-date with the client and controller where possible.
+`juju` has been designed to be backward compatible and can talk to older or newer existing controllers if the controller and the client are on the same major version (see {ref}`juju-cross-version-compatibility`). As such, performing simple commands can be achieved without upgrading the client. At the same time, it is always recommended to be up-to-date with the client and controller where possible.
 
 ## Working locally
 

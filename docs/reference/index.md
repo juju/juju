@@ -34,31 +34,15 @@ In Juju, you interact with these resources through clients -- command-line and w
 - {ref}`juju-web-cli`
 - {ref}`juju-dashboard`
 - {ref}`juju-db-repl`
-- {ref}`juju-web-cli`
-- {ref}`jujuc`
-- {ref}`jujud`
-- {ref}`pebble`
 
 ## Controller
 
 Clients connect to a controller -- the central management service that coordinates between clouds, Charmhub, and your deployed resources.
 
-- {ref}`action`
-- {ref}`agent`
-- {ref}`application`
-- {ref}`bundle`
-- {ref}`charm`
-- {ref}`client`
-- {ref}`cloud`
-- {ref}`configuration`
-- {ref}`constraint`
 - {ref}`controller`
-- {ref}`credential`
 - {ref}`database`
 - {ref}`log`
 - {ref}`telemetry`
-- {ref}`high-availability`
-- {ref}`scaling`
 
 ## Users
 
@@ -72,8 +56,9 @@ Once authenticated, users work with deployments. Within a controller, deployment
 
 - {ref}`model`
 
-Models contain applications deployed from charms and composed of units (individual instances).
+Models contain applications deployed from charms (including bundles) and composed of units (individual instances).
 
+- {ref}`bundle`
 - {ref}`charm`
 - {ref}`application`
 - {ref}`unit`
@@ -108,6 +93,8 @@ On each machine, agents (`jujud` on machines, `containeragent` on Kubernetes) ex
 
 - {ref}`agent`
 - {ref}`jujud`
+- {ref}`worker`
+- {ref}`watchers`
 - {ref}`hook`
 - {ref}`hook-command`
 - {ref}`jujuc`
@@ -117,7 +104,6 @@ Lifecycle management
 
 Removing and upgrading are cross-cutting operations that apply across multiple resource types -- from individual units and applications to entire models and controllers.
 
-- {ref}`telemetry`
 - {ref}`removing-things`
 - {ref}`upgrading-things`
 

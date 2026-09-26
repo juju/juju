@@ -1,0 +1,3877 @@
+// Juju architecture — GROUNDED twin (juju3): every record node and
+// schema association carries a `ground:` pointer to its codebase
+// locus (DDL table / FK column, or code path), verified by
+// tools/check-grounding.py. One-directional rule: everything drawn
+// exists in the schema; curation is declared, never silent.
+// juju.ggarch (stable) and juju2.ggarch (spike) unchanged. See the
+// ggarch HANDOFF, "Work plan: the juju2 spike".
+//
+// Views are declared here too; diagrams in the .md files reference them
+// by name via :view: or :sequence:.
+
+model "Juju" {
+
+  nodes {
+    // -----------------------------------------------------------------------
+    // Actors
+    // -----------------------------------------------------------------------
+    user [type: person, label: "User"]
+
+    // -----------------------------------------------------------------------
+    // Client-side
+    // -----------------------------------------------------------------------
+    client [type: juju-software, label: "Client"]
+
+    // -----------------------------------------------------------------------
+    // Controller — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    controller [type: juju-software, label: "Controller"]
+
+    // -----------------------------------------------------------------------
+    // Controller pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
+    controller_pod [type: container, label: "Controller pod",
+                    abstracts: "controller"] {
+      jujud [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Unit pod (K8s deployment — detailed)
+    // -----------------------------------------------------------------------
+    unit_pod [type: container, label: "Unit pod"] {
+      charm_container [type: container, label: "Charm container"] {
+        unit_agent [type: juju-software, label: "Unit agent"]
+        charm      [type: charm,         label: "Charm"]
+      }
+      workload_container [type: container, label: "Workload container"] {
+        pebble   [type: pebble,   label: "Pebble (init)"]
+        workload [type: workload, label: "Workload service(s)"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Agents — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    agents [type: juju-software, label: "Agents"]
+
+    // -----------------------------------------------------------------------
+    // External
+    // -----------------------------------------------------------------------
+    k8s      [type: external, label: "Kubernetes cloud"]
+    charmhub [type: external, label: "Charmhub"]
+    clouds   [type: external, label: "Clouds\n(AWS, GCP, K8s…)",
+              collective: cloud]
+    cloud    [type: external, label: "Cloud"]   // generic cloud for machine sequences
+
+    // -----------------------------------------------------------------------
+    // Simplestreams — reference/metadata.md (the metadata search path:
+    // controller DB -> user URL -> provider locations ->
+    // streams.canonical.com; each tried signed (.sjson) then unsigned)
+    // -----------------------------------------------------------------------
+    streams         [type: external, label: "streams.canonical.com\n(signed metadata)",
+                     ground: "environs/tools/doc.go:20"]
+    metadata_mirror [type: external, label: "user metadata URL\n(agent/image-metadata-url)",
+                     ground: "environs/config/config.go:109"]
+
+    // -----------------------------------------------------------------------
+    // Workload — abstract (used in high-level diagrams)
+    // -----------------------------------------------------------------------
+    world [type: workload, label: "Real world"]
+
+    // -----------------------------------------------------------------------
+    // Charmed applications — abstract
+    // -----------------------------------------------------------------------
+    apps [type: charm, label: "Charmed applications",
+          collective: application]
+    application [type: charm, label: "Charmed application"]   // the collective's base kind
+    // -----------------------------------------------------------------------
+    // Status domains — reference/status.md (values verbatim from
+    // core/status/status.go + domain/status/status.go enums)
+    // -----------------------------------------------------------------------
+    uas_status      [type: juju-software, label: "Unit agent status\n(allocating, executing, idle,\nerror, failed, rebooting)"]
+    workload_status [type: juju-software, label: "Workload status\n(active, maintenance, waiting,\nblocked, error, unknown, terminated)"]
+    app_status      [type: juju-software, label: "Application status\n(leader sets; else computed\nfrom unit statuses)"]
+    machine_status  [type: juju-software, label: "Machine status\n(pending, started,\nstopped, down, error)"]
+    relation_status [type: juju-software, label: "Relation status\n(joining, joined, broken,\nsuspending, suspended, error)"]
+    // The leader unit — application and relation status are
+    // leader-gated writes (domain/status/service/leaderservice.go);
+    // the leader is any unit of the application, not necessarily unit 0.
+    leader          [type: charm, label: "Leader unit"]
+    // -----------------------------------------------------------------------
+    // Storage model records (model DB — domain/schema/model sql/0011-storage.sql)
+    // -----------------------------------------------------------------------
+    charm_storage_rec  [type: record, label: "charm storage\n(name, kind, count, size)",
+                        ground: "model:charm_storage"]
+    storage_directive_rec [type: record, label: "storage directive\n(application, pool, count, size)",
+                        ground: "model:application_storage_directive"]
+    storage_pool_rec   [type: record, label: "storage pool\n(name, provider type, origin)",
+                        ground: "model:storage_pool"]
+    storage_instance_rec [type: record, label: "storage instance\n(kind: block | filesystem, life)",
+                        ground: "model:storage_instance"]
+    storage_volume_rec [type: record, label: "volume\n(provider id, provision scope)",
+                        ground: "model:storage_volume"]
+    storage_fs_rec     [type: record, label: "filesystem\n(provider id, mount point)",
+                        ground: "model:storage_filesystem"]
+    storage_att_rec    [type: record, label: "storage attachment\n(instance, unit)",
+                        ground: "model:storage_attachment"]
+
+    // -----------------------------------------------------------------------
+    // Network spaces records (model DB — 0008-space.sql)
+    // -----------------------------------------------------------------------
+    net_node_rec   [type: record, label: "net node\n(machine | unit network identity)",
+                    ground: "model:net_node"]
+    space_rec      [type: record, label: "space\n(name, alpha default)",
+                    ground: "model:space"]
+    subnet_rec     [type: record, label: "subnet\n(cidr, vlan, provider id)",
+                    ground: "model:subnet"]
+
+    // -----------------------------------------------------------------------
+    // Relation settings (model DB — 0011/0023 relation tables;
+    // relation_unit_setting / relation_application_setting)
+    // -----------------------------------------------------------------------
+    // Relation settings permissions (docs/reference/relation.md; was
+    // "Databag permissions" — renamed with the round-26 settings
+    // naming decision, the codebase's own word). LEAN form (reviewer
+    // round 20): units, not unit agents (leadership is a property of
+    // the unit; the unit agent is the machinery doing the API work);
+    // no model-database box — the scope chips ("model M") carry the
+    // "records in the host model's database" context, and the caption
+    // says it. Same-kind fan semantics: one application settings
+    // record per application, one unit settings record per unit; each
+    // unit reads + writes ONLY its own unit settings (red); the
+    // leader unit also reads + writes its application's settings
+    // (red); green reads everywhere else. The permission story is the
+    // same whether the applications share a model or not.
+    a_unit_leader [type: charm, label: "appA/leader"]
+    a_unit_1      [type: charm, label: "appA/1"]
+    b_unit_leader [type: charm, label: "appB/leader"]
+    b_unit_1      [type: charm, label: "appB/1"]
+    a_app_bag     [type: record, label: "application settings\n(app A)"]
+    a_bag_a0      [type: record, label: "unit settings\n(appA/leader)"]
+    a_bag_a1      [type: record, label: "unit settings\n(appA/1)"]
+    b_app_bag     [type: record, label: "application settings\n(app B)"]
+    b_bag_b0      [type: record, label: "unit settings\n(appB/leader)"]
+    b_bag_b1      [type: record, label: "unit settings\n(appB/1)"]
+    c_unit_leader [type: charm, label: "appA/leader"]
+    c_unit_1      [type: charm, label: "appA/1"]
+    c_app_bag     [type: record, label: "application settings\n(app A)"]
+    c_bag_a0      [type: record, label: "unit settings\n(appA/leader)"]
+    c_bag_a1      [type: record, label: "unit settings\n(appA/1)"]
+    // -----------------------------------------------------------------------
+    // Charm origin records (model DB — 0015-charm.sql: charm is
+    // per-revision; channels are per-application; unit pins its own
+    // charm revision)
+    // -----------------------------------------------------------------------
+    charm_metadata_rec [type: record, label: "charm metadata\n(name, subordinate,\nmin juju version)",
+                        ground: "model:charm_metadata"]
+    charm_download_rec [type: record, label: "charm download info\n(charmhub id, url, provenance)",
+                        ground: "model:charm_download_info"]
+    app_channel_rec    [type: record, label: "application channel\n(track, risk, branch)",
+                        ground: "model:application_channel"]
+    app_platform_rec   [type: record, label: "application platform\n(os, channel, architecture)",
+                        ground: "model:application_platform"]
+
+    // -----------------------------------------------------------------------
+    // Operation / task / action records (model DB — 0033-operation.sql)
+    // -----------------------------------------------------------------------
+    operation_rec      [type: record, label: "operation\n(summary, parallel, execution group)",
+                        ground: "model:operation"]
+    operation_task_rec [type: record, label: "task\n(task id, enqueued/started/completed)",
+                        ground: "model:operation_task"]
+    operation_action_rec [type: record, label: "operation action\n(1:1 when an action; absent for exec)",
+                        ground: "model:operation_action"]
+    op_unit_task_rec   [type: record, label: "unit task\n(task, unit)",
+                        ground: "model:operation_unit_task"]
+    op_status_rec      [type: record, label: "task status\n(error, running, pending, failed,\ncancelled, completed, aborting, aborted)",
+                        ground: "model:operation_task_status"]
+    // -----------------------------------------------------------------------
+    // Configuration levels (docs/reference/configuration.md) — where each
+    // level lives and who sets it (ConfigScout grounds).
+    // -----------------------------------------------------------------------
+    ctrl_config_rec   [type: record, label: "controller config\n(controller DB, key/value)"]
+    model_config_rec  [type: record, label: "model config\n(model DB, key/value)"]
+    app_config_rec    [type: record, label: "application config\n(model DB, per-app rows)"]
+
+    // -----------------------------------------------------------------------
+    // Hook execution participants
+    // -----------------------------------------------------------------------
+    apiserver  [type: juju-software, label: "API server"]
+
+    // -----------------------------------------------------------------------
+    // Deploy K8s — containeragent as the concrete unit agent on K8s
+    // -----------------------------------------------------------------------
+    containeragent [type: juju-software, label: "Unit agent\n(containeragent)"]
+
+    // -----------------------------------------------------------------------
+    // Integrate — two distinct unit agents
+    // -----------------------------------------------------------------------
+    ua1 [type: juju-software, label: "Unit agent (app A)"]
+    ua2 [type: juju-software, label: "Unit agent (app B)"]
+    // -----------------------------------------------------------------------
+    // Secret lifecycle — actors
+    // -----------------------------------------------------------------------
+    observer_charm [type: charm, label: "Observer charm\n(secret consumer)"]
+    secret_backend [type: external, label: "Secret content backend\n(juju database, Kubernetes, Vault)"]
+
+
+    // Remove — undertaker worker
+    // -----------------------------------------------------------------------
+    undertaker [type: juju-software, label: "Undertaker\n(controller worker)"]
+    // -----------------------------------------------------------------------
+    // Machine cloud — controller machine and unit agent (both jujud)
+    // -----------------------------------------------------------------------
+    controller_machine [type: container, label: "Controller machine",
+                        abstracts: "controller"] {
+      cm_agent [type: juju-software, label: "Controller agent\n(jujud, Dqlite)"]
+    }
+    machine_agent      [type: juju-software, label: "Machine agent\n(jujud)"]
+
+    // Machine deployment topology — the unit-machine half. One jujud per
+    // machine: the unit machine's jujud is the machine agent, hosting the
+    // unit agent, which runs the charm, which drives the workload
+    // directly — charm and workload share the machine and there is NO
+    // Pebble (Pebble is injected only into K8s workload containers;
+    // architecture.md § Control flow). The controller-machine half is
+    // controller_machine + cm_agent above.
+    unit_machine [type: container, label: "Unit machine\n(cloud instance)"] {
+      um_ma       [type: juju-software, label: "Machine agent\n(jujud)"]
+      um_ua       [type: juju-software, label: "Unit agent"]
+      um_charm    [type: charm,    label: "Charm"]
+      um_workload [type: workload, label: "Workload"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Machine designations (docs/reference/machine.md) — one machine
+    // table, two provisioning paths: base machines by the controller
+    // (its compute provisioner model worker, cmd/jujud-controller/
+    // agent/model/manifolds.go:computeProvisionerName), containers by
+    // the HOST machine agent (internal/worker/containerprovisioner +
+    // cmd/jujud/agent/machine/manifolds.go lxdContainerProvisioner).
+    // Containers are machines: each runs its own jujud machine agent,
+    // which hosts the unit agent (deployer).
+    // -----------------------------------------------------------------------
+    machine0 [type: container, label: "Machine 0\n(cloud instance)"] {
+      ma0 [type: juju-software, label: "Machine agent\n(jujud)"]
+      lxd0 [type: container, label: "LXD container"] {
+        ma1 [type: juju-software, label: "Machine agent\n(jujud)"]
+        unit0 [type: container, label: "Unit"] {
+          ua0 [type: juju-software, label: "Unit agent"]
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Worker tree — the controller dependency engine
+    // (cmd/jujud-controller/agent/{machine,model}/manifolds.go)
+    // -----------------------------------------------------------------------
+    agent_worker [type: juju-software, label: "Agent\n(config)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:agentName"]
+    db_accessor [type: juju-software, label: "DB accessor\n(runs local Dqlite)",
+                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:dbAccessorName"]
+    change_stream [type: juju-software, label: "Change stream",
+                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:changeStreamName"]
+    domain_services [type: juju-software, label: "Domain services\n(controller + model)",
+                     ground: "cmd/jujud-controller/agent/machine/manifolds.go:domainServicesName"]
+    provider_services [type: juju-software, label: "Provider services",
+                       ground: "cmd/jujud-controller/agent/machine/manifolds.go:providerDomainServicesName"]
+    provider_tracker [type: juju-software, label: "Provider tracker\n(cloud handles)",
+                      ground: "cmd/jujud-controller/agent/machine/manifolds.go:providerTrackerName"]
+    lease_manager [type: juju-software, label: "Lease manager",
+                   ground: "cmd/jujud-controller/agent/machine/manifolds.go:leaseManagerName"]
+    primary_flag [type: juju-software, label: "Primary election\n(lease flag)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:isPrimaryControllerFlagName"]
+    lease_expiry [type: juju-software, label: "Lease expiry\n(primary only)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:leaseExpiryName"]
+    object_store [type: juju-software, label: "Object store\n(blob store)",
+                  ground: "cmd/jujud-controller/agent/machine/manifolds.go:objectStoreName"]
+    api_server [type: juju-software, label: "API server\n(facades)",
+                ground: "cmd/jujud-controller/agent/machine/manifolds.go:apiServerName"]
+    http_server [type: juju-software, label: "HTTP server\n(TLS mux)",
+                 ground: "cmd/jujud-controller/agent/machine/manifolds.go:httpServerName"]
+    model_worker_manager [type: juju-software, label: "Model worker manager\n(per-model runners)",
+                          ground: "cmd/jujud-controller/agent/machine/manifolds.go:modelWorkerManagerName"]
+    provisioner [type: juju-software, label: "Compute provisioner\n(model worker)",
+                 ground: "cmd/jujud-controller/agent/model/manifolds.go:computeProvisionerName"]
+
+    // -----------------------------------------------------------------------
+    // Data model — Dqlite record nodes (model database)
+    // -----------------------------------------------------------------------
+    application_rec [type: record, label: "application\n(name, charm ref, config)",
+                     ground: "model:application"]
+    unit_rec        [type: record, label: "unit\n(application, charm rev, lifecycle)",
+                     ground: "model:unit"]
+    machine_rec     [type: record, label: "machine\n(constraints, provider ID)",
+                     ground: "model:machine"]
+    charm_rec       [type: record, label: "charm\n(source, revision, archive)",
+                     ground: "model:charm"]
+    relation_rec    [type: record, label: "relation\n(endpoints, settings)",
+                     ground: "model:relation"]
+
+    // Controller database records — provenance spine (controller DB).
+    // The walk unit → application → model → cloud crosses both databases.
+    user_rec        [type: record, label: "user\n(name, access levels)",
+                     ground: "controller:user"]
+    cloud_rec       [type: record, label: "cloud\n(endpoint, regions, CA)",
+                     ground: "controller:cloud"]
+    credential_rec  [type: record, label: "cloud credential\n(auth attributes)",
+                     ground: "controller:cloud_credential"]
+    model_rec       [type: record, label: "model\n(cloud, credential, namespace)",
+                     ground: "controller:model"]
+    controller_rec  [type: record, label: "controller\n(identity, HA nodes)",
+                     ground: "controller:controller"]
+    // Relation endpoints (model DB) — the indirection through which
+    // a relation connects two applications. DECLARED FLATTENING: one
+    // node covers two real tables (application_endpoint + relation_endpoint).
+    endpoint_rec     [type: record, label: "endpoint\n(application, relation, role)",
+                      ground: "model:application_endpoint+relation_endpoint"]
+
+    // -----------------------------------------------------------------------
+    // Cross-model integration records (offers live in the offering model
+    // DB; the external controller reference lives in the consuming
+    // controller DB)
+    // -----------------------------------------------------------------------
+    offer_rec               [type: record, label: "offer\n(published endpoints)",
+                             ground: "model:offer"]
+    offer_connection_rec    [type: record, label: "offer connection\n(consumer link)",
+                             ground: "model:offer_connection"]
+    remote_app_rec         [type: record, label: "remote application\n(proxy of offerer)",
+                            ground: "model:application_remote_offerer"]
+    external_controller_rec [type: record, label: "external controller\n(API addresses, CA)",
+                             ground: "controller:external_controller"]
+
+    // -----------------------------------------------------------------------
+    // Uniter — the unit agent's hook execution engine, plus the states
+    // of its three-phase operation executor (prepare → execute → commit)
+    // -----------------------------------------------------------------------
+    uniter [type: juju-software, label: "Uniter\n(hook execution engine)",
+            ground: "internal/worker/uniter/manifold.go:NewOperationExecutor"]
+    // Executor states: the labels are the verbatim strings from
+    // internal/worker/uniter/operation/executor.go:28-30
+    // (stepPrepare / stepExecute / stepCommit); guards: ErrHookFailed,
+    // ErrNeedsReboot in operation/errors.go.
+    uop_idle       [type: juju-software, label: "idle"]
+    uop_preparing  [type: juju-software, label: "preparing"]
+    uop_executing  [type: juju-software, label: "executing"]
+    uop_committing [type: juju-software, label: "committing"]
+    uop_error      [type: juju-software, label: "error"]
+    sec_reserved  [type: juju-software, label: "reserved"]
+    sec_active    [type: juju-software, label: "active (latest revision)"]
+    sec_rotate    [type: juju-software, label: "rotate due"]
+    sec_expired   [type: juju-software, label: "expiry due"]
+    sec_obsolete  [type: juju-software, label: "obsolete (pending delete)"]
+    sec_removed   [type: juju-software, label: "removed"]
+
+    // Machine states (docs/reference/machine.md §4) — the two status
+    // vocabularies. Instance status (machine_cloud_instance_status_
+    // value: unknown, pending, allocating, running, provisioning
+    // error); machine status (machine_status_value: error, started,
+    // pending, stopped, down). `down` is NOT written by anyone — it
+    // is what a machine's status reads when its agent is not present
+    // (decodeMachineStatus, domain/status/service/status.go:643-651).
+    mis_pending     [type: juju-software, label: "pending"]
+    mis_allocating  [type: juju-software, label: "allocating"]
+    mis_running     [type: juju-software, label: "running"]
+    mis_error       [type: juju-software, label: "provisioning error"]
+    mas_pending     [type: juju-software, label: "pending"]
+    mas_started     [type: juju-software, label: "started"]
+    mas_stopped     [type: juju-software, label: "stopped"]
+    mas_error       [type: juju-software, label: "error (destroying machine)"]
+
+    // Action task states (docs/reference/action.md §4) — the task
+    // status vocabulary (operation_task_status_value: pending,
+    // running, completed, failed, cancelled, aborting, aborted,
+    // error). The write path: the agent starts/finishes via its
+    // facade (uniter BeginActions/FinishActions; machineactions
+    // Begin/Finish); the user cancels via the action facade
+    // (CancelTask: cancelled, or aborting when already running).
+    at_pending   [type: juju-software, label: "pending"]
+    at_running   [type: juju-software, label: "running"]
+    at_completed [type: juju-software, label: "completed"]
+    at_failed    [type: juju-software, label: "failed"]
+    at_cancelled [type: juju-software, label: "cancelled"]
+    at_aborting  [type: juju-software, label: "aborting"]
+    at_aborted   [type: juju-software, label: "aborted"]
+
+    // Model migration (docs/reference/model.md § Model operations —
+    // MigrationScout grounds): the target controller (its Migration
+    // Target facade + the import coordinator) and the model's agents
+    // (their migrationminion workers — machine and unit agents).
+    migration_target [type: juju-software, label: "target controller\n(MigrationTarget)"]
+    migration_minion [type: juju-software, label: "model agents\n(migrationminion)"]
+
+    // -----------------------------------------------------------------------
+    // Per-type relation shapes (docs/reference/relation.md § Types of
+    // relation — one figure at the top of each kind's section).
+    // Definition nodes (the taxonomy-trie precedent): the shapes are
+    // the page's own illustrations, not code facts — the labels carry
+    // the discriminating facts, no grounds.
+    // -----------------------------------------------------------------------
+    peer_app   [type: juju-software, label: "the application"]
+    peer_rel   [type: record, label: "the peer relation\n(one endpoint)"]
+    peer_u1    [type: juju-software, label: "unit 1"]
+    peer_u2    [type: juju-software, label: "unit 2"]
+
+    sub_principal [type: juju-software, label: "principal\napplication"]
+    sub_sub       [type: juju-software, label: "subordinate\napplication"]
+    sub_rel       [type: record, label: "the subordinate relation\n(container scope)"]
+    sub_punit     [type: juju-software, label: "principal\nunit"]
+    sub_sunit     [type: juju-software, label: "subordinate\nunit"]
+    sub_machine   [type: container, label: "the principal unit's\nmachine"]
+
+    reg_a     [type: juju-software, label: "application A\n(provides)"]
+    reg_b     [type: juju-software, label: "application B\n(requires)"]
+    reg_rel   [type: record, label: "the regular relation\n(two endpoints)"]
+
+    cm_model_a [type: container, label: "model A\n(consuming)"] {
+      cm_app_a  [type: juju-software, label: "application A"]
+    }
+    cm_model_b [type: container, label: "model B\n(offer)"] {
+      cm_saas   [type: juju-software, label: "saas\n(synthetic application)"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Intro-view archetypes — real types rendered as N labelled instances
+    // per view (instances: notation, ggarch 0.22.0). The instances are
+    // illustrations; the types and their edges are the product's actual
+    // structure. Used by the intro views below:
+    //   bare_application — pre-Juju workload (external, no Juju records)
+    //   cloud            — the generic cloud node for machine sequences
+    //   apps             — charmed application
+    //   unit_pod         — the unit: agent + charm + workload (K8s truth)
+    // -----------------------------------------------------------------------
+    bare_application [type: external, label: "application"]
+
+    // -----------------------------------------------------------------------
+    // HA controller — the controller node archetype, instanced per view.
+    // The mesh edge (in the edges block) is the truth the old ring
+    // approximated: Raft replication is full-mesh — the leader
+    // replicates to all peers; every node talks to every other.
+    // -----------------------------------------------------------------------
+    controller_node [type: container, label: "controller node"] {
+      ha_agent  [type: juju-software,
+             label: "controller agent\n(jujud, embedded Dqlite)"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Relation kind taxonomy — the is-a trie (docs/reference/relation.md,
+    // § Types of relation; ADR-011 §2). Definition nodes: the kinds are
+    // the page's own discriminated subkinds, not code facts — no grounds
+    // (the definitions live on the page; the discriminators are the edge
+    // labels). POSITIVE names only (reviewer verdicts round 26 part 2);
+    // FLAT STAR (verdicts round 27): the interior groupings of the first
+    // round ("inter-application", "principal-to-principal") are terms
+    // nobody uses — the code's only kind dispatch is peer (one endpoint)
+    // vs everything else (migration.go) — so the four self-standing
+    // section kinds hang straight off the root, each edge label carrying
+    // the discriminating fact. Straight diagonal connectors (no
+    // `routing: orthogonal`): the is-a edge is a direct line, tree-shaped.
+    // -----------------------------------------------------------------------
+    rel_kind     [type: default, label: "Relation"]
+    rel_kind_peer[type: default, label: "Peer relation"]
+    rel_kind_sub [type: default, label: "Subordinate relation"]
+    rel_kind_reg [type: default, label: "Regular relation"]
+    rel_kind_cmr [type: default, label: "Cross-model relation"]
+
+    // -----------------------------------------------------------------------
+    // Relation attributes — the persistence portrait (ADR-011 §3), sliced
+    // from domain/schema/model/sql/0024-relation.sql. Every fk: field is
+    // the origin of exactly one data edge — the arrow is where the pointer
+    // lives. The four derived views (v_application_endpoint,
+    // v_relation_endpoint, v_relation_endpoint_identifier,
+    // v_relation_status) are read models: no pointers of their own, so
+    // they are named in the caption, not drawn.
+    // Boundary nodes (unit, application_endpoint, life,
+    // charm_relation_scope) stand for the neighbouring tables the FKs
+    // point into; only their key column is drawn.
+    // -----------------------------------------------------------------------
+    ra_relation          [type: record, label: "relation", ground: "model:relation"] {
+      fields {
+        uuid            [label: "uuid",             type: "uuid", pk: true]
+        relation_id     [label: "relation_id",      type: "int"]
+        life_id         [label: "life_id",          type: "int",  fk: true]
+        scope_id        [label: "scope_id",         type: "int",  fk: true]
+        suspended       [label: "suspended",        type: "bool", null: true]
+        suspended_reason[label: "suspended_reason", type: "text", null: true]
+      }
+    }
+    ra_endpoint          [type: record, label: "relation_endpoint", ground: "model:relation_endpoint"] {
+      fields {
+        uuid            [label: "uuid",            type: "uuid", pk: true]
+        relation_uuid   [label: "relation_uuid",   type: "uuid", fk: true]
+        endpoint_uuid   [label: "endpoint_uuid",   type: "uuid", fk: true]
+      }
+    }
+    ra_unit              [type: record, label: "relation_unit", ground: "model:relation_unit"] {
+      fields {
+        uuid                 [label: "uuid",                  type: "uuid", pk: true]
+        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "uuid", fk: true]
+        unit_uuid            [label: "unit_uuid",             type: "uuid", fk: true]
+      }
+    }
+    ra_unit_setting      [type: record, label: "relation_unit_setting", ground: "model:relation_unit_setting"] {
+      // DECLARED FLATTENING: one node covers two real tables — the
+      // settings and the settings hash (relation_unit_settings_hash),
+      // the watcher's change-detection digest.
+      fields {
+        relation_unit_uuid [label: "relation_unit_uuid", type: "uuid", pk: true, fk: true]
+        key                [label: "key",               type: "text", pk: true]
+        value              [label: "value",             type: "text", null: true]
+        sha256             [label: "sha256 (hash)",     type: "text"]
+      }
+    }
+    ra_setting_archive   [type: record, label: "relation_unit_setting_archive", ground: "model:relation_unit_setting_archive"] {
+      fields {
+        relation_uuid [label: "relation_uuid", type: "uuid", pk: true, fk: true]
+        unit_name     [label: "unit_name",     type: "text", pk: true]
+        key           [label: "key",           type: "text", pk: true]
+        value         [label: "value",         type: "text", null: true]
+      }
+    }
+    ra_app_setting       [type: record, label: "relation_application_setting", ground: "model:relation_application_setting"] {
+      // DECLARED FLATTENING: one node covers two real tables — the
+      // settings and the settings hash
+      // (relation_application_settings_hash).
+      fields {
+        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "uuid", pk: true, fk: true]
+        key                    [label: "key",                   type: "text", pk: true]
+        value                  [label: "value",                 type: "text", null: true]
+        sha256                 [label: "sha256 (hash)",        type: "text"]
+      }
+    }
+    ra_status            [type: record, label: "relation_status", ground: "model:relation_status"] {
+      fields {
+        relation_uuid         [label: "relation_uuid",         type: "uuid", pk: true, fk: true]
+        relation_status_type_id [label: "relation_status_type_id", type: "text", fk: true]
+        message               [label: "message",              type: "text", null: true]
+        updated_at            [label: "updated_at",           type: "time", null: true]
+      }
+    }
+    ra_status_type       [type: record, label: "relation_status_type", ground: "model:relation_status_type"] {
+      fields {
+        id   [label: "id",   type: "text", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+    // Boundary nodes — neighbouring tables the FKs point into.
+    ra_app_endpoint      [type: record, label: "application_endpoint", ground: "model:application_endpoint"] {
+      fields {
+        uuid [label: "uuid", type: "uuid", pk: true]
+      }
+    }
+    ra_unit_boundary     [type: record, label: "unit", ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "uuid", pk: true]
+      }
+    }
+    ra_life              [type: record, label: "life", ground: "model:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+      }
+    }
+    ra_scope             [type: record, label: "charm_relation_scope", ground: "model:charm_relation_scope"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Machine attributes (ADR-011 §3, docs/reference/machine.md): the
+    // stored pointers. Every fk: field is the origin of exactly one
+    // data edge. DECLARED FLATTENINGS (one node/field covers its
+    // value lookups): machine_status + machine_status_value;
+    // machine_cloud_instance_status + machine_cloud_instance_status_
+    // value; the two life_id columns + the shared life table (alive /
+    // dying / dead); machine_container_type + container_type; the
+    // machine_manual flag. machine_platform keeps its node — the base
+    // (os@channel + architecture) is a doc-facing record.
+    // -----------------------------------------------------------------------
+    ma_machine        [type: record, label: "machine", ground: "model:machine"] {
+      fields {
+        uuid          [label: "uuid",            type: "uuid", pk: true]
+        name          [label: "name (the designation)", type: "text"]
+        life_id       [label: "life (alive | dying | dead)", type: "int"]
+        net_node_uuid [label: "net_node_uuid",   type: "uuid", fk: true]
+        container_type [label: "container_type (none | lxd)", type: "int"]
+        manual        [label: "manual?",         type: "bool"]
+        os_channel   [label: "base (os@channel)", type: "text"]
+        architecture [label: "architecture", type: "text"]
+        agent_started_at [label: "agent_started_at", type: "time", null: true]
+        hostname      [label: "hostname",        type: "text", null: true]
+        keep_instance [label: "keep_instance",   type: "bool", null: true]
+      }
+    }
+    ma_instance       [type: record, label: "machine_cloud_instance", ground: "model:machine_cloud_instance"] {
+      // The instance record tracks the instance-creation process:
+      // instance_id stays empty until the cloud provider has created
+      // the instance (0017 DDL comment). DECLARED FLATTENING: the
+      // availability zone lookup (availability_zone_uuid ->
+      // availability_zone) — a value object, kept as a field.
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        life_id      [label: "life (alive | dying | dead)", type: "int"]
+        instance_id  [label: "instance_id", type: "text", null: true]
+        arch         [label: "arch", type: "text", null: true]
+        availability_zone_uuid [label: "availability zone", type: "uuid", null: true]
+        cpu_cores    [label: "cpu_cores", type: "int", null: true]
+        mem          [label: "mem", type: "int", null: true]
+        root_disk    [label: "root_disk", type: "int", null: true]
+        virt_type    [label: "virt_type", type: "text", null: true]
+      }
+    }
+    ma_parent         [type: record, label: "machine_parent", ground: "model:machine_parent"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        parent_uuid  [label: "parent_uuid", type: "uuid", fk: true]
+      }
+    }
+    ma_status         [type: record, label: "machine_status", ground: "model:machine_status"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        status       [label: "status", type: "text"]
+        message      [label: "message", type: "text", null: true]
+        updated_at   [label: "updated_at", type: "time", null: true]
+      }
+    }
+    ma_instance_status [type: record, label: "machine_cloud_instance_status", ground: "model:machine_cloud_instance_status"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
+        status       [label: "status", type: "text"]
+        message      [label: "message", type: "text", null: true]
+        updated_at   [label: "updated_at", type: "time", null: true]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Application attributes (ADR-011 §3, docs/reference/application.md):
+    // the stored pointers. Every fk: field is the origin of exactly one
+    // data edge. DECLARED FLATTENINGS (one node/field covers its value
+    // lookups): application_status.status_id + workload_status_value;
+    // application_config.type_id + charm_config_type; the charm URL
+    // fields (the application stores only the charm's uuid; the URL is
+    // reconstructed from the charm's own fields). Not drawn: the
+    // controller marker (application_controller), K8s scale
+    // (application_scale), the expose tables, the config hash, the CMR
+    // remote-offerer pair, application_setting (a single trust
+    // boolean), application_workload_version, application_agent.
+    // -----------------------------------------------------------------------
+    app_charm   [type: record, label: "charm", ground: "model:charm"] {
+      fields {
+        uuid     [label: "uuid", type: "uuid", pk: true]
+        url_name [label: "url (reconstructed fields)", type: "text"]
+        revision [label: "revision", type: "int"]
+      }
+    }
+    app_rec     [type: record, label: "application", ground: "model:application"] {
+      fields {
+        uuid          [label: "uuid", type: "uuid", pk: true]
+        name          [label: "name (unique)", type: "text"]
+        life_id       [label: "life (alive | dying | dead)", type: "int"]
+        charm_uuid    [label: "charm_uuid", type: "uuid", fk: true]
+        charm_modified_version [label: "charm_modified_version", type: "int"]
+        space_uuid    [label: "default binding space", type: "uuid"]
+      }
+    }
+    app_status_rec [type: record, label: "application_status", ground: "model:application_status"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "uuid", pk: true, fk: true]
+        status           [label: "status", type: "text"]
+        message          [label: "message", type: "text", null: true]
+        updated_at       [label: "updated_at", type: "time", null: true]
+      }
+    }
+    app_config  [type: record, label: "application_config", ground: "model:application_config"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "uuid", fk: true]
+        key              [label: "key", type: "text", pk: true]
+        value            [label: "value", type: "text", null: true]
+      }
+    }
+    app_channel [type: record, label: "application_channel", ground: "model:application_channel"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "uuid", pk: true, fk: true]
+        track            [label: "track", type: "text", null: true]
+        risk             [label: "risk", type: "text"]
+        branch           [label: "branch", type: "text", null: true]
+      }
+    }
+    app_endpoint [type: record, label: "application_endpoint", ground: "model:application_endpoint"] {
+      fields {
+        application_uuid  [label: "application_uuid", type: "uuid", fk: true]
+        charm_relation_uuid [label: "charm_relation_uuid (charm endpoint)", type: "uuid"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Unit attributes (ADR-011 §3, docs/reference/unit.md): the stored
+    // pointers. The unit pins its charm revision (charm_uuid) —
+    // flattened: the charm slice is charm.md's. DECLARED FLATTENINGS:
+    // unit_agent_status.status_id + unit_agent_status_value;
+    // unit_workload_status.status_id + workload_status_value (the
+    // application's own vocabulary). Not drawn: the unit_state /
+    // unit_state_charm / unit_state_relation triples (the charm's
+    // claimed state), unit_resolved, presence, workload versions,
+    // the password hash.
+    // -----------------------------------------------------------------------
+    un_unit     [type: record, label: "unit", ground: "model:unit"] {
+      fields {
+        uuid          [label: "uuid", type: "uuid", pk: true]
+        name          [label: "name (application/N)", type: "text"]
+        life_id       [label: "life (alive | dying | dead)", type: "int"]
+        application_uuid [label: "application_uuid", type: "uuid", fk: true]
+        net_node_uuid [label: "net_node_uuid", type: "uuid", fk: true]
+        charm_uuid    [label: "charm_uuid (the pinned revision)", type: "uuid"]
+        password_hash [label: "password_hash", type: "text", null: true]
+      }
+    }
+    un_principal [type: record, label: "unit_principal", ground: "model:unit_principal"] {
+      fields {
+        unit_uuid      [label: "unit_uuid (the subordinate)", type: "uuid", pk: true, fk: true]
+        principal_uuid [label: "principal_uuid", type: "uuid", fk: true]
+      }
+    }
+    un_agent_status [type: record, label: "unit_agent_status", ground: "model:unit_agent_status"] {
+      fields {
+        unit_uuid  [label: "unit_uuid", type: "uuid", pk: true, fk: true]
+        status     [label: "status", type: "text"]
+        message    [label: "message", type: "text", null: true]
+        updated_at [label: "updated_at", type: "time", null: true]
+      }
+    }
+    un_workload_status [type: record, label: "unit_workload_status", ground: "model:unit_workload_status"] {
+      fields {
+        unit_uuid  [label: "unit_uuid", type: "uuid", pk: true, fk: true]
+        status     [label: "status", type: "text"]
+        message    [label: "message", type: "text", null: true]
+        updated_at [label: "updated_at", type: "time", null: true]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Charm attributes (ADR-011 §3, docs/reference/charm.md): the
+    // stored pointers. Every fk: field is the origin of exactly one
+    // data edge. DECLARED FLATTENINGS (one node/field covers its value
+    // lookups): charm_source (local | charmhub | cmr) as the source
+    // field; charm_hash (sha256) not drawn; the manifest base, storage,
+    // devices, containers, terms, tags and categories are charm-defined
+    // payloads, not drawn here. Not drawn: charm_provenance, the
+    // extra-binding and extra-endpoint records.
+    // -----------------------------------------------------------------------
+    ch_rec     [type: record, label: "charm", ground: "model:charm"] {
+      fields {
+        uuid          [label: "uuid", type: "uuid", pk: true]
+        reference_name [label: "reference name", type: "text"]
+        revision      [label: "revision", type: "int"]
+        source        [label: "source (local | charmhub | cmr)", type: "int"]
+        available     [label: "available?", type: "bool"]
+        archive_path  [label: "archive_path", type: "text", null: true]
+      }
+    }
+    ch_metadata [type: record, label: "charm_metadata", ground: "model:charm_metadata"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", pk: true, fk: true]
+        name       [label: "name", type: "text"]
+        description [label: "description", type: "text", null: true]
+        subordinate [label: "subordinate?", type: "bool"]
+        min_juju_version [label: "min_juju_version", type: "text", null: true]
+      }
+    }
+    ch_download [type: record, label: "charm_download_info", ground: "model:charm_download_info"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", pk: true, fk: true]
+        charmhub_identifier [label: "charmhub_identifier", type: "text", null: true]
+        download_url [label: "download_url", type: "text", null: true]
+        download_size [label: "download_size", type: "int", null: true]
+      }
+    }
+    ch_relation [type: record, label: "charm_relation", ground: "model:charm_relation"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
+        name       [label: "name", type: "text", pk: true]
+        role       [label: "role (provides | requires | peers)", type: "int"]
+        scope      [label: "scope (global | container)", type: "int"]
+        interface  [label: "interface", type: "text"]
+      }
+    }
+    ch_config  [type: record, label: "charm_config", ground: "model:charm_config"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
+        key        [label: "key", type: "text", pk: true]
+        type       [label: "type (string | int | float | boolean | secret)", type: "int"]
+        default_value [label: "default_value", type: "text", null: true]
+      }
+    }
+    ch_action  [type: record, label: "charm_action", ground: "model:charm_action"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
+        key        [label: "key", type: "text", pk: true]
+        description [label: "description", type: "text", null: true]
+        parallel   [label: "parallel?", type: "bool", null: true]
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Secret attributes (ADR-011 §3, docs/reference/secret.md): the
+    // stored pointers. DECLARED FLATTENINGS (one node/field covers its
+    // value lookups): the id-only `secret` base row folded into
+    // secret_metadata (keyed by the same secret id); the three owner
+    // tables (secret_application_owner / secret_unit_owner /
+    // secret_model_owner) as one owner node; the consumer tables
+    // (secret_unit_consumer / secret_remote_unit_consumer /
+    // secret_reference) as one consumer node; the content stores
+    // (secret_content | secret_value_ref) as one content node; the
+    // revision's obsolete / pending-delete / expire-time flags as
+    // fields on the revision. Not drawn: the rotate-policy lookup, the
+    // rotation record, the deleted value refs, the controller-DB
+    // backend tables.
+    // -----------------------------------------------------------------------
+    s_meta     [type: record, label: "secret_metadata", ground: "model:secret_metadata"] {
+      fields {
+        secret_id  [label: "secret_id", type: "text", pk: true]
+        version    [label: "latest revision", type: "int"]
+        description [label: "description", type: "text", null: true]
+        rotate_policy [label: "rotate policy (never | hourly | daily | ...)", type: "int"]
+        auto_prune [label: "auto_prune?", type: "bool"]
+      }
+    }
+    s_owner    [type: record, label: "secret owner", ground: "model:secret_application_owner"] {
+      fields {
+        secret_id  [label: "secret_id", type: "uuid", pk: true, fk: true]
+        owner_uuid [label: "owner (application | unit | model)", type: "uuid"]
+        label      [label: "label (unique per owner)", type: "text", null: true]
+      }
+    }
+    s_consumer [type: record, label: "secret consumer", ground: "model:secret_unit_consumer"] {
+      fields {
+        secret_id  [label: "secret_id", type: "uuid", fk: true]
+        consumer_uuid [label: "consumer (unit | remote consumer)", type: "uuid"]
+        label      [label: "label", type: "text", null: true]
+      }
+    }
+    s_revision [type: record, label: "secret_revision", ground: "model:secret_revision"] {
+      fields {
+        uuid       [label: "uuid", type: "uuid", pk: true]
+        secret_id  [label: "secret_id", type: "text", fk: true]
+        revision   [label: "revision", type: "int"]
+        obsolete   [label: "obsolete?", type: "bool", null: true]
+        expire_time [label: "expire_time", type: "time", null: true]
+      }
+    }
+    s_content  [type: record, label: "secret content", ground: "model:secret_content"] {
+      fields {
+        revision_uuid [label: "revision_uuid", type: "uuid", pk: true, fk: true]
+        payload    [label: "payload (inline | backend ref)", type: "text"]
+      }
+    }
+    s_permission [type: record, label: "secret_permission", ground: "model:secret_permission"] {
+      fields {
+        secret_id  [label: "secret_id", type: "text", fk: true]
+        role       [label: "role (none | view | manage)", type: "int"]
+        subject    [label: "subject (unit | application | user | model)", type: "int"]
+        scope      [label: "scope (relation | application | model)", type: "int"]
+      }
+    }
+  }
+
+  edges {
+    // Parked observations (map-to-meaning audit, 2026-09-21) - things
+    // we are NOT drawing or rewording now, but might reconsider:
+    // 1. The pebble-notices channel is real and undrawn: pebble
+    //    notices reach the charm via the unit agent's pebblepoller/
+    //    pebblenotices workers (internal/worker/uniter/pebblepoller.
+    //    go) - pebble -> unit_agent -> charm.
+    // 2. The abstract controller -> charmhub edge could read
+    //    "downloads charm archives to its object store" - unit agents
+    //    never fetch from Charmhub; the controller fetches, stores the
+    //    blob, and serves the archive (apiserver object handlers).
+    // 3. The LXD container provisioner runs on the HOST machine agent
+    //    (internal/worker/containerprovisioner), not the controller -
+    //    the "clouds" edges cover machine instances only.
+    // 4. Unit agents never see Charmhub - they pull the archive from
+    //    the controller (UniterAPI.CharmArchiveSha256 + the object-
+    //    store GET); worth an edge if a view ever tells that story.
+    // Intent chain
+    user   -> client     [type: control, label: "sends commands to"]
+    client -> controller [type: api,     label: "calls Juju API on"]
+    agents -> controller [type: stream, label: "watches for changes on"]
+    agents -> world      [type: control, label: "reconciles"]
+    agents -> apps       [type: control, label: "reconciles"]
+
+    // Controller to clouds and charmhub
+    controller -> clouds   [type: control, label: "gets nodes from"]
+    controller -> charmhub [type: api,     label: "fetches charms from"]
+
+    // K8s topology
+    jujud          -> k8s            [type: control, label: "provisions on"]
+    unit_agent -> jujud  [type: api,    label: "makes API calls to"]
+    jujud          -> charmhub       [type: api,     label: "fetches charms"]
+    charm          -> pebble         [type: api,     label: "calls Pebble API"]
+    pebble         -> workload       [type: control, label: "supervises"]
+
+    // Hook execution
+    apiserver  -> unit_agent [type: stream,  label: "watcher"]
+    unit_agent -> charm      [type: control, label: "executes hooks from"]
+    charm      -> unit_agent [type: ipc,     label: "calls hook command on"]
+    unit_agent -> apiserver  [type: api,     label: "flushes hook changes to"]
+
+    // Status domains (reference/status.md) — who sets what. Each of the
+    // five status domains has one owning writer. Relation status is
+    // leader-gated in 4.0 (the controller firewaller's SetRelationStatus
+    // is NotImplemented — cross-model relations are disabled).
+    unit_agent    -> uas_status      [type: control, label: "sets",
+                          ground: "internal/worker/uniter/agent.go:setAgentStatus"]
+    charm         -> workload_status [type: control, label: "sets (status-set)",
+                          ground: "internal/worker/uniter/runner/jujuc/status-set.go:NewStatusSetCommand"]
+    leader        -> app_status      [type: control, label: "sets (status-set)",
+                          ground: "domain/status/service/leaderservice.go:SetApplicationStatusForUnitLeader"]
+    leader        -> relation_status [type: control, label: "sets (lifecycle)",
+                          ground: "domain/status/service/leaderservice.go:SetRelationStatus"]
+    controller    -> relation_status [type: control, label: "suspends / resumes\n(cross-model relations)",
+                          ground: "apiserver/facades/client/application/application.go:SetRelationsSuspended"]
+    machine_agent -> machine_status  [type: control, label: "sets",
+                          ground: "api/agent/provisioner/machine.go:SetStatus"]
+
+    // Simplestreams (reference/metadata.md) — the client walks the
+    // search path for image UUIDs and agent binary metadata; the
+    // controller DB is the first location for a running model (the
+    // agentbinary service serves what the controller fetched),
+    // external locations come signed-first (.sjson) then unsigned.
+    client        -> metadata_mirror [type: api, label: "searches the user-supplied URL for metadata",
+                          ground: "domain/agentbinary/service/service.go:GetExternalAgentBinary"]
+    client        -> streams         [type: api, label: "fetches metadata from",
+                          ground: "environs/tools/doc.go:20"]
+
+    // Machine designations (docs/reference/machine.md — MachineScout
+    // grounds): the host machine agent watches its containers
+    // (machine.WatchContainers) and provisions them through the LXD
+    // broker; unit placement hangs off the shared net_node
+    // (domain/application/state/machine_placement.go:144-147).
+    controller -> machine0 [type: control, label: "provisions\n(StartInstance)",
+                          ground: "cmd/jujud-controller/agent/model/manifolds.go:computeProvisionerName"]
+    ma0 -> controller     [type: api,     label: "watches containers on\n(WatchContainers)"]
+    ma0 -> lxd0           [type: control, label: "provisions container\n(LXD broker)"]
+    ma1 -> ua0            [type: control, label: "hosts (deployer)"]
+
+    // Configuration levels (docs/reference/configuration.md —
+    // ConfigScout grounds): who sets and reads each level.
+    // juju controller-config (cmd/juju/controller/config.go),
+    // juju model-config (cmd/juju/model/config.go), juju config
+    // (cmd/juju/application/config.go), config-get (the hook tool;
+    // there is NO config-set hook command), and the controller's own
+    // config table (domain/schema/controller/4.0.13-controller-
+    // release.ddl:571).
+    user       -> ctrl_config_rec  [type: control, label: "sets\n(juju controller-config)",
+                            ground: "cmd/juju/controller/config.go:NewConfigCommand"]
+    user       -> model_config_rec [type: control, label: "sets\n(juju model-config)",
+                            ground: "cmd/juju/model/config.go:configCommand"]
+    user       -> app_config_rec   [type: control, label: "sets\n(juju config)",
+                            ground: "cmd/juju/application/config.go:NewConfigCommand"]
+    charm      -> app_config_rec   [type: api, label: "reads\n(config-get)",
+                            ground: "internal/worker/uniter/runner/jujuc/config-get.go:NewConfigGetCommand"]
+    controller -> ctrl_config_rec  [type: data, label: "keeps\n(controller DB)",
+                            ground: "controller:controller_config"]
+
+    // Bootstrap K8s
+    client         -> k8s            [type: api]
+    k8s            -> client         [type: stream]
+    client         -> controller_pod [type: api, label: "polls the API until ready"]
+    // Deploy K8s
+    controller     -> k8s              [type: control, label: "creates unit pods on"]
+    controller     -> containeragent   [type: control, label: "starts via the k8s pod spec"]
+    containeragent -> controller       [type: api, label: "makes API calls to"]
+
+    // Bootstrap machine
+    client             -> controller_machine  [type: control, label: "ssh-installs the controller agent on"]
+    client             -> controller_machine  [type: api, label: "polls the API until initialised"]
+
+    // Machine deployment topology (the machine-cloud mirror of the K8s
+    // topology edges above). The controller machine's jujud provisions
+    // machines via its compute provisioner model worker (machine.md:
+    // base machines are the controller's, cmd/jujud-controller/agent/
+    // model/manifolds.go computeProvisionerName) and fetches + serves
+    // charm archives (the map-to-meaning audit: unit agents never see
+    // Charmhub); the unit machine's jujud phones home; it hosts the
+    // unit agent (jujud.md worker chain), which runs the charm, which
+    // drives the workload directly (architecture.md § Control flow:
+    // charm and workload share the machine, no Pebble).
+    cm_agent   -> cloud        [type: control, label: "provisions on"]
+    cm_agent   -> charmhub     [type: api,     label: "fetches charms"]
+    um_ma      -> cm_agent     [type: api,     label: "makes API calls to"]
+    um_ma      -> um_ua        [type: control, label: "hosts (nested)"]
+    um_ua      -> um_charm     [type: control, label: "runs"]
+    um_charm   -> um_workload  [type: control, label: "drives"]
+
+    // Deploy machine
+    controller    -> machine_agent  [type: control, label: "provisions with user data, serves agent binaries"]
+    machine_agent -> controller     [type: api, label: "makes API calls to"]
+
+    // Machine/unit removal and bootstrap machine — generic cloud
+    client     -> cloud  [type: api]
+    controller -> cloud  [type: control, label: "provisions on"]
+    cloud      -> controller [type: control]
+    cloud      -> client     [type: api]
+
+    // Integrate
+    ua1 -> controller [type: stream]
+    ua2 -> controller [type: stream]
+    ua1        -> controller [type: api]
+    ua2        -> controller [type: api]
+
+    // Remove / destroy — user sends directly to controller
+    user           -> controller  [type: event]
+    unit_agent -> controller [type: stream, label: "watches for\nchanges on"]
+    unit_agent     -> controller  [type: api, label: "makes API calls to"]
+    // Model removal
+    controller -> undertaker [type: stream, label: "model removal events"]
+    undertaker -> controller [type: control, label: "purges dead models and their databases from"]
+
+    // Schema associations — semantic direction, multiplicity in the
+    // label (on the many end) until crow's-foot glyphs land (SPEC Phase 9).
+    // ground: = the FK (or table) that realizes the association.
+    // DROPPED from juju2: cloud -> controller "hosts" — no verifiable
+    // FK in the new controller DDL (controller table has model_uuid,
+    // not cloud_uuid). Legacy-ER claim; re-add only when grounded.
+    // The controller hosts its models by database containment (one
+    // controller database per controller; database.md): the DDL FK is
+    // the controller row's model_uuid — the controller model. The
+    // 0..N claim is the containment story, curating that FK.
+    controller_rec   -> model_rec      [type: data, label: "hosts 0..N",
+                                        ground: "controller:controller.model_uuid"]
+    // Controller database
+    user_rec        -> cloud_rec       [type: data, label: "accesses 0..N",
+                                        ground: "controller:permission_object_access"]
+    user_rec        -> credential_rec [type: data, label: "owns 0..N",
+                                        ground: "controller:cloud_credential.owner_uuid"]
+    cloud_rec       -> credential_rec [type: data, label: "defines 0..N",
+                                        ground: "controller:cloud_credential.cloud_uuid"]
+    model_rec       -> cloud_rec      [type: data, label: "deployed on (one)",
+                                        ground: "controller:model.cloud_uuid"]
+    model_rec       -> credential_rec [type: data, label: "uses 0..1",
+                                        ground: "controller:model.cloud_credential_uuid"]
+    // Storage model (0011-storage.sql)
+    charm_storage_rec  -> storage_directive_rec [type: data, label: "fulfilled by 1..N",
+                          ground: "model:application_storage_directive.storage_name"]
+    storage_directive_rec -> storage_pool_rec [type: data, label: "pins (one)",
+                          ground: "model:application_storage_directive.storage_pool_uuid"]
+    storage_instance_rec -> storage_pool_rec [type: data, label: "provisioned from (one)",
+                          ground: "model:storage_instance.storage_pool_uuid"]
+    storage_instance_rec -> storage_volume_rec [type: data, label: "backed by (one)",
+                          ground: "model:storage_instance_volume.storage_volume_uuid"]
+    storage_instance_rec -> storage_fs_rec [type: data, label: "backed by (one)",
+                          ground: "model:storage_instance_filesystem.storage_filesystem_uuid"]
+    storage_att_rec    -> storage_instance_rec [type: data, label: "attaches 1..1",
+                          ground: "model:storage_attachment.storage_instance_uuid"]
+    storage_volume_rec -> net_node_rec [type: data, label: "attached to 0..1",
+                          ground: "model:storage_volume_attachment.net_node_uuid"]
+    // Network spaces (0008-space.sql)
+    subnet_rec        -> space_rec    [type: data, label: "belongs to 0..1",
+                          ground: "model:subnet.space_uuid"]
+    application_rec   -> space_rec    [type: data, label: "default binding (one)",
+                          ground: "model:application.space_uuid"]
+    // PARKED rendering notes (sequence + fan work, reviewer rounds
+    // 20-23, recorded in ggarch TODOS.md):
+    // 1. Sequence BLOCK_PAD 8 -> ~24: the loop/alt borders cut
+    //    through first-inner-step labels and the alt bottom lands
+    //    flush on the repeated footer boxes.
+    // 2. Sequences ignore the topology edge-type vocabulary —
+    //    verified to match Mermaid/UML (dashed = return); if a
+    //    sequence ever needs channel types, a colour accent layers
+    //    on without touching the dashed-returns convention.
+    // 3. Machine designations: far-end port symmetry for the
+    //    through-pair (controller<->ma0) — the strokes converge at
+    //    the far ends and re-bow; label_side machinery is in
+    //    (ggarch c289732), far-end pairing is the remaining step.
+    // Relation settings (domain/relation) — the permission law is
+    // reference/relation.md: each unit reads + writes its OWN unit
+    // settings; the LEADER unit also reads + writes its application's
+    // application settings (leader-gated); ALL units — leaders
+    // included — read ALL of the REMOTE application's settings
+    // (GetRelationUnitSettings / GetRelationApplicationSettings). A
+    // unit does NOT read its own application's other unit settings
+    // (in the regular case nothing turns inwards). Peer case:
+    // everything turns inwards — every unit reads every settings
+    // record of its OWN application, the application settings
+    // included (the uniter's
+    // watcher watches the own endpoint's app settings and all peers,
+    // related_unit_watcher.go:InitialWatchRelatedUnits).
+    // Panel A (app A units): own settings rw; leader rw own app settings;
+    // ALL units read ALL remote (app B) settings.
+    a_unit_leader -> a_bag_a0    [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    a_unit_1      -> a_bag_a1    [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    a_unit_leader -> a_app_bag   [type: read_write, label: "reads + writes",
+                          ground: "model:relation_application_setting"]
+    a_unit_1      -> b_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    a_unit_1      -> b_bag_b0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    a_unit_1      -> b_bag_b1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    a_unit_leader -> b_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    a_unit_leader -> b_bag_b0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    a_unit_leader -> b_bag_b1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    // Panel B (app B units): the mirror.
+    b_unit_leader -> b_bag_b0    [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    b_unit_1      -> b_bag_b1    [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    b_unit_leader -> b_app_bag   [type: read_write, label: "reads + writes",
+                          ground: "model:relation_application_setting"]
+    b_unit_1      -> a_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    b_unit_1      -> a_bag_a0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    b_unit_1      -> a_bag_a1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    b_unit_leader -> a_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/service/relation.go:GetRelationApplicationSettings"]
+    b_unit_leader -> a_bag_a0    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    b_unit_leader -> a_bag_a1    [type: read_only, label: "reads",
+                          ground: "model:relation_unit_setting"]
+    // Panel C (peer relation): everything turns inwards — every unit
+    // reads every settings record of its own application, application
+    // settings included.
+    c_unit_leader -> c_bag_a0    [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    c_unit_1      -> c_bag_a1    [type: read_write, label: "reads + writes",
+                          ground: "model:relation_unit_setting"]
+    c_unit_leader -> c_app_bag   [type: read_write, label: "reads + writes",
+                          ground: "model:relation_application_setting"]
+    c_unit_1      -> c_app_bag   [type: read_only, label: "reads",
+                          ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
+    c_unit_1      -> c_bag_a0    [type: read_only, label: "reads",
+                          ground: "domain/relation/state/related_unit_watcher.go:InitialWatchRelatedUnits"]
+
+    // Charm origin (0015-charm.sql + 0019-application.sql)
+    charm_metadata_rec -> charm_rec [type: data, label: "describes (one)",
+                          ground: "model:charm_metadata.charm_uuid"]
+    charm_download_rec -> charm_rec [type: data, label: "downloaded via 0..1",
+                          ground: "model:charm_download_info.charm_uuid"]
+    application_rec    -> app_channel_rec [type: data, label: "tracks 0..1",
+                          ground: "model:application_channel.application_uuid"]
+    application_rec    -> app_platform_rec [type: data, label: "pinned platform (one)",
+                          ground: "model:application_platform.application_uuid"]
+    // Operation / task / action (0033-operation.sql)
+    operation_task_rec -> operation_rec [type: data, label: "groups 1..N",
+                          ground: "model:operation_task.operation_uuid"]
+    operation_action_rec -> operation_rec [type: data, label: "marks the action (1:1)",
+                          ground: "model:operation_action.operation_uuid"]
+    op_unit_task_rec -> operation_task_rec [type: data, label: "the task (one)",
+                          ground: "model:operation_unit_task.task_uuid"]
+    op_unit_task_rec -> unit_rec       [type: data, label: "runs on (one unit)",
+                          ground: "model:operation_unit_task.unit_uuid"]
+    op_status_rec     -> operation_task_rec [type: data, label: "reports 0..1",
+                          ground: "model:operation_task_status.task_uuid"]
+    // Model database
+    // (model membership is by database — implicit, no FK; table-level ground)
+    model_rec       -> application_rec [type: data, label: "contains 0..N",
+                                        ground: "model:application"]
+    application_rec -> charm_rec       [type: data, label: "uses (one)",
+                                        ground: "model:application.charm_uuid"]
+    application_rec -> unit_rec        [type: data, label: "has 1..N",
+                                        ground: "model:unit.application_uuid"]
+    // Placement: unit and machine share a net node
+    // (unit.net_node_uuid, machine.net_node_uuid) — "runs on" is
+    // realized by that shared node, not a direct FK.
+    unit_rec        -> machine_rec     [type: data, label: "runs on (one)",
+                                        ground: "model:net_node"]
+    relation_rec    -> endpoint_rec    [type: data, label: "has 2 (one per side)",
+                                        ground: "model:relation_endpoint.relation_uuid"]
+    endpoint_rec    -> application_rec [type: data, label: "belongs to (one)",
+                                        ground: "model:application_endpoint.application_uuid"]
+
+    // Cross-model integration associations
+    application_rec -> offer_rec                [type: data, label: "publishes 0..N",
+                                                  ground: "model:offer"]
+    offer_rec        -> offer_connection_rec    [type: data, label: "has 0..N",
+                                                  ground: "model:offer_connection"]
+    model_rec        -> external_controller_rec [type: data, label: "may reference 0..N",
+                                                  ground: "controller:external_controller"]
+    remote_app_rec   -> relation_rec            [type: data, label: "participates in 0..N",
+                                                  ground: "model:application_remote_offerer"]
+
+    // Intro views — archetype edges; instances fan from these per view.
+    // All technically true: the user operates pre-Juju applications
+    // directly; applications converge toward the controller's recorded
+    // goal state (reconciliation); the unit agent watches the controller
+    // for changes.
+    user       -> bare_application [type: control, label: "operates"]
+    apps       -> controller       [type: control, label: "watch for changes on"]
+    // The base-kind twin of the collective edge: "Intro: Juju enters"
+    // individuates the applications (instances of `application`), and
+    // the star expansion pairs on the archetype the instances come
+    // from — this edge is the one that fans per copy there.
+    application -> controller      [type: control, label: "watch for changes on"]
+
+    // HA controller — Raft sync between Dqlite nodes: full mesh
+    // (pairing: mesh — every distinct pair, never a node with itself)
+    ha_agent -> ha_agent [type: stream, label: "Raft sync", pairing: mesh,
+                                arrow: both,
+                                ground: "domain/controllernode/state/state.go:AddDqliteNode"]
+
+    // Worker tree — the machine-cloud execution chain
+    machine_agent -> unit_agent [type: control, label: "hosts (nested)"]
+    unit_agent    -> uniter     [type: control, label: "runs hooks via"]
+    uniter        -> charm      [type: control, label: "dispatches"]
+
+
+    // Worker tree — the controller dependency engine. Edge direction is
+    // consumer -> provider: the source worker depends on the capability
+    // the target provides (dependency.Manifolds Inputs).
+    agent_worker     -> db_accessor     [type: control, label: "provides the agent config and its change notifications"]
+    change_stream   -> db_accessor     [type: stream,  label: "watches the database"]
+    domain_services -> db_accessor     [type: control, label: "reads the dqlite cluster description from"]
+    domain_services -> change_stream    [type: control, label: "creates change watchers over"]
+    lease_manager   -> db_accessor     [type: control, label: "stores its leases"]
+    primary_flag    -> lease_manager   [type: control, label: "claims the controller-ownership lease"]
+    lease_expiry    -> primary_flag    [type: control, label: "runs only when primary"]
+    object_store    -> lease_manager   [type: control, label: "guards access by lease"]
+    api_server      -> domain_services [type: control, label: "exposes domain services"]
+    api_server      -> object_store    [type: control, label: "stores and serves blobs"]
+    http_server     -> api_server      [type: control, label: "serves the shared mux for"]
+    provider_services -> change_stream [type: control, label: "late-binds per-model provider services via"]
+    provider_tracker  -> provider_services [type: control, label: "fetches cloud handles"]
+    undertaker      -> domain_services [type: control, label: "tears models down"]
+    model_worker_manager -> domain_services    [type: control, label: "watches activated models to start workers"]
+    model_worker_manager -> provider_services  [type: control, label: "gets provider factories"]
+    provisioner     -> model_worker_manager [type: control, label: "runs as a model worker"]
+
+    // Uniter operation executor — transitions
+    uop_idle       -> uop_preparing  [type: control]
+    uop_preparing  -> uop_executing  [type: control]
+    uop_executing  -> uop_committing [type: control]
+    uop_executing  -> uop_error      [type: control]
+    uop_error      -> uop_idle      [type: control]
+    sec_reserved   -> sec_active        [type: control]
+    sec_active     -> sec_rotate        [type: control]
+    sec_rotate     -> sec_active        [type: control]
+    sec_active     -> sec_expired       [type: control]
+    sec_expired    -> sec_removed       [type: control]
+    sec_active     -> sec_removed [type: control]
+
+    // Machine states: the provisioning machine and the agent-status
+    // machine (the write paths; `down` is derived, never written).
+    mis_pending     -> mis_allocating [type: control]
+    mis_allocating  -> mis_running    [type: control]
+    mis_allocating  -> mis_error      [type: control]
+    mis_error       -> mis_allocating [type: control]
+    mas_pending     -> mas_started    [type: control]
+    mas_started     -> mas_stopped    [type: control]
+    mas_started     -> mas_error      [type: control]
+
+    // Action task states: the status transitions (each write names its
+    // owner — the agent facades or the user's cancel).
+    at_pending   -> at_running        [type: control]
+    at_running   -> at_completed      [type: control]
+    at_running   -> at_failed         [type: control]
+    at_pending   -> at_cancelled      [type: control]
+    at_running   -> at_aborting       [type: control]
+    at_aborting  -> at_aborted        [type: control]
+
+    // Model migration (the phase machine's communication paths).
+    controller -> migration_target [type: api]
+    controller -> migration_minion [type: control]
+    migration_minion -> controller [type: api]
+    migration_minion -> migration_target [type: api]
+
+    // Per-type relation shapes: the discriminating facts as edge
+    // labels (definition edges, no grounds — the taxonomy-trie
+    // precedent).
+    peer_app  -> peer_rel [type: data, label: "relates to itself"]
+    peer_u1   -> peer_rel [type: data, label: "every unit joins\nthe same relation"]
+    peer_u2   -> peer_rel [type: data, label: "every unit joins\nthe same relation"]
+
+    sub_principal -> sub_rel [type: data, label: "provides"]
+    sub_sub       -> sub_rel [type: data, label: "requires"]
+    sub_punit     -> sub_machine [type: data, label: "runs on"]
+    sub_sunit     -> sub_machine [type: data, label: "runs on (placed\nby the relation)"]
+
+    reg_a   -> reg_rel [type: data, label: "endpoint A"]
+    reg_b   -> reg_rel [type: data, label: "endpoint B"]
+
+    cm_app_a -> cm_saas [type: api, label: "cross-model relation\n(each model holds\nits own half)"]
+    uop_committing -> uop_idle       [type: control]
+
+    // -----------------------------------------------------------------------
+    // Relation kind trie (ADR-011 §2): is-a edges — hollow triangle at
+    // the PARENT; the label is the discriminator that makes the child
+    // a child. Arrow reads child -> parent ("is a").
+    // -----------------------------------------------------------------------
+    rel_kind_peer -> rel_kind [type: generalization, label: "the application relates to itself"]
+    rel_kind_sub  -> rel_kind [type: generalization, label: "one side subordinate"]
+    rel_kind_reg  -> rel_kind [type: generalization, label: "both principal, same model"]
+    rel_kind_cmr  -> rel_kind [type: generalization, label: "different models"]
+
+    // -----------------------------------------------------------------------
+    // Relation attributes (ADR-011 §3): the stored pointers. Every fk:
+    // field of the slice is the origin of exactly one data edge; labels
+    // are child-first, the FK-stored half ("(one)" — non-null fk).
+    // -----------------------------------------------------------------------
+    ra_relation.life_id            -> ra_life.id                  [type: data, label: "typed as (one)"]
+    ra_relation.scope_id           -> ra_scope.id                 [type: data, label: "typed as (one)"]
+    ra_endpoint.relation_uuid      -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
+    ra_endpoint.endpoint_uuid      -> ra_app_endpoint.uuid        [type: data, label: "binds to (one)"]
+    ra_unit.relation_endpoint_uuid -> ra_endpoint.uuid            [type: data, label: "enters through (one)"]
+    ra_unit.unit_uuid              -> ra_unit_boundary.uuid       [type: data, label: "belongs to (one)"]
+    ra_unit_setting.relation_unit_uuid -> ra_unit.uuid            [type: data, label: "belongs to (one)"]
+    ra_setting_archive.relation_uuid -> ra_relation.uuid          [type: data, label: "outlives (one)"]
+    ra_app_setting.relation_endpoint_uuid -> ra_endpoint.uuid     [type: data, label: "belongs to (one)"]
+    ra_status.relation_uuid        -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
+    ra_status.relation_status_type_id -> ra_status_type.id        [type: data, label: "typed as (one)"]
+
+    // Machine attributes (ADR-011 §3): the stored pointers, one data
+    // edge per fk column. Both machine_parent columns point at the
+    // machine table (self-referential containment).
+    ma_machine.net_node_uuid       -> net_node_rec                [type: data, label: "networked as (one)"]
+    ma_instance.machine_uuid       -> ma_machine.uuid             [type: data, label: "belongs to (one)"]
+    ma_parent.machine_uuid         -> ma_machine.uuid             [type: data, label: "child (one)"]
+    ma_parent.parent_uuid          -> ma_machine.uuid             [type: data, label: "host (one)"]
+    ma_status.machine_uuid         -> ma_machine.uuid             [type: data, label: "reports (one)"]
+    ma_instance_status.machine_uuid -> ma_instance.machine_uuid [type: data, label: "reports (one)"]
+
+    // Application attributes (ADR-011 §3): the stored pointers, one
+    // data edge per fk column.
+    app_rec.charm_uuid             -> app_charm.uuid              [type: data, label: "uses (one)"]
+    app_status_rec.application_uuid    -> app_rec.uuid                [type: data, label: "reports (one)"]
+    app_config.application_uuid    -> app_rec.uuid                [type: data, label: "configures (0..N keys)"]
+    app_channel.application_uuid   -> app_rec.uuid                [type: data, label: "pins origin (one)"]
+    app_endpoint.application_uuid  -> app_rec.uuid                [type: data, label: "exposes endpoint (0..N)"]
+
+    // Unit attributes (ADR-011 §3): the stored pointers, one data edge
+    // per fk column. Both unit_principal columns point at the unit
+    // table (the subordinate co-location pair).
+    un_unit.application_uuid       -> app_rec.uuid                [type: data, label: "belongs to (one)"]
+    un_unit.net_node_uuid          -> net_node_rec                [type: data, label: "networked as (one)"]
+    un_principal.unit_uuid         -> un_unit.uuid                [type: data, label: "subordinate (one)"]
+    un_principal.principal_uuid    -> un_unit.uuid                [type: data, label: "principal (one)"]
+    un_agent_status.unit_uuid      -> un_unit.uuid                [type: data, label: "agent reports (one)"]
+    un_workload_status.unit_uuid   -> un_unit.uuid                [type: data, label: "workload reports (one)"]
+
+    // Charm attributes (ADR-011 §3): the stored pointers, one data
+    // edge per fk column.
+    ch_metadata.charm_uuid         -> ch_rec.uuid                 [type: data, label: "describes (one)"]
+    ch_download.charm_uuid         -> ch_rec.uuid                 [type: data, label: "downloaded via (one)"]
+    ch_relation.charm_uuid         -> ch_rec.uuid                 [type: data, label: "defines (0..N)"]
+    ch_config.charm_uuid           -> ch_rec.uuid                 [type: data, label: "configures (0..N keys)"]
+    ch_action.charm_uuid           -> ch_rec.uuid                 [type: data, label: "exposes (0..N)"]
+
+    // Secret attributes (ADR-011 §3): the stored pointers, one data
+    // edge per fk column.
+    s_revision.secret_id           -> s_meta.secret_id            [type: data, label: "carries revisions (0..N)"]
+    s_content.revision_uuid        -> s_revision.uuid             [type: data, label: "stores (one)"]
+    s_owner.secret_id              -> s_meta.secret_id            [type: data, label: "owns (one)"]
+    s_consumer.secret_id           -> s_meta.secret_id            [type: data, label: "tracks (0..N)"]
+    s_permission.secret_id         -> s_meta.secret_id            [type: data, label: "grants (0..N)"]
+  }
+
+  behaviours {
+
+    behaviour "Hook execution" {
+      controller -> unit_agent: async "watcher fires (state change)"
+      unit_agent -> unit_agent: self "snapshot remote state"
+      unit_agent -> unit_agent: self "resolve next hook"
+      unit_agent -> charm: call "run hook (dispatch)"
+      loop "during hook" {
+        charm -> unit_agent: call "hook command (config-get /\nrelation-get / secret-get …)"
+        unit_agent -> controller: call "serve (proxied via the API)"
+        controller -> unit_agent: return "response"
+        unit_agent -> charm: return "exit code"
+      }
+      alt "exit 0" {
+        charm -> unit_agent: return "success"
+        unit_agent -> controller: call "flush writes"
+      } else "failure" {
+        charm -> unit_agent: return "failure"
+        unit_agent -> controller: call "discard writes, unit error"
+      }
+    }
+
+    behaviour "Bootstrap K8s" {
+      user           -> client:          call "juju bootstrap"
+      client         -> k8s:             call "Authenticate"
+      k8s            -> client:          return "OK"
+      client         -> k8s:             call "Create namespace + deploy controller pod"
+      k8s            -> client:          return "Pod scheduled"
+      controller_pod -> controller_pod:  self "Start jujud"
+      controller_pod -> controller_pod:  self "Start API server"
+      controller_pod -> controller_pod:  self "Initialise database"
+      controller_pod -> client:          return "API ready"
+      client         -> user:            return "Bootstrap complete"
+    }
+
+    behaviour "Deploy K8s" {
+      user           -> client:          call "juju deploy"
+      client         -> controller:      call "Deploy RPC call"
+      controller     -> controller:      self "Write application + unit records"
+      controller     -> k8s:             call "Schedule unit pod"
+      k8s            -> controller:      return "Pod running"
+      controller     -> containeragent:  call "Start containeragent"
+      containeragent -> controller:      call "install hook"
+      containeragent -> controller:      call "config-changed hook"
+      containeragent -> controller:      call "start hook"
+      containeragent -> controller:      return "unit active"
+      controller     -> client:          return "deploy complete"
+      client         -> user:            return "Application deployed"
+    }
+
+    behaviour "Integrate" {
+      user       -> client:      call "juju integrate A B"
+      client     -> controller:  call "Integrate RPC call"
+      controller -> controller:  self "Write relation record"
+      controller -> ua1:         async "watcher fires"
+      controller -> ua2:         async "watcher fires"
+      ua1        -> controller:  call "relation-created hook"
+      ua2        -> controller:  call "relation-created hook"
+      ua1        -> controller:  call "relation-joined hook"
+      ua2        -> controller:  call "relation-joined hook"
+      ua1        -> controller:  call "relation-changed hook"
+      ua2        -> controller:  call "relation-changed hook"
+      ua1        -> controller:  call "Write relation data (app A)"
+      controller -> ua2:         async "watcher fires (data changed)"
+      ua2        -> controller:  call "relation-changed hook"
+      ua2        -> controller:  call "Write relation data (app B)"
+      controller -> ua1:         async "watcher fires (data changed)"
+      ua1        -> controller:  call "relation-changed hook"
+    }
+
+    behaviour "Unit removal" {
+      user       -> controller:  call "juju remove-unit"
+      controller -> controller:  self "Mark unit Dying"
+      controller -> unit_agent:  async "watcher fires"
+      unit_agent -> controller:  call "stop hook"
+      unit_agent -> controller:  call "teardown hooks"
+      unit_agent -> controller:  call "remove hook"
+      unit_agent -> controller:  call "Mark unit Dead"
+      controller -> cloud:       call "Release machine"
+      controller -> controller:  self "Delete unit records"
+    }
+
+    behaviour "Model removal" {
+      user       -> controller:  call "juju destroy-model"
+      controller -> controller:  self "Mark model Dying"
+      controller -> undertaker:  async "watcher fires"
+      undertaker -> controller:  call "Destroy all applications"
+      controller -> cloud:       call "Release all machines"
+      controller -> controller:  self "Mark model Dead"
+      undertaker -> controller:  call "Delete model records"
+      undertaker -> controller:  call "Delete model Dqlite database"
+    }
+
+    behaviour "Bootstrap machine" {
+      user               -> client:             call "juju bootstrap"
+      client             -> cloud:              call "Authenticate"
+      cloud              -> client:             return "OK"
+      client             -> cloud:              call "Provision VM"
+      cloud              -> client:             return "VM ready"
+      client             -> controller_machine: call "Install jujud + seed config"
+      controller_machine -> controller_machine: self "Start controller agent"
+      controller_machine -> controller_machine: self "Start API server + database"
+      controller_machine -> client:             return "API ready"
+      client             -> user:               return "Bootstrap complete"
+    }
+
+    behaviour "Deploy machine" {
+      user          -> client:        call "juju deploy"
+      client        -> controller:    call "Deploy RPC call"
+      controller    -> controller:    self "Write application + unit records"
+      controller    -> cloud:         call "Provision machine"
+      cloud         -> controller:    return "Machine ready"
+      controller    -> machine_agent: call "Start jujud"
+      machine_agent -> controller:    call "install hook"
+      machine_agent -> controller:    call "config-changed hook"
+      machine_agent -> controller:    call "start hook"
+      machine_agent -> controller:    return "unit active"
+      controller    -> client:        return "deploy complete"
+      client        -> user:          return "Application deployed"
+    }
+
+
+
+    behaviour "juju status" {
+      user        -> client:     call "juju status"
+      client      -> controller: call "Status API call"
+      controller  -> controller: self "read status records"
+      controller  -> controller: self "derive agent liveness (live connection state)"
+      controller  -> client:     return "projected status"
+      client      -> user:       return "status output"
+    }
+
+    behaviour "Uniter operation" {
+      uop_idle        -> uop_preparing:  call "resolve hook"       [on: "hook queued"]
+      uop_preparing   -> uop_executing:  call "snapshot + run"
+      uop_executing   -> uop_committing: return "exit 0"           [guard: "hook exits 0"]
+      uop_executing   -> uop_error:     async "fail"               [guard: "hook fails"]
+      uop_error       -> uop_idle:      return "retry / escalate" [on: "retry"]
+      uop_committing  -> uop_idle:      return "commit state"     [on: "write complete"]
+    }
+
+    behaviour "Machine provisioning" {
+      mis_pending     -> mis_allocating: async "start instance"        [on: "compute provisioner\n(StartInstance, 'starting')"]
+      mis_allocating  -> mis_running:    async "instance registered"   [on: "instance + addresses recorded"]
+      mis_allocating  -> mis_error:      async "provisioning failed"   [on: "broker error"]
+      mis_error       -> mis_allocating: async "retry"                 [guard: "transient error (RetryProvisioning)"]
+      mis_running     -> mis_running:    self "mirror provider status" [on: "instance poller"]
+    }
+
+    behaviour "Action task" {
+      at_pending  -> at_running:   call "start"                [on: "StartTask"]
+      at_running  -> at_completed: return "finish"             [on: "completion"]
+      at_running  -> at_failed:    async "error"               [on: "failure"]
+      at_pending  -> at_cancelled: async "cancel"              [on: "cancel-task (not yet started)"]
+      at_running  -> at_aborting:  async "cancel"              [guard: "already running"]
+      at_aborting -> at_aborted:   return "abort confirmed"    [on: "process killed"]
+    }
+
+    behaviour "Machine agent status" {
+      mas_pending -> mas_started: call  "report started"     [on: "machine agent startup"]
+      mas_started -> mas_stopped: async "life is not alive" [on: "life watcher fires"]
+      mas_started -> mas_error:   async "EnsureDead failed" [guard: "units or storage still assigned"]
+      mas_stopped -> mas_stopped: self  "EnsureDead: wait for units and storage to clear, then die"
+    }
+
+    behaviour "Model migration" {
+      user       -> client:           call "juju migrate"
+      client     -> controller:       call "InitiateMigration"
+      controller -> controller:       self  "prechecks; write the export record"
+      controller -> migration_minion: async "QUIESCE: fortress lockdown"
+      migration_minion -> controller: call "report quiesced"
+      controller -> migration_target: call "Prechecks + Import\n(the model envelope)"
+      migration_target -> migration_target: self "import (ordered operations, rollback on failure)"
+      controller -> migration_minion: async "VALIDATION"
+      migration_minion -> migration_target: call "validate (re-oriented agents)"
+      migration_minion -> controller: call "report success"
+      controller -> migration_target: call "Activate + AdoptResources"
+      controller -> controller: self "LOGTRANSFER, then REAP: purge the source model (redirect active users)"
+    }
+
+behaviour "Secret lifecycle" {
+      sec_reserved  -> sec_active:        call "create"               [on: "secret-add | add-secret"]
+      sec_active    -> sec_active:        self "grant / revoke"       [on: "secret-grant | grant-secret"]
+      sec_active    -> sec_active:        self "publish new revision" [on: "secret-set | update-secret"]
+      sec_active    -> sec_rotate:    async "rotate due"          [guard: "rotate policy"]
+      sec_rotate -> sec_active:       call "new revision"         [on: "secret-rotate (leader)"]
+      sec_active    -> sec_expired:       async "expiry due"          [guard: "revision expiry"]
+      sec_expired   -> sec_removed:       call "retire revision"      [on: "secret-expired -> secret-remove"]
+      sec_active    -> sec_removed:      async "no consumer tracks it" [on: "revision superseded"]
+      sec_active -> sec_removed:       call "prune"                [on: "secret-remove | auto-prune"]
+      sec_active    -> sec_active:        self "notify consumers"     [on: "secret-changed"]
+    }
+
+    behaviour "Action run flow" {
+      user        -> client:     call "juju run <action> key=v"
+      client      -> controller: call "enqueue operation"
+      controller  -> controller: self "operation + per-unit tasks (pending)"
+      controller  -> unit_agent: async "watcher fires"
+      unit_agent  -> unit_agent: self "resolve next action"
+      unit_agent  -> controller: call "start task (pending -> running)"
+      unit_agent  -> charm:      call "run action (dispatch)"
+      loop "during action" {
+        charm     -> unit_agent: call "action-get / action-set / action-fail / action-log"
+      }
+      alt "cancel-task" {
+        controller -> unit_agent: async "aborting"
+        unit_agent -> unit_agent: self "kill charm process"
+        charm      -> unit_agent: return "aborted"
+      } else "runs to completion" {
+        charm      -> unit_agent: return "results (return-code, stdout, stderr)"
+      }
+      unit_agent  -> controller: call "finish task (completed | failed | aborted; results to object store)"
+      client      -> controller: call "poll results (GetActionResult)"
+      controller  -> client:     return "results"
+    }
+
+    behaviour "Bundle deploy" {
+      user            -> client:     call "juju deploy <bundle> --overlay"
+      client          -> client:     self "merge overlay into base bundle"
+      client          -> controller: call "model status snapshot"
+      client          -> client:     self "build change graph (toposort)"
+      client          -> controller: call "apply changes in order"
+      controller      -> controller: self "deploy, add-machine, add-relation, add-unit, expose, set-options"
+      client          -> controller: call "create / consume offers"
+    }
+
+    behaviour "Web CLI" {
+      charm           -> charm:      self "serve /commands websocket"
+      charm           -> charm:      self "whitelist filter (plugins, upgrade-controller excluded)"
+      charm           -> charm:      self "run embedded juju CLI in-process"
+      charm           -> charm:      async "stream CLICommandStatus lines"
+    }
+
+    behaviour "Log flow" {
+      unit_agent    -> unit_agent:    self "buffer log records"
+      machine_agent -> machine_agent: self "buffer log records"
+      unit_agent    -> controller:    call "ship logs (/logsink websocket)"
+      machine_agent -> controller:    call "ship logs (/logsink websocket)"
+      controller    -> controller:    self "batch JSON lines to logsink.log"
+      user          -> client:        call "juju debug-log"
+      client        -> controller:    call "tail logsink.log (Log API)"
+      controller    -> client:        return "log records"
+    }
+
+    // Simplestreams lookup (reference/metadata.md, Basic workflow):
+    // the client walks the search path in priority order — controller
+    // DB, user-supplied URL, provider locations, streams.canonical.com
+    // — each location tried signed (.sjson) first, then unsigned; the
+    // shipped public keys verify the signed metadata.
+    behaviour "Simplestreams lookup" {
+      user       -> client:          call "juju bootstrap / juju deploy"
+      loop "each location of the search path, signed then unsigned" {
+        client   -> controller:      call "1. the controller DB (a running model)"
+        controller -> client:        return "agent binary metadata"
+        client   -> metadata_mirror: call "2. the user-supplied URL"
+        metadata_mirror -> client:  return "metadata | not found"
+        client   -> cloud:           call "3. provider locations (keystone product-streams)"
+        cloud    -> client:          return "metadata | not found"
+        client   -> streams:         call "4. streams.canonical.com/juju"
+        streams  -> client:          return "signed metadata"
+        client   -> client:          self "verify signature (Juju ships the public keys)"
+      }
+    }
+
+    // Upgrade Juju (reference/upgrading-things.md): the client first
+    // (snap refresh), then the controller and the model — in place
+    // for patch and pre-3.0 minor deltas, bootstrap-and-migrate for
+    // major and post-3.0 minor deltas (model migration is the safer
+    // path for risky upgrades).
+    behaviour "Upgrade Juju" {
+      user    -> client:      call "upgrade Juju"
+      client  -> client:      self "refresh the juju snap (client first)"
+      alt "patch or pre-3.0 minor delta" {
+        client  -> controller: call "juju upgrade-controller (in place)"
+        controller -> client:  return "controllers upgraded"
+        client  -> controller: call "juju upgrade-model"
+      } else "major | post-3.0 minor delta" {
+        client  -> cloud:      call "juju bootstrap a new controller"
+        client  -> controller: call "juju migrate (models move to the new controller)"
+        client  -> controller: call "juju upgrade-model"
+      }
+    }
+
+    // Reference + tutorial: the verification story behind the
+    // tutorial's "Handle authentication and authorization" — grounded
+    // in cmd/juju/user/whoami.go (local client-store read, no API
+    // call), cmd/juju/user/info.go + the UserManager facade
+    // (apiserver/facades/client/usermanager), and
+    // environs/bootstrap/prepare.go (bootstrap caches the admin
+    // account client-side; agent/agentbootstrap creates it with
+    // superuser access server-side).
+    behaviour "User authentication" {
+      user          -> client:     call "juju whoami"
+      client        -> client:     self "read admin account (cached at bootstrap)"
+      user          -> client:     call "juju show-user admin"
+      client        -> controller: call "UserManager.UserInfo"
+      controller    -> client:     return "user info (access: superuser)"
+    }
+
+  }
+
+  style {
+    extends: juju
+    // Relation settings permission semantics (reviewer round 16, the
+    // excalidraw's red/green): read&write vs read-only.
+    edge read_write { stroke: "#C0392B" }
+    edge read_only  { stroke: "#1E8449" }
+  }
+
+}
+
+// ==========================================================================
+// Views
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// Insight: overview with intent/execution chain
+// --------------------------------------------------------------------------
+
+diagram "Juju overview" from "Juju" {
+  select { nodes: user client controller apps clouds charmhub
+           edges: type control type api type stream }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    apps       right-of controller
+    apps       align-middle controller
+    clouds     above controller    gap: 40
+    clouds     align-centre controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charm",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Topology: K8s deployment
+// --------------------------------------------------------------------------
+
+diagram "K8s deployment topology" from "Juju" {
+  select {
+    nodes: k8s controller_pod unit_pod charmhub
+    edges: type api type control
+  }
+  positions {
+    controller_pod left-of unit_pod      gap: 60
+    controller_pod align-middle unit_pod
+    k8s            above controller_pod  gap: 40
+    k8s            align-centre controller_pod
+    charmhub       below controller_pod  gap: 80
+    charmhub       align-centre jujud
+    jujud          align-middle unit_agent
+    unit_pod       direction: right
+    charm_container    same-width workload_container
+    unit_agent         same-width charm
+    pebble             same-width workload
+    jujud              min-width: 160
+    charm_container    left-of workload_container  gap: 80
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Topology: machine deployment (the machine-cloud mirror of the K8s
+// deployment topology) + the bootstrap result views (the controller
+// half alone — the state after `juju bootstrap`: one controller, one
+// model, no applications; the full topologies are the deploy beats'
+// results).
+// --------------------------------------------------------------------------
+
+diagram "Machine deployment topology" from "Juju" {
+  select {
+    nodes: cloud controller_machine unit_machine charmhub
+    edges: type api type control
+  }
+  positions {
+    controller_machine left-of unit_machine      gap: 60
+    controller_machine align-middle unit_machine
+    cloud              above controller_machine  gap: 40
+    cloud              align-centre controller_machine
+    charmhub           below controller_machine  gap: 80
+    charmhub           align-centre controller_machine
+    unit_machine       direction: down
+    cm_agent           align-middle um_ma
+    um_ma              align-centre um_ua
+    um_ua              align-centre um_charm
+    um_charm           align-centre um_workload
+    cm_agent           min-width: 160
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+diagram "Bootstrap K8s result" from "Juju" {
+  select {
+    nodes: k8s controller_pod
+    edges: type control
+  }
+  positions {
+    k8s above controller_pod  gap: 40
+    k8s align-centre controller_pod
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+diagram "Bootstrap machine result" from "Juju" {
+  select {
+    nodes: cloud controller_machine
+    edges: type control
+  }
+  positions {
+    cloud above controller_machine  gap: 40
+    cloud align-centre controller_machine
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Data model: Dqlite records
+// --------------------------------------------------------------------------
+
+diagram "Data model" from "Juju" {
+  select {
+    nodes: application_rec unit_rec machine_rec charm_rec relation_rec endpoint_rec
+  }
+  positions {
+    application_rec left-of unit_rec        gap: 60
+    application_rec align-middle unit_rec
+    unit_rec        right-of application_rec gap: 60
+    unit_rec        left-of machine_rec      gap: 60
+    unit_rec        align-middle machine_rec
+    charm_rec       above application_rec    gap: 50
+    charm_rec       align-centre application_rec
+    endpoint_rec    below application_rec    gap: 50
+    endpoint_rec    align-centre application_rec
+    relation_rec    below endpoint_rec       gap: 50
+    relation_rec    align-centre endpoint_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema relationship"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Data model: full spine — controller DB + model DB, provenance walk
+// --------------------------------------------------------------------------
+
+diagram "Data model (full spine)" from "Juju" {
+  select {
+    nodes: user_rec controller_rec cloud_rec credential_rec model_rec
+           application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec
+    // The unit-pin edge (unit.charm_uuid) is scoped to the Charm
+    // origins view: it landed after this declared view's geometry was
+    // tuned, and re-threading it here flips the synthesized variant
+    // into a cramped solve (measured: 2.24/2.14 detours).
+    except: unit_rec -> charm_rec
+  routing: orthogonal
+  }
+  positions {
+    // Spine, left to right:
+    // controller → model → application → unit → machine
+    controller_rec  left-of model_rec        gap: 90
+    controller_rec  align-middle model_rec
+    model_rec       left-of application_rec gap: 90
+    model_rec       align-middle application_rec
+    application_rec left-of unit_rec        gap: 90
+    application_rec align-middle unit_rec
+    unit_rec        left-of machine_rec     gap: 90
+    unit_rec        align-middle machine_rec
+    // Controller DB cluster above the spine
+    user_rec        above controller_rec    gap: 50
+    user_rec        align-centre controller_rec
+    cloud_rec       above model_rec         gap: 60
+    cloud_rec       align-centre model_rec
+    // credential stacks in model's column (its anchor: "uses 0..1") —
+    // the Scrabble rule: a column absorbs its satellites, so the
+    // credential edges are one vertical plus two short approaches
+    credential_rec  below model_rec         gap: 40
+    credential_rec  align-centre model_rec
+    // Charm above the application
+    charm_rec       above application_rec    gap: 50
+    charm_rec       align-centre application_rec
+    // Relation endpoints below the application
+    endpoint_rec    below application_rec    gap: 50
+    endpoint_rec    align-centre application_rec
+    relation_rec    below endpoint_rec       gap: 50
+    relation_rec    align-centre endpoint_rec
+  }
+  annotations {
+    box [nodes: "user_rec controller_rec cloud_rec credential_rec model_rec",
+         label: "controller database", style: "dashed", color: "#888"]
+    box [nodes: "application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec",
+         label: "model database", style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (semantic direction, multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Worker tree — the machine-cloud execution chain
+// --------------------------------------------------------------------------
+
+diagram "Worker tree (machine cloud)" from "Juju" {
+  select {
+    nodes: controller machine_agent unit_agent uniter charm
+    // The chain only: who hosts and runs whom. The watch/upgrade
+    // channels and the hook-call round trip are sequence material.
+    except: machine_agent -> controller unit_agent -> controller [type: stream] unit_agent -> charm charm -> unit_agent
+  }
+  positions {
+    controller    above machine_agent gap: 60
+    controller    align-centre machine_agent
+    machine_agent above unit_agent    gap: 60
+    machine_agent align-centre unit_agent
+    unit_agent    above uniter        gap: 60
+    unit_agent    align-centre uniter
+    uniter        above charm         gap: 60
+    uniter        align-centre charm
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            control: "drives / hosts / dispatches"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Worker tree — the controller dependency engine
+// --------------------------------------------------------------------------
+
+diagram "Worker tree (controller)" from "Juju" {
+  select {
+    // First node anchors the layout at (0, 0) — the top-left corner.
+    routing: orthogonal
+    nodes: provider_tracker provider_services
+           provisioner model_worker_manager
+           undertaker
+           agent_worker db_accessor change_stream domain_services
+           api_server http_server
+           object_store
+           lease_manager primary_flag lease_expiry
+  }
+  positions {
+    // Spine — the capability ladder, packed top to bottom.
+    agent_worker     above db_accessor     gap: 60
+    agent_worker     align-centre db_accessor
+    db_accessor      above change_stream   gap: 60
+    db_accessor      align-centre change_stream
+    change_stream    above domain_services gap: 60
+    change_stream    align-centre domain_services
+    domain_services  above api_server      gap: 60
+    domain_services  align-centre api_server
+    api_server       above http_server     gap: 60
+    api_server       align-centre http_server
+    // Direct pair (the domain-services -> db-accessor edge skips a rung);
+    // declared so its label gap resolves on the vertical axis only.
+    db_accessor      above domain_services gap: 180
+
+    // Provider column (far left) — cloud handles, packed.
+    provider_tracker above provider_services gap: 60
+    provider_tracker align-centre provider_services
+
+    // Model column — per-model workers, packed.
+    provisioner      above model_worker_manager gap: 60
+    provisioner      align-centre model_worker_manager
+
+    // Lease column (far right) — manager at the base, election above.
+    primary_flag     above lease_manager gap: 60
+    primary_flag     align-centre lease_manager
+    lease_expiry     above primary_flag gap: 60
+    lease_expiry     align-centre primary_flag
+
+    // Wings — single nodes tied to their spine row.
+    undertaker       left-of domain_services gap: 120
+    undertaker       align-middle domain_services
+    object_store     left-of lease_manager   gap: 110
+    object_store     align-middle api_server
+
+    // Column order: providers | models | undertaker | spine | store | leases.
+    provider_tracker    left-of provisioner          gap: 60
+    provisioner         left-of undertaker           gap: 60
+    undertaker          left-of agent_worker         gap: 100
+    api_server          left-of object_store         gap: 150
+    lease_manager       right-of db_accessor         gap: 150
+    provider_services   left-of change_stream        gap: 150
+    provider_services   left-of model_worker_manager gap: 140
+    model_worker_manager left-of domain_services     gap: 150
+  }
+  annotations {
+    box [nodes: "provisioner model_worker_manager",
+         label: "model workers\n(one set per model)",
+         style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            juju-software: "worker (dependency engine)",
+            control: "depends on (capability)",
+            stream: "watches"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Cross-model integration — the record picture
+// --------------------------------------------------------------------------
+
+diagram "Cross-model relation (CMR)" from "Juju" {
+  select {
+    nodes: application_rec offer_rec offer_connection_rec remote_app_rec
+           relation_rec endpoint_rec model_rec external_controller_rec
+    routing: orthogonal
+    sizing: uniform
+  }
+  positions {
+    // The dependency chain reads top-down in dependency order
+    // (relation HAS endpoints; endpoints BELONG TO application), so
+    // every within-cluster edge is an axis-aligned straight — the
+    // old arrangement sandwiched endpoint between application and
+    // relation and forced corner-hugging dodges.
+    // Scrabble grid (user, review round 4, refined: prefer top-down /
+    // left-right arrows). Col2 is the association stack flowing DOWN
+    // (remote application -> relation -> endpoint -> application);
+    // model's column absorbs the external controller (row 5); the
+    // offering region hangs right of application. Every edge points
+    // down or right.
+    model_rec        left-of application_rec       gap: 90
+    model_rec        align-middle application_rec
+    relation_rec     below remote_app_rec          gap: 60
+    relation_rec     align-centre remote_app_rec
+    endpoint_rec     below relation_rec            gap: 60
+    endpoint_rec     align-centre relation_rec
+    application_rec  below endpoint_rec            gap: 60
+    application_rec  align-centre endpoint_rec
+    offer_rec        right-of application_rec      gap: 90
+    offer_rec        align-middle application_rec
+    offer_connection_rec right-of offer_rec        gap: 90
+    offer_connection_rec align-middle offer_rec
+    external_controller_rec below model_rec         gap: 60
+    external_controller_rec align-centre model_rec
+  }
+  annotations {
+    box [nodes: "offer_rec offer_connection_rec",
+         label: "offering model (database)", style: "dashed", color: "#E95420"]
+    box [nodes: "application_rec endpoint_rec relation_rec remote_app_rec model_rec",
+         label: "consuming model (database)", style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (semantic direction, multiplicity in label)"]
+  }
+}
+
+
+// --------------------------------------------------------------------------
+// Per-type relation shapes (docs/reference/relation.md § Types of
+// relation): one small figure at the top of each kind's section, the
+// discriminating fact as the shape itself (reviewer PS, round 28).
+// Definition views — the shapes are the page's own illustrations.
+// --------------------------------------------------------------------------
+diagram "Peer relation shape" from "Juju" {
+  select {
+    nodes: peer_app peer_rel peer_u1 peer_u2
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    peer_u1    left-of peer_u2 gap: 40
+    peer_u1    align-middle peer_u2
+    fan [peer_u1 peer_u2] above peer_rel gap: 60
+    peer_app   right-of peer_rel gap: 130
+    peer_app   align-middle peer_rel
+  }
+}
+
+diagram "Subordinate relation shape" from "Juju" {
+  select {
+    nodes: sub_principal sub_sub sub_rel sub_punit sub_sunit sub_machine
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    fan [sub_principal sub_sub] above sub_rel gap: 70
+    fan [sub_punit sub_sunit] below sub_rel gap: 50
+    sub_machine below sub_punit gap: 60
+    sub_machine align-centre sub_punit
+  }
+}
+
+diagram "Regular relation shape" from "Juju" {
+  select {
+    nodes: reg_a reg_rel reg_b
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    reg_a      left-of reg_rel gap: 120
+    reg_a      align-middle reg_rel
+    reg_b      right-of reg_rel gap: 120
+    reg_b      align-middle reg_rel
+  }
+}
+
+diagram "Cross-model relation shape" from "Juju" {
+  select {
+    nodes: cm_model_a cm_model_b
+    edges: type data type api
+    sizing: uniform
+  }
+  positions {
+    cm_model_a left-of cm_model_b gap: 140
+    cm_model_a align-middle cm_model_b
+  }
+}
+
+// --------------------------------------------------------------------------
+// Sequence views
+// --------------------------------------------------------------------------
+
+sequence "Hook execution" from "Juju" {
+  select { behaviour: "Hook execution" }
+}
+
+sequence "Bootstrap K8s" from "Juju" {
+  select { behaviour: "Bootstrap K8s" }
+}
+
+sequence "Deploy K8s" from "Juju" {
+  select { behaviour: "Deploy K8s" }
+}
+
+sequence "Integrate" from "Juju" {
+  select { behaviour: "Integrate" }
+}
+
+sequence "Bootstrap machine" from "Juju" {
+  select { behaviour: "Bootstrap machine" }
+}
+
+sequence "Simplestreams lookup" from "Juju" {
+  select { behaviour: "Simplestreams lookup" }
+}
+
+sequence "Upgrade paths" from "Juju" {
+  select { behaviour: "Upgrade Juju" }
+}
+
+sequence "Deploy machine" from "Juju" {
+  select { behaviour: "Deploy machine" }
+}
+
+sequence "Unit removal" from "Juju" {
+  select { behaviour: "Unit removal" }
+}
+
+sequence "Model removal" from "Juju" {
+  select { behaviour: "Model removal" }
+}
+
+sequence "juju status" from "Juju" {
+  select { behaviour: "juju status" }
+}
+
+sequence "Action run flow" from "Juju" {
+  select { behaviour: "Action run flow" }
+}
+
+state "Secret lifecycle" from "Juju" {
+  select { behaviour: "Secret lifecycle" }
+}
+
+sequence "Log flow" from "Juju" {
+  select { behaviour: "Log flow" }
+}
+
+sequence "Bundle deploy" from "Juju" {
+  select { behaviour: "Bundle deploy" }
+}
+
+sequence "Web CLI" from "Juju" {
+  select { behaviour: "Web CLI" }
+}
+
+sequence "User authentication" from "Juju" {
+  select { behaviour: "User authentication" }
+}
+
+state "Uniter operation" from "Juju" {
+  select { behaviour: "Uniter operation" }
+}
+
+state "Machine provisioning" from "Juju" {
+  select { behaviour: "Machine provisioning" }
+}
+
+state "Action task status" from "Juju" {
+  select { behaviour: "Action task" }
+}
+
+state "Machine agent status" from "Juju" {
+  select { behaviour: "Machine agent status" }
+}
+
+sequence "Model migration" from "Juju" {
+  select { behaviour: "Model migration" }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 1: The problem
+// --------------------------------------------------------------------------
+
+diagram "Intro: the problem" from "Juju" {
+  select {
+    nodes: user bare_application
+    edges: type control
+    sizing: uniform
+    instances: bare_application [
+      { id: app1, label: "application 1" },
+      { id: app2, label: "application 2" },
+      { id: app3, label: "application 3" }
+    ]
+  }
+  positions {
+    user  left-of app1
+    user  align-middle app2
+    app1  above app2
+    app1  align-centre app2
+    app3  below app2
+    app3  align-centre app2
+  }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 2: Juju enters
+// Controller in centre. Clouds fanned above. Charmhub below. Apps fanned right.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju enters" from "Juju" {
+  select {
+    nodes: user client controller cloud charmhub application
+    edges: type control type api
+    // The intro shows the delta over "the problem": Juju machinery
+    // between the user and the applications. Bootstrap (client <-> cloud)
+    // and the cloud -> controller provisioning return path are left to
+    // "Juju overview" and the sequence views.
+    except: client -> cloud cloud -> client cloud -> controller
+    sizing: uniform
+    // Model-membership boxes and record chips are OFF here pending a
+    // redesign (2026-09-20 reviewer call: the boxes crowd the app
+    // column and the chips collide with the fan labels; both come
+    // back when their placement design is worked out -- see HANDOFF
+    // known issues).
+    instances: cloud [
+      { id: cloud_a, label: "cloud 1" },
+      { id: cloud_b, label: "cloud 2" }
+    ]
+    // Instance from the base kind (application), not the collective
+    // (apps): the collective's stack glyph would contradict the
+    // individuated form the intro argues in ("like Intro: the
+    // problem").
+    instances: application [
+      { id: app1, label: "app 1" },
+      { id: app2, label: "app 2" },
+      { id: app3, label: "app 3" }
+    ]
+  }
+  positions {
+    // Horizontal spine
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    // Clouds fanned above controller, centred on it: the spacing is
+    // sized for the two "provisions on" labels to clear each other
+    // (the default packs the fan into near-parallel arrows).
+    fan [cloud_a cloud_b] above controller    gap: 40 spacing: 120
+    // Charmhub below controller
+    charmhub   below controller    gap: 40
+    charmhub   align-centre controller
+    // Apps fanned to the right of controller: the gap is sized for
+    // the labels -- three "converges toward" strokes into the
+    // mid-east face need the run for their labels to separate.
+    fan [app1 app2 app3] right-of controller gap: 140
+  }
+  annotations {
+    // Model-membership boxes removed 2026-09-20 (reviewer call: they
+    // crowd the app column) -- they return when the box placement
+    // design is reworked; see HANDOFF known issues.
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charmed application",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Intro diagram 3: Juju unpacked
+// Same layout; unit containers expose agent → charm → workload.
+// Scope chips on each unit container.
+// --------------------------------------------------------------------------
+
+diagram "Intro: Juju unpacked" from "Juju" {
+  select {
+    nodes: user client controller unit_pod
+    edges: type control type stream type api
+    // One arrow per path: the watch stream is the salient channel
+    // (communication always starts from the unit agent). The api
+    // duplicate belongs to the sequence views.
+    except: unit_agent -> controller [type: api]
+    instances: unit_pod [
+      { id: u_app1_0, label: "unit: app1/0" },
+      { id: u_app2_0, label: "unit: app2/0" },
+      { id: u_app3_0, label: "unit: app3/0" }
+    ]
+  }
+  positions {
+    user       left-of client
+    user       align-middle client
+    client     left-of controller
+    client     align-middle controller
+    // Units fanned to the right of controller
+    fan [u_app1_0 u_app2_0 u_app3_0] right-of controller gap: 20
+    u_app1_0 direction: right
+    u_app2_0 direction: right
+    u_app3_0 direction: right
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned pod",
+            charm: "charm code",
+            workload: "workload (external)",
+            control: "manages / drives",
+            stream: "watch (async)",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// HA controller — Dqlite replicaset
+// --------------------------------------------------------------------------
+
+diagram "HA controller: Dqlite replicaset" from "Juju" {
+  select {
+    nodes: controller_node
+    edges: type stream
+    // Associative view: the RESULT of Raft sync (a replicaset in
+    // sync), not the interaction — the sync messages belong to a
+    // sequence view (review round 3: emergent state vs interaction).
+    // (The old `except: ha_agent -> ha_agent` here killed the WHOLE
+    // mesh: the expansion of the mesh self edge already renders only
+    // the cross-instance pairs, no self-loops — the except suppressed
+    // the model edge before stamping and the view drew three bare
+    // boxes. Found by the round-24 orphan check.)
+    instances: controller_node [
+      { id: c1, label: "Controller 1" },
+      { id: c2, label: "Controller 2" },
+      { id: c3, label: "Controller 3" }
+    ]
+  }
+  positions {
+    // Controller copies side by side (user review round 2); Dqlite is
+    // embedded in Juju 4.0, so the Raft mesh runs between the agents.
+    c1 left-of c2  gap: 100
+    c1 align-middle c2
+    c2 left-of c3  gap: 100
+    c2 align-middle c3
+  }
+  annotations {
+    legend [position: "bottom-right",
+            container: "controller node",
+            juju-software: "controller agent (embedded Dqlite)"]
+  }
+}
+
+
+
+
+diagram "Intro: Juju enters (declared)" from "Juju" {
+  select {
+    nodes: user client controller cloud charmhub application
+    edges: type control type api
+    except: client -> cloud cloud -> client cloud -> controller
+    sizing: uniform
+    instances: cloud [
+      { id: cloud_a, label: "cloud 1" },
+      { id: cloud_b, label: "cloud 2" }
+    ]
+    // Instance from the base kind (application), not the collective
+    // (apps): the collective's stack glyph would contradict the
+    // individuated form the intro argues in ("like Intro: the
+    // problem").
+    instances: application [
+      { id: app1, label: "app 1" },
+      { id: app2, label: "app 2" },
+      { id: app3, label: "app 3" }
+    ]
+  }
+  positions {
+    user   left-of client
+    user   align-middle client
+    client left-of controller
+    client align-middle controller
+    fan [cloud_a cloud_b] above controller gap: 40 spacing: 120
+    charmhub below controller gap: 40
+    charmhub align-centre controller
+    fan [app1 app2 app3] right-of controller gap: 140
+  }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charmed application",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+
+
+// --------------------------------------------------------------------------
+// Tutorial: the progressive reveal -- ONE full diagram, printed in
+// three stages: each stage hides a subset ("print like nothing") and
+// keeps the solved slot, so the reveal is literally the same picture
+// with pieces appearing into reserved space. Identical canvas,
+// geometry and zoom across stages.
+// --------------------------------------------------------------------------
+diagram "Tutorial: setup" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    hidden: user apps
+    zoom: 1.3
+    sizing: uniform
+  }
+  positions {
+    user       left-of client      gap: 24
+    user       align-middle client
+    client     left-of controller  gap: 24
+    client     align-middle controller
+    apps       right-of controller gap: 24
+    apps       align-middle controller
+    clouds     above controller    gap: 24
+    clouds     align-centre controller
+    charmhub   below controller    gap: 24
+    charmhub   align-centre controller
+  }
+}
+
+diagram "Tutorial: auth" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    hidden: apps
+    zoom: 1.3
+    sizing: uniform
+  }
+  positions {
+    user       left-of client      gap: 24
+    user       align-middle client
+    client     left-of controller  gap: 24
+    client     align-middle controller
+    apps       right-of controller gap: 24
+    apps       align-middle controller
+    clouds     above controller    gap: 24
+    clouds     align-centre controller
+    charmhub   below controller    gap: 24
+    charmhub   align-centre controller
+  }
+}
+
+diagram "Tutorial: provision & deploy" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    zoom: 1.3
+    sizing: uniform
+  }
+  positions {
+    user       left-of client      gap: 24
+    user       align-middle client
+    client     left-of controller  gap: 24
+    client     align-middle controller
+    apps       right-of controller gap: 24
+    apps       align-middle controller
+    clouds     above controller    gap: 24
+    clouds     align-centre controller
+    charmhub   below controller    gap: 24
+    charmhub   align-centre controller
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the status domains — who sets what (docs/reference/status.md)
+// --------------------------------------------------------------------------
+diagram "Status domains" from "Juju" {
+  select {
+    nodes: charm unit_agent machine_agent controller leader uas_status workload_status app_status machine_status relation_status
+    edges: type control type stream
+    sizing: uniform
+  }
+  positions {
+    controller    left-of machine_agent  gap: 140
+    controller    align-middle machine_agent
+    machine_agent left-of unit_agent     gap: 90
+    machine_agent align-middle unit_agent
+    unit_agent    left-of charm          gap: 90
+    unit_agent    align-middle charm
+    charm         left-of leader         gap: 90
+    charm         align-middle leader
+    machine_status  below machine_agent  gap: 60
+    machine_status  align-centre machine_agent
+    uas_status      below unit_agent     gap: 60
+    uas_status      align-centre unit_agent
+    workload_status below charm          gap: 60
+    workload_status align-centre charm
+    app_status      below leader         gap: 60
+    app_status      align-centre leader
+    relation_status below app_status     gap: 40
+    relation_status align-centre app_status
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the agent taxonomy (docs/reference/agent.md) — what each
+// of the four agent types runs, grounded in cmd/jujud + containeragent.
+// --------------------------------------------------------------------------
+diagram "Agent taxonomy" from "Juju" {
+  select {
+    nodes: controller machine_agent unit_agent containeragent
+    edges: type control type stream type api
+    sizing: uniform
+  }
+  positions {
+    controller        left-of machine_agent gap: 40
+    machine_agent     left-of unit_agent    gap: 40
+    unit_agent        left-of containeragent gap: 40
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the machine data model (docs/reference/machine.md §3,
+// ADR-011) — the stored pointers around the machine record. Grounds:
+// 0018-machine.sql + 0017-machine-cloud-instance.sql; net_node shared
+// with units (unit.net_node_uuid = machine.net_node_uuid).
+// --------------------------------------------------------------------------
+diagram "Machine attributes" from "Juju" {
+  select {
+    nodes: ma_machine ma_instance ma_parent ma_status
+           ma_instance_status net_node_rec
+    edges: type data
+  }
+  positions {
+    // West chain: parent adjacent to machine (its two edges take the
+    // west face); the net-node identity hangs BELOW the parent, so
+    // machine's edge to it drops under the parent instead of through.
+    ma_parent          left-of ma_machine gap: 110
+    ma_parent          align-middle ma_machine
+    net_node_rec       below ma_parent gap: 60
+    net_node_rec       align-centre ma_parent
+    // East chain: status adjacent (east face); the base hangs below
+    // the status, so machine's edge to it drops under the status.
+    ma_status          right-of ma_machine gap: 90
+    ma_status          align-middle ma_machine
+    // South chain: the instance under the machine; its own status
+    // under it; the availability zone beside the instance.
+    ma_instance        below ma_machine gap: 100
+    ma_instance        align-centre ma_machine
+    ma_instance_status below ma_instance gap: 100
+    ma_instance_status align-centre ma_instance
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: application attributes (docs/reference/application.md,
+// ADR-011 §3) — the application's stored records and every foreign key
+// between them: the application row at the centre; the charm it
+// references west; the status record east; config, origin channel and
+// the charm's endpoints south.
+// --------------------------------------------------------------------------
+diagram "Application attributes" from "Juju" {
+  select {
+    nodes: app_rec app_charm app_status_rec app_config app_channel app_endpoint
+    edges: type data
+  }
+  positions {
+    app_charm    left-of app_rec gap: 110
+    app_charm    align-middle app_rec
+    app_channel  below app_charm gap: 60
+    app_channel  align-centre app_charm
+    app_status_rec right-of app_rec gap: 90
+    app_status_rec align-middle app_rec
+    app_endpoint below app_status_rec gap: 60
+    app_endpoint align-centre app_status_rec
+    app_config   below app_rec gap: 100
+    app_config   align-centre app_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: unit attributes (docs/reference/unit.md, ADR-011 §3) —
+// the unit's stored records: the unit row at the centre; the
+// application it belongs to west; the shared net node under it (the
+// unit and its machine share that network identity); the subordinate
+// co-location pair south; the two status records east.
+// --------------------------------------------------------------------------
+diagram "Unit attributes" from "Juju" {
+  select {
+    nodes: un_unit app_rec net_node_rec un_principal un_agent_status un_workload_status
+    edges: type data
+  }
+  positions {
+    app_rec            left-of un_unit gap: 110
+    app_rec            align-middle un_unit
+    net_node_rec       below app_rec gap: 60
+    net_node_rec       align-centre app_rec
+    un_agent_status    right-of un_unit gap: 90
+    un_agent_status    align-middle un_unit
+    un_workload_status below un_agent_status gap: 100
+    un_workload_status align-centre un_agent_status
+    un_principal       below un_unit gap: 100
+    un_principal       align-centre un_unit
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: charm attributes (docs/reference/charm.md, ADR-011 §3) —
+// the charm's stored records: the charm row at the centre (one row per
+// revision); its metadata and its download bookkeeping west; the
+// charm-defined relations and config schema east; the actions south.
+// --------------------------------------------------------------------------
+diagram "Charm attributes" from "Juju" {
+  select {
+    nodes: ch_rec ch_metadata ch_download ch_relation ch_config ch_action
+    edges: type data
+  }
+  positions {
+    ch_metadata left-of ch_rec gap: 110
+    ch_metadata align-middle ch_rec
+    ch_download below ch_metadata gap: 60
+    ch_download align-centre ch_metadata
+    ch_relation right-of ch_rec gap: 90
+    ch_relation align-middle ch_rec
+    ch_config below ch_relation gap: 60
+    ch_config align-centre ch_relation
+    ch_action below ch_rec gap: 100
+    ch_action align-centre ch_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: secret attributes (docs/reference/secret.md, ADR-011 §3) —
+// the secret's stored records: the metadata row (keyed by the secret
+// id) at the centre; the revision chain and its content west; the
+// owner and the consumers east; the permission grants south.
+// --------------------------------------------------------------------------
+diagram "Secret attributes" from "Juju" {
+  select {
+    nodes: s_meta s_owner s_consumer s_revision s_content s_permission
+    edges: type data
+  }
+  positions {
+    s_revision  left-of s_meta gap: 110
+    s_revision  align-middle s_meta
+    s_content   below s_revision gap: 60
+    s_content   align-centre s_revision
+    s_owner     right-of s_meta gap: 90
+    s_owner     align-middle s_meta
+    s_consumer  below s_owner gap: 60
+    s_consumer  align-centre s_owner
+    s_permission below s_meta gap: 100
+    s_permission align-centre s_meta
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: machine designations (docs/reference/machine.md) — one
+// machine table, two provisioning paths: base machines by the
+// controller's compute provisioner, containers by the host machine
+// agent (containerprovisioner + LXD broker); the designation is the
+// containment path (0/lxd/0 = container 0 on machine 0); units sit on
+// their host's shared net node.
+// --------------------------------------------------------------------------
+diagram "Machine designations" from "Juju" {
+  select {
+    nodes: controller machine0
+    edges: type control type api
+    sizing: uniform
+  }
+  positions {
+    controller        left-of machine0 gap: 130
+    controller        align-middle machine0
+    ma0               left-of lxd0 gap: 24
+    ma0               align-middle lxd0
+    ma1               left-of unit0 gap: 24
+    ma1               align-middle unit0
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: network spaces (docs/reference/space.md, subnet.md) —
+// space -> subnet -> provider identity; endpoint bindings (0008-space.sql).
+// --------------------------------------------------------------------------
+diagram "Network spaces" from "Juju" {
+  select {
+    nodes: application_rec space_rec subnet_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    application_rec left-of space_rec  gap: 40
+    space_rec       left-of subnet_rec gap: 40
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the storage data model (docs/reference/storage.md) —
+// charm storage name -> directive -> pool -> instance -> volume/filesystem
+// -> attachment (0011-storage.sql).
+// --------------------------------------------------------------------------
+diagram "Storage model" from "Juju" {
+  select {
+    nodes: charm_storage_rec storage_directive_rec storage_pool_rec storage_instance_rec storage_volume_rec storage_fs_rec storage_att_rec net_node_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    charm_storage_rec   left-of storage_directive_rec gap: 30
+    storage_directive_rec left-of storage_pool_rec   gap: 30
+    storage_pool_rec    left-of storage_instance_rec  gap: 30
+    storage_volume_rec  right-of storage_instance_rec gap: 30
+    storage_volume_rec  align-middle storage_instance_rec
+    storage_fs_rec      below storage_instance_rec    gap: 30
+    storage_fs_rec      align-centre storage_instance_rec
+    storage_att_rec     below charm_storage_rec       gap: 30
+    net_node_rec        above storage_volume_rec      gap: 30
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: relation settings permissions (docs/reference/relation.md)
+// — who reads and writes the unit vs application settings
+// (domain/relation).
+// --------------------------------------------------------------------------
+diagram "Relation settings permissions" from "Juju" {
+  select {
+    nodes: a_unit_leader a_unit_1 b_unit_leader b_unit_1 a_app_bag a_bag_a0 a_bag_a1 b_app_bag b_bag_b0 b_bag_b1 c_unit_leader c_unit_1 c_app_bag c_bag_a0 c_bag_a1
+    edges: type data type read_write type read_only
+    sizing: uniform
+  }
+  positions {
+    a_unit_leader left-of a_unit_1 gap: 24
+    a_unit_leader align-middle a_unit_1
+    b_unit_leader right-of a_unit_1 gap: 60
+    b_unit_leader align-middle a_unit_1
+    b_unit_1      right-of b_unit_leader gap: 24
+    b_unit_1      align-middle b_unit_leader
+    a_bag_a0      below a_unit_leader gap: 56
+    a_bag_a0      align-centre a_unit_leader
+    a_bag_a1      right-of a_bag_a0 gap: 20
+    a_bag_a1      align-middle a_bag_a0
+    a_app_bag     right-of a_bag_a1 gap: 20
+    a_app_bag     align-middle a_bag_a1
+    b_bag_b0      right-of a_app_bag gap: 30
+    b_bag_b0      align-middle a_app_bag
+    b_bag_b1      right-of b_bag_b0 gap: 20
+    b_bag_b1      align-middle b_bag_b0
+    b_app_bag     right-of b_bag_b1 gap: 20
+    b_app_bag     align-middle b_bag_b1
+    c_unit_leader below a_app_bag gap: 50
+    c_unit_leader align-centre a_app_bag
+    c_unit_1      right-of c_unit_leader gap: 24
+    c_unit_1      align-middle c_unit_leader
+    c_bag_a0      below c_unit_leader gap: 56
+    c_bag_a0      align-centre c_unit_leader
+    c_bag_a1      below c_unit_1 gap: 56
+    c_bag_a1      align-centre c_unit_1
+    c_app_bag     right-of c_bag_a1 gap: 20
+    c_app_bag     align-middle c_bag_a1
+  }
+  annotations {
+    box [nodes: "a_unit_leader a_unit_1", label: "app A", style: "dashed"]
+    box [nodes: "b_unit_leader b_unit_1", label: "app B", style: "dashed"]
+    box [nodes: "c_unit_leader c_unit_1", label: "app A (peer relation)", style: "dashed"]
+    legend [position: "bottom-right",
+            record: "database record",
+            read_write: "reads + writes",
+            read_only: "reads"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: relation kind taxonomy (docs/reference/relation.md, § Types
+// of relation; ADR-011 §2) — the is-a trie, POSITIVE discriminators
+// (reviewer verdicts round 26 part 2) and a FLAT STAR (round 27): the
+// four self-standing kinds hang straight off the root, straight diagonal
+// connectors (no `routing: orthogonal`), root centred over the leaf row
+// by the equal-gap bracket. The hollow triangle lands on the parent; the
+// edge label is the discriminator. Declared positions (the trie's shape
+// IS the argument); retires the hand-drawn excalidraw.
+// --------------------------------------------------------------------------
+diagram "Types of relation" from "Juju" {
+  select {
+    nodes: rel_kind rel_kind_peer rel_kind_sub
+           rel_kind_reg rel_kind_cmr
+    edges: type generalization
+    sizing: uniform
+  }
+  positions {
+    // Root-apex star (verdicts round 27): the four kinds hang straight
+    // off the root — NO `routing: orthogonal`, every is-a edge is a
+    // direct diagonal. The `fan ... below` centres the leaf row on the
+    // root's exact cx (even-N: (cx3 + cx4) == 2 * cx(root)).
+    fan [rel_kind_peer rel_kind_sub rel_kind_reg rel_kind_cmr] below rel_kind gap: 60 spacing: 200
+  }
+  annotations {
+    legend [position: "bottom-right", generalization: "is a"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: relation attributes (docs/reference/relation.md, § Relation
+// attributes; ADR-011 §3) — the persistence portrait sliced from
+// domain/schema/model/sql/0024-relation.sql: the ten stored tables of the
+// relation story, every FK drawn exactly once from its fk: field to the
+// target's key. The four derived views (v_application_endpoint,
+// v_relation_endpoint, v_relation_endpoint_identifier, v_relation_status)
+// are read models with no pointers of their own — named in the caption,
+// not drawn. Declared positions: the FK spine reads parent-left /
+// child-right, settings clusters hang under their owner.
+// --------------------------------------------------------------------------
+diagram "Relation attributes" from "Juju" {
+  select {
+    routing: orthogonal
+    nodes: ra_relation ra_endpoint ra_unit ra_unit_setting
+           ra_setting_archive ra_app_setting ra_status ra_status_type
+           ra_app_endpoint ra_unit_boundary ra_life ra_scope
+    edges: type data
+  }
+  positions {
+    // The relation spine, top to bottom: relation -> endpoint -> unit.
+    ra_life            above ra_relation  gap: 100
+    ra_life            align-centre ra_relation
+    ra_endpoint        below ra_relation  gap: 100
+    ra_endpoint        align-centre ra_relation
+    ra_unit            below ra_status    gap: 50
+    ra_unit            align-centre ra_status
+    // Left: scope and the endpoint boundary flank the spine's west.
+    ra_scope           above ra_app_endpoint gap: 50
+    ra_scope           align-centre ra_app_endpoint
+    ra_app_endpoint    left-of ra_relation gap: 90
+    ra_app_endpoint    align-middle ra_relation
+    // Right of the spine: the status cluster, then the unit and its
+    // boundary; the wide gap leaves the hash-free lane at c4 clear.
+    ra_status          right-of ra_relation gap: 90
+    ra_status          align-middle ra_relation
+    ra_status_type     right-of ra_status gap: 80
+    ra_status_type     align-middle ra_status
+    ra_unit_boundary   right-of ra_unit gap: 80
+    ra_unit_boundary   align-middle ra_unit
+    // Settings hang under their owner. The archive sits on the top
+    // row beside life: its pointer targets the relation, and the top
+    // row gives the edge a clear horizontal into relation's west face.
+    ra_app_setting     below ra_endpoint gap: 100
+    ra_app_setting     align-centre ra_endpoint
+    ra_unit_setting    below ra_unit gap: 100
+    ra_unit_setting    align-centre ra_unit
+    ra_setting_archive right-of ra_life gap: 60
+    ra_setting_archive align-middle ra_life
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the three configuration levels (docs/reference/configuration.md)
+// --------------------------------------------------------------------------
+diagram "Configuration levels" from "Juju" {
+  select {
+    nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
+    edges: type control type api type data
+    sizing: uniform
+  }
+  positions {
+    controller       above ctrl_config_rec  gap: 40
+    controller       align-centre ctrl_config_rec
+    user             left-of ctrl_config_rec gap: 60
+    user             align-middle model_config_rec
+    model_config_rec below ctrl_config_rec  gap: 48
+    model_config_rec align-centre ctrl_config_rec
+    app_config_rec   below model_config_rec gap: 48
+    app_config_rec   align-centre model_config_rec
+    charm            right-of app_config_rec gap: 30
+    charm            align-middle app_config_rec
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: charm origins (docs/reference/charm.md) — charm is
+// per-revision; channels/platform are per-application; each unit pins
+// its own charm revision (0015-charm.sql + 0019-application.sql).
+// --------------------------------------------------------------------------
+diagram "Charm origins" from "Juju" {
+  select {
+    nodes: application_rec unit_rec charm_rec charm_metadata_rec charm_download_rec app_channel_rec app_platform_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    unit_rec           left-of application_rec gap: 30
+    unit_rec           align-middle application_rec
+    charm_rec          right-of application_rec gap: 30
+    charm_rec          align-middle application_rec
+    fan [charm_metadata_rec charm_download_rec] above charm_rec gap: 24
+    fan [app_channel_rec app_platform_rec] below application_rec gap: 24
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the credential chain (docs/reference/credential.md) —
+// user -> credential -> model -> cloud (controller DB).
+// --------------------------------------------------------------------------
+diagram "Credential chain" from "Juju" {
+  select {
+    nodes: user_rec cloud_rec credential_rec model_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    fan [cloud_rec model_rec] above credential_rec gap: 56
+    user_rec      left-of credential_rec gap: 40
+    user_rec      align-middle credential_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: the operation/task/action hierarchy
+// (docs/reference/script.md) — the entity hierarchy behind the Action
+// run flow sequence (0033-operation.sql).
+// --------------------------------------------------------------------------
+diagram "Operation hierarchy" from "Juju" {
+  select {
+    nodes: operation_rec operation_task_rec operation_action_rec op_unit_task_rec op_status_rec unit_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    operation_rec         left-of operation_task_rec gap: 40
+    operation_rec         align-middle operation_task_rec
+    operation_task_rec    left-of op_unit_task_rec   gap: 30
+    operation_task_rec    align-middle op_unit_task_rec
+    op_unit_task_rec      left-of unit_rec           gap: 30
+    op_unit_task_rec      align-middle unit_rec
+    op_status_rec         below operation_task_rec   gap: 30
+    op_status_rec         align-centre operation_task_rec
+    operation_action_rec  below operation_rec        gap: 30
+    operation_action_rec  align-centre operation_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// ==== HAND-MAINTAINED below — edit freely; `make variants` regenerates everything above ====
+
+// ==== GENERATED BELOW — synthesized variants of the
+// ==== authored views above. Regenerate with `make variants`.===
+
+// --------------------------------------------------------------------------
+
+
+diagram "Juju overview (synthesized)" from "Juju" {
+  select { nodes: user client controller apps clouds charmhub
+           edges: type control type api type stream }
+  annotations {
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charm",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "K8s deployment topology (synthesized)" from "Juju" {
+  select {
+    nodes: k8s controller_pod unit_pod charmhub
+    edges: type api type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Machine deployment topology (synthesized)" from "Juju" {
+  select {
+    nodes: cloud controller_machine unit_machine charmhub
+    edges: type api type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod",
+            charm: "charm",
+            workload: "workload / external",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+diagram "Bootstrap K8s result (synthesized)" from "Juju" {
+  select {
+    nodes: k8s controller_pod
+    edges: type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+diagram "Bootstrap machine result (synthesized)" from "Juju" {
+  select {
+    nodes: cloud controller_machine
+    edges: type control
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine or pod"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Data model (synthesized)" from "Juju" {
+  select {
+    nodes: application_rec unit_rec machine_rec charm_rec relation_rec endpoint_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema relationship"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Data model (full spine) (synthesized)" from "Juju" {
+  select {
+    nodes: user_rec controller_rec cloud_rec credential_rec model_rec
+           application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec
+    // The unit-pin edge (unit.charm_uuid) is scoped to the Charm
+    // origins view: it landed after this declared view's geometry was
+    // tuned, and re-threading it here flips the synthesized variant
+    // into a cramped solve (measured: 2.24/2.14 detours).
+    except: unit_rec -> charm_rec
+  routing: orthogonal
+  }
+  annotations {
+    box [nodes: "user_rec controller_rec cloud_rec credential_rec model_rec",
+         label: "controller database", style: "dashed", color: "#888"]
+    box [nodes: "application_rec charm_rec unit_rec machine_rec relation_rec endpoint_rec",
+         label: "model database", style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (semantic direction, multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Worker tree (machine cloud) (synthesized)" from "Juju" {
+  select {
+    nodes: controller machine_agent unit_agent uniter charm
+    // The chain only: who hosts and runs whom. The watch/upgrade
+    // channels and the hook-call round trip are sequence material.
+    except: machine_agent -> controller unit_agent -> controller [type: stream] unit_agent -> charm charm -> unit_agent
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            control: "drives / hosts / dispatches"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Worker tree (controller) (synthesized)" from "Juju" {
+  select {
+    // First node anchors the layout at (0, 0) — the top-left corner.
+    routing: orthogonal
+    nodes: provider_tracker provider_services
+           provisioner model_worker_manager
+           undertaker
+           agent_worker db_accessor change_stream domain_services
+           api_server http_server
+           object_store
+           lease_manager primary_flag lease_expiry
+  }
+  annotations {
+    box [nodes: "provisioner model_worker_manager",
+         label: "model workers\n(one set per model)",
+         style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            juju-software: "worker (dependency engine)",
+            control: "depends on (capability)",
+            stream: "watches"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
+  select {
+    nodes: application_rec offer_rec offer_connection_rec remote_app_rec
+           relation_rec endpoint_rec model_rec external_controller_rec
+    routing: orthogonal
+    sizing: uniform
+  }
+  annotations {
+    box [nodes: "offer_rec offer_connection_rec",
+         label: "offering model (database)", style: "dashed", color: "#E95420"]
+    box [nodes: "application_rec endpoint_rec relation_rec remote_app_rec model_rec",
+         label: "consuming model (database)", style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (semantic direction, multiplicity in label)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Peer relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: peer_app peer_rel peer_u1 peer_u2
+    edges: type data
+    sizing: uniform
+  }
+}
+
+diagram "Subordinate relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: sub_principal sub_sub sub_rel sub_punit sub_sunit sub_machine
+    edges: type data
+    sizing: uniform
+  }
+}
+
+diagram "Regular relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: reg_a reg_rel reg_b
+    edges: type data
+    sizing: uniform
+  }
+}
+
+diagram "Cross-model relation shape (synthesized)" from "Juju" {
+  select {
+    nodes: cm_model_a cm_model_b
+    edges: type data type api
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Intro: the problem (synthesized)" from "Juju" {
+  select {
+    nodes: user bare_application
+    edges: type control
+    sizing: uniform
+    instances: bare_application [
+      { id: app1, label: "application 1" },
+      { id: app2, label: "application 2" },
+      { id: app3, label: "application 3" }
+    ]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Intro: Juju enters (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller cloud charmhub application
+    edges: type control type api
+    // The intro shows the delta over "the problem": Juju machinery
+    // between the user and the applications. Bootstrap (client <-> cloud)
+    // and the cloud -> controller provisioning return path are left to
+    // "Juju overview" and the sequence views.
+    except: client -> cloud cloud -> client cloud -> controller
+    sizing: uniform
+    // Model-membership boxes and record chips are OFF here pending a
+    // redesign (2026-09-20 reviewer call: the boxes crowd the app
+    // column and the chips collide with the fan labels; both come
+    // back when their placement design is worked out -- see HANDOFF
+    // known issues).
+    instances: cloud [
+      { id: cloud_a, label: "cloud 1" },
+      { id: cloud_b, label: "cloud 2" }
+    ]
+    // Instance from the base kind (application), not the collective
+    // (apps): the collective's stack glyph would contradict the
+    // individuated form the intro argues in ("like Intro: the
+    // problem").
+    instances: application [
+      { id: app1, label: "app 1" },
+      { id: app2, label: "app 2" },
+      { id: app3, label: "app 3" }
+    ]
+  }
+  annotations {
+    // Model-membership boxes removed 2026-09-20 (reviewer call: they
+    // crowd the app column) -- they return when the box placement
+    // design is reworked; see HANDOFF known issues.
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            charm: "charmed application",
+            control: "manages / drives",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Intro: Juju unpacked (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller unit_pod
+    edges: type control type stream type api
+    // One arrow per path: the watch stream is the salient channel
+    // (communication always starts from the unit agent). The api
+    // duplicate belongs to the sequence views.
+    except: unit_agent -> controller [type: api]
+    instances: unit_pod [
+      { id: u_app1_0, label: "unit: app1/0" },
+      { id: u_app2_0, label: "unit: app2/0" },
+      { id: u_app3_0, label: "unit: app3/0" }
+    ]
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned pod",
+            charm: "charm code",
+            workload: "workload (external)",
+            control: "manages / drives",
+            stream: "watch (async)",
+            api: "API call"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "HA controller: Dqlite replicaset (synthesized)" from "Juju" {
+  select {
+    nodes: controller_node
+    edges: type stream
+    // Associative view: the RESULT of Raft sync (a replicaset in
+    // sync), not the interaction — the sync messages belong to a
+    // sequence view (review round 3: emergent state vs interaction).
+    // (The old `except: ha_agent -> ha_agent` here killed the WHOLE
+    // mesh: the expansion of the mesh self edge already renders only
+    // the cross-instance pairs, no self-loops — the except suppressed
+    // the model edge before stamping and the view drew three bare
+    // boxes. Found by the round-24 orphan check.)
+    instances: controller_node [
+      { id: c1, label: "Controller 1" },
+      { id: c2, label: "Controller 2" },
+      { id: c3, label: "Controller 3" }
+    ]
+  }
+  annotations {
+    legend [position: "bottom-right",
+            container: "controller node",
+            juju-software: "controller agent (embedded Dqlite)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Tutorial: setup (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    hidden: user apps
+    zoom: 1.3
+    sizing: uniform
+  }
+}
+
+diagram "Tutorial: auth (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    hidden: apps
+    zoom: 1.3
+    sizing: uniform
+  }
+}
+
+diagram "Tutorial: provision & deploy (synthesized)" from "Juju" {
+  select {
+    nodes: user client controller apps clouds charmhub
+    edges: type control type api type stream
+    labels: hidden
+    zoom: 1.3
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Status domains (synthesized)" from "Juju" {
+  select {
+    nodes: charm unit_agent machine_agent controller leader uas_status workload_status app_status machine_status relation_status
+    edges: type control type stream
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Agent taxonomy (synthesized)" from "Juju" {
+  select {
+    nodes: controller machine_agent unit_agent containeragent
+    edges: type control type stream type api
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Machine designations (synthesized)" from "Juju" {
+  select {
+    nodes: controller machine0
+    edges: type control type api
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Network spaces (synthesized)" from "Juju" {
+  select {
+    nodes: application_rec space_rec subnet_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Storage model (synthesized)" from "Juju" {
+  select {
+    nodes: charm_storage_rec storage_directive_rec storage_pool_rec storage_instance_rec storage_volume_rec storage_fs_rec storage_att_rec net_node_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Relation settings permissions (synthesized)" from "Juju" {
+  select {
+    nodes: a_unit_leader a_unit_1 b_unit_leader b_unit_1 a_app_bag a_bag_a0 a_bag_a1 b_app_bag b_bag_b0 b_bag_b1 c_unit_leader c_unit_1 c_app_bag c_bag_a0 c_bag_a1
+    edges: type data type read_write type read_only
+    sizing: uniform
+  }
+  annotations {
+    box [nodes: "a_unit_leader a_unit_1", label: "app A", style: "dashed"]
+    box [nodes: "b_unit_leader b_unit_1", label: "app B", style: "dashed"]
+    box [nodes: "c_unit_leader c_unit_1", label: "app A (peer relation)", style: "dashed"]
+    legend [position: "bottom-right",
+            record: "database record",
+            read_write: "reads + writes",
+            read_only: "reads"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Types of relation (synthesized)" from "Juju" {
+  select {
+    nodes: rel_kind rel_kind_peer rel_kind_sub
+           rel_kind_reg rel_kind_cmr
+    edges: type generalization
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right", generalization: "is a"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Configuration levels (synthesized)" from "Juju" {
+  select {
+    nodes: user controller ctrl_config_rec model_config_rec app_config_rec charm
+    edges: type control type api type data
+    sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Charm origins (synthesized)" from "Juju" {
+  select {
+    nodes: application_rec unit_rec charm_rec charm_metadata_rec charm_download_rec app_channel_rec app_platform_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Credential chain (synthesized)" from "Juju" {
+  select {
+    nodes: user_rec cloud_rec credential_rec model_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Operation hierarchy (synthesized)" from "Juju" {
+  select {
+    nodes: operation_rec operation_task_rec operation_action_rec op_unit_task_rec op_status_rec unit_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+
+// ==========================================================================
+// Principles model + views (folded from principles.ggarch, 2026-09-26)
+// ==========================================================================
+
+model "Principles" {
+
+  nodes {
+
+    // -----------------------------------------------------------------------
+    // Diagram 1: Forced structure
+    // -----------------------------------------------------------------------
+    user        [type: person,        label: "User"]
+    client      [type: juju-software, label: "Client"]
+    controller  [type: juju-software, label: "Controller"]
+    agent_a     [type: juju-software, label: "Agent"]
+    workload_a  [type: external,      label: "Workload"]
+    cloud_prov  [type: external,      label: "Cloud\n(AWS, GCP, K8s…)"]
+    charmhub    [type: external,      label: "Charmhub"]
+
+    // -----------------------------------------------------------------------
+    // Diagram 2: Notify-then-pull
+    // -----------------------------------------------------------------------
+    db          [type: database,      label: "Controller DB\n(goal state)"]
+    watcher     [type: juju-software, label: "Watcher\n(agent-side)"]
+    agent_b     [type: juju-software, label: "Agent"]
+
+    // -----------------------------------------------------------------------
+    // Diagram 3: Star topology of relations
+    // -----------------------------------------------------------------------
+    ctrl_rel    [type: juju-software, label: "Controller\n(relation data)"]
+    ua_a        [type: juju-software, label: "Unit agent\n(app A)"]
+    ua_b        [type: juju-software, label: "Unit agent\n(app B)"]
+
+
+    // -----------------------------------------------------------------------
+    // Diagram 4: Execution chain — IAAS
+    // -----------------------------------------------------------------------
+    ctrl_iaas   [type: juju-software, label: "Controller"] {
+      provisioner [type: juju-software, label: "Compute\nprovisioner",
+                   lifecycle: persistent]
+    }
+    cloud_iaas  [type: external,      label: "Machine cloud\n(AWS / MAAS / LXD)"]
+    machine_host [type: container,    label: "Provisioned machine"] {
+      machine_agent [type: juju-software, label: "Machine agent\n(jujud)"] {
+        unit_agent_iaas [type: juju-software, label: "Unit agent"] {
+          uniter    [type: juju-software, label: "Uniter",
+                     lifecycle: persistent]
+          jujuc_srv [type: juju-software, label: "jujuc server",
+                     lifecycle: ephemeral]
+        }
+      }
+      charm_proc    [type: charm,    label: "Charm",
+                     lifecycle: ephemeral]
+      workload_iaas [type: workload, label: "Workload"]
+    }
+
+    // -----------------------------------------------------------------------
+    // Diagram 5: Execution chain — K8s
+    // -----------------------------------------------------------------------
+    ctrl_k8s    [type: juju-software, label: "Controller"] {
+      prov_k8s  [type: juju-software, label: "Pod scheduler\nmanifold",
+                 lifecycle: persistent]
+    }
+    k8s_cloud   [type: external,      label: "Kubernetes"]
+    unit_pod    [type: container,     label: "Unit pod"] {
+      cont_agent [type: juju-software, label: "containeragent\n(unit + machine)"] {
+        uniter_k8s [type: juju-software, label: "Uniter\n(resolver loop)"]
+      }
+      charm_k8s  [type: charm,         label: "Charm process",
+                  lifecycle: ephemeral]
+      jujuc_k8s  [type: juju-software, label: "jujuc server\n(Unix socket)",
+                  lifecycle: ephemeral]
+      pebble     [type: pebble,        label: "Pebble"]
+      workload   [type: workload,      label: "Workload"]
+    }
+  }
+
+  edges {
+    // --- Forced structure ---
+    user       -> client      [type: control, label: "sends commands to"]
+    client     -> controller  [type: api,     label: "declares intent"]
+    agent_a    -> controller  [type: stream,  label: "watches for changes on"]
+    agent_a    -> workload_a  [type: control, label: "reconciles"]
+    controller -> cloud_prov  [type: control, label: "provisions"]
+    controller -> charmhub    [type: api,     label: "fetches charms"]
+
+    // --- Notify-then-pull ---
+    db      -> watcher  [type: event,   label: "fires signal\n(no data)"]
+    watcher -> agent_b  [type: event]
+    agent_b -> db       [type: api,     label: "fetch current state"]
+
+    // --- Star topology ---
+    // Show the pattern with two units only; three creates too many crossing edges.
+    // Read is implied by notify+fetch in text; omit "read peers" label to reduce clutter.
+    ua_a -> ctrl_rel  [type: data,   label: "write relation data"]
+    ua_b -> ctrl_rel  [type: data,   label: "write relation data"]
+    ctrl_rel -> ua_a  [type: event,  label: "notify"]
+    ctrl_rel -> ua_b  [type: event,  label: "notify"]
+
+    // --- Execution chain IAAS ---
+    // Cloud sits above the controller (like diagram 1).
+    // jujuc talks to the unit agent (not directly to the controller).
+    provisioner     -> cloud_iaas      [type: control, label: "StartInstance"]
+    cloud_iaas      -> provisioner     [type: event,   label: "instance ready"]
+    machine_agent   -> ctrl_iaas       [type: stream,  label: "Juju API"]
+    uniter          -> charm_proc      [type: control, label: "exec dispatch"]
+    charm_proc      -> jujuc_srv       [type: ipc,     label: "hook command"]
+    jujuc_srv       -> unit_agent_iaas [type: ipc,     label: "serves via unit agent"]
+    charm_proc      -> workload_iaas   [type: control, label: "operates"]
+
+    // --- Execution chain K8s ---
+    prov_k8s    -> k8s_cloud   [type: control, label: "schedule pod"]
+    k8s_cloud   -> prov_k8s   [type: event,   label: "pod ready"]
+    cont_agent  -> ctrl_k8s   [type: stream,  label: "Juju API"]
+    uniter_k8s  -> charm_k8s  [type: control, label: "exec dispatch"]
+    charm_k8s   -> jujuc_k8s  [type: ipc,     label: "hook command"]
+    jujuc_k8s   -> cont_agent [type: ipc,     label: "serves via agent"]
+    charm_k8s   -> pebble     [type: api,     label: "Pebble API"]
+    pebble      -> workload   [type: control, label: "supervises"]
+  }
+
+  behaviours {
+
+    behaviour "Notify then pull" {
+      db      -> watcher: async "change committed\n(signal only)"
+      watcher -> agent_b: async "Changes() fires"
+      agent_b -> db:      call  "fetch current state"
+      db      -> agent_b: return "authoritative state"
+      agent_b -> agent_b: self  "reconcile"
+    }
+
+    behaviour "Initial event" {
+      agent_b -> db:      call  "subscribe watcher"
+      db      -> watcher: return "watcher created"
+      watcher -> agent_b: async "initial signal\n(baseline)"
+      agent_b -> db:      call  "fetch current state"
+      db      -> agent_b: return "authoritative state"
+      agent_b -> agent_b: self  "reconcile"
+    }
+
+  }
+
+  style {
+    extends: juju
+  }
+
+}
+
+// ==========================================================================
+// Views
+// ==========================================================================
+
+// --------------------------------------------------------------------------
+// 1. Forced structure
+// --------------------------------------------------------------------------
+
+diagram "Forced structure" from "Principles" {
+  select {
+    sizing: natural
+    nodes: user client controller agent_a workload_a cloud_prov charmhub
+    edges: type control type api type stream
+  }
+  positions {
+    user       left-of client      gap: 20
+    user       align-middle client
+    client     left-of controller  gap: 20
+    client     align-middle controller
+    controller left-of agent_a     gap: 20
+    controller align-middle agent_a
+    agent_a    left-of workload_a  gap: 20
+    agent_a    align-middle workload_a
+    cloud_prov above controller    gap: 20
+    cloud_prov align-centre controller
+    charmhub   below controller    gap: 20
+    charmhub   align-centre controller
+  }
+  annotations {
+    box [nodes: "client controller",
+         label: "intent & persistence",
+         style: "dashed", color: "#888"]
+    box [nodes: "agent_a workload_a",
+         label: "execution",
+         style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            person: "operator",
+            juju-software: "Juju process",
+            external: "cloud / external",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// 2. Notify then pull (normal cycle)
+// --------------------------------------------------------------------------
+
+sequence "Notify then pull" from "Principles" {
+  select { behaviour: "Notify then pull" }
+}
+
+// --------------------------------------------------------------------------
+// 3. Initial event
+// --------------------------------------------------------------------------
+
+sequence "Initial event" from "Principles" {
+  select { behaviour: "Initial event" }
+}
+
+// --------------------------------------------------------------------------
+// 4. Star topology of relations
+// --------------------------------------------------------------------------
+
+diagram "Star topology" from "Principles" {
+  select {
+    sizing: natural
+    nodes: ctrl_rel ua_a ua_b
+    edges: type data type event
+  }
+  positions {
+    // Controller centred above BOTH units (a fan, not chained to one
+    // side): each pair's strokes run near-vertical, so the two
+    // rotated labels of a pair stack side by side instead of
+    // overlapping on converging diagonals.
+    // Gap sized for the 'write relation data' label (110px) to
+    // fit its vertical stroke without overflowing the pair.
+    fan [ua_a ua_b] below ctrl_rel gap: 140 spacing: 60
+  }
+  annotations {
+    box [nodes: "ctrl_rel",
+         label: "all relation data lives here",
+         style: "dashed", color: "#E95420"]
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            data: "write relation data",
+            event: "notify (async)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// 5. Execution chain — IAAS (machine cloud)
+// --------------------------------------------------------------------------
+
+diagram "Execution chain IAAS" from "Principles" {
+  select {
+    sizing: natural
+    nodes: ctrl_iaas cloud_iaas machine_host
+    edges: type control type stream type ipc type event
+  }
+  positions {
+    ctrl_iaas    left-of machine_host   gap: 80
+    ctrl_iaas    align-middle machine_host
+    cloud_iaas   above ctrl_iaas        gap: 50
+    cloud_iaas   align-centre ctrl_iaas
+    machine_host direction: down
+    machine_agent direction: down
+    // Gap sized for the 'exec dispatch' label on the uniter->charm
+    // stroke and the 'hook command' label on the charm->jujuc stroke.
+    charm_proc below machine_agent gap: 60
+    unit_agent_iaas direction: right
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned machine",
+            charm: "charm",
+            workload: "workload",
+            external: "cloud / external",
+            control: "manages / drives",
+            stream: "watch (async)",
+            ipc: "hook command (Unix socket)",
+            event: "async notification"]
+  }
+}
+// --------------------------------------------------------------------------
+// 6. Execution chain — Kubernetes
+// --------------------------------------------------------------------------
+
+
+diagram "Execution chain K8s" from "Principles" {
+  select {
+    sizing: natural
+    nodes: ctrl_k8s k8s_cloud unit_pod
+    edges: type control type stream type ipc type event type api
+  }
+  positions {
+    ctrl_k8s  left-of unit_pod   gap: 80
+    ctrl_k8s  align-middle unit_pod
+    k8s_cloud above ctrl_k8s    gap: 50
+    k8s_cloud align-centre ctrl_k8s
+    unit_pod  direction: down
+    cont_agent direction: right
+    // Gap sized for the incident labels ('exec dispatch', 'hook
+    // command', 'serves via agent') to separate around the charm.
+    charm_k8s below cont_agent gap: 60
+    // jujuc offset right of the charm: its "serves via agent" edge to
+    // cont_agent runs up the clear right corridor instead of riding
+    // its label across the charm box; pebble stays in the left column
+    // under the charm so the Pebble API edge stays inside the pod.
+    jujuc_k8s right-of charm_k8s gap: 30
+    pebble    below charm_k8s    gap: 30
+    pebble    align-centre charm_k8s
+  }
+  annotations {
+    legend [position: "bottom-right",
+            juju-software: "Juju process",
+            container: "Juju-owned pod",
+            charm: "charm",
+            pebble: "Pebble supervisor",
+            workload: "workload",
+            external: "cloud / external",
+            control: "manages / drives",
+            api: "API call",
+            stream: "watch (async)",
+            ipc: "hook command (Unix socket)",
+            event: "async notification"]
+  }
+}

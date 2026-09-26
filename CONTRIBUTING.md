@@ -15,7 +15,7 @@ You will need a GitHub account ([sign up](https://github.com/signup)).
 ### Open an issue for docs
 
 To open an issue for a specific doc, find it in [the published
-docs](https://documentation.ubuntu.com/juju),
+docs](https://canonical.com/juju/docs/),
 then use the **Give feedback** button.
 
 To open an issue for docs in general, do the same for the homepage of the docs
@@ -212,7 +212,7 @@ git pull upstream 3.6 --rebase
 10. Stage, commit and push regularly to your fork. Make sure your commit messages
     comply with conventional commits ([see upstream
     standard](https://www.conventionalcommits.org/en/v1.0.0/), [see adaptation in
-    Juju](./docs/contributor/reference/conventional-commits.md)). E.g.,
+    Juju](./.github/instructions/agent-commit.instructions.md)). E.g.,
 
 ```
 git add .
@@ -249,5 +249,74 @@ may be enough for `git` to prompt you with the correct arguments.
     to help merge.
 
 > Tip: After your first contribution, you will only have to repeat steps 7-14.
+
+## Merging patches forward
+
+Juju generally has multiple versions in concurrent development, and we keep a
+separate Git branch for each. Often, a bug fix or change needs to happen in
+multiple versions. In this case, we target the fix to the **lowest** relevant
+version, and later merge the patch forward into later versions.
+
+For example, for a bug that affects Juju 3.6, 4.0 and `main`, we target the
+original fix to the `3.6` branch, then merge this patch forward into `4.0`,
+then `main`, making changes as needed.
+
+Make a habit of following up your patches with a forward merge, especially if
+they are complex changes, or create merge conflicts.
+
+In the following example, we consider a merge of `3.6` into `4.0` -- but you
+can replace these with any source and target branch.
+
+1. Ensure your local copies of the source and target branch are up-to-date.
+   ```
+   git pull upstream 3.6
+   git pull upstream 4.0
+   ```
+
+2. Create a new merge branch based on the target branch. We suggest giving
+   this a descriptive name such as `merge-SRC-TGT-YYYYMMDD`.
+   ```
+   git checkout -b 'merge-3.6-4.0-YYYYMMDD' '4.0'
+   ```
+
+3. Merge the source branch into your new merge branch.
+   ```
+   git merge 3.6 -m 'Merge 3.6 into 4.0'
+   ```
+
+4. If there are no merge conflicts, the above command will merge the branches
+   and create a merge commit. Skip to step 6.
+
+5. If there are merge conflicts, you will have to resolve these manually.
+   Your IDE might have tools to assist here. After resolving conflicts in a
+   file, run `git add <file>` to add it to the index. Then, run
+   `git merge --continue` to finish the merge.
+
+6. Push your branch to GitHub and open a new PR to the target branch. In the
+   PR description, please include a list of the patches being merged, and
+   list any merge conflicts you encountered. To get the PR numbers of the
+   patches in your merge, use
+   `git log upstream/<TARGET-BRANCH>..upstream/<SOURCE-BRANCH> --first-parent --oneline --no-decorate | sed 's~.*\(#[0-9]*\)/.*~- \1~g'`
+
+## Contributor docs and rules
+
+Beyond this guide, contributor knowledge lives in a few other places:
+
+- **The agents files.** `AGENTS.md` at the repo root -- with
+  `AGENTS.architecture-rules.md` and `AGENTS.core-domain-rules.md` -- carries
+  the rules that any code change must follow. The documentation has the same:
+  `docs/agents/` holds the documentation rules, including the docstring rules
+  (`AGENTS.doc-dot-go-rules.md`).
+- **The package docs.** Juju packages document themselves in `doc.go` files
+  (for example, `cmd/jujud/agent/doc.go`), rendered on pkg.go.dev -- see
+  [github.com/juju/juju/cmd/jujud/agent](https://pkg.go.dev/github.com/juju/juju/cmd/jujud/agent)
+  and
+  [github.com/juju/worker/v5/dependency](https://pkg.go.dev/github.com/juju/worker/v5/dependency).
+- **The developer-tagged docs.** The pages written for Juju developers in the
+  [reference](https://canonical.com/juju/docs/juju-cli/reference/) and
+  [how-to](https://canonical.com/juju/docs/juju-cli/how-to/) sections of the
+  documentation -- the worker, writing workers, the
+  Dqlite core-dump and cross-compilation guides -- carry the "Juju
+  developers" tag.
 
 Congratulations and thank you!

@@ -23,8 +23,25 @@ message.
 - **type**: The type of change (REQUIRED)
 - **scope**: Single-word identifier for the singular affected semantic scope (OPTIONAL)
 - **short description**: Brief summary of the change (REQUIRED)
+- **body**: Detailed explanation of the change (OPTIONAL for small/trivial fixes only; REQUIRED for `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`)
+- **footer**: One or more [Git trailers](https://git-scm.com/docs/git-interpret-trailers), e.g. `BREAKING CHANGE: ...` or `Fixes #999` (OPTIONAL)
 
 Guidelines are provided for each Component.
+
+## **body** Component
+
+- A detailed explanation of the change; may consist of several paragraphs; states what was before, and what is after, and avoids contextual terms like "now".
+- SHOULD be on the form:
+  - Before this commit `<it behaves like that>`
+  - After this commit `<it behaves like that>`
+
+## **footer** Component
+
+- The footer starts at the first occurrence of a blank line, followed by a Git trailer.
+- Each trailer starts on its own line, using the format `<key><sep><value>`.
+- The trailer `<key>` is either `BREAKING CHANGE` or one or more words grouped by hyphens (e.g. `Co-Authored-By`, `fixes`).
+- The trailer `<sep>` is one of `:<space>` or `<space>#`, supporting both `Co-Authored-By: Name <email>` and `Fixes #999`.
+- The trailer `<value>` MUST be present and can span multiple lines or paragraphs.
 
 ## **type** Component
 
@@ -34,6 +51,8 @@ Guidelines are provided for each Component.
 - **fix!**: Bug or performance fix in non-test code that breaks compatibility
 - **refactor**: Changes in non-test code that change the structure or algorithms used but preserves functionality. 
   **refactor** SHALL NOT be used where the commit contains an inseparable bug fix.
+- **style**: Changes that do not affect the meaning of the code (formatting, whitespace)
+- **perf**: A code change that improves performance
 - **test**: Adding, deleting or updating tests
 - **build**: Build system changes (e.g. to Makefile or functional changes that affect build artefacts)
 - **ci**: CI configuration changes (e.g. to not test specific shell scripts in the tests directory or to GitHub actions)
@@ -68,6 +87,8 @@ The short description MUST be:
 
 ## Examples
 
+Subject only:
+
 ```
 feat(api): add user authentication endpoint
 ```
@@ -80,11 +101,29 @@ fix(storage): race condition when attaching a volume
 docs: add CLA requirements to contributing guidelines
 ```
 
+With a body and a footer:
+
+```
+feat(api): add user authentication feature
+
+This commit adds user authentication to the API. Users can now sign up,
+log in, and log out. Passwords are hashed using bcrypt. Token-based
+authentication is implemented using JWT.
+
+BREAKING CHANGE: The user authentication changes the login endpoint
+from `/api/login` to `/api/v1/login`. All previous tokens are now invalid,
+and users will need to reauthenticate.
+
+Fixes #123
+```
+
 ## Critical Requirements
 
 - **Format correctly on first attempt** - you cannot rewrite history after pushing
 - **PRs with non-compliant commits will be blocked** by commitlint in CI
 - Validation runs automatically via `.github/commitlint.config.mjs`
+- The pull request title MUST use the commit-message format of the most-significant
+  commit included in the pull request: `<type>(<scope>): <short description>`
 
 ## Pull Request Description
 
@@ -96,5 +135,4 @@ strikethrough (`~text~`) for items that are not applicable.
 ## References
 
 - [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
-- [Project guidelines](../../docs/contributor/reference/conventional-commits.md)
 - [Contributing guide](../../CONTRIBUTING.md)

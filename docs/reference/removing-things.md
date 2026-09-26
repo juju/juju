@@ -43,7 +43,12 @@ The `--force` and `--no-wait` options should be regarded as tools to wield as a 
 
 ```
 
-As of `v.2.6.1`, this is the state of affairs for those commands that support at least the `--force` option:
+What those removal steps actually are is each entity's own lifecycle:
+see {ref}`unit` for the unit's cooperative shutdown and {ref}`model`
+for model destruction.
+
+
+As of Juju 4, this is the state of affairs for those commands that support at least the `--force` option:
 
 command | `--force` | `--no-wait`
 ---------------|---------------|---------------
