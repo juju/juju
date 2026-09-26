@@ -391,6 +391,17 @@ This provides readers with a complete path: concept → reference details → pr
 
 All diagrams in Juju docs must use **text-based, version-controlled formats** so they can be reviewed and diffed in pull requests. Never commit binary diagram images (`.png`, `.jpeg`) generated from a tool whose editable source is not in the repository -- the image cannot be reviewed or regenerated.
 
+### The ggarch toolchain
+
+Juju diagrams are authored in [ggarch](https://github.com/tmihoc/ggarch), a text-based diagramming engine wired into the docs build as a Sphinx extension. All diagram sources live in `docs/*.ggarch` (currently `juju.ggarch`); every view a doc embeds must be declared there, and views are inserted via `{ggarch}` directives (`:file:`, `:view:`/`:sequence:`, `:caption:`, `:alt:`).
+
+- **Authoring guide:** `SKILL.md` in the ggarch repository is the definitive guide to writing views (models; node, edge, containment, lifecycle and salience semantics; sequences; slideshows).
+- **Binding decisions:** ratified design decisions live in `adr/` in the ggarch repository (ADR-001…011); where the style guidelines below leave a question open (composition, captions, edge grammar), the ADRs win.
+- **The catalogue is the product surface:** a view that is not in `docs/explanation/diagrams.md` does not count as delivered. New views land in the catalogue together with the page that embeds them, so a reviewer can inspect the effect of engine changes on all diagrams at once.
+- **Verification:** `make check-ggarch` in `docs/` validates every model (`ggarch check`), synthesized-variant freshness, grounding against the codebase (`tools/check-grounding.py`), and the geometry audit; `.github/workflows/ggarch-gate.yml` runs the same gate in CI.
+
+The style guidelines below are expressed through ggarch's semantic primitives, not caption prose: typed edges clarify direction, subgraph containment shows boundaries directly, and salience attributes give "same view, one focus" its mechanism. Encode the meaning in the diagram's structure -- a fact only in the caption does not survive re-layout.
+
 ### Diagram style guidelines
 
 Apply these rules to every diagram:
