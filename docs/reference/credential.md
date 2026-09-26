@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju credentials reference: authentication material for cloud access, credential declaration, storage, types, states, operations, and rules."
+    description: "Juju credentials reference: authentication material for cloud access -- credential declaration, persistence (records, states, types), execution (checks, watchers), and rules."
 ---
 
 (credential)=
@@ -14,10 +14,11 @@ In Juju, a **credential** represents a collection of authentication material (li
 Clouds decide which authentication schemes they accept; users own credentials; models use exactly one cloud/credential pair; and who may use a credential is decided by access grants, not by the credential itself.
 
 (the-credentials-declaration)=
-## How you declare a credential
+## Credentials in the declaration layer
 
-A credential comes into existence when you declare it to Juju through one of its clients. Juju
-credentials can be known to the client, the controller, or both: a **client credential** (previously
+You declare a credential by adding it to Juju through one of its clients, and you update or remove it the same way.
+
+A credential can be known to the client, the controller, or both: a **client credential** (previously
 known as a 'local credential') denotes a credential that the client is aware of and a **controller
 credential** (previously known as a 'remote credential') denotes a credential that a controller is
 aware of. Bootstrapping a controller with a client credential uploads it to the controller, after
@@ -28,10 +29,8 @@ See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform
 ```
 
 (the-credentials-persistence)=
-## What Juju stores
-
 (the-credential-record)=
-### A credential's identity
+## Credentials in the persistence layer
 
 A credential has a record in Juju's databases. The authoritative
 record lives in the controller database, where it is identified by
@@ -40,9 +39,6 @@ its natural key -- the {ref}`cloud <cloud>`, the owning
 type and its attributes (the key/value pairs the cloud's auth type
 requires). The natural key is unique: re-adding a credential with
 the same key updates it, it does not duplicate.
-
-(the-credential-in-the-data-model)=
-### A credential in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -55,15 +51,21 @@ the same key updates it, it does not duplicate.
 The model database keeps only a read-only, denormalised copy of the credential each model uses --
 identity decisions stay with the controller record.
 
+The credential service in the controller performs the writes: it
+inserts the record with its attributes when a credential is added;
+updating is an upsert of the same natural key; removing deletes it;
+invalidating marks it invalid with a reason, and the models using
+it are told at their next check.
+
 (the-credential-states)=
 ### Credential states
 
 A credential carries two standing flags rather than a life cycle:
 **revoked** (the user withdrew it) and **invalid** (the cloud or the
 model checks found it unusable, with the reason recorded). Adding a
-credential already marked invalid is rejected; the real validity
-check is per model -- opening a provider connection with the
-credential is what proves it.
+credential already marked invalid is rejected. The invalid flag is
+where the layers meet: the check in the execution layer discovers it;
+the record here stores it.
 
 (types-of-credential)=
 ### Types of credential
@@ -79,21 +81,13 @@ business: see the relevant {ref}`cloud reference page
 <list-of-supported-clouds>` for details.
 
 (the-credentials-execution)=
-## What happens in the background
+## Credentials in the execution layer
 
-A credential has no machinery of its own: the controller stores the
-records and validates them against their cloud; the one watch surface
-(credential changes) reports the stored set.
-
-(the-credential-operations)=
-### How a credential changes
-
-In the controller, the credential service inserts the record with
-its attributes when a credential is added; updating is an upsert of
-the same natural key; removing deletes it; invalidating marks it
-invalid with a reason and the models using it are told at their next
-check. The check-credentials operation validates, per model, that the
-model's credential actually opens the cloud.
+By the time the command returns, the record exists -- and nothing has
+yet proved that the credential works. That proof is all the execution
+a credential has, because a credential has no machinery of its own:
+opening a provider connection with the model's credential is what
+validates it, per model, at the model's next check.
 
 (the-credential-watchers)=
 ### Credential watchers
