@@ -27,19 +27,22 @@ One can deploy multiple applications to the same model. Thus, models allow the l
 (the-model-record)=
 ### The model's identity
 
-A model's record is split across two databases, and the split is the
-model's defining fact: the model database carries a read-only,
-denormalized copy of the model's identity -- its UUID, its controller,
-its name and owner (the **qualifier**, which disambiguates same-named
-models of different owners), its type, its cloud, region and
-credential, and the controller-model flag -- one row per model
-database, enforced by the schema. The **authoritative model life**,
-though, lives in the controller database: the model database's
-`model_life` table is a best-effort facsimile of it (see
-{ref}`Model states <the-model-states>`). The model database also
-carries the model's {ref}`configuration <model-configuration>`,
-{ref}`constraints <constraint>`, {ref}`storage pools <storage>` and
-the target agent version as separate records.
+A model exists in two places, and the order of creation explains the
+split. A model starts in the **controller** database: that is where
+its authoritative life is kept -- the shared alive / dying / dead
+cycle every entity has (see {ref}`Model states <the-model-states>`).
+
+Creating a model also creates the model's own **model database**. The
+model's identity is copied there as a read-only, denormalized summary
+-- its UUID, its controller, its name and owner (the **qualifier**,
+which disambiguates same-named models of different owners), its type,
+its cloud, region and credential, and the controller-model flag --
+one row per model database, enforced by the schema. The model
+database's `model_life` table mirrors the controller-side life as a
+best-effort facsimile. The model database also carries the model's
+own records as separate tables: its {ref}`configuration
+<model-configuration>`, {ref}`constraints <constraint>`,
+{ref}`storage pools <storage>` and the target agent version.
 
 The record's other stored discriminator is a role, not a type: the
 controller-model flag marks the one model that runs Juju itself, and
