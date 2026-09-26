@@ -1,16 +1,12 @@
 ---
 myst:
   html_meta:
-    description: "Juju unit reference: the unit record, unit kinds, the unit in the data model, unit states, operations, watchers, and rules."
+    description: "Juju unit reference: unit declaration, persistence (the record, states, types), execution (creation, leadership, hook resolution, removal, watchers), and rules."
 ---
 
 (unit)=
 # Unit
 ```{audience} user
-```
-
-```{ibnote}
-See also: {ref}`manage-units`
 ```
 
 In Juju, a **unit** is a deployed {ref}`charm <charm>`: one running instance of an {ref}`application <application>`. An application's units occupy {ref}`machines <machine>`.
@@ -19,23 +15,34 @@ Simple applications may be deployed with a single unit, but it is possible for a
 
 A unit is always named on the pattern `<application>/<unit ID>`, where `<application>` is the name of the application and the `<unit ID>` is its ID number or, for the leader unit, the keyword `leader`. For example, `mysql/0` or `mysql/leader`. Note: the number designation is a static reference to a unique entity whereas the `leader` designation is a dynamic reference to whichever unit happens to be elected by Juju to be the leader.
 
-(the-units-records)=
-## The unit's records
+(the-units-declaration)=
+## Units in the declaration layer
 
+You add a unit to an application explicitly (`juju add-unit` --
+deploying an application creates its units implicitly), and you
+resolve a unit's hook errors or remove it through the same clients;
+adding or removing a unit requires {ref}`model write access
+<user-access-model-write>`.
+
+```{ibnote}
+See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider for Juju | Manage units <tfjuju:manage-units>`
+```
+
+(the-units-persistence)=
 (the-unit-record)=
-### The unit's identity
-
-In the model database, a unit is a record identified by its **name** --
-unique per model, the application's name plus `/` and the unit number
--- carrying the unit's life (see {ref}`Unit states <the-unit-states>`),
-the application it belongs to, the network identity it shares with
-its machine (its net node), and the charm revision it runs: a unit
-pins its charm, so a {ref}`refresh <the-application-refresh>` leaves
-existing units on the old revision until they are individually
-refreshed.
-
 (the-unit-in-the-data-model)=
-### The unit in the data model
+## Units in the persistence layer
+
+In the model database, a unit is a record identified by its **name** -- the
+application's name plus `/` and the unit number (`0` or a positive integer
+without leading zeros: `mysql/0`, never `mysql/01`), unique per model (the
+creation service rejects a duplicate with `unit already exists`) -- carrying
+the unit's life (see {ref}`Unit states <the-unit-states>`), the application
+it belongs to, the network identity it shares with its machine (its net
+node), the charm revision it runs, and the unit's password hash (unique
+across units -- a unit cannot impersonate another): a unit pins its charm,
+so a {ref}`refresh <the-application-refresh>` leaves existing units on the
+old revision until they are individually refreshed.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -44,22 +51,15 @@ refreshed.
 :caption: Entity relationship diagram: The unit's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
 ```
 
-The unit's state is spread across a handful of stored tables. The
-`unit` record carries the name, the life, the application, the net
-node, the pinned charm revision, and the unit's password (unique
-across units -- a unit cannot impersonate another). The
+The unit's state is spread across a handful of satellite records. The
 `unit_principal` record is the subordinate co-location pair (see
 {ref}`Subordinate unit <subordinate-unit>`); `unit_agent_status` and
-`unit_workload_status` are the two status records (see
-{ref}`Unit states <the-unit-states>`); the `unit_state`,
-`unit_state_charm` and `unit_state_relation` records are the state the
-unit's charm has claimed through its hooks; `unit_resolved` records
-the resolution mode when a hook error is cleared; and presence is a
-separate record the controller updates as the unit agent logs in and
-out (see {ref}`the unit agent <unit-agent>`).
-
-(the-unit-states)=
-### Unit states
+`unit_workload_status` are the two status records (see {ref}`Unit states
+<the-unit-states>`); the `unit_state`, `unit_state_charm` and
+`unit_state_relation` records are the state the unit's charm has claimed
+through its hooks; `unit_resolved` records the resolution mode when a hook
+error is cleared; and presence is a separate record the controller updates
+as the unit agent logs in and out (see {ref}`the unit agent <unit-agent>`).
 
 A unit carries orthogonal state machines: its **life** -- the shared
 alive / dying / dead cycle every entity has -- and two status
@@ -70,15 +70,15 @@ status write is a membership check (the value must be known) followed
 by writer gates -- what constrains a unit is who writes which value,
 not a transition matrix.
 
-#### Life
+(the-unit-states)=
+### Unit states
 
-A unit is created alive. The removal machinery marks it dying (guarded
-one-way) when the unit is removed, and declares it dead only once no
-relation scopes and no storage attachments are left on it; a scheduled
-removal job then deletes the records (see
-{ref}`Unit removal <the-unit-removal>`).
-
-#### Status
+A unit is created alive. The removal machinery marks it dying
+(guarded one-way) when the unit is removed, and declares it dead
+only once no relation scopes and no storage attachments are left --
+the removal machinery drives it, the record stores it; a scheduled
+removal job then deletes the records (see {ref}`Unit removal
+<the-unit-removal>`).
 
 The value vocabularies are documented in
 {ref}`unit status <unit-status>`; the who-writes story across all five
@@ -135,21 +135,20 @@ a dedicated principal record. Like the application's
 subordinate-ness, this is a role, not a type -- it is derived from the
 charm's metadata and the co-location record.
 
-(the-units-machinery)=
-## The unit's machinery
-
-A unit has machinery of its own: the unit agent runs on it -- claiming
-leadership and running the charm -- while in the controller, creation,
-hook-error resolution and removal act on the unit's records.
-
+(the-units-execution)=
 (the-unit-operations)=
-### Unit operations
+## Units in the execution layer
 
-Operations on units split by owner: the controller creates units and
-resolves their hook errors; the unit agents claim leadership and run
-the charm; the removal machinery tears units down.
+By the time the command returns, the unit's records exist -- and the
+compute it asks for may still be provisioning. A unit has machinery
+of its own: the unit agent runs on it -- claiming leadership and
+running the charm -- while in the controller, creation, hook-error
+resolution and removal act on the unit's records. Operations on units
+split by owner: the controller creates units and resolves their hook
+errors; the unit agents claim leadership and run the charm; the
+removal machinery tears units down.
 
-#### Unit creation
+### Unit creation
 
 Units are created implicitly by deploying an application or explicitly
 by adding units (for example, `juju add-unit mysql -n 2`): the
@@ -161,7 +160,7 @@ asks for (see {ref}`Application deployment
 manually started pod) is registered into the model rather than
 scheduled.
 
-#### Leadership
+### Leadership
 
 A unit agent claims the application's leadership lease when it wants
 to lead and renews it while it holds it; the lease expires if the unit
@@ -171,7 +170,7 @@ write, the peer relation settings read, and secret access all check
 leadership, and fail with a not-leader error if the unit no longer
 holds it.
 
-#### Hook results and resolution
+### Hook results and resolution
 
 The unit agent is the only writer of the unit's hook-claimed state
 (see {ref}`the unit agent <unit-agent>` and
@@ -182,7 +181,7 @@ leader) resolves it -- the resolution mode is recorded on the unit and
 honoured by the agent on the next run.
 
 (the-unit-removal)=
-#### Unit removal
+### Unit removal
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -229,28 +228,12 @@ query is the baseline snapshot -- and again on each qualifying change
 ```
 
 The unit domain encodes its rules as a typed error taxonomy; each
-error names the rule it enforces. The rules matter to charm authors
-operating units and to Juju developers, who maintain them as the
-domain's validation law.
-
-The rules a **unit name** must satisfy:
-
-- the application's name, a `/`, and the unit number -- `0` or a
-  positive integer without leading zeros (`mysql/0`, never
-  `mysql/01`);
-- the name is unique per model; the unit's password hash is unique
-  across all units.
-
-The rules a **unit mutation** must satisfy:
-
-- units are added only to an alive application, and a unit cannot be
-  updated or refreshed once dead;
-- a dying unit can only be declared dead once no relation scopes and
-  no storage attachments are left on it (`unit has subordinates`,
-  `unit has storage attachments` -- see
-  {ref}`Unit removal <the-unit-removal>`);
-- leader-gated writes fail when the unit no longer holds the lease
-  (`unit is not the leader`).
+error names the rule it enforces. The rules themselves are stated
+where they belong: the name grammar and the password uniqueness in
+the persistence layer, the mutation gates in the execution layer's
+operations and states. The errors matter to charm authors operating
+units and to Juju developers, who maintain them as the domain's
+validation law.
 
 The errors that encode them:
 
@@ -262,26 +245,3 @@ The errors that encode them:
 - *Composition*: `unit has subordinates`,
   `unit has storage attachments`,
   `unit already has subordinate`.
-
-(related-entities-unit)=
-## Entities related to the unit
-
-- **Applications** own their units -- one or more, sharing the charm,
-  the configuration and the relations (see
-  {ref}`application <application>`).
-- **Machines** host units: the unit and the machine share the
-  machine's net node -- that shared network identity is how Juju knows
-  a unit "runs on" its machine (see {ref}`machine <machine>`).
-- **The unit agent** is the unit's worker: it claims leadership, runs
-  the charm's hooks, commits their results, and watches its unit's
-  life (see {ref}`unit agent <unit-agent>`).
-- **Leadership** gates the leader's writes through the application's
-  lease (see {ref}`Unit operations <the-unit-operations>`).
-- **Status** owns the two unit vocabularies and the display overrides
-  (see {ref}`Unit states <the-unit-states>`).
-- **Removal** owns the teardown that takes a dying unit to dead,
-  machine and leadership consequences included (see
-  {ref}`Unit removal <the-unit-removal>`).
-- **Subordinates** co-locate with their principal through the
-  principal pair record (see
-  {ref}`Subordinate unit <subordinate-unit>`).
