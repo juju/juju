@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju model reference: logical workspaces for applications, resources, and configuration. The model record, model types, states, operations, watchers, and rules."
+    description: "Juju model reference: logical workspaces for applications, resources, and configuration. Model declaration, persistence (record, states, types), execution (workers, migration, removal, watchers), and rules."
 ---
 
 (model)=
@@ -9,11 +9,7 @@ myst:
 ```{audience} user
 ```
 
-```{ibnote}
-See also: {ref}`manage-models`
-```
-
-In Juju, a **model**  is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.
+In Juju, a **model** is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.
 
 A model is created by a {ref}`user <user>`, and owned in perpetuity by that user (or a new user with the same name), though it may also be used by any other user with model access level, within the limits of their level.
 
@@ -21,79 +17,63 @@ A model is created on a {ref}`controller <controller>`.  Both the model and the 
 
 One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
 
-(the-models-records)=
-## What Juju stores
+(the-models-declaration)=
+## Models in the declaration layer
 
+You declare a model by adding it to a controller with one of Juju's clients, and you configure it -- or remove it -- the same way.
+
+```{ibnote}
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Juju | Configure a model <configure-a-model>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
+(the-models-persistence)=
 (the-model-record)=
-### A model's identity
+## Models in the persistence layer
 
-A model exists in two places, and the order of creation explains the
-split. A model starts in the **controller** database: that is where
-its authoritative life is kept -- the shared alive / dying / dead
-cycle every entity has (see {ref}`Model states <the-model-states>`).
+A model has a record in Juju's databases, in two places. The
+authoritative record lives in the controller database, identified by
+its natural key -- the model's name plus the {ref}`user <user>` that
+qualifies it (the **qualifier**, which disambiguates same-named
+models of different owners). The key is unique: a model with the same
+name and owner cannot be added twice. The record carries the model's
+type, its cloud, region and credential, and the controller-model flag
+(see {ref}`Types of model <types-of-model>` for what each of those
+discriminators does).
 
-Creating a model also creates the model's own **model database**. The
-model's identity is copied there as a read-only, denormalized summary
--- its UUID, its controller, its name and owner (the **qualifier**,
-which disambiguates same-named models of different owners), its type,
-its cloud, region and credential, and the controller-model flag --
-one row per model database, enforced by the schema. The model
-database's `model_life` table mirrors the controller-side life as a
-best-effort facsimile. The model database also carries the model's
-own records as separate tables: its {ref}`configuration
-<model-configuration>`, {ref}`constraints <constraint>`,
-{ref}`storage pools <storage>` and the target agent version.
+The model service in the controller performs the writes: creating a
+model writes its records in both databases; configuring it rewrites
+the configuration rows; migrating it creates an *importing* model,
+unactivated until the migration's agents report success (see
+{ref}`Model migration <the-model-migration>`).
 
-The record's other stored discriminator is a role, not a type: the
-controller-model flag marks the one model that runs Juju itself, and
-either type can carry it -- a controller bootstrapped on a
-Kubernetes cloud runs a CAAS controller model.
-
-(the-controller-model)=
-#### The controller model
-
-**The controller model (`controller`).** This is your Juju management model. A Juju deployment will have just one controller model, which is created by default when you create a controller (`juju bootstrap`). It typically contains a single machine, for the controller (since Juju `3.0`, the `controller` application). If controller {ref}`high availability <high-availability>` is enabled, then the controller model would contain multiple instances. The `controller` model may also contain certain applications which it makes sense to deploy near the controller -- e.g., starting with Juju `3.0`, the `juju-dashboard` application.
-
-(regular-model)=
-#### Regular model
-
-**Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
-
-(the-model-in-the-data-model)=
-### A model in the data model
-
-The model's stored records are thin, and deliberately so: everything
+The model's stored footprint is thin, and deliberately so: everything
 the model *contains* lives in the entities' own tables (see
-{ref}`the full spine <data-model-full-spine>`); the model row itself
-is the denormalized identity summary, with four satellite records in
-the model database -- the configuration key/value rows, the model's
-constraints, the storage pools defined on the model, and the
-agent-version singleton (the agent version the model's machines
-should run and the latest one known). There is no life column on the
-model row: life belongs to the controller database, and the model
-database keeps only the facsimile (see
+{ref}`the full spine <data-model-full-spine>`). The model's own
+**model database** keeps a read-only, denormalized copy of its
+identity -- its UUID, its controller, its name and owner, its type,
+its cloud, region and credential, and the controller-model flag -- one
+row per model database, enforced by the schema, and its `model_life`
+table mirrors the controller-side life as a best-effort facsimile; it
+is what the model-side processes read. The model database also carries
+the model's own records as separate tables: its {ref}`configuration
+<model-configuration>`, its {ref}`constraints <constraint>`, its
+{ref}`storage pools <storage>` and the target agent version (the agent
+version the model's machines should run and the latest one known; see
+{ref}`upgrading things <upgrading-things>`). There is no life column
+on the model row: life belongs to the controller database (see
 {ref}`Model states <the-model-states>`).
 
 (the-model-states)=
 ### Model states
 
-A model carries its life in the **controller** database -- the shared
-alive / dying / dead cycle every entity has, plus an *activated* flag
-that says the model is live on its controller (a model imported by a
+A model is created alive. Its life is carried in the **controller**
+database -- the shared alive / dying / dead cycle every entity has,
+plus an *activated* flag that says the model is live on its
+controller (a model imported by a
 {ref}`migration <the-model-migration>` starts unactivated and is
-activated only once its agents have re-oriented).
-
-#### Life
-
-A model is created alive. The removal machinery marks it dying in the
-controller database -- cascading to the model's applications, units,
-relations and machines -- schedules the removal, and the
-**Undertaker** worker (inside the controller agent) does the rest:
-when the model reads dead it deletes the model's records and, as the
-final act, the model's own Dqlite database (see
-{ref}`Model removal <the-model-removal>`). The model database's life
-facsimile is updated alongside -- it is what the model-side processes
-read.
+activated only once its agents have re-oriented). The removal
+machinery in the execution layer is what moves a model to dying and
+dead; the record here stores it.
 
 (types-of-model)=
 (iaas-caas-models)=
@@ -108,40 +88,29 @@ machinery the model runs on, down to which {ref}`secret <secret>`
 backend its secrets live in and whether its applications scale by
 {ref}`pods <application>` or {ref}`machines <machine>`. The other
 stored discriminator, the controller-model flag, is a role, not a
-type (see {ref}`The model's identity <the-model-record>`).
+type.
 
-(the-models-machinery)=
-## What happens in the background
+(the-controller-model)=
+#### The controller model
 
-A model has machinery of its own: in the controller, the model's
-workers run -- creation starts them, the Undertaker takes dying models
+**The controller model (`controller`).** This is your Juju management model. A Juju deployment will have just one controller model, which is created by default when you create a controller (`juju bootstrap`). It typically contains a single machine, for the controller (since Juju `3.0`, the `controller` application). If controller {ref}`high availability <high-availability>` is enabled, then the controller model would contain multiple instances. The `controller` model may also contain certain applications which it makes sense to deploy near the controller -- e.g., starting with Juju `3.0`, the `juju-dashboard` application.
+
+(regular-model)=
+#### Regular model
+
+**Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
+
+(the-models-execution)=
+## Models in the execution layer
+
+By the time the command returns, the record exists and the model's
+workers are already running: a model is one of the entities with
+machinery of its own. In the controller, the model's workers run --
+the **Undertaker** (inside the controller agent) takes dying models
 to dead, and migration moves a model between controllers.
 
-(the-model-operations)=
-### How a model changes
-
-Operations on models: creation, configuration, credential and
-constraint updates, migration between controllers, and removal.
-
-#### Model creation
-
-A model is created with the create-model operation (for example,
-`juju add-model`): the controller writes the model's records in both
-databases, derives the model type from the cloud, and starts the
-model's workers. Migration creates a model too -- an *importing*
-model, unactivated until the migration's agents report success (see
-{ref}`Model migration <the-model-migration>`).
-
-#### Model configuration
-
-A model configuration is a rule or a set of rules that define the behavior of a model -- including the `controller` model. The keys and values are stored as rows on the model record and validated against the model config schema.
-
-```{ibnote}
-See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
-```
-
 (the-model-migration)=
-#### Model migration
+### Model migration
 
 ```{audience} juju-dev
 ```
@@ -176,7 +145,7 @@ prechecks reject the migration.
 ```
 
 (the-model-removal)=
-#### Model removal
+### Model removal
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -220,12 +189,11 @@ query is the baseline snapshot -- and again on each qualifying change
 (the-model-rules-and-errors)=
 ## Model rules and errors
 
-The rules a **model identity** must satisfy:
+The rules a model must satisfy:
 
 - the model name is not empty, and the qualifier (its owner) must be
   a valid user name -- `admin`, or `alice@external` for a
   {ref}`user <user>` from an identity provider;
-- the model type must be a known type (`iaas`, `caas`);
 - model configuration keys must be known keys, and their values must
   pass the schema validation (`validation error` naming the invalid
   attributes).
@@ -239,26 +207,3 @@ The errors that encode them:
   `agent stream not valid`, `constraints not found`.
 - *Migration and backends*: `model not redirected`,
   `secret backend already set`, `user not found on model`.
-
-(related-entities-model)=
-## Entities related to the model
-
-- **The controller** hosts models: every model record names its
-  controller, and the model's authoritative life lives in the
-  controller's database (see {ref}`controller <controller>`).
-- A model contains **applications, machines, storage, spaces, subnets
-  and relations** -- their records carry the model's UUID by
-  construction, since the model database *is* the model
-  (see {ref}`application <application>`, {ref}`machine <machine>`,
-  {ref}`storage <storage>`, {ref}`space <space>`,
-  {ref}`subnet <subnet>`, {ref}`relation <relation>`).
-- **Clouds and credentials** ground the model: the model records the
-  cloud, region and credential it deploys into (see
-  {ref}`cloud <cloud>`, {ref}`credential <credential>`).
-- **Users** hold access levels on the model (see {ref}`user <user>`).
-- **Migration** moves the model between controllers (see
-  {ref}`Model migration <the-model-migration>`).
-- **Removal** owns the teardown, the Undertaker at its end (see
-  {ref}`Model removal <the-model-removal>`).
-- **The agent version** records what the model's machines should run
-  (see {ref}`upgrading things <upgrading-things>`).
