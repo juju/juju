@@ -68,11 +68,11 @@ is: `ec2`, `gce`, `azure`, `openstack`, `vsphere`, `oci`, `maas`,
 (machine-cloud)=
 #### Machine cloud
 
+A **machine cloud** is a cloud that provides machine-level infrastructure. Juju uses the cloud API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage resources those machines require.
+
 ```{ibnote}
 See more: {ref}`List of supported machine clouds <list-of-supported-machine-clouds>`
 ```
-
-A **machine cloud** is a cloud that provides machine-level infrastructure. Juju uses the cloud API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage resources those machines require.
 
 (kubernetes-cloud)=
 #### Kubernetes cloud
