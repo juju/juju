@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju action reference: charm-defined operations for application-specific tasks. The action record, action/task/operation records, task states, running and cancelling actions, watchers, and rules."
+    description: "Juju action reference: charm-defined operations for application-specific tasks. The action definition and run records, task states, running and cancelling actions, watchers, and rules."
 ---
 
 (action)=
@@ -26,18 +26,39 @@ task per target (see {ref}`the action's records <the-actions-records>`).
 See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
 ```
 
-(the-actions-records)=
-## The action's records
+## Actions in the declaration layer
 
+You declare an action by defining it in the charm's `actions.yaml` and
+deploying the charm revision -- the charm defines each action's name,
+description, parameter schema, and parallelism defaults. The
+declaration needs no Juju-side access of its own: Juju records the
+definitions when the charm revision lands (the same model-write act as
+the {ref}`charm's <charm>` own). You run one with the {ref}`juju-cli`:
+`juju run` enqueues a charm action (model
+{ref}`write access <user-access-model-write>`), `juju exec` enqueues
+an arbitrary-command run (model
+{ref}`admin access <user-access-model-admin>`), and
+`juju cancel-task` cancels tasks (model
+{ref}`write access <user-access-model-write>`). The controller-side
+counterpart is the same call over the controller API.
+
+```{ibnote}
+See also: {ref}`tfjuju:manage-actions <tfjuju:manage-actions>`
+```
+
+(the-actions-records)=
 (the-action-record)=
-### The action's identity
+(the-action-in-the-data-model)=
+## Actions in the persistence layer
 
 In the model database, an action has two halves: the **definition**,
 a record of the {ref}`charm <charm>` -- the action's name, its
 description, its parameters schema, and its parallelism defaults --
-pair of records Juju creates when the action is executed: the
-**operation** (one run across all the targeted units, carrying the
-supplied parameters and the parallelism settings) and one **task** per
+and a pair of records Juju creates when the action is executed: the
+**operation** (one run across all the targeted units: a summary, the
+enqueue/start/complete times, the parallel flag and the execution
+group, and the supplied parameters as key/value rows -- for an exec
+run, the command and its timeout) and one **task** per
 target (see {ref}`task <task>` and {ref}`operation <operation>`).
 Each task carries its own status, log, and results (the results go to
 the controller's object store).
@@ -64,8 +85,14 @@ If the action does use a hook command like `relation-set`, after the action comp
 {ref}`relation-changed hook <hook-relation-changed>`  will be emitted afterwards on the affected units.
 ```
 
-(the-action-in-the-data-model)=
-### The action in the data model
+The operation service in the controller performs the writes: `AddActionOperation`/`AddExecOperation`
+insert the operation, its parameters as key/value rows, the
+`operation_action` row tying the operation to the charm's action
+definition (absent for exec runs), and the `operation_task` records,
+one per target, each linked through a unit-task or machine-task
+record to the unit or machine it runs on; `FinishTask` stores the
+per-task satellites -- the status record, the log rows, and the
+output record pointing at the results blob in the object store.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -75,23 +102,15 @@ If the action does use a hook command like `relation-set`, after the action comp
 :alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
 ```
 
-The run records are: the `operation` (summary, enqueue/start/complete
-times, the parallel flag and the execution group, and the parameters
-as key/value rows -- for an exec run, the command and its timeout);
-the `operation_action` row tying the operation to the charm's action
-definition (absent for exec runs); the `operation_task` records, one
-per target, each linked through a unit-task or machine-task record to
-the unit or machine it runs on; and the per-task satellites -- the
-status record, the log rows, and the output record pointing at the
-results blob in the object store.
-
 (the-action-states)=
 ### Action states
 
 A task carries one status vocabulary, written by the side that owns
 each transition -- the running agent starts and finishes its tasks,
 the user cancels. There is no separate action-level state: the
-operation is completed when its last active task is.
+operation is completed when its last active task is. The machinery
+in the execution layer drives the transitions; the record here stores
+the vocabulary.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -118,17 +137,17 @@ run is modelled as the predefined `juju-exec` action instead (see
 {ref}`script <script>`).
 
 (the-actions-machinery)=
-## The action's machinery
+(the-action-operations)=
+## Actions in the execution layer
 
 An action has no machinery of its own -- its runs execute on the
 targeted units' agents; the controller only enqueues the operation and
-records the results.
-
-(the-action-operations)=
-### Action operations
+records the results. By default the command waits for the tasks to
+finish; with `--background` it returns as soon as the operation is
+enqueued -- the record exists, and the work is still unfolding.
 
 (the-action-execution)=
-#### Running an action
+### Running an action
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -155,7 +174,7 @@ operation completes. Exec runs go through the same machinery -- the
 command and its timeout are stored as the operation's parameters.
 
 (the-action-cancellation)=
-#### Cancelling an action
+### Cancelling an action
 
 Cancelling (for example, `juju cancel-task`) marks a pending task
 cancelled; a running task is marked aborting and its agent kills the
@@ -210,21 +229,6 @@ The errors that encode them:
   `action not defined` (the charm has no such action).
 - *State*: `task not pending`.
 
-(related-entities-action)=
-## Entities related to the action
-
-- **Charms** define the actions: the definition record is the charm's,
-  with its parameters schema and parallelism defaults
-  (see {ref}`charm <charm>`).
-- **Units and machines** run the tasks -- one task per target, picked
-  up by the target's agent (see {ref}`unit <unit>`,
-  {ref}`machine <machine>`).
-- **Scripts** are the other kind of run: an exec operation executing
-  an arbitrary command instead of a charm-defined action (see
-  {ref}`script <script>`).
-- **Hooks** share the execution environment -- and an action that
-  touches relation data emits relation hooks after it completes
-  (see {ref}`hook execution <hook-execution>`).
-- **Status** can be updated by the running action, the same
-  `status-set` path hooks use (see
-  {ref}`the application's status <the-application-states>`).
+The declaration-layer rules are checked by the {ref}`charm
+<charm>` metadata verifier; the run rules are enforced by the
+operation service and the target agents.
