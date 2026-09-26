@@ -1,4 +1,4 @@
-# Copyright 2025 Canonical Ltd.
+# Copyright 2026 Canonical Ltd.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Sphinx extension for section-level audience tags.
