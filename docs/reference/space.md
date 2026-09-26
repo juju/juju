@@ -144,8 +144,8 @@ Support for spaces may vary from one cloud to another. For cloud-specific detail
 (related-entities-space)=
 ## Entities related to the space
 
-- **Subnets** are what a space groups; the membership pointer lives
-  on the subnet (see {ref}`subnet <subnet>`).
+- A space groups **subnets**; the membership pointer lives on the
+  subnet (see {ref}`subnet <subnet>`).
 - **Applications and their endpoints** bind to spaces -- the default
   binding and the per-endpoint bindings (see
   {ref}`application <application>`,

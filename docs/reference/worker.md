@@ -23,8 +23,8 @@ the term), and {ref}`watchers <the-agent-watchers>`.
 
 ## Agents and workers
 
-An {ref}`agent <agent>` is a process; workers are what the process
-runs. One agent runs many workers at the same time, in parallel, and a
+An {ref}`agent <agent>` is a process; it runs workers. One agent runs
+many workers at the same time, in parallel, and a
 worker may run workers of its own: a worker that manages private child
 workers carries them in a catacomb
 (`github.com/juju/worker/v5/catacomb`), so an agent's content is a tree

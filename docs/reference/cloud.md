@@ -137,5 +137,5 @@ The structure of a cloud definition and its supported authentication types and c
   {ref}`IAAS and CAAS models <iaas-caas-models>`).
 - **Regions** are the cloud's sub-scopes a model lands in
   (see {ref}`list of supported clouds <list-of-supported-clouds>`).
-- **Machines and pods** are what clouds provide (see
+- Clouds provide **machines and pods** (see
   {ref}`machine <machine>`, {ref}`application <application>`).

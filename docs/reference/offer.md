@@ -145,10 +145,10 @@ valid`, `missing endpoints`, `offer has relations`.
 (related-entities-offer)=
 ## Entities related to the offer
 
-- **Applications** are what an offer publishes -- one application's
-  endpoints (see {ref}`application <application>`).
-- **Cross-model relations** are what an offer enables; the consuming
-  side runs a proxy application against a remote-application record
+- An offer publishes one **application**'s endpoints
+  (see {ref}`application <application>`).
+- An offer enables **cross-model relations**; the consuming side runs
+  a proxy application against a remote-application record
   (see {ref}`cross-model relation <cross-model-relation>`).
 - **Users** hold the offer's access levels, stored as controller-side
   permission rows (see {ref}`user <user>`).

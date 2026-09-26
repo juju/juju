@@ -106,9 +106,9 @@ The rules the **bundle YAML** must satisfy:
 (related-entities-bundle)=
 ## Entities related to the bundle
 
-- **Charms** are what a bundle deploys (see {ref}`charm <charm>`).
-- **Applications, machines, relations and offers** are what it
-  expands into -- the only records that persist
+- A bundle deploys **charms** (see {ref}`charm <charm>`).
+- A bundle expands into **applications, machines, relations and
+  offers** -- the only records that persist
   (see {ref}`application <application>`, {ref}`machine <machine>`,
   {ref}`relation <relation>`, {ref}`offer <offer>`).
 - **The model** is where the results live (see {ref}`model <model>`).

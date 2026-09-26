@@ -247,9 +247,9 @@ The errors that encode them:
 - **The controller** hosts models: every model record names its
   controller, and the model's authoritative life lives in the
   controller's database (see {ref}`controller <controller>`).
-- **Applications, machines, storage, spaces, subnets and relations**
-  are what a model contains -- their records carry the model's UUID
-  by construction, since the model database *is* the model
+- A model contains **applications, machines, storage, spaces, subnets
+  and relations** -- their records carry the model's UUID by
+  construction, since the model database *is* the model
   (see {ref}`application <application>`, {ref}`machine <machine>`,
   {ref}`storage <storage>`, {ref}`space <space>`,
   {ref}`subnet <subnet>`, {ref}`relation <relation>`).

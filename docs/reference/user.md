@@ -250,7 +250,7 @@ valid`, `user unauthorized`, `user authentication disabled`.
 (related-entities-user)=
 ## Entities related to the user
 
-- **The controller** is what a user logs in to; its database keeps the
+- A user logs in to **the controller**; its database keeps the
   user and permission records (see {ref}`controller <controller>`).
 - **Clouds, models and offers** are the objects access is granted on
   (see {ref}`cloud <cloud>`, {ref}`model <model>`,

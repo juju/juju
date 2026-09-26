@@ -334,9 +334,8 @@ The errors that encode them:
 (related-entities-application)=
 ## Entities related to the application
 
-- **Charms** are what an application runs: the application references
-  one charm by UUID and tracks its origin; a refresh swaps it
-  (see {ref}`charm <charm>`).
+- The application runs one **charm**, referenced by UUID and tracked
+  by origin; a refresh swaps it (see {ref}`charm <charm>`).
 - **Units** are the application's running instances -- one or more,
   cascaded with the application on removal (see {ref}`unit <unit>`).
 - **Endpoints** are the charm-defined ports the application offers;

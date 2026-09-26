@@ -123,8 +123,8 @@ When the location is a key-value pair, its availability and meaning may vary fro
 (related-entities-placement-directive)=
 ## Entities related to the placement directive
 
-- **Machines** are what a directive resolves into, and the placement
-  record is theirs (see {ref}`machine <machine>`).
+- A directive resolves into a **machine**, and the placement record
+  is that machine's (see {ref}`machine <machine>`).
 - **Constraints** are the other steering input -- the directive wins
   on overlap (see {ref}`constraint <constraint>`).
 - **Zones and subnets** are the key-value forms (see {ref}`zone

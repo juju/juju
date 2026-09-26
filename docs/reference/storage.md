@@ -289,8 +289,8 @@ The rules a **storage mutation** must satisfy:
   sizes the directives fill in (see {ref}`charm <charm>`).
 - **Units** hold the attachments -- what the charm's hook context
   sees (see {ref}`unit <unit>`).
-- **Machines** are what volumes and filesystems bind to, through the
-  shared net node (see {ref}`machine <machine>`).
+- Volumes and filesystems bind to **machines** through the shared net
+  node (see {ref}`machine <machine>`).
 - **Pools and providers** are where the backing comes from -- the
   pool names it, the provider creates it (see
   {ref}`the storage pool <the-storage-pool>`).

@@ -132,8 +132,8 @@ The errors that encode them: `credential not found`,
 (related-entities-credential)=
 ## Entities related to the credential
 
-- **Clouds** are what a credential authenticates against, and they
-  define the admitted auth types (see {ref}`cloud <cloud>`).
+- A credential authenticates against a **cloud**, and the cloud
+  defines the admitted auth types (see {ref}`cloud <cloud>`).
 - **Users** own credentials -- the natural key's owner half (see
   {ref}`user <user>`).
 - **Models** use exactly one cloud/credential pair, recorded on the

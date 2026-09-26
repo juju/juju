@@ -403,8 +403,8 @@ The errors that encode them:
 (related-entities-charm)=
 ## Entities related to the charm
 
-- **Applications** are what a charm runs: the application references
-  one charm revision by UUID, and its units pin their own
+- **Applications** run the charm: each application references one
+  charm revision by UUID, and its units pin their own
   (see {ref}`application <application>`, {ref}`unit <unit>`).
 - **Charmhub** is the store charms come from: the controller resolves
   revisions and downloads archives from it; the model keeps the
