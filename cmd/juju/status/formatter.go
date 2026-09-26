@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/juju/names/v6"
 
@@ -107,6 +108,12 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 		out.Relations[i] = sf.formatRelation(rel)
 		i++
 	}
+	slices.SortFunc(out.Relations, func(a, b relationStatus) int {
+		if n := strings.Compare(a.Provider, b.Provider); n != 0 {
+			return n
+		}
+		return strings.Compare(a.Requirer, b.Requirer)
+	})
 	if sf.storage != nil {
 		out.Storage = sf.storage
 	}
