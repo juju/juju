@@ -94,8 +94,7 @@ On each machine, agents (`jujud` on machines, `containeragent` on Kubernetes) ex
 - {ref}`agent`
 - {ref}`jujud`
 - {ref}`worker`
-- {ref}`watcher`
-- {ref}`entity-lifecycle`
+- {ref}`watchers`
 - {ref}`hook`
 - {ref}`hook-command`
 - {ref}`jujuc`

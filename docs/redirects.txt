@@ -24,9 +24,9 @@ contributor/unsorted/commands/ reference/index
 contributor/unsorted/hacking-state/ reference/index
 contributor/unsorted/cross-platform-development/ howto/compile-and-run-juju-agents-on-different-architectures
 contributor/unsorted/FAQ/ reference/index
-contributor/unsorted/death-and-destruction/ reference/entity-lifecycle
-contributor/unsorted/entity-creation/ reference/entity-lifecycle
-contributor/unsorted/lifecycles/ reference/entity-lifecycle
+contributor/unsorted/death-and-destruction/ reference/removing-things
+contributor/unsorted/entity-creation/ reference/index
+contributor/unsorted/lifecycles/ reference/removing-things
 contributor/unsorted/api-best-practices reference/index
 contributor/unsorted/api-design-specification reference/index
 contributor/unsorted/api-implementation-guide reference/index
@@ -413,6 +413,6 @@ contributor/howto/compile-and-run-juju-agents-on-different-architectures howto/c
 contributor/howto/debug-a-dqlite-core-dump-issue howto/debug-a-dqlite-core-dump-issue
 contributor/index reference/index
 contributor/howto/index howto/index
-contributor/reference/entity-lifecycle reference/entity-lifecycle
+contributor/reference/entity-lifecycle reference/removing-things
 contributor/reference/writing-workers howto/writing-workers
 contributor/reference/index reference/index
