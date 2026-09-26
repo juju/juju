@@ -150,16 +150,16 @@ presence machinery records agent logins, and that is the input the
 (related-entities-agent)=
 ## Entities related to the agent
 
-- **The controller, models, machines and units** are what agents
-  serve -- one process per entity (see {ref}`controller <controller>`,
+- Agents serve the controller, models, machines and units -- one
+  agent process per entity (see {ref}`controller <controller>`,
   {ref}`model <model>`, {ref}`machine <machine>`,
   {ref}`unit <unit>`).
 - **`jujud` and `containeragent`** are the agent binaries -- the
   former for machines and controllers, the latter the unit agent's
   Kubernetes form (see {ref}`jujud <jujud>`,
   {ref}`containeragent <containeragent>`).
-- **Workers** are what an agent runs; the worker tree is the agent's
-  actual content (see {ref}`workers <worker>`).
+- An agent runs workers; the worker tree is the agent's actual
+  content (see {ref}`workers <worker>`).
 - **The agent version** is the upgrade machinery's target (see
   {ref}`upgrading things <upgrading-things>`).
 - **Status** derives an agent's liveness: presence in, `lost` out
