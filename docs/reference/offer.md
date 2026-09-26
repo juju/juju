@@ -9,19 +9,31 @@ myst:
 ```{audience} user
 ```
 
-```{ibnote}
-See also: {ref}`manage-offers`
-```
-
 In Juju, an **offer** represents an {ref}`application <application>` that has been made available for {ref}`cross-model relations <cross-model-relation>`.
 
 When you are integrating an application with an offer, what you're doing is consume + integrate, where consume = validate that your user has permission to consume the offer + create a local application proxy for the application and integrate is the usual local integrate.
 
-(the-offers-records)=
-## The offer's records
+The offer sits between the application whose endpoints it publishes, the {ref}`users <user>` whose access levels to it live as controller-side permission rows, and the {ref}`external controller <controller>` that the offer URL's source names.
 
+(the-offers-declaration)=
+## Offers in the declaration layer
+
+You offer an application's endpoints for consumption and remove the
+offer through a Juju client; offering and removing require
+{ref}`model admin access <user-access-model-admin>`, and consuming an
+offer requires {ref}`consume access to the offer
+<user-access-offer-consume>`.
+
+```{ibnote}
+See also: {ref}`Juju | Manage offers <manage-offers>`, {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offers>`
+```
+
+(the-offers-persistence)=
+(the-offers-records)=
 (the-offer-record)=
-### The offer's identity
+(the-offer-origins)=
+(the-offer-in-the-data-model)=
+## Offers in the persistence layer
 
 In the offering model's database, an offer is a record: its name (by
 default the application's name) and its UUID, its
@@ -35,20 +47,12 @@ model (see {ref}`user <user>`).
 An offer is identified by its **offer URL**,
 `[<source>:][<qualifier>/]<model-name>.<offer-name>`, optionally with
 a `:<relation-endpoint>` suffix; the offer name follows the
-application-name rules.
+application-name rules. An offer and its endpoints are unique: an
+identical offer -- the same application and the same endpoints -- is
+rejected rather than duplicated, the service checking the existing
+offers before it writes.
 
-(the-offer-origins)=
-```{ggarch}
-:file: ../juju.ggarch
-:view: Cross-model relation (CMR)
-:alt: Two model databases side by side. In the offering model: relation and endpoint records belonging to the offer, offer and offer-connection records, external controller record. In the consuming model: application, relation and endpoint records for the proxy application, remote application record. Arrows follow the foreign keys from each side's records into the shared offer machinery.
-:caption: Topology: The cross-model relation, record by record. The offering side stores the offer and its connections; the consuming side stores a proxy application and a remote-application record; both sides agree on the endpoint and relation records that carry the actual relation data. Nothing is shared between the two model databases except the offer URL and credentials.
-```
-
-(the-offer-in-the-data-model)=
-### The offer in the data model
-
-The offer's stored records are the three drawn above: the `offer` row
+The offer's stored records are three: the `offer` row
 (name, UUID), the `offer_endpoint` rows (the offer's endpoints, each a
 pointer into the application's endpoint records, with the
 single-application trigger), and the `offer_connection` rows (one per
@@ -56,6 +60,19 @@ consumer, naming the remote relation and the consumer). A read view
 joins them with the connection counts; the offer's access control is
 controller-side: creating an offer grants its owner admin access and
 everyone read access as permission rows on the offer's UUID.
+
+The cross-model relation service in the controller performs the
+writes: offering inserts the offer row with its endpoint rows and the
+owner-plus-everyone access rows controller-side; consuming adds the
+connection record for the consumer; removing deletes the offer, its
+endpoint rows and its access rows.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cross-model relation (CMR)
+:alt: Two model databases side by side. In the offering model: relation and endpoint records belonging to the offer, offer and offer-connection records, external controller record. In the consuming model: application, relation and endpoint records for the proxy application, remote application record. Arrows follow the foreign keys from each side's records into the shared offer machinery.
+:caption: Topology: The cross-model relation, record by record. The offering side stores the offer and its connections; the consuming side stores a proxy application and a remote-application record; both sides agree on the endpoint and relation records that carry the actual relation data. Nothing is shared between the two model databases except the offer URL and credentials.
+```
 
 (the-offer-states)=
 ### Offer states
@@ -72,16 +89,15 @@ An offer has no subtypes: it is one record shape -- an application's
 endpoints published for consumption -- and Juju adds no kind column.
 
 (the-offers-machinery)=
-## The offer's machinery
+(the-offer-operations)=
+## Offers in the execution layer
 
 An offer has no machinery of its own: it is a static record the
 controller serves -- creating, consuming and removing it are record
 writes, and what moves around an offer runs in the cross-model
 relation machinery.
 
-(the-offer-operations)=
-### Offer operations
-#### Creating an offer
+### Creating an offer
 
 Creating an offer (for example, `juju offer mysql:mysql`) publishes an
 application's endpoint: the offer is named after the application by
@@ -89,14 +105,14 @@ default, an identical offer (same application and endpoints) is
 rejected rather than duplicated, and the owner-plus-everyone access
 rows are written controller-side.
 
-#### Consuming an offer
+### Consuming an offer
 
 Consuming validates the user's permission and creates the local proxy
 application and its remote-application record (the consume details
 service hands the consuming side its half; see the CMR view above and
 {ref}`cross-model relation <cross-model-relation>`).
 
-#### Removing an offer
+### Removing an offer
 
 Removing an offer refuses while the offer still has connections or
 active relations, unless the removal is forced; the removal also
@@ -141,17 +157,3 @@ The rules an **offer mutation** must satisfy:
 The errors that encode them: `offer not found`,
 `offer already exists`, `offer already consumed`, `offer URL not
 valid`, `missing endpoints`, `offer has relations`.
-
-(related-entities-offer)=
-## Entities related to the offer
-
-- An offer publishes one **application**'s endpoints
-  (see {ref}`application <application>`).
-- An offer enables **cross-model relations**; the consuming side runs
-  a proxy application against a remote-application record
-  (see {ref}`cross-model relation <cross-model-relation>`).
-- **Users** hold the offer's access levels, stored as controller-side
-  permission rows (see {ref}`user <user>`).
-- **External controllers** carry the far model's identity, which the
-  offer URL's source names (see
-  {ref}`external controller <controller>`).
