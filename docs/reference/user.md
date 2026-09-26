@@ -88,7 +88,7 @@ A Juju user may have different abilities, according to the access level they hav
 (user-access-controller-login)=
 ##### `login`
 
-Granted: Via `juju register.
+Granted: Via `juju register`.
 
 Abilities: Log in to the controller.
 

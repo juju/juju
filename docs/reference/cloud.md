@@ -43,6 +43,10 @@ values, and its CA certificate for TLS. The cloud a
 {ref}`controller <controller>` was bootstrapped on is seeded as a
 record at bootstrap.
 
+The cloud service in the controller performs the writes: adding a
+cloud inserts the record with its endpoints, regions and
+authentication types; updating rewrites them; removing deletes it.
+
 The records live alongside their pointers: {ref}`models <model>`
 carry the denormalised copy of the cloud they deploy into -- cloud
 name, type and region on the model row -- and each model's
@@ -112,9 +116,22 @@ query is the baseline snapshot -- and again on each qualifying change
 (the-cloud-rules-and-errors)=
 ## Cloud rules and errors
 
-- the cloud name is unique;
+The rules are enforced by the cloud service -- the same service that
+performs the writes -- at the add, update and remove gates; the
+provider layer behind it validates the cloud type and its admitted
+authentication types. The rules:
+
 - the cloud type must be one of Juju's known types;
 - a cloud with models cannot be removed, and the bootstrapped cloud
   cannot be removed while its controller stands;
 - the cloud definition must carry at least one admitted
   authentication type.
+
+(The name's uniqueness is the record's grammar -- see the persistence
+layer.)
+
+The errors that encode them (domain/cloud/errors):
+
+- *Existence*: `cloud not found`, `cloud already exists`;
+- *Removal*: `cloud still in use`. The type and auth-type gates are
+  provider-layer validations and carry no typed errors of their own.

@@ -89,7 +89,10 @@ the entities a bundle created have their own
 (the-bundle-rules-and-errors)=
 ## Bundle rules and errors
 
-The rules the **bundle YAML** must satisfy:
+The bundle has no record, so it has no record rules: the only
+enforcement surface is the deploy-time verifier in the deployment
+domain, which reads the YAML before anything is expanded. The rules
+the **bundle YAML** must satisfy:
 
 - a bundle is a YAML multidoc: the first document is the base, the
   rest are overlays -- relations append, machines overwrite, and an
@@ -97,3 +100,12 @@ The rules the **bundle YAML** must satisfy:
   application;
 - the bundle's series (for example, `bundle: kubernetes`) becomes the
   applications' series.
+
+The errors that encode them (domain/deployment/charm/bundledata.go):
+
+- `bundle has an invalid type %q` -- the type field, when present,
+  must be `kubernetes`;
+- `bundle machines not valid for Kubernetes bundles` -- a Kubernetes
+  bundle declares no machines;
+- `bundle declares an invalid base %q` -- the default base, when
+  present, must parse as a valid base.
