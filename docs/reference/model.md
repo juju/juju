@@ -13,14 +13,16 @@ In Juju, a **model** is an abstraction that holds {ref}`applications <applicatio
 
 A model is created by a {ref}`user <user>`, and owned in perpetuity by that user (or a new user with the same name), though it may also be used by any other user with model access level, within the limits of their level.
 
-A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller' and where you may have 'cross-model relations (integrations)'). Any entities added to the model will use resources from that cloud.
+A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller'). Any entities added to the model will use resources from that cloud.
 
 One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
 
 (the-models-declaration)=
 ## Models in the declaration layer
 
-You declare a model by adding it to a controller with one of Juju's clients, and you configure it -- or remove it -- the same way.
+You add, configure, or remove a model through one of Juju's clients;
+adding a model requires {ref}`cloud add-model access
+<user-access-cloud-add-model>`.
 
 ```{ibnote}
 See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Juju | Configure a model <configure-a-model>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
@@ -111,9 +113,6 @@ to dead, and migration moves a model between controllers.
 
 (the-model-migration)=
 ### Model migration
-
-```{audience} juju-dev
-```
 
 ```{ggarch}
 :file: ../juju.ggarch

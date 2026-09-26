@@ -18,10 +18,11 @@ The operations are transparent to Juju and so the deployment can continue to be 
 (the-bundles-declaration)=
 ## Bundles in the declaration layer
 
-A bundle is nothing but declaration material: you declare one by
-writing a YAML file that states the applications, their
-configuration, their relations and their machines, and you deploy it
-with one of Juju's clients -- an overlay customises it at deploy
+A bundle is nothing but declaration material: you write one as a
+YAML file that states the applications, their configuration, their
+relations and their machines, and you deploy it with one of Juju's
+clients -- deploying requires {ref}`model write access
+<user-access-model-write>`; an overlay customises it at deploy
 time, applied the same way.
 
 ```{ibnote}

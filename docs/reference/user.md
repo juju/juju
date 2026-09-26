@@ -27,11 +27,12 @@ Users sit at the centre of Juju's access model: they log in to a {ref}`controlle
 ## Users in the declaration layer
 
 You add a user to a controller through a Juju client (`juju
-add-user`), and you manage their login details the same way:
-register the controller to set the first password, set or reset a
-password, disable or re-enable authentication, and grant or revoke
-access. A single Juju client can hold several users, but only one can
-be logged in at a time.
+add-user`); adding a user requires {ref}`controller superuser access
+<user-access-controller-superuser>`. You manage their login details
+the same way: register the controller to set the first password, set
+or reset a password, disable or re-enable authentication, and grant
+or revoke access. A single Juju client can hold several users, but
+only one can be logged in at a time.
 
 A user logs in to a Juju controller with a username and a password.
 The user created implicitly by the bootstrap gets the username `admin`

@@ -23,7 +23,8 @@ A cloud's neighbours: a {ref}`credential <credential>` authenticates against it,
 ## Clouds in the declaration layer
 
 You add, update, or remove a cloud through a Juju client; adding a
-cloud requires controller superuser access.
+cloud requires {ref}`controller superuser access
+<user-access-controller-superuser>`.
 
 ```{ibnote}
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

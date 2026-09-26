@@ -16,7 +16,9 @@ Clouds decide which authentication schemes they accept; users own credentials; m
 (the-credentials-declaration)=
 ## Credentials in the declaration layer
 
-You declare a credential by adding it to Juju through one of its clients, and you update or remove it the same way.
+You add, update, or remove a credential through a Juju client; adding
+your own credential requires nothing beyond controller {ref}`login
+access <user-access-controller-login>`.
 
 A credential can be known to the client, the controller, or both: a **client credential** (previously
 known as a 'local credential') denotes a credential that the client is aware of and a **controller
