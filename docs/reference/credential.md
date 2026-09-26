@@ -119,9 +119,11 @@ query is the baseline snapshot -- and again on each qualifying change
 - the authentication type must be one the cloud admits, and the
   attributes must satisfy it;
 - a credential recorded as invalid cannot be added;
-- access to credentials is not a permission object of its own:
-  ownership plus the cloud-level `add-model`/`admin` access is what
-  governs their use.
+- a credential is not a permission of its own: it only authenticates
+  to the cloud. What it can do on the cloud is decided by the cloud
+  (how it was created there); what you can do with it through Juju is
+  decided by Juju -- you need to own the credential and hold
+  `add-model` or `admin` access on its cloud;
 
 The errors that encode them: `credential not found`,
 `credential model validation failed`, `model credential not set`,
