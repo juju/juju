@@ -2597,6 +2597,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 31
 
 	errAuthTests := []struct {
 		description string
@@ -2626,6 +2627,7 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsErrUnauthorized(c *tc.C) {
 				s.expectGetRelationUUIDByKey(
 					tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), relUUID, nil,
 				)
+				s.expectGetRelationDetails(c, relUUID, relID, relTag)
 			},
 		},
 	}
@@ -2654,11 +2656,13 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForUnit(c *tc.C) {
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	remoteUnitTag := names.NewUnitTag("mysql/2")
 	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 31
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(
 		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), relUUID, nil,
 	)
+	s.expectGetRelationDetails(c, relUUID, relID, relTag)
 	s.relationService.EXPECT().GetRelationUnitSettings(
 		gomock.Any(), relUUID, coreunit.Name(remoteUnitTag.Id())).Return(settings, nil)
 
@@ -2689,12 +2693,14 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsForApplication(c *tc.C) {
 	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
 	remoteAppTag := names.NewApplicationTag("mysql")
 	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 31
 	appID := tc.Must(c, coreapplication.NewUUID)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(
 		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), relUUID, nil,
 	)
+	s.expectGetRelationDetails(c, relUUID, relID, relTag)
 	s.expectGetApplicationUUIDByName(remoteAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
@@ -2724,12 +2730,28 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 	defer s.setupMocks(c).Finish()
 	relTag := names.NewRelationTag("wordpress:mysql")
 	relUUID := tc.Must(c, corerelation.NewUUID)
+	relID := 31
 	appID := tc.Must(c, coreapplication.NewUUID)
 	settings := map[string]string{"wanda": "firebaugh"}
 
 	s.expectGetRelationUUIDByKey(
 		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), relUUID, nil,
 	)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{
+		Life: life.Alive,
+		UUID: relUUID,
+		ID:   relID,
+		Key:  tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()),
+		Endpoints: []relation.Endpoint{{
+			ApplicationName: "wordpress",
+			Relation: charm.Relation{
+				Name:      "mysql",
+				Role:      charm.RolePeer,
+				Interface: "mysql",
+				Scope:     charm.ScopeGlobal,
+			},
+		}},
+	}, nil)
 	s.expectGetApplicationUUIDByName(s.wordpressAppTag.Id(), appID)
 	s.expectGetRelationApplicationSettings(relUUID, appID, settings)
 
@@ -2748,6 +2770,87 @@ func (s *uniterRelationSuite) TestReadRemoteApplicationSettingsWithLocalApplicat
 			}},
 		},
 	})
+}
+
+// TestReadRemoteSettingsRelationNotOfCaller checks that a unit cannot read
+// the settings of a relation its application is not part of, whether it
+// names a unit or an application on the far side.
+func (s *uniterRelationSuite) TestReadRemoteSettingsRelationNotOfCaller(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("keycloak:database mysql:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	relKey := tc.Must1(c, corerelation.NewKeyFromString, relTag.Id())
+	// One lookup per argument.
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationDetailsUnexpectedAppName(c, relUUID)
+	s.expectGetRelationUUIDByKey(relKey, relUUID, nil)
+	s.expectGetRelationDetailsUnexpectedAppName(c, relUUID)
+
+	// act: the mocks expect no settings lookup, so reaching the relation
+	// service for the remote unit or application fails the test.
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
+		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewUnitTag("mysql/0").String()},
+		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewApplicationTag("mysql").String()},
+	}}
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 2)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Check(result.Results[1].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestReadRemoteSettingsRelationDetailsNotFound checks that a relation
+// deleted between the UUID lookup and the details lookup is reported as
+// unauthorized, without any settings being read.
+func (s *uniterRelationSuite) TestReadRemoteSettingsRelationDetailsNotFound(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationUUIDByKey(
+		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), relUUID, nil,
+	)
+	s.expectGetRelationDetailsNotFound(relUUID)
+
+	// act
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
+		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewUnitTag("mysql/2").String()},
+	}}
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+// TestReadRemoteSettingsRelationDetailsError checks that an unexpected error
+// from the relation details lookup is surfaced in the per-argument result
+// and no settings are read.
+func (s *uniterRelationSuite) TestReadRemoteSettingsRelationDetailsError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	boom := internalerrors.New("boom")
+	s.expectGetRelationUUIDByKey(
+		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), relUUID, nil,
+	)
+	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).Return(relation.RelationDetails{}, boom)
+
+	// act
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
+		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewUnitTag("mysql/2").String()},
+	}}
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservererrors.ServerError(boom))
 }
 
 func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {

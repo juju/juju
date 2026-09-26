@@ -1993,6 +1993,18 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 		return nil, err
 	}
 
+	// The relation key names any relation in the model, so the relation has
+	// to be scoped to the caller the same way the read path does in
+	// getOneRelation: only an application in the relation can read its
+	// settings.
+	applicationName, err := names.UnitApplication(unitTag.Id())
+	if err != nil {
+		return nil, apiservererrors.ErrBadId
+	}
+	if err := u.checkApplicationInRelation(ctx, relUUID, applicationName); err != nil {
+		return nil, err
+	}
+
 	var settings map[string]string
 
 	switch remoteTag := remoteTag.(type) {
