@@ -25,7 +25,7 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 ## What Juju stores
 
 (the-cloud-record)=
-### The cloud's identity
+### A cloud's identity
 
 In the **controller** database, a cloud is a record: its name (unique),
 its cloud type, the endpoints Juju talks to (the cloud's API, identity
@@ -38,7 +38,7 @@ record at bootstrap; a user with controller superuser access can add
 further clouds.
 
 (the-cloud-in-the-data-model)=
-### The cloud in the data model
+### A cloud in the data model
 
 The cloud's records live in the controller database: the cloud row,
 its regions and per-region defaults, its admitted authentication
@@ -91,7 +91,7 @@ controller reads when it talks to the provider; the one watch surface
 (cloud changes) reports the stored set.
 
 (the-cloud-operations)=
-### How the cloud changes
+### How a cloud changes
 
 Adding a cloud requires controller superuser access; updating rewrites
 the definition; removing a cloud refuses while

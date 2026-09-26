@@ -35,7 +35,7 @@ Multiple users can be accommodated by the same Juju client. However, there can o
 ## What Juju stores
 
 (the-user-record)=
-### The user's identity
+### A user's identity
 
 In the controller database, a user is a record: its name (one active
 user per name), its display name, whether it is an
@@ -49,7 +49,7 @@ Users are created in two ways: implicitly by bootstrapping a controller into a c
 A user logs in to a Juju controller using a username and a password. The user created implicitly gets the username `admin` and  is prompted to create a password the first time they attempt to log out. A user created explicitly gets the username assigned to them when being added (via `juju add-user`) and is prompted to create login details when they register the new controller with their Juju client.
 
 (the-user-in-the-data-model)=
-### The user in the data model
+### A user in the data model
 
 The user's own records are the identity and authentication records;
 the user's *reach* is the **permission** table: one row per grant,
@@ -186,7 +186,7 @@ is the controller itself -- the permission checks on every request and
 the authentication at login.
 
 (the-user-operations)=
-### How the user changes
+### How a user changes
 
 #### Adding a user
 

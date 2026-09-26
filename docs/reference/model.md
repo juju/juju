@@ -25,7 +25,7 @@ One can deploy multiple applications to the same model. Thus, models allow the l
 ## What Juju stores
 
 (the-model-record)=
-### The model's identity
+### A model's identity
 
 A model exists in two places, and the order of creation explains the
 split. A model starts in the **controller** database: that is where
@@ -60,7 +60,7 @@ Kubernetes cloud runs a CAAS controller model.
 **Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
 
 (the-model-in-the-data-model)=
-### The model in the data model
+### A model in the data model
 
 The model's stored records are thin, and deliberately so: everything
 the model *contains* lives in the entities' own tables (see
@@ -118,7 +118,7 @@ workers run -- creation starts them, the Undertaker takes dying models
 to dead, and migration moves a model between controllers.
 
 (the-model-operations)=
-### How the model changes
+### How a model changes
 
 Operations on models: creation, configuration, credential and
 constraint updates, migration between controllers, and removal.

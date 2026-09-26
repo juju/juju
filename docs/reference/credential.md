@@ -14,7 +14,7 @@ In Juju, a **credential** represents a collection of authentication material (li
 Clouds decide which authentication schemes they accept; users own credentials; models use exactly one cloud/credential pair; and who may use a credential is decided by access grants, not by the credential itself.
 
 (the-credentials-declaration)=
-## How you declare the credential
+## How you declare a credential
 
 A credential comes into existence when you declare it to Juju through one of its clients. Juju
 credentials can be known to the client, the controller, or both: a **client credential** (previously
@@ -31,7 +31,7 @@ See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform
 ## What Juju stores
 
 (the-credential-record)=
-### The credential's identity
+### A credential's identity
 
 A credential has a record in Juju's databases. The authoritative
 record lives in the controller database, where it is identified by
@@ -42,7 +42,7 @@ requires). The natural key is unique: re-adding a credential with
 the same key updates it, it does not duplicate.
 
 (the-credential-in-the-data-model)=
-### The credential in the data model
+### A credential in the data model
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -86,7 +86,7 @@ records and validates them against their cloud; the one watch surface
 (credential changes) reports the stored set.
 
 (the-credential-operations)=
-### How the credential changes
+### How a credential changes
 
 In the controller, the credential service inserts the record with
 its attributes when a credential is added; updating is an upsert of
