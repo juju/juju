@@ -32,7 +32,7 @@ Multiple users can be accommodated by the same Juju client. However, there can o
 ```
 
 (the-users-records)=
-## The user's records
+## What Juju stores
 
 (the-user-record)=
 ### The user's identity
@@ -179,14 +179,14 @@ they can register the controller and log in, and nothing more, until
 granted a higher level.
 
 (the-users-machinery)=
-## The user's machinery
+## What happens in the background
 
 A user has no machinery of their own: what acts on the user's records
 is the controller itself -- the permission checks on every request and
 the authentication at login.
 
 (the-user-operations)=
-### User operations
+### How the user changes
 
 #### Adding a user
 
