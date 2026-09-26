@@ -174,10 +174,9 @@ The controller side exposes these watch surfaces:
 - **The API addresses** -- the addresses the controller's nodes serve
   on, so agents can re-orient as the cluster changes.
 
-Every watcher fires once immediately when it is created -- the
-initial query is the baseline snapshot -- and again on each qualifying
-change: database triggers feed the change stream, the watcher wakes,
-and the consumer fetches the current state and reconciles.
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
 
 (the-controller-rules-and-errors)=
 ## Controller rules and errors

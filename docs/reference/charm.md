@@ -354,10 +354,9 @@ react to the set of charms a model knows (for example, the machinery
 behind `juju charms` and the application's charm bookkeeping)
 subscribes to it.
 
-Every watcher fires once immediately when it is created -- the
-initial query is the baseline snapshot -- and again on each qualifying
-change: database triggers feed the change stream, the watcher wakes,
-and the consumer fetches the current state and reconciles.
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
 
 (the-charm-rules-and-errors)=
 ## Charm rules and errors

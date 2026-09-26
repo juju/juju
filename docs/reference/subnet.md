@@ -71,10 +71,9 @@ The network domain's one watch surface is **subnet changes** -- the
 provisioning and address machinery's input (see
 {ref}`space watchers <the-space-watchers>`).
 
-Every watcher fires once immediately when it is created -- the
-initial query is the baseline snapshot -- and again on each qualifying
-change: database triggers feed the change stream, the watcher wakes,
-and the consumer fetches the current state and reconciles.
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
 
 (the-subnet-rules-and-errors)=
 ## Subnet rules and errors

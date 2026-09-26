@@ -96,10 +96,9 @@ the surfaces that need the network's shape (the provisioning and
 address machinery) watch subnets, not spaces; a space's change is
 implied by its subnets' moves.
 
-Every watcher fires once immediately when it is created -- the
-initial query is the baseline snapshot -- and again on each qualifying
-change: database triggers feed the change stream, the watcher wakes,
-and the consumer fetches the current state and reconciles.
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
 
 (the-space-rules-and-errors)=
 ## Space rules and errors

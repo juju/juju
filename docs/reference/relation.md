@@ -382,11 +382,11 @@ relation domain's watchable service exposes five watch surfaces:
   units in the relation in the local model.
 
 Every watcher fires once immediately when it is created -- the initial
-query is the baseline snapshot -- and again on each qualifying change:
-the watcher is woken by the change log, the agent fetches the current
-state and reconciles. When a relation is removed, key-based consumers
-receive one final change carrying the relation key, so they can clean
-up the state they hold under that key.
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`). When a relation is
+removed, key-based consumers receive one final change carrying the
+relation key, so they can clean up the state they hold under that
+key.
 
 ## Relation rules and errors
 ```{audience} charm-dev

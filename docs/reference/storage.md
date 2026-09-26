@@ -253,10 +253,9 @@ consumes them through the agents' facade):
 - **Storage attachments** -- per attachment and per unit, the unit
   side of the story.
 
-Every watcher fires once immediately when it is created -- the
-initial query is the baseline snapshot -- and again on each qualifying
-change: database triggers feed the change stream, the watcher wakes,
-and the consumer fetches the current state and reconciles.
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
 
 (the-storage-rules-and-errors)=
 ## Storage rules and errors

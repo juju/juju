@@ -345,10 +345,9 @@ surfaces:
   state** -- the instance poller's and the reboot machinery's
   surfaces.
 
-Every watcher fires once immediately when it is created -- the
-initial query is the baseline snapshot -- and again on each qualifying
-change: database triggers feed the change stream, the watcher wakes,
-and the consumer fetches the current state and reconciles.
+Every watcher fires once immediately when it is created -- the initial
+query is the baseline snapshot -- and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
 
 (machine-rules-and-errors)=
 ## Machine rules and errors
