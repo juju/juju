@@ -9,25 +9,34 @@ myst:
 ```{audience} user
 ```
 
+In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`. Its status vocabulary is validated by the status domain ({ref}`Relation status <relation-status>`), its teardown is a scheduled removal ({ref}`Relation removal <relation-removal>`), and a {ref}`cross-model relation <cross-model-relation>` is its far-model half, published through an {ref}`offer <offer>`.
+
+(the-relations-declaration)=
+## Relations in the declaration layer
+
+You integrate two applications through their endpoints, and you suspend,
+resume, or remove the resulting relation, through a Juju client; all of
+these require {ref}`model write access <user-access-model-write>`.
+
 ```{ibnote}
-See also: {ref}`manage-relations`
+See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Provider for Juju | Manage relations <tfjuju:manage-relations>`
 ```
 
-In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`.
-
+(the-relations-persistence)=
 (the-relations-records)=
-## The relation's records
-
-### The relation's identity
+## Relations in the persistence layer
 
 In the model database, a relation is a record identified by a
 **relation ID** (assigned automatically by Juju; expressed in
-monotonically increasing numbers) or a **relation key** (derived from
-the endpoints, format: `application1:[endpoint] application2:[endpoint]`).
+monotonically increasing numbers, drawn from a sequence unique to the
+model) or a **relation key** (derived from the endpoints, format:
+`application1:[endpoint] application2:[endpoint]`). The endpoint pair is
+the relation's natural key: no two relations in a model may connect the
+same pair of endpoints, and the relation service checks the pair before
+it writes the record -- a second integrate of an already-integrated pair
+fails with `already exists`.
 
-### The relation in the data model
-
-A relation's state is spread across ten stored tables in the model
+The relation's state is spread across ten stored tables in the model
 database. The `relation` record carries the relation ID, its life,
 its scope, and the suspended flag with its reason. The
 `relation_endpoint` table links the relation to the application
@@ -61,6 +70,11 @@ the current status, message and update time; `relation_status_type`
 is the status vocabulary (see {ref}`Relation status
 <relation-status>`).
 
+The relation service in the controller performs the writes: creating a
+relation inserts the relation record with its endpoint rows and creates
+its initial settings; suspending or resuming a relation rewrites the
+suspended flag with its reason.
+
 The services do not read these tables directly: they read them
 through four derived views (`v_application_endpoint`,
 `v_relation_endpoint`, `v_relation_endpoint_identifier`,
@@ -76,7 +90,7 @@ not appear in the diagram.
 ```
 
 (relation-settings)=
-#### Relation settings
+### Relation settings
 
 Creating a relation creates its settings: one unit settings record
 per involved unit and one application settings record per involved
@@ -84,7 +98,7 @@ application. The settings can be unit-scoped or application-scoped,
 and each unit involved in the relation gets a local copy of all the
 settings for that relation.
 
-##### Permissions around relation settings
+#### Permissions around relation settings
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -128,7 +142,8 @@ leadership.
 A relation carries two orthogonal state machines: its **life** -- the
 shared alive / dying / dead cycle every entity has -- and its
 **relation status**, the relation-specific status the status domain
-validates.
+validates. In both, the machinery in the execution layer drives the
+transitions; the record here stores them.
 
 #### Life
 
@@ -173,10 +188,11 @@ a message.
 :caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
 ```
 
-Every relation is one of four kinds. The kind follows from two facts:
-which applications the relation connects -- the same application, or
-two distinct ones -- and, for two distinct applications, whether one
-of them is subordinate and whether the two live in the same model.
+Every relation is one of four kinds. The kind is not a stored
+discriminator: it follows from the relation's own records -- which
+applications it connects (the same application, or two distinct ones)
+and, for two distinct applications, whether one of them is
+subordinate and whether the two live in the same model.
 
 (peer-relation)=
 #### Peer relation
@@ -281,10 +297,6 @@ support the same endpoint interface and have opposite `provides` /
 :caption: Topology: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
 ```
 
-```{ibnote}
-See also: {ref}`manage-relations`
-```
-
 A **cross-model** relation (aka 'CMR') is a relation between
 applications that live in different models (+/- different
 controllers, +/- different clouds). Each model holds its own half of
@@ -303,15 +315,13 @@ Note that application names are obfuscated (anonymised) to the offerer side:
 - For the consumer, the remote app names is the saas name, e.g. `prometheus`.
 
 (the-relations-machinery)=
-## The relation's machinery
+## Relations in the execution layer
 
 A relation has no machinery of its own -- its units' agents execute it:
 each side's units run their relation hooks in lockstep, and the model
 side is record bookkeeping (creating, suspending, resuming, removing).
 
-### Relation operations
-
-#### Relation creation
+### Relation creation
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -330,7 +340,7 @@ their relation hooks in lockstep -- `relation-created`, then
 they go.
 
 (relation-removal)=
-#### Relation removal
+### Relation removal
 
 Removal is initiated through the remove-relation operation (for
 example, `juju remove-relation 0`). Removal follows the same
@@ -346,7 +356,7 @@ pre-check rejects them, because the local record is only the local
 half of the relation.
 
 (suspending-relations)=
-#### Suspending and resuming
+### Suspending and resuming
 
 Suspending pauses the data flow across a relation to an application
 offer; the resume operation restores it (the `juju suspend-relation`
@@ -421,14 +431,3 @@ The errors that encode them:
 - *Lifecycle guards*: `relation is not alive`, `unit is dead`, and the
   existence errors (`relation not found`, `relation unit not found`,
   `unit not in relation`, `application endpoint not found`).
-
-## Entities related to the relation
-
-- **Status** owns the relation status vocabulary and validates every
-  transition (see {ref}`Relation status <relation-status>`).
-- **Removal** owns the scheduled teardown that takes a dying relation
-  to dead (see {ref}`Relation removal <relation-removal>`).
-- **Cross-model relations** are the cross-model half of the story:
-  the offerer's and consumer's models each hold their own records,
-  and the suspension state propagates across the two (see
-  {ref}`cross-model relation <cross-model-relation>`).
