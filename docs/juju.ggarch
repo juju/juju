@@ -381,6 +381,60 @@ model "Juju" {
                              ground: "controller:external_controller"]
 
     // -----------------------------------------------------------------------
+    // Reference: controller attributes (docs/reference/controller.md) —
+    // the controller's own records in the controller database: the
+    // singleton controller row; the namespace mapping; the HA node
+    // and its satellites. The model registry is the spine's model_rec
+    // (reused). Declared curation: controller_config is PROSE-ONLY
+    // (no FK to the controller row — nothing to draw), and
+    // controller_node has no FK to the controller row either: with
+    // exactly one controller, both hang off the singleton convention
+    // (the constant-index idiom), not a pointer.
+    // -----------------------------------------------------------------------
+    cty_controller  [type: record, label: "controller", ground: "controller:controller"] {
+      fields {
+        uuid            [label: "uuid", type: "uuid", pk: true]
+        model_uuid      [label: "model_uuid (the controller model)", type: "uuid", fk: true]
+        target_version  [label: "target_version", type: "text"]
+        api_port        [label: "api_port", type: "text", null: true]
+        cert            [label: "cert", type: "text", null: true]
+        ca_cert         [label: "ca_cert", type: "text", null: true]
+        private_key     [label: "private_key", type: "text", null: true]
+        ca_private_key  [label: "ca_private_key", type: "text", null: true]
+        system_identity [label: "system_identity", type: "text", null: true]
+      }
+    }
+    cty_namespace   [type: record, label: "model_namespace",
+                     ground: "controller:model_namespace"] {
+      fields {
+        namespace [label: "namespace", type: "text", pk: true]
+        model_uuid [label: "model_uuid (unique)", type: "uuid", fk: true]
+      }
+    }
+    cty_node        [type: record, label: "controller_node", ground: "controller:controller_node"] {
+      fields {
+        controller_id       [label: "controller_id", type: "text", pk: true]
+        dqlite_node_id      [label: "dqlite_node_id", type: "text", null: true]
+        dqlite_bind_address [label: "dqlite_bind_address", type: "text", null: true]
+      }
+    }
+    cty_node_version [type: record, label: "controller_node_agent_version",
+                      ground: "controller:controller_node_agent_version"] {
+      fields {
+        controller_id [label: "controller_id", type: "text", pk: true, fk: true]
+        version       [label: "version", type: "text"]
+      }
+    }
+    cty_api_address  [type: record, label: "controller_api_address", ground: "controller:controller_api_address"] {
+      fields {
+        controller_id [label: "controller_id", type: "text", pk: true, fk: true]
+        address       [label: "address", type: "text", pk: true]
+        is_agent      [label: "is_agent", type: "bool", null: true]
+        scope         [label: "scope (public | private)", type: "text"]
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // Uniter — the unit agent's hook execution engine, plus the states
     // of its three-phase operation executor (prepare → execute → commit)
     // -----------------------------------------------------------------------
@@ -1077,6 +1131,21 @@ model "Juju" {
     // 0..N claim is the containment story, curating that FK.
     controller_rec   -> model_rec      [type: data, label: "hosts 0..N",
                                         ground: "controller:controller.model_uuid"]
+    // Reference: controller attributes (controller.md). The controller
+    // row's one FK points at the model it lives in — the controller
+    // model (the recursion: the controller is itself a record inside
+    // one of the model databases its own database hosts). The
+    // namespace table names each model's dqlite database. The HA node
+    // cluster is FK-connected inward (satellites -> node), never to
+    // the controller row — the singleton convention again.
+    cty_controller.model_uuid -> model_rec     [type: data, label: "is in (one)",
+                                                ground: "controller:controller.model_uuid"]
+    cty_namespace.model_uuid  -> model_rec     [type: data, label: "names the database of (one)",
+                                                ground: "controller:model_namespace.model_uuid"]
+    cty_node_version.controller_id -> cty_node [type: data, label: "reports (one)",
+                                                ground: "controller:controller_node_agent_version.controller_id"]
+    cty_api_address.controller_id  -> cty_node [type: data, label: "an address of (one)",
+                                                ground: "controller:controller_api_address.controller_id"]
     // Controller database
     user_rec        -> cloud_rec       [type: data, label: "accesses 0..N",
                                         ground: "controller:permission_object_access"]
@@ -2756,6 +2825,49 @@ diagram "Secret attributes" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+// Reference: controller attributes (docs/reference/controller.md) —
+// the controller's own records in the controller database: the
+// singleton row at the centre; the model it points at (the controller
+// model) west with the namespace mapping under it; the HA node
+// cluster south with its version and API-address satellites. No FK
+// points at the controller row except its model pointer: the nodes
+// (and the prose-only controller_config) hang off the singleton
+// convention — with exactly one controller, no pointer to it is
+// needed.
+// --------------------------------------------------------------------------
+diagram "Controller attributes" from "Juju" {
+  select {
+    nodes: cty_controller model_rec cty_namespace cty_node
+           cty_node_version cty_api_address
+    edges: type data
+  }
+  positions {
+    // West: the model registry — the controller row's one FK — with
+    // the namespace mapping under it.
+    model_rec        left-of cty_controller gap: 110
+    model_rec        align-middle cty_controller
+    cty_namespace    below model_rec gap: 60
+    cty_namespace    align-centre model_rec
+    // East: the HA node cluster — FK-connected inward (satellites ->
+    // node), never to the controller row (the singleton convention;
+    // the box annotation + prose carry it).
+    cty_node         right-of cty_controller gap: 90
+    cty_node         align-middle cty_controller
+    cty_node_version right-of cty_node gap: 90
+    cty_node_version align-middle cty_node
+    cty_api_address  below cty_node gap: 100
+    cty_api_address  align-centre cty_node
+  }
+  annotations {
+    box [nodes: "cty_controller model_rec cty_namespace cty_node cty_node_version cty_api_address",
+         label: "controller database", style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+  }
+}
+
+// --------------------------------------------------------------------------
 // Reference: machine designations (docs/reference/machine.md) — one
 // machine table, two provisioning paths: base machines by the
 // controller's compute provisioner, containers by the host machine
@@ -3818,6 +3930,24 @@ diagram "Agent taxonomy (synthesized)" from "Juju" {
     nodes: controller machine_agent unit_agent containeragent
     edges: type control type stream type api
     sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Controller attributes (synthesized)" from "Juju" {
+  select {
+    nodes: cty_controller model_rec cty_namespace cty_node
+           cty_node_version cty_api_address
+    edges: type data
+  }
+  annotations {
+    box [nodes: "cty_controller model_rec cty_namespace cty_node cty_node_version cty_api_address",
+         label: "controller database", style: "dashed", color: "#888"]
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
