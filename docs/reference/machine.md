@@ -13,7 +13,7 @@ myst:
 See also: {ref}`manage-machines`
 ```
 
-In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested implicitly (e.g., through {ref}`command-juju-deploy`, {ref}`command-juju-add-unit`, etc.) or explicitly (e.g., through {ref}`command-juju-add-machine`) from a machine {ref}`cloud <cloud>`.
+In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested implicitly (e.g., through {ref}`command-juju-deploy`, {ref}`command-juju-add-unit`, etc.) or explicitly (e.g., through {ref}`command-juju-add-machine`) from a machine {ref}`cloud <cloud>`. Its neighbours: the {ref}`units <unit>` that run on it, the {ref}`constraints <constraint>` and {ref}`placement directives <placement-directive>` that shape its provisioning, and the {ref}`storage <storage>` attached to it.
 
 ```{important}
 
@@ -23,43 +23,22 @@ From the point of view of an end user this is true with one small caveat -- even
 
 ```
 
-(the-machines-records)=
-## The machine's records
+## Machines in the declaration layer
 
-(the-machine-record)=
-### The machine's identity
+You add a machine explicitly with `juju add-machine` and remove it
+with `juju remove-machine` (model {ref}`write access
+<user-access-model-write>` -- the Machinemanager facade gates both
+the add and the remove on model write); most machines are never
+declared on their own: they are requested implicitly, when a deploy
+or add-unit placement asks for compute. The controller-side
+counterpart is the same call over the controller API.
 
-In the model database, a machine is a record identified by its
-**machine ID** -- a unique name such as `0` or `1/lxd/0` (see
-{ref}`Machine designations <machine-designations>`) -- carrying the
-machine's life, its own network identity (a net node, shared with the
-{ref}`units <unit>` that run on the machine), the time its agent
-started, its hostname, and the flags that steer its teardown (whether
-the cloud instance should be kept when the machine is removed, and
-whether it was provisioned manually).
-
-(machine-base)=
-#### Machine base
-
-```{versionadded} 3.1.0
+```{ibnote}
+See also: {ref}`tfjuju:manage-machines <tfjuju:manage-machines>`
 ```
-
-In Juju, a **base** is  a way to identify a particular operating system (OS) image for a Juju {ref}`machine <machine>`.
-
-This can be done via the name of the OS followed by the `@` symbol and the channel of the OS that you want to target, specified in terms of `<track>` or, optionally, `<track>/<risk>`. For example, `ubuntu@22.04` or `ubuntu@22.04/stable`.
-
-A 'base' replaces the older notion of 'series'.
 
 (machine-designations)=
-#### Machine designations
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine designations
-:no-legend:
-:caption: Topology: What a machine designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record -- the designation is that containment path. Two provisioning paths: the controller (its compute provisioner) starts base machines; the host machine's agent provisions its own containers through the LXD broker and watches them via the API. Containers are machines: each runs its own machine agent, which hosts the unit agent.
-:alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
-```
+### Machine designations
 
 In Juju, many different commands have a machine argument. The shape of this argument depends on whether the machine is existing vs. new and a regular cloud instance vs. a LXD container on top of a regular cloud instance. The argument can also contain combinations, in comma-separated format. The examples below illustrate all the various cases:
 
@@ -75,10 +54,42 @@ In Juju, many different commands have a machine argument. The shape of this argu
 |`0/lxd/01`| invalid -- numbers are `0` or positive integers without leading zeros|
 |`0/lxd/0/lxd/0`| invalid -- only one level of container nesting is supported|
 
-These designations are for machine clouds only: the `--to` argument is rejected on Kubernetes models.
+These designations are for machine clouds only: the `--to` argument is rejected on Kubernetes models. The two provisioning paths the designations name are drawn in the execution layer.
 
+(the-machines-records)=
+(the-machine-record)=
 (the-machine-in-the-data-model)=
-### The machine in the data model
+## Machines in the persistence layer
+
+In the model database, a machine is a record identified by its
+**machine ID** -- a unique name such as `0` or `1/lxd/0`, unique per
+model (`machine already exists`; see
+{ref}`Machine designations <machine-designations>`) -- carrying the
+machine's life, its own network identity (a net node, shared with the
+{ref}`units <unit>` that run on the machine -- usually one unit per
+machine, but several units of the same or of different applications
+can share one), the time its agent
+started, its hostname, and the flags that steer its teardown (whether
+the cloud instance should be kept when the machine is removed, and
+whether it was provisioned manually).
+
+The machine service in the controller performs the writes:
+`AddMachine` inserts the machine record and its satellite rows;
+`SetMachineCloudInstance` stores the cloud instance once the provider
+reports it; the removal service carries the teardown (see
+{ref}`Machine removal <machine-removal>`).
+
+(machine-base)=
+### Machine base
+
+```{versionadded} 3.1.0
+```
+
+In Juju, a **base** is  a way to identify a particular operating system (OS) image for a Juju {ref}`machine <machine>`.
+
+This can be done via the name of the OS followed by the `@` symbol and the channel of the OS that you want to target, specified in terms of `<track>` or, optionally, `<track>/<risk>`. For example, `ubuntu@22.04` or `ubuntu@22.04/stable`.
+
+A 'base' replaces the older notion of 'series'.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -95,7 +106,7 @@ the single nesting level a container may have -- and
 `machine_cloud_instance` tracks the cloud instance: the instance ID
 (empty until the cloud provider has actually created the instance),
 its hardware (arch, CPU, memory, root disk, `virt_type`), and its
-availability zone.
+availability zone -- a fact about the machine's {ref}`zone <zone>`.
 
 Each of the two carries its own status record: `machine_status` (the
 machine agent's status: pending, started, stopped, down, error) and
@@ -121,7 +132,9 @@ A machine carries orthogonal state machines: its **life** -- the
 shared alive / dying / dead cycle every entity has, kept for both the
 machine and its cloud instance -- and two status vocabularies, the
 machine agent's own status and the cloud instance's provisioning
-status. Unlike the relation's status, none of these is transition-
+status. The machinery in the execution layer drives the transitions;
+the record here stores the vocabulary. Unlike the relation's status,
+none of these is transition-
 validated: every status write is a membership check (the value must
 be known) followed by an upsert -- what constrains a machine is who
 writes which value, not a transition matrix.
@@ -254,13 +267,26 @@ model worker, the compute provisioner included (see
 {ref}`the controller agent <controller-agent>`).
 
 (the-machines-machinery)=
-## The machine's machinery
+## Machines in the execution layer
+
+By the time the command returns, the machine record exists -- and the
+cloud instance may still be allocating: the compute provisioner has
+only just asked the cloud for it, and the instance ID and addresses
+land as they become known.
 
 A machine has machinery of its own: in the controller, the compute
 provisioner and the instance poller drive its cloud instances; on the
 machine itself, the machine agent -- a {ref}`Juju agent <agent>` --
 hosts the unit agents, provisions the machine's containers, and
 shuts the machine down.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine designations
+:no-legend:
+:caption: Topology: The two provisioning paths -- the controller's compute provisioner starts base machines and records the instance ID and addresses as they become known; a host machine's agent provisions its own containers through the LXD broker and watches them via the controller API. What a designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record. Containers are machines: each runs its own machine agent, which hosts the unit agent.
+:alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
+```
 
 (machines-and-units)=
 ### Machine operations
@@ -388,32 +414,3 @@ The errors that encode them:
   `machine cloud instance already exists`, `invalid container type`.
 - *Provisioning*: `machine not provisioned`, `invalid machine
   constraints`, `machine constraint violation`.
-
-(related-entities-machine)=
-## Entities related to the machine
-
-- **Units** run on machines: there is usually one unit per machine,
-  but several units of the same or of different applications can share
-  one (see {ref}`unit <unit>`). The unit and the machine share the
-  machine's net node -- that shared network identity is how Juju
-  knows a unit "runs on" its machine.
-- **The base** identifies the OS image a machine runs (os@channel +
-  architecture, stored with the machine; see {ref}`Machine base
-  <machine-base>`).
-- **Constraints** customise a machine's hardware (see
-  {ref}`constraint <constraint>`); they are stored with the machine
-  and honoured at provisioning time.
-- **Storage** attaches to machines through their volumes and
-  filesystems (see {ref}`storage <storage>`).
-- **Status** owns the machine's two status vocabularies and the
-  presence rule that reads a silent agent as `down` (see
-  {ref}`Machine states <machine-states>`).
-- **Removal** owns the teardown that takes a dying machine to dead,
-  its containers dying with their host (see {ref}`Machine removal
-  <machine-removal>`).
-- **The placement directive** is how a request names the machine a
-  unit should land on (see {ref}`placement directive
-  <placement-directive>`).
-- **Availability zones** are a fact about the machine's cloud
-  instance, recorded on the instance record (see {ref}`zone
-  <zone>`).
