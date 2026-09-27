@@ -204,13 +204,13 @@ crops).
 
 #### Application attributes (ERD slice)
 
-**Insert at:** § The application's records → § The application in the data model.
+**Insert at:** § Applications in the persistence layer (the section's anchor truth).
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application attributes
-:alt: The application's stored tables as an entity-relationship slice: the application record at the centre; the charm it references west with its origin channel below; the status record east with the endpoint record below it; the configuration keys south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The application's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The application references the charm it deploys by UUID; its origin (track/risk/branch, with the base) and the endpoints it inherits from the charm are separate records; the status record and the config keys hang off the application itself.
+:alt: The application's stored tables as an entity-relationship slice: the application record at the centre with its uuid, name, life and charm pointer; the charm record it references west; the origin channel below the charm; the status record east with the endpoint record below it; the configuration keys south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The application's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The application references the charm it deploys by UUID; its origin (track/risk/branch) and the endpoints it instantiates from the charm are separate records; the status record and the config keys hang off the application itself.
 ```
 
 ### reference/charm.md

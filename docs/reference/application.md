@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju application reference: application declaration, persistence (the record, satellites, states, types), execution (deployment, configuration, scaling, refresh, exposure, removal, watchers), and rules."
+    description: "Juju application reference: application declaration, persistence (the record and its satellites, states, types), execution (deployment, configuration, scaling, refresh, exposure, removal, watchers), and rules."
 ---
 
 (application)=
@@ -27,44 +27,95 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 (the-applications-persistence)=
 (the-application-record)=
 (the-application-in-the-data-model)=
+(the-application-states)=
+(types-of-application)=
 ## Applications in the persistence layer
-
-In the model database, an application is a record identified by its
-**name** -- lowercase letters, digits and hyphens; it starts with a
-letter and every hyphen-separated segment contains a letter
-(`my-app-2`, never `-myapp` or `MYAPP`) -- unique per model (the
-creation service checks the name against the model's existing
-applications and rejects a duplicate with `application already
-exists`) -- carrying the application's life (see {ref}`Application
-states <the-application-states>`), the {ref}`charm <charm>` it was
-deployed from (stored as the charm's UUID -- the URL is
-reconstructed from the charm's own fields), the charm revision the
-application is pinned to, and the {ref}`space <space>` its endpoints
-bind to by default.
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application attributes
-:alt: The application's stored tables as an entity-relationship slice: the application record at the centre; the charm it references west with its origin channel below; the status record east with the endpoint record below it; the configuration keys south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The application's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The application references the charm it deploys by UUID; its origin (track/risk/branch, with the base) and the endpoints it inherits from the charm are separate records; the status record and the config keys hang off the application itself.
+:alt: The application's stored tables as an entity-relationship slice: the application record at the centre with its uuid, name, life and charm pointer; the charm record it references west; the origin channel below the charm; the status record east with the endpoint record below it; the configuration keys south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The application's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The application references the charm it deploys by UUID; its origin (track/risk/branch) and the endpoints it instantiates from the charm are separate records; the status record and the config keys hang off the application itself.
 ```
 
-The application's state is spread across a handful of satellite records. The
-`application_status` record is the application's aggregated status (see
-{ref}`Application states <the-application-states>`); the
-`application_config` rows are the application's {ref}`configuration
-<application-configuration>` keys and values, with a hash record that tells
-watchers when the config changed; a one-boolean `application_setting` record
-holds the application's trust flag; the `application_channel` record (with
-the base from `application_platform`) pins the {ref}`charm <charm>` origin
-the application tracks; the `application_endpoint` records are the endpoints
-the charm defines, instantiated for this application.
+In the model database an application is a **native record** -- Juju's
+own, created by the deployment machinery, one row per application per
+model (the DDL: `0019-application.sql`, with the endpoint row in
+`0024-relation.sql`). The row carries the name the client chose, its
+life, the {ref}`charm <charm>` it was deployed from -- stored as the
+charm's UUID, a mutable pointer a refresh rewrites (the URL is
+reconstructed from the charm's own fields) -- the counter that bumps
+each time that pointer is rewritten (`charm_modified_version`), and
+the {ref}`space <space>` its endpoints bind to by default. The
+satellites in the picture are the application's own: the origin it
+tracks (`application_channel`: track/risk/branch, with the base from
+`application_platform`), the endpoints the charm defines,
+instantiated for this application (`application_endpoint`), the
+aggregated status (`application_status`), and the configuration keys
+(`application_config`, one row per key).
 
-Not drawn above: the controller-application marker, the Kubernetes scale
-record, the expose tables (which grant {ref}`spaces <space>` and CIDRs to
-endpoints), and the remote-offerer pair -- the marker and the remote-offerer
-pair under {ref}`Types of application <types-of-application>`, the scale
-record and the expose tables in the execution layer's operations.
+The identity pair: the primary key (`application.uuid`) is the join
+handle -- it exists so the charm pointer, the origin, the endpoints,
+the status and the config keys have something to point at. The natural
+key the client names is `application.name` (UNIQUE per model):
+lowercase letters, digits and hyphens, starting with a letter, every
+hyphen-separated segment containing a letter (`my-app-2`, never
+`-myapp` or `MYAPP`); the creation service checks the name against the
+model's existing applications and rejects a duplicate with
+`application already exists`.
+
+Every foreign key is an assertion the record holds: the application
+row holds the charm pointer (`application.charm_uuid` -- a refresh
+rewrites it); the application_status, application_channel and
+application_endpoint rows hold the application pointer each; the
+application_config rows hold one pointer per key. The charm's endpoint
+definition an endpoint instantiates lives on the charm side
+(`application_endpoint.charm_relation_uuid` -- {ref}`charm <charm>`'s
+story). The application row also holds its default-binding space
+pointer (`application.space_uuid`) -- in the picture as a field, not
+an edge: the {ref}`space <space>` record's story is its own page's.
+Not drawn above, all assertions the schema states: the controller
+marker (`application_controller` -- a dedicated singleton, one row, in
+one application, enforced by the schema), the Kubernetes scale record,
+the expose tables (which grant {ref}`spaces <space>` and CIDRs to
+endpoints), the config-hash record that tells watchers when the config
+changed, the one-boolean trust record (`application_setting`), and the
+remote-offerer pair -- an application record the consuming model
+synthesises to stand for an application it cannot see, paired with a
+remote-offerer record carrying the far model's identity and the offer
+URL; nothing is deployed behind it (see {ref}`offer <offer>`).
+
+The application table has no type column: an application's kind is
+derived from the records around it, and the kinds are not mutually
+exclusive -- the controller application is also just an application.
+Most applications are **regular applications**: a {ref}`charm <charm>`
+deployed into the model, with its units and their machines or pods.
+
+Two projections with writers of their own:
+
+- **life** -- the shared alive / dying / dead cycle every entity has.
+  An application is created alive; the removal machinery marks it
+  dying (guarded one-way, cascading to its units, relations and
+  machines) and declares it dead only once no units and no relations
+  are left -- the removal machinery in the execution layer drives it,
+  the record here stores it; a scheduled removal job then deletes the
+  records (see {ref}`Application removal <the-application-removal>`).
+- **`application_status`** -- the application-level summary, written
+  only by the application's **leader unit** (through its agent; the
+  charm hook command is `status-set --application`,
+  controller-gated to the leader). When the record is unset, the
+  application's display status is computed instead by aggregating the
+  units' workload statuses by severity -- error first, then blocked,
+  maintenance, waiting, active, terminated, unknown. The value
+  vocabulary is the workload vocabulary the units share (see
+  {ref}`workload / charm status <workload--charm-status>`); the
+  who-writes story across all five status domains is the
+  {ref}`Status domains <status>` view.
+
+Neither is transition-validated: a life advance is a one-way guarded
+update and a status write is a membership check (the value must be
+known) plus an owner check -- what constrains an application is who
+writes, not a transition matrix.
 
 (application-endpoint)=
 ### Application endpoint
@@ -91,62 +142,6 @@ In the data model, each endpoint the application uses is an
 endpoint definition; a {ref}`relation <relation>` attaches to it
 through the relation-endpoint record, and an extra-binding record can
 tie the endpoint to a specific {ref}`space <space>`.
-
-(the-application-states)=
-### Application states
-
-An application carries two orthogonal pieces of state: its **life** --
-the shared alive / dying / dead cycle every entity has -- and its
-**status record**, the application-level summary a charm's leader unit
-reports. Neither is transition-validated: the life advances one way
-under the removal machinery, and a status write is a membership check
-(the value must be known) plus an owner check -- what constrains an
-application is who writes, not a transition matrix.
-
-An application is created alive. The removal machinery marks it
-dying (guarded one-way, cascading to its units, relations and
-machines) when the application is removed, and declares it dead only
-once no units and no relations are left -- the removal machinery in
-the execution layer drives it, the record here stores it; a
-scheduled removal job then deletes the records (see
-{ref}`Application removal <the-application-removal>`).
-
-The application's status is its own record, written only by the
-application's **leader unit** (through its agent; the charm hook
-command is `status-set --application`, controller-gated to the
-leader). When the record is unset, the application's display status is
-computed instead by aggregating the units' workload statuses by
-severity -- error first, then blocked, maintenance, waiting, active,
-terminated, unknown. The value vocabulary is the workload vocabulary
-the units share (see {ref}`workload / charm status
-<workload--charm-status>`); the who-writes story across all five
-status domains is the {ref}`Status domains <status>` view.
-
-(types-of-application)=
-### Types of application
-
-The application table has no type column: an application's kind is
-derived from the records around it, and the kinds are not mutually
-exclusive -- the controller application is also just an application.
-Most applications are **regular applications**: a {ref}`charm <charm>`
-deployed into the model, with its units and their machines or pods.
-
-#### The controller application
-
-The application that runs Juju itself in the
-{ref}`controller model <the-controller-model>` is marked by a dedicated
-singleton record -- one row, in one application, enforced by the
-schema. It is the application whose units host the controller's
-workers (see {ref}`the controller agent <controller-agent>`).
-
-#### The remote-offerer application
-
-The far half of a {ref}`cross-model relation <cross-model-relation>`
-is an application record the consuming model synthesises to stand for
-an application it cannot see: it pairs with a remote-offerer record
-carrying the far model's identity and the offer URL. Nothing is
-deployed behind it -- the units live in the offering model (see
-{ref}`offer <offer>`).
 
 (the-applications-execution)=
 (the-application-operations)=
