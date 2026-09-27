@@ -29,7 +29,7 @@ controller API.
 ```{ibnote}
 See examples: {ref}`manage-applications` (the application-level
 setting); the Terraform provider takes constraints on its
-{ref}`tfjuju:manage-applications <tfjuju:manage-applications>`
+{ref}`Terraform Provider for Juju | Manage applications <tfjuju:manage-applications>`
 application resource.
 ```
 

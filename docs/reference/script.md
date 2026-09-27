@@ -20,7 +20,7 @@ In Juju, a **script** refers to any script you execute on a {ref}`compute resour
 You run a script with the {ref}`juju-cli`: `juju run` runs a charm action by name against a unit (model {ref}`write access <user-access-model-write>`), `juju exec` runs an arbitrary command against units, applications, or machines (model {ref}`admin access <user-access-model-admin>`), and `juju cancel-task` cancels the run's tasks (model {ref}`write access <user-access-model-write>`). The controller-side counterpart is the same call over the controller API.
 
 ```{ibnote}
-See also: {ref}`tfjuju:manage-actions <tfjuju:manage-actions>`
+See also: {ref}`Terraform Provider for Juju | Manage actions <tfjuju:manage-actions>`
 ```
 
 (the-scripts-records)=

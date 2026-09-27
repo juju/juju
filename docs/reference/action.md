@@ -43,7 +43,7 @@ an arbitrary-command run (model
 counterpart is the same call over the controller API.
 
 ```{ibnote}
-See also: {ref}`tfjuju:manage-actions <tfjuju:manage-actions>`
+See also: {ref}`Terraform Provider for Juju | Manage actions <tfjuju:manage-actions>`
 ```
 
 (the-actions-records)=
