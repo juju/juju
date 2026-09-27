@@ -16,37 +16,48 @@ See also: {ref}`manage-subnets`
 A **subnet** is a range of IP addresses in CIDR notation.
 
 (the-subnets-records)=
-## The subnet's records
-
 (the-subnet-record)=
-### The subnet's identity
-
-In the model database, a subnet is a record cached from the cloud:
-its CIDR, its VLAN tag, and the {ref}`space <space>` it belongs to.
-Subnets can be grouped to form a {ref}`space <space>`. A subnet can only be in one space.
+(the-subnet-in-the-data-model)=
+(the-subnet-states)=
+## The subnet in the persistence layer
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Network spaces
-:no-legend:
-:caption: Topology: A subnet is a CIDR range that belongs to 0..1 space; the application default binding and per-endpoint bindings point at spaces.
-:alt: Application record to space record to subnet record.
+:view: Subnet attributes
+:alt: The subnet's stored tables as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The subnet's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
 ```
 
-(the-subnet-in-the-data-model)=
-### The subnet in the data model
+In the model database a subnet is a **cached cloud fact**: the
+provider discovers the CIDR range and Juju stores what it learned --
+the range itself (`cidr`), the VLAN tag when the cloud reports one
+(`vlan_tag?`, nullable because not every subnet is tagged). The
+`provider_subnet` satellite carries the provider's own identifier for
+the subnet, and the `provider_network_subnet` join names the provider
+network the subnet sits in: both keep the cloud's vocabulary for the
+same fact, so Juju can talk to the provider about a subnet it did not
+create. The space the subnet joins is Juju's own grouping; the zone
+membership (`availability_zone_subnet`, its composite primary key is
+the membership itself) is the cloud's placement fact, adopted as
+found (see {ref}`space <space>`).
 
-The subnet row carries the space pointer (a subnet belongs to at most
-one space), the provider's own identifier for it, and the VLAN tag.
-Subnets are discovered from the provider -- the space reload adopts
-the cloud's view -- and moved between spaces by the
-{ref}`space operations <the-space-operations>`.
+The identity pair: the primary key (`subnet.uuid`) is the join
+handle -- it exists so the space pointer, the provider satellites and
+the zone membership have something to point at. The subnet has no
+unique natural key of its own: the client addresses a subnet by its
+CIDR (as listed by `juju subnets`), and the cloud's handle for it is
+the 1:1 `provider_subnet.provider_id`. The unique names in the
+picture belong to the neighbours: `space.name` and
+`availability_zone.name`.
 
-(the-subnet-states)=
-### Subnet states
-
-Not applicable -- a subnet is a cached cloud fact: discovered,
-listed, moved between spaces; nothing transitions.
+Every foreign key is an assertion the record holds:
+`subnet.space_uuid` says this subnet belongs to at most one space --
+nullable, an honest absence the schema states (a subnet need not be
+grouped yet); moving it between spaces rewrites the single pointer
+(see {ref}`space operations <the-space-operations>`). Nothing
+transitions: the record has no life column and no status table -- a
+subnet is discovered, listed, and moved; there is no state to read
+off the diagram and no type vocabulary behind it.
 
 (the-subnets-machinery)=
 ## The subnet's machinery

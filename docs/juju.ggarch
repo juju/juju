@@ -124,6 +124,47 @@ model "Juju" {
                     ground: "model:space"]
     subnet_rec     [type: record, label: "subnet\n(cidr, vlan, provider id)",
                     ground: "model:subnet"]
+    // Subnet attributes slice records (ADR-014; 0008-space.sql +
+    // 0009-subnet.sql): the subnet row at attribute level; the
+    // provider satellites and the two join tables at key level; the
+    // neighbours (space, availability_zone, provider_network) as
+    // collapsed chips — entity-labelled, no columns.
+    sb_subnet [type: record, label: "subnet", ground: "model:subnet"] {
+      fields {
+        uuid      [label: "uuid", type: "uuid", pk: true]
+        cidr      [label: "cidr", type: "text"]
+        vlan_tag  [label: "vlan_tag", type: "int", null: true]
+        space_uuid [label: "space_uuid", type: "uuid", fk: true, null: true]
+      }
+    }
+    sb_space [type: record, label: "space", ground: "model:space"]
+    sb_provider_subnet [type: record, label: "provider_subnet",
+                        ground: "model:provider_subnet"] {
+      fields {
+        subnet_uuid [label: "subnet_uuid", type: "uuid", pk: true, fk: true]
+        provider_id [label: "provider_id", type: "text"]
+      }
+    }
+    sb_pn_subnet [type: record, label: "provider_network_subnet",
+                  ground: "model:provider_network_subnet"] {
+      fields {
+        subnet_uuid [label: "subnet_uuid", type: "uuid", pk: true, fk: true]
+        provider_network_uuid [label: "provider_network_uuid",
+                               type: "uuid", fk: true]
+      }
+    }
+    sb_provider_network [type: record, label: "provider_network",
+                         ground: "model:provider_network"]
+    sb_az_subnet [type: record, label: "availability_zone_subnet",
+                  ground: "model:availability_zone_subnet"] {
+      fields {
+        subnet_uuid [label: "subnet_uuid", type: "uuid", pk: true, fk: true]
+        availability_zone_uuid [label: "availability_zone_uuid",
+                                type: "uuid", pk: true, fk: true]
+      }
+    }
+    sb_az [type: record, label: "availability_zone",
+           ground: "model:availability_zone"]
 
     // -----------------------------------------------------------------------
     // Relation settings (model DB — 0011/0023 relation tables;
@@ -1065,6 +1106,13 @@ model "Juju" {
     // Network spaces (0008-space.sql)
     subnet_rec        -> space_rec    [type: data, label: "belongs to 0..1",
                           ground: "model:subnet.space_uuid"]
+    // Subnet attributes slice (ADR-014): one edge per fk: field.
+    sb_subnet.space_uuid      -> sb_space                 [type: data, label: "joins (0..1)"]
+    sb_provider_subnet.subnet_uuid -> sb_subnet.uuid      [type: data, label: "identifies (one)"]
+    sb_pn_subnet.subnet_uuid  -> sb_subnet.uuid           [type: data, label: "network of (one)"]
+    sb_pn_subnet.provider_network_uuid -> sb_provider_network [type: data, label: "names (one)"]
+    sb_az_subnet.subnet_uuid  -> sb_subnet.uuid           [type: data, label: "sits in (one)"]
+    sb_az_subnet.availability_zone_uuid -> sb_az           [type: data, label: "zone of (one)"]
     application_rec   -> space_rec    [type: data, label: "default binding (one)",
                           ground: "model:application.space_uuid"]
     // PARKED rendering notes (sequence + fan work, reviewer rounds
@@ -2859,6 +2907,41 @@ diagram "Types of relation" from "Juju" {
   }
   annotations {
     legend [position: "bottom-right", generalization: "is a"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: subnet attributes (ADR-014, docs/reference/subnet.md) —
+// the persistence portrait sliced from domain/schema/model/sql/
+// 0008-space.sql + 0009-subnet.sql: the subnet row at the centre; the
+// space it joins above; the provider identity satellites east; the
+// availability-zone membership south (the join record is the edge).
+// --------------------------------------------------------------------------
+diagram "Subnet attributes" from "Juju" {
+  select {
+    routing: orthogonal
+    nodes: sb_subnet sb_space sb_provider_subnet sb_pn_subnet
+           sb_provider_network sb_az_subnet sb_az
+    edges: type data
+  }
+  positions {
+    sb_space                     above sb_subnet gap: 90
+    sb_space                     align-centre sb_subnet
+    sb_provider_subnet           right-of sb_subnet gap: 90
+    sb_provider_subnet           align-middle sb_subnet
+    sb_pn_subnet   right-of sb_az_subnet gap: 70
+    sb_pn_subnet   align-middle sb_az_subnet
+    sb_provider_network          right-of sb_pn_subnet gap: 90
+    sb_provider_network          align-middle sb_pn_subnet
+    sb_az_subnet  below sb_subnet gap: 90
+    sb_az_subnet  align-centre sb_subnet
+    sb_az         left-of sb_az_subnet gap: 90
+    sb_az         align-middle sb_az_subnet
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association (stored pointer; multiplicity in label)"]
   }
 }
 
