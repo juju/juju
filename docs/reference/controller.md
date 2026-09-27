@@ -29,6 +29,9 @@ See more: {ref}`manage-controllers`
 
 ## The controller in the persistence layer
 
+```{audience} juju-dev
+```
+
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller attributes
