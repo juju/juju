@@ -24,8 +24,8 @@ A **subnet** is a range of IP addresses in CIDR notation.
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Subnet attributes
-:alt: The subnet's stored tables as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The subnet's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
+:alt: The subnet's stored tables as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
+:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
 ```
 
 In the model database a subnet is a **cached cloud fact**: the
@@ -50,8 +50,11 @@ the 1:1 `provider_subnet.provider_id`. The unique names in the
 picture belong to the neighbours: `space.name` and
 `availability_zone.name`.
 
-Every foreign key is an assertion the record holds:
-`subnet.space_uuid` says this subnet belongs to at most one space --
+Every foreign key is an assertion the record holds: the subnet row
+holds the space pointer (`subnet.space_uuid`); the provider_subnet row
+holds the subnet pointer; the join rows hold one pointer each
+(`availability_zone_subnet` both of its neighbours'). The space
+assertion says this subnet belongs to at most one space --
 nullable, an honest absence the schema states (a subnet need not be
 grouped yet); moving it between spaces rewrites the single pointer
 (see {ref}`space operations <the-space-operations>`). Nothing
