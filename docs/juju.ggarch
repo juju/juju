@@ -1947,7 +1947,7 @@ diagram "Data model (full spine)" from "Juju" {
          label: "model database", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (semantic direction, multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2097,7 +2097,7 @@ diagram "Cross-model relation (CMR)" from "Juju" {
          label: "consuming model (database)", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (semantic direction, multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2629,7 +2629,7 @@ diagram "Machine attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2660,7 +2660,7 @@ diagram "Application attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2691,7 +2691,7 @@ diagram "Unit attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2721,7 +2721,7 @@ diagram "Charm attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2751,7 +2751,7 @@ diagram "Secret attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2941,7 +2941,7 @@ diagram "Subnet attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -2998,7 +2998,7 @@ diagram "Relation attributes" from "Juju" {
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (stored pointer; multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -3542,7 +3542,7 @@ diagram "Data model (full spine) (synthesized)" from "Juju" {
          label: "model database", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (semantic direction, multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 
@@ -3606,7 +3606,7 @@ diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
          label: "consuming model (database)", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association (semantic direction, multiplicity in label)"]
+            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
   }
 }
 

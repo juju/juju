@@ -60,6 +60,12 @@ SYNTH_SKIP: set[str] = {
     # same failure class — ER hub slice with satellite fans (revisions
     # + content west, owner + consumer east, permissions south).
     "Secret attributes",
+    # "Subnet attributes" (session 45, the ERD edge-grammar round):
+    # same failure class — the pure-synthesis twin crosses sb_az_subnet
+    # and grazes it (corpus zero-crossing tests caught it the moment
+    # the variant first regenerated). The declared view is the product
+    # surface (ADR-007); same parked synthesis-of-ER-forests item.
+    "Subnet attributes",
 }
 
 def strip_positions_blocks(text: str) -> str:
