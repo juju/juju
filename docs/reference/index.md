@@ -46,9 +46,10 @@ Clients connect to a controller -- the central management service that coordinat
 
 ## Users
 
-Controller access requires user authentication. User accounts provide authentication and authorization for managing Juju resources.
+Controller access requires user authentication. User accounts provide authentication and authorization for managing Juju resources; authorization is the access each user is granted.
 
 - {ref}`user`
+- {ref}`access`
 
 ## Infrastructure and applications
 

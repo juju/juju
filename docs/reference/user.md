@@ -81,7 +81,7 @@ for offers.
 (user-access-levels)=
 ### User access levels
 
-A Juju user may have different abilities, according to the access level they have been granted. This document describes the various access levels and the corresponding abilities.
+A Juju user may have different abilities, according to the access level they have been granted. This section is the definitional home of those levels; the grant itself -- the {ref}`access <access>` record and the commands that grant and revoke it -- is described in the access reference.
 
 #### Valid access levels for controllers
 
