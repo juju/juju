@@ -51,7 +51,7 @@ How clients express compute intent and submit targets to the controller API.
   - **`invalid machine constraints`:** Triggered when machine constraints name a space or a container type that does not exist. Remediation: correct the constraint's space or container type.
 
 ```{ibnote}
-See also: {ref}`tfjuju:manage-machines <tfjuju:manage-machines>`
+See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 (the-machine-in-the-data-model)=
@@ -117,7 +117,8 @@ Runtime operations are split between the controller and the individual host mach
 ### Execution rules and errors
 
 - **Rules:** Reported hardware must satisfy the assigned machine constraints (`machine constraint violation`).
-- **Errors:** `provisioning error` parks failed cloud allocations; transient broker failures retry back into `allocating`.
+- **Errors:**
+  - **`provisioning error`:** Triggered when cloud allocation fails. Remediation: parks failed cloud allocations for inspection; transient broker failures automatically retry back into `allocating`.
 
 (machine-watchers)=
 ### Machine watchers
