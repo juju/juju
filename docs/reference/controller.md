@@ -20,8 +20,8 @@ The declaration layer defines how a controller comes into being and how clients 
 
 - **Bootstrap:** A controller is declared through the {ref}`bootstrap <bootstrap-a-controller>` process, which provisions a host machine, installs `jujud`, and initialises the controller's records. The bootstrap client authenticates directly against the target cloud; there is no controller to gate access yet. The controller declares itself: it names itself from the `controller-name` key of the {ref}`controller configuration <list-of-controller-configuration-keys>`.
 - **Access gating:** Once running, every verb on a controller is a call over the controller API:
-  - *Login access:* reading controller state, for example listing controllers.
-  - *Superuser access:* changing the controller's configuration or destroying it.
+  - *Login access:* Reading controller state, for example listing controllers.
+  - *Superuser access:* Changing the controller's configuration or destroying it.
 
 ```{ibnote}
 See more: {ref}`manage-controllers`
@@ -47,11 +47,17 @@ In the controller database, the controller is a **singleton row**: the schema en
 - **The configuration (`controller_config`)**: A key/value satellite of controller-wide settings. `v_controller_config` unions the stored keys with values read from the controller row: `controller-uuid`, `ca-cert`, `api-port`.
 - **Storage backends:** The controller's persistent data lives in the Dqlite databases and in blob storage. Both default to the controller's filesystem; an S3-compatible object store such as AWS S3, MicroCeph, or MinIO can take over blob storage through the object-store {ref}`controller configuration keys <controller-config-object-store-type>`.
 - **The record set:** The controller database also holds everything that lives controller-side rather than per-model: {ref}`users <user>`, their {ref}`access levels <user-access-levels>`, {ref}`clouds <cloud>` and {ref}`credentials <credential>`, {ref}`SSH keys <ssh-key>`, {ref}`secret backends <secret-backend>`, leases, and the {ref}`migration <the-model-migration>` bookkeeping. The per-model databases are the other half (see {ref}`the full spine <data-model-full-spine>`).
-- **Persistence rules and errors:**
-  - *Rules:* the database holds exactly one controller row, enforced by the schema's singleton index; the controller model is derived, not marked (`v_model` computes `is_controller_model` from the `model_uuid` join, `v_cloud` derives `is_controller_cloud` from the qualified name); the controller's cloud cannot be removed while it still has {ref}`models <model>` (`cloud still in use`).
-  - *Errors:* `cloud still in use`.
 
 The controller row has no life column and no status vocabulary: the controller is up, and its nodes' liveness is the Dqlite cluster's business. High availability does not make a second controller; it makes more **controller nodes** running the same controller's database and API.
+
+(the-controller-persistence-rules)=
+### Persistence rules and errors
+
+- **Rules:**
+  - The database holds exactly one controller row; the schema enforces it with the `idx_singleton_controller` unique index over a constant expression. HA expansion adds controller {ref}`nodes <high-availability>`, never a second controller.
+  - The controller model and the controller cloud are derived, not marked: `v_model` computes `is_controller_model` from the `model_uuid` join, `v_cloud` computes `is_controller_cloud` from the controller model's cloud.
+- **Errors:**
+  - **`cloud still in use`:** Triggered when deleting a {ref}`cloud <cloud>` that one or more {ref}`models <model>` still reference. Remediation: move the models to another cloud or remove them before deleting.
 
 (the-controllers-machinery)=
 ## The controller in the execution layer
