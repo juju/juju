@@ -217,7 +217,7 @@ crops).
 
 #### Charm origins
 
-**Insert at:** § The charm's records → § The charm's identity.
+**Insert at:** § Charms in the persistence layer (the origins slot between the provenance and identity paragraphs).
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -229,13 +229,13 @@ crops).
 
 #### Charm attributes (ERD slice)
 
-**Insert at:** § The charm's records → § The charm in the data model.
+**Insert at:** § Charms in the persistence layer (the section's anchor truth).
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Charm attributes
-:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The charm's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the endpoints), the config schema and the actions are the charm-defined payloads the application instantiates.
+:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre with its uuid, source, reference name, revision and available flag; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The charm's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
 ```
 
 ### reference/configuration.md

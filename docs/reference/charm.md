@@ -58,25 +58,23 @@ A revision only becomes available for consumption once it's been released into a
 (the-charms-persistence)=
 (the-charm-record)=
 (the-charm-origins)=
+(the-charm-states)=
 ## Charms in the persistence layer
 
 In the model database, a charm is one record per revision: each
-revision the model knows is a separate charm row, identified by its
-natural key -- its source (a local upload, the Charmhub store, or a
-cross-model import), its reference name, and its revision number. The
-row carries the charm's archive (a pointer into the controller's
-object store), its metadata (the name, description and
-subordinate-ness from `metadata.yaml`), and an **available** flag
-(see {ref}`Charm states <the-charm-states>`).
-
-The charm service in the controller performs the writes: resolving a
-revision from its channel and platform reserves the charm row as a
-*placeholder* -- the metadata, the config schema, the actions and the
-manifest, plus its download info -- and starts the store download. A
-local upload skips the store: the archive is stored and verified
-against its hash prefix. The store side -- publishing a charm, its
-listings, its promoted releases -- is Charmhub's domain, not the
-model's: the model only tracks what it has resolved.
+revision the model knows is a separate charm row (the DDL:
+`0015-charm.sql`). The row carries the charm's archive (a pointer
+into the controller's object store), its metadata (the name,
+description and subordinate-ness from `metadata.yaml`), and an
+**available** flag. The charm service in the controller performs the
+writes: resolving a revision from its channel and platform reserves
+the charm row as a *placeholder* -- the metadata, the config schema,
+the actions and the manifest, plus its download info -- and starts
+the store download. A local upload skips the store: the archive is
+stored and verified against its hash prefix. The store side --
+publishing a charm, its listings, its promoted releases -- is
+Charmhub's domain, not the model's: the model only tracks what it has
+resolved.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -86,37 +84,46 @@ model's: the model only tracks what it has resolved.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
-The charm row carries the identity (source, reference name, revision),
-the archive pointer, and the available flag; the
-`charm_metadata` record carries what `metadata.yaml` declared; the
-`charm_download_info` record carries the Charmhub identifier and the
-download URL and size the downloader fetches. The charm-defined
-payloads are their own records: `charm_relation` (the
-{ref}`endpoints <application-endpoint>`, with role and scope),
-`charm_config` (the {ref}`configuration <application-configuration>`
-schema: key, type, default), `charm_action` (the
-{ref}`actions <action>`: key, description, parallelism), and --
-not drawn above -- the charm's storage definitions, devices,
-containers, terms, tags and store categories, plus the manifest of
-bases the charm supports.
+The identity pair: the primary key (`charm.uuid`) is the join handle
+-- it exists so the metadata, the download bookkeeping and the
+charm-defined payloads have something to point at, and so the
+{ref}`application's <application>` and {ref}`unit's <unit>` charm
+pointers have a row to name. The natural key is the revision triple:
+UNIQUE on `source_id`, `reference_name`, `revision` -- a local
+upload, the Charmhub store, or a cross-model import, plus the charm's
+transient name and the revision number. There is no charm-revision
+table: each revision is its own row.
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Charm attributes
-:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The charm's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
+:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre with its uuid, source, reference name, revision and available flag; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The charm's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
 ```
 
-(the-charm-states)=
-### Charm states
+Every foreign key is an assertion the record holds: the charm_metadata
+row holds the charm pointer (its primary key is the pointer -- one
+row per charm); the charm_download_info row likewise; the
+charm_relation, charm_config and charm_action rows hold the charm
+pointer each -- the payloads one charm defines, which the
+{ref}`application <application>` instantiates ({ref}`endpoints
+<application-endpoint>` with role and scope; the
+{ref}`configuration <application-configuration>` schema: key, type,
+default; the {ref}`actions <action>`: key, description,
+parallelism). Not drawn above, all assertions the schema states: the
+charm's storage definitions, devices, containers, terms, tags and
+store categories, plus the manifest of bases the charm supports.
 
-A charm has one state of its own: the **available** flag -- whether
-the archive has arrived. A charm row is created as a *placeholder*
-(reserved, not yet available) when the model resolves a revision it
-does not have yet; it becomes available when the archive lands in the
-object store -- the downloader in the execution layer delivers it;
-the record here stores it. There is no life column on the charm: a
-charm is not an active thing.
+One projection, with no writer of its own:
+
+- **the available flag** -- the charm's one state of its own. A charm
+  row is created as a *placeholder* (reserved, not yet available)
+  when the model resolves a revision it does not have yet; it becomes
+  available when the archive lands in the object store -- the
+  downloader in the execution layer delivers it; the record here
+  stores it. There is no life column on the charm: a charm is not an
+  active thing, and nothing transitions -- a flag flips once, from
+  reserved to available.
 
 
 (the-charms-execution)=
@@ -191,10 +198,6 @@ The errors that encode them:
   mismatch`, `charm already exists with different size`.
 - *From the store*: `channel not found`, `resource not found`,
   `rate limit exceeded`, `revision conflict`.
-<!-- TODO: this taxonomy of charm kinds is phenomenological -- none of its
-     discriminators are stored on the record and none are chosen at declare
-     time, so it has no home in the chain spine (reviewer verdict, session 36).
-     Parked at the end of the page, moved verbatim, for a future iteration. -->
 
 (types-of-charm)=
 ## Types of charm
