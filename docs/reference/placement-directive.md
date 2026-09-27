@@ -115,7 +115,7 @@ When the location is a key-value pair, its availability and meaning may vary fro
 
 - a machine designation must satisfy the designation grammar
   (see {ref}`the machine's declaration rules
-  <machine-declaration-rules>`);
+  <machine>`);
 - the `--to` argument is rejected on Kubernetes models
   (`k8s models do not support placement directives`);
 - a malformed directive is rejected at the client (`invalid --to

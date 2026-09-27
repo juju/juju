@@ -130,7 +130,7 @@ controller-side (see {ref}`upgrading things <upgrading-things>`).
 Agents are the *consumers* of nearly every watch surface in the model
 -- each domain's watchers exist so an agent can reconcile without
 polling (see the per-entity watcher sections, for example
-{ref}`machine watchers <machine-watchers>` and
+{ref}`machine watchers <machine-execution-rules>` and
 {ref}`application watchers <the-application-watchers>`). What is
 watched *about* an agent is its presence: the controller's agent
 presence machinery records agent logins, and that is the input the

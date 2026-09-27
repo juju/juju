@@ -36,22 +36,13 @@ How clients express compute intent and submit targets to the controller API.
   - **LXD container:** a machine linked to its host by a machine-parent record; provisioned by the host's agent.
   - **Manual machine:** provisioned by the user over SSH; the records keep the manual flag.
   - **Controller machine:** derived, not stored; hosts the {ref}`controller agent <controller-agent>` and every model worker.
+- **Rules and errors:**
+  - *Rules:* designations use `0` or positive integers without leading zeros; container nesting is capped at a single level (`0/lxd/4`, never `0/lxd/0/lxd/0`).
+  - *Errors:* `machine already exists`, `invalid container type`, `grandparent machine are not supported currently`, `invalid machine constraints`.
 
 ```{ibnote}
 See also: {ref}`tfjuju:manage-machines <tfjuju:manage-machines>`
 ```
-
-(machine-declaration-rules)=
-### Declaration rules and errors
-
-- **Rules:**
-  - Designations use `0` or positive integers without leading zeros.
-  - Container nesting is capped at a single level (`0/lxd/4`, never `0/lxd/0/lxd/0`).
-- **Errors:**
-  - `machine already exists`
-  - `invalid container type`
-  - `grandparent machine are not supported currently`
-  - `invalid machine constraints`
 
 (the-machine-in-the-data-model)=
 ## Machines in the persistence layer
@@ -108,21 +99,16 @@ Runtime operations are split between the controller and the individual host mach
 - **Statuses:** the machine agent reports its status (`pending`, `started`, `stopped`, `error`); the controller writes the instance's provisioning status (`allocating`, `running`, `provisioning error`).
 
 (machine-execution-rules)=
-### Execution rules and errors
-
-- **Rules:** reported hardware must satisfy the assigned machine constraints (`machine constraint violation`).
-- **Errors:** `provisioning error` parks failed cloud allocations; transient broker failures retry back into `allocating`.
-
-(machine-watchers)=
-### Machine watchers
+### Execution rules, errors, and watchers
 ```{audience} juju-dev
 ```
 
-The machine domain's watchable service exposes real-time change streams rather than polling loops:
-
-- **Machine life and dependants:** drives the local shutdown watcher.
-- **Container life:** drives host-side container provisioning loops.
-- **Model machines:** drives the compute provisioner.
-- **Instance states:** drives the instance poller's steady-state mirroring (life, start times, cloud instances) and the reboot machinery.
+- **Rules:** reported hardware must satisfy the assigned machine constraints (`machine constraint violation`).
+- **Errors:** `provisioning error` parks failed cloud allocations; transient broker failures retry back into `allocating`.
+- **Watchers:** the machine domain's watchable service exposes real-time change streams rather than polling loops:
+  - **Machine life and dependants:** drives the local shutdown watcher.
+  - **Container life:** drives host-side container provisioning loops.
+  - **Model machines:** drives the compute provisioner.
+  - **Instance states:** drives the instance poller's steady-state mirroring (life, start times, cloud instances) and the reboot machinery.
 
 Every watcher fires an initial baseline snapshot on creation, followed by notifications on qualifying changes. See {ref}`the watcher pattern <watchers>`.

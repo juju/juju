@@ -18,7 +18,7 @@ model reacts to change -- {ref}`agents <agent>`, client facades,
 controller workers -- and nothing polls: the thing that acts on a
 record watches it (see the per-entity surfaces, for example
 {ref}`application watchers <the-application-watchers>` and
-{ref}`machine watchers <machine-watchers>`).
+{ref}`machine watchers <machine-execution-rules>`).
 
 ## The watcher concept: a signal, not data
 
