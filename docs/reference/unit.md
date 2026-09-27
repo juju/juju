@@ -41,73 +41,78 @@ See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider fo
 :caption: Entity relationship diagram: The unit's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
 ```
 
-In the model database a unit is a **native record**: one running
-instance of an application, created by the deployment or add-unit
-machinery (the DDL: `0020-unit.sql`). The row carries the name, the
-life, the {ref}`application <application>` it belongs to, the network
-identity it shares with its machine (its net node), and the charm
-revision it runs -- a unit pins its charm, so a
-{ref}`refresh <the-application-refresh>` leaves existing units on the
-old revision until they are individually refreshed. The password hash
-is a field on the row, UNIQUE across units -- a unit cannot
-impersonate another; NULLs count as distinct, a unit without a
-password breaks no uniqueness.
+In the model database a unit is a **native record** (the DDL:
+`0020-unit.sql`): one running instance of an application, created by
+the deployment or add-unit machinery. Rather than one monolithic row,
+the unit's story is distributed across the record and the satellites
+that point at it:
 
-The identity pair: the primary key (`unit.uuid`) is the join handle --
-it exists so the status records, the principal pair and the
-charm-claimed state have something to point at. The natural key the
-client names is `unit.name` (UNIQUE per model): the application's name
-plus `/` and the unit number (`0` or a positive integer without
-leading zeros: `mysql/0`, never `mysql/01`); the creation service
-rejects a duplicate with `unit already exists`.
-
-Every foreign key is an assertion the record holds: the unit row
-holds the application pointer (`unit.application_uuid`) and the
-net-node pointer (`unit.net_node_uuid` -- the shared identity is what
-"runs on" means in the data model); the status records hold the unit
-pointer each (their primary keys are the pointers); the subordinate
-pair holds two pointers into the same table
-(`unit_principal.unit_uuid` the subordinate's,
-`principal_uuid` the principal's -- drawn south, see
-{ref}`Subordinate unit <subordinate-unit>`). Not drawn above, all
-assertions the schema states: the charm-claimed state triple
-(`unit_state` / `unit_state_charm` / `unit_state_relation` -- the
-state the unit's charm has claimed through its hooks), the resolution
-mode recorded when a hook error is cleared (`unit_resolved`), presence
-(the controller updates it as the unit agent logs in and out, see
-{ref}`the unit agent <unit-agent>`), and the workload/agent versions.
-
-The unit table has no type column: a unit's kind is derived, and the
-kinds are not mutually exclusive -- the leader is also just one of the
-application's units. Most units are **regular units**: one charm
-instance, running its hooks on its machine or pod.
-
-Three projections with writers of their own:
-
-- **life** -- the shared alive / dying / dead cycle every entity has.
-  A unit is created alive; the removal machinery marks it dying
-  (guarded one-way) and declares it dead only once no relation scopes
-  and no storage attachments are left -- the removal machinery drives
-  it, the record stores it; a scheduled removal job then deletes the
-  records (see {ref}`Unit removal <the-unit-removal>`).
-- **`unit_agent_status`** -- written by the **unit agent** (its own
-  status: `idle`, `executing`, ...), but it cannot set `lost` or
-  `allocating`, and an `error` write must carry a message.
-- **`unit_workload_status`** -- written by the **workload** (the
-  charm, through its hooks: `active`, `maintenance`, ...). The
-  **controller** writes the initial statuses at unit creation
-  (`allocating` / `waiting`) and computes the display overrides: an
-  agent not seen recently reads as `lost`, and a lost agent's
-  workload reads as `unknown` unless the workload itself is in error
-  or terminated. The pair `juju status` shows as
+* **the identity pair (`unit.uuid` + `unit.name`):** a unique, hidden
+  id (`uuid`) is the anchor the other records point at, while the
+  natural key (`name`, UNIQUE) is the user-facing identity the client
+  types -- the application's name plus `/` and the unit number (`0`
+  or a positive integer without leading zeros: `mysql/0`, never
+  `mysql/01`). The creation service rejects a duplicate with `unit
+  already exists`.
+* **the security token (`unit.password_hash`):** a UNIQUE field
+  preventing any unit from impersonating another; because NULLs count
+  as distinct, units created without a password break no uniqueness.
+* **the pinned charm revision (`unit.charm_uuid`):** a unit pins its
+  charm pointer directly onto its own row, so a
+  {ref}`refresh <the-application-refresh>` rewrites the
+  {ref}`application's <application>` pointer and leaves existing
+  units on the revision they were deployed from until they are
+  individually refreshed.
+* **the parent application (`unit.application_uuid`):** the mandatory
+  pointer connecting the unit back to its parent application, from
+  which it derives its context.
+* **the shared net node (`unit.net_node_uuid`):** the mandatory
+  pointer to the network identity the unit shares with its machine or
+  pod. Sharing this identity is the data model's literal definition
+  of what it means to "run on" something.
+* **the life (`unit.life_id`):** the shared alive / dying / dead
+  cycle. A unit is created alive; the removal machinery marks it
+  dying (guarded one-way) and declares it dead only once no relation
+  scopes and no storage attachments are left -- a scheduled removal
+  job then deletes the records (see {ref}`Unit removal
+  <the-unit-removal>`).
+* **the agent status (`unit_agent_status`):** written by the **unit
+  agent** (its own loop states: `idle`, `executing`, ...), but it
+  cannot set `lost` or `allocating`, and an `error` write must carry
+  a message.
+* **the workload status (`unit_workload_status`):** written by the
+  **workload** (the charm, through its hooks: `active`,
+  `maintenance`, ...). The **controller** writes the initial statuses
+  at unit creation (`allocating` / `waiting`) and computes the
+  display overrides: an agent not seen recently reads as `lost`, and
+  a lost agent's workload reads as `unknown` unless the workload
+  itself is in error or terminated. The pair `juju status` shows as
   `<workload status>/<agent status>` (the vocabularies:
   {ref}`unit status <unit-status>`; the who-writes story across all
   five status domains: the {ref}`Status domains <status>` view).
+* **the subordinate pair (`unit_principal`):** two pointers into the
+  unit table -- the subordinate's (`unit_uuid`, the pair's primary
+  key) and the principal's (`principal_uuid`). Subordinate helpers
+  are regular units; this record is what pairs them (see
+  {ref}`Subordinate unit <subordinate-unit>`).
 
-None of these is transition-validated: every status write is a
-membership check (the value must be known) followed by writer gates --
-what constrains a unit is who writes which value, not a transition
-matrix.
+Not drawn above, and asserted by the schema just the same: the
+charm-claimed state triple (`unit_state` / `unit_state_charm` /
+`unit_state_relation` -- the state the unit's charm has claimed
+through its hooks), the resolution mode recorded when a hook error is
+cleared (`unit_resolved`), presence (the controller updates it as the
+unit agent logs in and out, see {ref}`the unit agent <unit-agent>`),
+and the workload/agent versions. None of the statuses is
+transition-validated: every status write is a membership check (the
+value must be known) followed by writer gates -- what constrains a
+unit is who writes which value, not a transition matrix.
+
+The unit table has no type column: a unit's kind is derived, and the
+kinds are not mutually exclusive -- the leader is also just one of the
+application's units. Leadership, likewise, is not stored on the unit:
+it is a lease in the controller database (see {ref}`Leader unit
+<leader-unit>`). Most units are **regular units**: one charm
+instance, running its hooks on its machine or pod.
 
 (types-of-unit)=
 (leader-unit)=
