@@ -74,7 +74,7 @@ rewrite of the owner's record. By the time the command returns, the
 value is written on its owner's record -- whether the cloud can
 honour it is discovered later, at provisioning time, when the
 compute provisioner asks the cloud for resources (see
-{ref}`machine provisioning <machine-provisioning>`). There is no
+{ref}`machine provisioning <the-machines-machinery>`). There is no
 constraint entity to update later: setting is a rewrite of the
 owner's constraint record. No watch surface exposes constraint
 records; provisioning reads them at the moment it provisions.

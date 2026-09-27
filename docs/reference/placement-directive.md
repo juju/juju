@@ -30,7 +30,7 @@ model does not exist yet; bootstrap accepts only the unscoped
 key-value forms). The controller-side counterpart is the same call
 over the controller API, the directive travelling as part of the
 request. The machine-shaped forms are spelled with the
-{ref}`machine designations <machine-designations>`.
+{ref}`machine designations <machine>`.
 
 ```{ibnote}
 See examples: {ref}`deploy-a-charm` (the deploy-targets examples).
@@ -82,7 +82,7 @@ the directive has been parsed and the machine record(s) exist --
 whether the cloud can honour a key-value directive is discovered
 later, at provisioning time, when the machine provisioner reads the
 stored directive back and asks the cloud for a machine in that
-location (see {ref}`machine provisioning <machine-provisioning>`).
+location (see {ref}`machine provisioning <the-machines-machinery>`).
 There is no directive entity to update later: a placement is settled
 when the machine record is written.
 
@@ -114,7 +114,7 @@ When the location is a key-value pair, its availability and meaning may vary fro
 ```
 
 - a machine designation must satisfy the designation grammar
-  (see {ref}`machine declaration rules and errors
+  (see {ref}`the machine's declaration rules
   <machine-declaration-rules>`);
 - the `--to` argument is rejected on Kubernetes models
   (`k8s models do not support placement directives`);
@@ -153,7 +153,7 @@ Depending on whether this is an existing machine or a new machine, this will be:
 
 **Examples:** `lxd` (new container on a new machine), `lxd:5` (new container on machine 5)
 
-See the full grammar: {ref}`machine designations <machine-designations>`.
+See the full grammar: {ref}`machine designations <machine>`.
 
 (placement-directive-subnet)=
 ### `subnet=<subnet>`

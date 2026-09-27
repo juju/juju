@@ -13,88 +13,39 @@ myst:
 See also: {ref}`manage-machines`
 ```
 
-In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested implicitly by a {ref}`deploy <command-juju-deploy>` or {ref}`add-unit <command-juju-add-unit>` placement, or explicitly with {ref}`add-machine <command-juju-add-machine>`, from a machine {ref}`cloud <cloud>`. A LXD container on a cloud instance is also a machine. Everything in this document applies to both.
+In Juju, a **machine** is a {ref}`compute resource <resource-compute>` requested implicitly through a deploy or add-unit placement, or explicitly through the controller API, from a machine {ref}`cloud <cloud>`. Juju treats both bare cloud instances and LXD containers on host instances as machines.
 
 ```{important}
 
-Even though a LXD container is listed in `juju` outputs under 'Machines', and handled via the same CLI commands as a machine, it is named after its host machine; e.g., `0/lxd/5` = LXD container `5` on machine `0`.
+A LXD container is named after its host machine: `0/lxd/5` is LXD container `5` on machine `0`. Containers appear under 'Machines' in status outputs.
 
 ```
 
+(machine-declaration-rules)=
 ## Machines in the declaration layer
 
-- **Explicit creation:** `juju add-machine` and `juju remove-machine`, gated on model {ref}`write access <user-access-model-write>`.
-- **Implicit creation:** most machines are never declared on their own. A deploy or add-unit placement asks for compute, and the machine record follows.
+The declaration layer defines how clients express compute intent and submit targets to the controller API.
+
+- **Explicit and implicit creation:** clients can explicitly request machines through the API, gated on model {ref}`write access <user-access-model-write>`. Most machines are created implicitly: a deploy or add-unit placement asks for compute, and the machine record follows.
+- **Target designations:** a machine argument names new or existing targets, bare instances or containers, in comma-separated lists:
+  - `0` targets an existing machine; `0,4` targets machines 0 and 4.
+  - `lxd` requests a new LXD container on a new host; `lxd:25` on the existing machine 25. A VM host is requested by virtual-machine `virt-type`.
+  - `0/lxd/4` targets the existing container `4` on machine `0`.
+  - *Note:* designations are for machine clouds only; they are rejected on Kubernetes models.
+- **Special machine kinds:**
+  - **LXD container:** a machine linked to a host machine by a machine-parent record. The host's agent provisions its own containers, not the controller, so a container brings its host in as a machine of its own.
+  - **Manual machine:** a machine the user provisioned themselves over SSH instead of asking the cloud for one. The records keep the manual flag, and the instance status reads `Manually provisioned machine` once the agent reports in.
+  - **Controller machine:** the machine hosting the controller application, derived, not stored: a machine is the controller machine when a unit of the controller's application runs on it. It runs the {ref}`controller agent <controller-agent>` and hosts every model worker, the compute provisioner included.
+- **Declaration rules and errors:**
+  - *Rules:* designations use `0` or positive integers without leading zeros; container nesting is limited to a single level, `0/lxd/4`, never `0/lxd/0/lxd/0`.
+  - *Errors:* `machine already exists`, `invalid container type`, `grandparent machine are not supported currently`, `invalid machine constraints`.
 
 ```{ibnote}
 See also: {ref}`tfjuju:manage-machines <tfjuju:manage-machines>`
 ```
 
-(machine-designations)=
-### Machine designations
-
-Many commands take a machine argument. The shapes below combine in comma-separated lists:
-
-| shape of the machine argument | meaning|
-|-|-|
-|  | a new machine |
-|`0`| machine 0 (an existing machine) |
-|`0,4`| machines 0 and 4 (existing machines)|
-| `lxd` | a new LXD container or (if specified with `virt-type=virtual-machine`) VM on a new machine |
-| `lxd:25`| a new LXD container or (if specified with `virt-type=virtual-machine`) VM on the existing machine 25|
-| `0/lxd/4`| the existing LXD container `4` on machine `0`|
-|`3,0/lxd/2,lxd:5`| machine 3, existing LXD container 2 on machine 0, and a new LXD container on machine 5|
-|`0/lxd/01`| invalid -- numbers are `0` or positive integers without leading zeros|
-|`0/lxd/0/lxd/0`| invalid -- only one level of container nesting is supported|
-
-Designations are for machine clouds only: the `--to` argument is rejected on Kubernetes models.
-
-(machine-lxd-container)=
-### LXD container
-
-A **LXD container** is a machine linked to a host machine by a machine-parent record. The host's agent provisions its own containers, not the controller, so adding a container brings the host machine in as a machine of its own:
-
-```text
-$ juju add-machine lxd
-created container 1/lxd/0
-
-$ juju machines
-Machine  State    Address         Inst id        Base          AZ  Message
-0        started  10.154.118.110  juju-dadfb7-0  ubuntu@22.04      Running
-1        pending                  pending        ubuntu@22.04      Creating container
-1/lxd/0  pending                  pending        ubuntu@22.04
-```
-
-Most `juju` CLI commands that target machines target containers the same way.
-
-(manual-machine)=
-### Manual machine
-
-A **manual machine** is a machine the user provisioned themselves: `juju add-machine ssh:user@host` reaches an existing host over SSH instead of asking the cloud for one. The records keep the manual flag, and the instance status reads `Manually provisioned machine` once the agent reports in. See {ref}`Instance status <instance-status>`.
-
-(controller-machine)=
-### Controller machine
-
-The **controller machine** hosts the controller application. It is derived, not stored: a machine is the controller machine when a unit of the controller's application runs on it. It runs the {ref}`controller agent <controller-agent>` and hosts every model worker, the compute provisioner included.
-
-(machine-declaration-rules)=
-### Declaration rules and errors
-
-Rules:
-
-- numbers are `0` or positive integers without leading zeros;
-- at most one level of container nesting (`0/lxd/4`, never `0/lxd/0/lxd/0`);
-- designations are comma-separated lists of the shapes above;
-- the `--to` argument is rejected on Kubernetes models.
-
-Errors:
-
-- `machine already exists`;
-- `invalid container type`;
-- `grandparent machine are not supported currently`;
-- `invalid machine constraints`: the payload names a space or a container type that does not exist.
-
 (the-machine-in-the-data-model)=
+(machine-persistence-rules)=
 ## Machines in the persistence layer
 
 ```{ggarch}
@@ -106,70 +57,46 @@ Errors:
 
 In the model database, a machine is a native record (`0018-machine.sql`) distributed across a decoupled set of tables:
 
-- **`machine` (dual identity):** an internal `uuid` join handle for relations alongside a model-scoped natural key (`name`) for user designations (`0`, `1/lxd/0`), strictly enforced to reject duplicates (`machine already exists`).
-- **`net_node_uuid` (network anchor):** a unique pointer to the network identity whose addresses the machine hangs off. The units running on the machine point at the *same* net node: sharing it is what "runs on" means in the data model.
-- **`life_id`, `keep_instance` (lifecycle and teardown):** the shared alive / dying / dead cycle. Removal marks the machine dying, then dead once nothing is left on it, and deletes the records on a schedule. `keep_instance` decides whether the cloud instance is released with the machine. See {ref}`Machine removal <machine-removal>`.
-- **`machine_platform`, `machine_manual`, `machine_constraint` (configuration satellites):** three optional per-machine rows: the OS base as `os@channel` plus architecture, the manual flag, and the compute constraints pointing into the {ref}`constraint <constraint>` table. The `machine_manual` row's presence is the flag.
-- **`machine_parent` (containers):** two pointers into the same machine table, the child's and its host's, capped at a single nesting level.
-- **`machine_cloud_instance` (cloud instance):** one row, born with the machine. `instance_id` stays empty until the cloud creates the instance; the row then stores the hardware: arch, CPU, memory, root disk, `virt_type`, plus the availability zone. The row carries its own life pointer.
-- **`machine_status`, `machine_cloud_instance_status` (status projections):** two upsert tables; every write is a membership check followed by an upsert. What constrains a machine is *who* writes which value.
+- **`machine`:** stores the identity pair. A hidden `uuid` acts as the internal join handle; a model-scoped natural key (`name`) provides the user-facing designation (`0`, `1/lxd/0`), strictly enforced to reject duplicates (`machine already exists`).
+- **`net_node_uuid`:** a unique pointer to the network identity whose addresses the machine hangs off. The units running on the machine point at the same net node: sharing it is what "runs on" means in the data model.
+- **`life_id`, `keep_instance`:** the shared alive / dying / dead cycle, and whether the cloud instance is released with the machine at teardown.
+- **Configuration satellites:** three optional per-machine rows: the OS base as `os@channel` plus architecture (`machine_platform`), the manual flag (`machine_manual`, the row's presence is the flag), and the compute constraints (`machine_constraint`, a pointer into the {ref}`constraint <constraint>` table).
+- **`machine_parent`:** two pointers into the same machine table, the child's and its host's, establishing the parent-child relationship for containers. Container nesting is capped at a single level.
+- **`machine_cloud_instance`:** tracks cloud provisioning state, holding the instance identifiers, the hardware specs, and the availability zone once reported by the provider. The row is born with the machine, carries its own life pointer, and its `instance_id` stays empty until the cloud creates the instance.
+- **Status projections:** two non-validated upsert tables tracking agent health (`machine_status`) and cloud provisioning lifecycles (`machine_cloud_instance_status`); every write is a membership check followed by an upsert, and what constrains a machine is who writes which value.
   - `machine_status` is the machine agent's report about the Juju agent on the machine: `pending`, `started`, `stopped` when the agent sees the machine's life is no longer alive, `error` when the teardown request fails. `down` is written by no one; the status reads it when the agent has not been seen recently.
   - `machine_cloud_instance_status` is written controller-side: the provisioning lifecycle `pending`, `allocating`, `running` once the instance ID and addresses are registered, `provisioning error`, and `unknown` as the row's zero value.
   - The vocabularies live in lookup tables: `machine_status_value`, `machine_cloud_instance_status_value`, `life`.
+- **Persistence rules and errors:**
+  - *Rules:* a machine can only be declared dead once nothing is assigned to it: units, containers, or storage keep it alive; a machine's kind is derived, not stored, and the schema view `v_machine_is_controller` derives the controller machine as a machine whose net node runs a unit of the controller's application.
+  - *Errors:* `machine not found`, `machine not alive`, `machine is dead`, `machine not provisioned`, `machine cloud instance already exists`, `machine has no parent`.
 
-The machine service writes the records: `AddMachine` inserts the machine row and its satellites, `SetMachineCloudInstance` fills the instance row once the provider reports it, and the removal service carries the teardown.
-
-The machine table has no type column: a machine's kind is derived, not stored. The parent pointer is the container fact; the `machine_manual` row is the manual fact; `v_machine_is_controller` derives the controller machine as a machine whose net node runs a unit of the controller's application. A machine that is none of these is a regular machine: a cloud instance the controller's compute provisioner started.
-
-(machine-persistence-rules)=
-### Persistence rules and errors
-
-Rules:
-
-- a machine can only be declared dead once nothing is assigned to it -- units, containers, or storage keep it alive (see {ref}`Machine removal <machine-removal>`).
-
-Errors:
-
-- *existence and life*: `machine not found`, `machine not alive`, `machine is dead`;
-- *provisioning*: `machine not provisioned`, meaning the instance record holds no instance ID yet; `machine cloud instance already exists`;
-- *structure*: `machine has no parent`.
+The machine service writes these records: `AddMachine` inserts the machine row and its satellites, `SetMachineCloudInstance` fills the instance row once the provider reports it, and the removal service carries the teardown.
 
 (the-machines-machinery)=
 ## Machines in the execution layer
 
-By the time the command returns, the machine record exists; the cloud instance may still be allocating. In the controller, the compute provisioner and the instance poller drive the cloud instances. On the machine, the machine agent -- a {ref}`Juju agent <agent>` -- hosts the unit agents, provisions the containers, and shuts the machine down.
+By the time the command returns, the machine record exists; the cloud instance may still be allocating. In the controller, the compute provisioner and the instance poller drive the cloud instances. On the machine, the machine agent, a {ref}`Juju agent <agent>`, hosts the unit agents, provisions the containers, and shuts the machine down.
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Machine designations
 :no-legend:
-:caption: Topology: The two provisioning paths -- the controller's compute provisioner starts base machines and records the instance ID and addresses as they become known; a host machine's agent provisions its own containers through the LXD broker and watches them via the controller API. What a designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record. Containers are machines: each runs its own machine agent, which hosts the unit agent.
+:caption: Topology: The two provisioning paths. The controller's compute provisioner starts base machines and records the instance ID and addresses as they become known; a host machine's agent provisions its own containers through the LXD broker and watches them via the controller API. What a designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record. Containers are machines: each runs its own machine agent, which hosts the unit agent.
 :alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
 ```
 
 (machines-and-units)=
 ### Machine operations
 
-#### Machine creation
-
-Most machines are created implicitly: a deploy or add-unit placement resolves when the unit's machine record is written. See {ref}`Machine designations <machine-designations>` and {ref}`placement directive <placement-directive>`. Explicit creation goes through the add-machine operation (`juju add-machine`): the controller's machine manager writes the machine record, and the compute provisioner takes it from there.
-
-(machine-provisioning)=
-#### Machine provisioning
-```{audience} juju-dev
-```
-
-The controller's compute provisioner is a model worker. It watches the model's unprovisioned machines, asks the cloud to start an instance for each pending machine, records the instance ID and addresses as they become known, and retries transient failures. See {ref}`Instance status <instance-status>`. Containers are provisioned by their host machine's agent through the LXD broker, which learns about its containers from the controller's API.
-
-(machine-removal)=
-#### Machine removal
-
-Removal goes through the remove-machine operation (`juju remove-machine 0`). The machine, its containers included unless the removal is forced past them, is marked dying. The machine agent notices through its life watcher, stops, and asks the controller to mark the machine dead once no units or storage are assigned to it; a scheduled removal job deletes the records. The `keep-instance` flag decides whether the cloud instance is released with the machine.
-
-(manual-provisioning)=
-#### Manual provisioning
-
-The add-machine operation over SSH (`juju add-machine ssh:user@host`) provisions nothing in the cloud. The controller renders the provisioning script; the user's SSH session runs it on the target host; the host's machine agent reports in. The machine's record keeps the manual flag (see {ref}`Manual machine <manual-machine>`).
+- **Provisioning paths:**
+  - *Controller-side:* the compute provisioner watches the model's unprovisioned machines, asks the cloud to start an instance for each, records the instance ID and addresses as they become known, and retries transient failures.
+  - *Agent-side:* the host machine's agent provisions its own containers through the LXD broker, learning about them from the controller's API.
+- **Manual provisioning:** the controller renders the provisioning script, the user runs it on the target host over SSH, and the host's machine agent reports in to register itself. See {ref}`Instance status <instance-status>`.
+- **Machine removal:** removal marks the machine, its containers included unless forced past them, dying; the machine agent notices through its life watcher and asks the controller to mark the machine dead once no units or storage are assigned to it; a scheduled removal job deletes the records. The `keep_instance` flag decides whether the cloud instance is released with the machine.
+- **Execution rules and errors:**
+  - *Rules:* a machine's reported hardware must satisfy the constraints asked of it; the placement check fails with `machine constraint violation` otherwise.
+  - *Errors:* `provisioning error`, where a failing cloud broker parks the instance; a transient failure is retried back into `allocating`.
 
 (machine-agent-status)=
 ### Machine agent status
@@ -180,7 +107,7 @@ The machine agent writes its own status. Its shutdown loop:
 :file: ../juju.ggarch
 :view: Machine agent status
 :no-legend:
-:caption: State machine diagram: The machine agent's status as it shuts its machine down -- the agent reports started at startup; when the life watcher fires (the machine is no longer alive) it reports stopped and asks the controller to have the machine marked dead, waiting until the units and storage assigned to it clear; a failed request parks the status in error.
+:caption: State machine diagram: The machine agent's status as it shuts its machine down. The agent reports started at startup; when the life watcher fires, the machine is no longer alive, it reports stopped and asks the controller to have the machine marked dead, waiting until the units and storage assigned to it clear; a failed request parks the status in error.
 :alt: State machine: pending to started on machine agent startup; started to stopped when the life watcher fires; started to error when EnsureDead fails with units or storage still assigned; stopped internally waits for units and storage to clear, then dies.
 ```
 
@@ -193,7 +120,7 @@ The controller writes the instance's provisioning status. The provisioner's tran
 :file: ../juju.ggarch
 :view: Machine provisioning
 :no-legend:
-:caption: State machine diagram: The cloud instance's provisioning status -- the controller's compute provisioner moves a pending machine to allocating ('starting') when it asks the cloud for the instance, to running once the instance and its addresses are registered, and to provisioning error when the broker fails; a transient error is retried back into allocating. In steady state the instance poller mirrors the provider-reported status.
+:caption: State machine diagram: The cloud instance's provisioning status. The controller's compute provisioner moves a pending machine to allocating, meaning starting, when it asks the cloud for the instance, to running once the instance and its addresses are registered, and to provisioning error when the broker fails; a transient error is retried back into allocating. In steady state the instance poller mirrors the provider-reported status.
 :alt: State machine: pending to allocating on the compute provisioner starting the instance; allocating to running when instance and addresses are recorded; allocating to provisioning error on broker error; provisioning error back to allocating on a transient retry; running mirrors the provider status.
 ```
 
@@ -202,23 +129,12 @@ The controller writes the instance's provisioning status. The provisioner's tran
 ```{audience} juju-dev
 ```
 
-Nothing about a machine is polled by the things that act on it: they watch it. The machine domain's watchable service exposes these surfaces:
+The things that act on a machine watch it rather than poll it. The machine domain's watchable service exposes:
 
-- **One machine's life and dependants** -- changes to the machine's life and to the units, containers, and storage tied to it. The machine agent's shutdown watcher.
-- **A parent machine's containers' life** -- drives the host machine agent's container provisioner.
-- **The model's (non-container) machines** -- the compute provisioner's (and instance poller's) provisioning surface.
-- **The model machines' life and start times** -- the instance poller's steady-state mirroring surface.
-- **The model's machine cloud instances** and **a machine's reboot state** -- the instance poller's and the reboot machinery's surfaces.
+- one machine's life and dependants: the machine agent's shutdown watcher;
+- a parent machine's containers' life: the host agent's container provisioner;
+- the model's non-container machines: the compute provisioner's provisioning surface;
+- the model machines' life and start times: the instance poller's steady-state mirroring surface;
+- the model's machine cloud instances, and a machine's reboot state: the instance poller's and the reboot machinery's surfaces.
 
-Every watcher fires once immediately when it is created -- the initial query is the baseline snapshot -- and again on each qualifying change (see {ref}`the watcher pattern <watchers>`).
-
-(machine-execution-rules)=
-### Execution rules and errors
-
-Rules:
-
-- a machine's reported hardware must satisfy the constraints asked of it: the placement check compares the machine's instance record against the constraints and fails with `machine constraint violation` otherwise.
-
-Errors:
-
-- `provisioning error`: a failing cloud broker parks the instance there; a transient failure is retried back into `allocating` (see {ref}`Instance status <instance-status>`).
+Every watcher fires once immediately when it is created, the initial query being the baseline snapshot, and again on each qualifying change. See {ref}`the watcher pattern <watchers>`.

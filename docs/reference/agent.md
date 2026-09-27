@@ -115,7 +115,7 @@ The machine agent starts with its machine (via `systemd`) and the
 model agent with the model's workers; the machine agent starts a unit
 agent per unit it hosts. Bootstrap creates the first agent -- the
 controller's -- with a one-time nonce (see
-{ref}`controller bootstrap <controller-bootstrap>`).
+{ref}`Controller operations <the-controller-operations>`).
 
 #### Agent version targeting and reporting
 

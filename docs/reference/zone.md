@@ -52,7 +52,7 @@ machine's instance landed.
 
 Not applicable -- zones are not operated on in Juju; they are
 consumed at provisioning time by the constraints and directives that
-name them (see {ref}`machine provisioning <machine-provisioning>`).
+name them (see {ref}`machine provisioning <the-machines-machinery>`).
 
 (the-zone-watchers)=
 ### Zone watchers
