@@ -56,155 +56,9 @@ In Juju, many different commands have a machine argument. The shape of this argu
 
 These designations are for machine clouds only: the `--to` argument is rejected on Kubernetes models. The two provisioning paths the designations name are drawn in the execution layer.
 
-(the-machines-records)=
-(the-machine-record)=
-(the-machine-in-the-data-model)=
-## Machines in the persistence layer
-
-In the model database, a machine is a record identified by its
-**machine ID** -- a unique name such as `0` or `1/lxd/0`, unique per
-model (`machine already exists`; see
-{ref}`Machine designations <machine-designations>`) -- carrying the
-machine's life, its own network identity (a net node, shared with the
-{ref}`units <unit>` that run on the machine -- usually one unit per
-machine, but several units of the same or of different applications
-can share one), the time its agent
-started, its hostname, and the flags that steer its teardown (whether
-the cloud instance should be kept when the machine is removed, and
-whether it was provisioned manually).
-
-The machine service in the controller performs the writes:
-`AddMachine` inserts the machine record and its satellite rows;
-`SetMachineCloudInstance` stores the cloud instance once the provider
-reports it; the removal service carries the teardown (see
-{ref}`Machine removal <machine-removal>`).
-
-(machine-base)=
-### Machine base
-
-```{versionadded} 3.1.0
-```
-
-In Juju, a **base** is  a way to identify a particular operating system (OS) image for a Juju {ref}`machine <machine>`.
-
-This can be done via the name of the OS followed by the `@` symbol and the channel of the OS that you want to target, specified in terms of `<track>` or, optionally, `<track>/<risk>`. For example, `ubuntu@22.04` or `ubuntu@22.04/stable`.
-
-A 'base' replaces the older notion of 'series'.
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine attributes
-:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre; the parent table naming its child and its host; the status record and the net node beside it; the cloud instance below with its own status under it. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The machine's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The machine's container type, manual flag, life, base (os@channel + architecture) and the instance's availability zone are stored as fields on their records; the lookup tables behind them are not drawn.
-```
-
-The machine's state is spread across a handful of stored tables. The
-`machine` record carries the machine ID, its life, its net node, the
-agent start time, the hostname, and the teardown flags (keep instance,
-manual). The `machine_parent` record names a machine's host -- this is
-the single nesting level a container may have -- and
-`machine_cloud_instance` tracks the cloud instance: the instance ID
-(empty until the cloud provider has actually created the instance),
-its hardware (arch, CPU, memory, root disk, `virt_type`), and its
-availability zone -- a fact about the machine's {ref}`zone <zone>`.
-
-Each of the two carries its own status record: `machine_status` (the
-machine agent's status: pending, started, stopped, down, error) and
-`machine_cloud_instance_status` (the instance's provisioning status:
-unknown, pending, allocating, running, provisioning error). Both keep
-a message, the update time, and the status vocabulary as a lookup
-table.
-
-The rest of the machine's attributes live in per-machine satellite
-records: the base (`machine_platform`: os, channel, architecture), the
-placement (`machine_placement`: scope + directive), the machine's
-{ref}`constraints <constraint>` (`machine_constraint`), its
-{ref}`storage <storage>` attachments (`machine_volume`,
-`machine_filesystem`), its reported agent version, its SSH host keys,
-its LXD profiles, and its addresses -- which hang off the machine's
-net node, the same network identity the units running on the machine
-share.
-
-(machine-states)=
-### Machine states
-
-A machine carries orthogonal state machines: its **life** -- the
-shared alive / dying / dead cycle every entity has, kept for both the
-machine and its cloud instance -- and two status vocabularies, the
-machine agent's own status and the cloud instance's provisioning
-status. The machinery in the execution layer drives the transitions;
-the record here stores the vocabulary. Unlike the relation's status,
-none of these is transition-
-validated: every status write is a membership check (the value must
-be known) followed by an upsert -- what constrains a machine is who
-writes which value, not a transition matrix.
-
-#### Life
-
-A machine is created alive. The removal machinery marks it dying
-(guarded one-way) when the machine is removed, together with the
-machine's cloud instance record and -- unless the removal is forced
-past them -- the machine's child containers, which die with their
-host. The machine is declared dead only once nothing is left on it:
-the machine's own agent calls the controller to have it marked dead
-when it notices its life is no longer alive and no units or storage
-are assigned to it any more; a scheduled removal job then deletes the
-records.
-
-(machine-agent-status)=
-#### Machine status
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine agent status
-:no-legend:
-:caption: State machine diagram: The machine agent's status as it shuts its machine down -- the agent reports started at startup; when the life watcher fires (the machine is no longer alive) it reports stopped and asks the controller to have the machine marked dead, waiting until the units and storage assigned to it clear; a failed request parks the status in error.
-:alt: State machine: pending to started on machine agent startup; started to stopped when the life watcher fires; started to error when EnsureDead fails with units or storage still assigned; stopped internally waits for units and storage to clear, then dies.
-```
-
-The machine's own status is the machine agent's report about the
-Juju agent running on the machine: `pending` (created, agent not yet
-started), `started`, `stopped` (the agent noticed the machine's life
-is no longer alive), and `error` (with a message -- the teardown
-request failed). `down` is not written by anyone: it is what a
-machine's status reads as when its agent has not been seen recently
--- the presence rule the status domain applies on read.
-
-(instance-status)=
-#### Instance status
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine provisioning
-:no-legend:
-:caption: State machine diagram: The cloud instance's provisioning status -- the controller's compute provisioner moves a pending machine to allocating ('starting') when it asks the cloud for the instance, to running once the instance and its addresses are registered, and to provisioning error when the broker fails; a transient error is retried back into allocating. In steady state the instance poller mirrors the provider-reported status.
-:alt: State machine: pending to allocating on the compute provisioner starting the instance; allocating to running when instance and addresses are recorded; allocating to provisioning error on broker error; provisioning error back to allocating on a transient retry; running mirrors the provider status.
-```
-
-The instance status is the provisioning lifecycle of the machine's
-cloud instance, written by the controller side: `pending` while the
-machine record waits to be provisioned, `allocating` ('starting')
-while the compute provisioner asks the cloud to start the instance,
-`running` once the instance ID and addresses are registered, and
-`provisioning error` when the cloud broker fails. A transient
-provisioning error is retried -- the provisioner resets the machine
-to pending and tries again -- and in steady state the instance poller
-keeps the status in step with what the cloud provider reports.
-
 (types-of-machine)=
-### Types of machine
-
-A machine's kind is not stored: the machine table has no type column.
-The kind is derived from three facts in the data model -- whether the
-machine has a parent ({ref}`LXD container <machine-lxd-container>`),
-whether it was provisioned by the user rather than the cloud
-({ref}`manual machine <manual-machine>`), and whether it hosts the
-controller ({ref}`controller machine <controller-machine>`). A machine
-that is none of these is a regular machine: a cloud instance the
-controller's compute provisioner started.
-
 (machine-lxd-container)=
-#### LXD container
+### LXD container
 
 An **LXD container** is a machine whose record is linked to another
 machine's by a machine-parent record. Each machine can have a single
@@ -247,17 +101,17 @@ Machine  State    Address         Inst id              Base          AZ  Message
 In Juju, they are both essentially the same -- 'machines'.  For example, most `juju` CLI commands that target machines can actually target system containers in the exact same way.
 
 (manual-machine)=
-#### Manual machine
+### Manual machine
 
 A **manual machine** is a machine the user provisioned themselves:
 `juju add-machine ssh:user@host` reaches an existing host over SSH
-instead of asking the cloud for one. The machine's record carries the
-manual flag, and its instance status reads `Manually provisioned
-machine` once the agent reports in (see {ref}`Machine states
-<machine-states>`).
+instead of asking the cloud for one. The machine's records keep the
+manual flag (see the persistence layer below), and its instance status
+reads `Manually provisioned machine` once the agent reports in (see
+{ref}`Machine states <machine-states>`).
 
 (controller-machine)=
-#### Controller machine
+### Controller machine
 
 The **controller machine** is the machine that hosts the controller
 application -- Juju derives it, not stores it: a machine is the
@@ -265,6 +119,139 @@ controller machine when a unit of the controller's application runs on
 it. It is the machine the controller agent runs on, and it hosts every
 model worker, the compute provisioner included (see
 {ref}`the controller agent <controller-agent>`).
+
+(the-machines-records)=
+(the-machine-record)=
+(the-machine-in-the-data-model)=
+(machine-states)=
+(machine-agent-status)=
+(instance-status)=
+(machine-base)=
+## Machines in the persistence layer
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Machine attributes
+:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre with its name, life, net-node pointer and teardown flags; the parent table naming its child and its host west with the net node below it; the agent status record east; the cloud instance below with its own status under it. Each line is a stored pointer; 1/m at each end; nothing dashed -- every drawn pointer is mandatory (the instance id is a nullable field: empty until the cloud reports it).
+:caption: Entity relationship diagram: The machine's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The machine shares its net node with the units running on it; the parent record is two pointers into the same table (the single nesting level a container may have); the two status records -- the agent's and the instance's -- hang off the machine and the instance. The base (os@channel + architecture), the manual satellite row, the placement, constraints, storage attachments, agent version, SSH host keys and LXD profiles are per-machine records the slice does not open; the lookup tables behind the status vocabularies are not drawn.
+```
+
+In the model database a machine is a **native record** (Juju's own,
+not a cloud fact; the DDL: `0018-machine.sql`, its cloud instance in
+`0017-machine-cloud-instance.sql`): the machine row carries the
+designation the client types (`name`, unique per model --
+`machine already exists`), its life, the network identity it shares
+with the units running on it (`net_node_uuid`, drawn as the name-only
+chip -- the addresses hang off the net node, which the machine and its
+units share), the time its agent started, its hostname, and the
+teardown flags (`keep_instance` on the row; the manual flag is the
+`machine_manual` satellite row's presence). The `machine_platform`
+satellite stores the base -- the `os@channel` way to identify the OS
+image (`ubuntu@22.04`, `ubuntu@22.04/stable`), Juju 3.1.0's
+replacement for the older notion of 'series' -- plus the
+architecture. `machine_parent` names a machine's host -- the single
+nesting level a container may have, composite in effect: the child row
+points up, the host row is the same machine table.
+`machine_cloud_instance` tracks the cloud instance once the provider
+reports it: the instance ID (empty until the cloud has actually
+created the instance -- an honest absence the nullable column states),
+its hardware (arch, CPU, memory, root disk, `virt_type`) and its
+availability zone. The writes are the machine service's:
+`AddMachine` inserts the machine row and its satellites;
+`SetMachineCloudInstance` stores the instance once the provider
+reports it; the removal service carries the teardown (see
+{ref}`Machine removal <machine-removal>`).
+
+The identity pair: the primary key (`machine.uuid`) is the join
+handle -- it exists so the parent record, the instance and the two
+status records have something to point at (the units running on the
+machine point at the net node, not the machine: the shared identity is
+what "runs on" means in the data model). The natural key the client
+names is `machine.name` (UNIQUE per model): `0`, `1/lxd/0` -- the
+designation (see {ref}`Machine designations <machine-designations>`).
+
+Every foreign key is an assertion the record holds: the machine row
+holds the net-node pointer (UNIQUE -- one machine per network
+identity); the parent record holds two pointers into the same table
+(`machine_parent.machine_uuid` the child's, `parent_uuid` the host's
+-- drawn west); the instance row holds the machine pointer (its
+primary key is the pointer; a pending machine has no instance row yet
+-- the row itself may be absent) and, undrawn, its own life pointer
+and a nullable zone pointer (a fact about the machine's
+{ref}`zone <zone>`, known only once the provider reports it); the two
+status records hold the machine pointer and the instance pointer
+respectively (their primary keys are the pointers). Not drawn above,
+all assertions the schema states: the manual satellite (`machine_manual`
+-- the row's presence is the manual flag), the placement
+(`machine_placement`), the machine's {ref}`constraints <constraint>`
+(`machine_constraint`), its {ref}`storage <storage>` attachments
+(`machine_volume`, `machine_filesystem`), the reported agent version,
+the SSH host keys, the LXD profiles, and the requires-reboot flag.
+
+The machine table has no type column: a machine's kind is derived,
+not stored -- the parent pointer is the container fact, the
+`machine_manual` row the manual fact, and the controller machine is
+derived in the schema itself (`v_machine_is_controller`: a machine
+whose net node runs a unit of the controller's application). A machine
+that is none of these is a regular machine: a cloud instance the
+controller's compute provisioner started. The kinds are how you add
+machines ({ref}`LXD container <machine-lxd-container>`, {ref}`manual
+machine <manual-machine>`, {ref}`controller machine
+<controller-machine>`), not how they are stored.
+
+Three projections with writers of their own:
+
+- **life** -- the shared alive / dying / dead cycle every entity has,
+  flattened onto the machine's and the instance's `life_id` fields. A
+  machine is created alive; the removal machinery marks it dying
+  (guarded one-way) together with its cloud instance record and --
+  unless the removal is forced past them -- its child containers,
+  which die with their host; the machine's own agent asks the
+  controller to mark it dead once nothing is left on it, and a
+  scheduled removal job then deletes the records (see {ref}`Machine
+  removal <machine-removal>`).
+- **`machine_status`** -- the machine agent's report about the Juju
+  agent on the machine: `pending` (created, agent not yet started),
+  `started`, `stopped` (the agent noticed the machine's life is no
+  longer alive), `error` (with a message -- the teardown request
+  failed). `down` is written by no one: it is what the status reads as
+  when the agent has not been seen recently -- the presence rule the
+  status domain applies on read. The agent's transitions as it shuts
+  its machine down:
+
+  ```{ggarch}
+  :file: ../juju.ggarch
+  :view: Machine agent status
+  :no-legend:
+  :caption: State machine diagram: The machine agent's status as it shuts its machine down -- the agent reports started at startup; when the life watcher fires (the machine is no longer alive) it reports stopped and asks the controller to have the machine marked dead, waiting until the units and storage assigned to it clear; a failed request parks the status in error.
+  :alt: State machine: pending to started on machine agent startup; started to stopped when the life watcher fires; started to error when EnsureDead fails with units or storage still assigned; stopped internally waits for units and storage to clear, then dies.
+  ```
+
+- **`machine_cloud_instance_status`** -- the provisioning lifecycle of
+  the cloud instance, written controller-side: `pending` (record
+  created, instance not yet asked for), `allocating` ('starting')
+  while the compute provisioner asks the cloud for the instance,
+  `running` once the instance ID and addresses are registered, and
+  `provisioning error` when the cloud broker fails. A transient error
+  is retried -- the provisioner re-processes the machines marked
+  transient and asks again -- back into `allocating`; in steady state
+  the instance poller mirrors the provider-reported status (the
+  vocabulary also carries `unknown`, the row's zero value). The
+  provisioner's transitions:
+
+  ```{ggarch}
+  :file: ../juju.ggarch
+  :view: Machine provisioning
+  :no-legend:
+  :caption: State machine diagram: The cloud instance's provisioning status -- the controller's compute provisioner moves a pending machine to allocating ('starting') when it asks the cloud for the instance, to running once the instance and its addresses are registered, and to provisioning error when the broker fails; a transient error is retried back into allocating. In steady state the instance poller mirrors the provider-reported status.
+  :alt: State machine: pending to allocating on the compute provisioner starting the instance; allocating to running when instance and addresses are recorded; allocating to provisioning error on broker error; provisioning error back to allocating on a transient retry; running mirrors the provider status.
+  ```
+
+None of these is transition-validated: every status write is a
+membership check (the value must be known) followed by an upsert --
+what constrains a machine is who writes which value, not a transition
+matrix. The vocabularies live in lookup tables (`machine_status_value`,
+`machine_cloud_instance_status_value`, `life`).
 
 (the-machines-machinery)=
 ## Machines in the execution layer
@@ -314,8 +301,8 @@ compute provisioner takes it from there.
 
 The controller's compute provisioner is a model worker that watches
 the model's unprovisioned machines: for each pending machine it asks
-the cloud to start an instance (the instance status machine in
-{ref}`Instance status <instance-status>`), records the instance ID
+the cloud to start an instance (the instance status machine, {ref}`Instance
+status <instance-status>`), records the instance ID
 and addresses as they become known, and retries transient failures.
 Base machines are provisioned this way by the controller; containers
 are provisioned by their host machine's agent through the LXD broker,

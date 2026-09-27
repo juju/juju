@@ -444,7 +444,7 @@ precedent).
 
 #### Machine designations (two provisioning paths)
 
-**Insert at:** § The machine's records → § The machine's identity → § Machine designations.
+**Insert at:** § Machines in the declaration layer → § Machine designations.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -456,18 +456,18 @@ precedent).
 
 #### Machine attributes (ERD slice)
 
-**Insert at:** § The machine's records → § The machine in the data model.
+**Insert at:** § Machines in the persistence layer (the section's anchor truth).
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Machine attributes
-:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre; the parent table naming its child and its host; the status record and the net node beside it; the cloud instance below with its own status under it. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The machine's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The machine's container type, manual flag, life, base (os@channel + architecture) and the instance's availability zone are stored as fields on their records; the lookup tables behind them are not drawn.
+:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre with its name, life, net-node pointer and teardown flags; the parent table naming its child and its host west with the net node below it; the agent status record east; the cloud instance below with its own status under it. Each line is a stored pointer; 1/m at each end; nothing dashed -- every drawn pointer is mandatory (the instance id is a nullable field: empty until the cloud reports it).
+:caption: Entity relationship diagram: The machine's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The machine shares its net node with the units running on it; the parent record is two pointers into the same table (the single nesting level a container may have); the two status records -- the agent's and the instance's -- hang off the machine and the instance. The base (os@channel + architecture), the manual satellite row, the placement, constraints, storage attachments, agent version, SSH host keys and LXD profiles are per-machine records the slice does not open; the lookup tables behind the status vocabularies are not drawn.
 ```
 
 #### Machine agent status (state machine)
 
-**Insert at:** § The machine's records → § Machine states → § Machine status.
+**Insert at:** § Machines in the persistence layer → the `machine_status` projection bullet.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -479,7 +479,7 @@ precedent).
 
 #### Machine provisioning (state machine)
 
-**Insert at:** § The machine's records → § Machine states → § Instance status.
+**Insert at:** § Machines in the persistence layer → the `machine_cloud_instance_status` projection bullet.
 
 ```{ggarch}
 :file: ../juju.ggarch
