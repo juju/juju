@@ -9,10 +9,6 @@ myst:
 ```{audience} user
 ```
 
-```{ibnote}
-See also: {ref}`manage-controllers`
-```
-
 In software design, a **controller** is an architectural component responsible for managing the flow of data and interactions within a system, and for mediating between different parts of the system. In Juju, it is defined in the same way, with the mention that:
 
 - It is set up via the boostrap process.
@@ -23,11 +19,40 @@ In software design, a **controller** is an architectural component responsible f
 - It is responsible for implementing all the changes defined by a Juju {ref}`user <user>` via a Juju client post-bootstrap.
 - It stores state in the internal Dqlite {ref}`database <database>`.
 
-(the-controllers-records)=
-## The controller's records
+Its neighbours: the {ref}`controller model <the-controller-model>` that
+hosts it, the {ref}`models <model>` it serves as tenants, the
+{ref}`machines <machine>` that carry its controller nodes, and the
+{ref}`controller agent <controller-agent>` that is its running
+process.
 
+## Controllers in the declaration layer
+
+You create a controller with `juju bootstrap` -- the
+controller-creation path, which has no controller access gate of its
+own (the controller does not exist yet; the bootstrap client
+authenticates against the cloud instead). You change one with
+`juju controller-config` (get/set) and remove one with
+`juju destroy-controller` -- both gated on controller
+{ref}`superuser access <user-access-controller-superuser>` by the
+Controller facade. Reading a controller (`juju controllers`,
+`juju show-controller`) requires only
+{ref}`login access <user-access-controller-login>`. The
+controller-side counterpart of every one of these verbs is the same
+call over the controller API.
+
+```{ibnote}
+See more: {ref}`manage-controllers`
+```
+
+The controller nodes themselves are added and removed through the
+Terraform provider's `enable-ha` action: there is no `juju
+enable-ha` client command, and the HighAvailability facade's
+`EnableHA` returns not-supported.
+
+(the-controllers-records)=
 (the-controller-record)=
-### The controller's identity
+(the-controller-in-the-data-model)=
+## Controllers in the persistence layer
 
 A controller is a **singleton row** in the controller database -- the
 schema enforces that exactly one exists: its UUID, the UUID of its
@@ -37,9 +62,6 @@ identity. Two satellite records complete it: the controller
 configuration (key/value) and the **controller nodes** -- one record
 per Dqlite node in the {ref}`high-availability <high-availability>`
 cluster, carrying the node's Dqlite identity and bind address.
-
-(the-controller-in-the-data-model)=
-### The controller in the data model
 
 The controller database is the controller's own record set: the
 controller row, its configuration, its nodes, and everything that
@@ -51,7 +73,7 @@ leases, and the {ref}`migration <the-model-migration>` bookkeeping.
 The per-model databases are the other half: one Dqlite database per
 model (see {ref}`the full spine <data-model-full-spine>`).
 
-#### Controller storage
+### Controller storage
 
 The controller has two persistent stores: the Dqlite databases and
 blob storage. By default, Juju will use the filesystem of the controller's supporting infrastructure for both.
@@ -118,11 +140,16 @@ controller -- it makes more **controller nodes** running the same
 controller's database and API.
 
 (the-controllers-machinery)=
-## The controller's machinery
+## Controllers in the execution layer
 
 A controller has machinery of its own: in the controller machine's
 jujud, the API server and every model worker runs -- bootstrap creates
-it, and high availability adds controller nodes.
+it, and high availability adds controller nodes. It is the only
+entity in this reference whose machinery is the thing being declared:
+by the time `juju bootstrap` returns, the controller is up -- the API
+server answering, the Dqlite database initialised, the controller
+model and the `admin` user created -- and every further verb on this
+page goes through the machinery it just started.
 
 (the-controller-operations)=
 ### Controller operations
@@ -185,21 +212,9 @@ query is the baseline snapshot -- and again on each qualifying change
   controller-model flag on the one model that runs Juju (see
   {ref}`the controller model <the-controller-model>`);
 - the controller's cloud cannot be removed while it still has
-  {ref}`models <model>`.
+  {ref}`models <model>` (`cloud still in use`).
 
-(related-entities-controller)=
-## Entities related to the controller
-
-- **The controller model** is the model that hosts the controller
-  application and its workers (see {ref}`model <model>`).
-- **Machines** host the controller's units on machine clouds; each
-  runs a controller node (see {ref}`machine <machine>`,
-  {ref}`high availability <high-availability>`).
-- **Models** are the controller's tenants -- one Dqlite database each
-  (see {ref}`model <model>`, {ref}`database <database>`).
-- **Users, clouds, credentials and SSH keys** live in the controller
-  database (see {ref}`user <user>`, {ref}`cloud <cloud>`,
-  {ref}`credential <credential>`, {ref}`ssh key <ssh-key>`).
-- **The controller agent** is the controller's process -- the worker
-  tree that *is* the running controller (see
-  {ref}`controller agent <controller-agent>`).
+These rules are enforced where the records are written: the singleton
+index and the controller-model flag at bootstrap, the superuser gates
+at the Controller facade for every later verb, and the cloud-removal
+rule at model-removal time.
