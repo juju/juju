@@ -13,11 +13,30 @@ In Juju, a **constraint** is a key-value pair that represents a specification fo
 
 If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
 
-(the-constraints-records)=
-## The constraint's records
+Its neighbours: the {ref}`model <model>`, {ref}`application <application>`, and {ref}`machine <machine>` records it hangs off, the provisioning it shapes, and the {ref}`placement directive <placement-directive>` that narrows it further.
 
+## Constraints in the declaration layer
+
+You set a constraint wherever a Juju resource is requested: with
+`juju deploy --constraints` or as add-machine flags, with
+`juju set-model-constraints` for the model's defaults and
+`juju set-constraints` for an application's, or in a bundle file
+(model {ref}`write access <user-access-model-write>` -- the model
+config and application facades gate both setting verbs on model
+write). The controller-side counterpart is the same call over the
+controller API.
+
+```{ibnote}
+See examples: {ref}`manage-applications` (the application-level
+setting); the Terraform provider takes constraints on its
+{ref}`tfjuju:manage-applications <tfjuju:manage-applications>`
+application resource.
+```
+
+(the-constraints-records)=
 (the-constraint-record)=
-### The constraint's identity
+(the-constraint-in-the-data-model)=
+## Constraints in the persistence layer
 
 A constraint is a **value, not an entity**: it has no life, no status
 and no watchers of its own -- it is a stored key/value whose meaning
@@ -26,12 +45,8 @@ comes from the entity it constrains. The records: the
 spawns), an {ref}`application's <application>` constraints record
 (nullable -- an application may inherit), and a
 {ref}`machine's <machine>` constraints record (what that machine was
-provisioned with).
-
-(the-constraint-in-the-data-model)=
-### The constraint in the data model
-
-The constraint records live where the constrained entity lives: the
+provisioned with). The constraint records live where the constrained
+entity lives: the
 model's constraint record in the model database, the application's and
 the machines' in the model database beside their owners. If
 constraints are set at multiple levels at once -- that is, with
@@ -51,28 +66,18 @@ Not applicable -- constraints have no subtypes; each key below is one
 independent value.
 
 (the-constraints-machinery)=
-## The constraint's machinery
+## Constraints in the execution layer
 
 A constraint has no machinery of its own: it is a stored value the
 compute provisioner reads at provisioning time -- setting it is a
-rewrite of the owner's record.
-
-(the-constraint-operations)=
-### Constraint operations
-
-Constraints are set at the level that should own them -- on the model
-(`juju set-model-constraints`), the application (`juju
-set-constraints`), or as deploy/add-machine flags -- and honoured when
-the compute provisioner asks the cloud for resources (see
+rewrite of the owner's record. By the time the command returns, the
+value is written on its owner's record -- whether the cloud can
+honour it is discovered later, at provisioning time, when the
+compute provisioner asks the cloud for resources (see
 {ref}`machine provisioning <machine-provisioning>`). There is no
 constraint entity to update later: setting is a rewrite of the
-owner's constraint record.
-
-(the-constraint-watchers)=
-### Constraint watchers
-
-Not applicable -- no watch surface exposes constraint records;
-provisioning reads them at the moment it provisions.
+owner's constraint record. No watch surface exposes constraint
+records; provisioning reads them at the moment it provisions.
 
 (the-constraint-rules-and-errors)=
 ## Constraint rules and errors
