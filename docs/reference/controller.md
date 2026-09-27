@@ -33,7 +33,7 @@ See more: {ref}`manage-controllers`
 :file: ../juju.ggarch
 :view: Controller attributes
 :alt: The controller's stored tables as an entity-relationship slice: the singleton controller record at the centre -- uuid, the pointer to the controller model, target version, API port, TLS material; the model registry west with the namespace mapping under it; the HA node record east with its version satellite beside it and the API addresses below it. Each drawn line is a stored pointer; the controller row's only FK is the model pointer; nodes and configuration join by the singleton convention.
-:caption: Entity relationship diagram: The controller's stored records and the schema associations between them. The singleton row is enforced by the schema: a unique index over a constant, exactly one controller. The controller row's only FK is its model pointer; the HA nodes and the configuration join by the singleton convention; the node satellites point at the node.
+:caption: Entity relationship diagram: The controller entity schema and relational associations. Notation: each line starts at the foreign key holding the pointer; 1/m cardinality at each end. Core tables: `controller` anchors the entity as a schema-enforced singleton, linked to `model` (the registry; the controller model pointer is the row's only FK) with `model_namespace` under it, and `controller_node` for the HA cluster with its per-node satellites. Omitted for clarity: the configuration key/value rows (`controller_config`, no FK to draw).
 ```
 
 In the controller database, the controller is a **singleton row**: the schema enforces that exactly one exists. The record set (`0004-controller.sql`, `0008-controller-config.sql`, `0010-controller-node.sql`):
