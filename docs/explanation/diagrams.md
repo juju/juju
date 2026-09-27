@@ -724,13 +724,13 @@ precedent).
 
 #### Unit attributes (ERD slice)
 
-**Insert at:** § The unit's records → § The unit in the data model.
+**Insert at:** § Units in the persistence layer (the section's anchor truth).
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Unit attributes
-:alt: The unit's stored tables as an entity-relationship slice: the unit record at the centre; the application it belongs to west with the shared net node below it; the agent and workload status records east; the subordinate co-location pair south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The unit's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
+:alt: The unit's stored tables as an entity-relationship slice: the unit record at the centre with its uuid, name, life, application pointer, net-node pointer and pinned charm revision; the application record it joins west with the shared net node below it; the agent and workload status records east; the subordinate co-location pair south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the password hash, drawn nullable, is a field, not a pointer).
+:caption: Entity relationship diagram: The unit's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
 ```
 
 #### Unit removal
