@@ -48,7 +48,6 @@ In Juju, many different commands have a machine argument. The shape of this argu
 
 These designations are for machine clouds only: the `--to` argument is rejected on Kubernetes models. The two provisioning paths the designations name are drawn in the execution layer.
 
-(types-of-machine)=
 (machine-lxd-container)=
 ### LXD container
 
@@ -118,11 +117,7 @@ The errors the declaration layer raises when a rule is rejected:
 - `invalid machine constraints` (the constraint payload names a space
   or a container type that does not exist).
 
-(the-machines-records)=
-(the-machine-record)=
 (the-machine-in-the-data-model)=
-(machine-states)=
-(machine-base)=
 ## Machines in the persistence layer
 
 ```{ggarch}
@@ -159,8 +154,8 @@ distributes the machine's story across a decoupled set of records:
   cloud instance is released with the machine.
 - **The configuration satellites (`machine_platform`,
   `machine_manual`, `machine_constraint`)**: three optional per-machine
-  rows -- the OS base (`os@channel` + architecture; `ubuntu@22.04`,
-  Juju 3.1.0's replacement for the older notion of 'series'), the
+  rows -- the OS base (`os@channel` + architecture, e.g.
+  `ubuntu@22.04`), the
   manual flag (the `machine_manual` row's mere presence is the flag),
   and the compute constraints (a pointer into the {ref}`constraint
   <constraint>` table).
