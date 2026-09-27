@@ -13,7 +13,7 @@ myst:
 See also: {ref}`manage-machines`
 ```
 
-In Juju, a **machine** is a {ref}`compute resource <resource-compute>` from a machine {ref}`cloud <cloud>`: a bare cloud instance, or a LXD container on one. Requested implicitly by a deploy or add-unit placement, or explicitly through the controller API.
+In Juju, a **machine** is a {ref}`compute resource <resource-compute>` from a machine {ref}`cloud <cloud>`: a bare cloud instance, or a LXD container on one, requested implicitly by a deploy or add-unit placement, or explicitly through the controller API.
 
 ```{important}
 
@@ -96,69 +96,33 @@ Writers: the machine service inserts the records (`AddMachine`, `SetMachineCloud
 (the-machines-machinery)=
 ## Machines in the execution layer
 
-In the controller, the compute provisioner and the instance poller; on the machine, the machine agent, a {ref}`Juju agent <agent>`.
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine designations
-:no-legend:
-:caption: Topology: The two provisioning paths. The controller's compute provisioner starts base machines and records the instance ID and addresses as they become known; a host machine's agent provisions its own containers through the LXD broker and watches them via the controller API. What a designation names: machine 0 and its LXD container are rows in the same machine table, the container linked to its host by a machine-parent record. Containers are machines: each runs its own machine agent, which hosts the unit agent.
-:alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
-```
+Runtime operations are split between the controller and the individual host machine. The controller orchestrates provisioning via background workers, while the local machine agent, a {ref}`Juju agent <agent>`, manages internal lifecycle and workload placement.
 
 (machines-and-units)=
 ### Machine operations
 
-- **Controller-side provisioning:** the compute provisioner starts a cloud instance for each unprovisioned machine, then records the instance ID and addresses.
-- **Agent-side provisioning:** the host machine's agent provisions its containers through the LXD broker.
-- **Manual provisioning:** the controller renders the script; the user runs it on the host over SSH; the host's machine agent reports in.
-- **Removal:** the machine is declared dead once nothing is assigned; a scheduled job deletes the records; `keep_instance` releases the cloud instance.
+- **Controller-side provisioning:** the compute provisioner monitors unprovisioned machines, requests cloud instances, and records the instance ID and addresses as they become known.
+- **Agent-side provisioning:** host machine agents provision and manage local LXD containers through the LXD broker, watching them via the controller API.
+- **Manual provisioning:** the controller renders a setup script, executed externally over SSH, after which the host agent registers itself.
+- **Machine removal:** the controller marks target machines dying; the agent triggers shutdown once assigned units and storage clear; scheduled jobs purge the records; `keep_instance` decides whether the cloud instance is released.
+- **Statuses:** the machine agent reports its status (`pending`, `started`, `stopped`, `error`); the controller writes the instance's provisioning status (`allocating`, `running`, `provisioning error`).
 
 (machine-execution-rules)=
 ### Execution rules and errors
 
-- **Rules:**
-  - Reported hardware must satisfy the assigned constraints (`machine constraint violation`).
-- **Errors:**
-  - `provisioning error`: a failing cloud broker; transient failures retry back into `allocating`.
-
-(machine-agent-status)=
-### Machine agent status
-
-The machine agent's report; its shutdown loop:
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine agent status
-:no-legend:
-:caption: State machine diagram: The machine agent's status as it shuts its machine down. The agent reports started at startup; when the life watcher fires, the machine is no longer alive, it reports stopped and asks the controller to have the machine marked dead, waiting until the units and storage assigned to it clear; a failed request parks the status in error.
-:alt: State machine: pending to started on machine agent startup; started to stopped when the life watcher fires; started to error when EnsureDead fails with units or storage still assigned; stopped internally waits for units and storage to clear, then dies.
-```
-
-(instance-status)=
-### Instance status
-
-The controller-written provisioning status; the provisioner's transitions:
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Machine provisioning
-:no-legend:
-:caption: State machine diagram: The cloud instance's provisioning status. The controller's compute provisioner moves a pending machine to allocating, meaning starting, when it asks the cloud for the instance, to running once the instance and its addresses are registered, and to provisioning error when the broker fails; a transient error is retried back into allocating. In steady state the instance poller mirrors the provider-reported status.
-:alt: State machine: pending to allocating on the compute provisioner starting the instance; allocating to running when instance and addresses are recorded; allocating to provisioning error on broker error; provisioning error back to allocating on a transient retry; running mirrors the provider status.
-```
+- **Rules:** reported hardware must satisfy the assigned machine constraints (`machine constraint violation`).
+- **Errors:** `provisioning error` parks failed cloud allocations; transient broker failures retry back into `allocating`.
 
 (machine-watchers)=
 ### Machine watchers
 ```{audience} juju-dev
 ```
 
-The machine domain's watchable service exposes:
+The machine domain's watchable service exposes real-time change streams rather than polling loops:
 
-- one machine's life and dependants: the machine agent's shutdown watcher;
-- a parent machine's containers' life: the host agent's container provisioner;
-- the model's non-container machines: the compute provisioner's provisioning surface;
-- the model machines' life and start times: the instance poller's mirroring surface;
-- the model's machine cloud instances, and a machine's reboot state: the instance poller's and the reboot machinery's surfaces.
+- **Machine life and dependants:** drives the local shutdown watcher.
+- **Container life:** drives host-side container provisioning loops.
+- **Model machines:** drives the compute provisioner.
+- **Instance states:** drives the instance poller's steady-state mirroring (life, start times, cloud instances) and the reboot machinery.
 
-Every watcher fires once immediately on creation, then on each qualifying change. See {ref}`the watcher pattern <watchers>`.
+Every watcher fires an initial baseline snapshot on creation, followed by notifications on qualifying changes. See {ref}`the watcher pattern <watchers>`.
