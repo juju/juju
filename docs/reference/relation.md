@@ -24,56 +24,65 @@ See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Pro
 
 (the-relations-persistence)=
 (the-relations-records)=
+(the-relation-states)=
+(relation-status)=
+(relation-settings)=
 ## Relations in the persistence layer
 
-In the model database, a relation is a record identified by a
-**relation ID** (assigned automatically by Juju; expressed in
-monotonically increasing numbers, drawn from a sequence unique to the
-model) or a **relation key** (derived from the endpoints, format:
-`application1:[endpoint] application2:[endpoint]`). The endpoint pair is
-the relation's natural key: no two relations in a model may connect the
-same pair of endpoints, and the relation service checks the pair before
-it writes the record -- a second integrate of an already-integrated pair
-fails with `already exists`.
+In the model database, a relation is a **native record** -- the
+connection between applications (the DDL: `0024-relation.sql`). The
+`relation` record carries the **relation ID** (assigned automatically
+by Juju; expressed in monotonically increasing numbers, drawn from a
+sequence unique to the model), its life, its scope, and the suspended
+flag with its reason. The `relation_endpoint` table links the
+relation to the application endpoints that realize it (two rows for a
+provider/requirer relation, one for a peer relation); `relation_unit`
+records the units that have entered scope, per endpoint.
 
-The relation's state is spread across ten stored tables in the model
-database. The `relation` record carries the relation ID, its life,
-its scope, and the suspended flag with its reason. The
-`relation_endpoint` table links the relation to the application
-endpoints that realize it (two rows for a provider/requirer
-relation, one for a peer relation); `relation_unit` records the units
-that have entered scope, per endpoint.
+```{ggarch}
+:file: ../juju.ggarch
+:view: Relation attributes
+:alt: The relation tables as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings tables (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The relation's ten stored tables and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
+```
 
-The relation's payload lives in four settings tables: unit-level
-settings in `relation_unit_setting` and application-level settings in
-`relation_application_setting`, each with a companion `sha256` hash
-table that lets watchers detect a settings change without reading the
-values. Both are scoped to the relation, not to the application
-alone: the application-level table is keyed per relation endpoint, so
-an application that participates in several relations keeps an
-independent set of settings for each. When a unit leaves scope, its
-settings are copied to `relation_unit_setting_archive`, where they
-stay readable for the lifetime of the relation -- even after the unit
-itself is gone; a read of a departed unit's settings is served from
-the archive (`relation-get`, for example).
+The identity pair: the primary key (`relation.uuid`) is the join
+handle -- it exists so the endpoint rows, the status row and the
+settings archive have something to point at. The natural keys are the
+client-facing handles on that row: the **relation ID** itself (UNIQUE
+-- the number `juju relations` lists) and the **relation key**
+(derived from the endpoints, format: `application1:[endpoint]
+application2:[endpoint]`). The endpoint pair is the relation's
+natural key: no two relations in a model may connect the same pair of
+endpoints, and the relation service checks the pair before it writes
+the record -- a second integrate of an already-integrated pair fails
+with `already exists`.
 
-These settings are often called *relation databags* in the charm
-community -- a name that stuck from the early charm-tooling days.
-Juju's own code never uses it: the tables, the service methods, the
-API facades and the hook context all say *settings* (`relation_unit_setting`,
-`Settings()`, `ApplicationSettings()`), so this document does too.
-The word is kept here as an alias so that readers arriving from charm
-documentation find the same concept.
+Every foreign key is an assertion the record holds: the
+relation_endpoint rows hold the relation pointer each and one
+application-endpoint pointer each; the relation_unit rows hold one
+relation-endpoint pointer and one unit pointer each; the settings
+rows hold their owner's pointer each (unit settings under
+relation_unit, application settings under relation_endpoint -- keyed
+per relation endpoint, so an application in several relations keeps
+an independent set per relation); the hash tables hold the same
+pointer as the settings they summarize (they let watchers detect a
+settings change without reading the values); the settings archive
+holds the relation pointer (when a unit leaves scope, its settings
+are copied there and stay readable for the lifetime of the relation
+-- even after the unit itself is gone; a read of a departed unit's
+settings is served from the archive, `relation-get` for example);
+the status row holds the relation pointer and the status-vocabulary
+pointer. The application endpoint row holds the application pointer
+and the charm-relation pointer; its space pointer is not drawn
+(the endpoint is a boundary node here) -- a null space means the
+endpoint is bound to the application's default space (see
+{ref}`application endpoint <application-endpoint>`).
 
-The relation's status is its own table pair: `relation_status` holds
-the current status, message and update time; `relation_status_type`
-is the status vocabulary (see {ref}`Relation status
-<relation-status>`).
-
-The relation service in the controller performs the writes: creating a
-relation inserts the relation record with its endpoint rows and creates
-its initial settings; suspending or resuming a relation rewrites the
-suspended flag with its reason.
+The relation service in the controller performs the writes: creating
+a relation inserts the relation record with its endpoint rows and
+creates its initial settings; suspending or resuming a relation
+rewrites the suspended flag with its reason.
 
 The services do not read these tables directly: they read them
 through four derived views (`v_application_endpoint`,
@@ -82,14 +91,35 @@ through four derived views (`v_application_endpoint`,
 domain speaks in. The views have no pointers of their own, so they do
 not appear in the diagram.
 
-```{ggarch}
-:file: ../juju.ggarch
-:view: Relation attributes
-:alt: The relation tables as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings tables (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The relation's ten stored tables and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
-```
+Two projections with writers of their own:
 
-(relation-settings)=
+- **life** -- the shared alive / dying / dead cycle every entity
+  has. A relation is created alive. It cannot stay alive if either of
+  its applications stops being alive, and it cannot be declared dead
+  until every relation unit has left scope. When the relation is
+  removed, the removal machinery takes over: the relation is marked
+  dying, the units in scope leave as their agents notice, and a
+  scheduled removal job finishes the job once nothing is left in
+  scope.
+- **`relation_status`** -- the relation-specific status the status
+  domain validates: the table records one of six status values,
+  `joining`, `joined`, `suspending`, `suspended`, `broken`, `error`
+  (the vocabulary is the `relation_status_type` table). A new
+  relation starts as `joining`; the status row is written when the
+  relation record is created. `joined` is set by the **leader unit's
+  agent**: when a unit enters the relation's scope, only the leader
+  reports the relation as joined. `suspending` and `suspended`
+  record a suspended relation (see {ref}`Suspending and resuming
+  <suspending-relations>`); the controller's firewaller also writes
+  relation status as it opens and closes the provider's ingress.
+  `error` requires a status message. Each write goes through the
+  status domain's `SetRelationStatus`, which validates the
+  transition from the current status: every status may transition to
+  `broken`; `joining` cannot follow `joined` or `broken`;
+  `suspending` cannot follow `broken` or `suspended`; `joined` and
+  `suspended` cannot follow `broken`; and `error` cannot be set
+  without a message.
+
 ### Relation settings
 
 Creating a relation creates its settings: one unit settings record
@@ -97,6 +127,14 @@ per involved unit and one application settings record per involved
 application. The settings can be unit-scoped or application-scoped,
 and each unit involved in the relation gets a local copy of all the
 settings for that relation.
+
+These settings are often called *relation databags* in the charm
+community -- a name that stuck from the early charm-tooling days.
+Juju's own code never uses it: the tables, the service methods, the
+API facades and the hook context all say *settings*
+(`relation_unit_setting`, `Settings()`, `ApplicationSettings()`), so
+this document does too. The word is kept here as an alias so that
+readers arriving from charm documentation find the same concept.
 
 #### Permissions around relation settings
 
@@ -136,48 +174,6 @@ machinery (`relation-set --app` commits application settings, for
 example), and the commit that carries application settings is wrapped
 in a leadership lease -- the unit committing them must hold
 leadership.
-
-### Relation states
-
-A relation carries two orthogonal state machines: its **life** -- the
-shared alive / dying / dead cycle every entity has -- and its
-**relation status**, the relation-specific status the status domain
-validates. In both, the machinery in the execution layer drives the
-transitions; the record here stores them.
-
-#### Life
-
-A relation is created alive. It cannot stay alive if either of its
-applications stops being alive, and it cannot be declared dead until
-every relation unit has left scope. When the relation is removed, the
-removal machinery takes over: the relation is marked dying, the units
-in scope leave as their agents notice, and a scheduled removal job
-finishes the job once nothing is left in scope.
-
-(relation-status)=
-#### Relation status
-
-The `relation_status` table records one of six status values:
-`joining`, `joined`, `suspending`, `suspended`, `broken`, `error`
-(defined in the model schema's `relation_status_type`).
-
-- A new relation starts as `joining`; the status row is written when
-  the relation record is created.
-- `joined` is set by the **leader unit's agent**: when a unit enters
-  the relation's scope, only the leader reports the relation as
-  joined.
-- `suspending` and `suspended` record a suspended relation (see
-  {ref}`Suspending and resuming <suspending-relations>`); the
-  controller's firewaller also writes relation status as it opens and
-  closes the provider's ingress.
-- `error` requires a status message.
-
-Each write goes through the status domain's `SetRelationStatus`, which
-validates the transition from the current status: every status may
-transition to `broken`; `joining` cannot follow `joined` or `broken`;
-`suspending` cannot follow `broken` or `suspended`; `joined` and
-`suspended` cannot follow `broken`; and `error` cannot be set without
-a message.
 
 ### Types of relation
 
