@@ -33,73 +33,79 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Terraform Provide
 (the-secrets-records)=
 (the-secret-record)=
 (the-secret-in-the-data-model)=
+(the-secret-states)=
+(secret-uri)=
+(secret-name)=
+(secret-label)=
 ## Secrets in the persistence layer
 
-A secret is identified by its **secret ID** -- the identifier part of
-its URI -- and it carries its metadata (a description, its rotation
-policy, whether its obsolete revisions are auto-pruned, and the latest
+A secret is a Juju-managed payload with controlled access: the
+metadata record and everything hanging off it live in the model
+database (the DDL: `0012-secret.sql`); the backends themselves -- the
+types, their configurations, and the per-model active backend -- live
+in the controller database, not the model database. A secret is
+identified by its **secret ID** -- the identifier part of its URI --
+and it carries its metadata (a description, its rotation policy,
+whether its obsolete revisions are auto-pruned, and the latest
 revision number), an **owner** record (the application, unit, or model
 that created it, with the owner's label for it), and its **revisions**
 -- one record per published payload, each with its content either
-stored inline or referenced in a {ref}`secret backend <secret-backend>`,
-plus its obsolete and expiry bookkeeping (see
-{ref}`Secret states <the-secret-states>`). Grants are their own
-records (see {ref}`the data model <the-secret-in-the-data-model>`).
+stored inline or referenced in a {ref}`secret backend
+<secret-backend>`, plus its obsolete and expiry bookkeeping. Grants
+are their own records.
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Secret attributes
+:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
+:caption: Entity relationship diagram: The secret's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
+```
+
+The identity pair: the primary key is the secret ID itself
+(`secret_metadata.secret_id`) -- there is no separate join handle: the
+owner records, the revisions, the consumers and the permission grants
+all point at the secret ID. The natural keys are the client-facing
+handles on that one ID: the **secret URI** -- assigned by Juju when
+the secret is added (by a user through `juju add-secret` or a charm
+via `secret-add`; returned to the caller for subsequent actions, for
+example granting permission or putting the URI in relation data). The
+URI's ID part is a 20-character identifier; a secret that originated
+in another model carries that model's UUID as the URI's host part
+(`secret://<source-uuid>/<id>`); a local secret's URI is just
+`secret:<id>`. A user secret may also carry a user-chosen **name**
+(`my-api-key`, matching `^([a-z](?:-?[a-z0-9]){2,})$`) -- the string
+identifier for the user's own reference; and an owner or consumer may
+assign a **label** (`vault-api-token`) -- any string, no format
+constraints, unique per owner or consumer, for the charm's internal
+reference. One secret may end up with all of these at once: the user
+names it at create time, Juju assigns the URI, the consuming charm
+labels it.
+
+Every foreign key is an assertion the record holds: the owner rows
+hold the secret pointer (one table each for an application, unit, or
+model owner -- which table is the secret's type, read off the ERD
+below) and their owner pointers name the owning application, unit or
+model; the revision rows hold the secret pointer (UNIQUE on secret ID
++ revision number); the content rows hold the revision pointer (the
+payload inline, for the internal backend) and a `secret_value_ref`
+row holds the backend reference when the payload lives in a
+{ref}`secret backend <secret-backend>`'s store; the consumer rows
+hold the secret pointer and record the tracked revision per unit (or
+per remote unit, for cross-model secrets); the permission rows hold
+the secret pointer and carry the grant: the role (none | view |
+manage) over a subject (unit | application | model) within a scope
+(unit | application | model | relation) (see
+{ref}`rules <the-secret-rules-and-errors>`).
 
 The same secret may end up being associated with multiple identifiers:
 
 - (name vs. URI vs. label:) I as a user might create a secret with a name that makes sense to me, for example, `my-api-key`. Juju assigns it a URI, for example, `9m4e2mr0ui3e8a215n4g`. When I then configure a charm to use it, the charm might give it a label, for example, `vault-api-token`.
 - (label vs. URI vs. label:) A leader unit creates an application secret and assigns to it a label in its capacity as the secret owner, for example, `db-password`. Juju assigns it a URI, e.g., `6k7n4ps1vj2d9b318x5w`. Any unit granted permission to the secret (peer units get implicit permission) might assign another label in their capacity as secret consumers, for example, `shared-db-creds`.
 
-(secret-uri)=
-### Secret URI
-
-In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <charm-secret>`, a secret URI is automatically assigned by Juju when the secret is added, either by a user through `juju add-secret` (or its equivalent in other Juju clients) or by a charm via `secret-add`. The URI is returned to the caller so they can then use it in subsequent actions (for example, a charm might grant permission to that secret using the URI and then put the URI in relation data).
-
-The URI's ID part is a 20-character identifier; a secret that
-originated in another model carries that model's UUID as the URI's
-host part (`secret://<source-uuid>/<id>`); a local secret's URI is
-just `secret:<id>`.
-
-(secret-name)=
-### Secret name
-
-In {ref}`user secrets <user-secret>`, a secret name is the string identifier assigned to a secret by the user when adding the secret to Juju, for their own reference.
-
-Secret names must start with a lowercase letter, followed by a sequence of letters, numbers, and dashes, and must not end with a dash; in short, they must comply with the following regex: `^([a-z](?:-?[a-z0-9]){2,})$`.
-
-(secret-label)=
-### Secret label
-
-In {ref}`user secrets <user-secret>` or {ref}` charm secrets <charm-secret>`, a secret label is a string identifier that may be assigned to a secret by the secret owning and, respectively, the secret consuming charm for their own internal reference.
-
-Unlike secret names, labels have no format constraints and can be any string. This flexibility allows charms to use their own naming conventions for internal reference.
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Secret attributes
-:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The secret's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
-```
-
-The secret's records are split by role: the `secret_metadata` record
-(keyed by the secret ID) carries the description, the rotation policy,
-the auto-prune flag and the latest revision number; the owner records
--- one table each for an application, unit, or model owner -- carry
-the owner and its label (unique per owner); the consumer records carry
-the consumers and their labels; the `secret_revision` records carry
-the published payloads, each with its content in the `secret_content`
-records (inline, for the internal backend) or in a
-`secret_value_ref` (a pointer into the
-{ref}`secret backend <secret-backend>`'s store), and their obsolete,
-pending-delete and expiry bookkeeping; and the `secret_permission`
-records carry the grants (see
-{ref}`rules <the-secret-rules-and-errors>`). The backends themselves
--- the types, their configurations, and the per-model active backend
--- live in the controller database, not the model database.
-
-(the-secret-states)=
-### Secret states
+A secret is typed by **who owns it** -- the owner record is one of an
+application, a unit, or the model, and that is the whole taxonomy. The
+type is a stored discriminator: it is which owner table the secret
+hangs off.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -109,14 +115,22 @@ records carry the grants (see
 :alt: State machine: reserved to active on create, active self-loops for grant/revoke and new-revision publication, active to rotate-due on the rotate policy and back via secret-rotate, active to expiry-due and on to removed via secret-expired then secret-remove, active to obsolete when superseded, obsolete to removed on prune.
 ```
 
-A secret carries no life cycle of the shared alive / dying / dead
-kind: its state machine is the revision and access story -- reserved,
-active, granted, superseded, obsolete, removed (the view above); the
-operations in the execution layer drive it, the records here store
-it. It is observed through the secret events (see
-{ref}`the secret hooks <hook-secret-changed>`).
+One state machine, and it is not the shared life:
 
-#### Charm-secret lifecycle
+- **the revision and access story** -- reserved (URI minted), active
+  (the latest revision published, its content in a backend), granted
+  (view | manage roles), superseded, obsolete, removed (the view
+  above). A secret carries no life cycle of the shared alive / dying /
+  dead kind. The operations in the execution layer drive it, the
+  records here store it; it is observed through the secret events
+  (see {ref}`the secret hooks <hook-secret-changed>`).
+
+A secret's state machine has writers, but not column writers the way
+a status table has: the owner publishes revisions, the controller
+writes the grant and tracking rows, the rotate policy and the expiry
+fire the owner's hooks. The projection above is those writers' story.
+
+### Charm-secret lifecycle
 
 Charms can use relations to share secrets, such as API keys, a database's address, credentials and so on. Like a relation has a "provider" and a "requirer", so a secret has an "owner" and an "observer" -- though these need not coincide with the applications' roles in the relation.
 
@@ -148,7 +162,7 @@ Charms that create secrets should _always_ handle the `secret-remove` event. Tha
 
 ```
 
-#### User-secret lifecycle
+### User-secret lifecycle
 
 A user secret's lifecycle consists of:
 
@@ -163,11 +177,6 @@ The **only hook** a user-secret observer receives is `secret-changed`. There is 
 
 (types-of-secret)=
 ### Types of secret
-
-A secret is typed by **who owns it** -- the owner record is one of an
-application, a unit, or the model, and that is the whole taxonomy. The
-type is a stored discriminator: it is which owner table the secret
-hangs off.
 
 (charm-secret)=
 #### Charm secret

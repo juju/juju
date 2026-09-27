@@ -656,13 +656,13 @@ precedent).
 
 #### Secret attributes (ERD slice)
 
-**Insert at:** § The secret's records → § The secret in the data model.
+**Insert at:** § Secrets in the persistence layer (the section's anchor truth).
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Secret attributes
-:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Every arrow starts at the foreign-key column that stores the pointer.
-:caption: Entity relationship diagram: The secret's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
+:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
+:caption: Entity relationship diagram: The secret's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
 ```
 
 ### reference/space.md
