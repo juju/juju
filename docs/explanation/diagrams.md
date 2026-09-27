@@ -679,6 +679,19 @@ precedent).
 :alt: Application record to space record to subnet record; arrows: subnet belongs to 0..1 space; application default binding (one).
 ```
 
+### reference/subnet.md
+
+#### Subnet attributes (ERD slice)
+
+**Insert at:** § The subnet in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Subnet attributes
+:alt: The subnet's stored tables as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Every arrow starts at the foreign-key column that stores the pointer.
+:caption: Entity relationship diagram: The subnet's stored records and every foreign key between them -- each arrow starts at the fk column that stores the pointer (the only directionality the storage layer has). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
+```
+
 ### reference/status.md
 
 #### Status domains (who sets what)
