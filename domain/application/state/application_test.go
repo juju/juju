@@ -4668,7 +4668,7 @@ func (s *applicationStateSuite) upsertK8sService(c *tc.C, appName, providerID st
 		DeviceUUID:  tc.Must(c, uuid.NewUUID).String(),
 	}
 	for _, addr := range addresses {
-		args.Addresses = append(args.Addresses, applicationinternal.K8sServiceAddress{UUID: tc.Must(c, uuid.NewUUID).String(), ProviderAddress: addr})
+		args.Addresses = append(args.Addresses, applicationinternal.Address{UUID: tc.Must(c, uuid.NewUUID).String(), ProviderAddress: addr})
 	}
 	return s.state.UpsertK8sService(c.Context(), appName, providerID, args)
 }

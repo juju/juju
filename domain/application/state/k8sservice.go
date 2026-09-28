@@ -75,27 +75,27 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 				return errors.Errorf("updating cloud service provider ID: %w", err)
 			}
 		}
-		if err := st.deleteK8sServiceAddresses(ctx, tx, svc.NetNodeUUID); err != nil {
+		if err := st.deleteNetNodeAddresses(ctx, tx, svc.NetNodeUUID); err != nil {
 			return errors.Capture(err)
 		}
-		var ipAddresses []applicationinternal.K8sServiceAddress
+		var ipAddresses []applicationinternal.Address
 		for _, addr := range args.Addresses {
 			if addr.AddressType() != network.HostName {
 				ipAddresses = append(ipAddresses, addr)
 				continue
 			}
-			if err := st.insertK8sServiceFQDN(ctx, tx, svc.NetNodeUUID, addr); err != nil {
+			if err := st.insertNetNodeFQDN(ctx, tx, svc.NetNodeUUID, addr); err != nil {
 				return errors.Capture(err)
 			}
 		}
 		if len(ipAddresses) == 0 {
 			return nil
 		}
-		deviceUUID, err := st.ensureK8sServiceDevice(ctx, tx, svc.NetNodeUUID, applicationName, args.DeviceUUID)
+		deviceUUID, err := st.ensureNetNodeDevice(ctx, tx, svc.NetNodeUUID, args.DeviceUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		return st.insertK8sServiceIPAddresses(ctx, tx, svc.NetNodeUUID, deviceUUID, ipAddresses)
+		return st.insertK8sNetNodeIPAddresses(ctx, tx, svc.NetNodeUUID, deviceUUID, ipAddresses)
 	})
 }
 
@@ -119,9 +119,9 @@ INSERT INTO k8s_service (*) VALUES ($k8sService.*)`, svc)
 	return nil
 }
 
-func (st *State) deleteK8sServiceAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
+func (st *State) deleteNetNodeAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
 	node := dbUUID{UUID: netNodeUUID}
-	// Only remove orphaned FQDNs belonging to this Service. Other net nodes
+	// Only remove orphaned FQDNs belonging to this net node. Other net nodes
 	// may still reference the same address and scope.
 	selectFQDNs, err := st.Prepare(`
 SELECT nnfa.address_uuid AS &dbUUID.uuid
@@ -143,7 +143,7 @@ WHERE nnfa.net_node_uuid = $dbUUID.uuid`, node)
 			return errors.Capture(err)
 		}
 		if err := tx.Query(ctx, stmt, node).Run(); err != nil {
-			return errors.Errorf("removing cloud service addresses: %w", err)
+			return errors.Errorf("removing net node addresses: %w", err)
 		}
 	}
 	if len(oldFQDNs) == 0 {
@@ -163,12 +163,14 @@ WHERE fa.uuid IN ($uuids[:]) AND fa.uuid NOT IN referenced`, addressUUIDs)
 		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, deleteOrphan, addressUUIDs).Run(); err != nil {
-		return errors.Errorf("removing orphaned service hostnames: %w", err)
+		return errors.Errorf("removing orphaned hostnames: %w", err)
 	}
 	return nil
 }
 
-func (st *State) insertK8sServiceFQDN(ctx context.Context, tx *sqlair.TX, netNodeUUID string, addr applicationinternal.K8sServiceAddress) error {
+func (st *State) insertNetNodeFQDN(
+	ctx context.Context, tx *sqlair.TX, netNodeUUID string, addr applicationinternal.Address,
+) error {
 	type hostname struct {
 		UUID        string `db:"uuid"`
 		Address     string `db:"address"`
@@ -185,7 +187,7 @@ ON CONFLICT (address, scope_id) DO NOTHING`, input)
 		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, insert, input).Run(); err != nil {
-		return errors.Errorf("inserting service hostname: %w", err)
+		return errors.Errorf("inserting hostname: %w", err)
 	}
 	link, err := st.Prepare(`
 INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid)
@@ -200,16 +202,16 @@ ON CONFLICT DO NOTHING`, input)
 	return errors.Capture(tx.Query(ctx, link, input).Run())
 }
 
-func (st *State) ensureK8sServiceDevice(ctx context.Context, tx *sqlair.TX, netNodeUUID, appName, deviceUUID string) (string, error) {
-	device := k8sServiceDevice{
+func (st *State) ensureNetNodeDevice(ctx context.Context, tx *sqlair.TX, netNodeUUID, deviceUUID string) (string, error) {
+	device := netNodeDevice{
 		UUID: deviceUUID, NetNodeID: netNodeUUID,
 		DeviceTypeID:      int(domainnetwork.DeviceTypeUnknown),
 		VirtualPortTypeID: int(domainnetwork.NonVirtualPortType),
 	}
 	query, err := st.Prepare(`
-SELECT lld.uuid AS &k8sServiceDevice.uuid
+SELECT lld.uuid AS &netNodeDevice.uuid
 FROM link_layer_device AS lld
-WHERE lld.net_node_uuid = $k8sServiceDevice.net_node_uuid`, device)
+WHERE lld.net_node_uuid = $netNodeDevice.net_node_uuid`, device)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -218,7 +220,7 @@ WHERE lld.net_node_uuid = $k8sServiceDevice.net_node_uuid`, device)
 	} else if !errors.Is(err, sqlair.ErrNoRows) {
 		return "", errors.Capture(err)
 	}
-	insert, err := st.Prepare(`INSERT INTO link_layer_device (*) VALUES ($k8sServiceDevice.*)`, device)
+	insert, err := st.Prepare(`INSERT INTO link_layer_device (*) VALUES ($netNodeDevice.*)`, device)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -228,7 +230,7 @@ WHERE lld.net_node_uuid = $k8sServiceDevice.net_node_uuid`, device)
 	return device.UUID, nil
 }
 
-func (st *State) insertK8sServiceIPAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID, deviceUUID string, addresses []applicationinternal.K8sServiceAddress) error {
+func (st *State) insertK8sNetNodeIPAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID, deviceUUID string, addresses []applicationinternal.Address) error {
 	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
 		return errors.Capture(err)

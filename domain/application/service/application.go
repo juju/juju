@@ -897,7 +897,7 @@ func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID stri
 		if err != nil {
 			return errors.Capture(err)
 		}
-		args.Addresses = append(args.Addresses, internal.K8sServiceAddress{
+		args.Addresses = append(args.Addresses, internal.Address{
 			UUID: id.String(), ProviderAddress: addr,
 		})
 	}
