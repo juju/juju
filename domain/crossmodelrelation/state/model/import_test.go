@@ -804,6 +804,112 @@ func (s *importSecretSuite) TestImportRemoteApplicationSecretGrants(c *tc.C) {
 	c.Check(obtainedScopeType, tc.Equals, int(domainsecret.ScopeRelation))
 }
 
+// TestImportRemoteApplicationSecretGrantsMultipleApplications checks that
+// grants of several applications of the same secret are all persisted, as
+// the permission of a secret is unique per application, not per relation.
+func (s *importSecretSuite) TestImportRemoteApplicationSecretGrantsMultipleApplications(c *tc.C) {
+	// Arrange
+	secretID := "secret-id"
+	app1UUID := "11111111-1111-1111-1111-111111111111"
+	app2UUID := "22222222-2222-2222-2222-222222222222"
+	rel1UUID := tc.Must(c, internaluuid.NewUUID).String()
+	rel2UUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// secret_permission.secret_id references secret_metadata(secret_id)
+	s.createSecretWithMetadata(c, secretID)
+
+	grants := []internal.RemoteApplicationSecretGrant{
+		{
+			SecretID:        secretID,
+			ApplicationName: "app1",
+			RelationKey:     "app1:endpoint other:endpoint",
+			ApplicationUUID: app1UUID,
+			RelationUUID:    rel1UUID,
+		}, {
+			SecretID:        secretID,
+			ApplicationName: "app2",
+			RelationKey:     "app2:endpoint other:endpoint",
+			ApplicationUUID: app2UUID,
+			RelationUUID:    rel2UUID,
+		},
+	}
+
+	// Act
+	err := s.state.ImportRemoteApplicationSecretGrants(c.Context(), grants)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+
+	type permission struct {
+		SubjectUUID string
+		ScopeUUID   string
+	}
+	var obtained []permission
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+			SELECT subject_uuid, scope_uuid
+			FROM secret_permission
+			WHERE secret_id = ?
+			ORDER BY subject_uuid
+		`, secretID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var p permission
+			if err := rows.Scan(&p.SubjectUUID, &p.ScopeUUID); err != nil {
+				return err
+			}
+			obtained = append(obtained, p)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.IsNil)
+	c.Check(obtained, tc.DeepEquals, []permission{
+		{SubjectUUID: app1UUID, ScopeUUID: rel1UUID},
+		{SubjectUUID: app2UUID, ScopeUUID: rel2UUID},
+	})
+}
+
+// TestImportRemoteApplicationSecretGrantsDuplicateApplication checks that
+// importing two grants of the same (secret, application) fails, as the
+// permission of a secret is unique per application. This pins the
+// contract the migration service relies on when it imports at most one
+// grant per application.
+func (s *importSecretSuite) TestImportRemoteApplicationSecretGrantsDuplicateApplication(c *tc.C) {
+	// Arrange
+	secretID := "secret-id"
+	appUUID := tc.Must(c, internaluuid.NewUUID).String()
+	rel1UUID := tc.Must(c, internaluuid.NewUUID).String()
+	rel2UUID := tc.Must(c, internaluuid.NewUUID).String()
+
+	// secret_permission.secret_id references secret_metadata(secret_id)
+	s.createSecretWithMetadata(c, secretID)
+
+	grants := []internal.RemoteApplicationSecretGrant{
+		{
+			SecretID:        secretID,
+			ApplicationName: "app",
+			RelationKey:     "app:endpoint other:endpoint",
+			ApplicationUUID: appUUID,
+			RelationUUID:    rel1UUID,
+		}, {
+			SecretID:        secretID,
+			ApplicationName: "app",
+			RelationKey:     "app:other-endpoint other:endpoint",
+			ApplicationUUID: appUUID,
+			RelationUUID:    rel2UUID,
+		},
+	}
+
+	// Act
+	err := s.state.ImportRemoteApplicationSecretGrants(c.Context(), grants)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*UNIQUE constraint failed: secret_permission.secret_id, secret_permission.subject_uuid.*`)
+}
+
 func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 	// Arrange
 	secretID := "secret-id"

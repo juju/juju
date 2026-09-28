@@ -314,11 +314,17 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				remoteApp.Name(), err)
 		}
 
+		// The offer connections of a proxy must each reference a distinct
+		// relation, as a duplicated key would fail the import deep in the
+		// state layer, when importing the same relation twice.
+		if err := validateOfferConnectionRelationKeys(conns, remoteApp.Name()); err != nil {
+			return errors.Capture(err)
+		}
+
 		for _, offerConnection := range conns {
 			// The username of the offer connection tells us who made the
 			// original offer connection request in the source model.
-			var relationUUID string
-			relationUUID, err = findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
+			relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
 			if err != nil {
 				return errors.Errorf("finding relation UUID for remote application %q: %w",
 					remoteApp.Name(), err)
@@ -376,6 +382,22 @@ func (i *importOperation) importRemoteApplicationConsumers(
 		return nil
 	}
 	return i.importService.ImportRemoteApplicationConsumers(ctx, input)
+}
+
+// validateOfferConnectionRelationKeys checks that each offer connection
+// of a remote application references a distinct relation. A description
+// anomaly duplicating a relation key would otherwise fail the import deep
+// in the state layer, when importing the same relation twice.
+func validateOfferConnectionRelationKeys(conns []offerConnection, appName string) error {
+	seenRelationKeys := make(map[string]struct{}, len(conns))
+	for _, conn := range conns {
+		if _, ok := seenRelationKeys[conn.RelationKeyStr]; ok {
+			return errors.Errorf("duplicate relation key %q in offer connections of remote application %q",
+				conn.RelationKeyStr, appName)
+		}
+		seenRelationKeys[conn.RelationKeyStr] = struct{}{}
+	}
+	return nil
 }
 
 type offerConnection struct {

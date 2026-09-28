@@ -1163,8 +1163,10 @@ func (s *migrationSuite) TestImportGrantedSecretsImportGrantsFail(c *tc.C) {
 // TestImportGrantedSecretsSkipsUnresolvedRelation checks that a grant
 // scoped by a relation that was not migrated under its legacy key (for
 // example a relation of a legacy consumer proxy that was re-keyed on
-// import) is skipped with a warning, while the remaining grants and the
-// consumers of resolved grants are still imported.
+// import) is skipped with a warning, while a grant of the same
+// application scoped by a relation that kept its key is still imported,
+// together with the consumers of resolved grants. A skipped grant doesn't
+// count towards the first grant of its application.
 func (s *migrationSuite) TestImportGrantedSecretsSkipsUnresolvedRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1195,12 +1197,12 @@ func (s *migrationSuite) TestImportGrantedSecretsSkipsUnresolvedRelation(c *tc.C
 			ACLs: []GrantedSecretACLImport{
 				{
 					ApplicationName: appName,
-					RelationKey:     resolvedKey,
+					RelationKey:     unresolvedKey,
 					Role:            secrets.RoleView,
 				},
 				{
 					ApplicationName: appName,
-					RelationKey:     unresolvedKey,
+					RelationKey:     resolvedKey,
 					Role:            secrets.RoleView,
 				},
 			},
@@ -1285,10 +1287,12 @@ func (s *migrationSuite) TestImportGrantedSecretsSkipsConsumersWhenGrantSkipped(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImportGrantedSecretsKeepsAllGrantsForSameApplication checks that
-// grants of the same application scoped by different relations are all
-// imported, instead of the last one overwriting the others.
-func (s *migrationSuite) TestImportGrantedSecretsKeepsAllGrantsForSameApplication(c *tc.C) {
+// TestImportGrantedSecretsKeepsFirstGrantForSameApplication checks that
+// only the first grant of an application is imported when the application
+// holds several grants, as the model holds at most one permission per
+// secret and application. The following grants are ignored instead of
+// aborting the import with a permission constraint violation.
+func (s *migrationSuite) TestImportGrantedSecretsKeepsFirstGrantForSameApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
@@ -1310,7 +1314,6 @@ func (s *migrationSuite) TestImportGrantedSecretsKeepsAllGrantsForSameApplicatio
 		},
 	}
 	firstRelUUID := uuid.MustNewUUID().String()
-	secondRelUUID := uuid.MustNewUUID().String()
 
 	input := []GrantedSecretImport{
 		{
@@ -1330,12 +1333,10 @@ func (s *migrationSuite) TestImportGrantedSecretsKeepsAllGrantsForSameApplicatio
 		},
 	}
 
+	// The grant of the second relation is not even resolved, as the
+	// application already holds the grant of the first relation.
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), firstKey).
 		Return(firstRelUUID, nil)
-	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), secondKey).
-		Return(secondRelUUID, nil)
-	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).
-		Return(appUUID, nil)
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).
 		Return(appUUID, nil)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
@@ -1345,13 +1346,6 @@ func (s *migrationSuite) TestImportGrantedSecretsKeepsAllGrantsForSameApplicatio
 			ApplicationUUID: appUUID,
 			RelationKey:     firstKey.String(),
 			RelationUUID:    firstRelUUID,
-		},
-		{
-			SecretID:        secretID,
-			ApplicationName: appName,
-			ApplicationUUID: appUUID,
-			RelationKey:     secondKey.String(),
-			RelationUUID:    secondRelUUID,
 		},
 	}).Return(nil)
 

@@ -1099,6 +1099,53 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestImportRemoteApplicationConsumersDuplicateRelationKey checks that a
+// description anomaly yielding two offer connections of the same proxy
+// with the same relation key fails with a clear error naming the proxy
+// and the duplicated key, instead of failing deep in the state layer
+// when importing the same relation twice.
+func (s *importSuite) TestImportRemoteApplicationConsumersDuplicateRelationKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-13ea27915e7840d888c5e9451444b45d",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		IsConsumerProxy: true,
+		ConsumeVersion:  1,
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
+	})
+
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID:       "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RelationID:      0,
+		RelationKey:     "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID:       "0f282d2e-884c-4b18-8b45-fa32f3b7b64a",
+		RelationID:      0,
+		RelationKey:     "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea27915e7840d888c5e9451444b45d",
+		Token: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+	})
+
+	err := s.newImportOperation(c).Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*duplicate relation key "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink" in offer connections of remote application "remote-13ea27915e7840d888c5e9451444b45d".*`)
+}
+
 func (s *importSuite) TestImportRemoteApplicationConsumersNormalizesRelationKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

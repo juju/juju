@@ -572,11 +572,15 @@ func (s *MigrationService) constructConsumedSyntheticCharm(appName string, endpo
 }
 
 // ImportGrantedSecrets imports secrets granted by offerer applications to
-// consumer applications in the offerer model. A grant scoped by a relation
-// that was not migrated, for example a relation of a legacy consumer proxy
-// that was re-keyed on import or a relation removed from the source model
-// before the export, only skips that grant with a warning instead of
-// failing the migration.
+// consumer applications in the offerer model. The model holds at most one
+// grant per secret and application, so only the first grant of each
+// application is imported and the grants that follow for the same
+// application are ignored. A grant scoped by a relation that was not
+// migrated, for example a relation of a legacy consumer proxy that was
+// re-keyed on import or a relation removed from the source model before
+// the export, only skips that grant with a warning instead of failing the
+// migration; a skipped grant doesn't count towards the first, so a later
+// grant of the same application can still be imported.
 func (s *MigrationService) ImportGrantedSecrets(ctx context.Context, grantedSecrets []GrantedSecretImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -606,17 +610,27 @@ func (s *MigrationService) ImportRemoteSecrets(ctx context.Context, remoteSecret
 
 func (s *MigrationService) importGrantedSecret(ctx context.Context, secret GrantedSecretImport) error {
 
-	// Fetch application and relation UUIDs.
+	// Fetch application and relation UUIDs. The model holds at most one
+	// grant per secret and application, so only the first grant of each
+	// application is imported and the grants that follow for the same
+	// application are ignored.
 	// A grant scoped by a relation that was not migrated, for example a
 	// relation of a legacy consumer proxy that was re-keyed on import or a
 	// relation removed from the source model before the export, only skips
 	// that grant with a warning, the remaining grants are still imported.
+	// A skipped grant doesn't count towards the first, so a later grant
+	// of the same application can still be imported.
 	grants := make([]internal.RemoteApplicationSecretGrant, 0, len(secret.ACLs))
 	grantByApplications := make(map[string]struct{}, len(secret.ACLs))
 	skippedGrantApps := make(map[string]struct{})
 	for _, acl := range secret.ACLs {
 		if acl.Role != secrets.RoleView {
 			return internalerrors.Errorf("unsupported role %q for remote secret %q", acl.Role, secret.SecretID)
+		}
+		// Importing a second grant of a granted application would violate
+		// the secret permission primary key.
+		if _, ok := grantByApplications[acl.ApplicationName]; ok {
+			continue
 		}
 		relUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, acl.RelationKey)
 		if internalerrors.Is(err, relationerrors.RelationNotFound) {
