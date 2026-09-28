@@ -35,10 +35,7 @@ type authorizer struct {
 // any relevant claims in the context.
 func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) (bool, error) {
 	// If the context does not contain the user's key then they did
-	// not authenticate with a public key. Password authentication is
-	// removed: machine reverse tunnels and JIMM relay sessions
-	// authenticate at the HTTP layer on the API server's upgrade
-	// endpoints instead.
+	// not authenticate with a public key.
 	userKey, ok := ctx.Value(authenticatedPublicKey{}).(publicKeyWithComment)
 	if !ok {
 		return false, errors.New("SSH connection is not authenticated via public key")

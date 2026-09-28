@@ -1213,8 +1213,7 @@ func (srv *Server) sshTunnelRequestWrapper(h http.Handler) http.Handler {
 }
 
 // sshRelayRequestWrapper injects the relay JWT into the request context
-// for the SSH relay upgrade endpoint. The JWT comes from the
-// external-auth flow's permission delegator.
+// for the SSH relay upgrade endpoint.
 func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authInfo, ok := httpcontext.RequestAuthInfo(r.Context())

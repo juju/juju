@@ -246,10 +246,8 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	}), nil
 }
 
-// outputFunc extracts the relay dependencies from a serverWrapperWorker.
-// The apiserver manifold fetches these via getter.Get so it doesn't need to
-// re-compose the sshService and proxyFactory that the sshserver worker
-// already constructed.
+// outputFunc extracts the TerminatingServerFactory from a
+// serverWrapperWorker.
 func outputFunc(in worker.Worker, out any) error {
 	if cw, ok := in.(*common.CleanupWorker); ok {
 		in = cw.Unwrap()

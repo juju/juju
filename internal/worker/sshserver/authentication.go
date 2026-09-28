@@ -25,11 +25,8 @@ type UserPublicKeyService interface {
 }
 
 // authenticator implements the Authenticator interface for the SSH server.
-// It handles public key authentication by users. Password authentication
-// is removed: machine reverse tunnels and JIMM relay sessions now
-// authenticate at the HTTP layer on the API server's upgrade endpoints,
-// so the jump server rejects all passwords and key-less users get a clean
-// public key rejection instead of an "enter password:" prompt.
+// It handles public key authentication by users. Machine reverse tunnels
+// and JIMM relay sessions authenticate at the HTTP layer instead.
 type authenticator struct {
 	logger     logger.Logger
 	publicKeys UserPublicKeyService
