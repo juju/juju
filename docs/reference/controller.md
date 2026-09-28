@@ -6,15 +6,16 @@ myst:
 
 (controller)=
 # Controller
-```{audience} user
-```
 
 In Juju, the **controller** is the control plane: the running system that implements every change a {ref}`user <user>` asks for. It has a dual nature:
 
-- **As an entity:** The controller is a **singleton record** in the controller {ref}`database <database>`: its identity, its configuration, and the records of its high-availability nodes.
-- **As software:** It is the **{ref}`controller agent <controller-agent>`**, a `jujud` process whose workers run the Juju API server and an embedded [Dqlite](https://canonical.com/dqlite) database. The worker tree, high availability as a running system, and upgrades are the controller agent's story; this page carries the entity.
+- **As software:** It is the **{ref}`controller agent <controller-agent>`**, a `jujud` process whose workers run the Juju API server and an embedded [Dqlite](https://canonical.com/dqlite) database.
+- **As an entity:** Through bootstrap, that software materializes as a **singleton record** in the controller {ref}`database <database>`: its identity, its configuration, and the records of its high-availability nodes. The worker tree, high availability as a running system, and upgrades are the controller agent's story; this page carries the entity.
 
 ## The controller in the declaration layer
+
+```{audience} user, advanced-integrator
+```
 
 The declaration layer defines how a controller comes into being and how clients authenticate against it.
 
@@ -29,7 +30,7 @@ See more: {ref}`manage-controllers`
 
 ## The controller in the persistence layer
 
-```{audience} juju-dev
+```{audience} charm-dev, juju-dev, advanced-integrator
 ```
 
 ```{ggarch}
@@ -62,6 +63,9 @@ The controller row has no life column and no status vocabulary: the controller i
 (the-controllers-machinery)=
 ## The controller in the execution layer
 
+```{audience} user, advanced-integrator, charm-dev, juju-dev
+```
+
 By the time bootstrap returns, the controller is up: the API server answering, the Dqlite cluster formed, the controller model and the `admin` {ref}`user <user>` created. The machinery is the {ref}`controller agent's <controller-agent>` story. This page carries the operations on the entity and the surfaces it exposes.
 
 (the-controller-operations)=
@@ -87,8 +91,6 @@ See more: {ref}`manage-controllers`
 
 (the-controller-watchers)=
 ### Controller watchers
-```{audience} juju-dev
-```
 
 The controller side exposes these watch surfaces:
 
