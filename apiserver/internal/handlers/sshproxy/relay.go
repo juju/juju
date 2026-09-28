@@ -53,7 +53,10 @@ type RelayHandlerConfig struct {
 	// controller-config changes take effect without rebuilding the
 	// handler. Each relay holds a hijacked connection for the life of the
 	// SSH session, so the cap bounds the connections, goroutines and
-	// per-connection lookups the endpoint can accumulate.
+	// per-connection lookups the endpoint can accumulate. The cap is
+	// per-endpoint: the relay and the jump server count separately, so
+	// the two endpoints together may hold up to twice this many
+	// connections.
 	MaxConcurrentConnections func() int
 }
 
@@ -164,6 +167,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		select {
 		case <-ctx.Done():
+			// Races the deferred close above; both are safe to ignore.
 			_ = conn.Close()
 		case <-sessionDone:
 		}
