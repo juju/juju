@@ -14,19 +14,34 @@ An application consists of one or more {ref}`units <unit>`, and it can have {ref
 (the-applications-declaration)=
 ## Applications in the declaration layer
 
-You add an application to a model by deploying it, and you configure,
-scale, refresh, expose, or remove it through the same clients;
-deploying requires {ref}`model write access <user-access-model-write>`.
+- **Deployment:** Deploying creates the application: the name, the {ref}`charm <charm>`, the channel and base it tracks, the initial configuration, the {ref}`constraints <constraint>` its units request. Deploying requires {ref}`model write access <user-access-model-write>`.
+- **Operations:** Configuring, scaling, refreshing, exposing and removing act on the running application through the same clients; all of them are controller-API operations.
 
 ```{ibnote}
 See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terraform Provider for Juju | Manage applications <tfjuju:manage-applications>`
 ```
 
+(the-applications-declaration-rules)=
+### Declaration rules and errors
+
+- **Rules:**
+  - The name is lowercase letters, digits and hyphens, starting with a
+    letter, every hyphen-separated segment containing at least one letter
+    (`my-app-2`, never `-myapp` or `MYAPP`).
+  - The name is unique per model: the creation path checks the model's
+    existing applications before it writes.
+  - Every creating or mutating operation requires model write access.
+- **Errors:**
+  - **`application name not valid`:** Triggered when a name fails the
+    grammar. Remediation: start with a lowercase letter; use letters,
+    digits and hyphens, with at least one letter in every segment.
+  - **`application already exists`:** Triggered when creating an
+    application whose name the model already uses. Remediation: choose
+    another name.
+
 (the-applications-persistence)=
-(the-application-record)=
 (the-application-in-the-data-model)=
 (the-application-states)=
-(types-of-application)=
 ## Applications in the persistence layer
 
 ```{ggarch}
@@ -36,83 +51,88 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 :caption: Entity relationship diagram: The application's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The application references the charm it deploys by UUID; its origin (track/risk/branch) and the endpoints it instantiates from the charm are separate records; the status record and the config keys hang off the application itself.
 ```
 
-In the model database an application is a **native record** -- Juju's
-own, created by the deployment machinery, one row per application per
-model (the DDL: `0019-application.sql`, with the endpoint row in
-`0024-relation.sql`). The row carries the name the client chose, its
-life, the {ref}`charm <charm>` it was deployed from -- stored as the
-charm's UUID, a mutable pointer a refresh rewrites (the URL is
-reconstructed from the charm's own fields) -- the counter that bumps
-each time that pointer is rewritten (`charm_modified_version`), and
-the {ref}`space <space>` its endpoints bind to by default. The
-satellites in the picture are the application's own: the origin it
-tracks (`application_channel`: track/risk/branch, with the base from
-`application_platform`), the endpoints the charm defines,
-instantiated for this application (`application_endpoint`), the
-aggregated status (`application_status`), and the configuration keys
-(`application_config`, one row per key).
+In the model database an application is a **native record** (the DDL:
+`0019-application.sql`, with the endpoint row in `0024-relation.sql`),
+created by the deployment machinery, one row per application per model:
+
+- **`application`:** The row itself: the name, the life, the {ref}`charm
+  <charm>` it deploys (stored as the charm's UUID, a mutable pointer a
+  refresh rewrites; the URL is reconstructed from the charm's own
+  fields), the counter that bumps each time that pointer is rewritten
+  (`charm_modified_version`), and the {ref}`space <space>` its endpoints
+  bind to by default.
+- **`application_controller`:** The controller marker: a dedicated
+  singleton table holding one row for the one controller application,
+  enforced by a constant-index unique constraint.
+- **`application_channel`, `application_platform`:** The origin the
+  application tracks (track/risk/branch) and the platform it deployed
+  onto (OS, channel, architecture); `v_application_origin` and
+  `v_application_platform_channel` join the charm's reference name,
+  source, revision and hash, and the platform, into the origin the
+  clients read.
+- **`application_endpoint`:** The charm's {ref}`endpoint
+  <application-endpoint>` definitions instantiated for this
+  application.
+- **`application_config`, `application_config_hash`,
+  `application_setting`:** The configuration keys the client sets (one
+  row per key, its type mirrored from the charm schema), the SHA-256
+  hash the config watchers fire on, and the one-boolean trust record.
+- **`application_scale`:** The Kubernetes scale record: the current
+  scale, the target, the scaling flag.
+- **`application_exposed_endpoint_space`,
+  `application_exposed_endpoint_cidr`:** The expose grants per endpoint
+  (a NULL endpoint is the wildcard), resolved by
+  `v_application_exposed_endpoint`.
+- **`application_status`:** The application-level status summary.
+- **`application_constraint`, `device_constraint`,
+  `device_constraint_attribute`:** The compute the application's units
+  request, joined onto the {ref}`constraint <constraint>` record by
+  `v_application_constraint`, and the device requests (with their
+  attribute rows) some charms make.
+- **`application_workload_version`:** The workload version the
+  application reports.
+- **`application_agent`:** The application agent's credentials: the
+  password hash and its algorithm.
+- **`k8s_service`:** The Kubernetes service a CAAS deployment exposes:
+  its provider ID, bound to the net node record the machine and its
+  units anchor to.
+- **The remote-offerer pair:** An application record the consuming
+  model synthesises to stand for an application it cannot see, paired
+  with a remote-offerer record carrying the far model's identity and
+  the offer URL; nothing is deployed behind it (see {ref}`offer
+  <offer>`).
 
 The identity pair: the primary key (`application.uuid`) is the join
-handle -- it exists so the charm pointer, the origin, the endpoints,
-the status and the config keys have something to point at. The natural
-key the client names is `application.name` (UNIQUE per model):
-lowercase letters, digits and hyphens, starting with a letter, every
-hyphen-separated segment containing a letter (`my-app-2`, never
-`-myapp` or `MYAPP`); the creation service checks the name against the
-model's existing applications and rejects a duplicate with
-`application already exists`.
-
-Every foreign key is an assertion the record holds: the application
-row holds the charm pointer (`application.charm_uuid` -- a refresh
-rewrites it); the application_status, application_channel and
-application_endpoint rows hold the application pointer each; the
-application_config rows hold one pointer per key. The charm's endpoint
-definition an endpoint instantiates lives on the charm side
-(`application_endpoint.charm_relation_uuid` -- {ref}`charm <charm>`'s
-story). The application row also holds its default-binding space
-pointer (`application.space_uuid`) -- in the picture as a field, not
-an edge: the {ref}`space <space>` record's story is its own page's.
-Not drawn above, all assertions the schema states: the controller
-marker (`application_controller` -- a dedicated singleton, one row, in
-one application, enforced by the schema), the Kubernetes scale record,
-the expose tables (which grant {ref}`spaces <space>` and CIDRs to
-endpoints), the config-hash record that tells watchers when the config
-changed, the one-boolean trust record (`application_setting`), and the
-remote-offerer pair -- an application record the consuming model
-synthesises to stand for an application it cannot see, paired with a
-remote-offerer record carrying the far model's identity and the offer
-URL; nothing is deployed behind it (see {ref}`offer <offer>`).
-
-The application table has no type column: an application's kind is
-derived from the records around it, and the kinds are not mutually
-exclusive -- the controller application is also just an application.
-Most applications are **regular applications**: a {ref}`charm <charm>`
-deployed into the model, with its units and their machines or pods.
+handle; the natural key the client names is `application.name`, unique
+per model. The application table has no type column: an application's
+kind is derived from the records around it, and the kinds are not
+mutually exclusive; the controller application is also just an
+application. Most applications are **regular applications**: a
+{ref}`charm <charm>` deployed into the model, with its units and their
+machines or pods.
 
 Two projections with writers of their own:
 
-- **life** -- the shared alive / dying / dead cycle every entity has.
-  An application is created alive; the removal machinery marks it
-  dying (guarded one-way, cascading to its units, relations and
-  machines) and declares it dead only once no units and no relations
-  are left -- the removal machinery in the execution layer drives it,
-  the record here stores it; a scheduled removal job then deletes the
-  records (see {ref}`Application removal <the-application-removal>`).
-- **`application_status`** -- the application-level summary, written
-  only by the application's **leader unit** (through its agent; the
-  charm hook command is `status-set --application`,
-  controller-gated to the leader). When the record is unset, the
-  application's display status is computed instead by aggregating the
-  units' workload statuses by severity -- error first, then blocked,
-  maintenance, waiting, active, terminated, unknown. The value
-  vocabulary is the workload vocabulary the units share (see
-  {ref}`workload / charm status <workload--charm-status>`); the
-  who-writes story across all five status domains is the
+- **life:** The shared alive / dying / dead cycle every entity has. An
+  application is created alive; the removal machinery marks it dying
+  (guarded one-way, cascading to its units, relations and machines) and
+  declares it dead only once no units and no relations are left; a
+  scheduled removal job then deletes the records (see {ref}`Application
+  removal <the-application-removal>`).
+- **`application_status`:** The application-level summary, written only
+  by the application's **leader unit** (through its agent; the charm
+  hook command is `status-set --application`, controller-gated to the
+  leader). When the record is unset, the application's display status
+  is computed by aggregating the units' workload statuses by severity:
+  error, then blocked, maintenance, waiting, active, terminated,
+  unknown. The value vocabulary is the workload vocabulary the units
+  share (see {ref}`workload / charm status <workload--charm-status>`);
+  the who-writes story across all five status domains is the
   {ref}`Status domains <status>` view.
 
-Neither is transition-validated: a life advance is a one-way guarded
-update and a status write is a membership check (the value must be
-known) plus an owner check -- what constrains an application is who
+Neither projection is transition-validated: a life advance is a one-way
+guarded update; a status write is a membership check (the value must be
+known) plus an owner check. What constrains an application is who
 writes, not a transition matrix.
 
 (application-endpoint)=
@@ -141,25 +161,76 @@ endpoint definition; a {ref}`relation <relation>` attaches to it
 through the relation-endpoint record, and an extra-binding record can
 tie the endpoint to a specific {ref}`space <space>`.
 
+(the-applications-persistence-rules)=
+### Persistence rules and errors
+
+- **Rules:**
+  - Every satellite's foreign key points at the application UUID; the
+    charm's endpoint definition an endpoint instantiates lives on the
+    charm side (`application_endpoint.charm_relation_uuid`).
+  - The charm pointer is mutable: a refresh rewrites it in the same
+    transaction that updates and creates the storage directives, merges
+    the endpoint bindings, re-filters the config rows and bumps
+    `charm_modified_version`.
+  - A config row's type mirrors the charm schema's type for that key;
+    the value column is nullable (a key set to no value).
+  - **Life:** Created alive; marked dying one-way by the removal
+    machinery (the cascade covers the units, their relations, machines
+    and storage); dead only once no units and no relations reference
+    the application; the scheduled removal job then deletes the
+    records.
+  - **Status:** The leader unit writes it (through its agent;
+    `status-set --application` is controller-gated to the leader);
+    unset, the display status aggregates the units' workload statuses
+    by severity. Neither projection is transition-validated: a life
+    advance is a one-way guarded update; a status write is a membership
+    plus owner check.
+- **Errors:**
+  - **`application is not alive`:** Triggered when an operation that
+    requires an alive application targets a dying one (adding units,
+    model migration). Remediation: none; the application is being
+    removed.
+  - **`application is dead`:** Triggered when an operation that
+    tolerates a dying application targets a dead one (configuration,
+    scale and constraint writes). Remediation: none; the records are
+    being deleted.
+  - **`application has units`:** Triggered when the dead gate finds
+    units still referencing the application. Remediation: remove the
+    units first, or let the cascade finish.
+  - **`application has relations`:** Triggered when the dead gate finds
+    relations still referencing the application. Remediation: remove
+    the relations first, or let the cascade finish.
+  - **`units upgrading`:** Triggered when a model migration's readiness
+    check finds units still upgrading their charms. Remediation: wait
+    for the upgrades to finish.
+
 (the-applications-execution)=
 (the-application-operations)=
 ## Applications in the execution layer
 
-By the time the command returns, the application's records exist --
-and its units may still be provisioning: the machinery that realizes
-the application is not the application's own. It has no machinery of
-its own -- its units' agents execute it; the model side is controller
+By the time the operation returns, the application's records exist, and
+its units may still be provisioning: the machinery that realizes the
+application is not the application's own. It has no machinery of its
+own: its units' agents execute it; the model side is controller
 bookkeeping. Operations on applications split by concern: deployment
-creates the application and its units; configuration, scaling,
-refresh and exposure mutate the running application; removal tears it
-down. All of them are controller-API operations -- none is
-leader-gated; the leader only owns the status write (see
-{ref}`Application states <the-application-states>`).
+creates the application and its units; configuration, scaling, refresh
+and exposure mutate the running application; removal tears it down.
+All of them are controller-API operations; none is leader-gated, the
+leader only owns the status write (see {ref}`Application states
+<the-application-states>`).
 
 (the-application-deployment)=
 ### Application deployment
 
-Deploying an application adds its software to a {ref}`model <model>` and arranges for it to run on infrastructure. The intent -- the application name, the {ref}`charm <charm>`, the {ref}`constraints <constraint>` -- goes to the {ref}`controller <controller>` as an RPC call. The controller writes the application and {ref}`unit <unit>` records to the {ref}`database <database>`, then asks the cloud for resources (a virtual machine or a pod). Once the resource is ready the controller starts the {ref}`unit agent <unit-agent>`, which runs the install sequence: `install`, `config-changed`, `start`.
+Deploying an application adds its software to a {ref}`model <model>`
+and arranges for it to run on infrastructure. The intent (the
+application name, the {ref}`charm <charm>`, the {ref}`constraints
+<constraint>`) goes to the {ref}`controller <controller>` as an RPC
+call. The controller writes the application and {ref}`unit <unit>`
+records to the {ref}`database <database>`, then asks the cloud for
+resources (a virtual machine or a pod). Once the resource is ready the
+controller starts the {ref}`unit agent <unit-agent>`, which runs the
+install sequence: `install`, `config-changed`, `start`.
 
 The mechanism and the state it leaves, per cloud type:
 
@@ -175,6 +246,7 @@ The mechanism and the state it leaves, per cloud type:
 :alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and schedules the unit pod; containeragent runs the install hooks and reports active. The resulting topology: controller pod and unit pod with their internal agents and containers. Verification: juju status reads those records plus live agent liveness.
 ```
 
+
 ::::
 
 ::::{tab-item} Machines
@@ -183,7 +255,7 @@ The mechanism and the state it leaves, per cloud type:
 :file: ../juju.ggarch
 :slides: Data model | Deploy machine | Machine deployment topology | juju status
 :caption: Deploying on a machine cloud: the records, the mechanism that creates them, the topology that results, and the command that verifies it.
-:slide-captions: Entity relationship diagram: The seed: the records a deployment consists of -- charm, application, unit, machine/pod, relation, endpoint -- and where the pointers live. | Sequence diagram: The mechanism: the controller writes the application and unit records, asks the cloud to provision a machine, and starts jujud, which runs the install hooks to unit active. | Topology: The result: one jujud per machine -- the controller machine's jujud runs the controller with Dqlite in-process; the unit machine's jujud hosts the unit agent, which runs the charm, which drives the workload directly (no Pebble on machine clouds). | Sequence diagram: The verification: juju status projects exactly those records plus live agent liveness -- what you just deploye…
+:slide-captions: Entity relationship diagram: The seed: the records a deployment consists of -- charm, application, unit, machine/pod, relation, endpoint -- and where the pointers live. | Sequence diagram: The mechanism: the controller writes the application and unit records, asks the cloud to provision a machine, and starts jujud, which runs the install hooks to unit active. | Topology: The result: one jujud per machine -- the controller machine's jujud runs the controller with Dqlite in-process; the unit machine's jujud hosts the unit agent, which runs the charm, which drives the workload directly (no Pebble on machine clouds). | Sequence diagram: The verification: juju status projects exactly those records plus live agent liveness -- what you just deployed is what status reads.
 :alt: The data model records (charm, application, unit, machine/pod, relation, endpoint). Then: user invokes juju deploy; controller writes records and provisions a machine; jujud runs the install hooks and reports active. The resulting topology: controller machine and unit machine, one jujud per machine. Verification: juju status reads those records plus live agent liveness.
 ```
 
@@ -194,48 +266,70 @@ The mechanism and the state it leaves, per cloud type:
 (the-application-configuration)=
 ### Application configuration
 
-Setting configuration (for example, `juju config mysql tune=fast`)
-writes the application's config keys and values -- validated against
-the charm's config schema -- and refreshes the config hash, which is
-what the application's config watchers fire on. Clearing a key removes
-the row; the trust flag lives in its own one-boolean record.
+The application's configuration is the charm's config schema
+instantiated: the {ref}`charm <charm>` defines the options (key, type,
+default, description) in its config schema; the application stores one
+row per key a client sets, the value nullable (a key set to no value).
+A read with defaults falls back per key to the charm's default where
+no override is set.
+
+Setting configuration validates against the charm's schema: an unknown
+key or a value that does not parse to the option's type is invalid; a
+secret-typed option must be set to a secret URI; the total size of all
+keys and values is capped at 16 MB. The `trust` key never reaches the
+config rows: it is intercepted into the one-boolean settings record,
+where it grants or withholds the units' access to the model's cloud
+credentials. Clearing a key removes its row; keys that do not exist
+are ignored. Setting configuration by YAML payload is not supported on
+this version; synthetic (remote-offerer) applications refuse
+configuration operations.
+
+Every write refreshes the config hash, the SHA-256 over the sorted
+keys and values plus the trust flag: the hash change is what fires the
+units' {ref}`config-changed <hook-config-changed>` hooks. The charm
+reads its configuration at runtime through {ref}`config-get
+<hook-command-config-get>`; without the all flag, keys set to no value
+are hidden from the charm.
 
 (the-application-scaling)=
 ### Application scaling (Kubernetes)
 
-On Kubernetes models the application carries a scale record -- the
-current scale, the target, and whether scaling is in progress. Setting
-the scale (for example, `juju scale-application mysql 3`) rejects
-negative values and inconsistent scaling states; the provisioner
-reconciles the pod count to the target.
+On Kubernetes models the application carries a scale record: the
+current scale, the target, and whether scaling is in progress (the DDL
+scopes the record to Kubernetes applications). Setting the scale writes
+the record and the provisioner reconciles the pod count to the target;
+a negative target and a scale started toward a different target while
+one is in flight are refused. The scale watcher fires only when the
+scale value changes.
 
 (the-application-refresh)=
 ### Application refresh
 
-Refreshing (for example, `juju refresh mysql`) swaps the charm the
-application references: the controller validates the new charm's
-storage and base compatibility, then rewrites the application's charm
-reference and re-pins the revision. A base change needs the
-force-base flag; a charm that does not match the application's is
-rejected.
+Refreshing swaps the charm the application references: the controller
+validates relation compatibility transactionally, updates and creates
+the storage directives for the new charm, merges the endpoint bindings,
+re-filters the configuration keys to the new charm's schema (keys the
+new charm does not define are dropped), rewrites the charm pointer and
+bumps the charm-modified counter. A base change needs the force flag.
 
 (the-application-exposure)=
 ### Application exposure
 
-Exposing an application (for example, `juju expose mysql`) opens its
-endpoints to the outside: the expose records grant access per endpoint
-either to a {ref}`space <space>` or to a CIDR, an omitted endpoint
-meaning all of them. Un-exposing removes the grants.
+Exposing opens the application's endpoints to the outside: the expose
+records grant access per endpoint, either to a {ref}`space <space>` or
+to a CIDR, an omitted endpoint meaning all of them. Grants naming
+neither a space nor a CIDR fall back to the all-networks CIDRs, IPv4
+and IPv6. Un-exposing removes the grants; the exposure watcher fires on
+grant changes.
 
 (the-application-removal)=
 ### Application removal
 
-Removal (for example, `juju remove-application mysql`) is initiated
-through the remove-application operation. Removal follows the same
-cooperative pattern as every entity removal: the application and its
-units, relations, machines and storage are marked dying in one
-cascade, removal jobs are scheduled, and each entity is deleted only
-when its own teardown allows it (see {ref}`removing things
+Removal is initiated through the remove-application operation and
+follows the same cooperative pattern as every entity removal: the
+application and its units, relations, machines and storage are marked
+dying in one cascade, removal jobs are scheduled, and each entity is
+deleted only when its own teardown allows it (see {ref}`removing things
 <removing-things>`). The `--force` mode skips the dead-state and
 resource gates; on Kubernetes the application cannot be removed while
 the provisioner still manages its resources.
@@ -244,55 +338,80 @@ the provisioner still manages its resources.
 ### Application watchers
 
 Nothing about an application is polled by the things that act on it:
-they watch it. The application domain's watchable service exposes
-these watch surfaces -- what a watcher fires on, not who consumes it
-(see {ref}`the unit agent <unit-agent>` and
-{ref}`the controller agent <controller-agent>` for the consumers'
-side):
+they watch it. The application domain's watchable service exposes these
+watch surfaces (what a watcher fires on, not who consumes it; see
+{ref}`the unit agent <unit-agent>` and {ref}`the controller agent
+<controller-agent>` for the consumers' side):
 
-- **The application row** and **all applications** -- notifies on
-  changes to one application's record and on applications being added
-  or removed.
-- **An application's units' life** and **one unit's life** -- notifies
-  on the life of the application's units and of a single unit.
-- **The application's configuration** -- three surfaces: the config
-  keys and values, the config hash (the compact change signal), and
-  the application's own settings record.
-- **The application's scale** -- fires only when the scale value
+- **The application row** and **all applications:** Changes to one
+  application's record, and applications being added or removed.
+- **An application's units' life** and **one unit's life:** The life
+  of the application's units and of a single unit.
+- **The application's configuration:** Three surfaces: the config keys
+  and values, the config hash (the compact change signal), and the
+  application's own settings record.
+- **The application's scale:** Fires only when the scale value
   changes.
-- **The units' addresses and their bindings** -- two surfaces: the
+- **The units' addresses and their bindings:** Two surfaces: the
   address changes and the compact address-hash signal.
 - **The units added or removed on a machine** and **one unit for the
-  legacy uniter** -- the machine-scoped and uniter-scoped unit
-  surfaces.
-- **The application's charms** -- two surfaces: charm changes for the
+  legacy uniter:** The machine-scoped and uniter-scoped unit surfaces.
+- **The application's charms:** Two surfaces: charm changes for the
   application, and applications whose charm is still unresolved.
-- **The application's exposure** -- fires on changes to the expose
-  grants.
+- **The application's exposure:** Changes to the expose grants.
 
-Every watcher fires once immediately when it is created -- the initial
-query is the baseline snapshot -- and again on each qualifying change
+Every watcher fires once immediately when it is created, the initial
+query being the baseline snapshot, and again on each qualifying change
 (see {ref}`the watcher pattern <watchers>`).
 
-(the-application-rules-and-errors)=
-## Application rules and errors
+(the-applications-execution-rules)=
+### Execution rules and errors
 
-The application domain encodes its rules as a typed error taxonomy;
-each error names the rule it enforces. The rules themselves are stated
-where they belong: the name grammar in the persistence layer, the
-mutation gates in the execution layer's operations and states. The
-errors matter to charm authors deploying and configuring applications
-and to Juju developers, who maintain them as the domain's validation
-law.
+- **Rules:**
+  - Every operation requires model write access; the leader owns only
+    the status write.
+  - A configuration write validates against the charm's schema, mirrors
+    the option's type into the row, intercepts `trust` into the
+    settings record, and refreshes the config hash.
+  - The total size of the configuration keys and values is capped at
+    16 MB.
+  - A constraints write overwrites the full constraint set; an invalid
+    container type or an unknown space is refused.
+  - A refresh validates relation compatibility transactionally and
+    re-filters the configuration keys to the new charm's schema.
+  - A scale target is non-negative; a scale started toward a different
+    target while one is in flight is refused.
+- **Errors:**
+  - **`application not found`:** Triggered when an operation names an
+    application the model does not have. Remediation: check the name
+    and the model.
+  - **`invalid application config`:** Triggered when a configuration
+    write names a key the charm does not define or a value that does
+    not parse to the option's type. Remediation: set keys the charm's
+    schema defines, with parseable values.
+  - **`invalid secret config`:** Triggered when a secret-typed option
+    is set to a string that is not a secret URI. Remediation: set a
+    secret URI, or clear the option.
+  - **`quota limit exceeded`:** Triggered when a write pushes the total
+    size of the configuration keys and values over the 16 MB cap
+    (16,777,216 bytes). Remediation: clear keys or shorten values.
+  - **`invalid application constraints`:** Triggered when a constraints
+    write names an invalid container type or a space the model does not
+    have. Remediation: use a valid container type and an existing
+    space.
+  - **`incompatible base for charm`:** Triggered when a refresh changes
+    the application's base incompatibly without the force flag.
+    Remediation: refresh within the base, or force the base change.
+  - **`charm not found`:** Triggered when the charm the operation needs
+    is not in the model's charm records. Remediation: check the charm
+    reference.
+  - **`charm not resolved`:** Triggered when the charm is known but its
+    archive is not yet available. Remediation: wait for the charm
+    download to finish; check the charm's source.
+  - **`scale change invalid`:** Triggered when a scale operation sets a
+    negative scale or removes more units than exist. Remediation: scale
+    within the current count.
+  - **`scaling state is inconsistent`:** Triggered when a scale starts
+    toward a different target while a scale is already in flight.
+    Remediation: let the running scale finish, then scale again.
 
-The errors that encode them:
-
-- *Existence and life*: `application not found`,
-  `application already exists`, `application not alive`,
-  `application is dead`, `charm not found`, `charm not resolved`.
-- *Names and validation*: `application name not valid`,
-  `invalid application configuration`,
-  `invalid application constraints`, `incompatible base`.
-- *Composition*: `application has units`, `application has relations`,
-  `application has different charm`, `units upgrading`.
-- *Scaling*: `scale change invalid`, `scaling state inconsistent`.
