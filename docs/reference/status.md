@@ -7,7 +7,7 @@ myst:
 (status)=
 # Status
 
-In Juju, **status** can describe the status of an application or a unit, where the former can be inferred from the latter and the latter consists of the workload and the Juju agent status. This document gives more information about all of these different kinds of status -- their values and their meanings.
+In Juju, **status** can describe the status of an application or a unit, where the former can be inferred from the latter and the latter consists of the workload and the Juju agent status. This document gives more information about all of these different kinds of status: their values and their meanings.
 
 ## Types of status
 
@@ -15,7 +15,7 @@ In Juju, **status** can describe the status of an application or a unit, where t
 :file: ../juju.ggarch
 :view: Status domains
 :no-legend:
-:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application, else Juju computes it from the unit statuses; the machine agent sets the machine status; the relation status has two writers -- the leader unit sets the relation lifecycle (joining, joined, broken) and the controller suspends/resumes cross-model relations (suspending, suspended, resume to joining). Transitions are free-form enumerations except relation and storage (enforced machines).Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application, else Juju computes it from the unit statuses; the machine agent sets the machine status; the relation status has two writers -- the leader unit sets the relation lifecycle (joining, joined, broken) and the controller suspends/resumes cross-model relations (suspending, suspended, resume to joining). Transitions are free-form enumerations except relation and storage (enforced machines).
+:caption: Who sets each status domain: the unit agent sets its own status (the controller derives allocating and lost); the charm sets the workload status via status-set; the leader unit sets the application status via status-set --application, else Juju computes it from the unit statuses; the machine agent sets the machine status; the relation status has two writers -- the leader unit sets the relation lifecycle (joining, joined, broken) and the controller suspends/resumes cross-model relations (suspending, suspended, resume to joining). Transitions are free-form enumerations except relation and storage (enforced machines).
 :alt: Actor nodes pointing at the status domains they set: charm to workload status, unit agent to unit agent status, leader unit to application and relation status, machine agent to machine status, controller to relation status (suspends and resumes cross-model relations).
 ```
 
@@ -83,7 +83,7 @@ Each newly deployed unit starts in `maintenance/allocating`, quickly going to `m
 
 ## Status in the output of `juju status`
 
-In the output of `juju status`, application status is given under `Application > Status` and unit status -- consisting, as we said, of the workload / charm status and of the Juju agent status -- is given under `Unit > Workload, Agent`.
+In the output of `juju status`, application status is given under `Application > Status` and unit status (consisting, as we said, of the workload / charm status and of the Juju agent status) is given under `Unit > Workload, Agent`.
 
 ````{dropdown} Expand to view a sample 'juju status' output
 

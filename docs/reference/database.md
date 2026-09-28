@@ -42,7 +42,7 @@ There is one controller database per controller. This is a separate global datab
 :file: ../juju.ggarch
 :view: Data model (full spine)
 :alt: Record nodes for user, cloud, credential, model, application, charm, unit, machine and relation, each with its primary key and foreign-key fields, and arrows showing every pointer: user owns clouds and credentials, model contains applications and uses a credential, application references its charm and has units, unit runs on a machine, relation connects applications.
-:caption: What a model database holds. Every box is a Dqlite table in the model database; every arrow is a foreign key stored in the table it leaves — the pointer location the storage layer actually has. The same walk, grounded field by field in the model's DDL, is what the {ref}`juju-db-repl` reads.What a model database holds. Every box is a Dqlite table in the model database; every arrow is a foreign key stored in the table it leaves — the pointer location the storage layer actually has. The same walk, grounded field by field in the model's DDL, is what the {ref}`juju-db-repl` reads.
+:caption: What a model database holds. Every box is a Dqlite table in the model database; every arrow is a foreign key stored in the table it leaves — the pointer location the storage layer actually has. The same walk, grounded field by field in the model's DDL, is what the {ref}`juju-db-repl` reads.
 ```
 
 Each model (including the controller model) has its own **model database** containing that model's workload data, including but not limited to:
@@ -55,13 +55,13 @@ Each model (including the controller model) has its own **model database** conta
 - Secrets
 - Storage and network spaces
 
-Model databases are isolated -- changes in one model's database do not affect other models. They are accessed via the `model-<name>` namespace in the {ref}`juju-db-repl`.
+Model databases are isolated: changes in one model's database do not affect other models. They are accessed via the `model-<name>` namespace in the {ref}`juju-db-repl`.
 
 (the-databases-machinery)=
 ## The database's machinery
 
 The database has machinery of its own: it is Dqlite, embedded
-in-process in every controller -- there is no separate database
+in-process in every controller: there is no separate database
 service; in a high-availability cluster the controllers raft-replicate
 one database among themselves.
 
@@ -69,7 +69,7 @@ one database among themselves.
 :file: ../juju.ggarch
 :view: HA controller: Dqlite replicaset
 :alt: Three machine nodes side by side, each running a controller agent with an embedded Dqlite database, connected by replicate-arrows between the databases.
-:caption: The controller database under high availability: three machines, each running a controller agent with Dqlite embedded in-process. There is no separate database service — the controllers raft-replicate one database among themselves, which is why the guarantees above hold.The controller database under high availability: three machines, each running a controller agent with Dqlite embedded in-process. There is no separate database service — the controllers raft-replicate one database among themselves, which is why the guarantees above hold.
+:caption: The controller database under high availability: three machines, each running a controller agent with Dqlite embedded in-process. There is no separate database service — the controllers raft-replicate one database among themselves, which is why the guarantees above hold.
 ```
 
 Starting with Juju 4.0, the database is implemented using [Dqlite](https://canonical.com/dqlite), an embedded, strongly-consistent distributed SQL database built on SQLite and the Raft consensus algorithm. Dqlite provides:

@@ -86,7 +86,7 @@ A revision only becomes available for consumption once it's been released into a
 :file: ../juju.ggarch
 :view: Charm origins
 :no-legend:
-:caption: There is no charm-revision record: each charm REVISION is its own charm record (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm record 1:1; every deployed unit pins its own charm revision.There is no charm-revision record: each charm REVISION is its own charm record (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm record 1:1; every deployed unit pins its own charm revision.
+:caption: There is no charm-revision record: each charm REVISION is its own charm record (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm record 1:1; every deployed unit pins its own charm revision.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
@@ -109,7 +109,7 @@ resolved.
 :file: ../juju.ggarch
 :view: Charm attributes
 :alt: The charm record at the centre with its salient columns; its metadata and download bookkeeping beside it; the charm-defined relations, config schema and actions below. Each line is a stored pointer; 1/m at each end.
-:caption: The charm's stored records. A charm is one record per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those records.The charm's stored records. A charm is one record per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those records.
+:caption: The charm's stored records. A charm is one record per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those records.
 ```
 
 The identity pair: the primary key (the charm's internal id) is the

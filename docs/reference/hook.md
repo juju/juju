@@ -36,7 +36,7 @@ See more: {ref}`list-of-hooks`
 :sequence: Hook execution
 :no-legend:
 :alt: Controller watcher fires to unit agent. Unit agent snapshots state and resolves hook, then runs the hook by dispatch. Loop: charm calls hook commands (config-get, relation-get, secret-get), the unit agent proxies them to the controller API and returns the exit code. On exit 0: flush writes. On failure: discard writes, set unit error.
-:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
+:caption: Every hook runs the same cycle: the controller notifies, the agent snapshots remote state (reads the config, relation data, and secrets the hook will see into a local snapshot, which stays unchanged for the hook's whole run), resolves the next hook, and dispatches it. Hook commands are served locally by the agent acting as a proxy — the charm never calls the controller directly.
 ```
 
 ```{ggarch}
@@ -44,7 +44,7 @@ See more: {ref}`list-of-hooks`
 :view: Uniter operation
 :no-legend:
 :alt: State machine: idle to preparing on hook queued, preparing to executing, executing to committing on hook exits 0, executing to error on hook fails, error to idle on retry, committing to idle on write complete.
-:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.
+:caption: The same pass as the uniter's executor states — prepare, execute, commit — with the error path: a failing hook parks the operation in `error` until the failure is resolved.
 ```
 
 A hook runs as one pass of a fixed cycle: a state change on the
@@ -53,8 +53,8 @@ remote state (reads the config, relation data, and secrets the hook
 will see into a local snapshot, which the hook then sees unchanged
 for its whole run), resolves the next hook, and dispatches it. Every
 hook command the charm calls is served by the agent acting as a
-proxy for the controller API -- the charm never calls the controller
-directly -- and the hook's writes are flushed all-or-nothing on a
+proxy for the controller API: the charm never calls the controller
+directly, and the hook's writes are flushed all-or-nothing on a
 clean exit.
 
 Seen from inside the unit agent, that same pass is the uniter's
@@ -83,7 +83,7 @@ hook commands, on demand, from the controller database:
 - **Config is a stable snapshot.** Read once at hook start; does not change
   mid-hook.
 - **Writes are all-or-nothing.** Relation data, secrets, and charm state are
-  buffered and flushed together on clean exit -- discarded on failure.
+  buffered and flushed together on clean exit, discarded on failure.
   `status-set` is the one exception: it takes effect immediately.
 - **Leadership is a lease, not a lock.** A successful leadership check guarantees
   leadership for about 30 seconds; it can change mid-hook.
@@ -168,7 +168,7 @@ Hooks should ideally be idempotent, so that they can fail and be re-executed
 from scratch without trouble. Charm code in hooks does not have complete control
 over the times the hook might be unexpectedly aborted: if the unit agent process is
 killed for any reason while running a hook, then when it recovers it will treat that
-hook as having failed -- just as if it had returned a non-zero exit code -- and
+hook as having failed (just as if it had returned a non-zero exit code), and
 request user intervention.
 
 Hooks should be written to expect that users could (and probably will) attempt to
@@ -295,11 +295,11 @@ For a peer relation, `<peer endpoint name>-relation-broken` will never fire, not
 
 *What triggers it?*
 
-The `relation-changed` hook for a given unit always runs once immediately following the `relation-joined` hook for that unit, and subsequently whenever the related unit changes its settings (by calling `relation-set` and exiting without error). Note that immediately only applies within the context of this particular runtime relation -- that is, when `foo-relation-joined` is run for unit `bar/99` in relation id `foo:123`, the only guarantee is that/ the next hook to be run *in relation id `foo:123`* will be `foo-relation-changed` for `bar/99`. Unit hooks may intervene, as may hooks for other relations, and even for other foo relations.
+The `relation-changed` hook for a given unit always runs once immediately following the `relation-joined` hook for that unit, and subsequently whenever the related unit changes its settings (by calling `relation-set` and exiting without error). Note that immediately only applies within the context of this particular runtime relation, that is, when `foo-relation-joined` is run for unit `bar/99` in relation id `foo:123`, the only guarantee is that/ the next hook to be run *in relation id `foo:123`* will be `foo-relation-changed` for `bar/99`. Unit hooks may intervene, as may hooks for other relations, and even for other foo relations.
 
 `relation-changed` is emitted when another unit involved in the relation (from either side) touches the relation data. Relation data is *the* way for charms to share non-sensitive information (for sensitive information, `juju secrets` are on their way in Juju 3).
 
-For centralized data -- for example, a single password or API token that one application generates to share with another application, we suggest that charm authors use the application data, rather than individual unit data. This data can only be written to by the application leader, and each remote unit related to that application will receive a single `relation-changed` event when it changes.
+For centralized data (for example, a single password or API token that one application generates to share with another application), we suggest that charm authors use the application data, rather than individual unit data. This data can only be written to by the application leader, and each remote unit related to that application will receive a single `relation-changed` event when it changes.
 
 Hooks bound to this event should be the only ones that rely on remote relation settings. They should not error if the settings are incomplete, since it can be guaranteed that when the remote unit or application changes its settings again, this event will fire once more.
 
@@ -892,7 +892,7 @@ Any unit.
 
 *What triggers it?*
 
-Nothing in particular -- this hooks is fired automatically by Juju at regular intervals (default: 5m; can be changed, e.g., `juju model-config update-status-hook-interval=1m`).
+Nothing in particular: this hooks is fired automatically by Juju at regular intervals (default: 5m; can be changed, e.g., `juju model-config update-status-hook-interval=1m`).
 
 This event can be used to monitor the health of deployed charms and determine the status of long running tasks (such as package installation), updating the status message reported to Juju accordingly.
 

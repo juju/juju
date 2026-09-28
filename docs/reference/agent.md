@@ -18,13 +18,13 @@ On machines, an agent is managed by `systemd`.
 ### The agent's identity
 
 An agent is a process, not a database record: no record of its own is kept.
-The records are the **served entity's** agent satellites -- the
+The records are the **served entity's** agent satellites: the
 agent's password, its start time, the version it reported as running,
-and its presence (the last time it was seen) -- plus the model's
+and its presence (the last time it was seen), plus the model's
 agent-version record, the version the model's agents *should* run and
 the latest one known (see
 {ref}`the model's agent version <the-model-record>`). What identifies
-an agent is its **tag**: the entity it serves -- a machine's number, a
+an agent is its **tag**: the entity it serves: a machine's number, a
 unit's name, an application's name, or `controller-0` for the
 controller agent.
 
@@ -36,14 +36,14 @@ each carry an agent-version record (the version that agent reported
 running) and the machine a presence record (the last time its agent
 was seen); the machine's and the controller node's passwords are
 agent credentials; and the model database carries the model-level
-agent-version singleton -- the target and latest versions, with the
+agent-version singleton: the target and latest versions, with the
 agent stream they come from (released, proposed, testing, devel).
 
 (the-agent-states)=
 ### Agent states
 
 An agent has no state machine: it runs or it does not. Its liveness
-is *presence* -- the controller records the agent's last login -- and
+is *presence*: the controller records the agent's last login, and
 a silent agent reads as `lost` in the status projections, a display
 rule computed on read (see {ref}`unit status <unit-status>` and the
 {ref}`Status domains <status>` view).
@@ -52,9 +52,9 @@ rule computed on read (see {ref}`unit status <unit-status>` and the
 ### Types of agent
 
 An agent's kind is the entity it serves, and the kinds are exclusive
-by construction -- one process serves one entity. The `jujud` binary
-registers exactly two agent commands -- the **model agent** and the
-**machine agent** -- and the other kinds are roles those run: the
+by construction: one process serves one entity. The `jujud` binary
+registers exactly two agent commands: the **model agent** and the
+**machine agent**, and the other kinds are roles those run: the
 machine agent starts a unit agent (the Uniter worker) per unit it
 hosts, and the model agent runs a model's workers; on Kubernetes,
 `containeragent` is the unit agent as a single binary.
@@ -77,7 +77,7 @@ On machine and Kubernetes clouds, a `jujud` process running workers responsible 
 :file: ../juju.ggarch
 :view: Worker tree (controller)
 :alt: The controller agent's worker tree: a Dqlite hub at the centre with workers arranged around it — API server, domain services, object store, lease manager, provider services, change stream, provisioner and others, each with the verb that names what it does.
-:caption: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
+:caption: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
 ```
 
 (machine-agent)=
@@ -100,8 +100,8 @@ When a Juju user uses the client (e.g., types a command in the CLI), this goes t
 (the-agents-machinery)=
 ## The agent's machinery
 
-An agent has machinery of its own: it is a running process -- a jujud
-role (the controller, machine and unit agents) -- that starts with its
+An agent has machinery of its own: it is a running process: a jujud
+role (the controller, machine and unit agents) that starts with its
 entity, reports the version it runs, and takes targeted upgrades.
 
 (the-agent-operations)=
@@ -111,8 +111,8 @@ entity, reports the version it runs, and takes targeted upgrades.
 
 The machine agent starts with its machine (via `systemd`) and the
 model agent with the model's workers; the machine agent starts a unit
-agent per unit it hosts. Bootstrap creates the first agent -- the
-controller's -- with a one-time nonce (see
+agent per unit it hosts. Bootstrap creates the first agent, the
+controller's, with a one-time nonce (see
 {ref}`Controller operations <the-controller-operations>`).
 
 #### Agent version targeting and reporting
@@ -138,21 +138,21 @@ presence machinery records agent logins, and that is the input the
 ## Agent rules and errors
 
 - an agent's identity is its tag, and the API authenticates the tag
-  kinds separately -- machine, unit, application and controller agents
+  kinds separately: machine, unit, application and controller agents
   each have their own authentication class;
 - the controller agent's tag is fixed (`controller-0`); bootstrap
   requires the matching one-time nonce;
-- the machine agent's password is unique across machines -- one agent
+- the machine agent's password is unique across machines: one agent
   cannot impersonate another.
 
 (related-entities-agent)=
 ## Entities related to the agent
 
-- Agents serve the controller, models, machines and units -- one
+- Agents serve the controller, models, machines and units: one
   agent process per entity (see {ref}`controller <controller>`,
   {ref}`model <model>`, {ref}`machine <machine>`,
   {ref}`unit <unit>`).
-- **`jujud` and `containeragent`** are the agent binaries -- the
+- **`jujud` and `containeragent`** are the agent binaries: the
   former for machines and controllers, the latter the unit agent's
   Kubernetes form (see {ref}`jujud <jujud>`,
   {ref}`containeragent <containeragent>`).

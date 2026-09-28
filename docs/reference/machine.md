@@ -58,7 +58,7 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 :file: ../juju.ggarch
 :view: Machine attributes
 :alt: The machine record at the centre with its salient columns; the parent pair west; the agent status east; the net node and the cloud instance below, the instance's own status under it. Each line is a stored pointer; 1/m at each end.
-:caption: The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records.The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records.
+:caption: The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records.
 ```
 
 In the {ref}`model database <data-model-full-spine>`, a machine is a native record, distributed

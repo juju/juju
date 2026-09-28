@@ -75,7 +75,7 @@ At any point:
 :file: ../juju.ggarch
 :view: Tutorial: setup
 :alt: A client talks to the controller; the controller talks to clouds above it and to Charmhub below it. Arrows name what each connection does.
-:caption: Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; otherwise, a local source of charms). The arrows name what each connection actually carries.Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; otherwise, a local source of charms). The arrows name what each connection actually carries.
+:caption: Juju consists of at least a client and a controller, and needs access to a cloud (anything that can provide compute, networking, and storage) and to Charmhub (the charm store; otherwise, a local source of charms). The arrows name what each connection actually carries.
 ```
 
 
@@ -108,7 +108,7 @@ Congratulations, your cloud is ready!
 
 ### Prepare Charmhub
 
-So long as you're connected to the internet, your Juju can automatically reach Charmhub -- nothing to be done.
+So long as you're connected to the internet, your Juju can automatically reach Charmhub: nothing to be done.
 
 ### Set up the `juju` CLI client
 
@@ -181,7 +181,7 @@ Split your terminal window into 3 (or open 3 terminal windows). In all, access y
 
 ### Set up a Juju controller
 
-A Juju controller is your Juju control plane -- the entity that holds the Juju API server and Juju's database. Anything you do in Juju post-controller-setup goes through a Juju controller, and to work properly the controller needs access to a cloud and to Charmhub (or a local source of charms). Let's set it up!
+A Juju controller is your Juju control plane: the entity that holds the Juju API server and Juju's database. Anything you do in Juju post-controller-setup goes through a Juju controller, and to work properly the controller needs access to a cloud and to Charmhub (or a local source of charms). Let's set it up!
 
 In your VM, use your client and its access to the MicroK8s cloud to bootstrap a Juju controller:
 
@@ -206,9 +206,9 @@ Now you can run
 to create a new model to deploy k8s workloads.
 ```
 
-This will use ingredients from your client, the `juju-controller` charm from Charmhub and a pod from MicroK8s (backed by your current node -- your VM) to give you a running Juju controller.
+This will use ingredients from your client, the `juju-controller` charm from Charmhub and a pod from MicroK8s (backed by your current node, your VM) to give you a running Juju controller.
 
-Now, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms). Our controller already has access to our 'microk8s' cloud -- this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
+Now, to be fully operational a controller needs access to a cloud and to Charmhub (or a local source for charms). Our controller already has access to our 'microk8s' cloud: this access was granted implicitly through bootstrap. Also, as before, so long as you're connected to the internet, your controller has access to Charmhub too. Your controller is all set!
 
 At this point we could connect to it further clouds or set up the Juju dashboard. For the purpose of this tutorial, however, we will skip ahead to talking about users and permissions.
 
@@ -218,9 +218,9 @@ At this point we could connect to it further clouds or set up the Juju dashboard
 :file: ../juju.ggarch
 :view: Tutorial: auth
 :alt: The user sends commands to the client, the client calls the Juju API on the controller, and the controller still talks to the clouds above it and to Charmhub below it.
-:caption: The reveal adds the user: everything you do in Juju is commands sent through the client to the controller, which checks who you are and what you may do. The controller's cloud and Charmhub access stays as it was.The reveal adds the user: everything you do in Juju is commands sent through the client to the controller, which checks who you are and what you may do. The controller's cloud and Charmhub access stays as it was.
+:caption: The reveal adds the user: everything you do in Juju is commands sent through the client to the controller, which checks who you are and what you may do. The controller's cloud and Charmhub access stays as it was.
 ```
-Your client and controller can already talk to a cloud and Charmhub, but they don't run on their own -- enter the user! In Juju, the user is any person that can log in to a controller, and what they can do can be controlled at the level of the controller or some of the smaller entities associated with that controller. As the entity that has bootstrapped the controller, you have automatically been logged in and given `superuser` access. Let's verify:
+Your client and controller can already talk to a cloud and Charmhub, but they don't run on their own: enter the user! In Juju, the user is any person that can log in to a controller, and what they can do can be controlled at the level of the controller or some of the smaller entities associated with that controller. As the entity that has bootstrapped the controller, you have automatically been logged in and given `superuser` access. Let's verify:
 
 ```{terminal}
 :copy:
@@ -254,7 +254,7 @@ At this point you could add further users and control their permissions. However
 :file: ../juju.ggarch
 :view: Tutorial: provision & deploy
 :alt: The full picture now: the user sends commands through the client to the controller, the controller provisions on clouds and fetches charms from Charmhub, and the charmed applications record their state on the controller.
-:caption: The full picture, with the charmed applications added. The controller provisions infrastructure on the cloud and fetches charms from Charmhub; the applications it deploys record their state back to the controller -- the loop the following sections exercise.The full picture, with the charmed applications added. The controller provisions infrastructure on the cloud and fetches charms from Charmhub; the applications it deploys record their state back to the controller -- the loop the following sections exercise.
+:caption: The full picture, with the charmed applications added. The controller provisions infrastructure on the cloud and fetches charms from Charmhub; the applications it deploys record their state back to the controller -- the loop the following sections exercise.
 ```
 
 Anything you provision or deploy and operate with a Juju controller goes onto a workspace called a 'model'. Let's create the model that will hold our chat applications:
@@ -284,7 +284,7 @@ juju deploy mattermost-k8s --constraints "mem=2G"
 Deployed "mattermost-k8s" from charm-hub charm "mattermost-k8s", revision ... in channel latest/stable on ubuntu@.../stable
 ```
 
-Now, its dependencies. Mattermost needs a PostgreSQL database, and [its charmed version supports an easy way to integrate with such a database](https://charmhub.io/mattermost-k8s/integrations#db). Let's deploy [the PostgreSQL charm for Kubernetes](https://charmhub.io/postgresql-k8s) in the recommended way, from track `14` with risk `stable`; with `--trust` -- i.e., permission to use our cloud credentials (this charm needs to create and manage some Kubernetes resources); because we're just playing around, setting [the `profile` config](https://charmhub.io/postgresql-k8s/configurations#profile) to `testing`, so we don't use too many resources; and, just for fun, with `-n 2`, that is, two replicas (in a real life setting you'll want to distribute them over multiple nodes -- something Juju would do automatically here too, except we're doing everything on a single node).
+Now, its dependencies. Mattermost needs a PostgreSQL database, and [its charmed version supports an easy way to integrate with such a database](https://charmhub.io/mattermost-k8s/integrations#db). Let's deploy [the PostgreSQL charm for Kubernetes](https://charmhub.io/postgresql-k8s) in the recommended way, from track `14` with risk `stable`; with `--trust`, i.e., permission to use our cloud credentials (this charm needs to create and manage some Kubernetes resources); because we're just playing around, setting [the `profile` config](https://charmhub.io/postgresql-k8s/configurations#profile) to `testing`, so we don't use too many resources; and, just for fun, with `-n 2`, that is, two replicas (in a real life setting you'll want to distribute them over multiple nodes, something Juju would do automatically here too, except we're doing everything on a single node).
 
 ```{terminal}
 :copy:
