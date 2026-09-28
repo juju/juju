@@ -189,6 +189,26 @@ func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	ctrl.Finish()
 }
 
+// TestMalformedHostnameBadRequest checks that an unparseable destination
+// hostname is rejected with a 400 before any authorization or upgrade.
+func (s *relaySuite) TestMalformedHostnameBadRequest(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	// The factory must not be called: the request is rejected on parse.
+	factory := NewMockTerminatingServerFactory(ctrl)
+
+	// Too many elements: an unambiguously unparseable hostname.
+	const badHostname = "foo.bar.1.1." + testModelUUID + ".juju.local"
+	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/"+badHostname, nil)
+	r.URL.RawQuery = ":virtualHostname=" + badHostname
+
+	w := httptest.NewRecorder()
+	s.newHandler(c, factory).ServeHTTP(w, r)
+
+	c.Check(w.Code, tc.Equals, http.StatusBadRequest)
+	c.Check(w.Body.String(), tc.Contains, "failed to parse destination hostname")
+	ctrl.Finish()
+}
+
 // dialRelay starts a relay test server with the given factory, injects
 // an admin JWT as the HTTP authentication layer would, and returns a raw
 // connection to it along with an upgrade request ready to write.
