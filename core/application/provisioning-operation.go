@@ -35,3 +35,17 @@ const (
 func IsDifferentOperation(currentOp, requestedOp ProvisioningOperation) bool {
 	return currentOp != NoOperation && currentOp != requestedOp
 }
+
+// IsValid reports whether the operation is one of the defined provisioning
+// operations. It guards against persisting misspelled operations, which every
+// consumer comparing against the defined constants would otherwise silently
+// treat as no operation.
+func (p ProvisioningOperation) IsValid() bool {
+	switch p {
+	case NoOperation,
+		ScaleOperation,
+		StorageUpdateOperation:
+		return true
+	}
+	return false
+}

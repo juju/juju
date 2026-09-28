@@ -203,6 +203,13 @@ func (s *serviceSuite) TestSetScalingStateInconsistent(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
 }
 
+func (s *serviceSuite) TestSetScalingStateOperationNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.svc.SetApplicationScalingState(c.Context(), "foo", 1, coreapplication.ProvisioningOperation("sclae"))
+	c.Assert(err, tc.ErrorIs, applicationerrors.ProvisioningOperationNotValid)
+}
+
 func (s *serviceSuite) TestGetScalingState(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
