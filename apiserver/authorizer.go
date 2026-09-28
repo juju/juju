@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -103,8 +104,9 @@ func (a machineAgentAuthorizer) Authorize(_ context.Context, authInfo authentica
 // relayJWTAuthorizer implements the [authentication.Authorizer] interface.
 type relayJWTAuthorizer struct{}
 
-// Authorize checks that the authorization request is for an externally
-// authenticated user carrying a JWT delegator.
+// Authorize checks that the request is externally authenticated with a JWT
+// permission delegator. Rejecting non-JWT delegators here lets the relay
+// wrapper and handler trust the delegator's type.
 //
 // Authorize implements the [authentication.Authorizer] interface.
 func (a relayJWTAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
@@ -113,8 +115,8 @@ func (a relayJWTAuthorizer) Authorize(_ context.Context, authInfo authentication
 			coreerrors.NotSupported,
 		)
 	}
-	if authInfo.Delegator == nil {
-		return errors.New("authorization is missing a permission delegator").Add(
+	if _, ok := authInfo.Delegator.(*jwt.PermissionDelegator); !ok {
+		return errors.New("authorization requires a JWT permission delegator").Add(
 			coreerrors.NotSupported,
 		)
 	}

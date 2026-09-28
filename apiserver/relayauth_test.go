@@ -17,7 +17,9 @@ import (
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/httpcontext"
 	sshproxy "github.com/juju/juju/apiserver/internal/handlers/sshproxy"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/permission"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type relayAuthSuite struct{}
@@ -85,8 +87,18 @@ func (s *relayAuthSuite) newToken(c *tc.C) jwt.Token {
 	return token
 }
 
+// newRelayServer returns a Server whose shared context carries a test
+// logger, so wrapper paths that log are safe to exercise.
+func newRelayServer(c *tc.C) *Server {
+	return &Server{
+		shared: &sharedServerContext{
+			logger: loggertesting.WrapCheckLog(c),
+		},
+	}
+}
+
 func (s *relayAuthSuite) TestRelayWrapperInjectsDelegatorToken(c *tc.C) {
-	srv := &Server{}
+	srv := newRelayServer(c)
 	token := s.newToken(c)
 
 	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
@@ -100,8 +112,24 @@ func (s *relayAuthSuite) TestRelayWrapperInjectsDelegatorToken(c *tc.C) {
 	c.Check(captured.token, tc.Equals, token)
 }
 
-func (s *relayAuthSuite) TestRelayWrapperRejectsUnauthorizedAuthInfo(c *tc.C) {
-	srv := &Server{}
+func (s *relayAuthSuite) TestRelayWrapperRejectsMissingAuthInfo(c *tc.C) {
+	srv := newRelayServer(c)
+	captured := &captureJWT{}
+	wrapper := srv.sshRelayRequestWrapper(captured)
+
+	// No auth info in the context: the wrapper's own precondition.
+	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
+	w := httptest.NewRecorder()
+	wrapper.ServeHTTP(w, r)
+
+	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
+	c.Check(captured.ok, tc.IsFalse)
+}
+
+// TestRelayWrapperInternalErrorOnBadDelegator checks the guard for the
+// invariant that relayJWTAuthorizer only admits *jwt.PermissionDelegator.
+func (s *relayAuthSuite) TestRelayWrapperInternalErrorOnBadDelegator(c *tc.C) {
+	srv := newRelayServer(c)
 	captured := &captureJWT{}
 	wrapper := srv.sshRelayRequestWrapper(captured)
 
@@ -109,7 +137,6 @@ func (s *relayAuthSuite) TestRelayWrapperRejectsUnauthorizedAuthInfo(c *tc.C) {
 		name     string
 		authInfo authentication.AuthInfo
 	}{
-		{"missing auth info", authentication.AuthInfo{}},
 		{"non-JWT delegator", newRelayAuthInfo(stubPermissionDelegator{})},
 		{"nil delegator", newRelayAuthInfo(nil)},
 	} {
@@ -117,12 +144,18 @@ func (s *relayAuthSuite) TestRelayWrapperRejectsUnauthorizedAuthInfo(c *tc.C) {
 			r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
 			if test.authInfo.Delegator != nil {
 				r = withAuthInfo(t, r, test.authInfo)
+			} else {
+				// Nil delegator still yields auth info when externally
+				// authenticated.
+				info := test.authInfo
+				info.IsExternallyAuthenticated = true
+				r = withAuthInfo(t, r, info)
 			}
 
 			w := httptest.NewRecorder()
 			wrapper.ServeHTTP(w, r)
 
-			tc.Check(t, w.Code, tc.Equals, http.StatusUnauthorized)
+			tc.Check(t, w.Code, tc.Equals, http.StatusInternalServerError)
 			tc.Check(t, captured.ok, tc.IsFalse)
 		})
 	}
@@ -163,5 +196,14 @@ func (s *relayAuthSuite) TestRelayJWTAuthorizerRejectsMissingDelegator(c *tc.C) 
 	authInfo.IsExternallyAuthenticated = true
 
 	err := relayJWTAuthorizer{}.Authorize(context.Background(), authInfo)
-	c.Check(err, tc.ErrorMatches, "authorization is missing a permission delegator")
+	c.Check(err, tc.ErrorMatches, "authorization requires a JWT permission delegator")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *relayAuthSuite) TestRelayJWTAuthorizerRejectsNonJWTDelegator(c *tc.C) {
+	authInfo := newRelayAuthInfo(stubPermissionDelegator{})
+
+	err := relayJWTAuthorizer{}.Authorize(context.Background(), authInfo)
+	c.Check(err, tc.ErrorMatches, "authorization requires a JWT permission delegator")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }

@@ -1222,9 +1222,13 @@ func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
 			http.Error(w, "authentication info missing", http.StatusUnauthorized)
 			return
 		}
+		// relayJWTAuthorizer guarantees the delegator type, so a miss is a
+		// programming error, not an authorization decision.
 		delegator, ok := authInfo.Delegator.(*jwt.PermissionDelegator)
 		if !ok || delegator == nil {
-			http.Error(w, "relay requires a JWT delegator", http.StatusUnauthorized)
+			srv.shared.logger.Errorf(r.Context(),
+				"relay wrapper programming error: relayJWTAuthorizer admitted a %T delegator", authInfo.Delegator)
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 		// delegator.Token was signature-verified by the JWT
