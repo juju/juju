@@ -99,6 +99,33 @@ WHERE ks.uuid = $k8sService.uuid`, k8sService{})
 	})
 }
 
+// DeleteK8sServiceAddresses deletes the addresses for an application's Service.
+// It retains the Service and net node so recreation can reuse the association.
+// An application without a recorded Service is a no-op.
+func (st *State) DeleteK8sServiceAddresses(ctx context.Context, appUUID string) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	app := entityUUID{UUID: appUUID}
+	query, err := st.Prepare(`
+SELECT ks.net_node_uuid AS &entityUUID.uuid
+FROM k8s_service AS ks
+WHERE ks.application_uuid = $entityUUID.uuid`, app)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var netNode entityUUID
+		if err := tx.Query(ctx, query, app).Get(&netNode); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("querying cloud service: %w", err)
+		}
+		return st.deleteNetNodeAddresses(ctx, tx, netNode.UUID)
+	})
+}
+
 func (st *State) createK8sService(ctx context.Context, tx *sqlair.TX, svc k8sService) error {
 	insertNetNode, err := st.Prepare(`
 INSERT INTO net_node (uuid) VALUES ($k8sService.net_node_uuid)`, svc)

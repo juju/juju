@@ -80,6 +80,10 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	UpsertK8sService(ctx context.Context, appName, providerID string, args internal.UpsertK8sServiceArgs) error
 
+	// DeleteK8sServiceAddresses deletes an application's Service addresses after
+	// the provider reports that the Service no longer exists.
+	DeleteK8sServiceAddresses(ctx context.Context, appUUID string) error
+
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application. This blocks removal until
 	// cleared.
@@ -857,6 +861,21 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 		&config,
 		&actions,
 	), locator, nil
+}
+
+// ClearK8sServiceAddresses clears the addresses of a missing Kubernetes Service.
+// The Service record and net node are retained for subsequent reconciliation.
+// An application without a recorded Service is a no-op.
+func (s *Service) ClearK8sServiceAddresses(ctx context.Context, appUUID coreapplication.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	if err := appUUID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := s.st.DeleteK8sServiceAddresses(ctx, appUUID.String()); err != nil {
+		return errors.Errorf("clearing Kubernetes Service addresses for application %q: %w", appUUID, err)
+	}
+	return nil
 }
 
 // UpdateK8sService replaces the cloud Service address snapshot for an
