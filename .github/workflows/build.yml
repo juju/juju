@@ -37,6 +37,12 @@ jobs:
           go-version-file: "go.mod"
           cache: false
 
+      # jujud is a native CGO build on every linux entry; darwin does not
+      # build jujud (the agent platform lists filter it to linux).
+      - name: "Install dependencies"
+        if: matrix.platform.os == 'linux'
+        run: make install-dependencies
+
       - name: "Build"
         run: |
           GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
