@@ -54,25 +54,26 @@ discriminators does).
 
 The model service in the controller performs the writes: creating a
 model writes its records in both databases; configuring it rewrites
-the configuration rows; migrating it creates an *importing* model,
+the configuration records; migrating it creates an *importing* model,
 unactivated until the migration's agents report success (see
 {ref}`Model migration <the-model-migration>`).
 
 The model's stored footprint is thin, and deliberately so: everything
-the model *contains* lives in the entities' own tables (see
+the model *contains* lives in the entities' own records (see
 {ref}`the full spine <data-model-full-spine>`). The model's own
 **model database** keeps a read-only, denormalized copy of its
 identity (its UUID, its controller, its name and owner, its type,
 its cloud, region and credential, and the controller-model flag), one
-row per model database, enforced by the schema, and its `model_life`
-table mirrors the controller-side life as a best-effort facsimile; it
+record per model database, enforced by the schema, and its
+model-life record mirrors the controller-side life as a best-effort
+facsimile; it
 is what the model-side processes read. The model database also carries
-the model's own records as separate tables: its {ref}`configuration
+the model's own records: its {ref}`configuration
 <model-configuration>`, its {ref}`constraints <constraint>`, its
 {ref}`storage pools <storage>` and the target agent version (the agent
 version the model's machines should run and the latest one known; see
-{ref}`upgrading things <upgrading-things>`). There is no life column
-on the model row: life belongs to the controller database.
+{ref}`upgrading things <upgrading-things>`). There is no life
+on the model's own record: life belongs to the controller database.
 
 (the-model-persistence-rules)=
 ### Persistence rules and errors
@@ -208,7 +209,7 @@ deletes its own database; the Undertaker does.
 
 The model domain's watchable service exposes these watch surfaces:
 
-- **All models:** The controller database's model table: the
+- **All models:** The controller database's model records: the
   Undertaker's surface for models becoming dead.
 - **Activated models:** The models that have finished activating on
   the controller.

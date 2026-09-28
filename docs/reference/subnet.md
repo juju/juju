@@ -69,8 +69,8 @@ adoption, and the client's writes on one are space-pointer moves:
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Subnet attributes
-:alt: The subnet's stored tables as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
-:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
+:alt: The subnet's stored records as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
+:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
 ```
 
 In the model database a subnet is a **cached cloud fact**: the
@@ -107,7 +107,7 @@ The record set over the DDL (`0009-subnet.sql`, `0008-space.sql`):
   holds many subnets.
 - **`v_space_subnet`:** The flattened view the reads use: every
   subnet joined with its space name, its provider satellites and
-  its zone names, so one row answers the listing.
+  its zone names, so one record answers the listing.
 - The consumer outside the slice: **`ip_address`** carries the
   subnet pointer (`subnet_uuid`, nullable: the Kubernetes
   provider's pod IPs can lack a discovered subnet, the schema's own
@@ -120,15 +120,16 @@ membership have something to point at. The unique names in the
 picture belong to the neighbours: `space.name` and
 `availability_zone.name`.
 
-Every foreign key is an assertion the record holds: the subnet row
+Every foreign key is an assertion the record holds: the subnet record
 holds the space pointer (`subnet.space_uuid`); the provider_subnet
-row holds the subnet pointer; the join rows hold one pointer each
+record holds the subnet pointer; the join records hold one pointer
+each
 (`availability_zone_subnet` both of its neighbours'). The space
 assertion says this subnet belongs to at most one space: nullable,
 an honest absence the schema states (a subnet need not be grouped
 yet); moving it between spaces rewrites the single pointer (see
 {ref}`space operations <the-space-operations>`). Nothing
-transitions: the record has no life column and no status table; a
+transitions: the record has no life and no status vocabulary; a
 subnet is adopted, listed, and moved; there is no state to read off
 the diagram and no type vocabulary behind it.
 
@@ -146,13 +147,13 @@ the diagram and no type vocabulary behind it.
     upserts, updating a known subnet's space pointer and adding an
     unknown subnet with its satellites in the same transaction.
   - No path deletes a subnet in the current code: the removal
-    surface exists (the state deletes the row and its satellites in
+    surface exists (the state deletes the record and its satellites in
     one transaction) but has no non-test caller, and the reload's
     own comment says it does not delete subnets the provider
     dropped.
 - **Errors:**
   - **`subnet not found`:** Triggered when a subnet is queried by
-    its UUID or by the cloud's provider id and no row answers, when
+    its UUID or by the cloud's provider id and no record answers, when
     an add-space operation names a CIDR no subnet carries, and when
     a device's address lookup has no subnet to name. Remediation:
     check the identifier against the listing.
@@ -187,7 +188,7 @@ What runs is the adoption, split by owner:
 ### Subnet watchers
 
 The network domain exposes one watch surface over subnets: **subnet
-changes**. The watcher's namespace is the `subnet` table's change
+changes**. The watcher's namespace is the subnet record's change
 stream, its initial query lists every subnet UUID, and its filter
 narrows the stream to the watcher's own subnet set (an empty set
 passes everything, the legacy compatibility form). The consumer in

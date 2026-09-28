@@ -43,7 +43,7 @@ database. The client's acts on them are:
 - **Rules:**
   - Uniqueness is per user, twice over: the same material and the same
     fingerprint are each refused a second time for one user (the
-    table's two unique indexes).
+    record's two unique indexes).
   - A key's material must parse as a public key.
   - The comment `juju-system-key` is reserved: the controller's own
     key carries it (see {ref}`the SSH key's machinery
@@ -90,9 +90,9 @@ The record set over the DDL (`0021-user-ssh-keys.sql`,
   comment (also indexed for deletion, the DDL's own comment), its
   fingerprint with the algorithm it was taken with, and the owning
   user.
-- **`model_authorized_keys`:** the projection: one row per (model,
+- **`model_authorized_keys`:** the projection: one record per (model,
   key) pair, a composite primary key. The projection carries no key
-  material: it points at the key row.
+  material: it points at the key record.
 - **`machine_ssh_host_key`:** a machine's host keys, per model
   database: a UUID primary key, the {ref}`machine <machine>`, and the
   key material.
@@ -101,7 +101,7 @@ The record set over the DDL (`0021-user-ssh-keys.sql`,
   user's authentication: a removed or disabled user's keys stop being
   authorised (the view's own comment).
 
-The identity: the key row's id is the join handle every projection
+The identity: the key record's id is the join handle every projection
 points at; the projection pair (model, key) is what a machine's
 authorisation read resolves.
 
@@ -110,9 +110,9 @@ authorisation read resolves.
 
 - **Rules:**
   - The projection is the only model-facing record: a model authorises
-    keys by pointing at rows, never by copying material.
-  - Deleting a key removes its projections first; the key row itself
-    goes only when no model projects it any more.
+    keys by pointing at records, never by copying material.
+  - Deleting a key removes its projections first; the key record
+    itself goes only when no model projects it any more.
   - A removed or disabled user's keys drop out of the authorisation
     read through the view, not through a rewrite.
   - The add and import acts fingerprint with SHA-256; the algorithm
@@ -137,7 +137,7 @@ the host-key reporting, split by owner:
   controllers need no user key to reach a machine.
 - **The host key reporting:** the machine agent reads its own host
   keys and reports them through the hostkeyreporter facade; the
-  machine service replaces the machine's rows. Bootstrap seeds the
+  machine service replaces the machine's records. Bootstrap seeds the
   first host keys through the machine's cloud config. The
   client-facing ssh machinery reads the recorded host keys to verify
   the machine it connects to, gated on model admin access.

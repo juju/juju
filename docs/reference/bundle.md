@@ -48,7 +48,7 @@ operations -- charms added, applications deployed, machines
 requested, relations joined -- and from then on the model holds only
 the results, which are the only records that persist (see
 {ref}`the full spine <data-model-full-spine>`). There is no bundle
-table to update, no bundle record to remove: destroying the
+record to update, no bundle record to remove: destroying the
 deployment means destroying the applications it created. And no
 record means no states: the states that matter (the applications',
 the machines') belong to the entities the bundle expands into.

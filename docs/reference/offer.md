@@ -21,7 +21,7 @@ How clients publish an application's endpoints, consume other models' offers, an
 - **Idempotence:** Creating an offer that already exists with the same application and the same endpoints succeeds without change; a different offer under an existing name is rejected, because offers are not updated.
 - **Consumption:** Consuming an offer validates the consuming user's {ref}`consume access <user-access-offer-consume>`, then creates a proxy application in the consuming model and the records that connect the two models; the usual local application integration follows.
 - **Removal:** Removing an offer stops while the offer still has connections, unless the removal is forced.
-- **Access:** Creating an offer grants its owner admin access and everyone read access, both as permission rows in the controller database (see {ref}`the user access levels <user-access-levels>`).
+- **Access:** Creating an offer grants its owner admin access and everyone read access, both as permission records in the controller database (see {ref}`the user access levels <user-access-levels>`).
 
 ```{ibnote}
 See also: {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offers>`
@@ -52,12 +52,12 @@ See also: {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offer
 In the offering model's database, an offer is a small record set (`0032-offer.sql`, `0034-cross-model-relation.sql`):
 
 - **`offer`**: The identity pair: a `uuid` primary key and the offer's `name`.
-- **`offer_endpoint`**: The join table pointing the offer at the {ref}`application endpoints <application-endpoint>` it publishes; a schema trigger keeps every endpoint of one offer on the same application.
-- **`offer_connection`**: One row per consumer: the pointer to the consumer's remote relation and the consuming model's offer user.
+- **`offer_endpoint`**: The join record pointing the offer at the {ref}`application endpoints <application-endpoint>` it publishes; a schema trigger keeps every endpoint of one offer on the same application.
+- **`offer_connection`**: One record per consumer: the pointer to the consumer's remote relation and the consuming model's offer user.
 - **`v_offer_detail`**: The read view joining the offer with its endpoints, the application, the charm, and the connection counts; total and active connections are derived here, not stored.
-- **The consuming side:** In the consuming model's database, the proxy application is a native {ref}`application <application>` row, and an `application_remote_offerer` record ties it to the offer (the offer's UUID and URL, the offering controller), with its own status satellite.
+- **The consuming side:** In the consuming model's database, the proxy application is a native {ref}`application <application>` record, and an `application_remote_offerer` record ties it to the offer (the offer's UUID and URL, the offering controller), with its own status satellite.
 
-The offer's users (who may consume it) live in the controller database as permission rows, not in the model (see {ref}`user <user>`). The offer's URL identifies it across controllers; its name is unique among offers.
+The offer's users (who may consume it) live in the controller database as permission records, not in the model (see {ref}`user <user>`). The offer's URL identifies it across controllers; its name is unique among offers.
 
 An offer has no life column, no state machine, and no subtypes: the record is static from creation until removal, and its only moving quantity, the number of active connections, is derived from the connections' relations.
 
@@ -66,11 +66,11 @@ An offer has no life column, no state machine, and no subtypes: the record is st
 
 - **Rules:**
   - All of an offer's endpoints belong to one application; the schema trigger on `offer_endpoint` enforces it.
-  - The connection counts are derived: `v_offer_detail` counts an offer's connections and its active connections from the `offer_connection` rows.
+  - The connection counts are derived: `v_offer_detail` counts an offer's connections and its active connections from the `offer_connection` records.
 - **Errors:**
   - **`offer not found`:** Triggered when querying an offer by URL or UUID that does not exist. Remediation: verify the offer URL.
 
-Writers: the cross-model relation service performs the writes; offering inserts the offer row with its endpoint rows and the controller-side access rows, consuming adds the connection record and the consuming side's records, and removing deletes the offer with its endpoint, connection, and access rows.
+Writers: the cross-model relation service performs the writes; offering inserts the offer record with its endpoint records and the controller-side access records, consuming adds the connection record and the consuming side's records, and removing deletes the offer with its endpoint, connection, and access records.
 
 ## The offer in the execution layer
 

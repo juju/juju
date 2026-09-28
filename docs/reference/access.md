@@ -53,14 +53,14 @@ resources, which apply when using JAAS.
 (the-access-record)=
 ## Access in the persistence layer
 
-In the controller database, access is the **permission** table: one
-row per grant, carrying its UUID, the access level and the object
-kind (stored as rows of their own lookup tables), the object's name
+In the controller database, access is the **permission** record: one
+record per grant, carrying its UUID, the access level and the object
+kind (stored as records of their own vocabularies), the object's name
 or UUID (`grant_on`), and the granted user's UUID (`grant_to`). The
 natural key is the pair of object and user: a unique index allows
 exactly one permission per user per object.
 
-Three lookup tables bound the row: `permission_access_type` holds the
+Three vocabularies bound the record: `permission_access_type` holds the
 seven access levels -- `read`, `write`, `consume`, `admin`, `login`,
 `add-model`, `superuser` -- and `permission_object_type` the four
 kinds of object -- `cloud`, `controller`, `model`, `offer`.
@@ -69,32 +69,32 @@ them: `admin` and `add-model` for clouds, `login` and `superuser` for
 controllers, `read`, `write` and `admin` for models, `read`,
 `consume` and `admin` for offers (the same list the
 {ref}`user reference <user-access-levels>` describes as abilities).
-Database views resolve each row's identifiers into their type names,
+Database views resolve each record's identifiers into their type names,
 one view per object kind -- and one more for the special
 `everyone@external` user, whose grants act like a group: any
 {ref}`external user <types-of-user>` inherits a level from
 `everyone@external` whenever the external user's own is lower.
 
-The permission service performs the writes: a grant creates the row
-(or updates it to a higher level), a revoke updates the row down or
-deletes it -- revoking the `read` level deletes the row outright --
+The permission service performs the writes: a grant creates the record
+(or updates it to a higher level), a revoke updates the record down or
+deletes it -- revoking the `read` level deletes the record outright --
 and granting to an external user that Juju has not seen yet creates
-that user as a side effect, so the row has someone to name.
+that user as a side effect, so the record has someone to name.
 
-From the user's side, this same table is the user's *reach* (see
+From the user's side, this same record set is the user's *reach* (see
 {ref}`the user's persistence layer <the-users-persistence>`).
 
 (the-access-states)=
 ### Access states
 
-A permission has no state machine: the row exists, or it does not --
+A permission has no state machine: the record exists, or it does not --
 a revoke that takes the level back to `read` is the same write as the
 one that removes the grant.
 
 (types-of-access)=
 ### Types of access
 
-The permission row carries two stored discriminators: the **access
+The permission record carries two stored discriminators: the **access
 level** and the **object kind**. The levels and the abilities each
 confers are defined in the user reference
 ({ref}`the access levels <user-access-levels>`); which combinations
@@ -105,9 +105,9 @@ are valid is the schema's own lookup, listed under
 ## Access in the execution layer
 
 Access has no machinery of its own: a grant is a pure write to the
-permission table, and nothing runs because a level was conferred. The
+permission record set, and nothing runs because a level was conferred. The
 enforcement happens elsewhere and on demand: every gated API call a
-client makes carries a permission check against this table, and the
+client makes carries a permission check against these records, and the
 checks resolve the `everyone@external` inheritance each time they read an
 external user's access -- there is no cached copy to invalidate.
 
@@ -137,7 +137,7 @@ The rules a grant must satisfy:
   a model or offer (`You have specified a controller access
   permission ...`);
 - a user holds at most one level per object -- the unique index on
-  the permission row;
+  the permission record;
 - a grant must raise the level: a user already holding the level (or
   a greater one) cannot be granted it again (`access or greater`);
 - a user cannot change their own cloud access (`cannot change your
@@ -150,7 +150,7 @@ The rules a grant must satisfy:
 
 These rules are stated where they bite: the combination lookup and
 the uniqueness in the schema, the level-hierarchy and self-change
-guards at the facades that write the permission row, and the
+guards at the facades that write the permission record, and the
 last-admin rule where users are removed. The errors that encode
 them: `access or greater`, `cannot change your own cloud access`,
 `permission not valid`, `permission not found`, `access not found`,

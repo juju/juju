@@ -73,7 +73,7 @@ A **storage provider** is the technology used to make storage available to a cha
 In the model database, the persisted thing is the **storage instance**; its records are (`0011-storage.sql`):
 
 - **`charm_storage`**: The {ref}`charm's <charm>` storage definitions: the name, the kind (block or filesystem), the count range, the minimum size, and the shared and read-only flags.
-- **`storage_pool`, `storage_pool_attribute`, `storage_pool_origin`**: The pool record naming its provider type, the provider's parameters as key/value rows, and the pool's origin (user-created or provider default).
+- **`storage_pool`, `storage_pool_attribute`, `storage_pool_origin`**: The pool record naming its provider type, the provider's parameters as key/value records, and the pool's origin (user-created or provider default).
 - **`model_storage_pool`**: The model's per-kind default pool record, seeded at model creation from the provider.
 - **`application_storage_directive`, `unit_storage_directive`**: The resolved directive pinned per application (or per unit, where the unit's charm temporarily diverges from its application's): the pool pointer, the size, and the count.
 - **`storage_instance`**: One record per provisioned piece of storage: the name (the charm's storage name plus an index), the kind, the provision scope (model or machine), and its life.

@@ -47,7 +47,7 @@ In the controller database, a cloud is a definition record set (`0005-cloud.sql`
 - **`cloud_region`**: The regions with their per-region defaults.
 - **`cloud_auth_type`**: The admitted authentication types, drawn from the seeded `auth_type` lookup.
 - **`cloud_defaults`**: The cloud's default configuration values.
-- **The pointers that name it:** {ref}`Models <model>` carry the denormalised copy of the cloud they deploy into (cloud name, type, and region on the model row), and each model's {ref}`credential <credential>` names its cloud half of the pair. The cloud a {ref}`controller <controller>` was bootstrapped on is seeded as a record at bootstrap.
+- **The pointers that name it:** {ref}`Models <model>` carry the denormalised copy of the cloud they deploy into (cloud name, type, and region on the model's record), and each model's {ref}`credential <credential>` names its cloud half of the pair. The cloud a {ref}`controller <controller>` was bootstrapped on is seeded as a record at bootstrap.
 
 Writers: the cloud service in the controller performs the writes; adding a cloud inserts the record with its endpoints, regions, and authentication types; updating rewrites them; removing deletes it.
 

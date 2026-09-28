@@ -70,8 +70,8 @@ See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Pro
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Relation attributes
-:alt: The relation tables as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings tables (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The relation's ten stored tables and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
+:alt: The relation records as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings records (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The relation's ten stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
 In the model database, a relation is a **native record** (`0024-relation.sql`):
@@ -81,9 +81,9 @@ In the model database, a relation is a **native record** (`0024-relation.sql`):
   model's sequence, never reused in the model's lifetime, the number the
   client sees; the life pointer; the scope; and the suspended flag with
   its reason.
-- **`relation_endpoint`:** The link rows to the endpoints: two rows for a
+- **`relation_endpoint`:** The link records to the endpoints: two for a
   provider and requirer, one for a peer relation.
-- **`relation_unit`:** One row per unit that has entered the relation's
+- **`relation_unit`:** One record per unit that has entered the relation's
   scope, per endpoint.
 - **`relation_unit_setting`:** The unit settings: key/value pairs keyed
   per relation unit; keys must be non-empty.
@@ -98,8 +98,8 @@ In the model database, a relation is a **native record** (`0024-relation.sql`):
 - **`relation_unit_setting_archive`:** A unit's settings, copied here when
   it leaves scope. They stay readable for the lifetime of the relation,
   even after the unit itself is gone.
-- **`relation_status` and `relation_status_type`:** The status row and its
-  vocabulary table: `joining`, `joined`, `broken`, `suspending`,
+- **`relation_status` and `relation_status_type`:** The status record and
+  its vocabulary: `joining`, `joined`, `broken`, `suspending`,
   `suspended`, `error`.
 
 The identity pair: the UUID is the join handle; the relation ID is the
@@ -110,13 +110,16 @@ relation's natural key: no two relations in a model may connect the same
 pair, and the relation service checks the pair before it writes the
 record.
 
-Writers: the relation service inserts the relation with its endpoint rows
+Writers: the relation service inserts the relation with its endpoint
+records
 and its initial settings; the removal service carries the teardown; the
 status domain validates and writes the status. Every settings write
-updates the matching hash row. The services do not read the stored rows
+updates the matching hash record. The services do not read the stored
+records
 directly: they read the four derived views (`v_application_endpoint`,
 `v_relation_endpoint`, `v_relation_endpoint_identifier`,
-`v_relation_status`) that join the rows into the shapes the domain speaks
+`v_relation_status`) that join the records into the shapes the domain
+speaks
 in.
 
 Two projections with writers of their own:
@@ -125,8 +128,8 @@ Two projections with writers of their own:
   alive. It cannot stay alive if either of its applications stops being
   alive, and it cannot be dead until every relation unit has left scope.
 - **`relation_status`:** The status domain's record, written through
-  `SetRelationStatus`: a new relation starts as `joining`, the status row
-  written when the relation record is created; the leader unit's agent
+  `SetRelationStatus`: a new relation starts as `joining`, the status
+  record written when the relation record is created; the leader unit's agent
   reports `joined`; `suspending` and `suspended` record a suspended
   relation; `error` requires a status message.
 
@@ -136,7 +139,7 @@ Creating a relation creates its settings: one unit settings record per
 involved unit and one application settings record per involved
 application. Each unit involved in the relation gets a local copy of all
 the settings for that relation. Charm documentation often calls these
-*relation databags*; Juju's code, tables, and hook commands all say
+*relation databags*; Juju's code and hook commands all say
 *settings*.
 
 ```{ggarch}
@@ -144,7 +147,7 @@ the settings for that relation. Charm documentation often calls these
 :view: Relation settings permissions
 :no-legend:
 :caption: Topology: Each unit reads + writes only its own settings (red); the leader also writes the application settings; all units read the other application's settings (green). Peer case: permissions turn inward -- every unit reads all of its own application's settings, application settings included.
-:alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one row of settings records; red arrows reading and writing the own records (own unit settings; the leader also the application settings), green arrows reading across to the other application's set; below, the peer panel: one application's units with red own/leader arrows and green reads of every record, the application settings included.
+:alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one set of settings records; red arrows reading and writing the own records (own unit settings; the leader also the application settings), green arrows reading across to the other application's set; below, the peer panel: one application's units with red own/leader arrows and green reads of every record, the application settings included.
 ```
 
 While the relation is maintained:
@@ -415,7 +418,7 @@ relation domain's watchable service exposes five surfaces:
   surface per application; notifications carry relation UUIDs.
 - **A unit's counterparts in one relation:** The other units in the
   relation. The watcher watches three change-log namespaces at once: the
-  relation's unit rows, the unit-side settings hashes, and the
+  relation's unit records, the unit-side settings hashes, and the
   application-side settings hashes, which is what turns a settings write
   on one side into a `relation-changed` on the other.
 - **The units in a given relation:** Membership changes in the local

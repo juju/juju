@@ -86,18 +86,18 @@ A revision only becomes available for consumption once it's been released into a
 :file: ../juju.ggarch
 :view: Charm origins
 :no-legend:
-:caption: Entity relationship diagram: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:caption: Entity relationship diagram: There is no charm-revision record: each charm REVISION is its own charm record (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm record 1:1; every deployed unit pins its own charm revision.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
 In the model database, a charm is one record per revision: each
-revision the model knows is a separate charm row. The row carries the
-charm's archive (a pointer
+revision the model knows is a separate charm record. The record
+carries the charm's archive (a pointer
 into the controller's object store), its metadata (the name,
 description and subordinate-ness from `metadata.yaml`), and an
 **available** flag. The charm service in the controller performs the
 writes: resolving a revision from its channel and platform reserves
-the charm row as a *placeholder* (the metadata, the config schema,
+the charm record as a *placeholder* (the metadata, the config schema,
 the actions and the manifest, plus its download info) and starts
 the store download. A local upload skips the store: the archive is
 stored and verified against its hash prefix. The store side:
@@ -109,35 +109,35 @@ resolved.
 :file: ../juju.ggarch
 :view: Charm attributes
 :alt: The charm record at the centre with its salient columns; its metadata and download bookkeeping beside it; the charm-defined relations, config schema and actions below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The charm's stored records. A charm is one row per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those rows.
+:caption: Entity relationship diagram: The charm's stored records. A charm is one record per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those records.
 ```
 
 The identity pair: the primary key (the charm's internal id) is the
 join handle, so the metadata, the download bookkeeping and the
 charm-defined payloads have something to point at, and so the
 {ref}`application's <application>` and {ref}`unit's <unit>` charm
-pointers have a row to name. The natural key is the revision triple:
+pointers have a record to name. The natural key is the revision triple:
 unique on the source, the reference name and the revision: a local
 upload, the Charmhub store, or a cross-model import, plus the charm's
 transient name and the revision number. There is no charm-revision
-table: each revision is its own row.
+record of its own: each revision is its own charm record.
 
 The charm's contract, as assertions the record set holds:
 
-- **A charm is one row per revision**: The revision triple is the
-  natural key; the row carries the archive pointer (into the
+- **A charm is one record per revision**: The revision triple is the
+  natural key; the record carries the archive pointer (into the
   controller's object store) and the **available** flag.
-- **A charm has metadata** (one row per charm, the pointer its primary
-  key): the name, description and subordinate-ness from
+- **A charm has metadata** (one record per charm, the pointer its
+  primary key): the name, description and subordinate-ness from
   `metadata.yaml`.
 - **A Charmhub charm has download provenance**: The charmhub
-  identifier and the download URL (one row per charm, the pointer its
-  primary key).
+  identifier and the download URL (one record per charm, the pointer
+  its primary key).
 - **A charm defines its own payloads**: The {ref}`endpoints
   <application-endpoint>` (role and scope), the
   {ref}`configuration <application-configuration>` schema (key, type,
   {ref}`actions <action>` (key, description,
-  parallelism): one row each per charm, which the
+  parallelism): one record each per charm, which the
   {ref}`application <application>` instantiates. Not drawn, all
   assertions the schema states: the storage definitions, devices,
   containers, terms, tags and store categories, plus the manifest of
@@ -148,14 +148,14 @@ the relations, the config schema, the actions, the storage, device,
 container and resource definitions, the terms, tags and categories,
 and the manifest bases all carry the charm's UUID as their pointer.
 A charm is unmodifiable after it lands: the schema triggers refuse
-updates to the charm-defined tables (the actions, the config schema,
+updates to the charm-defined records (the actions, the config schema,
 the containers and their mounts are the schema's own comment:
 "unmodifiable, only insertions and deletions are allowed").
 
 One projection, with no writer of its own:
 
 - **the available flag** (the charm's one state of its own): A charm
-  row is created as a *placeholder* (reserved, not yet available)
+  record is created as a *placeholder* (reserved, not yet available)
   when the model resolves a revision it does not have yet; it becomes
   available when the archive lands in the object store. The
   downloader in the execution layer delivers it; the resolve path
@@ -168,11 +168,11 @@ One projection, with no writer of its own:
 ### Persistence rules and errors
 
 - **Rules:**
-  - One record per revision: no charm-revision table; the natural
-    key is UNIQUE on source, reference name and revision.
+  - One record per revision: no charm-revision record of its own; the
+    natural key is UNIQUE on source, reference name and revision.
   - A local or Charmhub charm carries an architecture; a
     cross-model charm must not.
-  - The charm-defined tables take insertions and deletions, never
+  - The charm-defined records take insertions and deletions, never
     updates.
   - The metadata must parse and the name must be a valid charm name;
     the manifest must list at least one base, and a base must be
@@ -238,7 +238,7 @@ owner:
 ### Charm watchers
 
 The charm domain exposes one watch surface: **charm changes**. It
-fires on any change to the model's charm records (the `charm` table's
+fires on any change to the model's charm records (the charm record's
 change stream): a revision reserved, a placeholder becoming
 available, a charm removed. No worker subscribes to it in the current
 code; the surface is the charm domain's own, and the model's charm
@@ -257,7 +257,7 @@ query being the baseline snapshot, and again on each qualifying change
     UPDATE that stamps the archive path.
   - The archive is checked against its reservation: the upload's
     sha256 prefix, the download's full sha256.
-  - Deletion is bookkeeping: the charm row and its satellites go
+  - Deletion is bookkeeping: the charm record and its satellites go
     only when no application and no unit still references the
     charm.
 - **Errors:**

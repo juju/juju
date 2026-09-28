@@ -31,16 +31,17 @@ parameters carry the command and its timeout, plus one {ref}`task
 <task>` per target -- the same records an action run creates (see
 {ref}`the action in the data model <the-action-in-the-data-model>`).
 An exec run is modelled as the predefined `juju-exec` action; there
-is no separate script table.
+is no separate script record.
 
 The operation service in the controller performs the writes:
 `AddExecOperation` inserts the operation, its parameters as key/value
-rows -- the command and its timeout -- and the `operation_task`
+records -- the command and its timeout -- and the `operation_task`
 records, one per target, each linked through a unit-task or
 machine-task record to the unit or machine it runs on; for a charm
-action, `AddActionOperation` also inserts the `operation_action` row
+action, `AddActionOperation` also inserts the `operation_action`
+record
 tying the operation to the charm's action definition; `FinishTask`
-stores the per-task satellites -- the status record, the log rows,
+stores the per-task satellites -- the status record, the log records,
 and the output record pointing at the results blob in the object
 store.
 
@@ -66,7 +67,7 @@ In Juju, an **operation** is the group of {ref}`tasks <task>` queued by running 
 
 The two kinds are genuinely exclusive, and the data model records the
 split -- a record-derived kind: a run carries an `operation_action`
-row tying it to the charm's action definition only when it is a charm
+record tying it to the charm's action definition only when it is a charm
 action; an arbitrary script runs as the predefined `juju-exec` action
 instead.
 

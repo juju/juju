@@ -77,12 +77,12 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Terraform Provide
 :file: ../juju.ggarch
 :view: Secret attributes
 :alt: The secret metadata record at the centre with its salient columns; the revision record and its content record west; the owner and the consumer records east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
-:caption: Entity relationship diagram: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those rows.
+:caption: Entity relationship diagram: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those records.
 ```
 
 In the model database, a secret is a **native record**: the record
 set grew to its current shape over the patch stream, and the schema
-folds some of its tables into the drawn slice. The drawn slice is the
+folds some of its records into the drawn slice. The drawn slice is the
 record set every secret carries; the entity's remaining records round
 out the specific roles:
 
@@ -127,7 +127,7 @@ carries the source model's UUID as the URI's host part
 `secret:<id>`.
 
 The services read the secret's records through derived views that
-join the metadata, policy, revision, expiry and owner rows into one
+join the metadata, policy, revision, expiry and owner records into one
 shape, resolve the grant subjects and scopes to natural ids, and
 union the owner kinds. The views have no pointers of their own; they
 are not drawn.
@@ -135,7 +135,7 @@ are not drawn.
 (the-secret-states)=
 One state machine, and it is not the shared life: a secret carries no
 alive, dying, dead cycle of the shared kind. The owner publishes
-revisions, the controller writes the grant and tracking rows, the
+revisions, the controller writes the grant and tracking records, the
 rotation and expiry policies fire the owner's hooks, and the owner or
 the auto-pruner retires superseded revisions; removing the secret
 deletes the records and the backend payloads. The records above store
@@ -200,7 +200,7 @@ option. The charm must support the configuration option.
   - Owner labels and consumer labels are unique within their scope:
     per owner record kind and per consuming unit, enforced by the
     schema's partial unique indexes.
-  - Revisions are unique per secret: one row per secret ID and
+  - Revisions are unique per secret: one record per secret ID and
     revision number.
   - A reserved secret ID is consumed when the secret is committed, and
     a unit can only write backend content for IDs it reserved.

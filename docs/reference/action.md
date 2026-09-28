@@ -67,7 +67,7 @@ See also: {ref}`Juju | Manage actions <manage-actions>`, {ref}`Terraform Provide
 :file: ../juju.ggarch
 :view: Operation hierarchy
 :no-legend:
-:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action record exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
 :alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
 ```
 
@@ -90,7 +90,7 @@ two record sets: the definition in the charm's records (the DDL:
 - **`operation_unit_task`, `operation_machine_task`:** The receiver
   joins: each task is tied through one of the two to the unit or the
   machine it runs on.
-- **`operation_parameter`:** The run's parameters as key/value rows:
+- **`operation_parameter`:** The run's parameters as key/value records:
   the user-passed parameters for an action (the keys match the charm's
   schema), the command and its timeout for an exec.
 - **`operation_task_status`:** The task's status, message and update
@@ -137,7 +137,7 @@ path treats it as terminal, but nothing produces it.
     completion, the cancel writes `cancelled` and `aborting`; a
     completion status must be one the task can legitimately report.
   - A task is never restarted: the start is an atomic update that only
-    a `pending` row survives.
+    a `pending` record survives.
   - The operation completes when its last active task does; the
     user-visible status is computed from the tasks at query time,
     never stored.
@@ -167,8 +167,8 @@ cancels it.
 ```
 
 The enqueue path checks its targets' existence, not their life: one
-transaction writes the operation, its parameter rows, the
-`operation_action` row for an action run, and one `pending` task per
+transaction writes the operation, its parameter records, the
+`operation_action` record for an action run, and one `pending` task per
 target through its receiver join. A target that no longer resolves
 fails its own task; the operation still enqueues for the rest.
 
@@ -236,7 +236,7 @@ query being the baseline snapshot, and again on each qualifying change
 - **Rules:**
   - The enqueue checks existence, not life: a target that no longer
     exists fails its own task; the operation still enqueues.
-  - Only a `pending` task can start; the atomic row-count guard
+  - Only a `pending` task can start; the atomic record-count guard
     refuses a double start, a restart, and a start after a cancel.
   - A completion status must be in the completion set (`completed`,
     `failed`, `aborted`, `cancelled`, `error`).

@@ -130,11 +130,11 @@ the `0052` and `0054` patch migrations):
   key of the charm and the resource name, the type (`kind_id` into
   the `charm_resource_kind` lookup, `file` or `oci-image`), the
   nullable in-charm `path` and the description.
-- **`resource`:** one row per stored blob: a `uuid` primary key, the
+- **`resource`:** one record per stored blob: a `uuid` primary key, the
   composite foreign key naming the definition it fills, the nullable
   `revision` (empty for uploads), the origin (`resource_origin_type`,
   `upload` or `store`), the store-lifecycle state (`resource_state`),
-  `created_at`, and `last_polled`, set only for potential rows.
+  `created_at`, and `last_polled`, set only for potential records.
 - **`application_resource`:** the application's usage:
   `resource_uuid` is its primary key, so one stored blob serves at
   most one application; the blob may come from a different charm
@@ -156,7 +156,7 @@ the `0052` and `0054` patch migrations):
   metadata record (`resource_container_image_metadata_store`: the
   registry path, the username and the password nullable).
 - **The views the reads use:** `v_resource` coalesces the two store
-  links into one row's size and digest; `v_application_resource`
+  links into one record's size and digest; `v_application_resource`
   (reshaped by the `0052` patch to an inner join) lists the
   resources an application actually uses; `v_unit_resource` lists
   the units' own copies.
@@ -171,8 +171,8 @@ name) is what the charm's metadata declares and what a deploy names;
 the blob record's `uuid` is the join handle every satellite points
 at (the usage, the retrieval, the unit copy, the store link).
 
-Every foreign key is an assertion the record holds: the resource row
-holds the definition pointer; the usage row holds both of its
+Every foreign key is an assertion the record holds: the resource record
+holds the definition pointer; the usage record holds both of its
 neighbours'; the store links hold the blob pointer and the store-side
 pointer each. Nothing transitions: `resource_state` is two values,
 `available` (the blob the application's units use now) and
@@ -185,7 +185,7 @@ through.
 
 - **Rules:**
   - One stored blob serves at most one application: repointing an
-    application's usage rewrites the single usage row, and the
+    application's usage rewrites the single usage record, and the
     application may keep using a blob acquired for a different charm
     revision than the one it runs.
   - An upload replaces: the re-upload's record takes over the usage
@@ -200,10 +200,10 @@ through.
 - **Errors:**
   - **`resource not found`:** Triggered when a resource is queried
     by name for an application, by UUID, or for its name and type,
-    and no row answers. Remediation: check the name against the
+    and no record answers. Remediation: check the name against the
     charm's definitions or the listing.
   - **`stored resource not found`:** Triggered when the blob behind
-    a resource row is missing from its store: the read refuses,
+    a resource record is missing from its store: the read refuses,
     while the delete paths tolerate the absence. Remediation: push
     the resource again.
   - **`stored resource already exists`:** Triggered when a store put
@@ -230,11 +230,11 @@ runs is the storing and the repointing, split by owner:
   comment).
 - **The repository poll:** the charm revision updater, the worker
   that reserves the charm's newer revision, records the revision's
-  resources per application: rows land as `potential`, stamped with
+  resources per application: records land as `potential`, stamped with
   the poll time.
 - **The revision update:** a client-facing update repoints the
   application: a store resource's revision update writes a new
-  resource row and removes the prior blob, and an upload's update
+  resource record and removes the prior blob, and an upload's update
   replaces the blob through the same store path.
 - **The unit's copy:** a unit fetches its resource through the unit
   resources API: the blob is opened from the store, the retrieval

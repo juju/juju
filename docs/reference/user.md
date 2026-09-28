@@ -147,16 +147,16 @@ In the controller database, a user is a record and its satellites:
 
 - **The user record:** The name (one active user per name), the display name, the external flag, the creator, and the removed flag. The `admin` user is seeded implicitly at bootstrap; every other user is added explicitly.
 - **The authentication records:** The salted password hash, the activation key a new user sets their password with, and the disabled-authentication flag.
-- **The permission rows:** One row per grant, naming who is granted what access level on what kind of object: a {ref}`cloud <cloud>`, the {ref}`controller <controller>`, a {ref}`model <model>`, or an {ref}`application offer <offer>`. The allowed level-per-object combinations are their own lookup: `login` and `superuser` for controllers, `add-model` and `admin` for clouds, `read`, `write`, and `admin` for models, `read`, `consume`, and `admin` for offers.
+- **The permission records:** One record per grant, naming who is granted what access level on what kind of object: a {ref}`cloud <cloud>`, the {ref}`controller <controller>`, a {ref}`model <model>`, or an {ref}`application offer <offer>`. The allowed level-per-object combinations are their own lookup: `login` and `superuser` for controllers, `add-model` and `admin` for clouds, `read`, `write`, and `admin` for models, `read`, `consume`, and `admin` for offers.
 
-Writers: the user service writes the record and its authentication rows (adding issues an activation key; a password set or reset writes a new hash, a reset issuing a fresh key; disabling locks the user out without removing them; re-enabling restores access); the permission service creates, updates, and deletes the grant rows.
+Writers: the user service writes the record and its authentication records (adding issues an activation key; a password set or reset writes a new hash, a reset issuing a fresh key; disabling locks the user out without removing them; re-enabling restores access); the permission service creates, updates, and deletes the grant records.
 
 (the-user-persistence-rules)=
 ### Persistence rules and errors
 
 - **Rules:**
   - A user's record carries two toggles, the authentication-disabled flag and the removed flag; there is no alive, dying, dead life cycle for users; disable and remove are direct writes.
-  - A removed user's name is retired: the records are kept for audit and the name cannot be re-created while the removed row is the active one.
+  - A removed user's name is retired: the records are kept for audit and the name cannot be re-created while the removed record is the active one.
 - **Errors:**
   - **`user not found`:** Triggered when the requested user does not exist. Remediation: check the user name.
   - **`permission not found`:** Triggered when querying a permission grant that does not exist. Remediation: verify the grant.

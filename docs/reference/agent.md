@@ -17,7 +17,7 @@ On machines, an agent is managed by `systemd`.
 (the-agent-record)=
 ### The agent's identity
 
-An agent is a process, not a database record: there is no agent table.
+An agent is a process, not a database record: no record of its own is kept.
 The records are the **served entity's** agent satellites -- the
 agent's password, its start time, the version it reported as running,
 and its presence (the last time it was seen) -- plus the model's

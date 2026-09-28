@@ -92,7 +92,7 @@ off script.md, whose task/operation prose now points here.)
 :file: ../juju.ggarch
 :view: Operation hierarchy
 :no-legend:
-:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action row exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action record exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
 :alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
 ```
 #### Action run flow (sequence)
@@ -210,7 +210,7 @@ crops).
 :file: ../juju.ggarch
 :view: Application attributes
 :alt: The application record at the centre with its salient columns; the charm record it references west; the status record east; the config, origin channel and endpoint records below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The application's stored records. An application is one application row referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the controller marker, scale, expose grants, constraints, workload version, agent credentials, the k8s service and the CMR pair (not drawn).
+:caption: Entity relationship diagram: The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the controller marker, scale, expose grants, constraints, workload version, agent credentials, the k8s service and the CMR pair (not drawn).
 ```
 
 ### reference/charm.md
@@ -223,7 +223,7 @@ crops).
 :file: ../juju.ggarch
 :view: Charm origins
 :no-legend:
-:caption: Topology: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:caption: Topology: There is no charm-revision record: each charm REVISION is its own charm record (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm record 1:1; every deployed unit pins its own charm revision.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
@@ -235,7 +235,7 @@ crops).
 :file: ../juju.ggarch
 :view: Charm attributes
 :alt: The charm record at the centre with its salient columns; its metadata and download bookkeeping beside it; the charm-defined relations, config schema and actions below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The charm's stored records. A charm is one row per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the storage, device, container, term, tag and category definitions and the manifest bases (not drawn).
+:caption: Entity relationship diagram: The charm's stored records. A charm is one record per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the storage, device, container, term, tag and category definitions and the manifest bases (not drawn).
 ```
 
 ### reference/configuration.md
@@ -248,7 +248,7 @@ crops).
 :file: ../juju.ggarch
 :view: Configuration levels
 :no-legend:
-:caption: Topology: Three config levels, three homes: controller config lives in the controller DB (set by juju controller-config; bootstrap seeds it); model config lives in the model DB (set by juju model-config; defaults funnel from Juju -> provider -> cloud -> region); application config lives in per-application rows in the model DB (set by juju config -- there is NO config-set hook command; charms read via config-get). The application-level trust key is intercepted into its own boolean column and gates the uniter's cloud-credential access.
+:caption: Topology: Three config levels, three homes: controller config lives in the controller DB (set by juju controller-config; bootstrap seeds it); model config lives in the model DB (set by juju model-config; defaults funnel from Juju -> provider -> cloud -> region); application config lives in per-application records in the model DB (set by juju config -- there is NO config-set hook command; charms read via config-get). The application-level trust key is intercepted into its own boolean column and gates the uniter's cloud-credential access.
 :alt: User and controller above the three config records; charm beside application config (it reads, it cannot write).
 ```
 
@@ -262,7 +262,7 @@ crops).
 :file: ../juju.ggarch
 :view: Controller attributes
 :alt: The singleton controller record at the centre with its salient columns; the model registry west with the namespace mapping under it; the HA node record east with its version satellite beside it and the API addresses below it. Each drawn line is a stored pointer; the controller record's only foreign key is the model pointer; nodes and configuration join by the singleton convention.
-:caption: Entity relationship diagram: The controller's stored records. The controller is one record, a schema-enforced singleton, pointing at the controller model it lives in; the model registry names each model's database, and the HA nodes carry their version and API-address satellites; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the key/value configuration and the node passwords (not drawn).
+:caption: Entity relationship diagram: The controller's stored records. The controller is one record, a schema-enforced singleton, pointing at the controller model it lives in; the model registry names each model's database, and the HA nodes carry their version and API-address satellites; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the key/value configuration and the node passwords (not drawn).
 ```
 
 #### Bootstrap K8s
@@ -314,7 +314,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Credential chain
 :no-legend:
-:caption: Topology: The credential chain lives in the controller DB: a user owns 0..N cloud credentials (cloud/owner/name is the natural key; 15 auth types); a cloud defines 0..N credentials; a model uses 0..1 credential and belongs to one cloud. The model DB carries only a read-only denormalised copy (credential owner/name as text). Access grants are a separate permission table (object types cloud/controller/model/offer — there is no credential object type; credential access is ownership plus cloud-level add-model/admin).
+:caption: Topology: The credential chain lives in the controller DB: a user owns 0..N cloud credentials (cloud/owner/name is the natural key; 15 auth types); a cloud defines 0..N credentials; a model uses 0..1 credential and belongs to one cloud. The model DB carries only a read-only denormalised copy (credential owner/name as text). Access grants are a separate permission record set (object types cloud/controller/model/offer — there is no credential object type; credential access is ownership plus cloud-level add-model/admin).
 :alt: User record, cloud record, credential record, and model record with FK arrows: user owns credentials, cloud defines credentials, model uses one credential and is deployed on one cloud.
 ```
 
@@ -461,7 +461,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Machine designations
 :no-legend:
-:caption: Topology: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container are rows in the SAME machine table (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller (its compute provisioner) starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Containers are machines: each runs its own machine agent, which hosts the unit agent. Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
+:caption: Topology: What a machine designation names, grounded in domain/machine: machine 0 and its LXD container are records in the SAME machine record set (the container linked by a machine-parent record; one nesting level only), so the designation is the containment path. The provisioning split: the controller (its compute provisioner) starts base machines (StartInstance); the host machine's agent provisions its own containers through the LXD broker (containerprovisioner on the machine agent) and watches them via the API (WatchContainers). Containers are machines: each runs its own machine agent, which hosts the unit agent. Placement scope '#' = existing, 'lxd:' = new; --to is machine-cloud only.
 :alt: The controller provisions machine 0; machine 0's agent provisions the LXD container via the LXD broker and watches its containers through the controller API; the container's own machine agent hosts the unit agent.
 ```
 
@@ -473,7 +473,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Machine attributes
 :alt: The machine record at the centre with its salient columns; the parent pair west; the agent status east; the net node and the cloud instance below, the instance's own status under it. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The machine's stored records. A machine is one machine row, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the base, the manual satellite, placement, constraints, storage attachments, agent version, SSH host keys and LXD profiles (not drawn).
+:caption: Entity relationship diagram: The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the base, the manual satellite, placement, constraints, storage attachments, agent version, SSH host keys and LXD profiles (not drawn).
 ```
 
 #### Machine agent status (state machine)
@@ -561,7 +561,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Cross-model relation (CMR)
 :no-legend:
-:caption: Topology: Declared arrangement — the cross-model machinery as first drawn, all tables grounded (offer, offer_connection, application_remote_offerer, external_controller). Compare with the synthesized variant.
+:caption: Topology: Declared arrangement — the cross-model machinery as first drawn, all records grounded (offer, offer_connection, application_remote_offerer, external_controller). Compare with the synthesized variant.
 :alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
 ```
 ````
@@ -619,8 +619,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Relation attributes
-:alt: The relation tables as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings tables (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The relation's ten stored tables and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The services read these tables through four derived views, which have no pointers of their own and are therefore not drawn.
+:alt: The relation records as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings records (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The relation's ten stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
 #### Integrate
@@ -673,7 +673,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Secret attributes
 :alt: The secret metadata record at the centre with its salient columns; the revision record and its content record west; the owner and the consumer records east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
-:caption: Entity relationship diagram: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the rotation clock, the ID reservations, the cross-model consumer record and the deleted-content references (not drawn).
+:caption: Entity relationship diagram: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the rotation clock, the ID reservations, the cross-model consumer record and the deleted-content references (not drawn).
 ```
 
 ### reference/space.md
@@ -699,8 +699,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Subnet attributes
-:alt: The subnet's stored tables as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
-:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
+:alt: The subnet's stored records as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
+:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
 ```
 
 ### reference/status.md
@@ -741,7 +741,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Unit attributes
 :alt: The unit record at the centre with its salient columns; the application record it joins west; the agent and workload status records east; the shared net node and the subordinate pair below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The unit's stored records. A unit is one unit row belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the workload and agent versions, the k8s pod records, presence, the resolved mode and the charm state tables (not drawn).
+:caption: Entity relationship diagram: The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the workload and agent versions, the k8s pod records, presence, the resolved mode and the charm state records (not drawn).
 ```
 
 #### Unit removal

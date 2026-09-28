@@ -48,20 +48,20 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 :file: ../juju.ggarch
 :view: Application attributes
 :alt: The application record at the centre with its salient columns; the charm record it references west; the status record east; the config, origin channel and endpoint records below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The application's stored records. An application is one application row referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those rows.
+:caption: Entity relationship diagram: The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records.
 ```
 
 In the model database an application is a **native record**, created
-by the deployment machinery, one row per application per model. The
+by the deployment machinery, one record per application per model. The
 drawn slice is the record set every application carries; the entity's
 remaining records are the satellites of its specific roles:
 
-- **An application has one row.** The identity pair: an internal id
-  the other records point at, and the name the client types, unique
-  per model.
+- **Every application is anchored by a single primary entry containing
+  its essential identifiers:** an internal system ID the other records
+  point at, and the name the client types, unique per model.
 - **An application has a life** (alive, dying, dead) and **references
   the {ref}`charm <charm>` it deploys** (stored as a pointer to the
-  charm's row, one a refresh rewrites; the URL is reconstructed from
+  charm's record, one a refresh rewrites; the URL is reconstructed from
   the charm's own fields).
 - **An application has a default {ref}`space <space>`** its endpoints
   bind to.
@@ -72,14 +72,15 @@ remaining records are the satellites of its specific roles:
   the clients read).
 - **An application has the endpoints** of the charm's {ref}`endpoint
   <application-endpoint>` definitions instantiated for it.
-- **An application has configs**: The keys the client sets (one row
-  per key, its type mirrored from the charm schema), the SHA-256 hash
-  the config watchers fire on, and the one-boolean trust record.
+- **An application has configs**: The keys the client sets (one
+  record per key, its type mirrored from the charm schema), the
+  SHA-256 hash the config watchers fire on, and the one-boolean trust
+  record.
 - **An application has a status record**: The application-level
   summary.
 
 The role satellites the record set rounds out: the controller marker
-(the one-row record for the one controller application), the
+(the single-record marker for the one controller application), the
 Kubernetes scale record (the current scale, the target, the scaling
 flag), the expose grants per endpoint (a NULL endpoint is the
 wildcard), the compute the units request (joined onto the {ref}`constraint
@@ -160,10 +161,10 @@ endpoint to a specific {ref}`space <space>`.
     charm side (the endpoint record carries the charm endpoint's id).
   - The charm pointer is mutable: a refresh rewrites it in the same
     transaction that updates and creates the storage directives, merges
-    the endpoint bindings, re-filters the config rows and bumps the
+    the endpoint bindings, re-filters the config records and bumps the
     charm's modification counter.
-  - A config row's type mirrors the charm schema's type for that key;
-    the value is nullable (a key set to no value).
+  - A config record's type mirrors the charm schema's type for that
+    key; the value is nullable (a key set to no value).
   - **Life:** Created alive; marked dying one-way by the removal
     machinery (the cascade covers the units, their relations, machines
     and storage); dead only once no units and no relations reference
@@ -259,7 +260,8 @@ The mechanism and the state it leaves, per cloud type:
 The application's configuration is the charm's config schema
 instantiated: the {ref}`charm <charm>` defines the options (key, type,
 default, description) in its config schema; the application stores one
-row per key a client sets, the value nullable (a key set to no value).
+record per key a client sets, the value nullable (a key set to no
+value).
 A read with defaults falls back per key to the charm's default where
 no override is set.
 
@@ -267,9 +269,9 @@ Setting configuration validates against the charm's schema: an unknown
 key or a value that does not parse to the option's type is invalid; a
 secret-typed option must be set to a secret URI; the total size of all
 keys and values is capped at 16 MB. The `trust` key never reaches the
-config rows: it is intercepted into the one-boolean settings record,
+config records: it is intercepted into the one-boolean settings record,
 where it grants or withholds the units' access to the model's cloud
-credentials. Clearing a key removes its row; keys that do not exist
+credentials. Clearing a key removes its record; keys that do not exist
 are ignored. Setting configuration by YAML payload is not supported on
 this version; synthetic (remote-offerer) applications refuse
 configuration operations.
@@ -333,7 +335,7 @@ watch surfaces (what a watcher fires on, not who consumes it; see
 {ref}`the unit agent <unit-agent>` and {ref}`the controller agent
 <controller-agent>` for the consumers' side):
 
-- **The application row** and **all applications:** Changes to one
+- **The application record** and **all applications:** Changes to one
   application's record, and applications being added or removed.
 - **An application's units' life** and **one unit's life:** The life
   of the application's units and of a single unit.
@@ -361,8 +363,8 @@ query being the baseline snapshot, and again on each qualifying change
   - Every operation requires model write access; the leader owns only
     the status write.
   - A configuration write validates against the charm's schema, mirrors
-    the option's type into the row, intercepts `trust` into the
-    settings record, and refreshes the config hash.
+    the option's type into the config record, intercepts `trust` into
+    the settings record, and refreshes the config hash.
   - The total size of the configuration keys and values is capped at
     16 MB.
   - A constraints write overwrites the full constraint set; an invalid

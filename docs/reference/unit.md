@@ -40,16 +40,16 @@ See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider fo
 :file: ../juju.ggarch
 :view: Unit attributes
 :alt: The unit record at the centre with its salient columns; the application record it joins west; the agent and workload status records east; the shared net node and the subordinate pair below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The unit's stored records. A unit is one unit row belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those rows.
+:caption: Entity relationship diagram: The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records.
 ```
 
-In the model database a unit is a native record, created by the
-deployment, add-unit or scale machinery. Its story is distributed
-across the record and the satellites that point at it:
+In the model database, a unit is represented by a core record linked
+to the supporting records (satellites) that carry its story:
 
-- **A unit has one row.** The identity pair: an internal id the other
-  records point at, and the name the client types (the application's
-  name plus a suffix), unique per model.
+- **Every unit is anchored by a single primary entry containing its
+  essential identifiers:** an internal system ID the other records
+  point at, and the name the client types (the application's name
+  plus a suffix), unique per model.
 - **A unit belongs to an application** (the application pointer) and
   **pins its own charm revision** (a separate charm pointer, left on
   the deployed revision until the unit is refreshed).
@@ -68,7 +68,7 @@ across the record and the satellites that point at it:
 - **A subordinate unit has a co-location record.** It holds the pair:
   the subordinate's pointer and its principal's, both into the unit's
   own records.
-- **The unit's own satellites** the record set rounds out: the
+- **Additional auxiliary tracking records round out the set:** the
   workload version the unit reports, the agent's version and
   architecture, the Kubernetes pod a CAAS unit runs in (the pod, its
   ports, its provisioning status), the agent's logins (the controller
@@ -76,7 +76,7 @@ across the record and the satellites that point at it:
   mode recorded when a hook error is cleared, and the charm's claimed
   local state, committed with the hook's transaction.
 
-The two status satellites are the pair the status display reads. The agent's status is written by the **unit agent**; the workload's by the **workload**, the charm through its hooks. Writer gates, not transitions, are what constrain them: the agent cannot write `lost` or `allocating`, and an `error` write must carry a message. At read time, an agent with no presence row displays as `lost`, and a lost agent's workload displays as `unknown` unless the workload itself is in `error` or `terminated` (the vocabularies: {ref}`unit status <unit-status>`; the who-writes story across all five status domains: the {ref}`Status domains <status>` view).
+The two status satellites are the pair the status display reads. The agent's status is written by the **unit agent**; the workload's by the **workload**, the charm through its hooks. Writer gates, not transitions, are what constrain them: the agent cannot write `lost` or `allocating`, and an `error` write must carry a message. At read time, an agent with no presence record displays as `lost`, and a lost agent's workload displays as `unknown` unless the workload itself is in `error` or `terminated` (the vocabularies: {ref}`unit status <unit-status>`; the who-writes story across all five status domains: the {ref}`Status domains <status>` view).
 
 The unit record has no type column: a unit's kinds are derived from the records around it, and they are not mutually exclusive; most units are **regular units**: one charm instance, running its hooks on its machine or pod.
 

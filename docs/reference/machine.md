@@ -58,15 +58,16 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 :file: ../juju.ggarch
 :view: Machine attributes
 :alt: The machine record at the centre with its salient columns; the parent pair west; the agent status east; the net node and the cloud instance below, the instance's own status under it. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The machine's stored records. A machine is one machine row, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those rows.
+:caption: Entity relationship diagram: The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records.
 ```
 
 In the model database, a machine is a native record, distributed
-across a decoupled set of tables. The record set, in prose:
+across a decoupled set of records. The record set, in prose:
 
-- **A machine has one row.** The identity pair: an internal id the
-  other records point at, and the name the client types (the
-  designation `0`, `1/lxd/0`), unique per model
+- **Every machine is anchored by a single primary entry containing
+  its essential identifiers:** an internal system ID the other
+  records point at, and the name the client types (the designation
+  `0`, `1/lxd/0`), unique per model
   (`machine already exists`).
 - **A machine has a network identity.** Its pointer names the shared
   net node; machines and all units running on them anchor to the same

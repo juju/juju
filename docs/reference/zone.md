@@ -23,7 +23,7 @@ in (an empty pointer until the cloud assigns one).
 (the-zone-in-the-data-model)=
 ### The zone in the data model
 
-The zone lookup is a cloud-side table; the model stores only the
+The zone lookup is a cloud-side record set; the model stores only the
 pointer on the machine's cloud instance (see
 {ref}`the machine in the data model
 <the-machine-in-the-data-model>`). The two ways to name a zone are
