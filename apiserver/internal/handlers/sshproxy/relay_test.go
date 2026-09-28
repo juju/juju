@@ -109,6 +109,27 @@ func (h *stubProxyHandlers) SessionHandler(session gliderssh.Session) {
 	close(h.sessionDone)
 }
 
+// newBlockingServer returns a terminating server whose session handler
+// blocks until release is closed, keeping the relay's HandleConn (and thus
+// its connection slot) held for the duration.
+func newBlockingServer(c *tc.C, release <-chan struct{}) *gliderssh.Server {
+	server := gliderssh.Server{
+		ChannelHandlers: map[string]gliderssh.ChannelHandler{
+			"session": gliderssh.DefaultSessionHandler,
+		},
+		Handler: func(session gliderssh.Session) {
+			<-release
+			_ = session.Exit(0)
+		},
+	}
+	privateKey, err := test.InsecureKeyProfile()
+	c.Assert(err, tc.ErrorIsNil)
+	signer, err := gossh.NewSignerFromSigner(privateKey)
+	c.Assert(err, tc.ErrorIsNil)
+	server.AddHostKey(signer)
+	return &server
+}
+
 func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	factory := NewMockTerminatingServerFactory(ctrl)
@@ -157,6 +178,103 @@ func (s *relaySuite) TestConcurrentConnectionsCapped(c *tc.C) {
 
 	c.Check(w.Code, tc.Equals, http.StatusServiceUnavailable)
 	ctrl.Finish()
+}
+
+// TestRelayMaxConnectionsDrainAndReadmit exercises the live cap cycle over
+// real connections: a relay holding a slot is counted, a second relay over
+// the cap is rejected before the upgrade and never resolves its
+// destination, and once the first session ends the slot drains so a later
+// relay is re-admitted. This proves the deferred decrement resets the
+// counter, which the zero-cap TestConcurrentConnectionsCapped cannot.
+func (s *relaySuite) TestRelayMaxConnectionsDrainAndReadmit(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	factory := NewMockTerminatingServerFactory(ctrl)
+
+	// The factory is called once per admitted relay: the first slot holder
+	// and, after the drain, the re-admitted relay. Each returns a server
+	// whose session blocks on release, so the relay's HandleConn holds the
+	// slot while we probe the cap. The over-cap relay is rejected before
+	// resolution, so it never reaches the factory.
+	destination := newMachineDestination(c, testModelUUID)
+	release := make(chan struct{})
+	factory.EXPECT().New(gomock.Any(), destination).
+		DoAndReturn(func(context.Context, virtualhostname.Info) (*gliderssh.Server, error) {
+			return newBlockingServer(c, release), nil
+		}).Times(2)
+
+	// Cap of one: a single relay fills the endpoint.
+	handler := s.newHandlerMaxConns(c, factory, 1)
+
+	// First relay: upgrade and start a session so the slot is held while
+	// its server-side handler blocks on release.
+	client := s.startBlockingRelay(c, handler)
+	defer func() { _ = client.Close() }()
+	s.checkRelayConnCount(c, handler, 1)
+
+	// Second relay while the slot is held: rejected before the upgrade.
+	over := s.serveRelayHandler(c, handler)
+	c.Check(over.Code, tc.Equals, http.StatusServiceUnavailable)
+
+	// Release the first session so the relay returns and the deferred
+	// decrement drains the slot.
+	close(release)
+	_ = client.Close()
+	s.checkRelayConnCount(c, handler, 0)
+
+	// Third relay after the drain: re-admitted, proving the counter reset.
+	// This session has nothing left to release, but it is admitted and its
+	// handler exits immediately, so the connection completes on its own.
+	admitted := s.startRelay(c, handler)
+	_ = admitted.Close()
+
+	ctrl.Finish()
+}
+
+// startBlockingRelay dials a relay against the handler, performs the HTTP
+// upgrade and opens an SSH session. The session's server-side handler
+// blocks, so the relay holds its slot until the caller releases it. The
+// returned client keeps the connection open.
+func (s *relaySuite) startBlockingRelay(c *tc.C, handler *RelayHandler) *gossh.Client {
+	client := s.startRelay(c, handler)
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	// Start a session so the relay's HandleConn enters the blocking
+	// handler. Do not wait for output: the handler blocks on release.
+	c.Assert(session.Shell(), tc.ErrorIsNil)
+	return client
+}
+
+// startRelay dials a relay against the handler, performs the HTTP upgrade
+// and completes the SSH handshake, returning the connected client.
+func (s *relaySuite) startRelay(c *tc.C, handler *RelayHandler) *gossh.Client {
+	conn, req := s.dialRelayHandler(c, handler)
+	upgraded, err := coresshproxy.PerformUpgrade(req, conn)
+	c.Assert(err, tc.ErrorIsNil)
+
+	sshConfig := &gossh.ClientConfig{
+		HostKeyCallback: gossh.InsecureIgnoreHostKey(),
+		Timeout:         5 * time.Second,
+	}
+	clientConn, chans, reqs, err := gossh.NewClientConn(upgraded, "relay", sshConfig)
+	c.Assert(err, tc.ErrorIsNil)
+	return gossh.NewClient(clientConn, chans, reqs)
+}
+
+// checkRelayConnCount polls until the handler's live connection count
+// reaches want, so tests do not race the deferred increment or decrement.
+func (s *relaySuite) checkRelayConnCount(c *tc.C, handler *RelayHandler, want int32) {
+	for {
+		if handler.concurrentConnections.Load() == want {
+			return
+		}
+		select {
+		case <-time.After(10 * time.Millisecond):
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for relay connection count %d, got %d",
+				want, handler.concurrentConnections.Load())
+			return
+		}
+	}
 }
 
 func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
@@ -213,10 +331,18 @@ func (s *relaySuite) TestMalformedHostnameBadRequest(c *tc.C) {
 // an admin JWT as the HTTP authentication layer would, and returns a raw
 // connection to it along with an upgrade request ready to write.
 func (s *relaySuite) dialRelay(c *tc.C, factory coresshproxy.TerminatingServerFactory) (net.Conn, *http.Request) {
+	return s.dialRelayHandler(c, s.newHandler(c, factory))
+}
+
+// dialRelayHandler starts a relay test server serving the given handler,
+// injects an admin JWT as the HTTP authentication layer would, and returns
+// a raw connection to it along with an upgrade request ready to write. It
+// serves the same handler instance on every request so the connection cap
+// is shared across dials.
+func (s *relaySuite) dialRelayHandler(c *tc.C, handler *RelayHandler) (net.Conn, *http.Request) {
 	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
 	injectJWT := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), RelayJWTKey{}, token)
-		handler := s.newHandler(c, factory)
 		handler.ServeHTTP(w, r.WithContext(ctx))
 	})
 	server := httptest.NewServer(injectJWT)
@@ -233,6 +359,21 @@ func (s *relaySuite) dialRelay(c *tc.C, factory coresshproxy.TerminatingServerFa
 	req.Header.Set("Upgrade", coresshproxy.RelayUpgradeToken)
 	req.URL.RawQuery = ":virtualHostname=" + destination.String()
 	return conn, req
+}
+
+// serveRelayHandler dispatches an admin-JWT relay request against the given
+// handler using a recorder, so the connection cap is observed on a handler
+// whose slots may already be held by other in-flight relays.
+func (s *relaySuite) serveRelayHandler(c *tc.C, handler *RelayHandler) *httptest.ResponseRecorder {
+	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
+	destination := newMachineDestination(c, testModelUUID)
+	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/"+destination.String(), nil)
+	r = r.WithContext(context.WithValue(r.Context(), RelayJWTKey{}, token))
+	r.URL.RawQuery = ":virtualHostname=" + destination.String()
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+	return w
 }
 
 func (s *relaySuite) newHandler(c *tc.C, factory coresshproxy.TerminatingServerFactory) *RelayHandler {
