@@ -80,7 +80,6 @@ func IAASAddressFinder(
 // bootstrap instance.
 func K8sAddressFinder(
 	providerFactory providertracker.ProviderFactory, namespace string,
-	// providerGetter providertracker.ProviderGetter[caas.ServiceManager],
 ) BootstrapAddressFinderFunc {
 	return func(
 		ctx context.Context,
@@ -104,10 +103,7 @@ func K8sAddressFinder(
 			return nil, errors.Capture(err)
 		}
 		if svc == nil || len(svc.Addresses) == 0 {
-			// If no addresses are returned from the K8s broker, we return
-			// the loopback address, this guarantees that the bootstrap instance
-			// will be able to connect to the controller service.
-			return network.NewMachineAddresses([]string{"127.0.0.1"}).AsProviderAddresses(), nil
+			return nil, errors.New("controller API service has no addresses")
 		}
 
 		return svc.Addresses, nil
