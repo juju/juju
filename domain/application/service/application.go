@@ -87,17 +87,13 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
 
-	// ClearApplicationHasK8sResources records that the provisioner has
+	// DeleteAppHasK8sResourcesEntry records that the provisioner has
 	// finished managing k8s resources for the given application, unblocking
-	// removal.
-	// The following errors may be returned:
-	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
+	// removal. It is a no-op if no entry exists for the application.
+	DeleteAppHasK8sResourcesEntry(ctx context.Context, appUUID coreapplication.UUID) error
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
-	// The following errors may be returned:
-	// - [appliationerrors.ApplicationNotFound] if the application does not exist
 	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
 	// GetApplicationScaleState looks up the scale state of the specified
@@ -349,7 +345,7 @@ type ApplicationState interface {
 	// for application configuration changes.
 	NamespaceForWatchApplicationConfig() string
 
-	// NamesapceForWatchApplicationSetting returns the namespace string identifier
+	// NamespaceForWatchApplicationSetting returns the namespace string identifier
 	// for application setting changes.
 	NamespaceForWatchApplicationSetting() string
 
@@ -926,7 +922,7 @@ func (s *Service) ClearApplicationHasK8sResources(ctx context.Context, appUUID c
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return errors.Capture(s.st.ClearApplicationHasK8sResources(ctx, appUUID))
+	return errors.Capture(s.st.DeleteAppHasK8sResourcesEntry(ctx, appUUID))
 }
 
 // GetApplicationLife looks up the life of the specified application, returning

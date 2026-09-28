@@ -1586,13 +1586,13 @@ func (s *applicationStateSuite) TestSetApplicationHasK8sResourcesNotFound(c *tc.
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *applicationStateSuite) TestClearApplicationHasK8sResources(c *tc.C) {
+func (s *applicationStateSuite) TestDeleteAppHasK8sResourcesEntry(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	err := s.state.SetApplicationHasK8sResources(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.state.ClearApplicationHasK8sResources(c.Context(), appUUID)
+	err = s.state.DeleteAppHasK8sResourcesEntry(c.Context(), appUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
@@ -1605,8 +1605,8 @@ func (s *applicationStateSuite) TestClearApplicationHasK8sResources(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
-func (s *applicationStateSuite) TestClearApplicationHasK8sResourcesNotFound(c *tc.C) {
-	err := s.state.ClearApplicationHasK8sResources(c.Context(), "no-such-app-uuid")
+func (s *applicationStateSuite) TestDeleteAppHasK8sResourcesEntryNotFound(c *tc.C) {
+	err := s.state.DeleteAppHasK8sResourcesEntry(c.Context(), "no-such-app-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

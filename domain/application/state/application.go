@@ -1090,9 +1090,10 @@ ON CONFLICT (application_uuid) DO NOTHING
 	return nil
 }
 
-// ClearApplicationHasK8sResources records that the provisioner has finished
+// DeleteAppHasK8sResourcesEntry records that the provisioner has finished
 // managing k8s resources for the given application, unblocking removal.
-func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
+// It is a no-op if no entry exists for the application.
+func (st *State) DeleteAppHasK8sResourcesEntry(ctx context.Context, appUUID coreapplication.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
