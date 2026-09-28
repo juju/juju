@@ -67,39 +67,35 @@ See also: {ref}`Juju | Manage actions <manage-actions>`, {ref}`Terraform Provide
 :file: ../juju.ggarch
 :view: Operation hierarchy
 :no-legend:
-:caption: Topology: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an operation_action record exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
+:caption: The entity hierarchy: an operation groups 1..N tasks (one per receiver); the parallel and execution-group flags live on the operation, shared by all tasks; an action-definition join record exists 1:1 only when the operation is an action (its absence = an exec, modelled as the predefined 'juju-exec' action); each task reports 0..1 status and runs on a unit or machine; results go to the object store.
 :alt: Operation record to task record to unit task to unit; operation action record above operation; task status below task.
 ```
 
-In the model database, the charm's definitions and Juju's runs live in
-two record sets: the definition in the charm's records (the DDL:
-`0015-charm.sql`), the run in the operation satellite set (the DDL:
-`0033-operation.sql`):
+The charm's definitions and Juju's runs are persisted in the
+{ref}`model database <data-model-full-spine>` as follows:
 
-- **`operation`:** The run: its summary, the enqueue/start/complete
+- **The operation is the run's record:** its summary, the enqueue/start/complete
   times, and the parallel flag and execution group every task of the
   run inherits; the operation's ID and the tasks' IDs are minted from
   one shared sequence.
-- **`charm_action`:** The charm's definition: the key, the
+- **The charm's definition lives with the charm's own records:** the key, the
   description, the parameter schema, and the parallelism defaults.
-- **`operation_action`:** The one-to-one join from a run to the
-  charm's action definition; its absence is what makes a run an exec
-  (see {ref}`script <script>`).
-- **`operation_task`:** One per receiver: the task's identity and its
+- **A one-to-one record ties a run to the charm's action definition:** its
+  absence is what makes a run an exec (see {ref}`script <script>`).
+- **Each task is one record per receiver:** the task's identity and its
   own enqueue/start/complete times.
-- **`operation_unit_task`, `operation_machine_task`:** The receiver
-  joins: each task is tied through one of the two to the unit or the
-  machine it runs on.
-- **`operation_parameter`:** The run's parameters as key/value records:
+- **The receiver joins tie each task to what it runs on:** each task is
+  tied through one of the two join records to the unit or the machine
+  it runs on.
+- **The run's parameters are key/value records:**
   the user-passed parameters for an action (the keys match the charm's
   schema), the command and its timeout for an exec.
-- **`operation_task_status`:** The task's status, message and update
-  time; the vocabulary lives in `operation_task_status_value`, eight
-  values: `error`, `running`, `pending`, `failed`, `cancelled`,
-  `completed`, `aborting`, `aborted`.
-- **`operation_task_log`:** The task's log lines, timestamped.
-- **`operation_task_output`:** The pointer to the run's results blob
-  in the controller's object store.
+- **The task's status is a record of its own** (the status, message and
+  update time); the vocabulary is eight values: `error`, `running`,
+  `pending`, `failed`, `cancelled`, `completed`, `aborting`, `aborted`.
+- **The log lines are timestamped records.**
+- **The output record points at the run's results blob** in the
+  controller's object store.
 
 (the-action-states)=
 ### Action states
@@ -108,7 +104,7 @@ two record sets: the definition in the charm's records (the DDL:
 :file: ../juju.ggarch
 :view: Action task status
 :no-legend:
-:caption: State machine diagram: The task status as the run unfolds -- the agent starts its task (pending to running); it finishes it (completed, or failed with a message); the user's cancel marks a not-yet-started task cancelled and a running one aborting until the agent kills the charm process and reports it aborted.
+:caption: The task status as the run unfolds -- the agent starts its task (pending to running); it finishes it (completed, or failed with a message); the user's cancel marks a not-yet-started task cancelled and a running one aborting until the agent kills the charm process and reports it aborted.
 :alt: State machine: pending to running on the agent starting the task; running to completed or failed when the agent finishes it; pending to cancelled on cancel-task; running to aborting on cancel-task, aborting to aborted when the process is killed.
 ```
 
@@ -162,13 +158,13 @@ cancels it.
 :file: ../juju.ggarch
 :sequence: Action run flow
 :no-legend:
-:caption: Sequence diagram: juju run enqueues an operation; the controller records per-unit tasks (pending) and the unit agent's watcher resolves them; the task runs via the charm's dispatch script (action-get/set/fail/log during execution), and finishing stores results in the object store. juju cancel-task moves a running task to aborting; the process is killed and the task reports aborted.
+:caption: juju run enqueues an operation; the controller records per-unit tasks (pending) and the unit agent's watcher resolves them; the task runs via the charm's dispatch script (action-get/set/fail/log during execution), and finishing stores results in the object store. juju cancel-task moves a running task to aborting; the process is killed and the task reports aborted.
 :alt: User calls juju run; client enqueues the operation on the controller; controller records operation and per-unit tasks pending; controller notifies unit agent; agent resolves and starts the task (running); agent runs the charm action with jujuc action commands; on cancel the agent aborts; otherwise results stream back and the task completes.
 ```
 
 The enqueue path checks its targets' existence, not their life: one
 transaction writes the operation, its parameter records, the
-`operation_action` record for an action run, and one `pending` task per
+action-definition record for an action run, and one `pending` task per
 target through its receiver join. A target that no longer resolves
 fails its own task; the operation still enqueues for the rest.
 
