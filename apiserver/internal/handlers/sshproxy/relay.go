@@ -121,7 +121,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
-		http.Error(w, "unauthorized", http.StatusForbidden)
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
