@@ -61,37 +61,35 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 :caption: Entity relationship diagram: The machine's stored records. A machine is one machine row, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those rows.
 ```
 
-In the model database, a machine is a native record (the DDL:
-`0018-machine.sql`, with the cloud instance in
-`0017-machine-cloud-instance.sql`), distributed across a decoupled
-table schema:
+In the model database, a machine is a native record, distributed
+across a decoupled set of tables. The record set, in prose:
 
-- **A machine has one row in the `machine` table.** The identity pair:
-  the `uuid` the other records point at, and the name the client types
-  (the designation `0`, `1/lxd/0`), unique per model
+- **A machine has one row.** The identity pair: an internal id the
+  other records point at, and the name the client types (the
+  designation `0`, `1/lxd/0`), unique per model
   (`machine already exists`).
-- **A machine has a network identity.** The `net_node_uuid` pointer
-  names the shared net node; machines and all units running on them
-  anchor to the same node.
+- **A machine has a network identity.** Its pointer names the shared
+  net node; machines and all units running on them anchor to the same
+  node.
 - **A machine has a life** (alive, dying, dead) and, at teardown, a
-  `keep_instance` flag saying whether the cloud instance survives it.
+  flag saying whether the cloud instance survives it.
 - **A machine has a base** (the OS channel plus architecture) and a
-  provisioning path: the `machine_manual` satellite flags the manually
-  provisioned ones; containers carry a `container_type`.
+  provisioning path: a satellite record flags the manually provisioned
+  ones; containers carry their container type.
 - **A machine may have constraints**, a pointer into the {ref}`constraint
-  <constraint>` table.
-- **A container machine has a parent.** `machine_parent` holds the two
-  pointers (the child and its host), capped at a single nesting level.
-- **A machine has one cloud instance record.** `machine_cloud_instance`
-  tracks the creation state, the hardware (arch, CPU, memory, root
-  disk, `virt_type`) and the availability zone. Born with the machine;
-  the instance id stays empty until the cloud reports it.
+  <constraint>` record.
+- **A container machine has a parent.** The parent record holds the
+  two pointers (the child and its host), capped at a single nesting
+  level.
+- **A machine has one cloud instance record.** It tracks the creation
+  state, the hardware (arch, CPU, memory, root disk, virtualisation
+  type) and the availability zone. Born with the machine; the instance
+  id stays empty until the cloud reports it.
 - **A machine has two status records**: The agent's health report
-  (`machine_status`: `pending`, `started`, `stopped`, `error`; `down`
-  is never written, only read when the agent has not been seen
-  recently) and the controller-written provisioning lifecycle
-  (`machine_cloud_instance_status`: `pending`, `allocating`, `running`,
-  `provisioning error`, `unknown`).
+  (`pending`, `started`, `stopped`, `error`; `down` is never written,
+  only read when the agent has not been seen recently) and the
+  controller-written provisioning lifecycle (`pending`, `allocating`,
+  `running`, `provisioning error`, `unknown`).
 
 Writers: the machine service inserts the records (`AddMachine`, `SetMachineCloudInstance`); the removal service carries the teardown.
 
@@ -100,7 +98,9 @@ Writers: the machine service inserts the records (`AddMachine`, `SetMachineCloud
 
 - **Rules:**
   - Machines transition to dead only when all assigned units, containers, and storage clear.
-  - Machine kinds are derived via schema views rather than stored type columns (`v_machine_is_controller`).
+  - Machine kinds are derived rather than stored: the schema's own
+    views classify a machine (controller, container, manually
+    provisioned) from the records around it.
 - **Errors:**
   - **`machine not found`:** Triggered when querying a machine UUID or name that does not exist. Remediation: verify the machine exists in the model.
   - **`machine is dead`:** Triggered when operating on a machine whose life is dead. Remediation: none; the machine's lifecycle has ended.
@@ -119,7 +119,7 @@ Runtime operations are split between the controller and the individual host mach
 - **Controller-side provisioning:** The compute provisioner monitors unprovisioned machines, requests cloud instances, and records the instance ID and addresses as they become known.
 - **Agent-side provisioning:** Host machine agents provision and manage local LXD containers through the LXD broker, watching them via the controller API.
 - **Manual provisioning:** The controller renders a setup script, executed externally over SSH, after which the host agent registers itself.
-- **Machine removal:** The controller marks target machines dying; the agent triggers shutdown once assigned units and storage clear; scheduled jobs purge the records; `keep_instance` decides whether the cloud instance is released.
+- **Machine removal:** The controller marks target machines dying; the agent triggers shutdown once assigned units and storage clear; scheduled jobs purge the records; the machine's keep-instance flag decides whether the cloud instance is released.
 - **Statuses:** The machine agent reports its status (`pending`, `started`, `stopped`, `error`); the controller writes the instance's provisioning status (`allocating`, `running`, `provisioning error`).
 
 (machine-execution-rules)=

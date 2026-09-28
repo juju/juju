@@ -43,14 +43,13 @@ See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider fo
 :caption: Entity relationship diagram: The unit's stored records. A unit is one unit row belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those rows.
 ```
 
-In the model database a unit is a native record (the DDL:
-`0020-unit.sql`), created by the deployment, add-unit or scale
-machinery. Its story is distributed across the record and the
-satellites that point at it:
+In the model database a unit is a native record, created by the
+deployment, add-unit or scale machinery. Its story is distributed
+across the record and the satellites that point at it:
 
-- **A unit has one row in the `unit` table.** The identity pair: the
-  `uuid` the other records point at, and the `name` the client types
-  (the application's name plus a suffix), unique per model.
+- **A unit has one row.** The identity pair: an internal id the other
+  records point at, and the name the client types (the application's
+  name plus a suffix), unique per model.
 - **A unit belongs to an application** (the application pointer) and
   **pins its own charm revision** (a separate charm pointer, left on
   the deployed revision until the unit is refreshed).
@@ -61,29 +60,25 @@ satellites that point at it:
   (unique across all units, so no unit can impersonate another; NULLs
   count as distinct, so units created without one break no
   uniqueness).
-- **A unit has two status records**: The agent's health report
-  (`unit_agent_status`, the agent vocabulary: `allocating`,
-  `executing`, `idle`, `error`, `failed`, `lost`, `rebooting`) and the
-  workload's, written by the charm through its hooks
-  (`unit_workload_status`, the {ref}`workload vocabulary
+- **A unit has two status records**: The agent's health report (the
+  agent vocabulary: `allocating`, `executing`, `idle`, `error`,
+  `failed`, `lost`, `rebooting`) and the workload's, written by the
+  charm through its hooks (the {ref}`workload vocabulary
   <workload--charm-status>`).
-- **A subordinate unit has a co-location record.** `unit_principal`
-  holds the pair: the subordinate's pointer and its principal's, both
-  into the unit table.
+- **A subordinate unit has a co-location record.** It holds the pair:
+  the subordinate's pointer and its principal's, both into the unit's
+  own records.
 - **The unit's own satellites** the record set rounds out: the
-  workload version the unit reports (`unit_workload_version`), the
-  agent's version and architecture (`unit_agent_version`,
-  `v_unit_target_agent_version`), the Kubernetes pod a CAAS unit runs
-  in (`k8s_pod`, `k8s_pod_port`, `k8s_pod_status`), the agent's logins
-  (`unit_agent_presence`: the controller updates `last_seen` on every
-  API connection), the resolution mode recorded when a hook error is
-  cleared (`unit_resolved` + `resolve_mode`), and the charm's claimed
-  local state, committed with the hook's transaction (`unit_state`,
-  `unit_state_charm`, `unit_state_relation`).
+  workload version the unit reports, the agent's version and
+  architecture, the Kubernetes pod a CAAS unit runs in (the pod, its
+  ports, its provisioning status), the agent's logins (the controller
+  updates the last-seen time on every API connection), the resolution
+  mode recorded when a hook error is cleared, and the charm's claimed
+  local state, committed with the hook's transaction.
 
 The two status satellites are the pair the status display reads. The agent's status is written by the **unit agent**; the workload's by the **workload**, the charm through its hooks. Writer gates, not transitions, are what constrain them: the agent cannot write `lost` or `allocating`, and an `error` write must carry a message. At read time, an agent with no presence row displays as `lost`, and a lost agent's workload displays as `unknown` unless the workload itself is in `error` or `terminated` (the vocabularies: {ref}`unit status <unit-status>`; the who-writes story across all five status domains: the {ref}`Status domains <status>` view).
 
-The unit table has no type column: a unit's kinds are derived from the records around it, and they are not mutually exclusive; most units are **regular units**: one charm instance, running its hooks on its machine or pod.
+The unit record has no type column: a unit's kinds are derived from the records around it, and they are not mutually exclusive; most units are **regular units**: one charm instance, running its hooks on its machine or pod.
 
 ### Leader unit
 
@@ -91,13 +86,13 @@ In Juju, a **leader** (or {ref}`application <application>` leader) is the applic
 
 ### Subordinate unit
 
-A **subordinate unit** is a unit of a {ref}`subordinate charm <subordinate-relation>`: it runs co-located with a principal unit on the same machine, and the pair is recorded in the `unit_principal` record. Like the application's subordinate-ness, this is a role, not a type: it is derived from the charm's metadata and the co-location record.
+A **subordinate unit** is a unit of a {ref}`subordinate charm <subordinate-relation>`: it runs co-located with a principal unit on the same machine, and the pair is recorded in the co-location record. Like the application's subordinate-ness, this is a role, not a type: it is derived from the charm's metadata and the co-location record.
 
 (the-units-persistence-rules)=
 ### Persistence rules and errors
 
 - **Rules:**
-  - Every satellite's foreign key points at the unit UUID; the co-location pair's two pointers both land in the unit table.
+  - Every satellite's foreign key points at the unit; the co-location pair's two pointers both land in the unit's own records.
   - The charm pointer is pinned per unit: a {ref}`refresh <the-application-refresh>` rewrites the {ref}`application's <application>` pointer and leaves existing units on the revision they were deployed from until they are individually refreshed.
   - **Life:** Created alive; marked dying one-way by the removal machinery; dead only once no relation scopes and no storage attachments are left; the scheduled removal job then deletes the records (see {ref}`Unit removal <the-unit-removal>`).
   - The statuses are upserts gated by writer, never transitions; the display overrides are computed from presence at read time.

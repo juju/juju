@@ -223,7 +223,7 @@ crops).
 :file: ../juju.ggarch
 :view: Charm origins
 :no-legend:
-:caption: Topology: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:caption: Topology: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
@@ -467,7 +467,7 @@ precedent).
 
 #### Machine agent status (state machine)
 
-**Insert at:** § Machines in the persistence layer → the `machine_status` projection bullet.
+**Insert at:** § Machines in the persistence layer → the machine status bullet.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -479,7 +479,7 @@ precedent).
 
 #### Machine provisioning (state machine)
 
-**Insert at:** § Machines in the persistence layer → the `machine_cloud_instance_status` projection bullet.
+**Insert at:** § Machines in the persistence layer → the instance status bullet.
 
 ```{ggarch}
 :file: ../juju.ggarch

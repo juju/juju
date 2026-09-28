@@ -51,58 +51,50 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 :caption: Entity relationship diagram: The application's stored records. An application is one application row referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those rows.
 ```
 
-In the model database an application is a **native record** (the DDL:
-`0019-application.sql`, with the endpoint row in `0024-relation.sql`),
-created by the deployment machinery, one row per application per model.
-The drawn slice is the record set every application carries; the
-entity's remaining records are the satellites of its specific roles:
+In the model database an application is a **native record**, created
+by the deployment machinery, one row per application per model. The
+drawn slice is the record set every application carries; the entity's
+remaining records are the satellites of its specific roles:
 
-- **An application has one row in the `application` table.** The
-  identity pair: the `uuid` the other records point at, and the `name`
-  the client types, unique per model.
+- **An application has one row.** The identity pair: an internal id
+  the other records point at, and the name the client types, unique
+  per model.
 - **An application has a life** (alive, dying, dead) and **references
-  the {ref}`charm <charm>` it deploys** (stored as the charm's UUID, a
-  mutable pointer a refresh rewrites; the URL is reconstructed from
+  the {ref}`charm <charm>` it deploys** (stored as a pointer to the
+  charm's row, one a refresh rewrites; the URL is reconstructed from
   the charm's own fields).
 - **An application has a default {ref}`space <space>`** its endpoints
   bind to.
 - **An application has an origin**: The channel it tracks
   (track/risk/branch) and the platform it deployed onto (OS, channel,
-  architecture; `v_application_origin` and
-  `v_application_platform_channel` join the charm's reference name,
-  source, revision and hash, and the platform, into the origin the
-  clients read).
+  architecture; the origin projections join the charm's reference
+  name, source, revision and hash, and the platform, into the origin
+  the clients read).
 - **An application has the endpoints** of the charm's {ref}`endpoint
   <application-endpoint>` definitions instantiated for it.
 - **An application has configs**: The keys the client sets (one row
   per key, its type mirrored from the charm schema), the SHA-256 hash
-  the config watchers fire on, and the one-boolean trust record
-  (`application_config`, `application_config_hash`,
-  `application_setting`).
+  the config watchers fire on, and the one-boolean trust record.
 - **An application has a status record**: The application-level
-  summary (`application_status`).
+  summary.
 
 The role satellites the record set rounds out: the controller marker
-(`application_controller`, the one-row table for the one controller
-application), the Kubernetes scale record (`application_scale`), the
-expose grants per endpoint (`application_exposed_endpoint_space`,
-`application_exposed_endpoint_cidr`, resolved by
-`v_application_exposed_endpoint`), the compute the units request
-(`application_constraint`, `device_constraint`,
-`device_constraint_attribute`, joined onto the {ref}`constraint
-<constraint>` record by `v_application_constraint`), the workload
-version the application reports (`application_workload_version`), the
-application agent's credentials (`application_agent`), the Kubernetes
-service a CAAS deployment exposes (`k8s_service`, bound to the net node
-record), and the remote-offerer pair: an application record the
-consuming model synthesises to stand for an application it cannot see,
-paired with a remote-offerer record carrying the far model's identity
-and the offer URL; nothing is deployed behind it (see {ref}`offer
-<offer>`).
+(the one-row record for the one controller application), the
+Kubernetes scale record (the current scale, the target, the scaling
+flag), the expose grants per endpoint (a NULL endpoint is the
+wildcard), the compute the units request (joined onto the {ref}`constraint
+<constraint>` record), the workload version the application reports,
+the application agent's credentials, the Kubernetes service a CAAS
+deployment exposes (bound to the net node record), and the
+remote-offerer pair: an application record the consuming model
+synthesises to stand for an application it cannot see, paired with a
+remote-offerer record carrying the far model's identity and the offer
+URL; nothing is deployed behind it (see {ref}`offer <offer>`).
 
-The identity pair: the primary key (`application.uuid`) is the join
-handle; the natural key the client names is `application.name`, unique
-per model. The application table has no type column: an application's
+The identity pair: the primary key (the internal id) is the join
+handle; the natural key the client names is the application's name,
+unique
+per model. The application record has no type column: an application's
 kind is derived from the records around it, and the kinds are not
 mutually exclusive; the controller application is also just an
 application. Most applications are **regular applications**: a
@@ -117,7 +109,7 @@ Two projections with writers of their own:
   declares it dead only once no units and no relations are left; a
   scheduled removal job then deletes the records (see {ref}`Application
   removal <the-application-removal>`).
-- **`application_status`:** The application-level summary, written only
+- **The status record:** The application-level summary, written only
   by the application's **leader unit** (through its agent; the charm
   hook command is `status-set --application`, controller-gated to the
   leader). When the record is unset, the application's display status
@@ -153,25 +145,25 @@ See more: [GitHub | `mysql-operator` > `metadata.yaml`](https://github.com/canon
 
 All charms have an implicit (not in their `metadata.yaml` / `charmcraft.yaml`) endpoint with name `juju-info`, interface `juju-info`, and role `provides`. This endpoint can be used to form {ref}`subordinate relations <subordinate-relation>` with subordinate charms that have an explicit endpoint with interface `juju-info` and role `requires`. See {ref}`the-implicit-juju-info-relation-endpoint` for details. Examples: [`ntp`](https://charmhub.io/ntp/integrations#juju-info), [`mysql-router`](https://charmhub.io/mysql-router/integrations#juju-info)
 
-In the data model, each endpoint the application uses is an
-`application_endpoint` record tying the application to the charm's
-endpoint definition; a {ref}`relation <relation>` attaches to it
-through the relation-endpoint record, and an extra-binding record can
-tie the endpoint to a specific {ref}`space <space>`.
+In the data model, each endpoint the application uses is a record
+tying the application to the charm's endpoint definition; a
+{ref}`relation <relation>` attaches to it through the
+relation-endpoint record, and an extra-binding record can tie the
+endpoint to a specific {ref}`space <space>`.
 
 (the-applications-persistence-rules)=
 ### Persistence rules and errors
 
 - **Rules:**
-  - Every satellite's foreign key points at the application UUID; the
+  - Every satellite's foreign key points at the application's id; the
     charm's endpoint definition an endpoint instantiates lives on the
-    charm side (`application_endpoint.charm_relation_uuid`).
+    charm side (the endpoint record carries the charm endpoint's id).
   - The charm pointer is mutable: a refresh rewrites it in the same
     transaction that updates and creates the storage directives, merges
-    the endpoint bindings, re-filters the config rows and bumps
-    `charm_modified_version`.
+    the endpoint bindings, re-filters the config rows and bumps the
+    charm's modification counter.
   - A config row's type mirrors the charm schema's type for that key;
-    the value column is nullable (a key set to no value).
+    the value is nullable (a key set to no value).
   - **Life:** Created alive; marked dying one-way by the removal
     machinery (the cascade covers the units, their relations, machines
     and storage); dead only once no units and no relations reference

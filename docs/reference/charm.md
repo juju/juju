@@ -86,13 +86,13 @@ A revision only becomes available for consumption once it's been released into a
 :file: ../juju.ggarch
 :view: Charm origins
 :no-legend:
-:caption: Entity relationship diagram: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm_uuid is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
+:caption: Entity relationship diagram: There is no charm-revision table: each charm REVISION is its own charm row (unique on source + reference name + revision); the application's charm pointer is a mutable pointer refreshed on update; channels (track/risk/branch) are per-application, not per-charm; download provenance and the immutable charmhub hash hang off the charm row 1:1; every deployed unit pins its own charm revision.
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
 In the model database, a charm is one record per revision: each
-revision the model knows is a separate charm row (the DDL:
-`0015-charm.sql`). The row carries the charm's archive (a pointer
+revision the model knows is a separate charm row. The row carries the
+charm's archive (a pointer
 into the controller's object store), its metadata (the name,
 description and subordinate-ness from `metadata.yaml`), and an
 **available** flag. The charm service in the controller performs the
@@ -112,22 +112,21 @@ resolved.
 :caption: Entity relationship diagram: The charm's stored records. A charm is one row per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those rows.
 ```
 
-The identity pair: the primary key (`charm.uuid`) is the join handle,
-so the metadata, the download bookkeeping and the charm-defined
-payloads have something to point at, and so the
+The identity pair: the primary key (the charm's internal id) is the
+join handle, so the metadata, the download bookkeeping and the
+charm-defined payloads have something to point at, and so the
 {ref}`application's <application>` and {ref}`unit's <unit>` charm
 pointers have a row to name. The natural key is the revision triple:
-UNIQUE on `source_id`, `reference_name`, `revision`: a local
+unique on the source, the reference name and the revision: a local
 upload, the Charmhub store, or a cross-model import, plus the charm's
 transient name and the revision number. There is no charm-revision
 table: each revision is its own row.
 
 The charm's contract, as assertions the record set holds:
 
-- **A charm is one row per revision** (the DDL: `0015-charm.sql`): the
-  revision triple is the natural key; the row carries the archive
-  pointer (into the controller's object store) and the **available**
-  flag.
+- **A charm is one row per revision**: The revision triple is the
+  natural key; the row carries the archive pointer (into the
+  controller's object store) and the **available** flag.
 - **A charm has metadata** (one row per charm, the pointer its primary
   key): the name, description and subordinate-ness from
   `metadata.yaml`.
@@ -149,7 +148,7 @@ the relations, the config schema, the actions, the storage, device,
 container and resource definitions, the terms, tags and categories,
 and the manifest bases all carry the charm's UUID as their pointer.
 A charm is unmodifiable after it lands: the schema triggers refuse
-updates to the charm-defined tables (`charm_action`, `charm_config`,
+updates to the charm-defined tables (the actions, the config schema,
 the containers and their mounts are the schema's own comment:
 "unmodifiable, only insertions and deletions are allowed").
 
