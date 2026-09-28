@@ -420,12 +420,6 @@ func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
 	if err := coremachine.Name(req.MachineName).Validate(); err != nil {
 		return errors.Errorf("validating machine name %q: %w", req.MachineName, err)
 	}
-	if req.SSHUsername == "" {
-		return errors.Errorf("empty username").Add(coreerrors.NotValid)
-	}
-	if req.SSHPassword == "" {
-		return errors.Errorf("empty password").Add(coreerrors.NotValid)
-	}
 	if req.Expires.IsZero() {
 		return errors.Errorf("empty expiry").Add(coreerrors.NotValid)
 	}

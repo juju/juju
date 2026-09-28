@@ -25,7 +25,7 @@ type workerSuite struct {
 	testhelpers.IsolationSuite
 
 	states chan string
-	called int64
+	called atomic.Int64
 }
 
 func TestWorkerSuite(t *testing.T) {
@@ -104,7 +104,7 @@ func (s *workerSuite) TestGetLogWriterIsCached(c *tc.C) {
 
 	workertest.CheckKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+	c.Assert(s.called.Load(), tc.Equals, int64(1))
 }
 
 func (s *workerSuite) TestGetLoggerContext(c *tc.C) {
@@ -146,7 +146,7 @@ func (s *workerSuite) TestGetLoggerContextIsCached(c *tc.C) {
 
 	workertest.CheckKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+	c.Assert(s.called.Load(), tc.Equals, int64(1))
 }
 
 func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.C) {
@@ -176,14 +176,14 @@ func (s *workerSuite) TestGetLogWriterAndGetLoggerContextIsCachedTogether(c *tc.
 
 	workertest.CheckKill(c, w)
 
-	c.Assert(atomic.LoadInt64(&s.called), tc.Equals, int64(1))
+	c.Assert(s.called.Load(), tc.Equals, int64(1))
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	// Ensure we buffer the channel, this is because we might miss the
 	// event if we're too quick at starting up.
 	s.states = make(chan string, 1)
-	atomic.StoreInt64(&s.called, 0)
+	s.called.Store(0)
 
 	ctrl := gomock.NewController(c)
 
@@ -194,7 +194,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(Config{
 		LogRouter: StaticLogRouter(noopLogSink{}),
 		NewModelLogger: func(logger.LogSink, coremodel.UUID, names.Tag) (worker.Worker, error) {
-			atomic.AddInt64(&s.called, 1)
+			s.called.Add(1)
 			return newLoggerWorker(), nil
 		},
 

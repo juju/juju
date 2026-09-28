@@ -52,10 +52,10 @@ func (i *IAMServer) CreateInstanceProfile(
 
 	if ip, exists := i.instanceProfiles[*input.InstanceProfileName]; exists {
 		return &iam.CreateInstanceProfileOutput{
-				InstanceProfile: ip,
-			}, &types.EntityAlreadyExistsException{
-				Message: aws.String(fmt.Sprintf("instance profile %s", *input.InstanceProfileName)),
-			}
+			InstanceProfile: ip,
+		}, &types.EntityAlreadyExistsException{
+			Message: aws.String(fmt.Sprintf("instance profile %s", *input.InstanceProfileName)),
+		}
 	}
 
 	createDate := time.Now()

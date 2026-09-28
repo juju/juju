@@ -274,12 +274,13 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenDestroyStorageFal
 }
 
 // TestEnsureModelNotAliveCascadeProceedsWhenOnlyEphemeralVolumeAndNil
-// verifies that a model with only a non-persistent volume and no
-// filesystem can be destroyed without specifying destroyStorage,
-// because ephemeral volumes don't require explicit destroy/release.
+// verifies that a model with only a machine-scoped (ephemeral) volume and
+// no filesystem can be destroyed without specifying destroyStorage,
+// because machine-scoped storage dies with its machine and never blocks
+// model teardown.
 func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenOnlyEphemeralVolumeAndNil(c *tc.C) {
 	siUUID := s.addStorageInstance(c)
-	// Add an ephemeral (non-persistent) volume — no persistent flag.
+	// Add a machine-scoped (ephemeral) volume.
 	volUUID := s.addEphemeralVolume(c)
 	s.addStorageInstanceVolume(c, siUUID, volUUID)
 
@@ -287,11 +288,93 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenOnlyEphemeralVolu
 	modelUUID := s.getModelUUID(c)
 
 	// With nil destroyStorage, the cascade should proceed because
-	// the only volume is ephemeral (persistent = false).
+	// the only volume is machine-scoped.
 	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
 	c.Check(artifacts.StorageVolumeUUIDs, tc.DeepEquals, []string{volUUID})
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+}
+
+// TestEnsureModelNotAliveCascadeRefusesModelScopedVolumeWhenNil verifies
+// that a model-scoped volume blocks teardown when destroyStorage is nil,
+// matching 3.6 semantics.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeRefusesModelScopedVolumeWhenNil(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	s.addModelProvisionedVolume(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	_, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIs, removalerrors.PersistentStorage)
+
+	// Verify model and storage instance are still Alive.
+	s.checkModelLife(c, modelUUID, life.Alive)
+	var storageInstanceLife int
+	res := s.DB().QueryRow("SELECT life_id FROM storage_instance WHERE uuid = ?", siUUID)
+	c.Assert(res.Scan(&storageInstanceLife), tc.ErrorIsNil)
+	c.Check(storageInstanceLife, tc.Equals, int(life.Alive))
+}
+
+// TestEnsureModelNotAliveCascadeProceedsWhenOnlyMachineScopedFilesystemAndNil
+// verifies that a machine-scoped filesystem does not block teardown when
+// destroyStorage is nil, because machine-scoped storage dies with its
+// machine.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenOnlyMachineScopedFilesystemAndNil(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	fsUUID := s.addMachineScopedFilesystem(c)
+	s.addStorageInstanceFilesystem(c, siUUID, fsUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+	c.Check(artifacts.StorageFilesystemUUIDs, tc.DeepEquals, []string{fsUUID})
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+}
+
+// TestEnsureModelNotAliveCascadeProceedsWhenOnlyMachineScopedVolumeAndNil
+// verifies that a machine-scoped volume does not block teardown when
+// destroyStorage is nil, because machine-scoped storage dies with its
+// machine.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenOnlyMachineScopedVolumeAndNil(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	volUUID := s.addMachineScopedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, volUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+	c.Check(artifacts.StorageVolumeUUIDs, tc.DeepEquals, []string{volUUID})
+
+	s.checkModelLife(c, modelUUID, life.Dying)
+}
+
+// TestEnsureModelNotAliveCascadeProceedsWhenOnlyDeadModelScopedVolumeAndNil
+// verifies that a dead model-scoped volume does not block teardown when
+// destroyStorage is nil: the persistent-storage guard counts only non-dead
+// storage (life_id < 2), and the dead volume is excluded from the returned
+// artifacts (the cascade selects volumes with life_id < 2).
+func (s *modelSuite) TestEnsureModelNotAliveCascadeProceedsWhenOnlyDeadModelScopedVolumeAndNil(c *tc.C) {
+	siUUID := s.addStorageInstance(c)
+	s.addDeadModelScopedVolume(c)
+	s.addStorageInstanceVolume(c, siUUID, "some-dead-vol-uuid")
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	modelUUID := s.getModelUUID(c)
+
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.StorageInstanceUUIDs, tc.DeepEquals, []string{siUUID})
+	c.Check(artifacts.StorageVolumeUUIDs, tc.HasLen, 0)
 
 	s.checkModelLife(c, modelUUID, life.Dying)
 }

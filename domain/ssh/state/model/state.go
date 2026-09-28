@@ -554,8 +554,6 @@ VALUES ($sshConnRequestInsert.*)`, sshConnRequestInsert{})
 			TunnelID:            req.TunnelID,
 			MachineUUID:         machineUUID.UUID,
 			ExpiresAt:           req.Expires,
-			Username:            req.SSHUsername,
-			Password:            req.SSHPassword,
 			ControllerAddresses: controllerAddresses,
 			UnitPort:            req.UnitPort,
 			EphemeralPublicKey:  req.EphemeralPublicKey,
@@ -582,9 +580,7 @@ func (st *State) GetSSHConnRequest(ctx context.Context, machineName string, requ
 SELECT scr.tunnel_id AS &sshConnRequestRecord.tunnel_id,
        m.name AS &sshConnRequestRecord.machine_id,
        scr.expires_at AS &sshConnRequestRecord.expires_at,
-       scr.username AS &sshConnRequestRecord.username,
-       scr.password AS &sshConnRequestRecord.password,
-	       scr.controller_addresses AS &sshConnRequestRecord.controller_addresses,
+       scr.controller_addresses AS &sshConnRequestRecord.controller_addresses,
        scr.unit_port AS &sshConnRequestRecord.unit_port,
        scr.ephemeral_public_key AS &sshConnRequestRecord.ephemeral_public_key
 FROM ssh_connection_request AS scr
@@ -620,8 +616,6 @@ AND m.name = $entityName.name`, sshConnRequestRecord{}, tunnelID{}, entityName{}
 			TunnelID:            row.TunnelID,
 			MachineName:         row.MachineID,
 			Expires:             row.ExpiresAt,
-			SSHUsername:         row.Username,
-			SSHPassword:         row.Password,
 			ControllerAddresses: controllerAddresses,
 			UnitPort:            row.UnitPort,
 			EphemeralPublicKey:  row.EphemeralPublicKey,

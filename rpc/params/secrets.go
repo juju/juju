@@ -9,9 +9,13 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
-
-	"github.com/juju/juju/core/secrets"
 )
+
+// SecretRotatePolicy is the wire representation of a secret rotation policy.
+type SecretRotatePolicy string
+
+// SecretRole is the wire representation of a secret access role.
+type SecretRole string
 
 // SecretBackendConfigResultsV1 holds config info for creating
 // secret backend clients for a specific model.
@@ -66,7 +70,7 @@ type SecretContentParams struct {
 // UpsertSecretArg holds the args for creating or updating a secret.
 type UpsertSecretArg struct {
 	// RotatePolicy is how often a secret should be rotated.
-	RotatePolicy *secrets.RotatePolicy `json:"rotate-policy,omitempty"`
+	RotatePolicy *SecretRotatePolicy `json:"rotate-policy,omitempty"`
 	// ExpireTime is when a secret should expire.
 	ExpireTime *time.Time `json:"expire-time,omitempty"`
 	// Description represents the secret's description.
@@ -346,9 +350,9 @@ type SecretExternalRevision struct {
 
 // AccessInfo holds info about a secret access information.
 type AccessInfo struct {
-	TargetTag string             `json:"target-tag"`
-	ScopeTag  string             `json:"scope-tag"`
-	Role      secrets.SecretRole `json:"role"`
+	TargetTag string     `json:"target-tag"`
+	ScopeTag  string     `json:"scope-tag"`
+	Role      SecretRole `json:"role"`
 }
 
 // SecretTriggerChange describes a change to a secret trigger.

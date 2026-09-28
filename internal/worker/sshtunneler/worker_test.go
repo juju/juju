@@ -204,8 +204,8 @@ func (s *workerSuite) TestStateAdapterMachineHostKeysInvalidModelUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `invalid model UUID "not-a-uuid": .*`)
 }
 
-// TestControllerInfoAdapterLocalAddresses verifies that only the hosts from
-// the local controller node's API endpoints are returned as SpaceAddresses.
+// TestControllerInfoAdapterLocalAddresses verifies that the API host:port
+// addresses for the local controller node are returned as SpaceAddresses.
 func (s *workerSuite) TestControllerInfoAdapterLocalAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -216,7 +216,7 @@ func (s *workerSuite) TestControllerInfoAdapterLocalAddresses(c *tc.C) {
 	adapter := &controllerInfoAdapter{controllerNodeService: s.controllerNodeService}
 	addrs, err := adapter.LocalAddresses(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addrs, tc.DeepEquals, network.NewSpaceAddresses("10.0.0.1", "2001:db8::1"))
+	c.Check(addrs, tc.DeepEquals, network.NewSpaceAddresses("10.0.0.1:17070", "[2001:db8::1]:17070"))
 }
 
 // TestControllerInfoAdapterLocalAddressesUnknownNode verifies that an error

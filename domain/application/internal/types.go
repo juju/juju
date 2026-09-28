@@ -11,6 +11,22 @@ import (
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
+// UpsertK8sServiceArgs contains a complete Service address snapshot and UUIDs
+// allocated by the service layer for any new entities.
+type UpsertK8sServiceArgs struct {
+	ServiceUUID string
+	NetNodeUUID string
+	DeviceUUID  string
+	Addresses   []K8sServiceAddress
+}
+
+// K8sServiceAddress associates a provider address with a UUID for a new row.
+// An existing hostname with the same scope retains its UUID instead.
+type K8sServiceAddress struct {
+	UUID string
+	network.ProviderAddress
+}
+
 // ProxySettings contains the proxy settings for a unit context.
 type ProxySettings struct {
 	HTTP    string

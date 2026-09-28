@@ -552,12 +552,13 @@ ON CONFLICT(uuid) DO UPDATE SET
 func (st *State) ensureNetNodeFQDNAddress(ctx context.Context, tx *sqlair.TX, netNodeUUID, address string, scopeID int) error {
 	// If this net_node already has this FQDN, there is nothing to do.
 	lookup := netNodeFQDNAddress{NetNodeUUID: netNodeUUID}
-	addrIn := fqdnAddress{Address: address}
+	addrIn := fqdnAddress{Address: address, ScopeID: scopeID}
 	existsStmt, err := st.Prepare(`
 SELECT fa.uuid AS &netNodeFQDNAddress.address_uuid
 FROM   fqdn_address AS fa
 JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
 WHERE  fa.address = $fqdnAddress.address
+AND    fa.scope_id = $fqdnAddress.scope_id
 AND    nnfa.net_node_uuid = $netNodeFQDNAddress.net_node_uuid`, addrIn, lookup)
 	if err != nil {
 		return errors.Capture(err)

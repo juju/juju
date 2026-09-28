@@ -57,28 +57,3 @@ func (c *Client) GetSSHConnRequest(ctx context.Context, tunnelID string) (params
 	}
 	return result, nil
 }
-
-// ControllerSSHPort returns the port the controller SSH jump server listens on.
-func (c *Client) ControllerSSHPort(ctx context.Context) (int, error) {
-	var result params.SSHControllerSSHPortResult
-	if err := c.facade.FacadeCall(ctx, "ControllerSSHPort", nil, &result); err != nil {
-		return 0, errors.Capture(err)
-	}
-	if result.Error != nil {
-		return 0, apiservererrors.RestoreError(result.Error)
-	}
-	return result.Port, nil
-}
-
-// ControllerPublicKey returns the marshalled public host key of the controller
-// SSH jump server, used to pin the host key when reverse-dialling.
-func (c *Client) ControllerPublicKey(ctx context.Context) ([]byte, error) {
-	var result params.SSHControllerPublicKeyResult
-	if err := c.facade.FacadeCall(ctx, "ControllerPublicKey", nil, &result); err != nil {
-		return nil, errors.Capture(err)
-	}
-	if result.Error != nil {
-		return nil, apiservererrors.RestoreError(result.Error)
-	}
-	return result.PublicKey, nil
-}

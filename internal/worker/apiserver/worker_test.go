@@ -121,6 +121,7 @@ func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 		WatcherRegistryGetter:             s.watcherRegistryGetter,
 		FlightRecorder:                    s.flightRecorder,
 		EphemeralProviderFactory:          s.ephemeralProviderFactory,
+		SSHTunnel:                         &coreapiserver.SSHTunnelConfig{},
 	}
 
 	c.Cleanup(func() {

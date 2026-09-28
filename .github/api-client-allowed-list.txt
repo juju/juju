@@ -6,7 +6,6 @@ compress
 container
 context
 crypto
-database/sql/driver
 embed
 encoding
 errors
@@ -27,7 +26,6 @@ github.com/mohae/deepcopy
 github.com/opencontainers/go-digest
 github.com/rogpeppe/fastuuid
 github.com/rogpeppe/go-internal/fmtsort
-github.com/rs/xid
 github.com/vishvananda/netlink
 github.com/vishvananda/netns
 github.com/xdg-go/stringprep

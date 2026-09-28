@@ -34,7 +34,6 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	domainexport "github.com/juju/juju/domain/export"
@@ -1248,12 +1247,9 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
-	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), coreuser.NameFromTag(userTag), modelUUID).Return(now, nil)
-	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNeverAccessed).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
-	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
+	s.accessService.EXPECT().LastModelLogins(
+		gomock.Any(), coreuser.NameFromTag(userTag), []coremodel.UUID{modelUUID, modelUUIDNeverAccessed, modelUUIDNotExist}).Return(
+		map[coremodel.UUID]time.Time{modelUUID: now}, nil)
 
 	results, err := s.api.ListModels(
 		c.Context(),
@@ -1273,6 +1269,11 @@ func (s *modelManagerSuite) TestListModelsAdminSelf(c *tc.C) {
 				Model: params.Model{
 					UUID:      modelUUIDNeverAccessed.String(),
 					Qualifier: "prod",
+				},
+			},
+			{
+				Model: params.Model{
+					UUID: modelUUIDNotExist.String(),
 				},
 			},
 		},
@@ -1297,12 +1298,9 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 		{UUID: modelUUIDNotExist},
 	}, nil)
 
-	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), coreuser.NameFromTag(userTag), modelUUID).Return(now, nil)
-	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNeverAccessed).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
-	s.accessService.EXPECT().LastModelLogin(
-		gomock.Any(), coreuser.NameFromTag(userTag), modelUUIDNotExist).Return(time.Time{}, modelerrors.NotFound)
+	s.accessService.EXPECT().LastModelLogins(
+		gomock.Any(), coreuser.NameFromTag(userTag), []coremodel.UUID{modelUUID, modelUUIDNeverAccessed, modelUUIDNotExist}).Return(
+		map[coremodel.UUID]time.Time{modelUUID: now}, nil)
 
 	results, err := s.api.ListModels(
 		c.Context(),
@@ -1322,6 +1320,11 @@ func (s *modelManagerSuite) TestListModelsNonAdminSelf(c *tc.C) {
 				Model: params.Model{
 					UUID:      modelUUIDNeverAccessed.String(),
 					Qualifier: "prod",
+				},
+			},
+			{
+				Model: params.Model{
+					UUID: modelUUIDNotExist.String(),
 				},
 			},
 		},

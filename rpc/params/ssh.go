@@ -75,10 +75,6 @@ type SSHConnRequestResult struct {
 	// ControllerAddresses are the controller addresses the machine agent may
 	// reverse-dial to establish the tunnel.
 	ControllerAddresses []string `json:"controller-addresses"`
-	// Username is the reverse-tunnel username to authenticate with.
-	Username string `json:"username"`
-	// Password is the reverse-tunnel JWT credential.
-	Password string `json:"password"`
 	// UnitPort is the local port to forward the tunnel to (0 means determine
 	// dynamically).
 	UnitPort int `json:"unit-port"`
@@ -87,17 +83,9 @@ type SSHConnRequestResult struct {
 	EphemeralPublicKey []byte `json:"ephemeral-public-key"`
 }
 
-// SSHControllerSSHPortResult holds the port the controller SSH jump server
-// listens on.
-type SSHControllerSSHPortResult struct {
-	Error *Error `json:"error,omitempty"`
-	// Port is the controller SSH jump server port.
-	Port int `json:"port"`
-}
-
 // SSHControllerPublicKeyResult holds the marshalled controller SSH jump server
-// host public key, used by the machine agent to pin the host key when
-// reverse-dialling.
+// host public key, returned by the client Controller facade for the user
+// direct jump flow.
 type SSHControllerPublicKeyResult struct {
 	Error *Error `json:"error,omitempty"`
 	// PublicKey is the marshalled controller SSH jump server host public key.

@@ -99,7 +99,7 @@ func (s *UniterSecretsSuite) TestPrepareSecretCreatesUnitOwned(c *tc.C) {
 	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
 		OwnerTag: "unit-mariadb/0",
 		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: new(coresecrets.RotateDaily),
+			RotatePolicy: new(params.SecretRotatePolicy(coresecrets.RotateDaily)),
 			Description:  new("my secret"),
 			Label:        new("foobar"),
 			Content:      params.SecretContentParams{Data: data, Checksum: "checksum"},
@@ -246,7 +246,7 @@ func (s *UniterSecretsSuite) TestPrepareSecretUpdatesSuccess(c *tc.C) {
 	result, err := s.facade.prepareSecretUpdates(c.Context(), unitName, []params.UpdateSecretArg{{
 		URI: uri.String(),
 		UpsertSecretArg: params.UpsertSecretArg{
-			RotatePolicy: new(coresecrets.RotateDaily),
+			RotatePolicy: new(params.SecretRotatePolicy(coresecrets.RotateDaily)),
 			ExpireTime:   new(s.clock.Now()),
 			Description:  new("my secret"),
 			Label:        new("foobar"),

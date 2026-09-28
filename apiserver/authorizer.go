@@ -73,6 +73,28 @@ func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authe
 	return nil
 }
 
+// machineAgentAuthorizer checks that the authenticated entity is a machine
+// agent. It is the targeted authorizer for the model-scoped SSH tunnel
+// upgrade endpoint, where the machine identity is additionally bound to the
+// tunnel ID inside the handler.
+//
+// machineAgentAuthorizer implements the [authentication.Authorizer]
+// interface.
+type machineAgentAuthorizer struct{}
+
+// Authorize checks that the authorization request is for a machine agent.
+// No other tag kinds are valid for this authorizer.
+//
+// Authorize implements the [authentication.Authorizer] interface.
+func (a machineAgentAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
+	if _, ok := authInfo.Tag.(names.MachineTag); !ok {
+		return errors.Errorf("%s is not a machine agent", names.ReadableString(authInfo.Tag)).Add(
+			coreerrors.NotSupported,
+		)
+	}
+	return nil
+}
+
 // modelPermissionAuthorizer checks that the authenticated user has the given
 // permission on a model.
 //
