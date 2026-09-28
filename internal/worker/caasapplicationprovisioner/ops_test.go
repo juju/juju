@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
@@ -832,6 +833,59 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,
+		life.Dying, facade, applicationService, statusService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestAppDyingApplicationNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+
+	// The application rows are gone from state before the worker can scale
+	// the application down, for example after a forced removal. AppDying
+	// must not fail so the caller can still run the dead cleanup path and
+	// delete the k8s resources.
+	applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").
+		Return(applicationservice.ScalingState{}, applicationerrors.ApplicationNotFound)
+
+	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,
+		life.Dying, facade, applicationService, statusService, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestAppDyingReconcileApplicationNotFound(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, application.NewUUID)
+	storageUniqueID := appUUID.String()[:6]
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+
+	gomock.InOrder(
+		// ensureScale
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
+		app.EXPECT().Scale(0).Return(nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
+		// reconcileDeadUnitScale: the application rows vanish from state
+		// mid-flight.
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).
+			Return(nil, applicationerrors.ApplicationNotFound),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppDying(c.Context(), "test", appUUID, app,

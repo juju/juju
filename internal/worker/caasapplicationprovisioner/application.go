@@ -81,6 +81,25 @@ const (
 	unitsChurning errors.ConstError = "units churning"
 )
 
+// appRemovedFromState reports whether err indicates the application rows
+// are gone from state, for example after a forced removal that does not
+// wait for provider cleanup. When that happens mid-flight the worker must
+// still delete the k8s resources before exiting: ops errors carrying it
+// are routed to the dead cleanup path (handleChange maps
+// ApplicationNotFound to life.Dead) instead of killing the worker. If the
+// worker died here, its restart would find no application record and
+// return early, orphaning the statefulset and its pods.
+//
+// The loop checks errors.Is(err, errors.NotFound) (a k8s broker NotFound)
+// BEFORE appRemovedFromState and retries those, so the two sentinels must
+// stay distinct: ApplicationNotFound deliberately does not satisfy
+// errors.NotFound. If they ever collapse into one, forced-removal errors
+// get swallowed by the retry-then-die branch and the orphan bug returns
+// (pinned by TestApplicationNotFoundDistinctFromK8sNotFound).
+func appRemovedFromState(err error) bool {
+	return errors.Is(err, applicationerrors.ApplicationNotFound)
+}
+
 type NewAppWorkerFunc func(AppWorkerConfig) func(ctx context.Context) (worker.Worker, error)
 
 func NewAppWorker(config AppWorkerConfig) func(ctx context.Context) (worker.Worker, error) {
@@ -241,6 +260,21 @@ func (a *appWorker) loop() error {
 		retryDelay = 3 * time.Second
 	)
 
+	// shouldRefresh lives outside the loop so routeToDeadCleanup and the
+	// case bodies share one flag; the loop resets it on every iteration.
+	shouldRefresh := true
+
+	// routeToDeadCleanup arms the dead cleanup path. handleChange re-reads
+	// the application life on entry and maps a missing application to
+	// life.Dead, so rescheduling it converges on AppDying + AppDead, which
+	// remove the k8s resources.
+	routeToDeadCleanup := func() {
+		if stateAppChangedChan == nil {
+			stateAppChangedChan = a.clock.After(0)
+		}
+		shouldRefresh = false
+	}
+
 	handleChange := func() error {
 		appLife, err := a.applicationService.GetApplicationLife(ctx, a.appUUID)
 		if errors.Is(err, applicationerrors.ApplicationNotFound) {
@@ -253,7 +287,10 @@ func (a *appWorker) loop() error {
 		if initial {
 			initial = false
 			ps, err := a.applicationService.GetApplicationScalingState(ctx, name)
-			if err != nil {
+			// A forced removal can delete the rows mid-read; the zero
+			// scaling state skips this block and the Dead path below
+			// removes the k8s resources.
+			if err != nil && !appRemovedFromState(err) {
 				return errors.Trace(err)
 			}
 			if ps.Scaling {
@@ -291,18 +328,31 @@ func (a *appWorker) loop() error {
 					// State not ready for this application to be provisioned yet.
 					// Usually because the charm has not yet been downloaded.
 					return tryAgain
+				} else if appRemovedFromState(err) {
+					// The application rows were deleted mid-read (forced
+					// removal); the retry re-reads GetApplicationLife, which
+					// then observes the removal and takes the Dead path.
+					return tryAgain
 				} else if err != nil {
 					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
 				}
 				// Signal that we are managing k8s resources for this app,
 				// blocking removal until we explicitly clear the flag.
 				if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
+					if appRemovedFromState(err) {
+						// Rows deleted mid-flight; the retry converges to
+						// the Dead path (see the comment above).
+						return tryAgain
+					}
 					return errors.Annotatef(err, "setting k8s resources managed for %q", name)
 				}
 				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
 					&a.lastApplied, a.provisioningInfo, a.statusService,
 					a.clock, a.logger)
 				if err != nil {
+					if appRemovedFromState(err) {
+						return tryAgain
+					}
 					return errors.Trace(err)
 				}
 			}
@@ -339,6 +389,9 @@ func (a *appWorker) loop() error {
 			ready = false
 		case life.Dead:
 			if !statusOnly {
+				// AppDying tolerates a vanished application (it skips
+				// scale-down and dead-unit reconcile) so that the forced
+				// removal path still reaches AppDead below.
 				err = a.ops.AppDying(ctx, name, a.appUUID, app, a.life,
 					a.facade, a.applicationService, a.statusService, a.logger)
 				if err != nil {
@@ -363,7 +416,7 @@ func (a *appWorker) loop() error {
 	refreshTimer := a.clock.NewTimer(refreshInterval)
 	defer refreshTimer.Stop()
 	for {
-		shouldRefresh := true
+		shouldRefresh = true
 		select {
 		case _, ok := <-appScaleWatcher.Changes():
 			if !ok {
@@ -396,6 +449,10 @@ func (a *appWorker) loop() error {
 			} else if errors.Is(err, tryAgain) {
 				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				routeToDeadCleanup()
+				scaleChan = nil
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -428,6 +485,10 @@ func (a *appWorker) loop() error {
 				trustTries++
 				trustChan = a.clock.After(retryDelay)
 				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				routeToDeadCleanup()
+				trustChan = nil
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -454,6 +515,10 @@ func (a *appWorker) loop() error {
 			} else if errors.Is(err, tryAgain) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				routeToDeadCleanup()
+				reconcileDeadChan = nil
 			} else if err != nil {
 				return fmt.Errorf("reconciling dead unit scale: %w", err)
 			} else {
@@ -477,6 +542,15 @@ func (a *appWorker) loop() error {
 			if errors.Is(err, tryAgain) {
 				stateAppChangedChan = a.clock.After(retryDelay)
 				shouldRefresh = false
+			} else if appRemovedFromState(err) {
+				// handleChange observed the removal from one of its own
+				// state reads; re-run it immediately so the Dead path
+				// converges and removes the k8s resources. The channel
+				// was just consumed, so re-arm unconditionally (the
+				// nil-guard in routeToDeadCleanup would keep the stale
+				// exhausted timer).
+				stateAppChangedChan = a.clock.After(0)
+				shouldRefresh = false
 			} else if err != nil {
 				return errors.Trace(err)
 			} else {
@@ -488,7 +562,10 @@ func (a *appWorker) loop() error {
 				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
-			if err != nil {
+			if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				routeToDeadCleanup()
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
@@ -497,7 +574,10 @@ func (a *appWorker) loop() error {
 				ctx, name, a.appUUID, app, lastReportedStatus,
 				a.broker, a.applicationService,
 				a.statusService, a.clock, a.logger)
-			if err != nil {
+			if appRemovedFromState(err) {
+				// Run the dead cleanup path so k8s resources are removed.
+				routeToDeadCleanup()
+			} else if err != nil {
 				return errors.Trace(err)
 			}
 		case <-refreshTimer.Chan():
