@@ -600,13 +600,18 @@ FROM application_remote_consumer
 			return err
 		}
 		defer func() { _ = rows.Close() }()
+		// The rows are collected in a local slice and assigned to the
+		// outer variable once, as the transaction can be retried and
+		// would otherwise duplicate the collected rows.
+		collected := make([]arcRow, 0, 2)
 		for rows.Next() {
 			var row arcRow
 			if err := rows.Scan(&row.offerConnectionUUID, &row.consumerApplicationID); err != nil {
 				return err
 			}
-			arcRows = append(arcRows, row)
+			collected = append(collected, row)
 		}
+		arcRows = collected
 		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -632,13 +637,18 @@ WHERE uuid IN (?, ?)
 			return err
 		}
 		defer func() { _ = rows.Close() }()
+		// The rows are collected in a local slice and assigned to the
+		// outer variable once, as the transaction can be retried and
+		// would otherwise duplicate the collected rows.
+		collected := make([]appRow, 0, 2)
 		for rows.Next() {
 			var row appRow
 			if err := rows.Scan(&row.uuid, &row.name); err != nil {
 				return err
 			}
-			appRows = append(appRows, row)
+			collected = append(collected, row)
 		}
+		appRows = collected
 		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -669,13 +679,18 @@ WHERE application_uuid IN (?, ?)
 			return err
 		}
 		defer func() { _ = rows.Close() }()
+		// The rows are collected in a local slice and assigned to the
+		// outer variable once, as the transaction can be retried and
+		// would otherwise duplicate the collected rows.
+		collected := make([]unitOwnershipRow, 0, 1)
 		for rows.Next() {
 			var row unitOwnershipRow
 			if err := rows.Scan(&row.name, &row.applicationUUID); err != nil {
 				return err
 			}
-			unitRows = append(unitRows, row)
+			collected = append(collected, row)
 		}
+		unitRows = collected
 		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -856,13 +871,18 @@ func (s *importSecretSuite) TestImportRemoteApplicationSecretGrantsMultipleAppli
 			return err
 		}
 		defer rows.Close()
+		// The rows are collected in a local slice and assigned to the
+		// outer variable once, as the transaction can be retried and
+		// would otherwise duplicate the collected rows.
+		collected := make([]permission, 0, 2)
 		for rows.Next() {
 			var p permission
 			if err := rows.Scan(&p.SubjectUUID, &p.ScopeUUID); err != nil {
 				return err
 			}
-			obtained = append(obtained, p)
+			collected = append(collected, p)
 		}
+		obtained = collected
 		return rows.Err()
 	})
 	c.Assert(err, tc.IsNil)
