@@ -536,6 +536,10 @@ type SetCharmParams struct {
 	// StorageDirectiveOverrides is a map of storage names to storage directives to
 	// update during the upgrade.
 	StorageDirectiveOverrides map[string]ApplicationStorageDirectiveOverride
+
+	// ResourceIDs contains destination-charm resource UUIDs keyed by resource
+	// name. These resources remain pending until the charm change is committed.
+	ResourceIDs map[string]resource.UUID
 }
 
 // SetCharmStateParams contains the parameters for updating
@@ -564,6 +568,14 @@ type SetCharmStateParams struct {
 	// ReplacementResourceUUIDs contains pre-generated UUIDs keyed by resource
 	// name for immutable replacements required by a charm change.
 	ReplacementResourceUUIDs map[string]string
+
+	// ResourceIDs contains destination-charm resource UUIDs keyed by resource
+	// name to activate with the charm change.
+	ResourceIDs map[string]string
+
+	// RepositoryResourceUUIDs contains pre-generated UUIDs keyed by resource
+	// name for destination-charm repository resource placeholders.
+	RepositoryResourceUUIDs map[string]string
 }
 
 // ApplicationDetails contains details about an application.

@@ -31,6 +31,7 @@ import (
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/os/ostype"
 	coreresource "github.com/juju/juju/core/resource"
+	resourcetesting "github.com/juju/juju/core/resource/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -53,6 +54,12 @@ import (
 
 type applicationServiceSuite struct {
 	baseSuite
+}
+
+func (s *applicationServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+	s.state.EXPECT().GetCharmMetadataResources(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	return ctrl
 }
 
 func TestApplicationServiceSuite(t *testing.T) {
@@ -1651,8 +1658,12 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 			Risk: internalcharm.Stable,
 		},
 	}
+	expectedResourceUUID := resourcetesting.GenResourceUUID(c)
 	params := application.SetCharmParams{
 		CharmOrigin: origin,
+		ResourceIDs: map[string]coreresource.UUID{
+			"foo": expectedResourceUUID,
+		},
 	}
 	channel, err := encodeChannel(params.CharmOrigin.Channel)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1671,8 +1682,9 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.Channel, tc.DeepEquals, channel)
-			c.Assert(params.ReplacementResourceUUIDs, tc.HasLen, 1)
-			c.Check(coreresource.UUID(params.ReplacementResourceUUIDs["foo"]).Validate(), tc.ErrorIsNil)
+			c.Check(params.ResourceIDs, tc.DeepEquals, map[string]string{
+				"foo": expectedResourceUUID.String(),
+			})
 			return nil
 		})
 

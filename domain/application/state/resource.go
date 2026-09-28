@@ -13,10 +13,26 @@ import (
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
+
+type resourceReconciliation struct {
+	ApplicationUUID string `db:"application_uuid"`
+	ResourceUUID    string `db:"resource_uuid"`
+	OldResourceUUID string `db:"old_resource_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	Name            string `db:"charm_resource_name"`
+	KindID          int    `db:"kind_id"`
+}
+
+type charmResourceIdentity struct {
+	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"name"`
+	KindID    int    `db:"kind_id"`
+}
 
 // createApplicationResources handles resources when creating an application
 // by updating resources added before the application via UUID, or by
@@ -32,6 +48,314 @@ func (st *State) createApplicationResources(
 	}
 
 	return st.insertResources(ctx, tx, args)
+}
+
+func (st *State) reconcileApplicationResourcesForCharm(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID string,
+	charmUUID string,
+	params application.SetCharmStateParams,
+) error {
+	input := resourceReconciliation{
+		ApplicationUUID: appUUID,
+		CharmUUID:       charmUUID,
+	}
+	targetStmt, err := st.Prepare(`
+SELECT cr.name AS &charmResourceIdentity.name,
+       cr.kind_id AS &charmResourceIdentity.kind_id
+FROM   charm_resource AS cr
+WHERE  cr.charm_uuid = $charmResourceIdentity.charm_uuid
+`, charmResourceIdentity{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	currentStmt, err := st.Prepare(`
+SELECT r.uuid AS &resourceReconciliation.resource_uuid,
+       r.charm_uuid AS &resourceReconciliation.charm_uuid,
+       r.charm_resource_name AS &resourceReconciliation.charm_resource_name,
+       cr.kind_id AS &resourceReconciliation.kind_id
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   resource_state AS rs ON rs.id = r.state_id
+JOIN   charm_resource AS cr
+ON     cr.charm_uuid = r.charm_uuid
+AND    cr.name = r.charm_resource_name
+WHERE  ar.application_uuid = $resourceReconciliation.application_uuid
+AND    rs.name = 'available'
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	candidateStmt, err := st.Prepare(`
+SELECT r.uuid AS &resourceReconciliation.resource_uuid,
+       r.charm_uuid AS &resourceReconciliation.charm_uuid,
+       r.charm_resource_name AS &resourceReconciliation.charm_resource_name,
+       cr.kind_id AS &resourceReconciliation.kind_id
+FROM   resource AS r
+JOIN   resource_state AS rs ON rs.id = r.state_id
+JOIN   charm_resource AS cr
+ON     cr.charm_uuid = r.charm_uuid
+AND    cr.name = r.charm_resource_name
+JOIN   pending_application_resource AS par ON par.resource_uuid = r.uuid
+JOIN   application AS a ON a.name = par.application_name
+WHERE  r.uuid = $resourceReconciliation.resource_uuid
+AND    a.uuid = $resourceReconciliation.application_uuid
+AND    rs.name = 'available'
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var targetResources []charmResourceIdentity
+	if err := tx.Query(ctx, targetStmt, charmResourceIdentity{CharmUUID: charmUUID}).GetAll(&targetResources); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting destination charm resources: %w", err)
+	}
+	targetByName := make(map[string]charmResourceIdentity, len(targetResources))
+	for _, target := range targetResources {
+		targetByName[target.Name] = target
+	}
+
+	var currentResources []resourceReconciliation
+	if err := tx.Query(ctx, currentStmt, input).GetAll(&currentResources); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting current application resources: %w", err)
+	}
+	currentByName := make(map[string]resourceReconciliation, len(currentResources))
+	for _, current := range currentResources {
+		if _, exists := currentByName[current.Name]; exists {
+			return errors.Errorf("application has multiple current resources named %q: %w",
+				current.Name, applicationerrors.InvalidResourceArgs)
+		}
+		currentByName[current.Name] = current
+	}
+
+	candidates := make(map[string]resourceReconciliation, len(params.ResourceIDs))
+	for name, resourceUUID := range params.ResourceIDs {
+		target, ok := targetByName[name]
+		if !ok {
+			return errors.Errorf("resource %q is not defined by destination charm: %w",
+				name, applicationerrors.InvalidResourceArgs)
+		}
+		candidateInput := resourceReconciliation{
+			ApplicationUUID: appUUID,
+			ResourceUUID:    resourceUUID,
+		}
+		var candidate resourceReconciliation
+		err := tx.Query(ctx, candidateStmt, candidateInput).Get(&candidate)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("resource %q is not pending for the application: %w",
+				name, applicationerrors.InvalidResourceArgs)
+		} else if err != nil {
+			return errors.Errorf("getting pending resource %q: %w", name, err)
+		}
+		if candidate.Name != name || candidate.CharmUUID != charmUUID || candidate.KindID != target.KindID {
+			return errors.Errorf("resource %q does not match the destination charm: %w",
+				name, applicationerrors.InvalidResourceArgs)
+		}
+		candidates[name] = candidate
+	}
+
+	for name := range targetByName {
+		if _, ok := candidates[name]; ok {
+			continue
+		}
+		if _, ok := currentByName[name]; !ok {
+			return errors.Errorf("resource %q is not resolved for the destination charm: %w",
+				name, applicationerrors.InvalidResourceArgs)
+		}
+	}
+
+	updateLinkStmt, err := st.Prepare(`
+UPDATE application_resource
+SET    resource_uuid = $resourceReconciliation.resource_uuid
+WHERE  application_uuid = $resourceReconciliation.application_uuid
+AND    resource_uuid = $resourceReconciliation.old_resource_uuid
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertLinkStmt, err := st.Prepare(`
+INSERT INTO application_resource (application_uuid, resource_uuid)
+VALUES ($resourceReconciliation.application_uuid, $resourceReconciliation.resource_uuid)
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteLinkStmt, err := st.Prepare(`
+DELETE FROM application_resource
+WHERE application_uuid = $resourceReconciliation.application_uuid
+AND   resource_uuid = $resourceReconciliation.resource_uuid
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deletePendingStmt, err := st.Prepare(`
+DELETE FROM pending_application_resource
+WHERE resource_uuid = $resourceReconciliation.resource_uuid
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for name, candidate := range candidates {
+		candidate.ApplicationUUID = appUUID
+		if current, ok := currentByName[name]; ok {
+			candidate.OldResourceUUID = current.ResourceUUID
+			if err := tx.Query(ctx, updateLinkStmt, candidate).Run(); err != nil {
+				return errors.Errorf("activating replacement resource %q: %w", name, err)
+			}
+		} else if err := tx.Query(ctx, insertLinkStmt, candidate).Run(); err != nil {
+			return errors.Errorf("activating added resource %q: %w", name, err)
+		}
+		if err := tx.Query(ctx, deletePendingStmt, candidate).Run(); err != nil {
+			return errors.Errorf("removing pending resource %q: %w", name, err)
+		}
+	}
+
+	for name, current := range currentByName {
+		if _, retained := targetByName[name]; retained {
+			continue
+		}
+		current.ApplicationUUID = appUUID
+		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
+			return errors.Errorf("detaching removed resource %q: %w", name, err)
+		}
+	}
+
+	if err := st.replaceApplicationResourcesForCharm(
+		ctx, tx, appUUID, charmUUID, params.ReplacementResourceUUIDs,
+	); err != nil {
+		return errors.Capture(err)
+	}
+
+	return st.reconcileRepositoryResourcesForCharm(
+		ctx, tx, appUUID, charmUUID, targetByName, params.RepositoryResourceUUIDs,
+	)
+}
+
+func (st *State) reconcileRepositoryResourcesForCharm(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID string,
+	charmUUID string,
+	targetResources map[string]charmResourceIdentity,
+	replacementUUIDs map[string]string,
+) error {
+	input := resourceReconciliation{
+		ApplicationUUID: appUUID,
+		CharmUUID:       charmUUID,
+	}
+	currentStmt, err := st.Prepare(`
+SELECT r.uuid AS &resourceReconciliation.resource_uuid,
+       r.charm_uuid AS &resourceReconciliation.charm_uuid,
+       r.charm_resource_name AS &resourceReconciliation.charm_resource_name
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   resource_state AS rs ON rs.id = r.state_id
+WHERE  ar.application_uuid = $resourceReconciliation.application_uuid
+AND    rs.name = 'potential'
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteLinkStmt, err := st.Prepare(`
+DELETE FROM application_resource
+WHERE application_uuid = $resourceReconciliation.application_uuid
+AND   resource_uuid = $resourceReconciliation.resource_uuid
+`, resourceReconciliation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertResourceStmt, err := st.Prepare(insertResourceQuery, resourceToAdd{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertLinkStmt, err := st.Prepare(`
+INSERT INTO application_resource (application_uuid, resource_uuid)
+VALUES ($linkResourceApplication.*)
+`, linkResourceApplication{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	type charmSource struct {
+		UUID   string `db:"uuid"`
+		Source string `db:"source"`
+	}
+	charmSourceStmt, err := st.Prepare(`
+SELECT cs.name AS &charmSource.source
+FROM   charm AS c
+JOIN   charm_source AS cs ON cs.id = c.source_id
+WHERE  c.uuid = $charmSource.uuid
+`, charmSource{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var currentResources []resourceReconciliation
+	if err := tx.Query(ctx, currentStmt, input).GetAll(&currentResources); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting repository resources: %w", err)
+	}
+	currentByName := make(map[string]resourceReconciliation, len(currentResources))
+	for _, current := range currentResources {
+		if current.CharmUUID == charmUUID {
+			currentByName[current.Name] = current
+			continue
+		}
+		current.ApplicationUUID = appUUID
+		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
+			return errors.Errorf("detaching repository resource %q: %w", current.Name, err)
+		}
+	}
+	for name, current := range currentByName {
+		if _, retained := targetResources[name]; retained {
+			continue
+		}
+		current.ApplicationUUID = appUUID
+		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
+			return errors.Errorf("detaching removed repository resource %q: %w", name, err)
+		}
+		delete(currentByName, name)
+	}
+
+	var source charmSource
+	if err := tx.Query(ctx, charmSourceStmt, charmSource{UUID: charmUUID}).Get(&source); err != nil {
+		return errors.Errorf("getting destination charm source: %w", err)
+	}
+	if source.Source != string(charm.CharmHubSource) {
+		return nil
+	}
+
+	for name := range targetResources {
+		if _, exists := currentByName[name]; exists {
+			continue
+		}
+		resourceUUID, ok := replacementUUIDs[name]
+		if !ok {
+			return errors.Errorf("repository resource UUID not supplied for resource %q", name)
+		}
+		resourceToAdd := resourceToAdd{
+			UUID:      resourceUUID,
+			CharmUUID: charmUUID,
+			Name:      name,
+			Origin:    charmresource.OriginStore.String(),
+			State:     coreresource.StatePotential.String(),
+			CreatedAt: st.clock.Now().UTC(),
+		}
+		if err := tx.Query(ctx, insertResourceStmt, resourceToAdd).Run(); err != nil {
+			return errors.Errorf("inserting repository resource %q: %w", name, err)
+		}
+		if err := tx.Query(ctx, insertLinkStmt, linkResourceApplication{
+			ResourceUUID:    resourceUUID,
+			ApplicationUUID: appUUID,
+		}).Run(); err != nil {
+			return errors.Errorf("linking repository resource %q: %w", name, err)
+		}
+	}
+
+	return nil
 }
 
 // replaceApplicationResourcesForCharm gives each retained application resource

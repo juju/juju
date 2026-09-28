@@ -1526,8 +1526,8 @@ func (st *State) GetCharmByApplicationUUID(ctx context.Context, appUUID coreappl
 	return ch, nil
 }
 
-// SetApplicationCharm sets a new charm for the specified application using
-// the provided parameters and validates changes.
+// SetApplicationCharm sets a new charm for the specified application and
+// atomically reconciles its current resources using the provided parameters.
 // Some validation needs to be transactional:
 // - relation compatibility needs to be transactional, since a new or removed
 // relation can change the validation result.
@@ -1608,10 +1608,10 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
-		if err := st.replaceApplicationResourcesForCharm(
-			ctx, tx, appID.String(), chID.String(), params.ReplacementResourceUUIDs,
+		if err := st.reconcileApplicationResourcesForCharm(
+			ctx, tx, appID.String(), chID.String(), params,
 		); err != nil {
-			return errors.Errorf("replacing application resources: %w", err)
+			return errors.Errorf("reconciling application resources: %w", err)
 		}
 
 		if err := tx.Query(ctx, setAppCharmStmt, appAndCharmPair).Run(); err != nil {
