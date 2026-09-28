@@ -6,8 +6,6 @@ myst:
 
 (subnet)=
 # Subnet
-```{audience} user
-```
 
 ```{ibnote}
 See also: {ref}`manage-subnets`
@@ -78,8 +76,6 @@ between spaces (see {ref}`space <space>`).
 
 (the-subnet-watchers)=
 ### Subnet watchers
-```{audience} juju-dev
-```
 
 The network domain's one watch surface is **subnet changes** -- the
 provisioning and address machinery's input (see
@@ -91,8 +87,6 @@ query is the baseline snapshot -- and again on each qualifying change
 
 (the-subnet-rules-and-errors)=
 ## Subnet rules and errors
-```{audience} charm-dev
-```
 
 - the CIDR must parse as a CIDR range, and the VLAN tag (when
   present) must be a valid VLAN id;

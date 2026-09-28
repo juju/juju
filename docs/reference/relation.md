@@ -6,8 +6,6 @@ myst:
 
 (relation)=
 # Relation (integration)
-```{audience} user
-```
 
 In Juju, a **relation** (**integration**) is a connection an {ref}`application <application>` supports by virtue of having a particular {ref}`endpoint <application-endpoint>`. Its status vocabulary is validated by the status domain ({ref}`Relation status <relation-status>`), its teardown is a scheduled removal ({ref}`Relation removal <relation-removal>`), and a {ref}`cross-model relation <cross-model-relation>` is its far-model half, published through an {ref}`offer <offer>`.
 
@@ -364,8 +362,6 @@ the remote model as well, so both halves agree on the suspended
 state.
 
 ### Relation watchers
-```{audience} juju-dev
-```
 
 Nothing about a relation is polled: agents and clients watch it. The
 relation domain's watchable service exposes five watch surfaces:
@@ -395,8 +391,6 @@ relation key, so they can clean up the state they hold under that
 key.
 
 ## Relation rules and errors
-```{audience} charm-dev
-```
 
 The relation domain encodes its rules as a typed error taxonomy; each
 error names the rule it enforces. The rules matter to charm

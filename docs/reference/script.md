@@ -6,8 +6,6 @@ myst:
 
 (script)=
 # Script
-```{audience} user
-```
 
 ```{ibnote}
 See also: {ref}`manage-actions`

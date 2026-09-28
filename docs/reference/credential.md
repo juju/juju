@@ -13,9 +13,6 @@ Clouds decide which authentication schemes they accept; users own credentials; m
 
 ## The credential in the declaration layer
 
-```{audience} user
-```
-
 How clients add a credential for a cloud and manage its life.
 
 - **Adding, updating, removing:** You add, update, or remove a credential through a Juju client; adding your own credential requires nothing beyond controller {ref}`login access <user-access-controller-login>`.
@@ -35,9 +32,6 @@ See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform
   - **`user not found`:** Triggered when the credential's owner does not exist. Remediation: check the owner's name.
 
 ## The credential in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -69,9 +63,6 @@ Writers: the credential service in the controller performs the writes; it insert
   - **`credential is not valid for one or more models`:** Triggered when a cloud-side check finds the credential unusable for the models using it. Remediation: fix or replace the credential.
 
 ## The credential in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 By the time the setting call returns, the record exists, and nothing has yet proved that the credential works. That proof is all the execution a credential has, because a credential has no machinery of its own: opening a provider connection with the model's credential is what validates it, per model, at the model's next check.
 

@@ -23,9 +23,6 @@ Users sit at the centre of Juju's access model: they log in to a {ref}`controlle
 
 ## The user in the declaration layer
 
-```{audience} user
-```
-
 How clients add users and manage what they may do.
 
 - **Adding:** Adding a user requires controller {ref}`superuser access <user-access-controller-superuser>`.
@@ -146,9 +143,6 @@ Abilities: You can do anything that it is possible to do at the level of an offe
 (the-users-persistence)=
 ## The user in the persistence layer
 
-```{audience} user+, charm-dev, juju-dev
-```
-
 In the controller database, a user is a record and its satellites:
 
 - **The user record:** The name (one active user per name), the display name, the external flag, the creator, and the removed flag. The `admin` user is seeded implicitly at bootstrap; every other user is added explicitly.
@@ -178,9 +172,6 @@ The user record carries one discriminator: the **external** flag.
 - **Starting levels:** A user added explicitly starts with the controller `login` level: they can register the controller and log in, and nothing more, until granted a higher level.
 
 ## The user in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 A user has no machinery of their own: what acts on the records is the controller itself, the authentication at login and the permission check on every request. By the time the setting call returns, the record exists; no login has happened and no permission has been checked yet.
 

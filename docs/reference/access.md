@@ -6,8 +6,6 @@ myst:
 
 (access)=
 # Access
-```{audience} user
-```
 
 In Juju, **access** is the authority a {ref}`user <user>` holds to act on
 an object: one grant, naming who is given what
@@ -123,8 +121,6 @@ the user manager facade -- nothing is enqueued and nothing waits.
 
 (the-access-watchers)=
 ### Access watchers
-```{audience} juju-dev
-```
 
 The access domain exposes no watch surfaces: user and permission
 changes are read on demand, not watched (the same statement the user

@@ -6,8 +6,6 @@ myst:
 
 (bundle)=
 # Bundle
-```{audience} user
-```
 
 In Juju, a **bundle** is a collection of {ref}`charms <charm>` which have been carefully combined and configured in order to automate a multi-charm solution.
 

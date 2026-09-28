@@ -7,9 +7,6 @@ myst:
 (watchers)=
 # Watchers
 
-```{audience} juju-dev
-```
-
 A **watcher** is a {ref}`controller <controller>` API object that
 fires when something the holder cares about changes in the
 {ref}`controller <controller>` database, the shared state of a

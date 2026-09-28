@@ -16,9 +16,6 @@ In Juju, a **(network) space** is a logical grouping of {ref}`subnets <subnet>` 
 (the-space-operations)=
 ## The space in the declaration layer
 
-```{audience} user
-```
-
 How clients express network intent: the space record's life as a grouping, its subnet membership, and the bindings and constraints that name spaces.
 
 - **Creation:** Adding a space creates the record; the name must be unique per model.
@@ -45,9 +42,6 @@ How clients express network intent: the space record's life as a grouping, its s
   - **`space requirements unsatisfiable`:** Triggered when a container's or VM's space requirements cannot be met by its host (no device or bridge available in the required space). Remediation: relax the space constraints or extend the host's networking in the required space.
 
 ## The space in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -77,9 +71,6 @@ A space has no state machine and no life column: it is a naming record, created,
   - **`subnet not found`:** Triggered when the queried subnet, by CIDR or identifier, does not exist. Remediation: verify the subnet exists in the model.
 
 ## The space in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 A space has no machinery of its own: it is a grouping the controller maintains; subnets are moved into it and reloaded from the provider, and the network's watch surface reports what changed.
 

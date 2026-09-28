@@ -19,9 +19,6 @@ A cloud's neighbours: a {ref}`credential <credential>` authenticates against it,
 
 ## The cloud in the declaration layer
 
-```{audience} user
-```
-
 How clients add a cloud and manage its definition.
 
 - **Adding, updating, removing:** You add, update, or remove a cloud through a Juju client; adding a cloud requires controller {ref}`superuser access <user-access-controller-superuser>`.
@@ -43,9 +40,6 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 
 (the-clouds-persistence)=
 ## The cloud in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 In the controller database, a cloud is a definition record set (`0005-cloud.sql`):
 
@@ -89,9 +83,6 @@ See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernete
 ```
 
 ## The cloud in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 By the time the setting call returns, the cloud's record exists, and Juju has not yet spoken to the cloud itself. A cloud has no machinery of its own: the controller reads the definition whenever it talks to the provider on a model's behalf (provisioning machines, resolving details), and the models using the cloud discover its reachability per operation.
 

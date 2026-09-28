@@ -18,9 +18,6 @@ One can deploy multiple applications to the same model. Thus, models allow the l
 (the-models-declaration)=
 ## Models in the declaration layer
 
-```{audience} user
-```
-
 You add, configure, or remove a model through one of Juju's clients;
 adding a model requires {ref}`cloud add-model access
 <user-access-cloud-add-model>`.
@@ -44,9 +41,6 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Juju | Configure a 
 (the-models-persistence)=
 (the-model-record)=
 ## Models in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 A model has a record in Juju's databases, in two places. The
 authoritative record lives in the controller database, identified by
@@ -128,9 +122,6 @@ type.
 
 (the-models-execution)=
 ## Models in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 By the time the setting call returns, the record exists and the model's
 workers are already running: a model is one of the entities with

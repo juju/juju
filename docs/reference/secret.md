@@ -6,8 +6,6 @@ myst:
 
 (secret)=
 # Secret
-```{audience} user
-```
 
 In Juju, a **secret** is a piece of sensitive information -- an API key, a password, a certificate -- that Juju stores on behalf of its owner and shares only with the consumers it is granted to. Its owner
 records tie it to the {ref}`application <application>` or {ref}`unit <unit>` that
@@ -377,8 +375,6 @@ and rewrites the payload references.
 
 (the-secret-watchers)=
 ### Secret watchers
-```{audience} juju-dev
-```
 
 The secret domain's watchable service exposes these watch surfaces --
 what a watcher fires on, not who subscribes beyond the named

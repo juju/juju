@@ -11,9 +11,6 @@ In Juju, a **constraint** is a key-value pair that represents a specification fo
 
 ## The constraint in the declaration layer
 
-```{audience} user
-```
-
 How clients express compute intent wherever a Juju resource is requested.
 
 - **Setting:** A constraint rides on deploy and add-machine requests, on bundle files, and on the Terraform provider; the model's and an application's defaults are set through the controller API, both verbs gated on model {ref}`write access <user-access-model-write>`.
@@ -38,9 +35,6 @@ application resource.
 
 ## The constraint in the persistence layer
 
-```{audience} user+, charm-dev, juju-dev
-```
-
 A constraint is a **value, not an entity**: it has no life, no status, and no watchers of its own; it is a stored key/value whose meaning comes from the entity it constrains.
 
 - **The model's constraints:** The {ref}`model's <model>` defaults for everything it spawns.
@@ -54,9 +48,6 @@ A constraint is a **value, not an entity**: it has no life, no status, and no wa
   - The constraint records live where the constrained entity lives: the model's, the application's, and the machines' constraint records in the model database beside their owners.
 
 ## The constraint in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 A constraint has no machinery of its own: it is a stored value the compute provisioner reads at provisioning time; setting it is a rewrite of the owner's record. Whether the cloud can honour it is discovered later, at provisioning time, when the compute provisioner asks the cloud for resources (see {ref}`machine provisioning <the-machines-machinery>`). No watch surface exposes constraint records.
 

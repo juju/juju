@@ -6,8 +6,6 @@ myst:
 
 (action)=
 # Action
-```{audience} user
-```
 
 ```{ibnote}
 See also: {ref}`manage-actions`
@@ -182,8 +180,6 @@ charm process, reporting the task aborted.
 
 (the-action-watchers)=
 ### Action watchers
-```{audience} juju-dev
-```
 
 The operation domain's watchable service exposes these watch
 surfaces:
@@ -202,8 +198,6 @@ query is the baseline snapshot -- and again on each qualifying change
 
 (the-action-rules-and-errors)=
 ## Action rules and errors
-```{audience} charm-dev
-```
 
 The rules an **action definition** must satisfy:
 

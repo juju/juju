@@ -21,9 +21,6 @@ A LXD container is named after its host machine: `0/lxd/5` is LXD container `5` 
 
 ## Machines in the declaration layer
 
-```{audience} user
-```
-
 How clients express compute intent and submit targets to the controller API.
 
 - **Explicit creation:** API requests for machines, gated on model {ref}`write access <user-access-model-write>`.
@@ -56,9 +53,6 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 
 (the-machine-in-the-data-model)=
 ## Machines in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -98,9 +92,6 @@ Writers: the machine service inserts the records (`AddMachine`, `SetMachineCloud
 
 (the-machines-machinery)=
 ## Machines in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 Runtime operations are split between the controller and the individual host machine. The controller orchestrates provisioning via background workers, while the local machine agent, a {ref}`Juju agent <agent>`, manages internal lifecycle and workload placement.
 

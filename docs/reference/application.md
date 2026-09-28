@@ -6,8 +6,6 @@ myst:
 
 (application)=
 # Application
-```{audience} user
-```
 
 In Juju, an **application** is a running abstraction of a {ref}`charm <charm>` in the Juju {ref}`model <model>`: the software the charm defines, deployed and managed as one record. This could correspond to a traditional software package but it could also be less or more.
 
@@ -244,8 +242,6 @@ the provisioner still manages its resources.
 
 (the-application-watchers)=
 ### Application watchers
-```{audience} juju-dev
-```
 
 Nothing about an application is polled by the things that act on it:
 they watch it. The application domain's watchable service exposes

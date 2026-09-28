@@ -15,9 +15,6 @@ In Juju, an **offer** is an {ref}`application <application>`'s endpoints publish
 
 ## The offer in the declaration layer
 
-```{audience} user
-```
-
 How clients publish an application's endpoints, consume other models' offers, and manage the access around them.
 
 - **Creation:** Creating an offer publishes the named endpoints of an application under an offer URL; the offer is named after the application by default, and creating one requires {ref}`model admin access <user-access-model-admin>`.
@@ -44,9 +41,6 @@ See also: {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offer
   - **`offer has relations`:** Triggered when removing an offer that still has connections without forcing the removal. Remediation: remove the connected relations first, or force the removal.
 
 ## The offer in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -79,9 +73,6 @@ An offer has no life column, no state machine, and no subtypes: the record is st
 Writers: the cross-model relation service performs the writes; offering inserts the offer row with its endpoint rows and the controller-side access rows, consuming adds the connection record and the consuming side's records, and removing deletes the offer with its endpoint, connection, and access rows.
 
 ## The offer in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 An offer has no machinery of its own: it is a static record the controller serves; creating, consuming, and removing it are record writes, and what moves across an offer runs in the cross-model relation machinery (see {ref}`cross-model relation <cross-model-relation>`).
 

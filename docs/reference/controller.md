@@ -14,9 +14,6 @@ In Juju, the **controller** is the control plane: the running system that implem
 
 ## The controller in the declaration layer
 
-```{audience} user
-```
-
 The declaration layer defines how a controller comes into being and how clients authenticate against it.
 
 - **Bootstrap:** A controller is declared through the {ref}`bootstrap <bootstrap-a-controller>` process, which provisions a host machine, installs `jujud`, and initialises the controller's records. The bootstrap client authenticates directly against the target cloud; there is no controller to gate access yet. The controller declares itself: it names itself from the `controller-name` key of the {ref}`controller configuration <list-of-controller-configuration-keys>`, and it declares its own {ref}`application <application>`, named `controller`, in the controller model it creates.
@@ -29,9 +26,6 @@ See more: {ref}`manage-controllers`
 ```
 
 ## The controller in the persistence layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -65,9 +59,6 @@ The controller row has no life column and no status vocabulary: the controller i
 
 (the-controllers-machinery)=
 ## The controller in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 By the time bootstrap returns, the controller is up: the API server answering, the Dqlite cluster formed, the controller model and the `admin` {ref}`user <user>` created. The machinery is the {ref}`controller agent's <controller-agent>` story. This page carries the operations on the entity and the surfaces it exposes.
 

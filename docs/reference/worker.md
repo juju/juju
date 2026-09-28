@@ -7,9 +7,6 @@ myst:
 (worker)=
 # Worker
 
-```{audience} juju-dev
-```
-
 In Juju, a **worker** is any type that implements the `worker.Worker`
 interface (the `github.com/juju/worker/v5` package): `Kill`, which asks
 the worker to stop and returns immediately, and `Wait`, which blocks

@@ -6,8 +6,6 @@ myst:
 
 (unit)=
 # Unit
-```{audience} user
-```
 
 In Juju, a **unit** is a deployed {ref}`charm <charm>`: one running instance of an {ref}`application <application>`. An application's units occupy {ref}`machines <machine>`.
 
@@ -211,8 +209,6 @@ the unit's leadership lease is revoked as part of the teardown.
 
 (the-unit-watchers)=
 ### Unit watchers
-```{audience} juju-dev
-```
 
 Nothing about a unit is polled by the things that act on it: they
 watch it. The unit's watch surfaces are exposed by the application
@@ -235,8 +231,6 @@ query is the baseline snapshot -- and again on each qualifying change
 
 (the-unit-rules-and-errors)=
 ## Unit rules and errors
-```{audience} charm-dev
-```
 
 The unit domain encodes its rules as a typed error taxonomy; each
 error names the rule it enforces. The rules themselves are stated

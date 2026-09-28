@@ -15,9 +15,6 @@ In Juju, **storage** is a data volume a {ref}`cloud <cloud>` provides to a {ref}
 
 ## The storage in the declaration layer
 
-```{audience} user
-```
-
 How clients request storage for applications and units, name the pools and providers that deliver it, and manage its life.
 
 - **Storage directives:** A storage directive is a comma-separated sequence of pool, count, and size, set against a charm's storage name; the components are identified by form, not order.
@@ -63,9 +60,6 @@ A **storage provider** is the technology used to make storage available to a cha
 
 ## The storage in the persistence layer
 
-```{audience} user+, charm-dev, juju-dev
-```
-
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Storage model
@@ -105,9 +99,6 @@ The storage instance's own record is created when the charm's storage is request
 Writers: the application storage service writes the instances, attachments, directives, and pools; the provisioning machinery writes the backings' statuses; the removal machinery carries the teardown.
 
 ## The storage in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 Storage has machinery of its own: in the controller, the storage provisioner worker drives the backings' lifecycle, provisioning volumes and filesystems, writing their statuses, and seeing removals through; the units' agents attach what it provisions.
 

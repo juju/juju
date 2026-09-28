@@ -6,8 +6,6 @@ myst:
 
 (charm)=
 # Charm
-```{audience} user
-```
 
 ```{toctree}
 :hidden:
@@ -143,8 +141,6 @@ application using them is removed (see
 
 (the-charm-watchers)=
 ### Charm watchers
-```{audience} juju-dev
-```
 
 The charm domain exposes one watch surface: **charm changes** -- it
 fires on any change to the model's charm records: a revision reserved,
@@ -159,8 +155,6 @@ query is the baseline snapshot -- and again on each qualifying change
 
 (the-charm-rules-and-errors)=
 ## Charm rules and errors
-```{audience} charm-dev
-```
 
 A client gives Juju a **charm URL** whenever it addresses a charm --
 `juju deploy`, `juju refresh`, a local upload. Juju validates the URL

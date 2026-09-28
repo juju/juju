@@ -11,9 +11,6 @@ In Juju, a **placement directive** names the location a compute request targets:
 
 ## The placement directive in the declaration layer
 
-```{audience} user
-```
-
 How clients target compute at a location.
 
 - **Where it travels:** The directive is passed wherever compute is requested: deploy, add-unit, add-machine, and bootstrap requests; the deploy, add-unit, and add-machine paths are gated on model {ref}`write access <user-access-model-write>`.
@@ -43,9 +40,6 @@ resource; no Terraform howto covers placement directives.
 
 ## The placement directive in the persistence layer
 
-```{audience} user+, charm-dev, juju-dev
-```
-
 A placement directive is a **value, not an entity**: the directive itself is not stored; what persists is its resolution.
 
 - **The placement record (`machine_placement`)**: One row per machine, the machine UUID being the natural key; it carries the directive string verbatim and a scope. The schema seeds one scope, `provider` (`0018-machine.sql`).
@@ -59,9 +53,6 @@ A placement directive is a **value, not an entity**: the directive itself is not
   - The record is written at machine-creation time, by the machine state's placement resolver, called from the machine service's machine-creation path.
 
 ## The placement directive in the execution layer
-
-```{audience} user+, charm-dev, juju-dev
-```
 
 A placement directive has no machinery of its own: it is request input, resolved when the machine record is written. Whether the cloud can honour a key-value directive is discovered later, at provisioning time, when the machine provisioner reads the stored directive back and asks the cloud for a machine in that location (see {ref}`machine provisioning <the-machines-machinery>`). Nothing watches a directive; the machines it resolves into have their own watchers.
 

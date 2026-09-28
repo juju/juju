@@ -7,9 +7,6 @@ myst:
 (debug-a-dqlite-core-dump-issue)=
 # Debug a Dqlite core dump issue
 
-```{audience} juju-dev
-```
-
 If you are on Juju 3.2+, and your `juju status` suggests the agent is lost, you may have a core dump issue. This document shows how to validate this suspicion and then get the backtrace so the issue can eventually be reproduced and addressed.
 
 ## Check if you do in fact have a core dump issue
