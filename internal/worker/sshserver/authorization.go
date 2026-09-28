@@ -34,8 +34,7 @@ type authorizer struct {
 // By this point, we expect the authenticator to have set the authentication method and
 // any relevant claims in the context.
 func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) (bool, error) {
-	// If the context does not contain the user's key then they did
-	// not authenticate with a public key.
+	// Fail closed if the key was not set during authentication.
 	userKey, ok := ctx.Value(authenticatedPublicKey{}).(publicKeyWithComment)
 	if !ok {
 		return false, errors.New("SSH connection is not authenticated via public key")
