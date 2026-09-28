@@ -124,6 +124,13 @@ func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, er
 	return w, nil
 }
 
+// TerminatingServerFactory returns the factory that builds per-destination
+// terminating SSH servers, exposed through the manifold output for the
+// apiserver's relay endpoint.
+func (ssw *serverWrapperWorker) TerminatingServerFactory() coresshproxy.TerminatingServerFactory {
+	return ssw.config.ServerFactory
+}
+
 // Kill implements worker.Worker.
 func (ssw *serverWrapperWorker) Kill() {
 	ssw.catacomb.Kill(nil)

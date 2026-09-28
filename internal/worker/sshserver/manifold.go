@@ -259,7 +259,7 @@ func outputFunc(in worker.Worker, out any) error {
 
 	switch outPointer := out.(type) {
 	case *coresshproxy.TerminatingServerFactory:
-		*outPointer = inWorker.config.ServerFactory
+		*outPointer = inWorker.TerminatingServerFactory()
 	default:
 		return errors.Errorf("out should be *TerminatingServerFactory; got %T", out)
 	}

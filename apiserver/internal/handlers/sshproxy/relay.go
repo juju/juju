@@ -19,6 +19,10 @@ import (
 	coressh "github.com/juju/juju/internal/ssh"
 )
 
+// RelayJWTKey is the context key for the relay JWT, set by the apiserver
+// from the request's auth info.
+type RelayJWTKey struct{}
+
 // RelayHandler implements the JIMM relay upgrade endpoint:
 //
 //	GET /ssh-relay/:virtualHostname
@@ -54,9 +58,7 @@ type RelayHandlerConfig struct {
 	// handler. Each relay holds a hijacked connection for the life of the
 	// SSH session, so the cap bounds the connections, goroutines and
 	// per-connection lookups the endpoint can accumulate. The cap is
-	// per-endpoint: the relay and the jump server count separately, so
-	// the two endpoints together may hold up to twice this many
-	// connections.
+	// per-endpoint: the relay and jump server count separately.
 	MaxConcurrentConnections func() int
 }
 
@@ -125,15 +127,16 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Authorize the destination model using the verified JWT's access
-	// claims. Only admin access on the target model permits relay.
+	// Only admin access on the target model permits relay. An invalid
+	// access value is a scope problem, not authentication, so it is 403
+	// like an insufficient value, not 401.
 	access, err := authjwt.PermissionFromToken(token, permission.ID{
 		ObjectType: permission.Model,
 		Key:        destination.ModelUUID().String(),
 	})
 	if err != nil {
 		h.config.Logger.Warningf(ctx, "authorizing relay access: %v", err)
-		http.Error(w, "invalid access claims in relay JWT", http.StatusUnauthorized)
+		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
@@ -189,7 +192,3 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	server.HandleConn(conn)
 }
-
-// RelayJWTKey is the context key for the relay JWT, set by the apiserver
-// from the request's auth info.
-type RelayJWTKey struct{}

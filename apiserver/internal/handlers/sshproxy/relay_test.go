@@ -169,7 +169,7 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 		{"read denied", testModelUUID, string(permission.ReadAccess), http.StatusForbidden},
 		{"write denied", testModelUUID, string(permission.WriteAccess), http.StatusForbidden},
 		{"wrong model denied", "99999999-9999-9999-9999-999999999999", string(permission.AdminAccess), http.StatusForbidden},
-		{"invalid permission rejected", testModelUUID, string(permission.SuperuserAccess), http.StatusUnauthorized},
+		{"invalid permission rejected", testModelUUID, string(permission.SuperuserAccess), http.StatusForbidden},
 	} {
 		c.Run(test.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
