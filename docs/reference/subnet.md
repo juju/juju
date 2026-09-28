@@ -69,76 +69,71 @@ adoption, and the client's writes on one are space-pointer moves:
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Subnet attributes
-:alt: The subnet's stored records as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
-:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
+:alt: The subnet's stored records as an entity-relationship slice: the focal subnet record at the centre with its salient columns; the space grouping west; the provider identity east; the two membership records below, each with its neighbour record under it. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the pointer is nullable: a subnet need not be grouped yet).
+:caption: Entity relationship diagram: The subnet's stored records. A subnet is one record carrying the range, its VLAN tag and the space grouping; the provider identity, the provider-network membership and the zone membership hang off it; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the space, zone and provider-network records are drawn as chips -- their stories are their own pages'.
 ```
 
 In the model database a subnet is a **cached cloud fact**: the
 provider discovers the CIDR range and Juju stores what it learned:
-the range itself (`cidr`), the VLAN tag when the cloud reports one
-(`vlan_tag`, nullable because not every subnet is tagged). The
-`provider_subnet` satellite carries the provider's own identifier
-for the subnet, and the `provider_network_subnet` join names the
-provider network the subnet sits in: both keep the cloud's
-vocabulary for the same fact, so Juju can talk to the provider about
-a subnet it did not create. The space the subnet joins is Juju's own
-grouping; the zone membership (`availability_zone_subnet`, its
-composite primary key is the membership itself) is the cloud's
-placement fact, adopted as found (see {ref}`space <space>`).
+the range itself, with the VLAN tag when the cloud reports one (not
+every subnet is tagged). A provider-identity record carries the
+cloud's own identifier for the subnet, and the provider-network
+membership names the provider network the subnet sits in: both keep
+the cloud's vocabulary for the same fact, so Juju can talk to the
+provider about a subnet it did not create. The space the subnet joins
+is Juju's own grouping; the zone membership is the cloud's placement
+fact, adopted as found (see {ref}`space <space>`).
 
-The record set over the DDL (`0009-subnet.sql`, `0008-space.sql`):
+The record set, in prose:
 
-- **`subnet`:** The range and its grouping: a `uuid` primary key
-  (the join handle), the `cidr` range, the nullable `vlan_tag`, and
-  the nullable `space_uuid` pointer to {ref}`space <space>`. There
-  is no unique natural key: the CIDR is not unique (distinct
-  provider networks can present the same range twice), so the client
-  addresses a subnet by its CIDR and the cloud by its provider id.
-- **`provider_subnet`:** The cloud's own identifier: `provider_id`
-  primary key, non-empty by a CHECK, and one per subnet (the unique
-  index on `subnet_uuid`).
-- **`provider_network` and `provider_network_subnet`:** The cloud's
-  network grouping: the join's primary key is the subnet's `uuid`,
-  so a subnet sits in at most one provider network.
-- **`availability_zone` and `availability_zone_subnet`:** The
-  cloud's placement: a {ref}`zone <zone>`'s `name` is unique, and
-  the membership is a composite primary key, the zone on one side
-  and the subnet on the other: a subnet sits in many zones, a zone
-  holds many subnets.
-- **`v_space_subnet`:** The flattened view the reads use: every
-  subnet joined with its space name, its provider satellites and
-  its zone names, so one record answers the listing.
-- The consumer outside the slice: **`ip_address`** carries the
-  subnet pointer (`subnet_uuid`, nullable: the Kubernetes
-  provider's pod IPs can lack a discovered subnet, the schema's own
-  comment); the {ref}`machine <machine>`'s addresses and the
-  container lookups read through it.
+- **Every subnet is anchored by a single primary entry containing
+  its essential attributes:** the range, the VLAN tag and the space
+  grouping. There is no unique natural key: the CIDR is not unique
+  (distinct provider networks can present the same range twice), so
+  the client addresses a subnet by its CIDR and the cloud by its
+  provider id.
+- **The provider identity is a satellite record.** One per subnet,
+  keyed by the cloud's own identifier, which the schema keeps
+  non-empty; it is how the cloud and Juju refer to the same fact.
+- **The provider network membership is one record per subnet.** The
+  membership is the whole record, so a subnet sits in at most one
+  provider network.
+- **A subnet sits in zones by membership records.** A {ref}`zone
+  <zone>`'s name is unique, and each membership pairs one zone with
+  one subnet: a subnet sits in many zones, a zone holds many
+  subnets.
+- **The reads go through a derived view:** every subnet joined with
+  its space name, its provider satellites and its zone names, so
+  one record answers the listing.
+- **The consumer outside the slice:** the {ref}`machine
+  <machine>`'s address records carry the subnet pointer (nullable:
+  the Kubernetes provider's pod IPs can lack a discovered subnet,
+  the schema's own comment); the container lookups read through
+  them.
 
-The identity pair: the primary key (`subnet.uuid`) is the join
-handle, so the space pointer, the provider satellites and the zone
-membership have something to point at. The unique names in the
-picture belong to the neighbours: `space.name` and
-`availability_zone.name`.
+The identity pair: the primary key is the join handle, so the space
+pointer, the provider satellites and the zone membership have
+something to point at. The unique names in the picture belong to the
+neighbours: the space's name and the zone's name.
 
-Every foreign key is an assertion the record holds: the subnet record
-holds the space pointer (`subnet.space_uuid`); the provider_subnet
-record holds the subnet pointer; the join records hold one pointer
-each
-(`availability_zone_subnet` both of its neighbours'). The space
-assertion says this subnet belongs to at most one space: nullable,
-an honest absence the schema states (a subnet need not be grouped
-yet); moving it between spaces rewrites the single pointer (see
-{ref}`space operations <the-space-operations>`). Nothing
-transitions: the record has no life and no status vocabulary; a
-subnet is adopted, listed, and moved; there is no state to read off
-the diagram and no type vocabulary behind it.
+Every foreign key is an assertion the record holds: the subnet
+record holds the space pointer; the provider identity holds the
+subnet pointer; the membership records hold one pointer each (the
+zone membership holds both of its neighbours'). The space assertion
+says this subnet belongs to at most one space: nullable, an honest
+absence the schema states (a subnet need not be grouped yet); moving
+it between spaces rewrites the single pointer (see {ref}`space
+operations <the-space-operations>`). Nothing transitions: the record
+has no life and no status vocabulary; a subnet is adopted, listed,
+and moved; there is no state to read off the diagram and no type
+vocabulary behind it.
 
 (the-subnet-persistence-rules)=
 ### Persistence rules and errors
 
 - **Rules:**
   - A subnet belongs to at most one space or to none
-    (`subnet.space_uuid` is nullable); a move rewrites the pointer,
+    (the pointer is nullable); a move rewrites the pointer,
     and deleting the space it points at rewrites the pointer to
     `alpha` (the {ref}`space <space>` side carries the rest of the
     removal).

@@ -619,8 +619,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Relation attributes
-:alt: The relation records as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings records (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The relation's ten stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
+:alt: The relation records as an entity-relationship slice: the focal relation record at the centre with the life and scope vocabularies flanking it; the endpoint link, the settings archive and the status record fanned below; the application settings and the unit membership under the endpoint link, the unit settings under the membership; the application endpoint, the unit and the status vocabulary beside their records. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
 #### Integrate
@@ -699,8 +699,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Subnet attributes
-:alt: The subnet's stored records as an entity-relationship slice: the subnet record at the centre with its uuid, cidr, vlan tag and space pointer; the space record it joins above; the provider identity satellites east; the availability-zone membership record south. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the fk is nullable).
-:caption: Entity relationship diagram: The subnet's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The space, availability_zone and provider_network records are drawn as name-only chips: their stories are their own pages'.
+:alt: The subnet's stored records as an entity-relationship slice: the focal subnet record at the centre with its salient columns; the space grouping west; the provider identity east; the two membership records below, each with its neighbour record under it. Each line is a stored pointer; 1/m at each end; the space pointer's line is dashed (the pointer is nullable: a subnet need not be grouped yet).
+:caption: Entity relationship diagram: The subnet's stored records. A subnet is one record carrying the range, its VLAN tag and the space grouping; the provider identity, the provider-network membership and the zone membership hang off it; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the space, zone and provider-network records are drawn as chips -- their stories are their own pages'.
 ```
 
 ### reference/status.md

@@ -70,37 +70,44 @@ See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Pro
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Relation attributes
-:alt: The relation records as an entity-relationship slice: relation at the centre pointing to life and charm_relation_scope; relation_endpoint below it pointing back to relation and across to application_endpoint; relation_unit pointing to relation_endpoint and unit; the unit and application settings records (with their sha256 hash columns) hanging under their owners; relation_status pointing to relation and relation_status_type; the settings archive pointing to relation. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The relation's ten stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the record may be absent). The services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
+:alt: The relation records as an entity-relationship slice: the focal relation record at the centre with the life and scope vocabularies flanking it; the endpoint link, the settings archive and the status record fanned below; the application settings and the unit membership under the endpoint link, the unit settings under the membership; the application endpoint, the unit and the status vocabulary beside their records. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
+:caption: Entity relationship diagram: The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
-In the model database, a relation is a **native record** (`0024-relation.sql`):
+In the model database, a relation is a **native record**,
+distributed across a decoupled set of records. The record set, in
+prose:
 
-- **`relation`:** The core record: the UUID, the join handle; the
-  **relation ID**, a monotonically increasing number drawn from the
-  model's sequence, never reused in the model's lifetime, the number the
-  client sees; the life pointer; the scope; and the suspended flag with
-  its reason.
-- **`relation_endpoint`:** The link records to the endpoints: two for a
-  provider and requirer, one for a peer relation.
-- **`relation_unit`:** One record per unit that has entered the relation's
-  scope, per endpoint.
-- **`relation_unit_setting`:** The unit settings: key/value pairs keyed
-  per relation unit; keys must be non-empty.
-- **`relation_unit_settings_hash`:** A SHA-256 digest of each unit's
-  settings, so watchers detect a settings change without reading the
-  values.
-- **`relation_application_setting`:** The application settings: key/value
-  pairs keyed per relation endpoint, so an application in several
+- **Every relation is anchored by a single primary entry containing
+  its essential identifiers:** the UUID, the join handle the other
+  records point at, and the **relation ID**, a monotonically
+  increasing number drawn from the model's sequence, never reused in
+  the model's lifetime, the number the client sees. The life and the
+  scope are stored vocabularies (the shared alive / dying / dead
+  cycle; global, or container when either endpoint is); the
+  suspended flag with its reason rides the record.
+- **The endpoint links tie the relation to the applications.** Two
+  link records for a provider and a requirer, one for a peer
+  relation; each names the application's endpoint (the charm
+  endpoint with its optional space binding).
+- **A relation unit is a membership record:** one per unit that has
+  entered the relation's scope, per endpoint. The unit itself is
+  the neighbour the pointer reaches.
+- **The settings records are two-level.** One unit settings record
+  per involved unit (a key/value record per key, keys non-empty),
+  and one application settings record per involved application,
+  keyed per relation endpoint, so an application in several
   relations keeps an independent set per relation.
-- **`relation_application_settings_hash`:** The digest of each endpoint's
-  application settings, the change signal watchers see.
-- **`relation_unit_setting_archive`:** A unit's settings, copied here when
-  it leaves scope. They stay readable for the lifetime of the relation,
-  even after the unit itself is gone.
-- **`relation_status` and `relation_status_type`:** The status record and
-  its vocabulary: `joining`, `joined`, `broken`, `suspending`,
-  `suspended`, `error`.
+- **Each settings level carries a digest record:** a SHA-256 hash
+  of the whole set, so watchers detect a settings change without
+  reading the values.
+- **The settings archive keeps a departed unit's settings
+  readable.** They are copied there when the unit leaves scope and
+  stay readable for the lifetime of the relation, even after the
+  unit itself is gone.
+- **The relation has a status record with a stored vocabulary.** A
+  new relation starts as `joining`; the vocabulary is `joining`,
+  `joined`, `broken`, `suspending`, `suspended`, `error`.
 
 The identity pair: the UUID is the join handle; the relation ID is the
 user-facing number; the **relation key** is the endpoint-derived string
@@ -111,27 +118,24 @@ pair, and the relation service checks the pair before it writes the
 record.
 
 Writers: the relation service inserts the relation with its endpoint
-records
-and its initial settings; the removal service carries the teardown; the
-status domain validates and writes the status. Every settings write
-updates the matching hash record. The services do not read the stored
-records
-directly: they read the four derived views (`v_application_endpoint`,
-`v_relation_endpoint`, `v_relation_endpoint_identifier`,
-`v_relation_status`) that join the records into the shapes the domain
-speaks
-in.
+records and its initial settings; the removal service carries the
+teardown; the status domain validates and writes the status. Every
+settings write updates the matching digest record. The services do
+not read the stored records directly: they read the four derived
+views that join the records into the shapes the domain speaks in.
 
 Two projections with writers of their own:
 
-- **Life:** The shared alive / dying / dead cycle. A relation is created
-  alive. It cannot stay alive if either of its applications stops being
-  alive, and it cannot be dead until every relation unit has left scope.
-- **`relation_status`:** The status domain's record, written through
-  `SetRelationStatus`: a new relation starts as `joining`, the status
-  record written when the relation record is created; the leader unit's agent
-  reports `joined`; `suspending` and `suspended` record a suspended
-  relation; `error` requires a status message.
+- **Life:** The shared alive / dying / dead cycle. A relation is
+  created alive. It cannot stay alive if either of its applications
+  stops being alive, and it cannot be dead until every relation
+  unit has left scope.
+- **The status record:** The status domain's record, written through
+  `SetRelationStatus`: a new relation starts as `joining`, the
+  status record written when the relation record is created; the
+  leader unit's agent reports `joined`; `suspending` and
+  `suspended` record a suspended relation; `error` requires a
+  status message.
 
 ### Relation settings
 

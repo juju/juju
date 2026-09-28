@@ -124,46 +124,24 @@ model "Juju" {
                     ground: "model:space"]
     subnet_rec     [type: record, label: "subnet\n(cidr, vlan, provider id)",
                     ground: "model:subnet"]
-    // Subnet attributes slice records (ADR-014; 0008-space.sql +
-    // 0009-subnet.sql): the subnet row at attribute level; the
-    // provider satellites and the two join tables at key level; the
-    // neighbours (space, availability_zone, provider_network) as
-    // collapsed chips — entity-labelled, no columns.
-    sb_subnet [type: record, label: "subnet", ground: "model:subnet"] {
-      fields {
-        uuid      [label: "uuid", type: "uuid", pk: true]
-        cidr      [label: "cidr", type: "text"]
-        vlan_tag  [label: "vlan_tag", type: "int", null: true]
-        space_uuid [label: "space_uuid", type: "uuid", fk: true, null: true]
-      }
-    }
-    sb_space [type: record, label: "space", ground: "model:space"]
-    sb_provider_subnet [type: record, label: "provider_subnet",
-                        ground: "model:provider_subnet"] {
-      fields {
-        subnet_uuid [label: "subnet_uuid", type: "uuid", pk: true, fk: true]
-        provider_id [label: "provider_id", type: "text"]
-      }
-    }
-    sb_pn_subnet [type: record, label: "provider_network_subnet",
-                  ground: "model:provider_network_subnet"] {
-      fields {
-        subnet_uuid [label: "subnet_uuid", type: "uuid", pk: true, fk: true]
-        provider_network_uuid [label: "provider_network_uuid",
-                               type: "uuid", fk: true]
-      }
-    }
-    sb_provider_network [type: record, label: "provider_network",
+    // Subnet attributes slice (ADR-014; 0008-space.sql +
+    // 0009-subnet.sql), collapsed chips (round 10): salient columns
+    // only; the pointers live in the edge grounds. The DDL carries no
+    // bookkeeping columns (no timestamps here) -- the prunes are the
+    // uuid join handles and the pointer columns the edges carry.
+    sb_subnet [type: record, label: "subnet\n(cidr, vlan tag, space)",
+               ground: "model:subnet"]
+    sb_space [type: record, label: "space\n(name, alpha default)",
+              ground: "model:space"]
+    sb_provider_subnet [type: record, label: "provider subnet\n(provider id)",
+                        ground: "model:provider_subnet"]
+    sb_pn_subnet [type: record, label: "provider network join\n(subnet, provider network)",
+                  ground: "model:provider_network_subnet"]
+    sb_provider_network [type: record, label: "provider network\n(network id)",
                          ground: "model:provider_network"]
-    sb_az_subnet [type: record, label: "availability_zone_subnet",
-                  ground: "model:availability_zone_subnet"] {
-      fields {
-        subnet_uuid [label: "subnet_uuid", type: "uuid", pk: true, fk: true]
-        availability_zone_uuid [label: "availability_zone_uuid",
-                                type: "uuid", pk: true, fk: true]
-      }
-    }
-    sb_az [type: record, label: "availability_zone",
+    sb_az_subnet [type: record, label: "zone membership\n(zone, subnet)",
+                  ground: "model:availability_zone_subnet"]
+    sb_az [type: record, label: "zone\n(name)",
            ground: "model:availability_zone"]
 
     // -----------------------------------------------------------------------
@@ -543,106 +521,47 @@ model "Juju" {
     rel_kind_cmr [type: default, label: "Cross-model relation"]
 
     // -----------------------------------------------------------------------
-    // Relation attributes — the persistence portrait (ADR-011 §3), sliced
-    // from domain/schema/model/sql/0024-relation.sql. Every fk: field is
-    // the origin of exactly one data edge — the arrow is where the pointer
-    // lives. The four derived views (v_application_endpoint,
+    // Relation attributes (ADR-011 §3), sliced from
+    // domain/schema/model/sql/0024-relation.sql, collapsed chips
+    // (round 10): salient columns only; every data edge is grounded
+    // on the fk column that holds the pointer. DECLARED FLATTENINGS
+    // kept: the unit settings + their hash record in one chip, the
+    // application settings + their hash record in one chip. DROPPED
+    // from the labels by the relevance call: the uuid join handles,
+    // the pointer columns (the edges carry them), and the status
+    // record's updated_at bookkeeping (the batch-1 status-satellite
+    // example). The four derived views (v_application_endpoint,
     // v_relation_endpoint, v_relation_endpoint_identifier,
     // v_relation_status) are read models: no pointers of their own, so
-    // they are named in the caption, not drawn.
-    // Boundary nodes (unit, application_endpoint, life,
-    // charm_relation_scope) stand for the neighbouring tables the FKs
-    // point into; only their key column is drawn.
-    // -----------------------------------------------------------------------
-    ra_relation          [type: record, label: "relation", ground: "model:relation"] {
-      fields {
-        uuid            [label: "uuid",             type: "uuid", pk: true]
-        relation_id     [label: "relation_id",      type: "int"]
-        life_id         [label: "life_id",          type: "int",  fk: true]
-        scope_id        [label: "scope_id",         type: "int",  fk: true]
-        suspended       [label: "suspended",        type: "bool", null: true]
-        suspended_reason[label: "suspended_reason", type: "text", null: true]
-      }
-    }
-    ra_endpoint          [type: record, label: "relation_endpoint", ground: "model:relation_endpoint"] {
-      fields {
-        uuid            [label: "uuid",            type: "uuid", pk: true]
-        relation_uuid   [label: "relation_uuid",   type: "uuid", fk: true]
-        endpoint_uuid   [label: "endpoint_uuid",   type: "uuid", fk: true]
-      }
-    }
-    ra_unit              [type: record, label: "relation_unit", ground: "model:relation_unit"] {
-      fields {
-        uuid                 [label: "uuid",                  type: "uuid", pk: true]
-        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "uuid", fk: true]
-        unit_uuid            [label: "unit_uuid",             type: "uuid", fk: true]
-      }
-    }
-    ra_unit_setting      [type: record, label: "relation_unit_setting", ground: "model:relation_unit_setting"] {
-      // DECLARED FLATTENING: one node covers two real tables — the
-      // settings and the settings hash (relation_unit_settings_hash),
-      // the watcher's change-detection digest.
-      fields {
-        relation_unit_uuid [label: "relation_unit_uuid", type: "uuid", pk: true, fk: true]
-        key                [label: "key",               type: "text", pk: true]
-        value              [label: "value",             type: "text", null: true]
-        sha256             [label: "sha256 (hash)",     type: "text"]
-      }
-    }
-    ra_setting_archive   [type: record, label: "relation_unit_setting_archive", ground: "model:relation_unit_setting_archive"] {
-      fields {
-        relation_uuid [label: "relation_uuid", type: "uuid", pk: true, fk: true]
-        unit_name     [label: "unit_name",     type: "text", pk: true]
-        key           [label: "key",           type: "text", pk: true]
-        value         [label: "value",         type: "text", null: true]
-      }
-    }
-    ra_app_setting       [type: record, label: "relation_application_setting", ground: "model:relation_application_setting"] {
-      // DECLARED FLATTENING: one node covers two real tables — the
-      // settings and the settings hash
-      // (relation_application_settings_hash).
-      fields {
-        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "uuid", pk: true, fk: true]
-        key                    [label: "key",                   type: "text", pk: true]
-        value                  [label: "value",                 type: "text", null: true]
-        sha256                 [label: "sha256 (hash)",        type: "text"]
-      }
-    }
-    ra_status            [type: record, label: "relation_status", ground: "model:relation_status"] {
-      fields {
-        relation_uuid         [label: "relation_uuid",         type: "uuid", pk: true, fk: true]
-        relation_status_type_id [label: "relation_status_type_id", type: "text", fk: true]
-        message               [label: "message",              type: "text", null: true]
-        updated_at            [label: "updated_at",           type: "time", null: true]
-      }
-    }
-    ra_status_type       [type: record, label: "relation_status_type", ground: "model:relation_status_type"] {
-      fields {
-        id   [label: "id",   type: "text", pk: true]
-        name [label: "name", type: "text"]
-      }
-    }
-    // Boundary nodes — neighbouring tables the FKs point into.
-    ra_app_endpoint      [type: record, label: "application_endpoint", ground: "model:application_endpoint"] {
-      fields {
-        uuid [label: "uuid", type: "uuid", pk: true]
-      }
-    }
-    ra_unit_boundary     [type: record, label: "unit", ground: "model:unit"] {
-      fields {
-        uuid [label: "uuid", type: "uuid", pk: true]
-      }
-    }
-    ra_life              [type: record, label: "life", ground: "model:life"] {
-      fields {
-        id [label: "id", type: "int", pk: true]
-      }
-    }
-    ra_scope             [type: record, label: "charm_relation_scope", ground: "model:charm_relation_scope"] {
-      fields {
-        id [label: "id", type: "int", pk: true]
-      }
-    }
+    // they are named in the caption, not drawn. Boundary nodes stand
+    // for the neighbouring records the pointers reach; life and scope
+    // are the stored vocabularies (their values ARE the content).
+    ra_relation [type: record, label: "relation\n(id, life, scope,\nsuspended?, reason)",
+                 ground: "model:relation"]
+    ra_endpoint [type: record, label: "relation endpoint\n(relation, endpoint)",
+                 ground: "model:relation_endpoint"]
+    ra_unit     [type: record, label: "relation unit\n(endpoint, unit)",
+                 ground: "model:relation_unit"]
+    ra_unit_setting [type: record, label: "unit settings\n(key, value, sha256)",
+                    ground: "model:relation_unit_setting"]
+    ra_setting_archive [type: record, label: "settings archive\n(relation, unit name,\nkey, value)",
+                        ground: "model:relation_unit_setting_archive"]
+    ra_app_setting [type: record, label: "application settings\n(key, value, sha256)",
+                    ground: "model:relation_application_setting"]
+    ra_status [type: record, label: "relation status\n(status, message)",
+               ground: "model:relation_status"]
+    ra_status_type [type: record, label: "status vocabulary\n(name)",
+                    ground: "model:relation_status_type"]
+    // Boundary nodes — neighbouring records the pointers reach into;
+    // their stories are their own pages'.
+    ra_app_endpoint [type: record, label: "application endpoint\n(charm endpoint, space)",
+                     ground: "model:application_endpoint"]
+    ra_unit_boundary [type: record, label: "unit\n(name)",
+                      ground: "model:unit"]
+    ra_life [type: record, label: "life\n(alive, dying, dead)",
+             ground: "model:life"]
+    ra_scope [type: record, label: "scope\n(global, container)",
+              ground: "model:charm_relation_scope"]
 
     // -----------------------------------------------------------------------
     // Machine attributes (ADR-011 §3, docs/reference/machine.md): the
@@ -995,13 +914,20 @@ model "Juju" {
     // Network spaces (0008-space.sql)
     subnet_rec        -> space_rec    [type: data, label: "belongs to 0..1",
                           ground: "model:subnet.space_uuid"]
-    // Subnet attributes slice (ADR-014): one edge per fk: field.
-    sb_subnet.space_uuid      -> sb_space                 [type: data, label: "joins (0..1)"]
-    sb_provider_subnet.subnet_uuid -> sb_subnet.uuid      [type: data, label: "identifies (one)"]
-    sb_pn_subnet.subnet_uuid  -> sb_subnet.uuid           [type: data, label: "network of (one)"]
-    sb_pn_subnet.provider_network_uuid -> sb_provider_network [type: data, label: "names (one)"]
-    sb_az_subnet.subnet_uuid  -> sb_subnet.uuid           [type: data, label: "sits in (one)"]
-    sb_az_subnet.availability_zone_uuid -> sb_az           [type: data, label: "zone of (one)"]
+    // Subnet attributes slice (ADR-014): one data edge per fk column,
+    // each grounded on the pointer it draws.
+    sb_subnet          -> sb_space [type: data, label: "joins (0..1)",
+                          ground: "model:subnet.space_uuid"]
+    sb_provider_subnet -> sb_subnet [type: data, label: "identifies (one)",
+                          ground: "model:provider_subnet.subnet_uuid"]
+    sb_pn_subnet       -> sb_subnet [type: data, label: "network of (one)",
+                          ground: "model:provider_network_subnet.subnet_uuid"]
+    sb_pn_subnet       -> sb_provider_network [type: data, label: "names (one)",
+                          ground: "model:provider_network_subnet.provider_network_uuid"]
+    sb_az_subnet       -> sb_subnet [type: data, label: "sits in (one)",
+                          ground: "model:availability_zone_subnet.subnet_uuid"]
+    sb_az_subnet       -> sb_az [type: data, label: "zone of (one)",
+                          ground: "model:availability_zone_subnet.availability_zone_uuid"]
     application_rec   -> space_rec    [type: data, label: "default binding (one)",
                           ground: "model:application.space_uuid"]
     // PARKED rendering notes (sequence + fan work, reviewer rounds
@@ -1244,21 +1170,31 @@ model "Juju" {
     rel_kind_cmr  -> rel_kind [type: generalization, label: "different models"]
 
     // -----------------------------------------------------------------------
-    // Relation attributes (ADR-011 §3): the stored pointers. Every fk:
-    // field of the slice is the origin of exactly one data edge; labels
-    // are child-first, the FK-stored half ("(one)" — non-null fk).
-    // -----------------------------------------------------------------------
-    ra_relation.life_id            -> ra_life.id                  [type: data, label: "typed as (one)"]
-    ra_relation.scope_id           -> ra_scope.id                 [type: data, label: "typed as (one)"]
-    ra_endpoint.relation_uuid      -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
-    ra_endpoint.endpoint_uuid      -> ra_app_endpoint.uuid        [type: data, label: "binds to (one)"]
-    ra_unit.relation_endpoint_uuid -> ra_endpoint.uuid            [type: data, label: "enters through (one)"]
-    ra_unit.unit_uuid              -> ra_unit_boundary.uuid       [type: data, label: "belongs to (one)"]
-    ra_unit_setting.relation_unit_uuid -> ra_unit.uuid            [type: data, label: "belongs to (one)"]
-    ra_setting_archive.relation_uuid -> ra_relation.uuid          [type: data, label: "outlives (one)"]
-    ra_app_setting.relation_endpoint_uuid -> ra_endpoint.uuid     [type: data, label: "belongs to (one)"]
-    ra_status.relation_uuid        -> ra_relation.uuid            [type: data, label: "belongs to (one)"]
-    ra_status.relation_status_type_id -> ra_status_type.id        [type: data, label: "typed as (one)"]
+    // Relation attributes (ADR-011 §3): the stored pointers, one data
+    // edge per FK column, each grounded on the pointer it draws;
+    // labels are child-first, the FK-stored half ("(one)" — non-null fk).
+    ra_relation      -> ra_life [type: data, label: "typed as (one)",
+                          ground: "model:relation.life_id"]
+    ra_relation      -> ra_scope [type: data, label: "typed as (one)",
+                          ground: "model:relation.scope_id"]
+    ra_endpoint      -> ra_relation [type: data, label: "belongs to (one)",
+                          ground: "model:relation_endpoint.relation_uuid"]
+    ra_endpoint      -> ra_app_endpoint [type: data, label: "binds to (one)",
+                          ground: "model:relation_endpoint.endpoint_uuid"]
+    ra_unit          -> ra_endpoint [type: data, label: "enters through (one)",
+                          ground: "model:relation_unit.relation_endpoint_uuid"]
+    ra_unit          -> ra_unit_boundary [type: data, label: "belongs to (one)",
+                          ground: "model:relation_unit.unit_uuid"]
+    ra_unit_setting  -> ra_unit [type: data, label: "belongs to (one)",
+                          ground: "model:relation_unit_setting.relation_unit_uuid"]
+    ra_setting_archive -> ra_relation [type: data, label: "outlives (one)",
+                          ground: "model:relation_unit_setting_archive.relation_uuid"]
+    ra_app_setting   -> ra_endpoint [type: data, label: "belongs to (one)",
+                          ground: "model:relation_application_setting.relation_endpoint_uuid"]
+    ra_status        -> ra_relation [type: data, label: "belongs to (one)",
+                          ground: "model:relation_status.relation_uuid"]
+    ra_status        -> ra_status_type [type: data, label: "typed as (one)",
+                          ground: "model:relation_status.relation_status_type_id"]
 
     // Machine attributes (ADR-011 §3): the stored pointers, one data
     // edge per FK, each grounded on its FK column. Both machine_parent
@@ -2864,9 +2800,12 @@ diagram "Types of relation" from "Juju" {
 // --------------------------------------------------------------------------
 // Reference: subnet attributes (ADR-014, docs/reference/subnet.md) —
 // the persistence portrait sliced from domain/schema/model/sql/
-// 0008-space.sql + 0009-subnet.sql: the subnet row at the centre; the
-// space it joins above; the provider identity satellites east; the
-// availability-zone membership south (the join record is the edge).
+// 0008-space.sql + 0009-subnet.sql as collapsed record chips (round
+// 10): the focal subnet record centred; the space grouping west, the
+// provider identity east; the two join records fan below, each with
+// its neighbour record under it. One data edge per FK column, each
+// grounded on the pointer it draws. routing: orthogonal kept — the
+// widest slice of the converted set.
 // --------------------------------------------------------------------------
 diagram "Subnet attributes" from "Juju" {
   select {
@@ -2874,38 +2813,42 @@ diagram "Subnet attributes" from "Juju" {
     nodes: sb_subnet sb_space sb_provider_subnet sb_pn_subnet
            sb_provider_network sb_az_subnet sb_az
     edges: type data
+    sizing: uniform
   }
   positions {
-    sb_space                     above sb_subnet gap: 90
-    sb_space                     align-centre sb_subnet
-    sb_provider_subnet           right-of sb_subnet gap: 90
-    sb_provider_subnet           align-middle sb_subnet
-    sb_pn_subnet   right-of sb_az_subnet gap: 70
-    sb_pn_subnet   align-middle sb_az_subnet
-    sb_provider_network          right-of sb_pn_subnet gap: 90
-    sb_provider_network          align-middle sb_pn_subnet
-    sb_az_subnet  below sb_subnet gap: 90
-    sb_az_subnet  align-centre sb_subnet
-    sb_az         left-of sb_az_subnet gap: 90
-    sb_az         align-middle sb_az_subnet
+    // Charm-origins form: the focal record centred, flanks
+    // align-middle, fans below.
+    sb_space           left-of sb_subnet gap: 30
+    sb_space           align-middle sb_subnet
+    sb_provider_subnet right-of sb_subnet gap: 30
+    sb_provider_subnet align-middle sb_subnet
+    fan [sb_pn_subnet sb_az_subnet] below sb_subnet gap: 24
+    sb_provider_network below sb_pn_subnet gap: 24
+    sb_provider_network align-centre sb_pn_subnet
+    sb_az below sb_az_subnet gap: 24
+    sb_az align-centre sb_az_subnet
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
 // --------------------------------------------------------------------------
 // Reference: relation attributes (docs/reference/relation.md, § Relation
 // attributes; ADR-011 §3) — the persistence portrait sliced from
-// domain/schema/model/sql/0024-relation.sql: the ten stored tables of the
-// relation story, every FK drawn exactly once from its fk: field to the
-// target's key. The four derived views (v_application_endpoint,
+// domain/schema/model/sql/0024-relation.sql as collapsed record chips
+// (round 10): the ten stored records of the relation story, every FK
+// drawn exactly once, the edge grounded on the column that holds the
+// pointer. The four derived views (v_application_endpoint,
 // v_relation_endpoint, v_relation_endpoint_identifier, v_relation_status)
 // are read models with no pointers of their own — named in the caption,
-// not drawn. Declared positions: the FK spine reads parent-left /
-// child-right, settings clusters hang under their owner.
+// not drawn. Declared positions: the stored vocabularies flank the
+// focal record; its children (the endpoint link, the settings archive,
+// the status record) fan below it; the endpoint link's children fan
+// under it; the boundaries flank their chains. routing: orthogonal
+// kept — the widest slice of the converted set.
 // --------------------------------------------------------------------------
 diagram "Relation attributes" from "Juju" {
   select {
@@ -2914,42 +2857,36 @@ diagram "Relation attributes" from "Juju" {
            ra_setting_archive ra_app_setting ra_status ra_status_type
            ra_app_endpoint ra_unit_boundary ra_life ra_scope
     edges: type data
+    sizing: uniform
   }
   positions {
-    // The relation spine, top to bottom: relation -> endpoint -> unit.
-    ra_life            above ra_relation  gap: 100
-    ra_life            align-centre ra_relation
-    ra_endpoint        below ra_relation  gap: 100
-    ra_endpoint        align-centre ra_relation
-    ra_unit            below ra_status    gap: 50
-    ra_unit            align-centre ra_status
-    // Left: scope and the endpoint boundary flank the spine's west.
-    ra_scope           above ra_app_endpoint gap: 50
-    ra_scope           align-centre ra_app_endpoint
-    ra_app_endpoint    left-of ra_relation gap: 90
-    ra_app_endpoint    align-middle ra_relation
-    // Right of the spine: the status cluster, then the unit and its
-    // boundary; the wide gap leaves the hash-free lane at c4 clear.
-    ra_status          right-of ra_relation gap: 90
-    ra_status          align-middle ra_relation
-    ra_status_type     right-of ra_status gap: 80
-    ra_status_type     align-middle ra_status
-    ra_unit_boundary   right-of ra_unit gap: 80
-    ra_unit_boundary   align-middle ra_unit
-    // Settings hang under their owner. The archive sits on the top
-    // row beside life: its pointer targets the relation, and the top
-    // row gives the edge a clear horizontal into relation's west face.
-    ra_app_setting     below ra_endpoint gap: 100
-    ra_app_setting     align-centre ra_endpoint
-    ra_unit_setting    below ra_unit gap: 100
-    ra_unit_setting    align-centre ra_unit
-    ra_setting_archive right-of ra_life gap: 60
-    ra_setting_archive align-middle ra_life
+    // The stored vocabularies flank the focal record.
+    ra_life  left-of ra_relation gap: 30
+    ra_life  align-middle ra_relation
+    ra_scope right-of ra_relation gap: 30
+    ra_scope align-middle ra_relation
+    // The relation's children fan below it: the endpoint link, the
+    // settings archive, the status record.
+    fan [ra_endpoint ra_setting_archive ra_status] below ra_relation gap: 24
+    // The endpoint link's other parent west; the status vocabulary
+    // east of the status record.
+    ra_app_endpoint left-of ra_endpoint gap: 30
+    ra_app_endpoint align-middle ra_endpoint
+    ra_status_type  right-of ra_status gap: 30
+    ra_status_type  align-middle ra_status
+    // The endpoint link's children fan under it: the application
+    // settings and the unit membership; the unit boundary east of the
+    // membership; the unit settings under it.
+    fan [ra_app_setting ra_unit] below ra_endpoint gap: 24
+    ra_unit_boundary right-of ra_unit gap: 30
+    ra_unit_boundary align-middle ra_unit
+    ra_unit_setting below ra_unit gap: 24
+    ra_unit_setting align-centre ra_unit
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
