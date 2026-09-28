@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
-	"gopkg.in/tomb.v2"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
@@ -38,7 +37,7 @@ type RelayJWTKey struct{}
 // when the handler dies, draining the relays on apiserver shutdown
 // (hijacked connections are invisible to http.Server.Shutdown).
 type RelayHandler struct {
-	tomb   tomb.Tomb
+	hijackWorker
 	config RelayHandlerConfig
 
 	// concurrentConnections holds the number of in-flight relays, capped
@@ -82,26 +81,8 @@ func NewRelayHandler(config RelayHandlerConfig) (*RelayHandler, error) {
 		return nil, errors.Errorf("validating relay handler config: %w", err)
 	}
 	h := &RelayHandler{config: config}
-	// Without a tracked goroutine the tomb never reaches dead, so Wait
-	// would block forever.
-	h.tomb.Go(func() error {
-		<-h.tomb.Dying()
-		return tomb.ErrDying
-	})
+	h.start()
 	return h, nil
-}
-
-// Kill implements worker.Worker.Kill. It cancels the request contexts of
-// in-flight relays, whose dying watches close their connections.
-func (h *RelayHandler) Kill() {
-	h.tomb.Kill(nil)
-}
-
-// Wait implements worker.Worker.Wait. It blocks until the handler is
-// killed. In-flight relays observe the cancellation through their request
-// contexts and close their connections.
-func (h *RelayHandler) Wait() error {
-	return h.tomb.Wait()
 }
 
 // ServeHTTP implements http.Handler.
@@ -109,7 +90,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// The request context is cancelled when the handler's tomb starts
 	// dying, so in-flight relays observe shutdown and their connections
 	// are closed by the tomb goroutine.
-	ctx := h.tomb.Context(r.Context())
+	ctx := h.requestContext(r)
 	r = r.WithContext(ctx)
 
 	virtualHostname := r.URL.Query().Get(":virtualHostname")
