@@ -63,7 +63,7 @@ hosts, and the model agent runs a model's workers; on Kubernetes,
 :file: ../juju.ggarch
 :view: Agent taxonomy
 :no-legend:
-:caption: Taxonomy tree: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
+:caption: The four agent types and their channels: every agent makes API calls to the controller; the machine agent hosts unit agents on machine clouds; containeragent is the unit-agent role as a single Kubernetes binary.
 :alt: Controller, machine agent, unit agent, and containeragent in a row; each agent makes API calls to the controller; the machine agent hosts the unit agent.
 ```
 
@@ -77,7 +77,7 @@ On machine and Kubernetes clouds, a `jujud` process running workers responsible 
 :file: ../juju.ggarch
 :view: Worker tree (controller)
 :alt: The controller agent's worker tree: a Dqlite hub at the centre with workers arranged around it — API server, domain services, object store, lease manager, provider services, change stream, provisioner and others, each with the verb that names what it does.
-:caption: Topology: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
+:caption: Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.Inside the controller agent: its workers, arranged around the embedded Dqlite database each of them reads and writes. The API server fronts the {ref}`juju-cli` and the {ref}`unit-agent`; the domain services own models; the provider tracker mediates every cloud call.
 ```
 
 (machine-agent)=

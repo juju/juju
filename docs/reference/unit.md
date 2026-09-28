@@ -40,7 +40,7 @@ See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider fo
 :file: ../juju.ggarch
 :view: Unit attributes
 :alt: The unit record at the centre with its salient columns; the application record it joins west; the agent and workload status records east; the shared net node and the subordinate pair below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records.
+:caption: The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records.The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records.
 ```
 
 In the model database, a unit is represented by a core record linked
@@ -129,7 +129,7 @@ When a hook errors, the unit's agent status reads `error`; a client resolves it,
 :file: ../juju.ggarch
 :sequence: Unit removal
 :alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
-:caption: Sequence diagram: Removal is a cooperative shutdown. The controller only marks the entity Dying; the agent that owns it runs its teardown work and only then reports itself Dead. A hook error in that teardown is what the `--force` option overrides.
+:caption: Removal is a cooperative shutdown. The controller only marks the entity Dying; the agent that owns it runs its teardown work and only then reports itself Dead. A hook error in that teardown is what the `--force` option overrides.Removal is a cooperative shutdown. The controller only marks the entity Dying; the agent that owns it runs its teardown work and only then reports itself Dead. A hook error in that teardown is what the `--force` option overrides.
 ```
 
 Removing a unit is a cooperative shutdown, not a kill: the removal machinery marks the unit dying, departs its relation scopes and schedules the storage teardown; the unit's agent runs its stop and remove hooks and only then reports itself dead; the scheduled removal job deletes the records, and the unit goes dead only once no relation scopes and no storage attachments are left. The force flag skips that wait: the job departs the scopes and deletes the records without waiting for the agent's teardown (see {ref}`removing things <removing-things>`). When the removed unit was the last one on its machine, the machine is marked dying and scheduled for removal in the same cascade.

@@ -48,7 +48,7 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 :file: ../juju.ggarch
 :view: Application attributes
 :alt: The application record at the centre with its salient columns; the charm record it references west; the status record east; the config, origin channel and endpoint records below. Each line is a stored pointer; 1/m at each end.
-:caption: Entity relationship diagram: The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records.
+:caption: The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records.The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records.
 ```
 
 In the model database an application is a **native record**, created

@@ -71,7 +71,7 @@ See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Pro
 :file: ../juju.ggarch
 :view: Relation attributes
 :alt: The relation records as an entity-relationship slice: the focal relation record at the centre with the life and scope vocabularies flanking it; the endpoint link, the settings archive and the status record fanned below; the application settings and the unit membership under the endpoint link, the unit settings under the membership; the application endpoint, the unit and the status vocabulary beside their records. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
+:caption: The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
 In the model database, a relation is a **native record**,
@@ -150,7 +150,7 @@ the settings for that relation. Charm documentation often calls these
 :file: ../juju.ggarch
 :view: Relation settings permissions
 :no-legend:
-:caption: Topology: Each unit reads + writes only its own settings (red); the leader also writes the application settings; all units read the other application's settings (green). Peer case: permissions turn inward -- every unit reads all of its own application's settings, application settings included.
+:caption: Each unit reads + writes only its own settings (red); the leader also writes the application settings; all units read the other application's settings (green). Peer case: permissions turn inward -- every unit reads all of its own application's settings, application settings included.Each unit reads + writes only its own settings (red); the leader also writes the application settings; all units read the other application's settings (green). Peer case: permissions turn inward -- every unit reads all of its own application's settings, application settings included.
 :alt: App A's units (appA/leader, appA/1) and app B's units (appB/leader, appB/1) above one set of settings records; red arrows reading and writing the own records (own unit settings; the leader also the application settings), green arrows reading across to the other application's set; below, the peer panel: one application's units with red own/leader arrows and green reads of every record, the application settings included.
 ```
 
@@ -180,7 +180,7 @@ settings is served from the archive.
 :file: ../juju.ggarch
 :view: Types of relation
 :alt: The relation kinds as a star: Relation at the top, the four kinds in a row below, each connected to Relation by a straight is-a edge ending in a hollow triangle. The edges are labelled with the discriminating fact: the application relates to itself (Peer relation); one side subordinate (Subordinate relation); both principal, same model (Regular relation); different models (Cross-model relation).
-:caption: Taxonomy star: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
+:caption: A relation is a peer relation when the application relates to itself; otherwise it connects two applications, and it is a subordinate relation when one side is subordinate (always same-model), a cross-model relation when the applications live in different models, and a regular relation when two principal applications share a model.
 ```
 
 Every relation is one of four kinds. The kind is not a stored
@@ -196,7 +196,7 @@ whether the two live in the same model.
 :file: ../juju.ggarch
 :view: Peer relation shape
 :alt: The application relating to itself: the peer relation has one endpoint, and the application's units fan into it -- every unit joins the same relation.
-:caption: Topology: The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.
+:caption: The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.The peer relation's shape: the application relates to itself -- the relation has one endpoint, created automatically at deployment, and every unit the application ever has joins it as it starts.
 ```
 
 A **peer** relation relates an application to itself: its units relate to
@@ -217,7 +217,7 @@ one another by virtue of the application having a `peers` endpoint.
 :file: ../juju.ggarch
 :view: Subordinate relation shape
 :alt: A principal application and a subordinate application relating through a container-scoped relation; below, both the principal unit and the subordinate unit run on the principal unit's machine.
-:caption: Topology: The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.
+:caption: The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.The subordinate relation's shape: a principal application and a subordinate charm relate through a container-scoped relation; the relation is what places the subordinate's unit on the principal unit's own machine.
 ```
 
 A **subordinate** relation is a relation between a principal application
@@ -262,7 +262,7 @@ charm implements it.
 :file: ../juju.ggarch
 :view: Regular relation shape
 :alt: Two principal applications -- one provides, one requires -- relating through a two-endpoint relation in the same model.
-:caption: Topology: The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.
+:caption: The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.The regular relation's shape: two principal applications in the same model relate through a two-endpoint relation -- opposite provides/requires roles on the same interface.
 ```
 
 A **regular** relation connects two principal applications that live in
@@ -276,7 +276,7 @@ opposite `provides` / `requires` endpoint roles.
 :file: ../juju.ggarch
 :view: Cross-model relation shape
 :alt: Two model containers -- consuming model A with its application, offering model B with the saas synthetic application -- joined by a cross-model relation edge.
-:caption: Topology: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
+:caption: The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.The cross-model relation's shape: the two applications live in different models, each holding its own half; the consuming model integrates through a synthetic application (the saas) that stands in for the offered application.
 ```
 
 A **cross-model** relation relates applications that live in different
@@ -340,7 +340,7 @@ record bookkeeping: creating, suspending, resuming, removing.
 :sequence: Integrate
 :no-legend:
 :alt: User calls juju integrate A B. Controller writes relation record and fires watchers to both unit agents. Each runs relation-created, relation-joined, relation-changed hooks, writing relation data; each data write wakes the other side's watcher for a further relation-changed.
-:caption: Sequence diagram: Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.
+:caption: Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.Integrating two applications. The controller writes the relation record; the two units' hooks run in lockstep, each data write waking the other side for another relation-changed.
 ```
 
 - **Creation:** The integrate operation writes the relation record and
