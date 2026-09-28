@@ -727,8 +727,8 @@ precedent).
 :file: ../juju.ggarch
 :view: Storage model
 :no-legend:
-:caption: Topology: The storage walk, grounded in 0011-storage.sql: the charm defines storage names (kind block|filesystem, count, size); a directive pins one pool (user- or provider-default origin) per application; an instance carries the charm name, kind and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes (the machine or unit network identity). Provision scope: model = machine-independent, machine = dies with the machine.
-:alt: Record chain: charm storage to directive to pool to instance; volume to the right of instance, filesystem below, attachment below charm storage, net node above volume. Arrows carry multiplicities.
+:caption: Topology: The storage walk in the model database: the charm defines storage names (kind block | filesystem, count, size); a directive pins one pool per application; an instance carries kind, life and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes. Provision scope model = machine-independent, machine = dies with the machine.
+:alt: Record chain: charm storage, storage directive, storage pool, storage instance; volume to the right, filesystem below, attachment below charm storage, net node above volume.
 ```
 
 ### reference/unit.md

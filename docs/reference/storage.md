@@ -70,15 +70,15 @@ A **storage provider** is the technology used to make storage available to a cha
 :alt: Record chain: charm storage, storage directive, storage pool, storage instance; volume to the right, filesystem below, attachment below charm storage, net node above volume.
 ```
 
-In the model database, the persisted thing is the **storage instance**; its records are (`0011-storage.sql`):
+In the model database, the persisted thing is the **storage instance**; its records are:
 
-- **`charm_storage`**: The {ref}`charm's <charm>` storage definitions: the name, the kind (block or filesystem), the count range, the minimum size, and the shared and read-only flags.
-- **`storage_pool`, `storage_pool_attribute`, `storage_pool_origin`**: The pool record naming its provider type, the provider's parameters as key/value records, and the pool's origin (user-created or provider default).
-- **`model_storage_pool`**: The model's per-kind default pool record, seeded at model creation from the provider.
-- **`application_storage_directive`, `unit_storage_directive`**: The resolved directive pinned per application (or per unit, where the unit's charm temporarily diverges from its application's): the pool pointer, the size, and the count.
-- **`storage_instance`**: One record per provisioned piece of storage: the name (the charm's storage name plus an index), the kind, the provision scope (model or machine), and its life.
-- **`storage_volume`, `storage_filesystem`**: The instance's backing, exactly one per instance, bound to the machine's net node, the shared network identity the machine and its units anchor to; each carries its own status record.
-- **`storage_attachment`**: The record binding the instance to a {ref}`unit <unit>`, with the volume and filesystem attachment and attachment-plan satellites beneath it.
+- **Every storage instance is anchored by a single primary entry containing its essential attributes:** the name (the charm's storage name plus an index), the kind, the provision scope (model or machine), and its life.
+- **The {ref}`charm's <charm>` storage definitions carry the contract:** the name, the kind (block or filesystem), the count range, the minimum size, and the shared and read-only flags.
+- **A pool names a provider type and its origin:** user-created or provider default, with the provider's parameters as key/value records.
+- **The model seeds a per-kind default pool at creation from the provider.**
+- **A resolved directive is pinned per application** (or per unit, where the unit's charm temporarily diverges from its application's): the pool pointer, the size, and the count.
+- **An instance has exactly one backing** (a volume or a filesystem), bound to the machine's net node, the shared network identity the machine and its units anchor to; each carries its own status record.
+- **An attachment binds the instance to its {ref}`unit <unit>`:** the volume and filesystem attachment, and the attachment-plan satellites beneath it.
 
 The storage instance's own record is created when the charm's storage is requested; the provisioned backing follows once the cloud delivers it. The instance has no state machine of its own: its life is the shared alive, dying, dead cycle, and the interesting state lives on the backing's status record, the one status vocabulary in the model that is transition-validated.
 
