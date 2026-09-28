@@ -1,16 +1,16 @@
 ---
 myst:
   html_meta:
-    description: "Juju controller reference: the controller as an entity -- declared by bootstrap, its singleton records in the controller database, its high-availability nodes, configuration, and watchers."
+    description: "Juju controller reference: the controller as software and entity -- declared by bootstrap, its singleton records in the controller database, its high-availability nodes, configuration, and watchers."
 ---
 
 (controller)=
 # Controller
 
-In Juju, the **controller** is the control plane: the running system that implements every change a {ref}`user <user>` asks for. It has a dual nature:
+In Juju, the **controller** is the control plane: the running system that implements every change a {ref}`user <user>` asks for. It is one object with a dual nature: the software boots first, and the entity is the state it materializes in the database as it runs its bootstrap lifecycle.
 
-- **As software:** It is the **{ref}`controller agent <controller-agent>`**, a `jujud` process whose workers run the Juju API server and an embedded [Dqlite](https://canonical.com/dqlite) database.
-- **As an entity:** Through bootstrap, that software materializes as a **singleton record** in the controller {ref}`database <database>`: its identity, its configuration, and the records of its high-availability nodes. The worker tree, high availability as a running system, and upgrades are the controller agent's story; this page carries the entity.
+- **As software:** It is the **{ref}`controller agent <controller-agent>`**, a `jujud` process whose workers run the Juju API server and an embedded [Dqlite](https://canonical.com/dqlite) database. {ref}`Bootstrap <bootstrap-a-controller>` provisions a host machine, installs `jujud`, and starts it.
+- **As an entity:** Through its bootstrap lifecycle, that software materializes its state as records in the controller {ref}`database <database>`: the **singleton controller record**, which carries its identity, its configuration, and the records of its high-availability nodes, and the **{ref}`application <application>`**, named `controller`, which it declares in the controller model it creates.
 
 ## The controller in the declaration layer
 
