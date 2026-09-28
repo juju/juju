@@ -380,7 +380,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ModelService:                      modelService,
 		WatcherRegistryGetter:             watcherRegistryGetter,
 		EphemeralProviderFactory:          providerFactory,
-		SSHTunnel: &apiserver.SSHTunnelConfig{
+		SSHProxy: &apiserver.SSHProxyConfig{
 			TunnelTracker: tunnelTracker,
 			ServerFactory: serverFactory,
 		},

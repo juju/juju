@@ -140,8 +140,8 @@ type Server struct {
 	// healthStatus is returned from the health endpoint.
 	healthStatus string
 
-	// sshTunnelConfig holds the SSH tunnel endpoint dependencies.
-	sshTunnelConfig SSHTunnelConfig
+	// sshProxyConfig holds the SSH tunnel and relay endpoint dependencies.
+	sshProxyConfig SSHProxyConfig
 
 	// publicDNSName_ holds the value that will be returned in
 	// LoginResult.PublicDNSName. Currently this is set once and does
@@ -273,14 +273,14 @@ type ServerConfig struct {
 	// require them, but where the provider does not need to be tracked.
 	EphemeralProviderFactory providertracker.EphemeralProviderFactory
 
-	// SSHTunnelConfig configures the SSH reverse tunnel and relay upgrade
+	// SSHProxyConfig configures the SSH reverse tunnel and relay upgrade
 	// endpoints.
-	SSHTunnelConfig SSHTunnelConfig
+	SSHProxyConfig SSHProxyConfig
 }
 
-// SSHTunnelConfig holds the dependencies for the SSH tunnel and relay
+// SSHProxyConfig holds the dependencies for the SSH tunnel and relay
 // upgrade endpoints.
-type SSHTunnelConfig struct {
+type SSHProxyConfig struct {
 	// TunnelTracker accepts reverse tunnel connections pushed by machine
 	// agents. It is the sshtunneler worker's output, local to this
 	// controller node.
@@ -348,11 +348,11 @@ func (c ServerConfig) Validate() error {
 	if c.EphemeralProviderFactory == nil {
 		return errors.NotValidf("missing EphemeralProviderFactory")
 	}
-	if c.SSHTunnelConfig.TunnelTracker == nil {
-		return errors.NotValidf("missing SSHTunnelConfig.TunnelTracker")
+	if c.SSHProxyConfig.TunnelTracker == nil {
+		return errors.NotValidf("missing SSHProxyConfig.TunnelTracker")
 	}
-	if c.SSHTunnelConfig.ServerFactory == nil {
-		return errors.NotValidf("missing SSHTunnelConfig.ServerFactory")
+	if c.SSHProxyConfig.ServerFactory == nil {
+		return errors.NotValidf("missing SSHProxyConfig.ServerFactory")
 	}
 	return nil
 }
@@ -459,7 +459,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		metricsCollector: cfg.MetricsCollector,
 
 		healthStatus:    "starting",
-		sshTunnelConfig: cfg.SSHTunnelConfig,
+		sshProxyConfig: cfg.SSHProxyConfig,
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
 	if err := srv.updateResourceDownloadLimiters(controllerConfig); err != nil {
@@ -1011,7 +1011,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	// on shutdown.
 	tunnelHandler, err := sshproxy.NewTunnelHandler(sshproxy.TunnelHandlerConfig{
 		Logger:  logger.Child("sshtunnel"),
-		Tracker: srv.sshTunnelConfig.TunnelTracker,
+		Tracker: srv.sshProxyConfig.TunnelTracker,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1023,7 +1023,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 
 	relayHandler, err := sshproxy.NewRelayHandler(sshproxy.RelayHandlerConfig{
 		Logger:                   logger.Child("sshrelay"),
-		ServerFactory:            srv.sshTunnelConfig.ServerFactory,
+		ServerFactory:            srv.sshProxyConfig.ServerFactory,
 		MaxConcurrentConnections: srv.shared.sshMaxConcurrentConnections,
 	})
 	if err != nil {

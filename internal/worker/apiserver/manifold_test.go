@@ -288,7 +288,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config.Clock = nil
 	config.DataDir = ""
 	config.LogDir = ""
-	config.SSHTunnel = nil
+	config.SSHProxy = nil
 
 	c.Assert(config, tc.DeepEquals, apiserver.Config{
 		LocalMacaroonAuthenticator: s.authenticator,

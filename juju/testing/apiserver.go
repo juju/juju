@@ -553,7 +553,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		ControllerModelUUID:        coremodel.UUID(coretesting.ModelTag.Id()),
 		WatcherRegistryGetter:      &stubWatcherRegistryGetter{},
-		SSHTunnelConfig:            apiserver.SSHTunnelConfig{TunnelTracker: &noopTunnelTracker{}, ServerFactory: &noopServerFactory{}},
+		SSHProxyConfig:             apiserver.SSHProxyConfig{TunnelTracker: &noopTunnelTracker{}, ServerFactory: &noopServerFactory{}},
 	}
 }
 

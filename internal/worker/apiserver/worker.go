@@ -65,9 +65,9 @@ type Config struct {
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
 
-	// SSHTunnel holds the dependencies for the SSH tunnel upgrade
-	// endpoint.
-	SSHTunnel *apiserver.SSHTunnelConfig
+	// SSHProxy holds the dependencies for the SSH tunnel and relay
+	// upgrade endpoints.
+	SSHProxy *apiserver.SSHProxyConfig
 }
 
 type HTTPClient interface {
@@ -152,8 +152,8 @@ func (config Config) Validate() error {
 	if config.EphemeralProviderFactory == nil {
 		return errors.NotValidf("nil EphemeralProviderFactory")
 	}
-	if config.SSHTunnel == nil {
-		return errors.NotValidf("nil SSHTunnel")
+	if config.SSHProxy == nil {
+		return errors.NotValidf("nil SSHProxy")
 	}
 	return nil
 }
@@ -213,7 +213,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		ObjectStoreGetter:             config.ObjectStoreGetter,
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 		EphemeralProviderFactory:      config.EphemeralProviderFactory,
-		SSHTunnelConfig:               *config.SSHTunnel,
+		SSHProxyConfig:                *config.SSHProxy,
 	}
 	return config.NewServer(ctx, serverConfig)
 }
