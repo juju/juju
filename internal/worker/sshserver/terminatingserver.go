@@ -25,12 +25,12 @@ type terminatingServerFactory struct {
 }
 
 // New implements TerminatingServerFactory.
-func (r terminatingServerFactory) New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error) {
-	handlers, err := r.factory.New(destination)
+func (f terminatingServerFactory) New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error) {
+	handlers, err := f.factory.New(destination)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	key, err := r.svc.VirtualHostKey(ctx, destination)
+	key, err := f.svc.VirtualHostKey(ctx, destination)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -38,7 +38,7 @@ func (r terminatingServerFactory) New(ctx context.Context, destination virtualho
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	server := NewTerminatingSSHServer(handlers)
+	server := newTerminatingSSHServer(handlers)
 	server.AddHostKey(signer)
 	return server, nil
 }

@@ -156,7 +156,7 @@ func (s *sshServerSuite) testSSHServerSession(c *tc.C, auth gossh.AuthMethod, us
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(rejectDirectTCPIP)
 	s.proxyHandlers.EXPECT().SFTPHandler().Return(rejectSFTP)
-	terminatingServer := NewTerminatingSSHServer(s.proxyHandlers)
+	terminatingServer := newTerminatingSSHServer(s.proxyHandlers)
 	terminatingServer.AddHostKey(s.userSigner)
 	s.serverFactory.EXPECT().New(gomock.Any(), destination).Return(terminatingServer, nil)
 

@@ -34,11 +34,11 @@ type ProxyFactory interface {
 	New(virtualhostname.Info) (ProxyHandlers, error)
 }
 
-// NewTerminatingSSHServer returns an embedded SSH server that terminates an
+// newTerminatingSSHServer returns an embedded SSH server that terminates an
 // SSH connection and proxies it to a routed target using the given handlers.
 // Callers may further configure the returned server (for example, adding a
 // PublicKeyHandler or host key) before serving a connection.
-func NewTerminatingSSHServer(handlers ProxyHandlers) *ssh.Server {
+func newTerminatingSSHServer(handlers ProxyHandlers) *ssh.Server {
 	return &ssh.Server{
 		ChannelHandlers: map[string]ssh.ChannelHandler{
 			"session":      ssh.DefaultSessionHandler,
