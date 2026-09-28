@@ -148,8 +148,11 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// pre-banner text through JIMM's blind relay.
 	server, err := h.config.ServerFactory.New(ctx, destination)
 	if err != nil {
+		// The resolve error can wrap internal DB, host-key and topology
+		// details, so keep the specifics in the log and write a generic
+		// message to the client's connection.
 		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
-		if werr := coressh.WritePreBannerError(conn, "juju ssh relay: "+err.Error()); werr != nil {
+		if werr := coressh.WritePreBannerError(conn, "juju ssh relay: cannot reach destination"); werr != nil {
 			h.config.Logger.Errorf(ctx, "writing resolve error to connection: %v", werr)
 		}
 		return

@@ -126,7 +126,11 @@ func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	out, err := io.ReadAll(conn)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(out), tc.Contains, "juju ssh relay: no such destination")
+	// The internal error is written to the log, not the connection. The
+	// client sees a generic message so target topology and service
+	// errors are not leaked over the wire.
+	c.Check(string(out), tc.Contains, "juju ssh relay: cannot reach destination")
+	c.Check(string(out), tc.Not(tc.Contains), "no such destination")
 	ctrl.Finish()
 }
 
