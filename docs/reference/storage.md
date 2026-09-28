@@ -13,6 +13,7 @@ See also: {ref}`manage-storage`
 
 In Juju, **storage** is a data volume a {ref}`cloud <cloud>` provides to a {ref}`unit <unit>`: machine-dependent, dying with its machine, or machine-independent, able to outlive its machine and reattach to another one.
 
+(storage-directive)=
 ## The storage in the declaration layer
 
 How clients request storage for applications and units, name the pools and providers that deliver it, and manage its life.
@@ -37,6 +38,7 @@ See also: {ref}`manage-storage-pools`
 ```
 
 (storage-provider-cloud-specific)=
+(storage-provider)=
 ### Storage providers
 
 A **storage provider** is the technology used to make storage available to a charm.
