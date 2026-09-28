@@ -81,8 +81,9 @@ type UnitState interface {
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
 
 	// UpdateUnitCharm sets the currently running charm marker for the given
-	// unit, adding the specified new storage requirements and removing the old
-	// unit storage directives.
+	// unit, removes resources that do not belong to the new charm, adds the
+	// specified new storage requirements, and removes the old unit storage
+	// directives.
 	UpdateUnitCharm(
 		ctx context.Context,
 		arg applicationinternal.UpdateUnitCharmArg,
@@ -1058,7 +1059,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 }
 
 // UpdateUnitCharm updates the currently running charm marker for the given
-// unit.
+// unit and removes resources that do not belong to the new charm.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.

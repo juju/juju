@@ -1083,6 +1083,206 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	c.Assert(gotUUID, tc.Equals, id.String())
 }
 
+func (s *unitStateSuite) TestUpdateUnitCharmRemovesResourceNotFoundInNewCharm(c *tc.C) {
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	unitUUID := unitUUIDs[0]
+
+	var oldCharmUUID string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT charm_uuid FROM unit WHERE uuid = ?",
+		unitUUID.String(),
+	).Scan(&oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	newCharmUUID, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata:      charm.Metadata{Name: "foo"},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      2,
+		ReferenceName: "foo",
+		Hash:          "new-hash",
+		ArchivePath:   "new-archive",
+		Version:       "new-version",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	now := time.Now().UTC()
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_resource (charm_uuid, name, kind_id)
+VALUES (?, 'removed', 0)
+`, oldCharmUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO resource (
+    uuid, charm_uuid, charm_resource_name, origin_type_id, state_id, created_at
+)
+VALUES ('removed-resource', ?, 'removed', 0, 0, ?)
+`, oldCharmUUID, now); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO unit_resource (
+    resource_uuid, unit_uuid, charm_resource_name, added_at
+)
+VALUES ('removed-resource', ?, 'removed', ?)
+`, unitUUID.String(), now); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(
+			ctx,
+			"UPDATE application SET charm_uuid = ? WHERE uuid = ?",
+			newCharmUUID.String(), appUUID.String(),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   newCharmUUID,
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var unitResourceCount, resourceCount int
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM unit_resource WHERE unit_uuid = ?",
+		unitUUID.String(),
+	).Scan(&unitResourceCount)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT COUNT(*) FROM resource WHERE uuid = 'removed-resource'",
+	).Scan(&resourceCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitResourceCount, tc.Equals, 0)
+	c.Check(resourceCount, tc.Equals, 1)
+}
+
+func (s *unitStateSuite) TestUpdateUnitCharmRemovesResourceForCharmNoLongerReferencedByUnit(c *tc.C) {
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
+	updatedUnitUUID := unitUUIDs[0]
+	otherUnitUUID := unitUUIDs[1]
+
+	var oldCharmUUID string
+	err := s.DB().QueryRowContext(
+		c.Context(),
+		"SELECT charm_uuid FROM unit WHERE uuid = ?",
+		updatedUnitUUID.String(),
+	).Scan(&oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	newCharmUUID, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "foo",
+			Resources: map[string]charm.Resource{
+				"current": {
+					Name: "current",
+					Type: charm.ResourceTypeFile,
+				},
+				"stale": {
+					Name: "stale",
+					Type: charm.ResourceTypeFile,
+				},
+			},
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      2,
+		ReferenceName: "foo",
+		Hash:          "new-hash",
+		ArchivePath:   "new-archive",
+		Version:       "new-version",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	now := time.Now().UTC()
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO charm_resource (charm_uuid, name, kind_id)
+VALUES (?, 'stale', 0)
+`, oldCharmUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO resource (
+    uuid, charm_uuid, charm_resource_name, origin_type_id, state_id, created_at
+)
+VALUES ('stale-resource', ?, 'stale', 0, 0, ?),
+       ('current-resource', ?, 'current', 0, 0, ?)
+`, oldCharmUUID, now, newCharmUUID.String(), now); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO unit_resource (
+    resource_uuid, unit_uuid, charm_resource_name, added_at
+)
+VALUES ('stale-resource', ?, 'stale', ?),
+       ('current-resource', ?, 'current', ?),
+       ('stale-resource', ?, 'stale', ?)
+`, updatedUnitUUID.String(), now, updatedUnitUUID.String(), now,
+			otherUnitUUID.String(), now); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(
+			ctx,
+			"UPDATE application SET charm_uuid = ? WHERE uuid = ?",
+			newCharmUUID.String(), appUUID.String(),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        updatedUnitUUID,
+		CharmUUID:   newCharmUUID,
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	resourcesByUnit := make(map[string][]string)
+	var mismatchedResourceCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `
+SELECT unit_uuid, charm_resource_name
+FROM   unit_resource
+ORDER BY unit_uuid, charm_resource_name
+`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var unitUUID, resourceName string
+			if err := rows.Scan(&unitUUID, &resourceName); err != nil {
+				return err
+			}
+			resourcesByUnit[unitUUID] = append(resourcesByUnit[unitUUID], resourceName)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   unit_resource AS ur
+JOIN   resource AS r ON r.uuid = ur.resource_uuid
+JOIN   unit AS u ON u.uuid = ur.unit_uuid
+WHERE  ur.unit_uuid = ?
+AND    r.charm_uuid != u.charm_uuid
+`, updatedUnitUUID.String()).Scan(&mismatchedResourceCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resourcesByUnit, tc.DeepEquals, map[string][]string{
+		updatedUnitUUID.String(): {"current"},
+		otherUnitUUID.String():   {"stale"},
+	})
+	c.Check(mismatchedResourceCount, tc.Equals, 0)
+}
+
 func (s *unitStateSuite) TestUpdateUnitCharmWithNewStorage(c *tc.C) {
 	// Arrange a unit with one existing storage definition on the current charm.
 	oldStorage := map[string]charm.Storage{
