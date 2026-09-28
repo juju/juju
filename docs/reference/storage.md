@@ -14,7 +14,7 @@ See also: {ref}`manage-storage`
 In Juju, **storage** is a data volume a {ref}`cloud <cloud>` provides to a {ref}`unit <unit>`: machine-dependent, dying with its machine, or machine-independent, able to outlive its machine and reattach to another one.
 
 (storage-directive)=
-## The storage in the declaration layer
+## Storage in the declaration layer
 
 How clients request storage for applications and units, name the pools and providers that deliver it, and manage its life.
 
@@ -60,17 +60,17 @@ A **storage provider** is the technology used to make storage available to a cha
   - **`provider type is invalid`:** Triggered when a pool names a provider type not valid for use in the model. Remediation: use a provider type the model supports.
   - **`storage provider type not found`:** Triggered when a pool names a provider type the registry does not know. Remediation: use a registered provider type.
 
-## The storage in the persistence layer
+## Storage in the persistence layer
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Storage model
 :no-legend:
-:caption: Topology: The storage walk in the model database: the charm defines storage names (kind block | filesystem, count, size); a directive pins one pool per application; an instance carries kind, life and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes. Provision scope model = machine-independent, machine = dies with the machine.
-:alt: Record chain: charm storage, storage directive, storage pool, storage instance; volume to the right, filesystem below, attachment below charm storage, net node above volume.
+:caption: The storage walk in the model database: the charm defines storage names (kind block | filesystem, count, size); a directive pins one pool per application; an instance carries kind, life and requested size and is backed by exactly one volume or filesystem; attachments bind instances to units; volumes bind to net nodes. Provision scope model = machine-independent, machine = dies with the machine.
+:alt: Record chain: charm storage, storage directive, storage pool, storage instance; volume to the right, filesystem below, attachment below charm storage, net node above volume. Each line is a stored pointer; 1/m at each end.
 ```
 
-In the model database, the persisted thing is the **storage instance**; its records are:
+Storage is persisted in the {ref}`model database <data-model-full-spine>` as follows:
 
 - **Every storage instance is anchored by a single primary entry containing its essential attributes:** the name (the charm's storage name plus an index), the kind, the provision scope (model or machine), and its life.
 - **The {ref}`charm's <charm>` storage definitions carry the contract:** the name, the kind (block or filesystem), the count range, the minimum size, and the shared and read-only flags.
@@ -100,7 +100,7 @@ The storage instance's own record is created when the charm's storage is request
 
 Writers: the application storage service writes the instances, attachments, directives, and pools; the provisioning machinery writes the backings' statuses; the removal machinery carries the teardown.
 
-## The storage in the execution layer
+## Storage in the execution layer
 
 Storage has machinery of its own: in the controller, the storage provisioner worker drives the backings' lifecycle, provisioning volumes and filesystems, writing their statuses, and seeing removals through; the units' agents attach what it provisions.
 
