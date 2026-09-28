@@ -1,13 +1,11 @@
 ---
 myst:
   html_meta:
-    description: "Juju cloud substrate reference: AWS, Azure, GCP, Kubernetes, OpenStack, MAAS, LXD, and other supported cloud platforms. Cloud declaration, persistence (the record, states, types), execution (watchers), and rules."
+    description: "Juju cloud substrate reference: AWS, Azure, GCP, Kubernetes, OpenStack, MAAS, LXD, and other supported cloud platforms. Cloud declaration, persistence (the record, types), execution (watchers), and rules."
 ---
 
 (cloud)=
 # Cloud
-```{audience} user
-```
 
 ```{toctree}
 :hidden:
@@ -19,57 +17,58 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 
 A cloud's neighbours: a {ref}`credential <credential>` authenticates against it, a {ref}`model <model>` records which cloud it deploys into, and the {ref}`machines <machine>` and {ref}`applications <application>` that run on it draw their resources from it; its {ref}`regions <list-of-supported-clouds>` are the sub-scopes a model lands in.
 
-(the-clouds-declaration)=
-## Clouds in the declaration layer
+## The cloud in the declaration layer
 
-You add, update, or remove a cloud through a Juju client; adding a
-cloud requires {ref}`controller superuser access
-<user-access-controller-superuser>`.
+```{audience} user
+```
+
+How clients add a cloud and manage its definition.
+
+- **Adding, updating, removing:** You add, update, or remove a cloud through a Juju client; adding a cloud requires controller {ref}`superuser access <user-access-controller-superuser>`.
+- **Regions:** A cloud is divided into regions, the sub-scopes a model lands in (see {ref}`the list of supported clouds <list-of-supported-clouds>`).
 
 ```{ibnote}
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
+(the-cloud-declaration-rules)=
+### Declaration rules and errors
+
+- **Rules:**
+  - The cloud type must be one of Juju's known types, and the definition must carry at least one admitted authentication type.
+  - A cloud with models cannot be removed; the bootstrapped cloud's controller model references it, so it cannot be removed while its controller stands.
+- **Errors:**
+  - **`cloud already exists`:** Triggered when adding a cloud whose name is taken. Remediation: choose an unused name.
+  - **`cloud still in use`:** Triggered when deleting a cloud that one or more models still reference. Remediation: move the models to another cloud or remove them before deleting.
+
 (the-clouds-persistence)=
-(the-cloud-record)=
-## Clouds in the persistence layer
+## The cloud in the persistence layer
 
-In the **controller** database, a cloud is a record: its name (unique),
-its cloud type, the endpoints Juju talks to (the cloud's API, identity
-and storage endpoints, and whether to skip TLS verification), its
-{ref}`regions <list-of-supported-clouds>` with their per-region
-defaults, the authentication types it admits, its default configuration
-values, and its CA certificate for TLS. The cloud a
-{ref}`controller <controller>` was bootstrapped on is seeded as a
-record at bootstrap.
+```{audience} user+, charm-dev, juju-dev
+```
 
-The cloud service in the controller performs the writes: adding a
-cloud inserts the record with its endpoints, regions and
-authentication types; updating rewrites them; removing deletes it.
+In the controller database, a cloud is a definition record set (`0005-cloud.sql`):
 
-The records live alongside their pointers: {ref}`models <model>`
-carry the denormalised copy of the cloud they deploy into -- cloud
-name, type and region on the model row -- and each model's
-{ref}`credential <credential>` names its cloud half of the pair. The
-cloud definition's exact shape -- which attributes and auth types it
-supports -- is per cloud type: see the relevant
-{ref}`cloud reference page <list-of-supported-clouds>` for details.
+- **`cloud`**: The name (unique), the cloud type, the endpoints Juju talks to (the cloud's API, identity, and storage endpoints, and whether to skip TLS verification), and the CA certificate for TLS.
+- **`cloud_region`**: The regions with their per-region defaults.
+- **`cloud_auth_type`**: The admitted authentication types, drawn from the seeded `auth_type` lookup.
+- **`cloud_defaults`**: The cloud's default configuration values.
+- **The pointers that name it:** {ref}`Models <model>` carry the denormalised copy of the cloud they deploy into (cloud name, type, and region on the model row), and each model's {ref}`credential <credential>` names its cloud half of the pair. The cloud a {ref}`controller <controller>` was bootstrapped on is seeded as a record at bootstrap.
 
-(the-cloud-states)=
-### Cloud states
+Writers: the cloud service in the controller performs the writes; adding a cloud inserts the record with its endpoints, regions, and authentication types; updating rewrites them; removing deletes it.
 
-A cloud has no state machine: it is a definition record -- added,
-updated, or removed. Its reachability is not stored either: the
-record keeps the definition, and whether the cloud is actually
-reachable is discovered per operation.
+(the-cloud-persistence-rules)=
+### Persistence rules and errors
 
-(types-of-cloud)=
+- **Rules:**
+  - A cloud has no state machine: it is a definition record, added, updated, or removed; its reachability is not stored either, whether the cloud is actually reachable is discovered per operation.
+- **Errors:**
+  - **`cloud not found`:** Triggered when querying a cloud that does not exist. Remediation: check the cloud name.
+
+(the-types-of-cloud)=
 ### Types of cloud
 
-Juju supports two types of cloud: machine clouds and Kubernetes clouds. The cloud **type** is the record's stored discriminator, and it is what Juju reads to decide which machinery a {ref}`model <model>` on the cloud runs: a Kubernetes cloud makes a CAAS model; every other type makes an IAAS one (see
-{ref}`IAAS and CAAS models <iaas-caas-models>`). The seeded type list
-is: `ec2`, `gce`, `azure`, `openstack`, `vsphere`, `oci`, `maas`,
-`lxd`, `unmanaged`, `kubernetes`.
+Juju supports two types of cloud: machine clouds and Kubernetes clouds. The cloud **type** is the record's stored discriminator, and it is what Juju reads to decide which machinery a {ref}`model <model>` on the cloud runs: a Kubernetes cloud makes a CAAS model; every other type makes an IAAS one (see {ref}`IAAS and CAAS models <iaas-caas-models>`). The seeded type list is: `ec2`, `gce`, `azure`, `openstack`, `vsphere`, `oci`, `maas`, `lxd`, `unmanaged`, `kubernetes`.
 
 (machine-cloud)=
 #### Machine cloud
@@ -89,49 +88,16 @@ A **Kubernetes cloud** is a cloud backed by an existing Kubernetes cluster. Juju
 See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`
 ```
 
-(the-clouds-execution)=
-## Clouds in the execution layer
+## The cloud in the execution layer
 
-By the time the command returns, the cloud's record exists -- and Juju
-has not yet spoken to the cloud itself. A cloud has no machinery of
-its own: the controller reads the definition whenever it talks to the
-provider on a model's behalf -- provisioning machines, resolving
-details -- and the models using the cloud discover its reachability
-per operation.
+```{audience} user+, charm-dev, juju-dev
+```
+
+By the time the setting call returns, the cloud's record exists, and Juju has not yet spoken to the cloud itself. A cloud has no machinery of its own: the controller reads the definition whenever it talks to the provider on a model's behalf (provisioning machines, resolving details), and the models using the cloud discover its reachability per operation.
 
 (the-cloud-watchers)=
 ### Cloud watchers
-```{audience} juju-dev
-```
 
-One watch surface: **a single cloud's changes** -- whoever resolves
-cloud details on demand (the model creation machinery, the
-credential services) watches the cloud it cares about and
-re-fetches on change.
+One watch surface: **a single cloud's changes**, whoever resolves cloud details on demand (the model creation machinery, the credential services) watches the cloud it cares about and re-fetches on change.
 
-Every watcher fires once immediately when it is created -- the initial
-query is the baseline snapshot -- and again on each qualifying change
-(see {ref}`the watcher pattern <watchers>`).
-
-(the-cloud-rules-and-errors)=
-## Cloud rules and errors
-
-The rules are enforced by the cloud service -- the same service that
-performs the writes -- at the add, update and remove gates; the
-provider layer behind it validates the cloud type and its admitted
-authentication types. The rules:
-
-- the cloud type must be one of Juju's known types;
-- a cloud with models cannot be removed, and the bootstrapped cloud
-  cannot be removed while its controller stands;
-- the cloud definition must carry at least one admitted
-  authentication type.
-
-(The name's uniqueness is the record's grammar -- see the persistence
-layer.)
-
-The errors that encode them (domain/cloud/errors):
-
-- *Existence*: `cloud not found`, `cloud already exists`;
-- *Removal*: `cloud still in use`. The type and auth-type gates are
-  provider-layer validations and carry no typed errors of their own.
+Every watcher fires once immediately when it is created, the initial query being the baseline snapshot, and again on each qualifying change. See {ref}`the watcher pattern <watchers>`.

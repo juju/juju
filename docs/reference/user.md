@@ -1,13 +1,11 @@
 ---
 myst:
   html_meta:
-    description: "Juju user reference: authentication, access levels, permissions, and user management for controllers, clouds, models, and offers. User declaration, persistence (the record, access levels, states, types), execution, and rules."
+    description: "Juju user reference: authentication, access levels, permissions, and user management for controllers, clouds, models, and offers. User declaration, persistence (the record, access levels, kinds), execution, and rules."
 ---
 
 (user)=
 # User
-```{audience} user
-```
 
 In Juju, a **user** is any person able to log in to a Juju {ref}`controller <controller>`.
 
@@ -17,71 +15,45 @@ Juju users are not related in any way to the client system users.
 
 ```{note}
 
-A user's username and password are entirely different from the credentials referenced in `juju` commands such as `add-credential`---those are about access to a cloud, whereas these are about access to a Juju controller.
+A user's username and password are entirely different from the {ref}`cloud credentials <credential>` a client manages; those are about access to a cloud, whereas these are about access to a Juju controller.
 
 ```
 
 Users sit at the centre of Juju's access model: they log in to a {ref}`controller <controller>`, own {ref}`credentials <credential>` for clouds, and are granted access levels on {ref}`clouds <cloud>`, {ref}`models <model>`, and {ref}`application offers <offer>`; the {ref}`secrets <secret>` they create record them as the owner.
 
-(the-users-declaration)=
-## Users in the declaration layer
+## The user in the declaration layer
 
-You add a user to a controller through a Juju client (`juju
-add-user`); adding a user requires {ref}`controller superuser access
-<user-access-controller-superuser>`. You manage their login details
-the same way: register the controller to set the first password, set
-or reset a password, disable or re-enable authentication, and grant
-or revoke access. A single Juju client can hold several users, but
-only one can be logged in at a time.
+```{audience} user
+```
 
-A user logs in to a Juju controller with a username and a password.
-The user created implicitly by the bootstrap gets the username `admin`
-and is prompted to create a password on first login; a user created
-explicitly gets the username assigned when they are added and sets
-their login details when they register the new controller with their
-Juju client.
+How clients add users and manage what they may do.
+
+- **Adding:** Adding a user requires controller {ref}`superuser access <user-access-controller-superuser>`.
+- **Login details:** Registering the controller sets a new user's first password; passwords are set or reset; authentication is disabled or re-enabled; access is granted or revoked.
+- **The bootstrap admin:** The user bootstrap creates gets the username `admin` and is prompted to create a password on first login; a user added explicitly sets their login details when they register the controller with their client.
+- **Access grants:** A user's abilities come from the access levels they are granted on clouds, models, and offers (see {ref}`the user access levels <user-access-levels>` below).
 
 ```{ibnote}
 See also: {ref}`Juju | Manage users <manage-users>`, {ref}`Terraform Provider for Juju | Manage users <tfjuju:manage-users>`
 ```
 
-(the-users-persistence)=
-(the-user-record)=
-## Users in the persistence layer
+(the-user-declaration-rules)=
+### Declaration rules and errors
 
-In the controller database, a user is a record: its name (one active
-user per name), its display name, whether it is an
-{ref}`external <types-of-user>` identity, who created it, and whether
-it has been removed. The authentication records hang beside it: the
-salted password hash, the activation key a new user sets their
-password with, and the disabled-authentication flag. The `admin` user
-is seeded implicitly at bootstrap; every other user is added
-explicitly.
-
-The user service performs the writes: adding a user creates the
-record and issues an **activation key** (a user who is given a
-password directly skips the activation step); setting or resetting a
-password writes a new hash (a reset issues a new activation key);
-disabling authentication locks the user out without removing them;
-re-enabling restores access; and a user from an identity provider is
-imported in bulk or ensured on first use -- the record is created,
-marked external, if it does not exist yet.
-
-The user's *reach* is the **permission** table: one row per grant,
-naming who is granted (the user) what access level on what kind of
-object -- a {ref}`cloud <cloud>`, the {ref}`controller <controller>`,
-a {ref}`model <model>`, or an {ref}`application
-offer <offer>`. The permission service's writes create, update, or
-delete those rows, and a grant must name one of the allowed
-level-per-object combinations -- a lookup of its own: `login` and
-`superuser` for controllers, `add-model` and `admin` for clouds,
-`read`, `write` and `admin` for models, `read`, `consume` and `admin`
-for offers.
+- **Rules:**
+  - The user name must be a valid user name: lowercase letters, or the `name@qualifier` form for external identities.
+  - The last model admin cannot be disabled; every model keeps an administrator.
+- **Errors:**
+  - **`user already exists`:** Triggered when creating a user whose name is already taken by an active user. Remediation: choose an unused name.
+  - **`username not valid`:** Triggered when a user name has illegal characters or length. Remediation: use lowercase letters, or the `name@qualifier` form for external identities.
+  - **`user authentication disabled`:** Triggered when logging in as a user whose authentication is disabled. Remediation: re-enable the user's authentication.
+  - **`user unauthorized`:** Triggered when the user lacks the required permissions for an action. Remediation: have the missing access level granted.
+  - **`user is the last model admin for 1 or more models`:** Triggered when disabling or removing a user who is the last admin on one or more models. Remediation: grant another user admin on those models first.
 
 (user-access-levels)=
 ### User access levels
 
-A Juju user may have different abilities, according to the access level they have been granted. This section is the definitional home of those levels; the grant itself -- the {ref}`access <access>` record and the commands that grant and revoke it -- is described in the access reference.
+A Juju user may have different abilities, according to the access level they have been granted. This section is the definitional home of those levels; the grant itself (the {ref}`access <access>` record and the commands that grant and revoke it) is described in the access reference.
 
 #### Valid access levels for controllers
 
@@ -171,59 +143,48 @@ Granted: Via {ref}`command-juju-grant`.
 
 Abilities: You can do anything that it is possible to do at the level of an offer.
 
-(the-user-states)=
-### User states
+(the-users-persistence)=
+## The user in the persistence layer
 
-A user's record carries two toggles rather than a life cycle: the
-**authentication disabled** flag (the user exists but cannot log in)
-and the **removed** flag (the name is retired; its records are kept
-for audit and the name cannot be re-created while the removed row is
-the active one). There is no alive/dying/dead for users -- disable
-and remove are direct writes.
+```{audience} user+, charm-dev, juju-dev
+```
+
+In the controller database, a user is a record and its satellites:
+
+- **The user record:** The name (one active user per name), the display name, the external flag, the creator, and the removed flag. The `admin` user is seeded implicitly at bootstrap; every other user is added explicitly.
+- **The authentication records:** The salted password hash, the activation key a new user sets their password with, and the disabled-authentication flag.
+- **The permission rows:** One row per grant, naming who is granted what access level on what kind of object: a {ref}`cloud <cloud>`, the {ref}`controller <controller>`, a {ref}`model <model>`, or an {ref}`application offer <offer>`. The allowed level-per-object combinations are their own lookup: `login` and `superuser` for controllers, `add-model` and `admin` for clouds, `read`, `write`, and `admin` for models, `read`, `consume`, and `admin` for offers.
+
+Writers: the user service writes the record and its authentication rows (adding issues an activation key; a password set or reset writes a new hash, a reset issuing a fresh key; disabling locks the user out without removing them; re-enabling restores access); the permission service creates, updates, and deletes the grant rows.
+
+(the-user-persistence-rules)=
+### Persistence rules and errors
+
+- **Rules:**
+  - A user's record carries two toggles, the authentication-disabled flag and the removed flag; there is no alive, dying, dead life cycle for users; disable and remove are direct writes.
+  - A removed user's name is retired: the records are kept for audit and the name cannot be re-created while the removed row is the active one.
+- **Errors:**
+  - **`user not found`:** Triggered when the requested user does not exist. Remediation: check the user name.
+  - **`permission not found`:** Triggered when querying a permission grant that does not exist. Remediation: verify the grant.
+  - **`permission not valid`:** Triggered when a permission grant fails validation. Remediation: check the grant's object and access level.
 
 (types-of-user)=
 ### Types of user
 
-The user record carries one discriminator: the **external** flag. A
-**local user** is created in Juju and authenticates against Juju's
-stored password records; an **external user** comes from an identity
-provider outside Juju (its name carries the provider's qualifier --
-`alice@external`), is imported or ensured on first use, and is the
-same record shape with external authentication. The `admin` user
-bootstrap creates is local, with the controller's `superuser` level;
-a user created explicitly starts with the controller `login` level --
-they can register the controller and log in, and nothing more, until
-granted a higher level.
+The user record carries one discriminator: the **external** flag.
 
-(the-users-execution)=
-## Users in the execution layer
+- **Local user:** Created in Juju; authenticates against Juju's stored password records. The `admin` user bootstrap creates is local, with the controller `superuser` level.
+- **External user:** Comes from an identity provider outside Juju; the name carries the provider's qualifier (`alice@external`); imported in bulk or ensured on first use; the same record shape with external authentication.
+- **Starting levels:** A user added explicitly starts with the controller `login` level: they can register the controller and log in, and nothing more, until granted a higher level.
 
-By the time the command returns, the user's record exists -- and no
-login has happened and no permission has been checked yet. A user has
-no machinery of their own: what acts on the records is the controller
-itself -- the authentication at login and the permission check on
-every request.
+## The user in the execution layer
+
+```{audience} user+, charm-dev, juju-dev
+```
+
+A user has no machinery of their own: what acts on the records is the controller itself, the authentication at login and the permission check on every request. By the time the setting call returns, the record exists; no login has happened and no permission has been checked yet.
 
 (the-user-watchers)=
 ### User watchers
-```{audience} juju-dev
-```
 
-The user domain exposes no watch surfaces: user and permission
-changes are read on demand (the client lists access when it needs it),
-not watched.
-
-(the-user-rules-and-errors)=
-## User rules and errors
-```{audience} charm-dev
-```
-
-The rules a **user identity** must satisfy:
-
-- the user name must be a valid user name (lowercase, or the
-  `name@qualifier` form for external identities);
-- the last model admin cannot be disabled -- every model keeps an
-  administrator.
-
-The errors that encode them: `user not found`, `user name not
-valid`, `user unauthorized`, `user authentication disabled`.
+The user domain exposes no watch surfaces: user and permission changes are read on demand (the client lists access when it needs it), not watched.

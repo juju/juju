@@ -6,25 +6,18 @@ myst:
 
 (constraint)=
 # Constraint
+
+In Juju, a **constraint** is a key-value pair that represents a specification for the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju: a minimum on machine clouds, a maximum on system and Kubernetes containers.
+
+## The constraint in the declaration layer
+
 ```{audience} user
 ```
 
-In Juju, a **constraint** is a key-value pair that represents a specification for the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju. Constraints can be set wherever a Juju resource is requested -- client flags (`juju deploy --constraints ...`), bundle files, or the Terraform provider.
+How clients express compute intent wherever a Juju resource is requested.
 
-If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
-
-Its neighbours: the {ref}`model <model>`, {ref}`application <application>`, and {ref}`machine <machine>` records it hangs off, the provisioning it shapes, and the {ref}`placement directive <placement-directive>` that narrows it further.
-
-## Constraints in the declaration layer
-
-You set a constraint wherever a Juju resource is requested: with
-`juju deploy --constraints` or as add-machine flags, with
-`juju set-model-constraints` for the model's defaults and
-`juju set-constraints` for an application's, or in a bundle file
-(model {ref}`write access <user-access-model-write>` -- the model
-config and application facades gate both setting verbs on model
-write). The controller-side counterpart is the same call over the
-controller API.
+- **Setting:** A constraint rides on deploy and add-machine requests, on bundle files, and on the Terraform provider; the model's and an application's defaults are set through the controller API, both verbs gated on model {ref}`write access <user-access-model-write>`.
+- **Precedence:** When constraints are set at several levels at once, the more specific level wins: an application's over the model's, a machine's over the application's.
 
 ```{ibnote}
 See examples: {ref}`manage-applications` (the application-level
@@ -33,69 +26,39 @@ setting); the Terraform provider takes constraints on its
 application resource.
 ```
 
-(the-constraints-records)=
-(the-constraint-record)=
-(the-constraint-in-the-data-model)=
-## Constraints in the persistence layer
+(the-constraint-declaration-rules)=
+### Declaration rules and errors
 
-A constraint is a **value, not an entity**: it has no life, no status
-and no watchers of its own -- it is a stored key/value whose meaning
-comes from the entity it constrains. The records: the
-{ref}`model <model>`'s constraints (its defaults for everything it
-spawns), an {ref}`application's <application>` constraints record
-(nullable -- an application may inherit), and a
-{ref}`machine's <machine>` constraints record (what that machine was
-provisioned with). The constraint records live where the constrained
-entity lives: the
-model's constraint record in the model database, the application's and
-the machines' in the model database beside their owners. If
-constraints are set at multiple levels at once -- that is, with
-overlap -- the constraint applied at the more specific level takes
-precedence (application over model, machine over application).
+- **Rules:**
+  - A constraint key must be one of the known keys, and its value must parse for that key (integers with M/G/T/P suffixes, name lists, booleans).
+  - The `spaces` constraint names {ref}`spaces <space>` that must (or, with the `^` prefix, must not) reach the machine; the `zones` constraint names {ref}`availability zones <zone>`.
+- **Errors:**
+  - **`invalid machine constraints`:** Triggered when machine constraints name a space or a container type that does not exist. Remediation: correct the constraint's space or container type.
+  - **`machine constraint violation`:** Triggered at provisioning time when reported hardware does not satisfy the assigned constraints. Remediation: correct the constraint or the machine's hardware.
 
-(the-constraint-states)=
-### Constraint states
+## The constraint in the persistence layer
 
-Not applicable -- a constraint is a stored value: it is written when
-set and read at provisioning time; nothing transitions.
-
-(types-of-constraint)=
-### Types of constraint
-
-Not applicable -- constraints have no subtypes; each key below is one
-independent value.
-
-(the-constraints-machinery)=
-## Constraints in the execution layer
-
-A constraint has no machinery of its own: it is a stored value the
-compute provisioner reads at provisioning time -- setting it is a
-rewrite of the owner's record. By the time the command returns, the
-value is written on its owner's record -- whether the cloud can
-honour it is discovered later, at provisioning time, when the
-compute provisioner asks the cloud for resources (see
-{ref}`machine provisioning <the-machines-machinery>`). There is no
-constraint entity to update later: setting is a rewrite of the
-owner's constraint record. No watch surface exposes constraint
-records; provisioning reads them at the moment it provisions.
-
-(the-constraint-rules-and-errors)=
-## Constraint rules and errors
-
-```{caution}
-
-Some of these keys -- their availability and their meaning -- vary from one cloud to another. Below this is indicated with a generic note. For specifics see {ref}`list-of-supported-clouds` > `<cloud name>`.
-
+```{audience} user+, charm-dev, juju-dev
 ```
 
-- a constraint key must be one of the known keys, and its value must
-  parse for that key (integers with M/G/T/P suffixes, name lists,
-  booleans); an unparseable or unknown constraint is rejected
-  (`invalid machine constraints` / `machine constraint violation` at
-  provisioning);
-- the `spaces` constraint names {ref}`spaces <space>` that must (or,
-  with the `^` prefix, must not) reach the machine, and the `zones`
-  constraint names {ref}`availability zones <zone>`;
+A constraint is a **value, not an entity**: it has no life, no status, and no watchers of its own; it is a stored key/value whose meaning comes from the entity it constrains.
+
+- **The model's constraints:** The {ref}`model's <model>` defaults for everything it spawns.
+- **The application's constraints:** The {ref}`application's <application>` constraints record, nullable, an application may inherit the model's.
+- **The machines' constraints:** What each {ref}`machine <machine>` was provisioned with.
+
+(the-constraint-persistence-rules)=
+### Persistence rules and errors
+
+- **Rules:**
+  - The constraint records live where the constrained entity lives: the model's, the application's, and the machines' constraint records in the model database beside their owners.
+
+## The constraint in the execution layer
+
+```{audience} user+, charm-dev, juju-dev
+```
+
+A constraint has no machinery of its own: it is a stored value the compute provisioner reads at provisioning time; setting it is a rewrite of the owner's record. Whether the cloud can honour it is discovered later, at provisioning time, when the compute provisioner asks the cloud for resources (see {ref}`machine provisioning <the-machines-machinery>`). No watch surface exposes constraint records.
 
 (list-of-constraints)=
 ## List of constraints

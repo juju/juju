@@ -1,46 +1,43 @@
 ---
 myst:
   html_meta:
-    description: "Juju credentials reference: authentication material for cloud access -- credential declaration, persistence (records, states, types), execution (checks, watchers), and rules."
+    description: "Juju credentials reference: authentication material for cloud access. Credential declaration, persistence (records, types), execution (checks, watchers), and rules."
 ---
 
 (credential)=
 # Credential
-```{audience} user
-```
 
 In Juju, a **credential** represents a collection of authentication material (like username & password, or client id & secret key) that is specific to a Juju {ref}`user <user>` and a {ref}`cloud <cloud>` and allows that user to interact with that cloud.
 
 Clouds decide which authentication schemes they accept; users own credentials; models use exactly one cloud/credential pair; and who may use a credential is decided by access grants, not by the credential itself.
 
-(the-credentials-declaration)=
-## Credentials in the declaration layer
+## The credential in the declaration layer
 
-You add, update, or remove a credential through a Juju client; adding
-your own credential requires nothing beyond controller {ref}`login
-access <user-access-controller-login>`.
+```{audience} user
+```
 
-A credential can be known to the client, the controller, or both: a **client credential** (previously
-known as a 'local credential') denotes a credential that the client is aware of and a **controller
-credential** (previously known as a 'remote credential') denotes a credential that a controller is
-aware of. Bootstrapping a controller with a client credential uploads it to the controller, after
-which both sides know it -- and the two sets don't have to coincide.
+How clients add a credential for a cloud and manage its life.
+
+- **Adding, updating, removing:** You add, update, or remove a credential through a Juju client; adding your own credential requires nothing beyond controller {ref}`login access <user-access-controller-login>`.
+- **Client and controller credentials:** A **client credential** is one the client is aware of; a **controller credential** is one a controller is aware of. Bootstrapping a controller with a client credential uploads it to the controller, after which both sides know it, and the two sets do not have to coincide.
 
 ```{ibnote}
 See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
-(the-credentials-persistence)=
-(the-credential-record)=
-## Credentials in the persistence layer
+(the-credential-declaration-rules)=
+### Declaration rules and errors
 
-A credential has a record in Juju's databases. The authoritative
-record lives in the controller database, where it is identified by
-its natural key -- the {ref}`cloud <cloud>`, the owning
-{ref}`user <user>`, and its name -- and carries its authentication
-type and its attributes (the key/value pairs the cloud's auth type
-requires). The natural key is unique: re-adding a credential with
-the same key updates it, it does not duplicate.
+- **Rules:**
+  - A credential is not a permission of its own: what the credential can do on the cloud is decided by the cloud (how it was created there); what you can do with it through Juju is decided by Juju: you need to own the credential and hold `add-model` or `admin` access on its cloud.
+- **Errors:**
+  - **`unknown cloud`:** Triggered when naming a cloud the controller does not know. Remediation: add the cloud first.
+  - **`user not found`:** Triggered when the credential's owner does not exist. Remediation: check the owner's name.
+
+## The credential in the persistence layer
+
+```{audience} user+, charm-dev, juju-dev
+```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -50,69 +47,37 @@ the same key updates it, it does not duplicate.
 :alt: User record, cloud record, credential record, and model record with FK arrows.
 ```
 
-The model database keeps only a read-only, denormalised copy of the credential each model uses --
-identity decisions stay with the controller record.
+The authoritative record lives in the controller database (`0005-cloud.sql`):
 
-The credential service in the controller performs the writes: it
-inserts the record with its attributes when a credential is added;
-updating is an upsert of the same natural key; removing deletes it;
-invalidating marks it invalid with a reason, and the models using
-it are told at their next check.
+- **`cloud_credential`**: The credential record, identified by its natural key, the {ref}`cloud <cloud>`, the owning {ref}`user <user>`, and its name, unique by index; the record carries its authentication type.
+- **`cloud_credential_attribute`**: The credential's attributes, the key/value pairs the cloud's authentication type requires.
+- **The model's copy:** The model database keeps only a read-only, denormalised copy of the credential each model uses; identity decisions stay with the controller record.
 
-(the-credential-states)=
-### Credential states
+The natural key is unique: re-adding a credential with the same key updates it, it does not duplicate.
 
-A credential carries two standing flags rather than a life cycle:
-**revoked** (the user withdrew it) and **invalid** (the cloud or the
-model checks found it unusable, with the reason recorded). Adding a
-credential already marked invalid is rejected. The invalid flag is
-where the layers meet: the check in the execution layer discovers it;
-the record here stores it.
+Writers: the credential service in the controller performs the writes; it inserts the record with its attributes when a credential is added, updating is an upsert of the same natural key, removing deletes it, and invalidating marks it invalid with a reason, the models using it being told at their next check.
 
-(types-of-credential)=
-### Types of credential
+(the-credential-persistence-rules)=
+### Persistence rules and errors
 
-A credential's type is its **authentication type** -- the scheme the
-cloud authenticates with, stored on the record itself. Juju seeds one shared list of them:
-`access-key`, `instance-role`, `userpass`, `oauth1`, `oauth2`,
-`jsonfile`, `clientcertificate`, `httpsig`, `interactive`, `empty`,
-`certificate`, `oauth2withcert`, `service-principal-secret`,
-`managed-identity`, `service-account`. Which of these a given cloud
-admits -- and which attributes each requires -- is that cloud's
-business: see the relevant {ref}`cloud reference page
-<list-of-supported-clouds>` for details.
+- **Rules:**
+  - A credential carries two standing flags rather than a life cycle: **revoked** (the user withdrew it) and **invalid** (the cloud or the model checks found it unusable, with the reason recorded). Adding a credential already marked invalid is rejected.
+  - A credential's type is its **authentication type**, the scheme the cloud authenticates with, stored on the record itself. Juju seeds one shared list of them: `access-key`, `instance-role`, `userpass`, `oauth1`, `oauth2`, `jsonfile`, `clientcertificate`, `httpsig`, `interactive`, `empty`, `certificate`, `oauth2withcert`, `service-principal-secret`, `managed-identity`, `service-account`. Which of these a given cloud admits, and which attributes each requires, is that cloud's business: see the relevant {ref}`cloud reference page <list-of-supported-clouds>` for details.
+- **Errors:**
+  - **`credential not found`:** Triggered when querying a credential that does not exist. Remediation: check the credential's cloud, owner, and name.
+  - **`model credential not set`:** Triggered when a model operation needs the model's credential and none is set. Remediation: set the model's credential.
+  - **`credential is not valid for one or more models`:** Triggered when a cloud-side check finds the credential unusable for the models using it. Remediation: fix or replace the credential.
 
-(the-credentials-execution)=
-## Credentials in the execution layer
+## The credential in the execution layer
 
-By the time the command returns, the record exists -- and nothing has
-yet proved that the credential works. That proof is all the execution
-a credential has, because a credential has no machinery of its own:
-opening a provider connection with the model's credential is what
-validates it, per model, at the model's next check.
+```{audience} user+, charm-dev, juju-dev
+```
+
+By the time the setting call returns, the record exists, and nothing has yet proved that the credential works. That proof is all the execution a credential has, because a credential has no machinery of its own: opening a provider connection with the model's credential is what validates it, per model, at the model's next check.
 
 (the-credential-watchers)=
 ### Credential watchers
-```{audience} juju-dev
-```
 
-One watch surface: **a single credential's changes** -- the
-provisioning machinery of a model that uses the credential watches it
-and reconciles when the credential is updated or invalidated.
+One watch surface: **a single credential's changes**, the provisioning machinery of a model that uses the credential watches it and reconciles when the credential is updated or invalidated.
 
-Every watcher fires once immediately when it is created -- the initial
-query is the baseline snapshot -- and again on each qualifying change
-(see {ref}`the watcher pattern <watchers>`).
-
-(the-credential-rules-and-errors)=
-## Credential rules and errors
-
-- a credential is not a permission of its own: what the credential
-  can do on the cloud is decided by the cloud (how it was created
-  there); what you can do with it through Juju is decided by Juju --
-  you need to own the credential and hold `add-model` or `admin`
-  access on its cloud.
-
-The errors that encode them: `credential not found`,
-`credential model validation failed`, `model credential not set`,
-`unknown cloud`, `user not found`.
+Every watcher fires once immediately when it is created, the initial query being the baseline snapshot, and again on each qualifying change. See {ref}`the watcher pattern <watchers>`.

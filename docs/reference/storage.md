@@ -1,44 +1,70 @@
 ---
 myst:
   html_meta:
-    description: "Juju storage reference: data volumes, storage directives, pools, providers, and dynamic storage management across clouds. The storage record, states, operations, watchers, and rules."
+    description: "Juju storage reference: data volumes, storage directives, pools, providers, and dynamic storage management across clouds. The storage records, operations, watchers, and rules."
 ---
 
 (storage)=
 # Storage
-```{audience} user
-```
 
 ```{ibnote}
 See also: {ref}`manage-storage`
 ```
 
-In Juju, **storage** refers to a data volume that is provided by a {ref}`cloud <cloud>`.
+In Juju, **storage** is a data volume a {ref}`cloud <cloud>` provides to a {ref}`unit <unit>`: machine-dependent, dying with its machine, or machine-independent, able to outlive its machine and reattach to another one.
 
-Depending on how things are set up during deployment, the data volume can be machine-dependent (e.g., a directory on disk tied to the machine which goes away if the unit is destroyed) or machine-independent (i.e., it can outlive a machine and be reattached to another machine).
+## The storage in the declaration layer
 
-Most storage can be dynamically added to, and removed from, a unit. However, by their nature, some types of storage cannot be dynamically managed (see {ref}`storage-provider-maas`). Also, certain cloud providers may impose restrictions when attaching storage (see {ref}`storage-provider-ebs`).
+```{audience} user
+```
 
-(the-storages-records)=
-## The storage's records
+How clients request storage for applications and units, name the pools and providers that deliver it, and manage its life.
 
-(the-storage-record)=
-### The storage's identity
+- **Storage directives:** A storage directive is a comma-separated sequence of pool, count, and size, set against a charm's storage name; the components are identified by form, not order.
+- **Defaults:** A directive component left unspecified falls back: the pool to the model's default pool for the storage's kind, the count to 1, and the size to 1 GiB.
+- **Pools:** A pool is a named, model-level source of storage: provider-specific settings (performance, media type, durability) mapped into a reusable resource that can serve many applications.
+- **Removal intent:** Removing storage is the cooperative removal at its strictest: the instance refuses to go while attachment records remain, unless the removal is forced.
+- **Detachment:** Detaching storage from its unit is not implemented on Juju 4.0; storage is released through removal instead.
 
-The persisted thing is the **storage instance**: one record per
-provisioned piece of storage, carrying its name (the charm's storage
-name plus an index), its kind (block or filesystem), its provision
-scope (model -- machine-independent -- or machine -- dies with the
-machine), and its life. The instance's backing is its own record --
-the **volume** (block) or **filesystem** (filesystem) the cloud
-provisioned -- and the **attachment** record binds the instance to a
-{ref}`unit <unit>`. The storage instance's own record is created when
-the charm's storage is requested, and the provisioned backing follows
-once the cloud delivers it (see
-{ref}`Storage operations <the-storage-operations>`).
+(the-storage-pools)=
+(storage-pool)=
+### Storage pools
 
-(the-storage-in-the-data-model)=
-### The storage in the data model
+A **storage pool** is a named set of storage-provider parameters: a pool name, the provider type, and the provider's attributes (for example tags, size, path) as pairs.
+
+- **Pool operations:** Pools are managed as their own records: create, update (a full replace), list (including the provider defaults), and delete.
+- **Default pools:** The model's per-kind default pools are seeded at model creation from the provider's own recommendations; a directive that names no pool resolves to the model's default for the storage kind.
+
+```{ibnote}
+See also: {ref}`manage-storage-pools`
+```
+
+(storage-provider-cloud-specific)=
+### Storage providers
+
+A **storage provider** is the technology used to make storage available to a charm.
+
+- **Everywhere:** Three providers work with every cloud: `loop` (block; a file on the unit's root filesystem with an associated loop device provided to the charm), `rootfs` (filesystem; a subdirectory on the unit's root filesystem), and `tmpfs` (filesystem; a memory-backed mounted filesystem).
+- **Cloud-specific:** Many clouds provide additional providers beyond the generic ones. For the cloud-specific providers available on your cloud, see {ref}`list-of-supported-clouds` > `<cloud name>` > Storage.
+- **Provider restrictions:** Some providers cannot be dynamically managed or impose restrictions when attaching storage; see each cloud's provider section (for example {ref}`storage-provider-maas`, {ref}`storage-provider-ebs`).
+
+(the-storage-declaration-rules)=
+### Declaration rules and errors
+
+- **Rules:**
+  - A pool name starts with a letter and continues with letters, digits, and hyphens; a directive's count is a number; a size is a number with a unit multiplier (M through Y, powers of 1024).
+- **Errors:**
+  - **`storage instance still attached`:** Triggered when removing a storage instance whose attachment records remain, without forcing. Remediation: remove the attachments or the attached units first, or force the removal.
+  - **`storage pool already exists`:** Triggered when creating a pool whose name is taken. Remediation: use another name or update the pool.
+  - **`storage pool name is invalid`:** Triggered when a pool name fails the pool-name grammar. Remediation: start the name with a letter; use letters, digits, and hyphens.
+  - **`storage pool is not found`:** Triggered when querying or resolving a pool by name that does not exist. Remediation: check the model's pools, including the provider defaults.
+  - **`provider type is invalid`:** Triggered when a pool names a provider type not valid for use in the model. Remediation: use a provider type the model supports.
+  - **`storage provider type not found`:** Triggered when a pool names a provider type the registry does not know. Remediation: use a registered provider type.
+
+## The storage in the persistence layer
+
+```{audience} user+, charm-dev, juju-dev
+```
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -48,252 +74,51 @@ once the cloud delivers it (see
 :alt: Record chain: charm storage, storage directive, storage pool, storage instance; volume to the right, filesystem below, attachment below charm storage, net node above volume.
 ```
 
-The records: the {ref}`charm's <charm>` `charm_storage` definitions
-(name, kind, count range, minimum size, whether the storage is shared
-or read-only); the `storage_instance` records (the requested storage,
-with kind, scope and life); their `storage_volume` /
-`storage_filesystem` backings -- each bound to the machine's net node,
-the same network identity the machine and its units share -- and the
-`storage_attachment` records binding instances to units. Both backings
-carry a transition-validated status record (see
-{ref}`Storage states <the-storage-states>`); the volumes and
-filesystems the provisioning machinery manages have their own state
-machine on the provisioning side.
+In the model database, the persisted thing is the **storage instance**; its records are (`0011-storage.sql`):
 
-(the-storage-pool)=
-(storage-pool)=
-#### The storage pool
+- **`charm_storage`**: The {ref}`charm's <charm>` storage definitions: the name, the kind (block or filesystem), the count range, the minimum size, and the shared and read-only flags.
+- **`storage_pool`, `storage_pool_attribute`, `storage_pool_origin`**: The pool record naming its provider type, the provider's parameters as key/value rows, and the pool's origin (user-created or provider default).
+- **`model_storage_pool`**: The model's per-kind default pool record, seeded at model creation from the provider.
+- **`application_storage_directive`, `unit_storage_directive`**: The resolved directive pinned per application (or per unit, where the unit's charm temporarily diverges from its application's): the pool pointer, the size, and the count.
+- **`storage_instance`**: One record per provisioned piece of storage: the name (the charm's storage name plus an index), the kind, the provision scope (model or machine), and its life.
+- **`storage_volume`, `storage_filesystem`**: The instance's backing, exactly one per instance, bound to the machine's net node, the shared network identity the machine and its units anchor to; each carries its own status record.
+- **`storage_attachment`**: The record binding the instance to a {ref}`unit <unit>`, with the volume and filesystem attachment and attachment-plan satellites beneath it.
 
-```{ibnote}
-See also: {ref}`manage-storage-pools`
+The storage instance's own record is created when the charm's storage is requested; the provisioned backing follows once the cloud delivers it. The instance has no state machine of its own: its life is the shared alive, dying, dead cycle, and the interesting state lives on the backing's status record, the one status vocabulary in the model that is transition-validated.
+
+(the-storage-persistence-rules)=
+### Persistence rules and errors
+
+- **Rules:**
+  - The backing's status writes are transition-validated: a write is valid if the status is unchanged; `tombstone` is terminal, nothing moves out of it; `pending` may be re-entered only while the backing is not yet provisioned (the retry case); every other transition is allowed.
+  - The vocabulary (identical for volumes and filesystems) is `pending`, `attaching`, `attached`, `detaching`, `detached`, `destroying`, `error`, `tombstone`.
+  - A backing's delete job requires it dead and tombstoned: the provisioner's release of the cloud resource is the gate.
+- **Errors:**
+  - **`volume status transition not valid`:** Triggered when a status write moves a provisioned volume back into `pending` or writes over `tombstone`. Remediation: let the provisioning machinery follow the transition path.
+  - **`filesystem status transition not valid`:** Triggered when a status write moves a provisioned filesystem back into `pending` or writes over `tombstone`. Remediation: let the provisioning machinery follow the transition path.
+  - **`storage instance not found`:** Triggered when querying a storage instance that does not exist. Remediation: verify the storage ID.
+  - **`storage instance not alive`:** Triggered when operating on a storage instance that is not alive. Remediation: none; the instance is being removed.
+  - **`storage attachment not found`:** Triggered when querying a storage attachment that does not exist. Remediation: verify the attachment.
+  - **`volume not found`:** Triggered when reading the status of a volume ID that does not exist. Remediation: verify the volume ID.
+  - **`filesystem not found`:** Triggered when reading the status of a filesystem ID that does not exist. Remediation: verify the filesystem ID.
+
+Writers: the application storage service writes the instances, attachments, directives, and pools; the provisioning machinery writes the backings' statuses; the removal machinery carries the teardown.
+
+## The storage in the execution layer
+
+```{audience} user+, charm-dev, juju-dev
 ```
 
-A **storage pool** is a mechanism for administrators to define sources of storage that they will use to satisfy application storage requirements.
-
-A single pool might be used for storage from units of many different applications - it is a resource from which different stores may be drawn.
-
-A pool describes {ref}`storage provider <storage-provider>`-specific parameters for creating storage, such as performance (e.g. IOPS), media type (e.g. magnetic vs. SSD), or durability.
-
-For many providers, there will be a shared resource where storage can be requested (e.g. for Amazon EC2, `ebs`). Creating pools there maps provider specific settings into named resources that can be used during deployment.
-
-Pools defined at the model level are easily reused across applications. Pool creation requires a pool name, the provider type and attributes for configuration as space-separated pairs, e.g. tags, size, path, etc.
-
-In the data model, the pool is a first-class set of records: the pool
-row (name, provider type), its attributes as key/value rows, its
-origin (a user-created pool or a provider default), and the model's
-per-kind **default pool** record -- created at model creation from the
-provider's own defaults, and what an unnamed directive falls back to
-(see {ref}`the directive's defaults <the-storage-directive-defaults>`).
-
-(the-storage-states)=
-### Storage states
-
-A storage instance has no state machine of its own: its life is the
-shared alive / dying / dead cycle, and the interesting state lives on
-its **backing** -- the volume's or filesystem's status record, the one
-status vocabulary in the model that is genuinely
-**transition-validated**.
-
-The vocabulary (identical for volumes and filesystems): `pending`,
-`attaching`, `attached`, `detaching`, `detached`, `destroying`,
-`error`, and `tombstone`. The transition law: a write is valid if the
-status is unchanged; `tombstone` is terminal -- nothing moves out of
-it; `pending` may only be (re)entered while the backing is not yet
-provisioned (the retry case); every other transition is allowed.
-What constrains storage is, as everywhere, who writes:
-
-- **creation** inserts the backing as `pending`;
-- the **storage provisioner** moves it through the provisioning path
-  (`attaching`, `attached`) and records `error` on failures -- a
-  transient error is retried, keeping the status where the retry
-  resumes;
-- **removal** sets `tombstone` once the provider has actually
-  released the backing -- and a non-forced removal of the instance
-  refuses until its backing reads dead *and* tombstoned.
-
-(types-of-storage)=
-### Types of storage
-
-Storage carries two stored, exclusive discriminators: its **kind** --
-`block` (a volume) or `filesystem` (a mounted filesystem), fixed by
-the charm's definition -- and its **provision scope** -- `model`
-(machine-independent: it can outlive its machine) or `machine` (it
-dies with its machine). Every other distinction is the provider's
-(see {ref}`storage providers <the-storage-operations>`).
-
-(the-storages-machinery)=
-## The storage's machinery
-
-Storage has machinery of its own: in the controller, the storage
-provisioner worker drives the instances' lifecycle -- provisioning
-volumes and filesystems, writing their statuses, and seeing removals
-through -- and the units' agents attach what it provisions.
-
-(the-storage-operations)=
-### Storage operations
-
-(the-storage-directives)=
-(storage-directive)=
-#### Storage directives
-In Juju, a **storage directive** is a collection of storage specifications that can be used to dictate how storage is allocated when provisioning storage for an application.
-
-This directive has the form
-
-```text
-<name>[=<pool>, <count>, <size>>]
-```
-
-where
-- `<name>` is the storage name as defined in the charm (see more: [Charmcraft | `<storage name>`](https://documentation.ubuntu.com/charmcraft/stable/reference/files/charmcraft-yaml-file/#storage));
-- `<pool>` is a pre-defined {ref}`storage pool <storage-pool>`;
-- `<count>` is the storage volume count;
-- `<size>` is the size of each storage volume.
-
-(the-storage-directive-defaults)=
-The order of the arguments does not actually matter -- they are identified based on a regex (pool names must start with a letter and sizes must end with a unit suffix).
-
-If at least one storage directive component is specified, the following default values come into effect:
-
-* `<pool>`: the default storage pool.
-* `<count>`: the minimum number required by the charm, or '1' if the storage is optional
-* `<size>`: determined from the charm's minimum storage size, or 1GiB if the charm does not specify a minimum
-
-In the absence of any explicit storage directive, the storage will be put on the root filesystem (`rootfs`).
-
-Adding storage to a running unit (`juju add-storage`) or requesting it
-at deploy time (`--storage`) writes the instance and its attachment
-records with the backing's status at `pending`; the storage
-provisioner takes it from there. The charm's own definitions merge
-with the directive: the charm's count and minimum size are the floors
-the user's overrides cannot go below.
-
-#### Storage pool operations
-
-Pools are managed as their own records: create, update (a full
-replace), list (including the provider defaults), and delete. The
-model's per-kind defaults are seeded at model creation from the
-provider and re-written whenever the provider's recommendations
-change; a directive that names no pool resolves to the model's
-default for the storage kind.
-
-#### Attaching storage
-
-The attachment record is what binds an instance to a unit; on Juju
-4.0 the detach operation is a stub (the service method is not yet
-implemented on this branch) -- storage is released by removal instead
-(see {ref}`storage removal <the-storage-removal>`).
-
-(the-storage-removal)=
-#### Storage removal
-
-Removing storage (for example, `juju remove-storage`) is the
-cooperative removal at its strictest: the instance is marked dying,
-but the cascade refuses while attachment records remain (unless the
-removal is forced); the removal job deletes the instance only once it
-is not alive, and the backing's delete job only once the provisioner
-has released the actual cloud resource and the backing reads dead and
-tombstoned. The `--force` mode skips the gates.
-
-(storage-provider)=
-#### Storage providers
-In Juju, a **storage provider** refers to the technology used to make storage available to a charm.
-
-##### List of storage providers
-
-There are three storage providers you can use with all clouds: `loop`, `rootfs`, and `tmpfs`. In addition, for some clouds there are also cloud-specific providers.
-
-(storage-provider-cloud-specific)=
-###### Cloud-specific storage providers
-
-Many clouds provide additional storage providers beyond the generic ones. For the cloud-specific storage providers available on your cloud, see {ref}`list-of-supported-clouds` > `<cloud name>` > Storage.
-
-###### `loop`
-```{ibnote}
-See also: [Wikipedia | Loop device](https://en.wikipedia.org/wiki/Loop_Device)
-```
-
-Block-type. Creates a file on the unit's root filesystem, associates a loop device with it. The loop device is provided to the charm.
-
-```{note}
-Loop devices require extra configuration to be used within LXD. See more: {ref}`storage-provider-lxd`.
-```
-
-###### `rootfs`
-```{ibnote}
-See also: [The Linux Kernel Archives | ramfs, rootfs and initramfs](https://www.kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt)
-```
-
-Filesystem-type. Creates a sub-directory on the unit's root filesystem for the unit/charmed operator to use.
-
-###### `tmpfs`
-```{ibnote}
-See also: [Wikipedia | Tmpfs](https://en.wikipedia.org/wiki/Tmpfs)
-```
-
-Filesystem-type. Creates a temporary file storage facility that appears as a mounted file system but is stored in volatile memory.
+Storage has machinery of its own: in the controller, the storage provisioner worker drives the backings' lifecycle, provisioning volumes and filesystems, writing their statuses, and seeing removals through; the units' agents attach what it provisions.
 
 (the-storage-watchers)=
 ### Storage watchers
-```{audience} juju-dev
-```
 
-The provisioning machinery exposes these watch surfaces -- what a
-watcher fires on, not who consumes it (the storage provisioner worker
-consumes them through the agents' facade):
+The provisioning machinery exposes these watch surfaces:
 
-- **Provisioned volumes** and **provisioned filesystems** -- the
-  model-scoped and per-machine life changes of the backings; this is
-  the provisioner's work queue.
-- **Volume and filesystem attachments** -- model-scoped and
-  per-machine, the attach/detach work.
-- **Volume attachment plans** -- the pre-attach plans some providers
-  need (iSCSI-style initiator setup).
-- **Storage attachments** -- per attachment and per unit, the unit
-  side of the story.
+- **Provisioned volumes and provisioned filesystems:** The model-scoped and per-machine life changes of the backings; the provisioner's work queue.
+- **Volume and filesystem attachments:** Model-scoped and per-machine; the attach work.
+- **Volume attachment plans:** The pre-attach plans some providers need (iSCSI-style initiator setup).
+- **Storage attachments:** Per attachment and per unit, the unit side of the story.
 
-Every watcher fires once immediately when it is created -- the initial
-query is the baseline snapshot -- and again on each qualifying change
-(see {ref}`the watcher pattern <watchers>`).
-
-(the-storage-rules-and-errors)=
-## Storage rules and errors
-```{audience} charm-dev
-```
-
-The rules a **storage directive** must satisfy:
-
-- the components are identified by form, not order: the pool name
-  starts with a letter, sizes carry a unit suffix (M/G/T/P), the
-  count is a number;
-- the charm's own floors hold: a directive cannot request fewer
-  instances or a smaller size than the charm's definition requires.
-
-The rules a **storage mutation** must satisfy:
-
-- an instance cannot be removed while attachment records remain,
-  unless the removal is forced (`storage instance still attached`);
-- a backing's delete job requires it dead and tombstoned -- the
-  provisioner's release is the gate (see
-  {ref}`storage removal <the-storage-removal>`);
-- the backing's status writes are transition-validated (the law under
-  {ref}`Storage states <the-storage-states>`); an invalid transition
-  is rejected (`volume status transition not valid` /
-  `filesystem status transition not valid`).
-
-(related-entities-storage)=
-## Entities related to the storage
-
-- **Charms** define the storage names, kinds, counts and minimum
-  sizes the directives fill in (see {ref}`charm <charm>`).
-- **Units** hold the attachments -- what the charm's hook context
-  sees (see {ref}`unit <unit>`).
-- Volumes and filesystems bind to **machines** through the shared net
-  node (see {ref}`machine <machine>`).
-- **Pools and providers** are where the backing comes from -- the
-  pool names it, the provider creates it (see
-  {ref}`the storage pool <the-storage-pool>`).
-- **Constraints** steer the compute a root disk comes from -- the
-  `root-disk-source` constraint names a pool (see
-  {ref}`constraint <constraint>`).
-- **Removal** owns the teardown, tombstone-gated (see
-  {ref}`storage removal <the-storage-removal>`).
+Every watcher fires once immediately when it is created, the initial query being the baseline snapshot, and again on each qualifying change. See {ref}`the watcher pattern <watchers>`.

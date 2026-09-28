@@ -1,36 +1,25 @@
 ---
 myst:
   html_meta:
-    description: "Placement directive reference: specify deployment locations using --to flag with machines, zones, subnets, and availability zones. The directive value, where it is stored, and its rules."
+    description: "Placement directive reference: specify deployment locations with machine designations, zones, subnets, and system IDs. The directive value, where it is stored, and its rules."
 ---
 
 (placement-directive)=
 # Placement directive
+
+In Juju, a **placement directive** names the location a compute request targets: an existing machine, a container designation, or a key-value pair naming a subnet, a system ID, or an availability zone.
+
+## The placement directive in the declaration layer
+
 ```{audience} user
 ```
 
-In Juju, a **placement directive** is an option based on the `--to` flag that can be passed to certain commands to specify a deploy location, where the commands include {ref}`command-juju-add-machine` ,  {ref}`command-juju-add-unit`,  {ref}`command-juju-bootstrap`,  {ref}`command-juju-deploy`, and the location is  (1) an existing or a new machine or (2) a key-value pair specifying a subnet, system ID, or an availability zone.
+How clients target compute at a location.
 
-Example: `juju add-machine --to 1`, `juju deploy --to zone=us-east-1a`
-
-Its neighbours: the {ref}`machine <machine>` it resolves into, the
-{ref}`constraint <constraint>` it overrides on overlap (a `zone=`
-directive beats the `zones` constraint), and the {ref}`zones <zone>`
-and {ref}`subnets <subnet>` that the key-value forms name.
-
-## Placement directives in the declaration layer
-
-You pass a placement directive with the `--to` flag wherever compute
-is requested: `juju deploy`, `juju add-unit`, and `juju add-machine`
-(model {ref}`write access <user-access-model-write>` -- the
-Application and Machinemanager facades gate deploy, add-unit and
-add-machine on model write), and `juju bootstrap` on the
-controller-creation path (no model access gate of its own -- the
-model does not exist yet; bootstrap accepts only the unscoped
-key-value forms). The controller-side counterpart is the same call
-over the controller API, the directive travelling as part of the
-request. The machine-shaped forms are spelled with the
-{ref}`machine designations <machine>`.
+- **Where it travels:** The directive is passed wherever compute is requested: deploy, add-unit, add-machine, and bootstrap requests; the deploy, add-unit, and add-machine paths are gated on model {ref}`write access <user-access-model-write>`.
+- **Machine forms:** A directive naming a machine uses the {ref}`machine designations <machine>`: an existing machine or container, or a new one.
+- **Key-value forms:** A directive naming a location is a key-value pair: `subnet=`, `system-id=`, or `zone=`, handed to the provider.
+- **Overlap with constraints:** A `zone=` directive overrides the `zones` {ref}`constraint <constraint>`.
 
 ```{ibnote}
 See examples: {ref}`deploy-a-charm` (the deploy-targets examples).
@@ -38,107 +27,51 @@ The Terraform provider takes a placement argument on its machine
 resource; no Terraform howto covers placement directives.
 ```
 
-(the-placement-directives-records)=
-(the-placement-directive-record)=
-(the-placement-directive-in-the-data-model)=
-## Placement directives in the persistence layer
+(the-placement-directive-declaration-rules)=
+### Declaration rules and errors
 
-A placement directive is a **value, not an entity**: the directive
-itself is not stored. What persists is the *resolution*: a placement
-record on the {ref}`machine <machine>` -- one row per machine (the
-machine UUID is the natural key: a machine has exactly one placement
-record), carrying the directive string verbatim and a scope that
-marks it as provider-interpreted ('provider' is the only scope the
-schema seeds). Only the key-value forms are ever recorded: a machine
-designation resolves into the machine records themselves -- an
-existing machine is reused, a container designation creates the
-parent and child machine records -- and nothing is stored about the
-directive. The write is performed by the machine state's
-`PlaceMachine` at machine-creation time, called from the machine
-service's `AddMachine`.
+- **Rules:**
+  - A machine designation must satisfy the designation grammar (see {ref}`the machine's declaration rules <machine-declaration-rules>`).
+  - Bootstrap accepts only the unscoped key-value forms; the model does not exist yet to place into.
+- **Errors:**
+  - **`invalid --to parameter`:** Triggered when the directive fails to parse. Remediation: use a valid directive form.
+  - **`k8s models do not support placement directives`:** Triggered when a directive is passed on a Kubernetes model. Remediation: place on machine clouds only.
+  - **`unsupported bootstrap placement directive`:** Triggered when a scoped directive is passed on the bootstrap path. Remediation: pass only the unscoped key-value forms.
+  - **`invalid placement`:** Triggered when the controller cannot resolve the directive into a machine. Remediation: check that the named machine exists in the model.
+  - **`container type and placement are mutually exclusive`:** Triggered when a request names both a container type and a placement. Remediation: use one or the other.
+  - **`invalid model id`:** Triggered when a provider-scoped directive is not the model's UUID. Remediation: use the model-scoped form.
 
-(the-placement-directive-states)=
-### Placement directive states
+## The placement directive in the persistence layer
 
-Not applicable -- a directive is request input: it is resolved when
-the machine record is written and does not exist as state.
+```{audience} user+, charm-dev, juju-dev
+```
 
-### Types of placement directive
+A placement directive is a **value, not an entity**: the directive itself is not stored; what persists is its resolution.
 
-The parse taxonomy is record-derived: a directive is parsed into one
-of four types -- unset, machine, container, or provider -- derived
-from its scope at parse time. The record only ever carries the
-provider scope (the key-value forms): the machine and container
-types resolve into machine records instead.
+- **The placement record (`machine_placement`)**: One row per machine, the machine UUID being the natural key; it carries the directive string verbatim and a scope. The schema seeds one scope, `provider` (`0018-machine.sql`).
+- **What is not stored:** Only the key-value forms are recorded. A machine designation resolves into the machine records themselves: an existing machine is reused, a container designation creates the parent and child machine records.
 
-(the-placement-directives-machinery)=
-## Placement directives in the execution layer
+(the-placement-directive-persistence-rules)=
+### Persistence rules and errors
 
-A placement directive has no machinery of its own: it is request
-input, consumed where compute is requested and resolved against the
-model's machines (a machine or container designation) or handed to
-the provider (a key-value form). By the time the command returns,
-the directive has been parsed and the machine record(s) exist --
-whether the cloud can honour a key-value directive is discovered
-later, at provisioning time, when the machine provisioner reads the
-stored directive back and asks the cloud for a machine in that
-location (see {ref}`machine provisioning <the-machines-machinery>`).
-There is no directive entity to update later: a placement is settled
-when the machine record is written.
+- **Rules:**
+  - A machine has exactly one placement record.
+  - The record is written at machine-creation time, by the machine state's placement resolver, called from the machine service's machine-creation path.
 
-(the-placement-directive-operations)=
-### Placement directive operations
+## The placement directive in the execution layer
 
-The client parses the `--to` value first (an unscoped value such as
-`zone=us-east-1a` is sent as provider scope for the model); the
-controller resolves it when the machine record is created: an
-existing machine is validated against the request's constraints and
-reused; a container designation acquires or creates the parent
-machine and links the child to it; a key-value form creates the
-machine and writes the provider placement record on it, deferred
-until the instance is started.
+```{audience} user+, charm-dev, juju-dev
+```
 
-(the-placement-directive-watchers)=
-### Placement directive watchers
+A placement directive has no machinery of its own: it is request input, resolved when the machine record is written. Whether the cloud can honour a key-value directive is discovered later, at provisioning time, when the machine provisioner reads the stored directive back and asks the cloud for a machine in that location (see {ref}`machine provisioning <the-machines-machinery>`). Nothing watches a directive; the machines it resolves into have their own watchers.
 
-Not applicable -- nothing watches a directive; the machines it
-resolves into have their own.
-
-(the-placement-directive-rules-and-errors)=
-## Placement directive rules and errors
+## List of placement directives
 
 ```{caution}
 
 When the location is a key-value pair, its availability and meaning may vary from cloud to cloud. For details see {ref}`list-of-supported-clouds` > `<cloud name>`.
 
 ```
-
-- a machine designation must satisfy the designation grammar
-  (see {ref}`the machine's declaration rules
-  <machine-declaration-rules>`);
-- the `--to` argument is rejected on Kubernetes models
-  (`k8s models do not support placement directives`);
-- a malformed directive is rejected at the client (`invalid --to
-  parameter`); at the controller an invalid or unresolvable
-  directive fails with `invalid placement`, a container type passed
-  together with a placement is
-  `container type and placement are mutually exclusive`, and a
-  provider-scoped value that is not the model's UUID fails with
-  `invalid model id`;
-- `juju bootstrap` accepts only the unscoped key-value forms; a
-  scoped directive fails with
-  `unsupported bootstrap placement directive`;
-- a key-value directive must name a value the cloud can honour
-  (`zone=`, `subnet=`, `system-id=` per the list below); a `zone=`
-  directive overrides the `zones` {ref}`constraint <constraint>`.
-
-These rules are enforced where the directive is parsed -- at the
-client, then at the controller when the machine record is created;
-the cloud-variance is never enforced by Juju, it is discovered at
-provisioning time.
-
-(list-of-placement-directive-locations)=
-## List of placement directives
 
 (placement-directive-machine)=
 ### `<machine>`
