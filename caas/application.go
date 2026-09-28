@@ -13,8 +13,13 @@ import (
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/storage"
 )
+
+// ServiceNotFound indicates that the application's address Service is absent.
+// It distinguishes Service deletion from a missing workload or status resource.
+const ServiceNotFound = errors.ConstError("application service not found")
 
 // Application is for interacting with the CAAS substrate.
 type Application interface {
@@ -50,6 +55,7 @@ type Application interface {
 	UnitsToRemove(context.Context, int) ([]string, error)
 
 	// Service returns the service associated with the application.
+	// ServiceNotFound indicates that its address Service no longer exists.
 	Service() (*Service, error)
 
 	// EnsurePVCs ensures that Persistent Volume Claims (PVCs) are created for the given

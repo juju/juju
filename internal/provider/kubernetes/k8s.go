@@ -639,36 +639,14 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	services := k.client().CoreV1().Services(k.namespace)
-	labels := utils.LabelsForApp(appName, k.LabelVersion())
-	if k.LabelVersion() != constants.LegacyLabelVersion {
-		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
-	}
-
-	servicesList, err := services.List(ctx, v1.ListOptions{
-		LabelSelector: utils.LabelsToSelector(labels).String(),
-	})
+	svc, err := k.getAddressService(ctx, appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var (
-		result caas.Service
-		svc    *core.Service
-	)
-	// We may have the stateful set or deployment but service not done yet.
-	if len(servicesList.Items) > 0 {
-		for _, v := range servicesList.Items {
-			s := v
-			// Ignore any headless service for this app.
-			if !application.IsManagedHeadlessService(s) {
-				svc = &s
-				break
-			}
-		}
-		if svc != nil {
-			result.Id = string(svc.GetUID())
-			result.Addresses = utils.GetSvcAddresses(svc, includeClusterIP)
-		}
+	var result caas.Service
+	if svc != nil {
+		result.Id = string(svc.GetUID())
+		result.Addresses = utils.GetSvcAddresses(svc, includeClusterIP)
 	}
 
 	deploymentName := k.deploymentName(ctx, appName, true)
@@ -740,6 +718,36 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 		}
 	}
 	return &result, nil
+}
+
+// getAddressService finds the normal Service supplying application addresses.
+func (k *kubernetesClient) getAddressService(ctx context.Context, appName string) (*core.Service, error) {
+	services := k.client().CoreV1().Services(k.namespace)
+	serviceName := utils.ServiceAddressName(appName, k.ModelName())
+	if serviceName != appName {
+		svc, err := services.Get(ctx, serviceName, v1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return svc, errors.Trace(err)
+	}
+
+	labels := utils.LabelsForApp(appName, k.LabelVersion())
+	if k.LabelVersion() != constants.LegacyLabelVersion {
+		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
+	}
+	servicesList, err := services.List(ctx, v1.ListOptions{
+		LabelSelector: utils.LabelsToSelector(labels).String(),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, svc := range servicesList.Items {
+		if !application.IsManagedHeadlessService(svc) {
+			return &svc, nil
+		}
+	}
+	return nil, nil
 }
 
 func (k *kubernetesClient) ensureDeployment(ctx context.Context, spec *apps.Deployment) error {
@@ -1002,8 +1010,8 @@ func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
 	return utils.ControllerPodFQDN(podName, k.namespace)
 }
 
-// BootstrapControllerAddresses returns the stable provider addresses for the
-// initial controller.
+// BootstrapControllerAddresses returns the stable per-pod identity used to
+// bootstrap Dqlite. API Service addresses are acquired separately by GetService.
 func (k *kubernetesClient) BootstrapControllerAddresses(
 	_ context.Context,
 ) (network.ProviderAddresses, error) {

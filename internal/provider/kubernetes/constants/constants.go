@@ -39,9 +39,6 @@ const (
 	// callers within the k8s provider can continue to use this package.
 	DefaultPebbleDir = corepebble.DefaultPebbleDir
 
-	// JujuExecServerSocketPort is the port used by juju run callbacks.
-	JujuExecServerSocketPort = 30666
-
 	// TemplateFileNameAgentConf is the template agent.conf file name.
 	TemplateFileNameAgentConf = "template-" + agentconstants.AgentConfigFilename
 
@@ -78,6 +75,9 @@ const (
 
 	// JujuControllerModelName is the name of the juju controller model.
 	JujuControllerModelName = "controller"
+
+	// ControllerServiceName is the normal Service for the controller API.
+	ControllerServiceName = JujuControllerStackName + "-service"
 
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
