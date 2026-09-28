@@ -1,0 +1,234 @@
+# LLM-driven integration-suite selection (shadow mode).
+#
+# SECURITY MODEL — read before editing:
+# This workflow runs on `pull_request_target`, which executes in the BASE
+# repo context WITH secrets. That is only safe here because:
+#   1. CLA gate: canonical/has-signed-canonical-cla must pass before any
+#      other job runs (same gate as cla.yml).
+#   2. Every emitted suite name is validated against the BASE-branch
+#      tests/suites.manifest.yaml whitelist. A malicious PR head cannot
+#      introduce suite names even if it ships a hostile copy of the
+#      selection tool — the tool's only outputs are a JSONL record, a
+#      markdown comment, and the whitelisted matrix.
+#   3. The runner matrix uses name/provider/cloud from the BASE manifest
+#      only; it checks out the PR head sha and runs base-branch harness
+#      code (`tests/main.sh <suite>`).
+#   4. Exposed credentials are JEV_API_KEY and the default GITHUB_TOKEN
+#      (pull-requests:write) — nothing else.
+# Do NOT add steps that build or execute PR-head code. The select job must
+# stay a pure read/decide job.
+#
+# CREDENTIALS: JEV_API_KEY is a repo/org Actions secret (Settings →
+# Secrets and variables → Actions → Repository secrets). Unset/invalid key
+# degrades to deterministic-only selection; the job never blocks a PR.
+#
+# PHASE: shadow. llm-selected-tests failures are NOT required checks yet;
+# flip after the offline eval (tests/tools/eval_selector.py) shows the
+# picks meet recall/waste targets across a meaningful shadow history.
+name: LLM suite selection
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  cla-check:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if CLA signed
+        uses: canonical/has-signed-canonical-cla@v2
+
+  select-suites:
+    needs: [cla-check]
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      suites: ${{ steps.select.outputs.suites }}
+      has_picks: ${{ steps.select.outputs.has_picks }}
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Install PyYAML
+        run: python3 -m pip install --quiet pyyaml
+
+      # The diff is computed via the GitHub API (base...head), so nothing
+      # from the PR head is fetched or executed locally; the tool run
+      # below is the base-branch copy.
+      - name: Diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
+            > pr.diff
+          grep -E '^\+\+\+ b/' pr.diff | sed 's|^+++ b/||' \
+            | grep -v '^/dev/null$' | sort -u > pr.files
+
+      - name: Select
+        id: select
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JEV_API_KEY: ${{ secrets.JEV_API_KEY }}
+          JEV_BASE_URL: ${{ vars.JEV_BASE_URL }}
+          JEV_MODEL: ${{ vars.JEV_MODEL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}" \
+            > pr.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('pr.json'))
+          with open('pr.title', 'w') as f:
+              f.write(d.get('title') or '')
+          with open('pr.body', 'w') as f:
+              f.write(d.get('body') or '')
+          PY
+          python3 tests/tools/select_suites.py select \
+            --diff pr.diff --changed-files pr.files \
+            --title "$(cat pr.title)" --body "$(cat pr.body)" \
+            --out "$GITHUB_OUTPUT" --comment comment.md \
+            --json-out selection.jsonl
+
+      - name: Upload selection record
+        if: always()
+        uses: actions/upload-artifact@3519c011dc7b12f86a426c47ebb82874e4537c76 # v4.1.0
+        with:
+          name: selection-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: |
+            selection.jsonl
+            comment.md
+          if-no-files-found: ignore
+
+  shadow-comment:
+    needs: [select-suites]
+    if: always() && needs.select-suites.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download selection
+        uses: actions/download-artifact@2b534460cc047f4c3f849bd1d8e96854315b1a95 # v4.1.8
+        with:
+          name: selection-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fc53ef2017c6 # v3.1.0
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: LLM test-suite selection
+
+      - name: Comment (shadow)
+        run: |
+          body="$(cat comment.md)"
+          body="${body}"$'\n\n<sub>run '${{ github.run_id }}'</sub>'
+          if [ -n "${{ steps.fc.outputs.comment-id }}" ]; then
+            id='${{ steps.fc.outputs.comment-id }}'
+          else
+            id=''
+          fi
+          payload=$(python3 -c 'import json,sys; print(json.dumps({"body": sys.argv[1]}))' "$body")
+          url="https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+          method="POST"
+          if [ -n "$id" ]; then
+            url="${url}/${id}"
+            method="PATCH"
+          fi
+          curl -sS -X "$method" -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "$url" -d "$payload" > /dev/null
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Shadow: this job runs selected suites but is NOT a required check yet.
+  llm-selected-tests:
+    needs: [select-suites]
+    if: needs.select-suites.outputs.has_picks == 'true'
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.select-suites.outputs.suites) }}
+    steps:
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "/snap/bin" >> "$GITHUB_PATH"
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+
+      - name: Checkout PR head
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: "Squid"
+        if: github.repository_owner != 'juju'
+        run: ./.github/squid.sh
+
+      - name: Setup LXD
+        if: matrix.suite.cloud == 'localhost'
+        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+
+      - name: Wait for LXD
+        if: matrix.suite.cloud == 'localhost'
+        run: |
+          while ! ip link show lxdbr0; do
+            echo "Waiting for lxdbr0..."
+            sleep 10
+          done
+
+      - name: Setup MicroK8s
+        if: matrix.suite.cloud == 'microk8s'
+        uses: balchua/microk8s-actions@13f73436011eb4925c22526f64fb3ecdd81289a9
+        with:
+          channel: "1.34-strict/stable"
+          addons: '["dns", "hostpath-storage", "rbac"]'
+          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '' }}
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install local Juju
+        shell: bash
+        run: make go-install
+
+      - name: Run suite ${{ matrix.suite.name }}
+        shell: bash
+        env:
+          MODEL_ARCH: amd64
+          BOOTSTRAP_ADDITIONAL_ARGS: --model-default enable-os-upgrade=false
+        run: |
+          cd tests
+          if [ "${{ matrix.suite.cloud }}" = "microk8s" ]; then
+            sg snap_microk8s "./main.sh -c microk8s -v ${{ matrix.suite.name }}"
+          else
+            ./main.sh -v "${{ matrix.suite.name }}"
+          fi
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@3519c011dc7b12f86a426c47ebb82874e4537c76 # v4.1.0
+        with:
+          name: logs-${{ matrix.suite.name }}-${{ github.run_attempt }}
+          path: tests/tmp*/
