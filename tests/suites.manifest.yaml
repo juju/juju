@@ -10,8 +10,11 @@
 #   - description: hand-curated, <=40 words, phrased as *observable behavior
 #     the suite verifies end-to-end* (this becomes the LLM question criteria)
 #   - keywords: quick recall signal for the selection prompt
-#   - paths: deterministic MUST_RUN globs (a PR touching these forces the
-#     suite regardless of the LLM)
+#   - paths: globs whose specificity feeds the ranking. A glob used by
+#     one suite (precise ownership) scores 1.0; one shared by N suites
+#     (a hub like internal/worker/uniter/**) scores 1/N. The top
+#     max_runs suites by (static specificity + LLM p(yes)) run; the
+#     rest are trimmed and shown in the PR comment.
 #
 # Selection policy lives in tests/tools/select_suites.py; eval harness in
 # tests/tools/eval_selector.py. When adding a suite under tests/suites/,

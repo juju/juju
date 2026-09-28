@@ -124,6 +124,44 @@ def matching_paths(suites, changed_files):
     return picks
 
 
+def glob_usage(suites):
+    """Map each distinct glob -> number of suites that list it.
+
+    A glob shared by many suites is a hub: it carries little signal about
+    *which* suite a change threatens. specificity() inverts this.
+    """
+    usage = {}
+    for s in suites.values():
+        for g in set(s.get("paths") or []):
+            usage[g] = usage.get(g, 0) + 1
+    return usage
+
+
+def specificity(glob, suites):
+    """1 / (suites sharing this glob). Precise ownership ranks high;
+    shared infrastructure (uniter, domain/application, ...) ranks low."""
+    return 1.0 / glob_usage(suites).get(glob, 1)
+
+
+def static_rank(suites, changed_files):
+    """Rank eligible suites by static signal: the sum of specificity of
+    their globs that match a changed file. Returns [(name, score)] desc,
+    ties broken by name. Hubs that match everything contribute ~0.17;
+    a precise glob used by one suite contributes 1.0.
+    """
+    usage = glob_usage(suites)
+    scored = []
+    for name, s in suites.items():
+        score = 0.0
+        for g in set(s.get("paths") or []):
+            if any(_glob_match(g, f) for f in changed_files):
+                score += 1.0 / usage.get(g, 1)
+        if score > 0:
+            scored.append((name, score))
+    scored.sort(key=lambda ns: (-ns[1], ns[0]))
+    return scored
+
+
 def _glob_match(pattern, path):
     """Match a manifest glob against a repo-relative path.
 

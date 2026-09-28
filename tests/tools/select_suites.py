@@ -54,6 +54,9 @@ MAX_QUESTIONS_PER_REQUEST = 8
 # Hunks get most of the state budget; title/body/files/rollup take the rest.
 HUNK_CHAR_BUDGET = 5200
 HTTP_TIMEOUT = 30
+# Wall-clock ceiling for the whole Jev fan-out (all batches, retries
+# included). A stalled network must cost at most this much of a CI job.
+TOTAL_BUDGET_S = 120
 RETRY_STATUS = (429, 500, 502, 503, 504)
 MAX_ATTEMPTS = 3
 
@@ -216,25 +219,41 @@ def parse_jev_response(payload, expected_suites):
 
 
 def ask_jev(evidence, suites, api_key, base_url=DEFAULT_BASE_URL,
-            model=DEFAULT_MODEL):
+            model=DEFAULT_MODEL, total_budget_s=TOTAL_BUDGET_S):
     """Call the Jev API with backoff, fanning out in <=8-question batches.
 
     Never raises: ({}, error_or_None). A batch error is reported but does
-    not discard answers from the other batches.
+    not discard answers from the other batches. The whole fan-out runs
+    under a wall-clock budget: unreachable networks (corporate proxies,
+    blackholed IPv6) must degrade the selection quickly instead of
+    hanging the CI job or the developer terminal.
     """
     names = list(suites)
     answers = {}
     errs = []
-    for i in range(0, len(names), MAX_QUESTIONS_PER_REQUEST):
+    n_batches = max(
+        1, (len(names) + MAX_QUESTIONS_PER_REQUEST - 1)
+        // MAX_QUESTIONS_PER_REQUEST)
+    start = time.monotonic()
+    for bi, i in enumerate(range(0, len(names), MAX_QUESTIONS_PER_REQUEST), 1):
+        remaining = total_budget_s - (time.monotonic() - start)
+        if remaining <= 0:
+            errs.append(
+                f"time budget {total_budget_s}s exhausted after "
+                f"{bi - 1}/{n_batches} batches")
+            break
         chunk = {n: suites[n] for n in names[i:i + MAX_QUESTIONS_PER_REQUEST]}
-        ans, err = _ask_jev_chunk(evidence, chunk, api_key, base_url, model)
+        if n_batches > 1:
+            # Liveness: without this a slow network looks like a hang.
+            print(f"[select] Jev batch {bi}/{n_batches} "
+                  f"({len(chunk)} suites)", file=sys.stderr, flush=True)
+        ans, err = _ask_jev_chunk(evidence, chunk, api_key, base_url, model,
+                                  deadline=start + total_budget_s)
         answers.update(ans)
         if err:
             errs.append(err)
     if errs:
         uniq = list(dict.fromkeys(errs))
-        n_batches = (len(names) + MAX_QUESTIONS_PER_REQUEST - 1) \
-            // MAX_QUESTIONS_PER_REQUEST
         err = ", ".join(uniq)
         if len(errs) > 1:
             err += f" ({len(errs)}/{n_batches} batches)"
@@ -242,7 +261,7 @@ def ask_jev(evidence, suites, api_key, base_url=DEFAULT_BASE_URL,
     return answers, None
 
 
-def _ask_jev_chunk(evidence, suites, api_key, base_url, model):
+def _ask_jev_chunk(evidence, suites, api_key, base_url, model, deadline):
     """One Jev request for <=8 suites, retried with backoff."""
     body = json.dumps(build_jev_request(evidence, suites, model)).encode()
     req = urllib.request.Request(
@@ -255,8 +274,12 @@ def _ask_jev_chunk(evidence, suites, api_key, base_url, model):
         })
     err = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return {}, "time budget exhausted"
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            with urllib.request.urlopen(
+                    req, timeout=min(HTTP_TIMEOUT, remaining)) as resp:
                 payload = json.loads(resp.read().decode())
             return parse_jev_response(payload, set(suites)), None
         except urllib.error.HTTPError as e:
@@ -281,60 +304,57 @@ def _ask_jev_chunk(evidence, suites, api_key, base_url, model):
 
 # ---------------------------------------------------------------- policy
 
-def decide(answers, suites, must_run, threshold=DEFAULT_THRESHOLD,
-           confidence=DEFAULT_CONFIDENCE, top_k=DEFAULT_TOP_K):
-    """Pure policy: thresholds, cap, eligibility, whitelist. Returns a dict.
-
-    keys: must_run, picks, skipped_ineligible, skipped_required, all_scores
-
-    `already_required` suites run on every PR via a separate required
-    workflow, so they are never must-run or picked here.
+def rank(suites, changed_files, answers):
+    """One ranked list of eligible suites by how strongly the change
+    flexes them. score = static specificity (precise globs beat hubs)
+    + LLM p(yes) when available. Already-required suites are excluded;
+    they are covered by other CI. Returns [(name, score, source)] desc.
     """
-    eligible = {n for n, s in suites.items()
-                if s.get("gh_eligible") and not s.get("already_required")}
-    excluded = {n for n, s in suites.items() if s.get("already_required")}
-    must_run = [n for n in must_run if n not in excluded]
-    over = [
-        (n, p, c) for n, (p, c) in answers.items()
-        if n in eligible and n not in must_run
-        and p >= threshold and c >= confidence
-    ]
-    over.sort(key=lambda x: (-x[1], x[0]))
-    picks = [n for n, _, _ in over[:top_k]]
-    skipped = [
-        n for n, (p, c) in sorted(answers.items())
-        if n not in eligible and p >= threshold
-    ]
-    skipped_required = sorted(
-        n for n, (p, c) in answers.items()
-        if n in excluded and p >= threshold)
-    return {
-        "must_run": sorted(must_run),
-        "picks": picks,
-        "skipped_ineligible": skipped,
-        "skipped_required": skipped_required,
-        "all_scores": {n: {"noul": p, "confidence": c}
-                       for n, (p, c) in answers.items()},
-    }
+    static = dict(suite_manifest.static_rank(suites, changed_files))
+    ranked = []
+    for name, s in suites.items():
+        if not s.get("gh_eligible") or s.get("already_required"):
+            continue
+        score = static.get(name, 0.0)
+        source = "static"
+        ans = answers.get(name)
+        if ans:
+            score += ans[0]  # LLM p(yes), 0..1, breaks ties / expands
+            source = "llm" if static.get(name, 0.0) == 0 else "static+llm"
+        if score > 0:
+            ranked.append((name, score, source))
+    ranked.sort(key=lambda x: (-x[1], x[0]))
+    return ranked
 
 
 def merge_policy(manifest_doc, suites, changed_files, answers,
                  max_runs=DEFAULT_MAX_RUNS):
-    must_run = suite_manifest.matching_paths(suites, changed_files)
-    th = manifest_doc.get("threshold", DEFAULT_THRESHOLD)
-    cf = manifest_doc.get("confidence", DEFAULT_CONFIDENCE)
-    tk = manifest_doc.get("top_k", DEFAULT_TOP_K)
+    """Rank every eligible suite, keep the top max_runs, report the rest.
+
+    There is no separate must-run bypass: hubs that match almost every
+    PR rank low (shared specificity ~0.17) and compete for slots like
+    anything else. Precise ownership globs (secrets, schema) rank high
+    by construction. Already-required suites never appear. Trimmed
+    suites are surfaced in the comment, never hidden.
+    """
     max_runs = manifest_doc.get("max_runs", max_runs)
-    result = decide(answers, suites, must_run, threshold=th,
-                    confidence=cf, top_k=tk)
-    # Hard ceiling on shadow runner load: static must-run keeps priority,
-    # LLM picks are trimmed first. Overflow is reported, never hidden.
-    if len(result["must_run"]) + len(result["picks"]) > max_runs:
-        room = max(0, max_runs - len(result["must_run"]))
-        overflow = result["picks"][room:]
-        result["picks"] = result["picks"][:room]
-        result["capped_overflow"] = overflow
-    return result
+    excluded = {n for n, s in suites.items() if s.get("already_required")}
+    ranked = rank(suites, changed_files, answers)
+    runs = [n for n, _, _ in ranked[:max_runs]]
+    trimmed = [n for n, _, _ in ranked[max_runs:]]
+    skipped_required = sorted(
+        n for n, (p, _) in answers.items()
+        if n in excluded and p >= manifest_doc.get("threshold",
+                                                     DEFAULT_THRESHOLD))
+    return {
+        "runs": runs,
+        "ranked": [{"name": n, "score": round(s, 3), "source": src}
+                   for n, s, src in ranked],
+        "trimmed": trimmed,
+        "skipped_required": skipped_required,
+        "all_scores": {n: {"noul": p, "confidence": c}
+                       for n, (p, c) in answers.items()},
+    }
 
 
 # ---------------------------------------------------------------- output
@@ -347,24 +367,19 @@ def render_comment(result, model_id, llm_error, runs):
     else:
         lines.append(f"> Model `{model_id}` · picks are advisory and "
                      "non-blocking for now.")
-    lines += ["", f"**Must-run (static map):** "
-              f"{', '.join(result['must_run']) or '—'}",
-              f"**LLM picks:** {', '.join(result['picks']) or '—'}"]
-    if result["skipped_ineligible"]:
-        lines.append(f"**Flagged but no GH runner (Jenkins covers):** "
-                     f"{', '.join(result['skipped_ineligible'])}")
+    lines += ["", f"**Runs (top {len(runs)} by score):** "
+              f"{', '.join(runs) or '—'}"]
+    if result.get("trimmed"):
+        lines.append(f"**Trimmed (runner budget):** "
+                     f"{', '.join(result['trimmed'])}")
     if result.get("skipped_required"):
         lines.append(f"**Excluded (already required on every PR):** "
                      f"{', '.join(result['skipped_required'])}")
-    if result.get("capped_overflow"):
-        lines.append(f"**Trimmed by runner budget:** "
-                     f"{', '.join(result['capped_overflow'])}")
-    if result["all_scores"]:
-        lines += ["", "| suite | p(yes) | confidence |", "|---|---|---|"]
-        top = sorted(result["all_scores"].items(),
-                     key=lambda kv: -kv[1]["noul"])[:8]
-        for n, a in top:
-            lines.append(f"| {n} | {a['noul']:.2f} | {a['confidence']:.2f} |")
+    if result.get("ranked"):
+        lines += ["", "| suite | score | signal |", "|---|---|---|"]
+        for r in result["ranked"][:10]:
+            lines.append(f"| {r['name']} | {r['score']:.2f} | "
+                          f"{r['source']} |")
     lines += ["", "<sub>feedback: reply on this PR; data recorded for "
               "offline eval (see tests/tools/eval_selector.py)</sub>"]
     return "\n".join(lines)
@@ -437,8 +452,7 @@ def main(argv=None):
         llm_error = "JEV_API_KEY not set"
 
     result = merge_policy(doc, suites, changed, answers)
-    runs = result["must_run"] + [
-        p for p in result["picks"] if p not in result["must_run"]]
+    runs = result["runs"]
 
     if args.out:
         # has_picks gates the runner matrix: any suite to execute (static
@@ -460,8 +474,7 @@ def main(argv=None):
         with open(args.json_out, "a") as f:
             f.write(json.dumps(rec) + "\n")
     print(json.dumps({"runs": runs, **{
-        k: result[k] for k in ("must_run", "picks", "skipped_ineligible",
-                               "skipped_required")}}))
+        k: result[k] for k in ("trimmed", "skipped_required")}}))
     return 0
 
 

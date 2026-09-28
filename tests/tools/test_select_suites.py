@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+import time
 import tempfile
 import unittest
 from unittest import mock
@@ -241,6 +242,46 @@ class TestAskJevRetry(unittest.TestCase):
         self.assertEqual(answers, {"s8": (0.9, 0.9)})
         self.assertIn("TimeoutError", err)
 
+    def test_stalled_network_respects_total_budget(self):
+        # Server accepts the connection but never answers (e.g. corporate
+        # proxy, blackholed route): each urlopen burns its whole timeout,
+        # and the fan-out must end within the wall-clock budget instead of
+        # retries x batches x timeout.
+        suites = {f"s{i}": {"description": "d", "keywords": []}
+                  for i in range(16)}  # 2 batches
+
+        sleeps = {"n": 0}
+
+        def fake_sleep(s):
+            sleeps["n"] += 1
+            t0[0] += s  # backoff sleeps advance the fake clock too
+
+        t0 = [1000.0]
+        used_timeouts = []
+
+        def fake_monotonic():
+            return t0[0]
+
+        def fake(req, timeout=None):
+            # a stalled socket consumes exactly the timeout it was given
+            self.assertLessEqual(timeout, select_suites.HTTP_TIMEOUT)
+            used_timeouts.append(timeout)
+            t0[0] += timeout
+            raise TimeoutError("stalled")
+
+        with mock.patch.object(select_suites.urllib.request, "urlopen",
+                               side_effect=fake), \
+             mock.patch.object(select_suites.time, "sleep", fake_sleep), \
+             mock.patch.object(select_suites.time, "monotonic",
+                               fake_monotonic):
+            answers, err = select_suites.ask_jev({}, suites, "k")
+        self.assertEqual(answers, {})
+        self.assertIn("time budget", err)
+        # the per-attempt timeout shrinks as the budget runs out
+        self.assertLess(used_timeouts[-1], select_suites.HTTP_TIMEOUT)
+        # and the fan-out stopped early instead of retrying forever
+        self.assertLessEqual(len(used_timeouts), 8)
+
     def test_http_error_includes_body_snippet(self):
         import urllib.error
         err403 = urllib.error.HTTPError(
@@ -297,102 +338,113 @@ class TestAskJevRetry(unittest.TestCase):
 class TestPolicy(unittest.TestCase):
     def _suites(self):
         return {
-            "deploy": {"gh_eligible": True},
-            "secrets_k8s": {"gh_eligible": True},
-            "model": {"gh_eligible": True},
-            "storage": {"gh_eligible": True},
-            "firewall": {"gh_eligible": False},
-        }
-
-    def test_threshold_cap_eligibility(self):
-        answers = {
-            "deploy": (0.95, 0.9),
-            "secrets_k8s": (0.7, 0.6),
-            "model": (0.65, 0.2),        # low confidence -> out
-            "storage": (0.4, 0.9),       # low p -> out
-            "firewall": (0.99, 0.99),    # ineligible -> skipped list
-        }
-        r = select_suites.decide(answers, self._suites(), must_run={"deploy"},
-                                 threshold=0.6, confidence=0.5, top_k=1)
-        self.assertEqual(r["must_run"], ["deploy"])
-        self.assertEqual(r["picks"], ["secrets_k8s"])  # deploy excluded, cap
-        self.assertEqual(r["skipped_ineligible"], ["firewall"])
-
-    def test_deterministic_tie_break(self):
-        answers = {"deploy": (0.9, 0.9), "model": (0.9, 0.9)}
-        r = select_suites.decide(answers, self._suites(), must_run=set(),
-                                 threshold=0.5, confidence=0.5, top_k=1)
-        self.assertEqual(r["picks"], ["deploy"])  # alphabetical tie-break
-
-    def test_already_required_never_picked_or_must_run(self):
-        suites = self._suites()
-        suites["smoke"] = {"gh_eligible": True, "already_required": True}
-        answers = {"smoke": (0.99, 0.99), "deploy": (0.8, 0.9)}
-        r = select_suites.decide(answers, suites, must_run={"smoke", "model"},
-                                 threshold=0.6, confidence=0.5, top_k=2)
-        self.assertNotIn("smoke", r["picks"])
-        self.assertNotIn("smoke", r["must_run"])
-        self.assertEqual(r["picks"], ["deploy"])
-        self.assertEqual(r["must_run"], ["model"])
-        self.assertEqual(r["skipped_required"], ["smoke"])
-        # still visible in the score table for shadow transparency
-        self.assertIn("smoke", r["all_scores"])
-
-    def test_already_required_paths_not_must_run(self):
-        doc = {"threshold": 0.5, "confidence": 0.5, "top_k": 3,
-               "max_runs": 6}
-        suites = {
-            "smoke": {"gh_eligible": True, "already_required": True,
-                      "paths": ["cmd/juju/**"],
-                      "description": "d", "keywords": []},
-            "deploy": {"gh_eligible": True, "paths": [],
-                       "description": "d", "keywords": []},
-        }
-        answers = {"deploy": (0.9, 0.9), "smoke": (0.9, 0.9)}
-        r = select_suites.merge_policy(
-            doc, suites, ["cmd/juju/deploy.go"], answers)
-        self.assertEqual(r["must_run"], [])
-        self.assertEqual(r["picks"], ["deploy"])
-        self.assertEqual(r["skipped_required"], ["smoke"])
-
-    def test_max_runs_trims_picks_not_must_run(self):
-        doc = {"threshold": 0.5, "confidence": 0.5, "top_k": 5,
-               "max_runs": 3}
-        suites = {
             "deploy": {"gh_eligible": True, "paths": ["cmd/juju/**"],
                        "description": "d", "keywords": []},
+            "secrets_k8s": {"gh_eligible": True, "paths": [],
+                            "description": "d", "keywords": []},
             "model": {"gh_eligible": True, "paths": [],
                       "description": "d", "keywords": []},
             "storage": {"gh_eligible": True, "paths": [],
                         "description": "d", "keywords": []},
-            "secrets_k8s": {"gh_eligible": True, "paths": [],
-                            "description": "d", "keywords": []},
+            "firewall": {"gh_eligible": False, "paths": [],
+                         "description": "d", "keywords": []},
         }
-        answers = {"model": (0.9, 0.9), "storage": (0.8, 0.9),
-                   "secrets_k8s": (0.7, 0.9)}
-        r = select_suites.merge_policy(
-            doc, suites, ["cmd/juju/deploy.go"], answers)
-        self.assertEqual(r["must_run"], ["deploy"])
-        self.assertEqual(r["picks"], ["model", "storage"])
-        self.assertEqual(r["capped_overflow"], ["secrets_k8s"])
 
-    def test_docs_only_diff_zero_picks(self):
+    def test_precise_glob_beats_hub(self):
+        # A glob used by one suite (cmd/juju/** here) ranks above
+        # LLM-flagged suites with no static match.
+        suites = {
+            "deploy": {"gh_eligible": True, "paths": ["cmd/juju/**"],
+                        "description": "d", "keywords": []},
+            "model": {"gh_eligible": True, "paths": [],
+                      "description": "d", "keywords": []},
+        }
+        answers = {"model": (0.9, 0.9)}  # LLM likes model, no static match
+        r = select_suites.merge_policy(
+            {"max_runs": 2}, suites, ["cmd/juju/deploy.go"], answers)
+        self.assertEqual(r["runs"][0], "deploy")  # precise glob wins
+        self.assertIn("model", r["runs"])         # LLM score lifts it in
+
+    def test_caps_at_max_runs_and_trims(self):
+        suites = {
+            f"s{i}": {"gh_eligible": True,
+                      "paths": [f"pkg{i}/**"],
+                      "description": "d", "keywords": []}
+            for i in range(8)
+        }
+        files = [f"pkg{i}/x.go" for i in range(8)]
+        r = select_suites.merge_policy(
+            {"max_runs": 3}, suites, files, {})
+        self.assertEqual(len(r["runs"]), 3)
+        self.assertEqual(len(r["trimmed"]), 5)
+        # all 8 appear in the ranked table for shadow transparency
+        self.assertEqual(len(r["ranked"]), 8)
+
+    def test_already_required_excluded(self):
+        suites = {
+            "smoke": {"gh_eligible": True, "already_required": True,
+                      "paths": ["cmd/juju/**"],
+                      "description": "d", "keywords": []},
+            "deploy": {"gh_eligible": True, "paths": ["cmd/juju/**"],
+                       "description": "d", "keywords": []},
+        }
+        answers = {"smoke": (0.99, 0.99), "deploy": (0.8, 0.9)}
+        r = select_suites.merge_policy(
+            {"max_runs": 6, "threshold": 0.5}, suites,
+            ["cmd/juju/deploy.go"], answers)
+        self.assertNotIn("smoke", r["runs"])
+        self.assertNotIn("smoke", r["trimmed"])
+        self.assertEqual(r["runs"], ["deploy"])
+        self.assertEqual(r["skipped_required"], ["smoke"])
+
+    def test_degraded_mode_ranks_static_only(self):
+        # No API key: answers empty, ranking is pure static specificity.
+        # domain/secret/** is used by one suite (spec 1.0); the hub glob
+        # is shared by three (spec 0.33), so precise wins.
+        suites = {
+            "precise": {"gh_eligible": True, "paths": ["domain/secret/**"],
+                        "description": "d", "keywords": []},
+            "hub_a": {"gh_eligible": True,
+                      "paths": ["internal/worker/uniter/**"],
+                      "description": "d", "keywords": []},
+            "hub_b": {"gh_eligible": True,
+                      "paths": ["internal/worker/uniter/**"],
+                      "description": "d", "keywords": []},
+            "hub_c": {"gh_eligible": True,
+                      "paths": ["internal/worker/uniter/**"],
+                      "description": "d", "keywords": []},
+        }
+        r = select_suites.merge_policy(
+            {"max_runs": 2}, suites,
+            ["domain/secret/state.go", "internal/worker/uniter/foo.go"], {})
+        self.assertEqual(r["runs"][0], "precise")  # spec 1.0 > 0.33
+        self.assertIn("hub_a", r["runs"])          # top hub by tie-break
+
+    def test_docs_only_diff_zero_runs(self):
         ev = select_suites.build_evidence(
             "--- a/docs/x.md\n+++ b/docs/x.md\n+hi\n", "docs", "",
             ["docs/x.md"])
         self.assertIn("docs/x.md", ev["changed_files"])
+        suites = {"deploy": {"gh_eligible": True, "paths": ["cmd/juju/**"],
+                              "description": "d", "keywords": []}}
+        r = select_suites.merge_policy({"max_runs": 6}, suites, ["docs/x.md"], {})
+        self.assertEqual(r["runs"], [])
 
 
 class TestComment(unittest.TestCase):
     def test_renders_sections(self):
-        result = {"must_run": ["model"], "picks": ["deploy"],
-                  "skipped_ineligible": ["cmr"],
-                  "skipped_required": ["smoke"],
-                  "all_scores": {"deploy": {"noul": 0.9, "confidence": 0.8}}}
-        md = select_suites.render_comment(result, "jev-1.13.0", None, ["x"])
+        result = {"runs": ["deploy", "model"], "ranked": [
+            {"name": "deploy", "score": 1.5, "source": "static"},
+            {"name": "model", "score": 0.9, "source": "static+llm"}],
+            "trimmed": ["storage"],
+            "skipped_required": ["smoke"],
+            "all_scores": {"deploy": {"noul": 0.9, "confidence": 0.8}}}
+        md = select_suites.render_comment(result, "jev-1.13.0", None,
+                                          ["deploy", "model"])
         self.assertIn("deploy", md)
-        self.assertIn("Jenkins", md)
+        self.assertIn("Trimmed", md)
         self.assertIn("already required on every PR", md)
+        self.assertIn("static", md)
         md2 = select_suites.render_comment(result, "jev", "no key", [])
         self.assertIn("disabled", md2)
 
