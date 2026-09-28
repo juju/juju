@@ -46,7 +46,7 @@ How clients express network intent: the space record's life as a grouping, its s
 
 ## The space in the persistence layer
 
-```{audience} juju-dev
+```{audience} user+, charm-dev, juju-dev
 ```
 
 ```{ggarch}
@@ -78,12 +78,13 @@ A space has no state machine and no life column: it is a naming record, created,
 
 ## The space in the execution layer
 
+```{audience} user+, charm-dev, juju-dev
+```
+
 A space has no machinery of its own: it is a grouping the controller maintains; subnets are moved into it and reloaded from the provider, and the network's watch surface reports what changed.
 
 (the-space-watchers)=
 ### Space watchers
-```{audience} juju-dev
-```
 
 The network domain exposes one watch surface:
 

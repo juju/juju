@@ -57,7 +57,7 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 (the-machine-in-the-data-model)=
 ## Machines in the persistence layer
 
-```{audience} juju-dev
+```{audience} user+, charm-dev, juju-dev
 ```
 
 ```{ggarch}
@@ -99,7 +99,7 @@ Writers: the machine service inserts the records (`AddMachine`, `SetMachineCloud
 (the-machines-machinery)=
 ## Machines in the execution layer
 
-```{audience} charm-dev, juju-dev
+```{audience} user+, charm-dev, juju-dev
 ```
 
 Runtime operations are split between the controller and the individual host machine. The controller orchestrates provisioning via background workers, while the local machine agent, a {ref}`Juju agent <agent>`, manages internal lifecycle and workload placement.

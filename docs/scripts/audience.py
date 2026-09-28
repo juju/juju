@@ -32,7 +32,7 @@ AUDIENCE_LABELS = {
     "user": "Juju-and-charm users",
     "charm-dev": "Charm developers",
     "juju-dev": "Juju developers",
-    "user+": "User+",
+    "user+": "Juju-and-charm user+",
 }
 
 
