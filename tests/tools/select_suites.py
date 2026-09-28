@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """LLM-driven CI test-suite selection.
 
-Given a PR's changed files + diff + title/body, decide which integration
-suites (tests/suites/<name>) are plausibly affected and should run as
-required checks.
+Given a PR's changed files + diff + title/body, rank integration suites
+(tests/suites/<name>) by how strongly the change flexes them, and run
+the top max_runs.
 
-Two layers:
-  1. deterministic: manifest `paths` globs (MUST_RUN) — can only ADD coverage
-  2. LLM (Jev): one batched call, one Noul per suite, thresholded in code
+Two scoring layers, combined into one ranking:
+  1. static: manifest `paths` globs weighted by specificity
+     (1 / suites sharing the glob) — precise ownership beats hubs
+  2. LLM (Jev): one fan-out call, one Noul per suite, batched in <=8
+     questions per request; p(yes) is added to the static score
 
 Policy invariants (enforced here, never by the model):
-  - model may only ADD suites; MUST_RUN always runs
-  - picks capped at top_k, filtered to GH-runner-eligible suites
+  - only gh_eligible suites run; already_required suites never do
+  - at most max_runs suites run; the rest are trimmed and reported
   - unknown suite names in model answers are dropped
-  - ANY API/parse failure degrades to deterministic-only (never raises)
+  - ANY API/parse failure degrades to static-only (never raises)
 
 Subcommands:
   select  full decision; writes GITHUB_OUTPUT lines, comment markdown,
@@ -22,8 +24,8 @@ Subcommands:
           JSON on stdin, prints {suite: {noul, confidence}} or {}.
 
 Env:
-  JEV_API_KEY      required for the LLM layer; absent -> deterministic only
-  JEV_BASE_URL     default https://api.typesafe.ai/v1/systemone
+  JEV_API_KEY      required for the LLM layer; absent -> static only
+  JEV_BASE_URL     default https://jevmodel.org/v1/systemone
   JEV_MODEL        default jev-1.13.0 (pin; bump deliberately)
 """
 
@@ -43,8 +45,6 @@ import suite_manifest  # noqa: E402
 DEFAULT_BASE_URL = "https://jevmodel.org/v1/systemone"
 DEFAULT_MODEL = "jev-1.13.0"
 DEFAULT_THRESHOLD = 0.6
-DEFAULT_CONFIDENCE = 0.5
-DEFAULT_TOP_K = 3
 DEFAULT_MAX_RUNS = 6
 # Jev contract (jevmodel.org/docs): `state` <= 8000 chars after JSON
 # serialization; 1-8 questions per request; a noul has NO separate
@@ -117,7 +117,7 @@ def build_evidence(diff_text, title, body, changed_files,
         "changed_files": [f["path"] for f in files][:150],
         "dir_rollup": rollup,
         "hunks": "\n\n".join(hunks),
-        "hunks_omited_for_size": omitted,
+        "hunks_omitted_for_size": omitted,
     }
     # Hard backstop: shrink the least-valuable fields until the serialized
     # state fits the API limit. Hunks go first (lowest priority appended
@@ -142,20 +142,40 @@ def build_evidence(diff_text, title, body, changed_files,
 
 
 def parse_diff_files(diff_text):
-    """Split a unified diff into [{path, hunk}] with DROP-paths removed."""
+    """Split a unified diff into [{path, hunk}] with DROP-paths removed.
+
+    Deleted files (--- a/x +++ /dev/null) are kept: a deletion is as
+    much a behavioral change as an edit, and its path must reach the
+    evidence — a deletion-only PR must not produce zero static signal.
+    """
     files = []
     cur = None
     for line in diff_text.splitlines():
-        m = re.match(r"^\+\+\+ b/(.+)$", line)
+        m = re.match(r"^--- a/(.+)$", line)
         if m:
             path = m.group(1).strip()
-            if path.startswith("/dev/null") or DROP.search(path):
+            if DROP.search(path):
                 cur = None
                 continue
             cur = {"path": path, "lines": []}
             files.append(cur)
             continue
-        if cur is None:
+        if line.startswith("--- /dev/null"):
+            cur = {"path": None, "lines": []}  # new file; path from +++
+            continue
+        m = re.match(r"^\+\+\+ b/(.+)$", line)
+        if m:
+            path = m.group(1).strip()
+            if DROP.search(path):
+                cur = None
+                continue
+            if cur is None or cur["path"] is None:
+                cur = {"path": path, "lines": []}
+                files.append(cur)
+            continue
+        if line.startswith("+++ /dev/null"):
+            continue  # deleted file: keep cur (path from --- a/)
+        if cur is None or cur["path"] is None:
             continue
         if line.startswith("diff --git"):
             continue

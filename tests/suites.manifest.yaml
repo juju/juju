@@ -22,10 +22,8 @@
 #
 # Tuned defaults for the LLM layer:
 threshold: 0.6
-confidence: 0.5
-top_k: 3
-# Hard ceiling on suites executed per PR in shadow mode (static must-run
-# first, LLM picks trimmed). Protects the self-hosted runner pool.
+# Hard ceiling on suites executed per PR: the top max_runs ranked suites
+# run, the rest are trimmed and reported. Protects the runner pool.
 max_runs: 6
 
 suites:

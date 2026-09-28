@@ -127,10 +127,25 @@ class TestEvidence(unittest.TestCase):
             ev["hunks"].index("core/secrets/secret.go"),
             ev["hunks"].index("docs/readme.md"))
 
+    def test_deleted_file_reaches_evidence(self):
+        diff = (
+            "diff --git a/domain/secret/state/secret.go b/domain/secret/state/secret.go\n"
+            "deleted file mode 100644\n"
+            "--- a/domain/secret/state/secret.go\n"
+            "+++ /dev/null\n"
+            "@@ -1,3 +0,0 @@\n"
+            "-package state\n"
+            "-\n"
+            "-func Delete() {}\n")
+        ev = select_suites.build_evidence(diff, "remove secret state", "",
+                                          ["domain/secret/state/secret.go"])
+        self.assertIn("domain/secret/state/secret.go", ev["changed_files"])
+        self.assertIn("-func Delete() {}", ev["hunks"])
+
     def test_budget_omits_low_priority(self):
         ev = select_suites.build_evidence(
             self.DIFF, "t", "b", [], budget=30)  # tiny budget
-        self.assertTrue(ev["hunks_omited_for_size"])
+        self.assertTrue(ev["hunks_omitted_for_size"])
 
     def test_state_respects_api_char_limit(self):
         # 200 files x 80-char hunks would blow the 8000-char state cap.
@@ -142,7 +157,7 @@ class TestEvidence(unittest.TestCase):
                                           [f"p{i}/x.go" for i in range(200)])
         self.assertLessEqual(len(json.dumps(ev)), select_suites.STATE_CHAR_LIMIT)
         # shrinking keeps the highest-priority hunks and lists the rest
-        self.assertTrue(ev["hunks_omited_for_size"] or ev["changed_files"])
+        self.assertTrue(ev["hunks_omitted_for_size"] or ev["changed_files"])
 
 
 class TestJevRequestResponse(unittest.TestCase):

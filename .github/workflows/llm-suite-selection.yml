@@ -11,12 +11,21 @@
 #      selection tool — the tool's only outputs are a JSONL record, a
 #      markdown comment, and the whitelisted matrix.
 #   3. The runner matrix uses name/provider/cloud from the BASE manifest
-#      only; it checks out the PR head sha and runs base-branch harness
-#      code (`tests/main.sh <suite>`).
-#   4. Exposed credentials are JEV_API_KEY and the default GITHUB_TOKEN
-#      (pull-requests:write) — nothing else.
-# Do NOT add steps that build or execute PR-head code. The select job must
-# stay a pure read/decide job.
+#      only. The matrix job DOES build and execute PR-head code
+#      (make go-install, tests/main.sh) — that is what testing the PR
+#      means, and it is contained by job-level `permissions: contents:
+#      read` (no write token in that job). Runner-infra scripts
+#      (.github/squid.sh, microk8s-launch-config-aws.yaml) are checked
+#      out from the BASE branch, so a PR cannot redefine the proxy or
+#      the k8s launch config that run before its own code is built.
+#   4. Credentials are scoped per job: JEV_API_KEY is only exposed to
+#      the select job (base-branch code); pull-requests:write only to
+#      shadow-comment; llm-selected-tests is read-only. Residual risk:
+#      PR-head code runs on persistent self-hosted runners — the same
+#      exposure the existing pull_request smoke jobs have; ephemeral
+#      runners are the fix if this becomes a concern.
+# Do NOT add steps that build or execute PR-head code to the select job;
+# it must stay a pure read/decide job.
 #
 # CREDENTIALS: JEV_API_KEY is a repo/org Actions secret (Settings →
 # Secrets and variables → Actions → Repository secrets). Unset/invalid key
@@ -31,9 +40,11 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 
+# Least privilege: workflow-level read-only. Only shadow-comment gets
+# pull-requests: write (job-level); llm-selected-tests runs PR-head code
+# and therefore must NOT carry a write token.
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   cla-check:
@@ -48,6 +59,9 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read  # read the PR diff/JSON via the REST API
     outputs:
       suites: ${{ steps.select.outputs.suites }}
       has_picks: ${{ steps.select.outputs.has_picks }}
@@ -58,7 +72,10 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
 
       - name: Install PyYAML
-        run: python3 -m pip install --quiet pyyaml
+        run: |
+          python3 -c "import yaml" 2>/dev/null || \
+            python3 -m pip install --quiet pyyaml 2>/dev/null || \
+            python3 -m pip install --quiet --break-system-packages pyyaml
 
       # The diff is computed via the GitHub API (base...head), so nothing
       # from the PR head is fetched or executed locally; the tool run
@@ -71,8 +88,11 @@ jobs:
             -H "Accept: application/vnd.github.v3.diff" \
             "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
             > pr.diff
-          grep -E '^\+\+\+ b/' pr.diff | sed 's|^+++ b/||' \
-            | grep -v '^/dev/null$' | sort -u > pr.files
+          # Both sides of the diff: +++ b/ misses deleted files
+          # (+++ /dev/null), --- a/ covers them. /dev/null lines match
+          # neither pattern, so no extra filtering is needed.
+          grep -E '^(--- a/|\+\+\+ b/)' pr.diff \
+            | sed -e 's|^--- a/||' -e 's|^+++ b/||' | sort -u > pr.files
 
       - name: Select
         id: select
@@ -115,6 +135,9 @@ jobs:
     needs: [select-suites]
     if: always() && needs.select-suites.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write  # post/update the shadow comment
     steps:
       - name: Download selection
         uses: actions/download-artifact@2b534460cc047f4c3f849bd1d8e96854315b1a95 # v4.1.8
@@ -152,9 +175,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # Shadow: this job runs selected suites but is NOT a required check yet.
+  # It executes PR-head code (that is what testing the PR means), so its
+  # token is read-only — the write token stays in shadow-comment only.
   llm-selected-tests:
     needs: [select-suites]
     if: needs.select-suites.outputs.has_picks == 'true'
+    permissions:
+      contents: read
     runs-on:
       - self-hosted
       - linux
@@ -179,9 +206,19 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      # Runner-infra scripts come from the BASE branch, not the PR head:
+      # a PR must not get to redefine the proxy or the k8s launch config
+      # that run before its own code is built. Checked out AFTER the PR
+      # head so the head checkout's clean does not wipe it.
+      - name: Checkout base infra scripts
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .infra-base
+
       - name: "Squid"
         if: github.repository_owner != 'juju'
-        run: ./.github/squid.sh
+        run: ./.infra-base/.github/squid.sh
 
       - name: Setup LXD
         if: matrix.suite.cloud == 'localhost'
@@ -201,7 +238,7 @@ jobs:
         with:
           channel: "1.34-strict/stable"
           addons: '["dns", "hostpath-storage", "rbac"]'
-          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml' || '' }}
+          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.infra-base/.github/microk8s-launch-config-aws.yaml' || '' }}
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
