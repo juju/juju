@@ -80,7 +80,7 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Terraform Provide
 :caption: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those records.The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those records.
 ```
 
-In the model database, a secret is a **native record**: the record
+In the {ref}`model database <data-model-full-spine>`, a secret is a **native record**: the record
 set grew to its current shape over the patch stream, and the schema
 folds some of its records into the drawn slice. The drawn slice is the
 record set every secret carries; the entity's remaining records round

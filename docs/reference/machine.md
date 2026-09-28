@@ -61,7 +61,7 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 :caption: The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records.The machine's stored records. A machine is one record, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those records.
 ```
 
-In the model database, a machine is a native record, distributed
+In the {ref}`model database <data-model-full-spine>`, a machine is a native record, distributed
 across a decoupled set of records. The record set, in prose:
 
 - **Every machine is anchored by a single primary entry containing

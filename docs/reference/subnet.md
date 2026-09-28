@@ -73,7 +73,7 @@ adoption, and the client's writes on one are space-pointer moves:
 :caption: The subnet's stored records. A subnet is one record carrying the range, its VLAN tag and the space grouping; the provider identity, the provider-network membership and the zone membership hang off it; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the space, zone and provider-network records are drawn as chips -- their stories are their own pages'.The subnet's stored records. A subnet is one record carrying the range, its VLAN tag and the space grouping; the provider identity, the provider-network membership and the zone membership hang off it; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the space, zone and provider-network records are drawn as chips -- their stories are their own pages'.
 ```
 
-In the model database a subnet is a **cached cloud fact**: the
+In the {ref}`model database <data-model-full-spine>` a subnet is a **cached cloud fact**: the
 provider discovers the CIDR range and Juju stores what it learned:
 the range itself, with the VLAN tag when the cloud reports one (not
 every subnet is tagged). A provider-identity record carries the

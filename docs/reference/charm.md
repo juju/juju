@@ -90,7 +90,7 @@ A revision only becomes available for consumption once it's been released into a
 :alt: Application and unit records point at the charm record; charm metadata and download info hang off charm; application channel and platform records point at application.
 ```
 
-In the model database, a charm is one record per revision: each
+In the {ref}`model database <data-model-full-spine>`, a charm is one record per revision: each
 revision the model knows is a separate charm record. The record
 carries the charm's archive (a pointer
 into the controller's object store), its metadata (the name,

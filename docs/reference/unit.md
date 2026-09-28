@@ -43,7 +43,7 @@ See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider fo
 :caption: The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records.The unit's stored records. A unit is one record belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those records.
 ```
 
-In the model database, a unit is represented by a core record linked
+In the {ref}`model database <data-model-full-spine>`, a unit is represented by a core record linked
 to the supporting records (satellites) that carry its story:
 
 - **Every unit is anchored by a single primary entry containing its

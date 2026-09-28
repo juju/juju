@@ -74,7 +74,7 @@ See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Pro
 :caption: The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.The relation's ten stored records. A relation is one record with the client-facing relation ID, the life and scope vocabularies and the suspended flag with its reason; the endpoint link, the settings archive and the status record hang off it, the application settings and the unit memberships fan under the endpoint link, and the unit settings sit under the membership; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the services read these records through four derived views, which have no pointers of their own and are therefore not drawn.
 ```
 
-In the model database, a relation is a **native record**,
+In the {ref}`model database <data-model-full-spine>`, a relation is a **native record**,
 distributed across a decoupled set of records. The record set, in
 prose:
 

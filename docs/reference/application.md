@@ -51,7 +51,7 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 :caption: The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records.The application's stored records. An application is one record referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those records.
 ```
 
-In the model database an application is a **native record**, created
+In the {ref}`model database <data-model-full-spine>` an application is a **native record**, created
 by the deployment machinery, one record per application per model. The
 drawn slice is the record set every application carries; the entity's
 remaining records are the satellites of its specific roles:

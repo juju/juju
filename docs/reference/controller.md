@@ -12,7 +12,7 @@ In Juju, the **controller** is the control plane: the running system that implem
 - **As software:** It is the **{ref}`controller agent <controller-agent>`**, a `jujud` process whose workers run the Juju API server and an embedded [Dqlite](https://canonical.com/dqlite) database. {ref}`Bootstrap <bootstrap-a-controller>` provisions a host machine, installs `jujud`, and starts it.
 - **As an entity:** Through its bootstrap lifecycle, that software materializes its state as records in the controller {ref}`database <database>`: the **singleton controller record**, which carries its identity, its configuration, and the records of its high-availability nodes, and the **{ref}`application <application>`**, named `controller`, which it declares in the controller model it creates.
 
-## The controller in the declaration layer
+## Controller in the declaration layer
 
 The declaration layer defines how a controller comes into being and how clients authenticate against it.
 
@@ -25,7 +25,7 @@ The declaration layer defines how a controller comes into being and how clients 
 See more: {ref}`manage-controllers`
 ```
 
-## The controller in the persistence layer
+## Controller in the persistence layer
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -34,7 +34,7 @@ See more: {ref}`manage-controllers`
 :caption: The controller's stored records. The controller is one record, a schema-enforced singleton, pointing at the controller model it lives in; the model registry names each model's database, and the HA nodes carry their version and API-address satellites; every line is a foreign key in one of those records.The controller's stored records. The controller is one record, a schema-enforced singleton, pointing at the controller model it lives in; the model registry names each model's database, and the HA nodes carry their version and API-address satellites; every line is a foreign key in one of those records.
 ```
 
-In the controller database, the controller is a **singleton record**: the schema enforces that exactly one exists. The record set:
+In the {ref}`controller database <database>`, the controller is a **singleton record**: the schema enforces that exactly one exists. The record set:
 
 - **The controller has one record.** It carries the controller's UUID, the pointer to the internal controller model it lives in, the target agent version an {ref}`upgrade <upgrading-things>` sets, the API port, and the TLS material and system identity.
 - **The controller has a model registry**: One record per model the controller serves, each naming the separate Dqlite database its records live in. The controller's own pointer names the controller model, the one model that runs Juju itself. Nothing is flagged: the controller model, the controller cloud, and the controller machine are derived by the schema's own views (see {ref}`the machine's records <the-machine-in-the-data-model>`).
@@ -58,7 +58,7 @@ The controller record has no life and no status vocabulary: the controller is up
   - **`cloud still in use`:** Triggered when deleting a {ref}`cloud <cloud>` that one or more {ref}`models <model>` still reference. Remediation: move the models to another cloud or remove them before deleting.
 
 (the-controllers-machinery)=
-## The controller in the execution layer
+## Controller in the execution layer
 
 By the time bootstrap returns, the controller is up: the API server answering, the Dqlite cluster formed, the controller model and the `admin` {ref}`user <user>` created. The machinery is the {ref}`controller agent's <controller-agent>` story. This page carries the operations on the entity and the surfaces it exposes.
 

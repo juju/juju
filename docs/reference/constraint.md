@@ -9,7 +9,7 @@ myst:
 
 In Juju, a **constraint** is a key-value pair that represents a specification for the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju: a minimum on machine clouds, a maximum on system and Kubernetes containers.
 
-## The constraint in the declaration layer
+## Constraint in the declaration layer
 
 How clients express compute intent wherever a Juju resource is requested.
 
@@ -33,7 +33,7 @@ application resource.
   - **`invalid machine constraints`:** Triggered when machine constraints name a space or a container type that does not exist. Remediation: correct the constraint's space or container type.
   - **`machine constraint violation`:** Triggered at provisioning time when reported hardware does not satisfy the assigned constraints. Remediation: correct the constraint or the machine's hardware.
 
-## The constraint in the persistence layer
+## Constraint in the persistence layer
 
 A constraint is a **value, not an entity**: it has no life, no status, and no watchers of its own; it is a stored key/value whose meaning comes from the entity it constrains.
 
@@ -47,7 +47,7 @@ A constraint is a **value, not an entity**: it has no life, no status, and no wa
 - **Rules:**
   - The constraint records live where the constrained entity lives: the model's, the application's, and the machines' constraint records in the model database beside their owners.
 
-## The constraint in the execution layer
+## Constraint in the execution layer
 
 A constraint has no machinery of its own: it is a stored value the compute provisioner reads at provisioning time; setting it is a rewrite of the owner's record. Whether the cloud can honour it is discovered later, at provisioning time, when the compute provisioner asks the cloud for resources (see {ref}`machine provisioning <the-machines-machinery>`). No watch surface exposes constraint records.
 
