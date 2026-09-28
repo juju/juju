@@ -28,11 +28,13 @@ run_secrets() {
 	juju --show-log scale-application prometheus-k8s 1
 	wait_for_unit_count "prometheus-k8s" 1
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
-	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")')" "${short_uri2}-1"
+	# Which unit is removed on scale down depends on the Juju version: 4.0
+	# keeps the lowest ordinals, 4.1 keeps the highest. Wait until exactly one
+	# of the two unit owned secrets is gone instead of naming the survivor.
 	attempt=0
-	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri3}"'-1")') ]]; do
+	until [[ $(kubectl -n "$model_name" get secrets -o json | yq '[.items[].metadata.name | select(. == "'"${short_uri2}"'-1" or . == "'"${short_uri3}"'-1")] | length') -eq 1 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: secrets were not deleted on unit 1 removal."
+			echo "Failed: expected exactly one unit owned secret to remain after scaling down to one unit."
 			exit 1
 		fi
 		sleep 2
@@ -44,9 +46,9 @@ run_secrets() {
 	wait_for_unit_count "prometheus-k8s" 0
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	attempt=0
-	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1")') ]]; do
+	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri2}"'-1" or . == "'"${short_uri3}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: secrets were not deleted on unit 0 removal."
+			echo "Failed: unit owned secrets were not deleted on last unit removal."
 			exit 1
 		fi
 		sleep 2
