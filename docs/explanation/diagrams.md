@@ -552,7 +552,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Cross-model relation (CMR) (synthesized)
 :no-legend:
-:caption: Topology: Auto-layout — no positions declared.
+:caption: Auto-layout — no positions declared.
 :alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
 ```
 ````
@@ -561,7 +561,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Cross-model relation (CMR)
 :no-legend:
-:caption: Topology: Declared arrangement — the cross-model machinery as first drawn, all records grounded (offer, offer_connection, application_remote_offerer, external_controller). Compare with the synthesized variant.
+:caption: Declared arrangement — the cross-model machinery as first drawn, all records grounded (the offer, the connections, the remote-offerer record, the external controller record). Compare with the synthesized variant.
 :alt: Nine record nodes. Top row: application, offer, offer connection. Middle row: relation, endpoint, remote application. Bottom: model and external controller. A dashed box around offer, offer connection, and external controller is labelled cross-model machinery.
 ```
 ````

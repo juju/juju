@@ -17,7 +17,7 @@ To Juju, a **cloud** (or backing cloud) is any entity that has an API that can p
 
 A cloud's neighbours: a {ref}`credential <credential>` authenticates against it, a {ref}`model <model>` records which cloud it deploys into, and the {ref}`machines <machine>` and {ref}`applications <application>` that run on it draw their resources from it; its {ref}`regions <list-of-supported-clouds>` are the sub-scopes a model lands in.
 
-## The cloud in the declaration layer
+## Cloud in the declaration layer
 
 How clients add a cloud and manage its definition.
 
@@ -39,14 +39,14 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
   - **`cloud still in use`:** Triggered when deleting a cloud that one or more models still reference. Remediation: move the models to another cloud or remove them before deleting.
 
 (the-clouds-persistence)=
-## The cloud in the persistence layer
+## Cloud in the persistence layer
 
-In the controller database, a cloud is a definition record set (`0005-cloud.sql`):
+A cloud is persisted in the {ref}`controller database <database>` as follows:
 
-- **`cloud`**: The name (unique), the cloud type, the endpoints Juju talks to (the cloud's API, identity, and storage endpoints, and whether to skip TLS verification), and the CA certificate for TLS.
-- **`cloud_region`**: The regions with their per-region defaults.
-- **`cloud_auth_type`**: The admitted authentication types, drawn from the seeded `auth_type` lookup.
-- **`cloud_defaults`**: The cloud's default configuration values.
+- **The cloud is one record:** the name (unique), the cloud type, the endpoints Juju talks to (the cloud's API, identity, and storage endpoints, and whether to skip TLS verification), and the CA certificate for TLS.
+- **The regions are records of their own:** the regions with their per-region defaults.
+- **The admitted authentication types are records of their own,** drawn from the seeded lookup.
+- **The default configuration values are records of their own.**
 - **The pointers that name it:** {ref}`Models <model>` carry the denormalised copy of the cloud they deploy into (cloud name, type, and region on the model's record), and each model's {ref}`credential <credential>` names its cloud half of the pair. The cloud a {ref}`controller <controller>` was bootstrapped on is seeded as a record at bootstrap.
 
 Writers: the cloud service in the controller performs the writes; adding a cloud inserts the record with its endpoints, regions, and authentication types; updating rewrites them; removing deletes it.
@@ -82,7 +82,7 @@ A **Kubernetes cloud** is a cloud backed by an existing Kubernetes cluster. Juju
 See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`
 ```
 
-## The cloud in the execution layer
+## Cloud in the execution layer
 
 By the time the setting call returns, the cloud's record exists, and Juju has not yet spoken to the cloud itself. A cloud has no machinery of its own: the controller reads the definition whenever it talks to the provider on a model's behalf (provisioning machines, resolving details), and the models using the cloud discover its reachability per operation.
 

@@ -46,16 +46,16 @@ See also: {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offer
 :file: ../juju.ggarch
 :view: Cross-model relation (CMR)
 :alt: Two model databases side by side. In the offering model: relation and endpoint records belonging to the offer, offer and offer-connection records, external controller record. In the consuming model: application, relation and endpoint records for the proxy application, remote application record. Arrows follow the foreign keys from each side's records into the shared offer machinery.
-:caption: Topology: The cross-model relation, record by record. The offering side stores the offer and its connections; the consuming side stores a proxy application and a remote-application record; both sides agree on the endpoint and relation records that carry the actual relation data. Nothing is shared between the two model databases except the offer URL and credentials.
+:caption: The cross-model relation, record by record. The offering side stores the offer and its connections; the consuming side stores a proxy application and a remote-application record; both sides agree on the endpoint and relation records that carry the actual relation data. Nothing is shared between the two model databases except the offer URL and credentials.
 ```
 
-In the offering model's database, an offer is a small record set (`0032-offer.sql`, `0034-cross-model-relation.sql`):
+An offer is persisted in the offering model's {ref}`model database <data-model-full-spine>` as follows:
 
-- **`offer`**: The identity pair: a `uuid` primary key and the offer's `name`.
-- **`offer_endpoint`**: The join record pointing the offer at the {ref}`application endpoints <application-endpoint>` it publishes; a schema trigger keeps every endpoint of one offer on the same application.
-- **`offer_connection`**: One record per consumer: the pointer to the consumer's remote relation and the consuming model's offer user.
-- **`v_offer_detail`**: The read view joining the offer with its endpoints, the application, the charm, and the connection counts; total and active connections are derived here, not stored.
-- **The consuming side:** In the consuming model's database, the proxy application is a native {ref}`application <application>` record, and an `application_remote_offerer` record ties it to the offer (the offer's UUID and URL, the offering controller), with its own status satellite.
+- **The offer is one record:** the identity pair, a `uuid` primary key and the offer's `name`.
+- **The endpoint join record points the offer at the {ref}`application endpoints <application-endpoint>` it publishes:** a schema trigger keeps every endpoint of one offer on the same application.
+- **The connection is one record per consumer:** the pointer to the consumer's remote relation and the consuming model's offer user.
+- **The read joins the offer with its endpoints, the application, the charm, and the connection counts:** total and active connections are derived here, not stored.
+- **The consuming side:** In the consuming model's database, the proxy application is a native {ref}`application <application>` record, and a remote-offerer record ties it to the offer (the offer's UUID and URL, the offering controller), with its own status satellite.
 
 The offer's users (who may consume it) live in the controller database as permission records, not in the model (see {ref}`user <user>`). The offer's URL identifies it across controllers; its name is unique among offers.
 
@@ -65,8 +65,8 @@ An offer has no life column, no state machine, and no subtypes: the record is st
 ### Persistence rules and errors
 
 - **Rules:**
-  - All of an offer's endpoints belong to one application; the schema trigger on `offer_endpoint` enforces it.
-  - The connection counts are derived: `v_offer_detail` counts an offer's connections and its active connections from the `offer_connection` records.
+  - All of an offer's endpoints belong to one application; the schema trigger on the endpoint join record enforces it.
+  - The connection counts are derived: the read counts an offer's connections and its active connections from the connection records.
 - **Errors:**
   - **`offer not found`:** Triggered when querying an offer by URL or UUID that does not exist. Remediation: verify the offer URL.
 

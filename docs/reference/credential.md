@@ -11,7 +11,7 @@ In Juju, a **credential** represents a collection of authentication material (li
 
 Clouds decide which authentication schemes they accept; users own credentials; models use exactly one cloud/credential pair; and who may use a credential is decided by access grants, not by the credential itself.
 
-## The credential in the declaration layer
+## Credential in the declaration layer
 
 How clients add a credential for a cloud and manage its life.
 
@@ -31,20 +31,20 @@ See also: {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform
   - **`unknown cloud`:** Triggered when naming a cloud the controller does not know. Remediation: add the cloud first.
   - **`user not found`:** Triggered when the credential's owner does not exist. Remediation: check the owner's name.
 
-## The credential in the persistence layer
+## Credential in the persistence layer
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Credential chain
 :no-legend:
-:caption: Entity relationship diagram: The credential chain lives in the controller DB: a user owns 0..N cloud credentials (cloud/owner/name is the natural key; 15 auth types); a cloud defines 0..N credentials; a model uses 0..1 credential and belongs to one cloud. The model DB carries only a read-only denormalised copy (credential owner/name as text). Access grants are a separate permission record set (there is no credential object type).
+:caption: The credential chain lives in the controller DB: a user owns 0..N cloud credentials (cloud/owner/name is the natural key; 15 auth types); a cloud defines 0..N credentials; a model uses 0..1 credential and belongs to one cloud. The model DB carries only a read-only denormalised copy (credential owner/name as text). Access grants are a separate permission record set (there is no credential object type).
 :alt: User record, cloud record, credential record, and model record with FK arrows.
 ```
 
-The authoritative record lives in the controller database (`0005-cloud.sql`):
+The authoritative record lives in the {ref}`controller database <database>`:
 
-- **`cloud_credential`**: The credential record, identified by its natural key, the {ref}`cloud <cloud>`, the owning {ref}`user <user>`, and its name, unique by index; the record carries its authentication type.
-- **`cloud_credential_attribute`**: The credential's attributes, the key/value pairs the cloud's authentication type requires.
+- **The credential is one record,** identified by its natural key, the {ref}`cloud <cloud>`, the owning {ref}`user <user>`, and its name, unique by index; the record carries its authentication type.
+- **The credential's attributes are their own records:** the key/value pairs the cloud's authentication type requires.
 - **The model's copy:** The model database keeps only a read-only, denormalised copy of the credential each model uses; identity decisions stay with the controller record.
 
 The natural key is unique: re-adding a credential with the same key updates it, it does not duplicate.
@@ -62,7 +62,7 @@ Writers: the credential service in the controller performs the writes; it insert
   - **`model credential not set`:** Triggered when a model operation needs the model's credential and none is set. Remediation: set the model's credential.
   - **`credential is not valid for one or more models`:** Triggered when a cloud-side check finds the credential unusable for the models using it. Remediation: fix or replace the credential.
 
-## The credential in the execution layer
+## Credential in the execution layer
 
 By the time the setting call returns, the record exists, and nothing has yet proved that the credential works. That proof is all the execution a credential has, because a credential has no machinery of its own: opening a provider connection with the model's credential is what validates it, per model, at the model's next check.
 
