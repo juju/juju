@@ -13,6 +13,7 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
@@ -230,6 +231,17 @@ func (s *backupsSuite) TestNewAPINotClient(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
+// TestCreateNotImplemented verifies that backup creation stays
+// undelivered: the Create API method hides the createBackup
+// implementation behind a not-implemented error.
+func (s *backupsSuite) TestCreateNotImplemented(c *tc.C) {
+	a := &API{}
+	result, err := a.Create(c.Context(), params.BackupsCreateArgs{})
+	c.Check(jujuerrors.IsNotImplemented(err), tc.IsTrue)
+	c.Check(err, tc.ErrorMatches, "Dqlite-based backups not implemented")
+	c.Check(result, tc.DeepEquals, params.BackupsMetadataResult{})
+}
+
 func (s *backupsSuite) TestCreate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -245,7 +257,7 @@ func (s *backupsSuite) TestCreate(c *tc.C) {
 		Version: domainexport.LatestSupportedPayloadVersion(),
 	}, nil)
 
-	result, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{Notes: "test"})
+	result, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{Notes: "test"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(result.Notes, tc.Equals, "test")
@@ -295,7 +307,7 @@ func (s *backupsSuite) TestCreateNotSuperuser(c *tc.C) {
 		gomock.Any(), permission.SuperuserAccess, gomock.Any(),
 	).Return(coreerrors.Forbidden)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, coreerrors.Forbidden)
 }
 
@@ -313,7 +325,7 @@ func (s *backupsSuite) TestCreateGetFilesFailure(c *tc.C) {
 		return nil, boom
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -336,7 +348,7 @@ func (s *backupsSuite) TestCreateModelServicesFailure(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 
-	_, err := s.newAPI(c, modelServicesFor).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, modelServicesFor).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -356,7 +368,7 @@ func (s *backupsSuite) TestCreateModelNamespacesFailure(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -378,7 +390,7 @@ func (s *backupsSuite) TestCreateModelExportFailure(c *tc.C) {
 	s.modelServices.EXPECT().Export().Return(s.modelExport)
 	s.modelExport.EXPECT().Export(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -399,7 +411,7 @@ func (s *backupsSuite) TestCreateContextCancelled(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(ctx, params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(ctx, params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 
 	// No model export runs after cancellation.
@@ -427,7 +439,7 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 		return "", errors.New("archive must not be created")
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorMatches, ".*not a directory")
 }
 
@@ -445,7 +457,7 @@ func (s *backupsSuite) TestCreateNoModels(c *tc.C) {
 	s.expectControllerExport()
 	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{}, nil)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.createdArgs.DumpEntries, tc.HasLen, 1)
@@ -468,7 +480,7 @@ func (s *backupsSuite) TestCreateControllerExportFailure(c *tc.C) {
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
 	s.controllerExport.EXPECT().Export(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -485,7 +497,7 @@ func (s *backupsSuite) TestCreateModelConfigFailure(c *tc.C) {
 	s.expectSuperuser()
 	s.modelConfig.EXPECT().ModelConfig(gomock.Any()).Return(nil, boom)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -503,7 +515,7 @@ func (s *backupsSuite) TestCreateControllerNodesFailure(c *tc.C) {
 	s.expectModelConfig(c, backupDir)
 	s.controllerNodes.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyControllerIDs)
 
 	s.assertNoArchive(c, backupDir)
@@ -526,7 +538,7 @@ func (s *backupsSuite) TestCreateNoSpaceFailure(c *tc.C) {
 		return boom
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
@@ -548,7 +560,7 @@ func (s *backupsSuite) TestCreateMissingBackupFile(c *tc.C) {
 		return []string{filepath.Join(c.MkDir(), "vanished")}, nil
 	})
 
-	result, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	result, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Filename, tc.Equals, s.archiveFilename)
 }
@@ -574,7 +586,7 @@ func (s *backupsSuite) TestCreateArchiveFailure(c *tc.C) {
 		return "", boom
 	})
 
-	_, err := s.newAPI(c, s.modelServicesFor()).Create(c.Context(), params.BackupsCreateArgs{})
+	_, err := s.newAPI(c, s.modelServicesFor()).createBackup(c.Context(), params.BackupsCreateArgs{})
 	c.Assert(err, tc.ErrorIs, boom)
 
 	s.assertNoArchive(c, backupDir)
