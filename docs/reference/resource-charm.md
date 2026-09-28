@@ -115,54 +115,48 @@ password: supersecretpassword
 (the-resource-in-the-data-model)=
 ## The resource in the persistence layer
 
-In the model database a charm resource is two records plus the blob:
-the charm's **definition** (the resource's name, its type, its
-storage path within the charm, a description; declared by the charm's
-metadata) and the **content** record, one per stored blob, carrying
-the revision (for store resources), the origin (a store revision or
-an upload) and the state of its store lifecycle. The blob itself
-lives outside the record set, in the store its type selects.
+A charm resource is persisted in the {ref}`model database
+<data-model-full-spine>` as follows: the charm's **definition** (the
+resource's name, its type, its storage path within the charm, a
+description; declared by the charm's metadata) and the **content**
+record, one per stored blob, carrying the revision (for store
+resources), the origin (a store revision or an upload) and the state
+of its store lifecycle. The blob itself lives outside the record set,
+in the store its type selects.
 
-The record set over the DDL (`0015-charm.sql`, `0023-resource.sql`,
-the `0052` and `0054` patch migrations):
+The record set:
 
-- **`charm_resource`:** the charm's definition: a composite primary
-  key of the charm and the resource name, the type (`kind_id` into
-  the `charm_resource_kind` lookup, `file` or `oci-image`), the
-  nullable in-charm `path` and the description.
-- **`resource`:** one record per stored blob: a `uuid` primary key, the
-  composite foreign key naming the definition it fills, the nullable
-  `revision` (empty for uploads), the origin (`resource_origin_type`,
-  `upload` or `store`), the store-lifecycle state (`resource_state`),
-  `created_at`, and `last_polled`, set only for potential records.
-- **`application_resource`:** the application's usage:
-  `resource_uuid` is its primary key, so one stored blob serves at
-  most one application; the blob may come from a different charm
-  revision than the application runs.
-- **`pending_application_resource`:** resources staged before the
-  application exists: the resource's UUID and the application by
-  name, with no foreign key, because the application does not exist
-  yet.
-- **`resource_retrieved_by`:** who put the blob there: a type
+- **The definition is one record:** a composite primary key of the
+  charm and the resource name, the type (a kind lookup, `file` or
+  `oci-image`), the nullable in-charm path and the description.
+- **The content is one record per stored blob:** a UUID primary key,
+  the composite foreign key naming the definition it fills, the
+  nullable revision (empty for uploads), the origin (`upload` or
+  `store`), the store-lifecycle state, the creation time, and the
+  poll time, set only for potential records.
+- **The application's usage is its own record:** keyed by the blob,
+  so one stored blob serves at most one application; the blob may
+  come from a different charm revision than the application runs.
+- **The staged resources are their own records:** resources staged
+  before the application exists, keyed by the resource's UUID and the
+  application's name, with no foreign key, because the application
+  does not exist yet.
+- **The retrieval is recorded:** who put the blob there, a type
   (`user`, `unit` or `application`) and that entity's name, keyed by
   the resource's UUID.
-- **`unit_resource`:** the unit's own copy: a composite primary key
+- **The unit's own copy is its own record:** a composite primary key
   of the resource's UUID and the unit's UUID, plus the time it was
   added.
-- **The store links, split by type:** `resource_file_store` points a
-  file resource at its object-store blob (`store_uuid` into
-  `object_store_metadata`, with the size and the sha384 digest);
-  `resource_image_store` points an OCI image resource at its
-  metadata record (`resource_container_image_metadata_store`: the
-  registry path, the username and the password nullable).
-- **The views the reads use:** `v_resource` coalesces the two store
-  links into one record's size and digest; `v_application_resource`
-  (reshaped by the `0052` patch to an inner join) lists the
-  resources an application actually uses; `v_unit_resource` lists
-  the units' own copies.
-- **The adjacent satellite:** `application_k8s_resources_managed`
-  (the `0054` patch) is the application side's record that the
-  provisioner manages an application's Kubernetes resources; it
+- **The store links, split by type:** a file resource's link points
+  at its object-store blob (keyed by the blob record, with the size
+  and the sha384 digest); an OCI image resource's link points at its
+  metadata record (the registry path, the username and the password
+  nullable).
+- **The reads run over the joined set:** the two store links coalesce
+  into one record's size and digest; one read lists the resources an
+  application actually uses; another lists the units' own copies.
+- **The adjacent satellite:** one more application-side record says
+  the provisioner manages an application's Kubernetes resources; it
   blocks removal until cleared (see {ref}`application
   <application>`).
 
@@ -174,10 +168,10 @@ at (the usage, the retrieval, the unit copy, the store link).
 Every foreign key is an assertion the record holds: the resource record
 holds the definition pointer; the usage record holds both of its
 neighbours'; the store links hold the blob pointer and the store-side
-pointer each. Nothing transitions: `resource_state` is two values,
+pointer each. Nothing transitions: the record's state is two values,
 `available` (the blob the application's units use now) and
 `potential` (a newer revision the repository reports, the upgrade's
-hint, stamped with `last_polled`), not a life the record works
+hint, stamped with the poll time), not a life the record works
 through.
 
 (the-resource-persistence-rules)=
