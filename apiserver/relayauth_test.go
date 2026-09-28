@@ -59,6 +59,9 @@ type stubHTTPAuthenticator struct {
 	authInfo authentication.AuthInfo
 }
 
+// Compile-time check that the stub satisfies the production interface.
+var _ authentication.HTTPAuthenticator = stubHTTPAuthenticator{}
+
 // Authenticate implements authentication.HTTPAuthenticator.
 func (s stubHTTPAuthenticator) Authenticate(*http.Request) (authentication.AuthInfo, error) {
 	return s.authInfo, nil
@@ -112,7 +115,7 @@ func (s *relayAuthSuite) TestRelayWrapperRejectsUnauthorizedAuthInfo(c *tc.C) {
 	} {
 		c.Run(test.name, func(t *testing.T) {
 			r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
-			if test.authInfo.Delegator != nil || test.authInfo.Tag != nil {
+			if test.authInfo.Delegator != nil {
 				r = withAuthInfo(t, r, test.authInfo)
 			}
 
@@ -162,7 +165,3 @@ func (s *relayAuthSuite) TestRelayJWTAuthorizerRejectsMissingDelegator(c *tc.C) 
 	err := relayJWTAuthorizer{}.Authorize(context.Background(), authInfo)
 	c.Check(err, tc.ErrorMatches, "authorization is missing a permission delegator")
 }
-
-// Compile-time check that the test exercises the production auth info
-// retrieval path.
-var _ = httpcontext.RequestAuthInfo
