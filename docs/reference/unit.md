@@ -39,22 +39,47 @@ See also: {ref}`Juju | Manage units <manage-units>`, {ref}`Terraform Provider fo
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Unit attributes
-:alt: The unit's stored tables as an entity-relationship slice: the unit record at the centre with its uuid, name, life, application pointer, net-node pointer and pinned charm revision; the application record it joins west with the shared net node below it; the agent and workload status records east; the subordinate co-location pair south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the password hash, drawn nullable, is a field, not a pointer).
-:caption: Entity relationship diagram: The unit's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
+:alt: The unit record at the centre with its salient columns; the application record it joins west; the agent and workload status records east; the shared net node and the subordinate pair below. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The unit's stored records. A unit is one unit row belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those rows.
 ```
 
-In the model database a unit is a native record (the DDL: `0020-unit.sql`), created by the deployment, add-unit or scale machinery. Its story is distributed across the record and the satellites that point at it:
+In the model database a unit is a native record (the DDL:
+`0020-unit.sql`), created by the deployment, add-unit or scale
+machinery. Its story is distributed across the record and the
+satellites that point at it:
 
-- **`unit`:** The core row: the identity pair (the `uuid` the other records point at, the `name` the client types, unique per model), the life, the parent application pointer, the shared net node pointer, the pinned charm pointer, and the password hash (unique across all units, so no unit can impersonate another; NULLs count as distinct, so units created without one break no uniqueness).
-- **`unit_principal`:** The subordinate co-location pair: two pointers into the unit table, the subordinate's (the pair's primary key) and the principal's.
-- **`unit_workload_version`:** The workload version the unit reports.
-- **`unit_agent_version`:** The unit agent's reported version and architecture; `v_unit_target_agent_version` joins the model's target agent version onto it.
-- **`k8s_pod`, `k8s_pod_port`, `k8s_pod_status`:** The Kubernetes pod a CAAS unit runs in: the provider ID (the pod's name), the ports the pod exposes, and the pod's provisioning status.
-- **`unit_agent_status`:** The unit agent's health report, its message and data (the agent vocabulary: `allocating`, `executing`, `idle`, `error`, `failed`, `lost`, `rebooting`).
-- **`unit_workload_status`:** The workload's health, written by the charm through its hooks (the {ref}`workload vocabulary <workload--charm-status>`), its message and data.
-- **`unit_agent_presence`:** The agent's logins: the controller updates `last_seen` on every API connection; the status views join it in, and the display overrides read it.
-- **`unit_resolved` + `resolve_mode`:** The resolution mode recorded when a hook error is cleared (`retry-hooks`, `no-hooks`).
-- **`unit_state`, `unit_state_charm`, `unit_state_relation`:** The charm's claimed local state, committed with the hook's transaction.
+- **A unit has one row in the `unit` table.** The identity pair: the
+  `uuid` the other records point at, and the `name` the client types
+  (the application's name plus a suffix), unique per model.
+- **A unit belongs to an application** (the application pointer) and
+  **pins its own charm revision** (a separate charm pointer, left on
+  the deployed revision until the unit is refreshed).
+- **A unit has a network identity.** The shared net node pointer is
+  what "runs on" means in the data model: the unit and its machine
+  anchor to the same node.
+- **A unit has a life** (alive, dying, dead) and a password hash
+  (unique across all units, so no unit can impersonate another; NULLs
+  count as distinct, so units created without one break no
+  uniqueness).
+- **A unit has two status records**: The agent's health report
+  (`unit_agent_status`, the agent vocabulary: `allocating`,
+  `executing`, `idle`, `error`, `failed`, `lost`, `rebooting`) and the
+  workload's, written by the charm through its hooks
+  (`unit_workload_status`, the {ref}`workload vocabulary
+  <workload--charm-status>`).
+- **A subordinate unit has a co-location record.** `unit_principal`
+  holds the pair: the subordinate's pointer and its principal's, both
+  into the unit table.
+- **The unit's own satellites** the record set rounds out: the
+  workload version the unit reports (`unit_workload_version`), the
+  agent's version and architecture (`unit_agent_version`,
+  `v_unit_target_agent_version`), the Kubernetes pod a CAAS unit runs
+  in (`k8s_pod`, `k8s_pod_port`, `k8s_pod_status`), the agent's logins
+  (`unit_agent_presence`: the controller updates `last_seen` on every
+  API connection), the resolution mode recorded when a hook error is
+  cleared (`unit_resolved` + `resolve_mode`), and the charm's claimed
+  local state, committed with the hook's transaction (`unit_state`,
+  `unit_state_charm`, `unit_state_relation`).
 
 The two status satellites are the pair the status display reads. The agent's status is written by the **unit agent**; the workload's by the **workload**, the charm through its hooks. Writer gates, not transitions, are what constrain them: the agent cannot write `lost` or `allocating`, and an `error` write must carry a message. At read time, an agent with no presence row displays as `lost`, and a lost agent's workload displays as `unknown` unless the workload itself is in `error` or `terminated` (the vocabularies: {ref}`unit status <unit-status>`; the who-writes story across all five status domains: the {ref}`Status domains <status>` view).
 

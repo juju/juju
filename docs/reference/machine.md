@@ -57,23 +57,41 @@ See also: {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-mac
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Machine attributes
-:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre with its name, life, net-node pointer and teardown flags; the parent table naming its child and its host west with the net node below it; the agent status record east; the cloud instance below with its own status under it. Each line is a stored pointer, 1/m at each end; nothing dashed; every drawn pointer is mandatory; the instance id is a nullable field, empty until the cloud reports it.
-:caption: Entity relationship diagram: The machine entity schema and relational associations. Notation: each line starts at the foreign key holding the pointer; 1/m cardinality at each end; dashed would mark a row that may be absent (none here). Core tables: `machine` anchors the entity, linked to `machine_parent` for container hierarchies, `net node` for the shared network identity, `machine_cloud_instance` for provider state, and the status satellites (`machine_status`, `machine_cloud_instance_status`). Omitted for clarity: the satellite configuration rows (the manual flag, the OS base, constraints), storage attachments, and the status lookup tables.
+:alt: The machine record at the centre with its salient columns; the parent pair west; the agent status east; the net node and the cloud instance below, the instance's own status under it. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The machine's stored records. A machine is one machine row, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those rows.
 ```
 
-In the model database, a machine is a native record (`0018-machine.sql`) distributed across a decoupled table schema:
+In the model database, a machine is a native record (the DDL:
+`0018-machine.sql`, with the cloud instance in
+`0017-machine-cloud-instance.sql`), distributed across a decoupled
+table schema:
 
-- **`machine`**: Stores the core identity pair. An internal `uuid` serves as the relation join handle; a model-scoped natural key (`name`) provides the user designation (`0`, `1/lxd/0`), enforced to reject duplicates (`machine already exists`).
-- **`net_node_uuid`**: Unique pointer to the shared network identity; machines and all units running on them anchor to the same net node.
-- **`life_id`**: Tracks the shared entity lifecycle state (alive, dying, dead).
-- **`keep_instance`**: Boolean flag determining whether the cloud instance persists after machine teardown.
-- **`machine_platform`**: Optional satellite storing the OS base (`os@channel` plus architecture).
-- **`machine_manual`**: Optional satellite whose mere row presence flags the machine as manually provisioned.
-- **`machine_constraint`**: Optional pointer into the {ref}`constraint <constraint>` table.
-- **`machine_parent`**: Two pointers into the machine table establishing container host-child relationships, strictly capped at a single nesting level.
-- **`machine_cloud_instance`**: Single provider record tracking creation state, hardware specs (arch, CPU, memory, root disk, `virt_type`), and the availability zone. Born with the machine; `instance_id` empty until the cloud reports it; carries its own life pointer.
-- **`machine_status`**: Upsert table tracking the machine agent's health reports on the Juju agent (`pending`, `started`, `stopped`, `error`); `down` is never written, only read when the agent has not been seen recently.
-- **`machine_cloud_instance_status`**: Controller-written upsert table tracking the provisioning lifecycle (`pending`, `allocating`, `running`, `provisioning error`, `unknown`).
+- **A machine has one row in the `machine` table.** The identity pair:
+  the `uuid` the other records point at, and the name the client types
+  (the designation `0`, `1/lxd/0`), unique per model
+  (`machine already exists`).
+- **A machine has a network identity.** The `net_node_uuid` pointer
+  names the shared net node; machines and all units running on them
+  anchor to the same node.
+- **A machine has a life** (alive, dying, dead) and, at teardown, a
+  `keep_instance` flag saying whether the cloud instance survives it.
+- **A machine has a base** (the OS channel plus architecture) and a
+  provisioning path: the `machine_manual` satellite flags the manually
+  provisioned ones; containers carry a `container_type`.
+- **A machine may have constraints**, a pointer into the {ref}`constraint
+  <constraint>` table.
+- **A container machine has a parent.** `machine_parent` holds the two
+  pointers (the child and its host), capped at a single nesting level.
+- **A machine has one cloud instance record.** `machine_cloud_instance`
+  tracks the creation state, the hardware (arch, CPU, memory, root
+  disk, `virt_type`) and the availability zone. Born with the machine;
+  the instance id stays empty until the cloud reports it.
+- **A machine has two status records**: The agent's health report
+  (`machine_status`: `pending`, `started`, `stopped`, `error`; `down`
+  is never written, only read when the agent has not been seen
+  recently) and the controller-written provisioning lifecycle
+  (`machine_cloud_instance_status`: `pending`, `allocating`, `running`,
+  `provisioning error`, `unknown`).
 
 Writers: the machine service inserts the records (`AddMachine`, `SetMachineCloudInstance`); the removal service carries the teardown.
 

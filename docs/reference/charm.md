@@ -108,8 +108,8 @@ resolved.
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Charm attributes
-:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre with its uuid, source, reference name, revision and available flag; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The charm's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
+:alt: The charm record at the centre with its salient columns; its metadata and download bookkeeping beside it; the charm-defined relations, config schema and actions below. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The charm's stored records. A charm is one row per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those rows.
 ```
 
 The identity pair: the primary key (`charm.uuid`) is the join handle,
@@ -122,18 +122,27 @@ upload, the Charmhub store, or a cross-model import, plus the charm's
 transient name and the revision number. There is no charm-revision
 table: each revision is its own row.
 
-Every foreign key is an assertion the record holds: the charm_metadata
-row holds the charm pointer (its primary key is the pointer, one
-row per charm); the charm_download_info row likewise; the
-charm_relation, charm_config and charm_action rows hold the charm
-pointer each: the payloads one charm defines, which the
-{ref}`application <application>` instantiates ({ref}`endpoints
-<application-endpoint>` with role and scope; the
-{ref}`configuration <application-configuration>` schema: key, type,
-default; the {ref}`actions <action>`: key, description,
-parallelism). Not drawn above, all assertions the schema states: the
-charm's storage definitions, devices, containers, terms, tags and
-store categories, plus the manifest of bases the charm supports.
+The charm's contract, as assertions the record set holds:
+
+- **A charm is one row per revision** (the DDL: `0015-charm.sql`): the
+  revision triple is the natural key; the row carries the archive
+  pointer (into the controller's object store) and the **available**
+  flag.
+- **A charm has metadata** (one row per charm, the pointer its primary
+  key): the name, description and subordinate-ness from
+  `metadata.yaml`.
+- **A Charmhub charm has download provenance**: The charmhub
+  identifier and the download URL (one row per charm, the pointer its
+  primary key).
+- **A charm defines its own payloads**: The {ref}`endpoints
+  <application-endpoint>` (role and scope), the
+  {ref}`configuration <application-configuration>` schema (key, type,
+  {ref}`actions <action>` (key, description,
+  parallelism): one row each per charm, which the
+  {ref}`application <application>` instantiates. Not drawn, all
+  assertions the schema states: the storage definitions, devices,
+  containers, terms, tags and store categories, plus the manifest of
+  bases the charm supports.
 
 The record set is written in one transaction per charm: the metadata,
 the relations, the config schema, the actions, the storage, device,

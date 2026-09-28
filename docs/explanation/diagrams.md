@@ -209,8 +209,8 @@ crops).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application attributes
-:alt: The application's stored tables as an entity-relationship slice: the application record at the centre with its uuid, name, life and charm pointer; the charm record it references west; the origin channel below the charm; the status record east with the endpoint record below it; the configuration keys south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The application's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The application references the charm it deploys by UUID; its origin (track/risk/branch) and the endpoints it instantiates from the charm are separate records; the status record and the config keys hang off the application itself.
+:alt: The application record at the centre with its salient columns; the charm record it references west; the status record east; the config, origin channel and endpoint records below. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The application's stored records. An application is one application row referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the controller marker, scale, expose grants, constraints, workload version, agent credentials, the k8s service and the CMR pair (not drawn).
 ```
 
 ### reference/charm.md
@@ -234,8 +234,8 @@ crops).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Charm attributes
-:alt: The charm's stored tables as an entity-relationship slice: the charm row at the centre with its uuid, source, reference name, revision and available flag; its metadata and its download bookkeeping west; the charm-defined relations and config schema east; the actions south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The charm's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The charm row is one record per revision; its metadata and its Charmhub download bookkeeping are 1:1 satellites; the relations (the {ref}`endpoints <application-endpoint>`), the config schema and the actions are the charm-defined payloads the application instantiates.
+:alt: The charm record at the centre with its salient columns; its metadata and download bookkeeping beside it; the charm-defined relations, config schema and actions below. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The charm's stored records. A charm is one row per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the storage, device, container, term, tag and category definitions and the manifest bases (not drawn).
 ```
 
 ### reference/configuration.md
@@ -461,8 +461,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Machine attributes
-:alt: The machine's stored tables as an entity-relationship slice: the machine record at the centre with its name, life, net-node pointer and teardown flags; the parent table naming its child and its host west with the net node below it; the agent status record east; the cloud instance below with its own status under it. Each line is a stored pointer; 1/m at each end; nothing dashed -- every drawn pointer is mandatory (the instance id is a nullable field: empty until the cloud reports it).
-:caption: Entity relationship diagram: The machine's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The machine shares its net node with the units running on it; the parent record is two pointers into the same table (the single nesting level a container may have); the two status records -- the agent's and the instance's -- hang off the machine and the instance. The base (os@channel + architecture), the manual satellite row, the placement, constraints, storage attachments, agent version, SSH host keys and LXD profiles are per-machine records the slice does not open; the lookup tables behind the status vocabularies are not drawn.
+:alt: The machine record at the centre with its salient columns; the parent pair west; the agent status east; the net node and the cloud instance below, the instance's own status under it. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The machine's stored records. A machine is one machine row, its cloud instance record, its two status records, its parent record (containers only), and the net node it shares with its units; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the base, the manual satellite, placement, constraints, storage attachments, agent version, SSH host keys and LXD profiles (not drawn).
 ```
 
 #### Machine agent status (state machine)
@@ -729,8 +729,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Unit attributes
-:alt: The unit's stored tables as an entity-relationship slice: the unit record at the centre with its uuid, name, life, application pointer, net-node pointer and pinned charm revision; the application record it joins west with the shared net node below it; the agent and workload status records east; the subordinate co-location pair south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the password hash, drawn nullable, is a field, not a pointer).
-:caption: Entity relationship diagram: The unit's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The unit belongs to its application and shares its machine's net node (that shared identity is what "runs on" means in the data model); the subordinate pair is a record of two unit pointers; the two status records -- the agent's and the workload's -- hang off the unit.
+:alt: The unit record at the centre with its salient columns; the application record it joins west; the agent and workload status records east; the shared net node and the subordinate pair below. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The unit's stored records. A unit is one unit row belonging to its application, sharing its machine's net node, carrying its two status records and, for subordinates, the co-location pair; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the workload and agent versions, the k8s pod records, presence, the resolved mode and the charm state tables (not drawn).
 ```
 
 #### Unit removal

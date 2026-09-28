@@ -680,61 +680,23 @@ model "Juju" {
     // machine_manual flag. machine_platform keeps its node — the base
     // (os@channel + architecture) is a doc-facing record.
     // -----------------------------------------------------------------------
-    ma_machine        [type: record, label: "machine", ground: "model:machine"] {
-      fields {
-        uuid          [label: "uuid",            type: "uuid", pk: true]
-        name          [label: "name (the designation)", type: "text"]
-        life_id       [label: "life (alive | dying | dead)", type: "int"]
-        net_node_uuid [label: "net_node_uuid",   type: "uuid", fk: true]
-        container_type [label: "container_type (none | lxd)", type: "int"]
-        manual        [label: "manual?",         type: "bool"]
-        os_channel   [label: "base (os@channel)", type: "text"]
-        architecture [label: "architecture", type: "text"]
-        agent_started_at [label: "agent_started_at", type: "time", null: true]
-        hostname      [label: "hostname",        type: "text", null: true]
-        keep_instance [label: "keep_instance",   type: "bool", null: true]
-      }
-    }
-    ma_instance       [type: record, label: "machine_cloud_instance", ground: "model:machine_cloud_instance"] {
-      // The instance record tracks the instance-creation process:
-      // instance_id stays empty until the cloud provider has created
-      // the instance (0017 DDL comment). DECLARED FLATTENING: the
-      // availability zone lookup (availability_zone_uuid ->
-      // availability_zone) — a value object, kept as a field.
-      fields {
-        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
-        life_id      [label: "life (alive | dying | dead)", type: "int"]
-        instance_id  [label: "instance_id", type: "text", null: true]
-        arch         [label: "arch", type: "text", null: true]
-        availability_zone_uuid [label: "availability zone", type: "uuid", null: true]
-        cpu_cores    [label: "cpu_cores", type: "int", null: true]
-        mem          [label: "mem", type: "int", null: true]
-        root_disk    [label: "root_disk", type: "int", null: true]
-        virt_type    [label: "virt_type", type: "text", null: true]
-      }
-    }
-    ma_parent         [type: record, label: "machine_parent", ground: "model:machine_parent"] {
-      fields {
-        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
-        parent_uuid  [label: "parent_uuid", type: "uuid", fk: true]
-      }
-    }
-    ma_status         [type: record, label: "machine_status", ground: "model:machine_status"] {
-      fields {
-        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
-        status       [label: "status", type: "text"]
-        message      [label: "message", type: "text", null: true]
-        updated_at   [label: "updated_at", type: "time", null: true]
-      }
-    }
-    ma_instance_status [type: record, label: "machine_cloud_instance_status", ground: "model:machine_cloud_instance_status"] {
-      fields {
-        machine_uuid [label: "machine_uuid", type: "uuid", pk: true, fk: true]
-        status       [label: "status", type: "text"]
-        message      [label: "message", type: "text", null: true]
-        updated_at   [label: "updated_at", type: "time", null: true]
-      }
-    }
+    // Collapsed chip (round 10): salient columns only. DROPPED from
+    // the label by the relevance call: agent_started_at, hostname,
+    // keep_instance (internal bookkeeping). The base and the
+    // container/manual markers are the flattened lookups the old
+    // fields block carried as columns.
+    ma_machine        [type: record, label: "machine\n(name, life, net node,\nbase, container, manual)",
+                       ground: "model:machine"]
+    ma_instance       [type: record, label: "cloud instance\n(instance id, hardware,\nzone)",
+                       ground: "model:machine_cloud_instance"]
+    ma_parent         [type: record, label: "machine parent\n(child, host)",
+                       ground: "model:machine_parent"]
+    // The status satellites: `updated_at` DROPPED from the label by
+    // the relevance call (the reviewer's own example).
+    ma_status         [type: record, label: "machine status\n(status, message)",
+                       ground: "model:machine_status"]
+    ma_instance_status [type: record, label: "instance status\n(status, message)",
+                        ground: "model:machine_cloud_instance_status"]
 
     // -----------------------------------------------------------------------
     // Application attributes (ADR-011 §3, docs/reference/application.md):
@@ -749,52 +711,20 @@ model "Juju" {
     // remote-offerer pair, application_setting (a single trust
     // boolean), application_workload_version, application_agent.
     // -----------------------------------------------------------------------
-    app_charm   [type: record, label: "charm", ground: "model:charm"] {
-      fields {
-        uuid     [label: "uuid", type: "uuid", pk: true]
-        url_name [label: "url (reconstructed fields)", type: "text"]
-        revision [label: "revision", type: "int"]
-      }
-    }
-    app_rec     [type: record, label: "application", ground: "model:application"] {
-      fields {
-        uuid          [label: "uuid", type: "uuid", pk: true]
-        name          [label: "name (unique)", type: "text"]
-        life_id       [label: "life (alive | dying | dead)", type: "int"]
-        charm_uuid    [label: "charm_uuid", type: "uuid", fk: true]
-        charm_modified_version [label: "charm_modified_version", type: "int"]
-        space_uuid    [label: "default binding space", type: "uuid"]
-      }
-    }
-    app_status_rec [type: record, label: "application_status", ground: "model:application_status"] {
-      fields {
-        application_uuid [label: "application_uuid", type: "uuid", pk: true, fk: true]
-        status           [label: "status", type: "text"]
-        message          [label: "message", type: "text", null: true]
-        updated_at       [label: "updated_at", type: "time", null: true]
-      }
-    }
-    app_config  [type: record, label: "application_config", ground: "model:application_config"] {
-      fields {
-        application_uuid [label: "application_uuid", type: "uuid", fk: true]
-        key              [label: "key", type: "text", pk: true]
-        value            [label: "value", type: "text", null: true]
-      }
-    }
-    app_channel [type: record, label: "application_channel", ground: "model:application_channel"] {
-      fields {
-        application_uuid [label: "application_uuid", type: "uuid", pk: true, fk: true]
-        track            [label: "track", type: "text", null: true]
-        risk             [label: "risk", type: "text"]
-        branch           [label: "branch", type: "text", null: true]
-      }
-    }
-    app_endpoint [type: record, label: "application_endpoint", ground: "model:application_endpoint"] {
-      fields {
-        application_uuid  [label: "application_uuid", type: "uuid", fk: true]
-        charm_relation_uuid [label: "charm_relation_uuid (charm endpoint)", type: "uuid"]
-      }
-    }
+    app_charm   [type: record, label: "charm\n(source, revision)",
+                 ground: "model:charm"]
+    // Collapsed chip (round 10): charm_modified_version DROPPED from
+    // the label by the relevance call (revision bookkeeping).
+    app_rec     [type: record, label: "application\n(name, life, charm ref,\ndefault space)",
+                 ground: "model:application"]
+    app_status_rec [type: record, label: "application status\n(status, message)",
+                    ground: "model:application_status"]
+    app_config  [type: record, label: "application config\n(key, value)",
+                 ground: "model:application_config"]
+    app_channel [type: record, label: "application channel\n(track, risk, branch)",
+                 ground: "model:application_channel"]
+    app_endpoint [type: record, label: "application endpoint\n(charm endpoint)",
+                  ground: "model:application_endpoint"]
 
     // -----------------------------------------------------------------------
     // Unit attributes (ADR-011 §3, docs/reference/unit.md): the stored
@@ -807,39 +737,18 @@ model "Juju" {
     // claimed state), unit_resolved, presence, workload versions,
     // the password hash.
     // -----------------------------------------------------------------------
-    un_unit     [type: record, label: "unit", ground: "model:unit"] {
-      fields {
-        uuid          [label: "uuid", type: "uuid", pk: true]
-        name          [label: "name (application/N)", type: "text"]
-        life_id       [label: "life (alive | dying | dead)", type: "int"]
-        application_uuid [label: "application_uuid", type: "uuid", fk: true]
-        net_node_uuid [label: "net_node_uuid", type: "uuid", fk: true]
-        charm_uuid    [label: "charm_uuid (the pinned revision)", type: "uuid"]
-        password_hash [label: "password_hash", type: "text", null: true]
-      }
-    }
-    un_principal [type: record, label: "unit_principal", ground: "model:unit_principal"] {
-      fields {
-        unit_uuid      [label: "unit_uuid (the subordinate)", type: "uuid", pk: true, fk: true]
-        principal_uuid [label: "principal_uuid", type: "uuid", fk: true]
-      }
-    }
-    un_agent_status [type: record, label: "unit_agent_status", ground: "model:unit_agent_status"] {
-      fields {
-        unit_uuid  [label: "unit_uuid", type: "uuid", pk: true, fk: true]
-        status     [label: "status", type: "text"]
-        message    [label: "message", type: "text", null: true]
-        updated_at [label: "updated_at", type: "time", null: true]
-      }
-    }
-    un_workload_status [type: record, label: "unit_workload_status", ground: "model:unit_workload_status"] {
-      fields {
-        unit_uuid  [label: "unit_uuid", type: "uuid", pk: true, fk: true]
-        status     [label: "status", type: "text"]
-        message    [label: "message", type: "text", null: true]
-        updated_at [label: "updated_at", type: "time", null: true]
-      }
-    }
+    // Collapsed chip (round 10): password_hash DROPPED from the label
+    // by the relevance call (the credential the agents hold).
+    un_unit     [type: record, label: "unit\n(name, life, application,\nnet node, charm rev)",
+                 ground: "model:unit"]
+    un_principal [type: record, label: "unit principal\n(subordinate, principal)",
+                  ground: "model:unit_principal"]
+    // The status satellites: `updated_at` DROPPED from the labels by
+    // the relevance call.
+    un_agent_status [type: record, label: "agent status\n(status, message)",
+                     ground: "model:unit_agent_status"]
+    un_workload_status [type: record, label: "workload status\n(status, message)",
+                        ground: "model:unit_workload_status"]
 
     // -----------------------------------------------------------------------
     // Charm attributes (ADR-011 §3, docs/reference/charm.md): the
@@ -851,58 +760,21 @@ model "Juju" {
     // payloads, not drawn here. Not drawn: charm_provenance, the
     // extra-binding and extra-endpoint records.
     // -----------------------------------------------------------------------
-    ch_rec     [type: record, label: "charm", ground: "model:charm"] {
-      fields {
-        uuid          [label: "uuid", type: "uuid", pk: true]
-        reference_name [label: "reference name", type: "text"]
-        revision      [label: "revision", type: "int"]
-        source        [label: "source (local | charmhub | cmr)", type: "int"]
-        available     [label: "available?", type: "bool"]
-        archive_path  [label: "archive_path", type: "text", null: true]
-      }
-    }
-    ch_metadata [type: record, label: "charm_metadata", ground: "model:charm_metadata"] {
-      fields {
-        charm_uuid [label: "charm_uuid", type: "uuid", pk: true, fk: true]
-        name       [label: "name", type: "text"]
-        description [label: "description", type: "text", null: true]
-        subordinate [label: "subordinate?", type: "bool"]
-        min_juju_version [label: "min_juju_version", type: "text", null: true]
-      }
-    }
-    ch_download [type: record, label: "charm_download_info", ground: "model:charm_download_info"] {
-      fields {
-        charm_uuid [label: "charm_uuid", type: "uuid", pk: true, fk: true]
-        charmhub_identifier [label: "charmhub_identifier", type: "text", null: true]
-        download_url [label: "download_url", type: "text", null: true]
-        download_size [label: "download_size", type: "int", null: true]
-      }
-    }
-    ch_relation [type: record, label: "charm_relation", ground: "model:charm_relation"] {
-      fields {
-        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
-        name       [label: "name", type: "text", pk: true]
-        role       [label: "role (provides | requires | peers)", type: "int"]
-        scope      [label: "scope (global | container)", type: "int"]
-        interface  [label: "interface", type: "text"]
-      }
-    }
-    ch_config  [type: record, label: "charm_config", ground: "model:charm_config"] {
-      fields {
-        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
-        key        [label: "key", type: "text", pk: true]
-        type       [label: "type (string | int | float | boolean | secret)", type: "int"]
-        default_value [label: "default_value", type: "text", null: true]
-      }
-    }
-    ch_action  [type: record, label: "charm_action", ground: "model:charm_action"] {
-      fields {
-        charm_uuid [label: "charm_uuid", type: "uuid", fk: true]
-        key        [label: "key", type: "text", pk: true]
-        description [label: "description", type: "text", null: true]
-        parallel   [label: "parallel?", type: "bool", null: true]
-      }
-    }
+    // Collapsed chips (round 10): charmhub identifier download size
+    // DROPPED from the download label by the relevance call (store
+    // bookkeeping).
+    ch_rec     [type: record, label: "charm\n(source, revision,\narchive)",
+                ground: "model:charm"]
+    ch_metadata [type: record, label: "charm metadata\n(name, description,\nsubordinate)",
+                 ground: "model:charm_metadata"]
+    ch_download [type: record, label: "charm download info\n(charmhub id, url)",
+                 ground: "model:charm_download_info"]
+    ch_relation [type: record, label: "charm relation\n(name, role, scope,\ninterface)",
+                 ground: "model:charm_relation"]
+    ch_config  [type: record, label: "charm config\n(key, type, default)",
+                ground: "model:charm_config"]
+    ch_action  [type: record, label: "charm action\n(key, description,\nparallel?)",
+                ground: "model:charm_action"]
 
     // -----------------------------------------------------------------------
     // Secret attributes (ADR-011 §3, docs/reference/secret.md): the
@@ -1441,40 +1313,62 @@ model "Juju" {
     ra_status.relation_status_type_id -> ra_status_type.id        [type: data, label: "typed as (one)"]
 
     // Machine attributes (ADR-011 §3): the stored pointers, one data
-    // edge per fk column. Both machine_parent columns point at the
-    // machine table (self-referential containment).
-    ma_machine.net_node_uuid       -> net_node_rec                [type: data, label: "networked as (one)"]
-    ma_instance.machine_uuid       -> ma_machine.uuid             [type: data, label: "belongs to (one)"]
-    ma_parent.machine_uuid         -> ma_machine.uuid             [type: data, label: "child (one)"]
-    ma_parent.parent_uuid          -> ma_machine.uuid             [type: data, label: "host (one)"]
-    ma_status.machine_uuid         -> ma_machine.uuid             [type: data, label: "reports (one)"]
-    ma_instance_status.machine_uuid -> ma_instance.machine_uuid [type: data, label: "reports (one)"]
+    // edge per FK, each grounded on its FK column. Both machine_parent
+    // columns point at the machine table (self-referential containment).
+    ma_machine        -> net_node_rec [type: data, label: "networked as (one)",
+                                       ground: "model:machine.net_node_uuid"]
+    ma_instance       -> ma_machine   [type: data, label: "belongs to (one)",
+                                       ground: "model:machine_cloud_instance.machine_uuid"]
+    ma_parent         -> ma_machine   [type: data, label: "child (one)",
+                                       ground: "model:machine_parent.machine_uuid"]
+    ma_parent         -> ma_machine   [type: data, label: "host (one)",
+                                       ground: "model:machine_parent.parent_uuid"]
+    ma_status         -> ma_machine   [type: data, label: "reports (one)",
+                                       ground: "model:machine_status.machine_uuid"]
+    ma_instance_status -> ma_instance [type: data, label: "reports (one)",
+                                       ground: "model:machine_cloud_instance_status.machine_uuid"]
 
     // Application attributes (ADR-011 §3): the stored pointers, one
-    // data edge per fk column.
-    app_rec.charm_uuid             -> app_charm.uuid              [type: data, label: "uses (one)"]
-    app_status_rec.application_uuid    -> app_rec.uuid                [type: data, label: "reports (one)"]
-    app_config.application_uuid    -> app_rec.uuid                [type: data, label: "configures (0..N keys)"]
-    app_channel.application_uuid   -> app_rec.uuid                [type: data, label: "pins origin (one)"]
-    app_endpoint.application_uuid  -> app_rec.uuid                [type: data, label: "exposes endpoint (0..N)"]
+    // data edge per FK, each grounded on its FK column.
+    app_rec           -> app_charm     [type: data, label: "uses (one)",
+                                        ground: "model:application.charm_uuid"]
+    app_status_rec    -> app_rec       [type: data, label: "reports (one)",
+                                        ground: "model:application_status.application_uuid"]
+    app_config        -> app_rec       [type: data, label: "configures (0..N keys)",
+                                        ground: "model:application_config.application_uuid"]
+    app_channel       -> app_rec       [type: data, label: "pins origin (one)",
+                                        ground: "model:application_channel.application_uuid"]
+    app_endpoint      -> app_rec       [type: data, label: "exposes endpoint (0..N)",
+                                        ground: "model:application_endpoint.application_uuid"]
 
     // Unit attributes (ADR-011 §3): the stored pointers, one data edge
-    // per fk column. Both unit_principal columns point at the unit
-    // table (the subordinate co-location pair).
-    un_unit.application_uuid       -> app_rec.uuid                [type: data, label: "belongs to (one)"]
-    un_unit.net_node_uuid          -> net_node_rec                [type: data, label: "networked as (one)"]
-    un_principal.unit_uuid         -> un_unit.uuid                [type: data, label: "subordinate (one)"]
-    un_principal.principal_uuid    -> un_unit.uuid                [type: data, label: "principal (one)"]
-    un_agent_status.unit_uuid      -> un_unit.uuid                [type: data, label: "agent reports (one)"]
-    un_workload_status.unit_uuid   -> un_unit.uuid                [type: data, label: "workload reports (one)"]
+    // per FK, each grounded on its FK column. Both unit_principal
+    // columns point at the unit table (the subordinate co-location pair).
+    un_unit           -> app_rec       [type: data, label: "belongs to (one)",
+                                        ground: "model:unit.application_uuid"]
+    un_unit           -> net_node_rec  [type: data, label: "networked as (one)",
+                                        ground: "model:unit.net_node_uuid"]
+    un_principal      -> un_unit       [type: data, label: "subordinate (one)",
+                                        ground: "model:unit_principal.unit_uuid"]
+    un_principal      -> un_unit       [type: data, label: "principal (one)",
+                                        ground: "model:unit_principal.principal_uuid"]
+    un_agent_status   -> un_unit       [type: data, label: "agent reports (one)",
+                                        ground: "model:unit_agent_status.unit_uuid"]
+    un_workload_status -> un_unit      [type: data, label: "workload reports (one)",
+                                        ground: "model:unit_workload_status.unit_uuid"]
 
     // Charm attributes (ADR-011 §3): the stored pointers, one data
-    // edge per fk column.
-    ch_metadata.charm_uuid         -> ch_rec.uuid                 [type: data, label: "describes (one)"]
-    ch_download.charm_uuid         -> ch_rec.uuid                 [type: data, label: "downloaded via (one)"]
-    ch_relation.charm_uuid         -> ch_rec.uuid                 [type: data, label: "defines (0..N)"]
-    ch_config.charm_uuid           -> ch_rec.uuid                 [type: data, label: "configures (0..N keys)"]
-    ch_action.charm_uuid           -> ch_rec.uuid                 [type: data, label: "exposes (0..N)"]
+    // edge per FK, each grounded on its FK column.
+    ch_metadata       -> ch_rec        [type: data, label: "describes (one)",
+                                        ground: "model:charm_metadata.charm_uuid"]
+    ch_download       -> ch_rec        [type: data, label: "downloaded via (one)",
+                                        ground: "model:charm_download_info.charm_uuid"]
+    ch_relation       -> ch_rec        [type: data, label: "defines (0..N)",
+                                        ground: "model:charm_relation.charm_uuid"]
+    ch_config         -> ch_rec        [type: data, label: "configures (0..N keys)",
+                                        ground: "model:charm_config.charm_uuid"]
+    ch_action         -> ch_rec        [type: data, label: "exposes (0..N)",
+                                        ground: "model:charm_action.charm_uuid"]
 
     // Secret attributes (ADR-011 §3): the stored pointers, one data
     // edge per fk column.
@@ -2670,127 +2564,122 @@ diagram "Agent taxonomy" from "Juju" {
 // 0018-machine.sql + 0017-machine-cloud-instance.sql; net_node shared
 // with units (unit.net_node_uuid = machine.net_node_uuid).
 // --------------------------------------------------------------------------
+// --------------------------------------------------------------------------
+// Reference: machine attributes (docs/reference/machine.md, ADR-011 §3)
+// — the machine's stored records as collapsed record chips (round 10
+// form, per the Charm-origins law): the machine chip centred, the
+// parent pair west, the agent status east, the net node and the cloud
+// instance fanned below (the instance's own status under it). Edges
+// stay grounded on the FK columns; labels are the salient columns.
+// --------------------------------------------------------------------------
 diagram "Machine attributes" from "Juju" {
   select {
     nodes: ma_machine ma_instance ma_parent ma_status
            ma_instance_status net_node_rec
     edges: type data
+    sizing: uniform
   }
   positions {
-    // West chain: parent adjacent to machine (its two edges take the
-    // west face); the net-node identity hangs BELOW the parent, so
-    // machine's edge to it drops under the parent instead of through.
-    ma_parent          left-of ma_machine gap: 110
+    // Charm-origins form: the focal machine centred, satellites fanned.
+    ma_parent          left-of ma_machine gap: 30
     ma_parent          align-middle ma_machine
-    net_node_rec       below ma_parent gap: 60
-    net_node_rec       align-centre ma_parent
-    // East chain: status adjacent (east face); the base hangs below
-    // the status, so machine's edge to it drops under the status.
-    ma_status          right-of ma_machine gap: 90
+    ma_status          right-of ma_machine gap: 30
     ma_status          align-middle ma_machine
-    // South chain: the instance under the machine; its own status
-    // under it; the availability zone beside the instance.
-    ma_instance        below ma_machine gap: 100
-    ma_instance        align-centre ma_machine
-    ma_instance_status below ma_instance gap: 100
+    fan [net_node_rec ma_instance] below ma_machine gap: 24
+    ma_instance_status below ma_instance gap: 24
     ma_instance_status align-centre ma_instance
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
 // --------------------------------------------------------------------------
 // Reference: application attributes (docs/reference/application.md,
-// ADR-011 §3) — the application's stored records and every foreign key
-// between them: the application row at the centre; the charm it
-// references west; the status record east; config, origin channel and
-// the charm's endpoints south.
+// ADR-011 §3) — the application's stored records as collapsed record
+// chips (round 10 form, per the Charm-origins law): the application
+// chip centred, the charm it references west, the status record east,
+// the origin channel and the endpoints fanned south; config under the
+// application. Edges stay grounded on the FK columns.
 // --------------------------------------------------------------------------
 diagram "Application attributes" from "Juju" {
   select {
     nodes: app_rec app_charm app_status_rec app_config app_channel app_endpoint
     edges: type data
+    sizing: uniform
   }
   positions {
-    app_charm    left-of app_rec gap: 110
+    // Charm-origins form: the focal application centred, satellites
+    // fanned.
+    app_charm    left-of app_rec gap: 30
     app_charm    align-middle app_rec
-    app_channel  below app_charm gap: 60
-    app_channel  align-centre app_charm
-    app_status_rec right-of app_rec gap: 90
+    app_status_rec right-of app_rec gap: 30
     app_status_rec align-middle app_rec
-    app_endpoint below app_status_rec gap: 60
-    app_endpoint align-centre app_status_rec
-    app_config   below app_rec gap: 100
-    app_config   align-centre app_rec
+    fan [app_config app_channel app_endpoint] below app_rec gap: 24
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
 // --------------------------------------------------------------------------
 // Reference: unit attributes (docs/reference/unit.md, ADR-011 §3) —
-// the unit's stored records: the unit row at the centre; the
-// application it belongs to west; the shared net node under it (the
-// unit and its machine share that network identity); the subordinate
-// co-location pair south; the two status records east.
+// the unit's stored records as collapsed record chips (round 10 form,
+// per the Charm-origins law): the unit chip centred, the application
+// it belongs to west, the two status records east, the shared net node
+// and the subordinate pair fanned below. Edges stay grounded on the
+// FK columns.
 // --------------------------------------------------------------------------
 diagram "Unit attributes" from "Juju" {
   select {
     nodes: un_unit app_rec net_node_rec un_principal un_agent_status un_workload_status
     edges: type data
+    sizing: uniform
   }
   positions {
-    app_rec            left-of un_unit gap: 110
+    // Charm-origins form: the focal unit centred, satellites fanned.
+    app_rec            left-of un_unit gap: 30
     app_rec            align-middle un_unit
-    net_node_rec       below app_rec gap: 60
-    net_node_rec       align-centre app_rec
-    un_agent_status    right-of un_unit gap: 90
+    un_agent_status    right-of un_unit gap: 30
     un_agent_status    align-middle un_unit
-    un_workload_status below un_agent_status gap: 100
-    un_workload_status align-centre un_agent_status
-    un_principal       below un_unit gap: 100
-    un_principal       align-centre un_unit
+    fan [net_node_rec un_principal un_workload_status] below un_unit gap: 24
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
 // --------------------------------------------------------------------------
 // Reference: charm attributes (docs/reference/charm.md, ADR-011 §3) —
-// the charm's stored records: the charm row at the centre (one row per
-// revision); its metadata and its download bookkeeping west; the
-// charm-defined relations and config schema east; the actions south.
+// the charm's stored records as collapsed record chips (round 10 form,
+// per the Charm-origins law; one row per revision): the charm chip
+// centred, the charm-defined payloads fanned south, metadata and
+// download bookkeeping above. Edges stay grounded on the FK columns.
 // --------------------------------------------------------------------------
 diagram "Charm attributes" from "Juju" {
   select {
     nodes: ch_rec ch_metadata ch_download ch_relation ch_config ch_action
     edges: type data
+    sizing: uniform
   }
   positions {
-    ch_metadata left-of ch_rec gap: 110
+    // Charm-origins form: the focal charm centred, satellites fanned.
+    ch_metadata left-of ch_rec gap: 30
     ch_metadata align-middle ch_rec
-    ch_download below ch_metadata gap: 60
-    ch_download align-centre ch_metadata
-    ch_relation right-of ch_rec gap: 90
-    ch_relation align-middle ch_rec
-    ch_config below ch_relation gap: 60
-    ch_config align-centre ch_relation
-    ch_action below ch_rec gap: 100
-    ch_action align-centre ch_rec
+    ch_download right-of ch_rec gap: 30
+    ch_download align-middle ch_rec
+    fan [ch_relation ch_config ch_action] below ch_rec gap: 24
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 

@@ -47,60 +47,58 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application attributes
-:alt: The application's stored tables as an entity-relationship slice: the application record at the centre with its uuid, name, life and charm pointer; the charm record it references west; the origin channel below the charm; the status record east with the endpoint record below it; the configuration keys south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory.
-:caption: Entity relationship diagram: The application's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The application references the charm it deploys by UUID; its origin (track/risk/branch) and the endpoints it instantiates from the charm are separate records; the status record and the config keys hang off the application itself.
+:alt: The application record at the centre with its salient columns; the charm record it references west; the status record east; the config, origin channel and endpoint records below. Each line is a stored pointer; 1/m at each end.
+:caption: Entity relationship diagram: The application's stored records. An application is one application row referencing the charm it deploys, its origin channel, the endpoints it instantiates from the charm, its config keys and its status record; every line is a foreign key in one of those rows.
 ```
 
 In the model database an application is a **native record** (the DDL:
 `0019-application.sql`, with the endpoint row in `0024-relation.sql`),
-created by the deployment machinery, one row per application per model:
+created by the deployment machinery, one row per application per model.
+The drawn slice is the record set every application carries; the
+entity's remaining records are the satellites of its specific roles:
 
-- **`application`:** The row itself: the name, the life, the {ref}`charm
-  <charm>` it deploys (stored as the charm's UUID, a mutable pointer a
-  refresh rewrites; the URL is reconstructed from the charm's own
-  fields), the counter that bumps each time that pointer is rewritten
-  (`charm_modified_version`), and the {ref}`space <space>` its endpoints
-  bind to by default.
-- **`application_controller`:** The controller marker: a dedicated
-  singleton table holding one row for the one controller application,
-  enforced by a constant-index unique constraint.
-- **`application_channel`, `application_platform`:** The origin the
-  application tracks (track/risk/branch) and the platform it deployed
-  onto (OS, channel, architecture); `v_application_origin` and
+- **An application has one row in the `application` table.** The
+  identity pair: the `uuid` the other records point at, and the `name`
+  the client types, unique per model.
+- **An application has a life** (alive, dying, dead) and **references
+  the {ref}`charm <charm>` it deploys** (stored as the charm's UUID, a
+  mutable pointer a refresh rewrites; the URL is reconstructed from
+  the charm's own fields).
+- **An application has a default {ref}`space <space>`** its endpoints
+  bind to.
+- **An application has an origin**: The channel it tracks
+  (track/risk/branch) and the platform it deployed onto (OS, channel,
+  architecture; `v_application_origin` and
   `v_application_platform_channel` join the charm's reference name,
   source, revision and hash, and the platform, into the origin the
-  clients read.
-- **`application_endpoint`:** The charm's {ref}`endpoint
-  <application-endpoint>` definitions instantiated for this
-  application.
-- **`application_config`, `application_config_hash`,
-  `application_setting`:** The configuration keys the client sets (one
-  row per key, its type mirrored from the charm schema), the SHA-256
-  hash the config watchers fire on, and the one-boolean trust record.
-- **`application_scale`:** The Kubernetes scale record: the current
-  scale, the target, the scaling flag.
-- **`application_exposed_endpoint_space`,
-  `application_exposed_endpoint_cidr`:** The expose grants per endpoint
-  (a NULL endpoint is the wildcard), resolved by
-  `v_application_exposed_endpoint`.
-- **`application_status`:** The application-level status summary.
-- **`application_constraint`, `device_constraint`,
-  `device_constraint_attribute`:** The compute the application's units
-  request, joined onto the {ref}`constraint <constraint>` record by
-  `v_application_constraint`, and the device requests (with their
-  attribute rows) some charms make.
-- **`application_workload_version`:** The workload version the
-  application reports.
-- **`application_agent`:** The application agent's credentials: the
-  password hash and its algorithm.
-- **`k8s_service`:** The Kubernetes service a CAAS deployment exposes:
-  its provider ID, bound to the net node record the machine and its
-  units anchor to.
-- **The remote-offerer pair:** An application record the consuming
-  model synthesises to stand for an application it cannot see, paired
-  with a remote-offerer record carrying the far model's identity and
-  the offer URL; nothing is deployed behind it (see {ref}`offer
-  <offer>`).
+  clients read).
+- **An application has the endpoints** of the charm's {ref}`endpoint
+  <application-endpoint>` definitions instantiated for it.
+- **An application has configs**: The keys the client sets (one row
+  per key, its type mirrored from the charm schema), the SHA-256 hash
+  the config watchers fire on, and the one-boolean trust record
+  (`application_config`, `application_config_hash`,
+  `application_setting`).
+- **An application has a status record**: The application-level
+  summary (`application_status`).
+
+The role satellites the record set rounds out: the controller marker
+(`application_controller`, the one-row table for the one controller
+application), the Kubernetes scale record (`application_scale`), the
+expose grants per endpoint (`application_exposed_endpoint_space`,
+`application_exposed_endpoint_cidr`, resolved by
+`v_application_exposed_endpoint`), the compute the units request
+(`application_constraint`, `device_constraint`,
+`device_constraint_attribute`, joined onto the {ref}`constraint
+<constraint>` record by `v_application_constraint`), the workload
+version the application reports (`application_workload_version`), the
+application agent's credentials (`application_agent`), the Kubernetes
+service a CAAS deployment exposes (`k8s_service`, bound to the net node
+record), and the remote-offerer pair: an application record the
+consuming model synthesises to stand for an application it cannot see,
+paired with a remote-offerer record carrying the far model's identity
+and the offer URL; nothing is deployed behind it (see {ref}`offer
+<offer>`).
 
 The identity pair: the primary key (`application.uuid`) is the join
 handle; the natural key the client names is `application.name`, unique
