@@ -76,6 +76,57 @@ func (s *OpsSuite) TestEnsureTrust(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *OpsSuite) TestUpdateStateMissingServiceClearsAddresses(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	app := caasmocks.NewMockApplication(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	appUUID := tc.Must0(c, application.NewUUID)
+	app.EXPECT().Service().Return(nil, caas.ServiceNotFound)
+	applicationService.EXPECT().ClearK8sServiceAddresses(gomock.Any(), appUUID).Return(nil)
+	applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appUUID).Return(nil, nil)
+	app.EXPECT().Units().Return(nil, nil)
+	_, err := caasapplicationprovisioner.AppOps.UpdateState(c.Context(), "controller", appUUID, app, nil,
+		nil, applicationService, nil, testclock.NewClock(time.Time{}), s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestUpdateStateServiceReadFailurePreservesAddresses(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	app := caasmocks.NewMockApplication(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	expectedErr := errors.New("provider unavailable")
+	app.EXPECT().Service().Return(nil, expectedErr)
+	_, err := caasapplicationprovisioner.AppOps.UpdateState(c.Context(), "controller", tc.Must0(c, application.NewUUID), app, nil,
+		nil, applicationService, nil, testclock.NewClock(time.Time{}), s.logger)
+	c.Assert(err, tc.ErrorIs, expectedErr)
+}
+
+func (s *OpsSuite) TestUpdateStateMissingWorkloadPreservesServiceAddresses(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	app := caasmocks.NewMockApplication(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	appUUID := tc.Must0(c, application.NewUUID)
+	app.EXPECT().Service().Return(nil, errors.NotFoundf("statefulset"))
+	applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appUUID).Return(nil, nil)
+	app.EXPECT().Units().Return(nil, nil)
+	_, err := caasapplicationprovisioner.AppOps.UpdateState(c.Context(), "controller", appUUID, app, nil,
+		nil, applicationService, nil, testclock.NewClock(time.Time{}), s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestUpdateStateClearServiceAddressesFailure(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	app := caasmocks.NewMockApplication(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	appUUID := tc.Must0(c, application.NewUUID)
+	expectedErr := errors.New("state unavailable")
+	app.EXPECT().Service().Return(nil, caas.ServiceNotFound)
+	applicationService.EXPECT().ClearK8sServiceAddresses(gomock.Any(), appUUID).Return(expectedErr)
+	_, err := caasapplicationprovisioner.AppOps.UpdateState(c.Context(), "controller", appUUID, app, nil,
+		nil, applicationService, nil, testclock.NewClock(time.Time{}), s.logger)
+	c.Assert(err, tc.ErrorIs, expectedErr)
+}
+
 func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

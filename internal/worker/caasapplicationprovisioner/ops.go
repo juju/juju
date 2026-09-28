@@ -459,7 +459,11 @@ func updateState(
 	clk clock.Clock,
 ) (UpdateStatusState, error) {
 	svc, err := app.Service()
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if errors.Is(err, caas.ServiceNotFound) {
+		if err := applicationService.ClearK8sServiceAddresses(ctx, appUUID); err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if svc != nil {
