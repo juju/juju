@@ -31,13 +31,15 @@ type ResourceService interface {
 	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
 	// UpdateResourceRevision adds a new entry for the revision in the resource
-	// table with the desired parameters and sets it on the application. Any
-	// previous resource blob is removed. The new resource UUID is returned.
+	// table with the desired parameters and sets it on the application. The old
+	// immutable resource and its blob are retained. The new resource UUID is
+	// returned.
 	UpdateResourceRevision(ctx context.Context, args resource.UpdateResourceRevisionArgs) (coreresource.UUID, error)
 
 	// UpdateUploadResource adds a new entry for an uploaded blob in the resource
-	// table with the desired parameters and sets it on the application. Any
-	// previous resource blob is removed. The new resource UUID is returned.
+	// table with the desired parameters and sets it on the application. The old
+	// immutable resource and its blob are retained. The new resource UUID is
+	// returned.
 	UpdateUploadResource(ctx context.Context, resourceToUpdate coreresource.UUID) (coreresource.UUID, error)
 }
 

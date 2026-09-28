@@ -1608,6 +1608,12 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
+		if err := st.replaceApplicationResourcesForCharm(
+			ctx, tx, appID.String(), chID.String(), params.ReplacementResourceUUIDs,
+		); err != nil {
+			return errors.Errorf("replacing application resources: %w", err)
+		}
+
 		if err := tx.Query(ctx, setAppCharmStmt, appAndCharmPair).Run(); err != nil {
 			return errors.Errorf("setting application charm: %w", err)
 		}

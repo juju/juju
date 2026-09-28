@@ -56,6 +56,13 @@ type SetRepositoryResourcesArgs struct {
 	LastPolled time.Time
 }
 
+// StateSetRepositoryResourcesArgs holds repository resource updates and the
+// replacement UUIDs generated for them by the service.
+type StateSetRepositoryResourcesArgs struct {
+	SetRepositoryResourcesArgs
+	ReplacementUUIDs map[string]string
+}
+
 // StoreResourceArgs holds the arguments for resource storage methods.
 type StoreResourceArgs struct {
 	// ResourceUUID is the unique identifier of the resource.
@@ -153,10 +160,10 @@ type UpdateUploadResourceArgs struct {
 // StateUpdateUploadResourceArgs holds arguments for the state method to
 // update the resource to expect a new blob to be uploaded.
 type StateUpdateUploadResourceArgs struct {
-	// ResourceType is the type of the resource
-	ResourceType charmresource.Type
-	// ResourceUUID is the unique identifier of the resource.
+	// ResourceUUID is the unique identifier of the resource being replaced.
 	ResourceUUID coreresource.UUID
+	// NewResourceUUID is the unique identifier of the replacement resource.
+	NewResourceUUID coreresource.UUID
 }
 
 // UpdateResourceRevisionArgs holds arguments to update a resource to have
@@ -165,6 +172,17 @@ type UpdateResourceRevisionArgs struct {
 	// ResourceUUID is the unique identifier of the resource.
 	ResourceUUID coreresource.UUID
 	// Revision is the revision of the resource to use.
+	Revision int
+}
+
+// StateUpdateResourceRevisionArgs holds arguments for replacing a resource
+// with a different revision.
+type StateUpdateResourceRevisionArgs struct {
+	// ResourceUUID is the unique identifier of the resource being replaced.
+	ResourceUUID coreresource.UUID
+	// NewResourceUUID is the unique identifier of the replacement resource.
+	NewResourceUUID coreresource.UUID
+	// Revision is the revision of the replacement resource.
 	Revision int
 }
 

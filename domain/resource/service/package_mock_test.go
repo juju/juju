@@ -38,6 +38,7 @@ type MockStateMockRecorder struct {
 	getApplicationResourceIDExpects                    []*gomock.Call2_2[context.Context, resource1.GetApplicationResourceIDArgs, resource.UUID, error]
 	getResourceExpects                                 []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 	getResourceNameAndTypeExpects                      []*gomock.Call2_3[context.Context, resource.UUID, string, string, error]
+	getResourceStorageKeyExpects                       []*gomock.Call2_2[context.Context, resource.UUID, string, error]
 	getResourceTypeExpects                             []*gomock.Call2_2[context.Context, resource.UUID, resource0.Type, error]
 	getResourceUUIDByApplicationAndResourceNameExpects []*gomock.Call3_2[context.Context, string, string, resource.UUID, error]
 	getResourceWithoutApplicationExpects               []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
@@ -46,10 +47,10 @@ type MockStateMockRecorder struct {
 	listAllModelResourcesExpects                       []*gomock.Call1_2[context.Context, []resource.Resource, error]
 	listResourcesExpects                               []*gomock.Call2_2[context.Context, application.UUID, resource.ApplicationResources, error]
 	recordStoredResourceExpects                        []*gomock.Call2_1[context.Context, resource1.RecordStoredResourceArgs, error]
-	setRepositoryResourcesExpects                      []*gomock.Call2_1[context.Context, resource1.SetRepositoryResourcesArgs, error]
+	setRepositoryResourcesExpects                      []*gomock.Call2_1[context.Context, resource1.StateSetRepositoryResourcesArgs, error]
 	setUnitResourceExpects                             []*gomock.Call3_1[context.Context, resource.UUID, unit.UUID, error]
-	updateResourceRevisionAndDeletePriorVersionExpects []*gomock.Call3_2[context.Context, resource1.UpdateResourceRevisionArgs, resource0.Type, resource.UUID, error]
-	updateUploadResourceAndDeletePriorVersionExpects   []*gomock.Call2_2[context.Context, resource1.StateUpdateUploadResourceArgs, resource.UUID, error]
+	updateResourceRevisionExpects                      []*gomock.Call2_1[context.Context, resource1.StateUpdateResourceRevisionArgs, error]
+	updateUploadResourceExpects                        []*gomock.Call2_1[context.Context, resource1.StateUpdateUploadResourceArgs, error]
 	verifyApplicationExistsForResourceExpects          []*gomock.Call2_1[context.Context, resource.UUID, error]
 }
 
@@ -190,6 +191,24 @@ func (mr *MockStateMockRecorder) GetResourceNameAndType(ctx, resourceUUID any) *
 
 // MockStateGetResourceNameAndTypeCall is the typed call wrapper for GetResourceNameAndType.
 type MockStateGetResourceNameAndTypeCall = gomock.Call2_3[context.Context, resource.UUID, string, string, error]
+
+// GetResourceStorageKey mocks base method.
+func (m *MockState) GetResourceStorageKey(ctx context.Context, resourceUUID resource.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getResourceStorageKeyExpects, m.ctrl, m, "GetResourceStorageKey", ctx, resourceUUID)
+}
+
+// GetResourceStorageKey indicates an expected call of GetResourceStorageKey.
+func (mr *MockStateMockRecorder) GetResourceStorageKey(ctx, resourceUUID any) *MockStateGetResourceStorageKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, resource.UUID, string, error](mr.mock.ctrl.T, mr.mock, "GetResourceStorageKey", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceUUID))
+	mr.getResourceStorageKeyExpects = append(mr.getResourceStorageKeyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetResourceStorageKeyCall is the typed call wrapper for GetResourceStorageKey.
+type MockStateGetResourceStorageKeyCall = gomock.Call2_2[context.Context, resource.UUID, string, error]
 
 // GetResourceType mocks base method.
 func (m *MockState) GetResourceType(ctx context.Context, resourceUUID resource.UUID) (resource0.Type, error) {
@@ -336,7 +355,7 @@ func (mr *MockStateMockRecorder) RecordStoredResource(ctx, args any) *MockStateR
 type MockStateRecordStoredResourceCall = gomock.Call2_1[context.Context, resource1.RecordStoredResourceArgs, error]
 
 // SetRepositoryResources mocks base method.
-func (m *MockState) SetRepositoryResources(ctx context.Context, config resource1.SetRepositoryResourcesArgs) error {
+func (m *MockState) SetRepositoryResources(ctx context.Context, config resource1.StateSetRepositoryResourcesArgs) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_1(&m.recorder.setRepositoryResourcesExpects, m.ctrl, m, "SetRepositoryResources", ctx, config)
 }
@@ -344,14 +363,14 @@ func (m *MockState) SetRepositoryResources(ctx context.Context, config resource1
 // SetRepositoryResources indicates an expected call of SetRepositoryResources.
 func (mr *MockStateMockRecorder) SetRepositoryResources(ctx, config any) *MockStateSetRepositoryResourcesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, resource1.SetRepositoryResourcesArgs, error](mr.mock.ctrl.T, mr.mock, "SetRepositoryResources", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(config))
+	call := gomock.NewCall2_1[context.Context, resource1.StateSetRepositoryResourcesArgs, error](mr.mock.ctrl.T, mr.mock, "SetRepositoryResources", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(config))
 	mr.setRepositoryResourcesExpects = append(mr.setRepositoryResourcesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateSetRepositoryResourcesCall is the typed call wrapper for SetRepositoryResources.
-type MockStateSetRepositoryResourcesCall = gomock.Call2_1[context.Context, resource1.SetRepositoryResourcesArgs, error]
+type MockStateSetRepositoryResourcesCall = gomock.Call2_1[context.Context, resource1.StateSetRepositoryResourcesArgs, error]
 
 // SetUnitResource mocks base method.
 func (m *MockState) SetUnitResource(ctx context.Context, resourceUUID resource.UUID, unitUUID unit.UUID) error {
@@ -371,41 +390,41 @@ func (mr *MockStateMockRecorder) SetUnitResource(ctx, resourceUUID, unitUUID any
 // MockStateSetUnitResourceCall is the typed call wrapper for SetUnitResource.
 type MockStateSetUnitResourceCall = gomock.Call3_1[context.Context, resource.UUID, unit.UUID, error]
 
-// UpdateResourceRevisionAndDeletePriorVersion mocks base method.
-func (m *MockState) UpdateResourceRevisionAndDeletePriorVersion(ctx context.Context, arg resource1.UpdateResourceRevisionArgs, resType resource0.Type) (resource.UUID, error) {
+// UpdateResourceRevision mocks base method.
+func (m *MockState) UpdateResourceRevision(ctx context.Context, arg resource1.StateUpdateResourceRevisionArgs) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.updateResourceRevisionAndDeletePriorVersionExpects, m.ctrl, m, "UpdateResourceRevisionAndDeletePriorVersion", ctx, arg, resType)
+	return gomock.Dispatch2_1(&m.recorder.updateResourceRevisionExpects, m.ctrl, m, "UpdateResourceRevision", ctx, arg)
 }
 
-// UpdateResourceRevisionAndDeletePriorVersion indicates an expected call of UpdateResourceRevisionAndDeletePriorVersion.
-func (mr *MockStateMockRecorder) UpdateResourceRevisionAndDeletePriorVersion(ctx, arg, resType any) *MockStateUpdateResourceRevisionAndDeletePriorVersionCall {
+// UpdateResourceRevision indicates an expected call of UpdateResourceRevision.
+func (mr *MockStateMockRecorder) UpdateResourceRevision(ctx, arg any) *MockStateUpdateResourceRevisionCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, resource1.UpdateResourceRevisionArgs, resource0.Type, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "UpdateResourceRevisionAndDeletePriorVersion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(arg), gomock.EnsureMatcher(resType))
-	mr.updateResourceRevisionAndDeletePriorVersionExpects = append(mr.updateResourceRevisionAndDeletePriorVersionExpects, call)
+	call := gomock.NewCall2_1[context.Context, resource1.StateUpdateResourceRevisionArgs, error](mr.mock.ctrl.T, mr.mock, "UpdateResourceRevision", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(arg))
+	mr.updateResourceRevisionExpects = append(mr.updateResourceRevisionExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateUpdateResourceRevisionAndDeletePriorVersionCall is the typed call wrapper for UpdateResourceRevisionAndDeletePriorVersion.
-type MockStateUpdateResourceRevisionAndDeletePriorVersionCall = gomock.Call3_2[context.Context, resource1.UpdateResourceRevisionArgs, resource0.Type, resource.UUID, error]
+// MockStateUpdateResourceRevisionCall is the typed call wrapper for UpdateResourceRevision.
+type MockStateUpdateResourceRevisionCall = gomock.Call2_1[context.Context, resource1.StateUpdateResourceRevisionArgs, error]
 
-// UpdateUploadResourceAndDeletePriorVersion mocks base method.
-func (m *MockState) UpdateUploadResourceAndDeletePriorVersion(ctx context.Context, arg resource1.StateUpdateUploadResourceArgs) (resource.UUID, error) {
+// UpdateUploadResource mocks base method.
+func (m *MockState) UpdateUploadResource(ctx context.Context, arg resource1.StateUpdateUploadResourceArgs) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.updateUploadResourceAndDeletePriorVersionExpects, m.ctrl, m, "UpdateUploadResourceAndDeletePriorVersion", ctx, arg)
+	return gomock.Dispatch2_1(&m.recorder.updateUploadResourceExpects, m.ctrl, m, "UpdateUploadResource", ctx, arg)
 }
 
-// UpdateUploadResourceAndDeletePriorVersion indicates an expected call of UpdateUploadResourceAndDeletePriorVersion.
-func (mr *MockStateMockRecorder) UpdateUploadResourceAndDeletePriorVersion(ctx, arg any) *MockStateUpdateUploadResourceAndDeletePriorVersionCall {
+// UpdateUploadResource indicates an expected call of UpdateUploadResource.
+func (mr *MockStateMockRecorder) UpdateUploadResource(ctx, arg any) *MockStateUpdateUploadResourceCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, resource1.StateUpdateUploadResourceArgs, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "UpdateUploadResourceAndDeletePriorVersion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(arg))
-	mr.updateUploadResourceAndDeletePriorVersionExpects = append(mr.updateUploadResourceAndDeletePriorVersionExpects, call)
+	call := gomock.NewCall2_1[context.Context, resource1.StateUpdateUploadResourceArgs, error](mr.mock.ctrl.T, mr.mock, "UpdateUploadResource", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(arg))
+	mr.updateUploadResourceExpects = append(mr.updateUploadResourceExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateUpdateUploadResourceAndDeletePriorVersionCall is the typed call wrapper for UpdateUploadResourceAndDeletePriorVersion.
-type MockStateUpdateUploadResourceAndDeletePriorVersionCall = gomock.Call2_2[context.Context, resource1.StateUpdateUploadResourceArgs, resource.UUID, error]
+// MockStateUpdateUploadResourceCall is the typed call wrapper for UpdateUploadResource.
+type MockStateUpdateUploadResourceCall = gomock.Call2_1[context.Context, resource1.StateUpdateUploadResourceArgs, error]
 
 // VerifyApplicationExistsForResource mocks base method.
 func (m *MockState) VerifyApplicationExistsForResource(ctx context.Context, resourceUUID resource.UUID) error {

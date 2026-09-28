@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -31,6 +32,162 @@ func (st *State) createApplicationResources(
 	}
 
 	return st.insertResources(ctx, tx, args)
+}
+
+// replaceApplicationResourcesForCharm gives each retained application resource
+// an identity scoped to the destination charm. Stored content is shared with
+// the immutable source resource; unit links remain on that source while units
+// converge.
+func (st *State) replaceApplicationResourcesForCharm(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID string,
+	charmUUID string,
+	replacementUUIDs map[string]string,
+) error {
+	type replacement struct {
+		ApplicationUUID string    `db:"application_uuid"`
+		OldUUID         string    `db:"old_uuid"`
+		NewUUID         string    `db:"new_uuid"`
+		CharmUUID       string    `db:"charm_uuid"`
+		Name            string    `db:"charm_resource_name"`
+		OldKindID       int       `db:"old_kind_id"`
+		NewKindID       int       `db:"new_kind_id"`
+		CreatedAt       time.Time `db:"created_at"`
+	}
+
+	input := replacement{
+		ApplicationUUID: appUUID,
+		CharmUUID:       charmUUID,
+	}
+	selectStmt, err := st.Prepare(`
+SELECT r.uuid AS &replacement.old_uuid,
+       r.charm_resource_name AS &replacement.charm_resource_name,
+       old_cr.kind_id AS &replacement.old_kind_id,
+       new_cr.kind_id AS &replacement.new_kind_id
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   resource_state AS rs ON rs.id = r.state_id
+JOIN   charm_resource AS old_cr
+ON     old_cr.charm_uuid = r.charm_uuid
+AND    old_cr.name = r.charm_resource_name
+JOIN   charm_resource AS new_cr
+ON     new_cr.charm_uuid = $replacement.charm_uuid
+AND    new_cr.name = r.charm_resource_name
+WHERE  ar.application_uuid = $replacement.application_uuid
+AND    rs.name = 'available'
+AND    r.charm_uuid != $replacement.charm_uuid
+`, replacement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	insertResourceStmt, err := st.Prepare(`
+INSERT INTO resource (
+    uuid, charm_uuid, charm_resource_name, revision, origin_type_id,
+    state_id, created_at, last_polled
+)
+SELECT $replacement.new_uuid,
+       $replacement.charm_uuid,
+       r.charm_resource_name,
+       r.revision,
+       r.origin_type_id,
+       r.state_id,
+       $replacement.created_at,
+       r.last_polled
+FROM   resource AS r
+WHERE  r.uuid = $replacement.old_uuid
+`, replacement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	copyFileStoreStmt, err := st.Prepare(`
+INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384)
+SELECT $replacement.new_uuid, rfs.store_uuid, rfs.size, rfs.sha384
+FROM   resource_file_store AS rfs
+WHERE  rfs.resource_uuid = $replacement.old_uuid
+`, replacement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	copyImageStoreStmt, err := st.Prepare(`
+INSERT INTO resource_image_store (
+    resource_uuid, store_storage_key, size, sha384
+)
+SELECT $replacement.new_uuid,
+       ris.store_storage_key,
+       ris.size,
+       ris.sha384
+FROM   resource_image_store AS ris
+WHERE  ris.resource_uuid = $replacement.old_uuid
+`, replacement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	copyRetrievedByStmt, err := st.Prepare(`
+INSERT INTO resource_retrieved_by (resource_uuid, retrieved_by_type_id, name)
+SELECT $replacement.new_uuid, rrb.retrieved_by_type_id, rrb.name
+FROM   resource_retrieved_by AS rrb
+WHERE  rrb.resource_uuid = $replacement.old_uuid
+`, replacement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	replaceApplicationResourceStmt, err := st.Prepare(`
+UPDATE application_resource
+SET    resource_uuid = $replacement.new_uuid
+WHERE  application_uuid = $replacement.application_uuid
+AND    resource_uuid = $replacement.old_uuid
+`, replacement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var replacements []replacement
+	if err := tx.Query(ctx, selectStmt, input).GetAll(&replacements); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting resources to replace: %w", err)
+	}
+
+	for i := range replacements {
+		if replacements[i].OldKindID != replacements[i].NewKindID {
+			return errors.Errorf(
+				"cannot reuse resource %q when its type changes", replacements[i].Name,
+			)
+		}
+		newUUID, ok := replacementUUIDs[replacements[i].Name]
+		if !ok {
+			return errors.Errorf(
+				"replacement UUID not supplied for resource %q", replacements[i].Name,
+			)
+		}
+		replacements[i].ApplicationUUID = appUUID
+		replacements[i].NewUUID = newUUID
+		replacements[i].CharmUUID = charmUUID
+		replacements[i].CreatedAt = st.clock.Now().UTC()
+
+		if err := tx.Query(ctx, insertResourceStmt, replacements[i]).Run(); err != nil {
+			return errors.Errorf("inserting replacement resource: %w", err)
+		}
+		if err := tx.Query(ctx, copyFileStoreStmt, replacements[i]).Run(); err != nil {
+			return errors.Errorf("copying file resource storage link: %w", err)
+		}
+		if err := tx.Query(ctx, copyImageStoreStmt, replacements[i]).Run(); err != nil {
+			return errors.Errorf("copying image resource storage link: %w", err)
+		}
+		if err := tx.Query(ctx, copyRetrievedByStmt, replacements[i]).Run(); err != nil {
+			return errors.Errorf("copying resource retrieval metadata: %w", err)
+		}
+		if err := tx.Query(ctx, replaceApplicationResourceStmt, replacements[i]).Run(); err != nil {
+			return errors.Errorf("selecting replacement resource: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // buildResourceInserts creates resources to add based on provided app and charm

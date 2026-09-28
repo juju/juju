@@ -30,6 +30,7 @@ import (
 	networktesting "github.com/juju/juju/core/network/testing"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/os/ostype"
+	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
@@ -1655,17 +1656,23 @@ func (s *applicationServiceSuite) TestSetApplicationCharmWithChannel(c *tc.C) {
 	}
 	channel, err := encodeChannel(params.CharmOrigin.Channel)
 	c.Assert(err, tc.ErrorIsNil)
+	currentCharm := makeCharmWithStorage(nil)
+	currentCharm.Metadata.Resources = map[string]applicationcharm.Resource{
+		"foo": {Name: "foo", Type: applicationcharm.ResourceTypeFile},
+	}
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.state.EXPECT().GetCharmID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(charmID, nil)
 	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return([]internal.StorageDirective{}, nil)
 	s.state.EXPECT().GetCharmMetadataStorage(gomock.Any(), charmID).Return(map[string]applicationcharm.Storage{}, nil)
-	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(makeCharmWithStorage(nil), nil)
+	s.state.EXPECT().GetCharmByApplicationUUID(gomock.Any(), appUUID).Return(currentCharm, nil)
 	s.state.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	s.storageService.EXPECT().ReconcileStorageDirectivesAgainstCharmStorage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil, nil)
 	s.storageService.EXPECT().ValidateApplicationStorageDirectiveOverrides(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	s.state.EXPECT().SetApplicationCharm(gomock.Any(), appUUID, charmID, gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ coreapplication.UUID, _ corecharm.ID, params application.SetCharmStateParams) error {
 			c.Assert(params.Channel, tc.DeepEquals, channel)
+			c.Assert(params.ReplacementResourceUUIDs, tc.HasLen, 1)
+			c.Check(coreresource.UUID(params.ReplacementResourceUUIDs["foo"]).Validate(), tc.ErrorIsNil)
 			return nil
 		})
 

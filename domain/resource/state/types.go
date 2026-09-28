@@ -214,11 +214,6 @@ type linkResourceApplication struct {
 	ApplicationName string `db:"application_name"`
 }
 
-// hash represents the hash value from a stored resource blob.
-type hash struct {
-	Hash string `db:"sha384"`
-}
-
 // setResource is used to set resource rows in the resource table.
 type setResource struct {
 	UUID         string    `db:"uuid"`

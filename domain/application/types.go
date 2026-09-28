@@ -560,6 +560,10 @@ type SetCharmStateParams struct {
 	// StorageDirectivesToUpdate contains storage directives that need to be
 	// applied based on the new charm's storage requirements.
 	StorageDirectivesToUpdate []domainstorage.DirectiveArg
+
+	// ReplacementResourceUUIDs contains pre-generated UUIDs keyed by resource
+	// name for immutable replacements required by a charm change.
+	ReplacementResourceUUIDs map[string]string
 }
 
 // ApplicationDetails contains details about an application.
