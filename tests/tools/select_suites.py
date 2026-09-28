@@ -9,12 +9,15 @@ Two scoring layers, combined into one ranking:
   1. static: manifest `paths` globs weighted by specificity
      (1 / suites sharing the glob) — precise ownership beats hubs
   2. LLM (Jev): one fan-out call, one Noul per suite, batched in <=8
-     questions per request; p(yes) is added to the static score
+     questions per request; p(yes) at/above the manifest threshold is
+     added to the static score (below it the answer adds nothing)
 
 Policy invariants (enforced here, never by the model):
   - only gh_eligible suites run; already_required suites never do
   - at most max_runs suites run; the rest are trimmed and reported
   - unknown suite names in model answers are dropped
+  - LLM p(yes) below the manifest threshold adds nothing (LLM-only
+    picks need confidence)
   - ANY API/parse failure degrades to static-only (never raises)
 
 Subcommands:
@@ -324,11 +327,13 @@ def _ask_jev_chunk(evidence, suites, api_key, base_url, model, deadline):
 
 # ---------------------------------------------------------------- policy
 
-def rank(suites, changed_files, answers):
+def rank(suites, changed_files, answers, threshold=DEFAULT_THRESHOLD):
     """One ranked list of eligible suites by how strongly the change
     flexes them. score = static specificity (precise globs beat hubs)
-    + LLM p(yes) when available. Already-required suites are excluded;
-    they are covered by other CI. Returns [(name, score, source)] desc.
+    + LLM p(yes) when it is at/above `threshold`; a sub-threshold p(yes)
+    is a "no" and adds nothing, so LLM-only picks need real confidence.
+    Already-required suites are excluded; they are covered by other CI.
+    Returns [(name, score, source)] desc.
     """
     static = dict(suite_manifest.static_rank(suites, changed_files))
     ranked = []
@@ -338,8 +343,8 @@ def rank(suites, changed_files, answers):
         score = static.get(name, 0.0)
         source = "static"
         ans = answers.get(name)
-        if ans:
-            score += ans[0]  # LLM p(yes), 0..1, breaks ties / expands
+        if ans and ans[0] >= threshold:
+            score += ans[0]  # LLM p(yes) at/above the threshold lifts
             source = "llm" if static.get(name, 0.0) == 0 else "static+llm"
         if score > 0:
             ranked.append((name, score, source))
@@ -358,14 +363,14 @@ def merge_policy(manifest_doc, suites, changed_files, answers,
     suites are surfaced in the comment, never hidden.
     """
     max_runs = manifest_doc.get("max_runs", max_runs)
+    threshold = manifest_doc.get("threshold", DEFAULT_THRESHOLD)
     excluded = {n for n, s in suites.items() if s.get("already_required")}
-    ranked = rank(suites, changed_files, answers)
+    ranked = rank(suites, changed_files, answers, threshold=threshold)
     runs = [n for n, _, _ in ranked[:max_runs]]
     trimmed = [n for n, _, _ in ranked[max_runs:]]
     skipped_required = sorted(
         n for n, (p, _) in answers.items()
-        if n in excluded and p >= manifest_doc.get("threshold",
-                                                     DEFAULT_THRESHOLD))
+        if n in excluded and p >= threshold)
     return {
         "runs": runs,
         "ranked": [{"name": n, "score": round(s, 3), "source": src}

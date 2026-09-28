@@ -13,14 +13,17 @@
 #   - paths: globs whose specificity feeds the ranking. A glob used by
 #     one suite (precise ownership) scores 1.0; one shared by N suites
 #     (a hub like internal/worker/uniter/**) scores 1/N. The top
-#     max_runs suites by (static specificity + LLM p(yes)) run; the
-#     rest are trimmed and shown in the PR comment.
+#     max_runs suites by (static specificity + threshold-passing LLM
+#     p(yes)) run; the rest are trimmed and shown in the PR comment.
 #
 # Selection policy lives in tests/tools/select_suites.py; eval harness in
 # tests/tools/eval_selector.py. When adding a suite under tests/suites/,
 # add an entry here or tests/tools unit tests will fail.
 #
-# Tuned defaults for the LLM layer:
+# Tuned defaults for the LLM layer. `threshold` gates the LLM lift:
+# p(yes) at/above it is added to the static score; below it the answer
+# adds nothing, so an LLM-only pick needs real confidence and cannot
+# fill runner slots from a docs-only PR.
 threshold: 0.6
 # Hard ceiling on suites executed per PR: the top max_runs ranked suites
 # run, the rest are trimmed and reported. Protects the runner pool.

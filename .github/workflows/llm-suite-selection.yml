@@ -31,9 +31,16 @@
 # Secrets and variables → Actions → Repository secrets). Unset/invalid key
 # degrades to deterministic-only selection; the job never blocks a PR.
 #
-# PHASE: shadow. llm-selected-tests failures are NOT required checks yet;
-# flip after the offline eval (tests/tools/eval_selector.py) shows the
-# picks meet recall/waste targets across a meaningful shadow history.
+# PHASE: shadow. llm-selected-tests failures are NOT required checks yet.
+# Flip out of shadow ONLY when BOTH hold:
+#   1. the offline eval (tests/tools/eval_selector.py) shows the picks
+#      meet recall/waste targets across a meaningful shadow history, and
+#   2. the runner fleet is migrated to ephemeral, per-job runners. This
+#      is a hard precondition, not a nice-to-have: PR-head code running
+#      make go-install plus full integration suites on persistent
+#      self-hosted runners is a state-persistence/exfil channel that
+#      per-job permissions cannot contain. No flip on the persistent
+#      fleet.
 name: LLM suite selection
 
 on:
@@ -84,10 +91,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          code=$(curl -sS -o pr.diff -w '%{http_code}' \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github.v3.diff" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" \
-            > pr.diff
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}") \
+            || code=000
+          # Surface API failures: shadow mode never blocks the PR, but a
+          # dead loop (401s, rate limits) must be visible, not silent —
+          # curl without -f exits 0 on HTTP errors, which would leave an
+          # error body in pr.diff and rank nothing, green.
+          if [ "${code}" != 200 ]; then
+            {
+              echo "## :warning: Suite selection degraded: PR diff fetch failed (HTTP ${code})"
+              echo "The selector could not run. See the Diff step log; this job stays non-required."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
           # Both sides of the diff: +++ b/ misses deleted files
           # (+++ /dev/null), --- a/ covers them. /dev/null lines match
           # neither pattern, so no extra filtering is needed.
@@ -104,9 +123,17 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}" \
-            > pr.json
+          code=$(curl -sS -o pr.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}") \
+            || code=000
+          if [ "${code}" != 200 ]; then
+            {
+              echo "## :warning: Suite selection degraded: PR metadata fetch failed (HTTP ${code})"
+              echo "The selector could not run. See the Select step log; this job stays non-required."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
           python3 - <<'PY'
           import json
           d = json.load(open('pr.json'))
@@ -168,9 +195,21 @@ jobs:
             url="${url}/${id}"
             method="PATCH"
           fi
-          curl -sS -X "$method" -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X "${method}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
-            "$url" -d "$payload" > /dev/null
+            "${url}" -d "${payload}") || code=000
+          # POST -> 201, PATCH -> 200. Anything else means the shadow
+          # feedback loop is broken: fail loudly and say why in the
+          # job summary. Shadow mode never blocks the PR; silent death
+          # would defeat it.
+          if [ "${code}" != 200 ] && [ "${code}" != 201 ]; then
+            {
+              echo "## :warning: Shadow comment ${method} failed (HTTP ${code})"
+              echo "Selection ran but no feedback was posted. See the Comment step log."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

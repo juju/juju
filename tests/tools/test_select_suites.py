@@ -380,6 +380,41 @@ class TestPolicy(unittest.TestCase):
         self.assertEqual(r["runs"][0], "deploy")  # precise glob wins
         self.assertIn("model", r["runs"])         # LLM score lifts it in
 
+    def test_llm_pick_below_threshold_does_not_run(self):
+        # The manifest threshold gates the LLM lift: p(yes) below it
+        # adds nothing, so a trigger-happy model on a docs-only PR
+        # cannot occupy runner slots, and a static pick keeps both its
+        # score and its "static" label when the model hedges.
+        suites = {
+            "deploy": {"gh_eligible": True, "paths": ["cmd/juju/**"],
+                       "description": "d", "keywords": []},
+            "model": {"gh_eligible": True, "paths": [],
+                      "description": "d", "keywords": []},
+        }
+
+        # LLM-only pick below threshold: not ranked, not run.
+        r = select_suites.merge_policy(
+            {"max_runs": 6, "threshold": 0.6}, suites, ["docs/x.md"],
+            {"model": (0.59, 0.59)})
+        self.assertEqual(r["runs"], [])
+        self.assertEqual(r["ranked"], [])
+
+        # Static pick with a sub-threshold answer: score unchanged,
+        # source stays static.
+        r = select_suites.merge_policy(
+            {"max_runs": 6, "threshold": 0.6}, suites,
+            ["cmd/juju/deploy.go"],
+            {"model": (0.59, 0.59), "deploy": (0.1, 0.1)})
+        self.assertEqual(r["runs"], ["deploy"])
+        self.assertEqual(r["ranked"][0]["source"], "static")
+
+        # Just above the threshold: the LLM-only pick runs, after the
+        # static pick it cannot outrank.
+        r = select_suites.merge_policy(
+            {"max_runs": 6, "threshold": 0.6}, suites,
+            ["cmd/juju/deploy.go"], {"model": (0.61, 0.61)})
+        self.assertEqual(r["runs"], ["deploy", "model"])
+
     def test_caps_at_max_runs_and_trims(self):
         suites = {
             f"s{i}": {"gh_eligible": True,
