@@ -75,10 +75,7 @@ type MockResourceService struct {
 type MockResourceServiceMockRecorder struct {
 	mock                                 *MockResourceService
 	addResourcesBeforeApplicationExpects []*gomock.Call2_2[context.Context, resource1.AddResourcesBeforeApplicationArgs, []resource.UUID, error]
-	getApplicationResourceIDExpects      []*gomock.Call2_2[context.Context, resource1.GetApplicationResourceIDArgs, resource.UUID, error]
 	listResourcesExpects                 []*gomock.Call2_2[context.Context, application.UUID, resource.ApplicationResources, error]
-	updateResourceRevisionExpects        []*gomock.Call2_2[context.Context, resource1.UpdateResourceRevisionArgs, resource.UUID, error]
-	updateUploadResourceExpects          []*gomock.Call2_2[context.Context, resource.UUID, resource.UUID, error]
 }
 
 // NewMockResourceService creates a new mock instance.
@@ -111,24 +108,6 @@ func (mr *MockResourceServiceMockRecorder) AddResourcesBeforeApplication(ctx, ar
 // MockResourceServiceAddResourcesBeforeApplicationCall is the typed call wrapper for AddResourcesBeforeApplication.
 type MockResourceServiceAddResourcesBeforeApplicationCall = gomock.Call2_2[context.Context, resource1.AddResourcesBeforeApplicationArgs, []resource.UUID, error]
 
-// GetApplicationResourceID mocks base method.
-func (m *MockResourceService) GetApplicationResourceID(ctx context.Context, args resource1.GetApplicationResourceIDArgs) (resource.UUID, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getApplicationResourceIDExpects, m.ctrl, m, "GetApplicationResourceID", ctx, args)
-}
-
-// GetApplicationResourceID indicates an expected call of GetApplicationResourceID.
-func (mr *MockResourceServiceMockRecorder) GetApplicationResourceID(ctx, args any) *MockResourceServiceGetApplicationResourceIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, resource1.GetApplicationResourceIDArgs, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "GetApplicationResourceID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
-	mr.getApplicationResourceIDExpects = append(mr.getApplicationResourceIDExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockResourceServiceGetApplicationResourceIDCall is the typed call wrapper for GetApplicationResourceID.
-type MockResourceServiceGetApplicationResourceIDCall = gomock.Call2_2[context.Context, resource1.GetApplicationResourceIDArgs, resource.UUID, error]
-
 // ListResources mocks base method.
 func (m *MockResourceService) ListResources(ctx context.Context, applicationID application.UUID) (resource.ApplicationResources, error) {
 	m.ctrl.T.Helper()
@@ -146,42 +125,6 @@ func (mr *MockResourceServiceMockRecorder) ListResources(ctx, applicationID any)
 
 // MockResourceServiceListResourcesCall is the typed call wrapper for ListResources.
 type MockResourceServiceListResourcesCall = gomock.Call2_2[context.Context, application.UUID, resource.ApplicationResources, error]
-
-// UpdateResourceRevision mocks base method.
-func (m *MockResourceService) UpdateResourceRevision(ctx context.Context, args resource1.UpdateResourceRevisionArgs) (resource.UUID, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.updateResourceRevisionExpects, m.ctrl, m, "UpdateResourceRevision", ctx, args)
-}
-
-// UpdateResourceRevision indicates an expected call of UpdateResourceRevision.
-func (mr *MockResourceServiceMockRecorder) UpdateResourceRevision(ctx, args any) *MockResourceServiceUpdateResourceRevisionCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, resource1.UpdateResourceRevisionArgs, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "UpdateResourceRevision", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
-	mr.updateResourceRevisionExpects = append(mr.updateResourceRevisionExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockResourceServiceUpdateResourceRevisionCall is the typed call wrapper for UpdateResourceRevision.
-type MockResourceServiceUpdateResourceRevisionCall = gomock.Call2_2[context.Context, resource1.UpdateResourceRevisionArgs, resource.UUID, error]
-
-// UpdateUploadResource mocks base method.
-func (m *MockResourceService) UpdateUploadResource(ctx context.Context, resourceToUpdate resource.UUID) (resource.UUID, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.updateUploadResourceExpects, m.ctrl, m, "UpdateUploadResource", ctx, resourceToUpdate)
-}
-
-// UpdateUploadResource indicates an expected call of UpdateUploadResource.
-func (mr *MockResourceServiceMockRecorder) UpdateUploadResource(ctx, resourceToUpdate any) *MockResourceServiceUpdateUploadResourceCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, resource.UUID, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "UpdateUploadResource", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceToUpdate))
-	mr.updateUploadResourceExpects = append(mr.updateUploadResourceExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockResourceServiceUpdateUploadResourceCall is the typed call wrapper for UpdateUploadResource.
-type MockResourceServiceUpdateUploadResourceCall = gomock.Call2_2[context.Context, resource.UUID, resource.UUID, error]
 
 // MockCrossModelRelationService is a mock of CrossModelRelationService interface.
 type MockCrossModelRelationService struct {

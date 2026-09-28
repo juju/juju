@@ -699,6 +699,17 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var resourceIDs map[string]coreresource.UUID
+	if len(args.ResourceIDs) > 0 {
+		resourceIDs = make(map[string]coreresource.UUID, len(args.ResourceIDs))
+		for name, id := range args.ResourceIDs {
+			resourceUUID, err := coreresource.ParseUUID(id)
+			if err != nil {
+				return errors.Annotatef(err, "invalid resource ID for %q", name)
+			}
+			resourceIDs[name] = resourceUUID
+		}
+	}
 
 	err = api.applicationService.SetApplicationCharm(ctx, args.ApplicationName, newCharmLocator, application.SetCharmParams{
 		CharmOrigin:               charmOrigin,
@@ -706,6 +717,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		ForceBase:                 args.ForceBase,
 		EndpointBindings:          transform.Map(args.EndpointBindings, func(k, v string) (string, network.SpaceName) { return k, network.SpaceName(v) }),
 		StorageDirectiveOverrides: storageDirectiveOverrides,
+		ResourceIDs:               resourceIDs,
 	})
 	switch {
 	case errors.Is(err, applicationerrors.ApplicationNotFound):
