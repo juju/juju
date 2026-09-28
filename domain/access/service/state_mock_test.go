@@ -50,7 +50,7 @@ type MockStateMockRecorder struct {
 	getUserByNameExpects                     []*gomock.Call2_2[context.Context, user.Name, user.User, error]
 	getUserUUIDByNameExpects                 []*gomock.Call2_2[context.Context, user.Name, user.UUID, error]
 	importOfferAccessExpects                 []*gomock.Call2_1[context.Context, []access.OfferImportAccess, error]
-	lastModelLoginExpects                    []*gomock.Call3_2[context.Context, user.Name, model.UUID, time.Time, error]
+	lastModelLoginsExpects                   []*gomock.Call3_2[context.Context, user.Name, []model.UUID, map[model.UUID]time.Time, error]
 	readAllAccessForUserAndObjectTypeExpects []*gomock.Call3_2[context.Context, user.Name, permission.ObjectType, []permission.UserAccess, error]
 	readAllUserAccessForTargetExpects        []*gomock.Call2_2[context.Context, permission.ID, []permission.UserAccess, error]
 	readAllUserAccessForUserExpects          []*gomock.Call2_2[context.Context, user.Name, []permission.UserAccess, error]
@@ -399,23 +399,23 @@ func (mr *MockStateMockRecorder) ImportOfferAccess(ctx, importAccess any) *MockS
 // MockStateImportOfferAccessCall is the typed call wrapper for ImportOfferAccess.
 type MockStateImportOfferAccessCall = gomock.Call2_1[context.Context, []access.OfferImportAccess, error]
 
-// LastModelLogin mocks base method.
-func (m *MockState) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
+// LastModelLogins mocks base method.
+func (m *MockState) LastModelLogins(arg0 context.Context, arg1 user.Name, arg2 []model.UUID) (map[model.UUID]time.Time, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.lastModelLoginExpects, m.ctrl, m, "LastModelLogin", arg0, arg1, arg2)
+	return gomock.Dispatch3_2(&m.recorder.lastModelLoginsExpects, m.ctrl, m, "LastModelLogins", arg0, arg1, arg2)
 }
 
-// LastModelLogin indicates an expected call of LastModelLogin.
-func (mr *MockStateMockRecorder) LastModelLogin(arg0, arg1, arg2 any) *MockStateLastModelLoginCall {
+// LastModelLogins indicates an expected call of LastModelLogins.
+func (mr *MockStateMockRecorder) LastModelLogins(arg0, arg1, arg2 any) *MockStateLastModelLoginsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, user.Name, model.UUID, time.Time, error](mr.mock.ctrl.T, mr.mock, "LastModelLogin", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.lastModelLoginExpects = append(mr.lastModelLoginExpects, call)
+	call := gomock.NewCall3_2[context.Context, user.Name, []model.UUID, map[model.UUID]time.Time, error](mr.mock.ctrl.T, mr.mock, "LastModelLogins", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.lastModelLoginsExpects = append(mr.lastModelLoginsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateLastModelLoginCall is the typed call wrapper for LastModelLogin.
-type MockStateLastModelLoginCall = gomock.Call3_2[context.Context, user.Name, model.UUID, time.Time, error]
+// MockStateLastModelLoginsCall is the typed call wrapper for LastModelLogins.
+type MockStateLastModelLoginsCall = gomock.Call3_2[context.Context, user.Name, []model.UUID, map[model.UUID]time.Time, error]
 
 // ReadAllAccessForUserAndObjectType mocks base method.
 func (m *MockState) ReadAllAccessForUserAndObjectType(ctx context.Context, subject user.Name, objectType permission.ObjectType) ([]permission.UserAccess, error) {

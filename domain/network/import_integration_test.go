@@ -766,6 +766,8 @@ func (s *importSuite) TestImportK8sServices(c *tc.C) {
 		CloudService: &description.CloudServiceArgs{
 			ProviderId: "provider-service-1",
 			Addresses: []description.AddressArgs{
+				{Value: "shared-lb.example.com", Type: "hostname", Scope: "public", Origin: "provider"},
+				{Value: "shared-lb.example.com", Type: "hostname", Scope: "local-cloud", Origin: "provider"},
 				{
 					Value:  "192.0.2.1",
 					Type:   "ipv4",
@@ -786,6 +788,7 @@ func (s *importSuite) TestImportK8sServices(c *tc.C) {
 		CloudService: &description.CloudServiceArgs{
 			ProviderId: "provider-service-2",
 			Addresses: []description.AddressArgs{
+				{Value: "shared-lb.example.com", Type: "hostname", Scope: "public", Origin: "provider"},
 				{
 					Value:  "192.0.2.2",
 					Type:   "ipv4",
@@ -800,9 +803,13 @@ func (s *importSuite) TestImportK8sServices(c *tc.C) {
 	err := s.coordinator.Perform(c.Context(), s.scope, desc)
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.checkHostnameExistsForService(c, "foo", "shared-lb.example.com", "local-cloud")
 	s.checkAddressExistsForServiceForApp(c, "foo", "192.0.2.1")
 	s.checkAddressExistsForServiceForApp(c, "foo", "2001:db8::1")
 	s.checkAddressExistsForServiceForApp(c, "bar", "192.0.2.2")
+	for _, app := range []string{"foo", "bar"} {
+		s.checkHostnameExistsForService(c, app, "shared-lb.example.com", "public")
+	}
 }
 
 func (s *importSuite) setupMachineService(c *tc.C) *machineservice.ProviderService {
@@ -935,4 +942,36 @@ func (s *importSuite) minimalManifest(c *tc.C) charm.Manifest {
 			},
 		},
 	}
+}
+
+func (s *importSuite) TestImportK8sServiceHostnameWithoutSubnets(c *tc.C) {
+	s.createCAASApplication(c, "foo")
+	desc := description.NewModel(description.ModelArgs{Type: string(model.CAAS)})
+	desc.AddApplication(description.ApplicationArgs{
+		Name: "foo",
+		CloudService: &description.CloudServiceArgs{
+			ProviderId: "service-id",
+			Addresses:  []description.AddressArgs{{Value: "controller-service.namespace.svc.cluster.local", Type: "hostname", Scope: "local-cloud", Origin: "provider"}},
+		},
+	})
+	networkmodelmigration.RegisterImportK8sService(s.coordinator, loggertesting.WrapCheckLog(c))
+	c.Assert(s.coordinator.Perform(c.Context(), s.scope, desc), tc.ErrorIsNil)
+	s.checkHostnameExistsForService(c, "foo", "controller-service.namespace.svc.cluster.local", "local-cloud")
+	var count int
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM ip_address").Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *importSuite) checkHostnameExistsForService(c *tc.C, app, address, scope string) {
+	var actualScope string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT scope.name
+FROM application AS a
+JOIN k8s_service AS ks ON ks.application_uuid = a.uuid
+JOIN net_node_fqdn_address AS nnfa ON nnfa.net_node_uuid = ks.net_node_uuid
+JOIN fqdn_address AS fa ON fa.uuid = nnfa.address_uuid
+JOIN network_address_scope AS scope ON scope.id = fa.scope_id
+WHERE a.name = ? AND fa.address = ? AND scope.name = ?`, app, address, scope).Scan(&actualScope)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(actualScope, tc.Equals, scope)
 }

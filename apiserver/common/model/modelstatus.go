@@ -183,11 +183,28 @@ func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.Mo
 		return status, errors.Trace(err)
 	}
 
-	// TODO(gfouillet) - 2025-07-25: Implements listing volume from domain dqlite
-	var modelVolumes []params.ModelVolumeInfo
-
-	// TODO(gfouillet) - 2025-07-25: Implements listing filesystem from domain dqlite
-	var modelFilesystems []params.ModelFilesystemInfo
+	storageStatuses, err := statusService.GetModelStorageStatuses(ctx)
+	if err != nil {
+		return status, errors.Trace(err)
+	}
+	modelFilesystems := make([]params.ModelFilesystemInfo, 0, len(storageStatuses.Filesystems))
+	modelVolumes := make([]params.ModelVolumeInfo, 0, len(storageStatuses.Volumes))
+	for _, fs := range storageStatuses.Filesystems {
+		modelFilesystems = append(modelFilesystems, params.ModelFilesystemInfo{
+			Id:         fs.ID,
+			ProviderId: fs.ProviderID,
+			Status:     fs.Status,
+			Detachable: fs.Detachable,
+		})
+	}
+	for _, vol := range storageStatuses.Volumes {
+		modelVolumes = append(modelVolumes, params.ModelVolumeInfo{
+			Id:         vol.ID,
+			ProviderId: vol.ProviderID,
+			Status:     vol.Status,
+			Detachable: vol.Detachable,
+		})
+	}
 
 	m, err := c.modelService.Model(ctx, modelUUID)
 	if err != nil {

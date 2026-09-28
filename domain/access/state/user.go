@@ -968,66 +968,76 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 	return nil
 }
 
-// LastModelLogin returns when the specified user last connected to the
-// specified model in UTC. The following errors can be returned:
+// LastModelLogins returns when the specified user last connected to each
+// of the specified models in UTC. Models for which the user has no login
+// record are omitted from the result. The following errors can be returned:
 // - [accesserrors.UserNameNotValid] when the username is not valid.
 // - [accesserrors.UserNotFound] when the user cannot be found.
-// - [modelerrors.NotFound] if no model by the given modelUUID exists.
-// - [accesserrors.UserNeverAccessedModel] if there is no record of the user
-// accessing the model.
-func (st *UserState) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
+func (st *UserState) LastModelLogins(ctx context.Context, name user.Name, modelUUIDs []coremodel.UUID) (map[coremodel.UUID]time.Time, error) {
+	if len(modelUUIDs) == 0 {
+		return make(map[coremodel.UUID]time.Time), nil
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
-		return time.Time{}, errors.Errorf("getting DB access: %w", err)
+		return nil, errors.Errorf("getting DB access: %w", err)
 	}
 
 	uuidStmt, err := st.getActiveUUIDStmt()
 	if err != nil {
-		return time.Time{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	getLastModelLoginTime := `
-SELECT   time AS &dbModelLastLogin.time
+	type dbModelUUIDs []string
+
+	getLastModelLoginTimes := `
+SELECT   model_uuid AS &dbModelLastLogin.model_uuid,
+         time AS &dbModelLastLogin.time
 FROM     model_last_login
-WHERE    model_uuid = $dbModelLastLogin.model_uuid
+WHERE    model_uuid IN ($dbModelUUIDs[:])
 AND      user_uuid = $dbModelLastLogin.user_uuid
-ORDER BY time DESC LIMIT 1;
+ORDER BY time DESC;
 	`
-	getLastModelLoginTimeStmt, err := st.Prepare(getLastModelLoginTime, dbModelLastLogin{})
+	getLastModelLoginTimesStmt, err := st.Prepare(getLastModelLoginTimes, dbModelLastLogin{}, dbModelUUIDs{})
 	if err != nil {
-		return time.Time{}, errors.Errorf("preparing select getLastModelLoginTime query: %w", err)
+		return nil, errors.Errorf("preparing select getLastModelLoginTimes query: %w", err)
 	}
 
-	var lastConnection time.Time
+	uuids := make(dbModelUUIDs, len(modelUUIDs))
+	for i, uuid := range modelUUIDs {
+		uuids[i] = uuid.String()
+	}
+
+	var results map[coremodel.UUID]time.Time
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		results = make(map[coremodel.UUID]time.Time)
+
 		userUUID, err := st.uuidForName(ctx, tx, uuidStmt, name)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
 		mll := dbModelLastLogin{
-			ModelUUID: modelUUID.String(),
-			UserUUID:  userUUID.String(),
+			UserUUID: userUUID.String(),
 		}
-		err = tx.Query(ctx, getLastModelLoginTimeStmt, mll).Get(&mll)
-		if errors.Is(err, sql.ErrNoRows) {
-			if exists, err := st.checkModelExists(ctx, tx, modelUUID); err != nil {
-				return errors.Errorf("checking model exists: %w", err)
-			} else if !exists {
-				return modelerrors.NotFound
-			}
-			return accesserrors.UserNeverAccessedModel
+		var logins []dbModelLastLogin
+		err = tx.Query(ctx, getLastModelLoginTimesStmt, mll, uuids).GetAll(&logins)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// Empty result map
+			return nil
 		} else if err != nil {
-			return errors.Errorf("running query getLastModelLoginTime: %w", err)
+			return errors.Errorf("running query getLastModelLoginTimes: %w", err)
 		}
 
-		lastConnection = mll.Time
+		for _, login := range logins {
+			results[coremodel.UUID(login.ModelUUID)] = login.Time.UTC()
+		}
 		return nil
 	})
 	if err != nil {
-		return time.Time{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	return lastConnection.UTC(), nil
+	return results, nil
 }
 
 // ensureUserAuthentication ensures that the user for uuid has their
@@ -1165,24 +1175,4 @@ func (st *UserState) uuidForName(
 func (st *UserState) getActiveUUIDStmt() (*sqlair.Statement, error) {
 	return st.Prepare(
 		"SELECT &userUUID.uuid FROM user WHERE name = $userName.name AND IFNULL(removed, false) = false", userUUID{}, userName{})
-}
-
-// checkModelExists returns a bool indicating if the model with the given UUID
-// exists in the db.
-func (st *UserState) checkModelExists(ctx context.Context, tx *sqlair.TX, modelUUID coremodel.UUID) (bool, error) {
-	stmt, err := st.Prepare(`
-SELECT true AS &dbModelExists.exists
-FROM model
-WHERE model.uuid = $dbModelUUID.uuid`, dbModelUUID{}, dbModelExists{})
-	if err != nil {
-		return false, errors.Errorf("preparing select checkModelExists: %w", err)
-	}
-	var exists dbModelExists
-	err = tx.Query(ctx, stmt, dbModelUUID{UUID: modelUUID.String()}).Get(&exists)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Capture(err)
-	}
-	return true, nil
 }

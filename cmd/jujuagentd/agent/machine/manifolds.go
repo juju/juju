@@ -771,6 +771,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:              controllerTraceName,
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
+			SSHTunnelerName:        sshTunnelerName,
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,

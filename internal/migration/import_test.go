@@ -261,8 +261,11 @@ func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 	c.Check(keys, tc.HasLen, 1)
 
 	// bob's last login landed.
-	lastLogin, err := accessSvc.LastModelLogin(c.Context(), bobName, modelUUID)
+	logins, err := accessSvc.LastModelLogins(c.Context(), bobName, []coremodel.UUID{modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(logins, tc.HasLen, 1)
+	lastLogin, ok := logins[modelUUID]
+	c.Assert(ok, tc.IsTrue)
 	c.Check(lastLogin.Equal(bobLastLogin), tc.IsTrue, tc.Commentf("got %s, want %s", lastLogin, bobLastLogin))
 
 	// The leadership lease was claimed fresh.

@@ -64,8 +64,8 @@ func (s *DownloadSuite) TestDownload(c *tc.C) {
 	digest, err := client.Download(c.Context(), serverURL, tmpFile.Name())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(digest, tc.DeepEquals, &Digest{
-		SHA256: "679e21d12ebfd206ba08dd7a3a23b81170d30c8c7cbc0ac2443beb6aac67dfdb",
-		SHA384: "5821c48bdfc6d6ec87cfd4fc1e5f26898a3c983ccdbc46816fe6938493cfb003ca9642087666af9e1c0b7397b0a33c8a",
+		SHA256: readSHA256(c, bytes.NewReader(archiveBytes)),
+		SHA384: readSHA384(c, bytes.NewReader(archiveBytes)),
 		Size:   int64(len(archiveBytes)),
 	})
 }

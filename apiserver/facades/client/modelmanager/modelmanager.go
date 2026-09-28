@@ -777,21 +777,21 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, userEntity params.Enti
 		return result, errors.Trace(err)
 	}
 
+	modelUUIDs := make([]coremodel.UUID, len(models))
+	for i, mi := range models {
+		modelUUIDs[i] = mi.UUID
+	}
+
+	lastConnections, err := m.accessService.LastModelLogins(ctx, coreuser.NameFromTag(userTag), modelUUIDs)
+	if err != nil {
+		return result, errors.Annotatef(
+			err, "getting last login times for user %q", userTag.Name())
+	}
+
 	for _, mi := range models {
 		var lastConnection *time.Time
-		lc, err := m.accessService.LastModelLogin(ctx, coreuser.NameFromTag(userTag), mi.UUID)
-		if err == nil {
+		if lc, ok := lastConnections[mi.UUID]; ok {
 			lastConnection = &lc
-		} else {
-			if errors.Is(err, modelerrors.NotFound) {
-				// Continue if the model has been removed since we got the UUID.
-				continue
-			}
-
-			if !errors.Is(err, accesserrors.UserNeverAccessedModel) {
-				return result, errors.Annotatef(
-					err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
-			}
 		}
 
 		result.UserModels = append(result.UserModels, params.UserModel{

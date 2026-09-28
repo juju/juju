@@ -12,7 +12,6 @@ import (
 	ssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/core/logger"
-	coressh "github.com/juju/juju/core/ssh"
 )
 
 // authenticatedPublicKey holds the public key that was used to authenticate
@@ -22,7 +21,6 @@ import (
 type authenticatedPublicKey struct{}
 
 type userJWT struct{}
-type tunnelIDKey struct{}
 
 const externalAuthUser = "external-auth"
 
@@ -30,11 +28,6 @@ const externalAuthUser = "external-auth"
 type JWTParser interface {
 	// Parse parses the provided JWT string and returns a jwt.Token if valid.
 	Parse(context.Context, string) (jwt.Token, error)
-}
-
-// TunnelAuthenticator authenticates machine reverse-tunnel connections.
-type TunnelAuthenticator interface {
-	AuthenticateTunnel(username, password string) (string, error)
 }
 
 // UserPublicKeyService retrieves the public keys registered for a user.
@@ -46,12 +39,12 @@ type UserPublicKeyService interface {
 // It handles:
 // 1. Public key authentication by users.
 // 2. JWT password authentication for external-auth.
-// 3. Reverse-tunnel authentication for machine agents.
+// Machine reverse tunnels authenticate at the HTTP layer on the API
+// server's SSH tunnel upgrade endpoint instead.
 type authenticator struct {
-	logger        logger.Logger
-	jwtParser     JWTParser
-	tunnelTracker TunnelAuthenticator
-	publicKeys    UserPublicKeyService
+	logger     logger.Logger
+	jwtParser  JWTParser
+	publicKeys UserPublicKeyService
 }
 
 // PublicKeyAuthentication implements a public key authentication handler.
@@ -88,13 +81,6 @@ func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) 
 			return false, errors.Annotate(err, "parsing SSH JWT")
 		}
 		ctx.SetValue(userJWT{}, token)
-		return true, nil
-	case coressh.ReverseTunnelUser:
-		tunnelID, err := a.tunnelTracker.AuthenticateTunnel(ctx.User(), password)
-		if err != nil {
-			return false, errors.Annotate(err, "authenticating reverse SSH tunnel")
-		}
-		ctx.SetValue(tunnelIDKey{}, tunnelID)
 		return true, nil
 	}
 	return false, nil

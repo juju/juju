@@ -211,12 +211,6 @@ type dbModelUUID struct {
 	UUID string `db:"uuid"`
 }
 
-// dbModelExists is used to record if a row in the database exists by selecting true
-// into it.
-type dbModelExists struct {
-	Exists bool `db:"exists"`
-}
-
 // dbEveryoneExternal represents the permissions of the everyone@external user.
 type dbEveryoneExternal dbPermission
 

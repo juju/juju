@@ -55,7 +55,7 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) 
 	}
 	return secret.UpdateCharmSecretParams{
 		Accessor:     accessor,
-		RotatePolicy: p.RotatePolicy,
+		RotatePolicy: (*coresecrets.RotatePolicy)(p.RotatePolicy),
 		ExpireTime:   p.ExpireTime,
 		Description:  p.Description,
 		Label:        p.Label,
@@ -675,7 +675,7 @@ func (u *UniterAPI) prepareSecretUpdates(
 		}
 		secretUpdates = append(secretUpdates, unitstate.UpdateSecretArg{
 			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
-				RotatePolicy: upd.RotatePolicy,
+				RotatePolicy: (*coresecrets.RotatePolicy)(upd.RotatePolicy),
 				ExpireTime:   upd.ExpireTime,
 				Description:  upd.Description,
 				Label:        upd.Label,
