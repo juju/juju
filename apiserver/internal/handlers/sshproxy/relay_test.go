@@ -134,6 +134,31 @@ func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	ctrl.Finish()
 }
 
+// TestConcurrentConnectionsCapped checks that a relay over the cap is
+// rejected before the upgrade with an HTTP error, and that the
+// destination is never resolved. A zero cap rejects every relay, so no
+// blocking is needed to hold a slot.
+func (s *relaySuite) TestConcurrentConnectionsCapped(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	// The factory must not be called: rejection happens before the
+	// upgrade and destination resolution.
+	factory := NewMockTerminatingServerFactory(ctrl)
+
+	handler := s.newHandlerMaxConns(c, factory, 0)
+
+	token := newRelayToken(c, testModelUUID, string(permission.AdminAccess))
+	destination := newMachineDestination(c, testModelUUID)
+	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/"+destination.String(), nil)
+	r = r.WithContext(context.WithValue(r.Context(), RelayJWTKey{}, token))
+	r.URL.RawQuery = ":virtualHostname=" + destination.String()
+
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+
+	c.Check(w.Code, tc.Equals, http.StatusServiceUnavailable)
+	ctrl.Finish()
+}
+
 func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 	for _, test := range []struct {
 		name      string
@@ -191,9 +216,14 @@ func (s *relaySuite) dialRelay(c *tc.C, factory coresshproxy.TerminatingServerFa
 }
 
 func (s *relaySuite) newHandler(c *tc.C, factory coresshproxy.TerminatingServerFactory) *RelayHandler {
+	return s.newHandlerMaxConns(c, factory, 10)
+}
+
+func (s *relaySuite) newHandlerMaxConns(c *tc.C, factory coresshproxy.TerminatingServerFactory, maxConns int) *RelayHandler {
 	handler, err := NewRelayHandler(RelayHandlerConfig{
-		Logger:        loggertesting.WrapCheckLog(c),
-		ServerFactory: factory,
+		Logger:                   loggertesting.WrapCheckLog(c),
+		ServerFactory:            factory,
+		MaxConcurrentConnections: func() int { return maxConns },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return handler

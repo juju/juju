@@ -5,6 +5,7 @@ package sshproxy
 
 import (
 	"net/http"
+	"sync/atomic"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
 	"gopkg.in/tomb.v2"
@@ -35,6 +36,10 @@ import (
 type RelayHandler struct {
 	tomb   tomb.Tomb
 	config RelayHandlerConfig
+
+	// concurrentConnections holds the number of in-flight relays, capped
+	// by config.MaxConcurrentConnections.
+	concurrentConnections atomic.Int32
 }
 
 // RelayHandlerConfig holds the configuration for the JIMM relay endpoint.
@@ -43,6 +48,13 @@ type RelayHandlerConfig struct {
 	Logger logger.Logger
 	// ServerFactory builds the per-destination terminating SSH server.
 	ServerFactory coresshproxy.TerminatingServerFactory
+	// MaxConcurrentConnections returns the maximum number of concurrent
+	// relays served at once. It is read per request so runtime
+	// controller-config changes take effect without rebuilding the
+	// handler. Each relay holds a hijacked connection for the life of the
+	// SSH session, so the cap bounds the connections, goroutines and
+	// per-connection lookups the endpoint can accumulate.
+	MaxConcurrentConnections func() int
 }
 
 // Validate checks whether the configuration is valid.
@@ -52,6 +64,9 @@ func (cfg RelayHandlerConfig) Validate() error {
 	}
 	if cfg.ServerFactory == nil {
 		return errors.New("nil ServerFactory")
+	}
+	if cfg.MaxConcurrentConnections == nil {
+		return errors.New("nil MaxConcurrentConnections")
 	}
 	return nil
 }
@@ -122,6 +137,16 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusForbidden)
 		return
 	}
+
+	// Cap before the upgrade so an over-limit relay never allocates a
+	// hijacked connection, goroutine or destination lookup that would
+	// otherwise be held for the life of the SSH session.
+	if current := h.concurrentConnections.Add(1); int(current) > h.config.MaxConcurrentConnections() {
+		h.concurrentConnections.Add(-1)
+		http.Error(w, "too many concurrent relay connections", http.StatusServiceUnavailable)
+		return
+	}
+	defer h.concurrentConnections.Add(-1)
 
 	conn, err := hijack(w, r, coresshproxy.RelayUpgradeToken)
 	if err != nil {
