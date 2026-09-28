@@ -230,6 +230,52 @@ func (s *relaySuite) TestRelayMaxConnectionsDrainAndReadmit(c *tc.C) {
 	ctrl.Finish()
 }
 
+// TestKillDrainsInFlightRelay checks that killing the handler mid-session
+// closes the in-flight hijacked connection. HandleConn cannot be cancelled,
+// so the handler watches the request context (cancelled by the tomb on
+// Kill) and closes the connection, which drains hijacked relays on
+// apiserver shutdown where http.Server.Shutdown cannot see them.
+func (s *relaySuite) TestKillDrainsInFlightRelay(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	factory := NewMockTerminatingServerFactory(ctrl)
+
+	// The session blocks until release, which is never closed here: only
+	// the Kill path should tear the connection down.
+	release := make(chan struct{})
+	defer close(release)
+	destination := newMachineDestination(c, testModelUUID)
+	factory.EXPECT().New(gomock.Any(), destination).
+		Return(newBlockingServer(c, release), nil)
+
+	handler := s.newHandlerMaxConns(c, factory, 1)
+
+	// Hold a live relay: its session blocks, so the connection stays open
+	// and the slot is held until the handler is killed.
+	client := s.startBlockingRelay(c, handler)
+	defer func() { _ = client.Close() }()
+	s.checkRelayConnCount(c, handler, 1)
+
+	// Kill the handler: the tomb cancels the request context, the watch
+	// goroutine closes the connection, and HandleConn returns.
+	handler.Kill()
+	c.Assert(handler.Wait(), tc.ErrorIsNil)
+
+	// The client observes the closed connection: its wait returns rather
+	// than blocking on a session that would otherwise never end.
+	waitErr := make(chan error, 1)
+	go func() { waitErr <- client.Wait() }()
+	select {
+	case err := <-waitErr:
+		c.Check(err, tc.Not(tc.ErrorIsNil))
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for the relay connection to close on Kill")
+	}
+
+	// The slot drains once the killed relay returns.
+	s.checkRelayConnCount(c, handler, 0)
+	ctrl.Finish()
+}
+
 // startBlockingRelay dials a relay against the handler, performs the HTTP
 // upgrade and opens an SSH session. The session's server-side handler
 // blocks, so the relay holds its slot until the caller releases it. The
