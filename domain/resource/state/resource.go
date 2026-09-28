@@ -1035,8 +1035,7 @@ WHERE  uuid = $applicationUUID.application_uuid
 }
 
 // SetUnitResource links a unit and a resource. If the unit is already linked to
-// a resource with the same charm uuid and resource name as the resource being
-// set, this resource is unset from the unit.
+// a resource with the same name, the link is updated to the supplied resource.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.UnitNotFound] if the unit id doesn't belong to an
@@ -1068,9 +1067,11 @@ AND    unit_resource.unit_uuid = $unitResource.unit_uuid`, unitResourceInput)
 		return errors.Capture(err)
 	}
 
-	// Prepare statement to check if the unit already has a resource set for this charm resource.
+	// Prepare statement to check that the resource exists and retrieve its
+	// name.
 	checkResourceExistsStmt, err := st.Prepare(`
-SELECT uuid AS &unitResource.resource_uuid
+SELECT uuid AS &unitResource.resource_uuid,
+       charm_resource_name AS &unitResource.charm_resource_name
 FROM   resource
 WHERE  uuid = $unitResource.resource_uuid
 `, unitResourceInput)
@@ -1087,10 +1088,16 @@ WHERE  uuid = $unitResource.unit_uuid`, unitResourceInput)
 		return errors.Capture(err)
 	}
 
-	// Prepare statement to insert a new link between unit and resource.
+	// Prepare statement to insert or replace a unit's resource by logical name.
 	insertUnitResourceQuery := `
-INSERT INTO unit_resource (unit_uuid, resource_uuid, added_at)
-VALUES      ($unitResource.*)`
+INSERT INTO unit_resource (resource_uuid, unit_uuid, charm_resource_name, added_at)
+VALUES ($unitResource.resource_uuid,
+        $unitResource.unit_uuid,
+        $unitResource.charm_resource_name,
+        $unitResource.added_at)
+ON CONFLICT(unit_uuid, charm_resource_name) DO UPDATE SET
+    resource_uuid = excluded.resource_uuid,
+    added_at = excluded.added_at`
 	insertUnitResourceStmt, err := st.Prepare(insertUnitResourceQuery, unitResourceInput)
 	if err != nil {
 		return errors.Capture(err)
@@ -1122,88 +1129,12 @@ VALUES      ($unitResource.*)`
 			return errors.Capture(err)
 		}
 
-		// Unset any existing resources with the same charm resource as the
-		// resource being set in the unit resource table.
-		err = st.unsetUnitResourcesWithSameCharmResource(ctx, tx, resourceUUID, unitUUID)
-		if err != nil {
-			return errors.Errorf(
-				"removing previously set unit resources for resource %s: %w", resourceUUID, err,
-			)
-		}
-
 		// Update unit resource table.
 		err = tx.Query(ctx, insertUnitResourceStmt, unitResourceInput).Run()
 		return errors.Capture(err)
 	})
 
 	return err
-}
-
-// unsetUnitResourcesForCharmResource removes all unit resources that use a
-// charm resource.
-func (st *State) unsetUnitResourcesWithSameCharmResource(
-	ctx context.Context, tx *sqlair.TX, uuid coreresource.UUID, unitUUID coreunit.UUID) error {
-	unitRes := unitResource{ResourceUUID: uuid.String(), UnitUUID: unitUUID.String()}
-
-	// Check if there is a resource on the unit that is using the same charm
-	// resource as the resource we are trying to set. This will be an old
-	// application resource of the units' which needs to be unset.
-	checkForResourcesStmt, err := st.Prepare(`
-SELECT ur.resource_uuid AS &localUUID.uuid
-FROM   unit_resource ur
-JOIN   resource r ON ur.resource_uuid = r.uuid
-WHERE  ur.unit_uuid = $unitResource.unit_uuid
-AND    (r.charm_uuid, r.charm_resource_name) IN (
-    SELECT charm_uuid, charm_resource_name
-    FROM   resource 
-    WHERE  uuid = $unitResource.resource_uuid
-    AND    state_id = 0 -- Only check available resources, not potential.
-)`, unitRes, localUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Check if the unit already had a resource set for this charm resource.
-	var matchingUUIDs []localUUID
-	err = tx.Query(ctx, checkForResourcesStmt, unitRes).GetAll(&matchingUUIDs)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// Nothing to do.
-		return nil
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-
-	// There should be at most one resource with a matching charm resource
-	// entry for this unit. There must be 1 here because of there were none
-	// we would have had ErrNoRows.
-	if len(matchingUUIDs) != 1 {
-		return errors.Errorf("unit already has the charm resource set more than once")
-	}
-
-	// Unset the old unit resource pointing to the charm resource.
-	unsetResourceStmt, err := st.Prepare(`
-DELETE FROM   unit_resource
-WHERE         resource_uuid = $localUUID.uuid 
-AND           unit_uuid = $unitResource.unit_uuid
-`, unitRes, localUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, unsetResourceStmt, unitRes, matchingUUIDs[0]).Get(&outcome)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	num, err := outcome.Result().RowsAffected()
-	if err != nil {
-		return errors.Capture(err)
-	} else if num != int64(len(matchingUUIDs)) {
-		return errors.Errorf("expected %d rows to be deleted, got %d", len(matchingUUIDs), num)
-	}
-
-	return nil
 }
 
 // SetRepositoryResources updates the "potential" resources as the last
@@ -2218,9 +2149,10 @@ func (st *State) getUnitResourcesToSet(
 		}
 
 		unitResourcesToSet = append(unitResourcesToSet, unitResource{
-			ResourceUUID: resourceUUID.String(),
-			UnitUUID:     unitUUID.String(),
-			AddedAt:      unitRes.Timestamp,
+			ResourceUUID:      resourceUUID.String(),
+			UnitUUID:          unitUUID.String(),
+			CharmResourceName: unitRes.Name,
+			AddedAt:           unitRes.Timestamp,
 		})
 	}
 	return unitResourcesToSet, resourcesToSet, nil

@@ -1530,6 +1530,81 @@ WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1)
 	c.Check(addedAts[0], tc.TimeBetween(startTime, time.Now()))
 }
 
+func (s *resourceSuite) TestSetUnitResourceReplacesResourceFromDifferentCharm(c *tc.C) {
+	const (
+		resourceName = "resource-name"
+		newCharmUUID = "new-charm-uuid"
+	)
+	oldResource := resourceData{
+		UUID:      "old-resource-id",
+		CharmUUID: fakeCharmUUID,
+		Name:      resourceName,
+		Type:      charmresource.TypeFile,
+		UnitUUID:  s.constants.fakeUnitUUID1,
+		AddedAt:   time.Now().Add(-time.Hour).Truncate(time.Second).UTC(),
+	}
+	newResource := resourceData{
+		UUID:      "new-resource-id",
+		CharmUUID: newCharmUUID,
+		Name:      resourceName,
+		Type:      charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmStateWithRevision(ctx, tx, newCharmUUID, 1); err != nil {
+			return errors.Capture(err)
+		}
+		if err := oldResource.insert(ctx, tx); err != nil {
+			return errors.Capture(err)
+		}
+		return newResource.insert(ctx, tx)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetUnitResource(
+		c.Context(),
+		coreresource.UUID(newResource.UUID),
+		unit.UUID(s.constants.fakeUnitUUID1),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var resourceUUID, name string
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT resource_uuid, charm_resource_name
+FROM   unit_resource
+WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1).Scan(&resourceUUID, &name); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   unit_resource
+WHERE  unit_uuid = ?`, s.constants.fakeUnitUUID1).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resourceUUID, tc.Equals, newResource.UUID)
+	c.Check(name, tc.Equals, resourceName)
+	c.Check(count, tc.Equals, 1)
+}
+
+func (s *resourceSuite) TestUnitResourceRejectsMismatchedResourceName(c *tc.C) {
+	resource := resourceData{
+		UUID: "resource-id",
+		Name: "resource-name",
+		Type: charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := resource.insert(ctx, tx); err != nil {
+			return errors.Capture(err)
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO unit_resource (resource_uuid, unit_uuid, charm_resource_name, added_at)
+VALUES (?, ?, ?, ?)`, resource.UUID, s.constants.fakeUnitUUID1, "other-name", time.Now().UTC())
+		return err
+	})
+	c.Check(err, tc.ErrorMatches, `.*FOREIGN KEY constraint failed.*`)
+}
+
 // TestSetUnitResourceUnsetExistingOtherUnits verifies that setting a unit
 // resource that unsets an old one doesn't affect other units using the same
 // resource.
@@ -3208,18 +3283,20 @@ func (s *resourceSuite) checkUnitResourceSet(
 	expectedUnitUUID string,
 	res resource.ImportUnitResourceInfo) {
 	var (
-		unitUUID string
-		addedAt  time.Time
+		unitUUID     string
+		resourceName string
+		addedAt      time.Time
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRow(`
-SELECT unit_uuid, added_at
+SELECT unit_uuid, charm_resource_name, added_at
 FROM   unit_resource
 WHERE  resource_uuid = ?
-`, resourceUUID).Scan(&unitUUID, &addedAt)
+`, resourceUUID).Scan(&unitUUID, &resourceName, &addedAt)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(unitUUID, tc.Equals, expectedUnitUUID)
+	c.Check(resourceName, tc.Equals, res.Name)
 	c.Check(addedAt, tc.Equals, res.Timestamp)
 }
 
@@ -3553,12 +3630,17 @@ func (d resourceData) insert(ctx context.Context, tx *sql.Tx) (err error) {
 		}
 		return &t
 	}
+	charmUUID := d.CharmUUID
+	if charmUUID == "" {
+		charmUUID = fakeCharmUUID
+	}
+
 	// Populate charm_resource table. Don't recreate the charm resource if it
 	// already exists.
 	_, err = tx.Exec(`
 INSERT INTO charm_resource (charm_uuid, name, kind_id, path, description)
 VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		fakeCharmUUID, d.Name, TypeID(d.Type), nilZero(d.Path), nilZero(d.Description))
+		charmUUID, d.Name, TypeID(d.Type), nilZero(d.Path), nilZero(d.Description))
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -3567,7 +3649,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 	// exists.
 	_, err = tx.Exec(`
 INSERT INTO resource (uuid, charm_uuid, charm_resource_name, revision, origin_type_id, state_id, created_at, last_polled)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, d.UUID, fakeCharmUUID, d.Name, nilZero(d.Revision),
+VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, d.UUID, charmUUID, d.Name, nilZero(d.Revision),
 		OriginTypeID(d.OriginType), StateID(d.State), d.CreatedAt, nilZeroTime(d.PolledAt),
 	)
 	if err != nil {
@@ -3598,8 +3680,8 @@ VALUES (?, ?, ?)`, d.UUID, RetrievedByTypeID(d.RetrievedByType), d.RetrievedByNa
 	// Populate unit resource if required.
 	if d.UnitUUID != "" {
 		_, err = tx.Exec(`
-INSERT INTO unit_resource (resource_uuid, unit_uuid, added_at)
-VALUES (?, ?, ?)`, d.UUID, d.UnitUUID, d.AddedAt)
+INSERT INTO unit_resource (resource_uuid, unit_uuid, charm_resource_name, added_at)
+VALUES (?, ?, ?, ?)`, d.UUID, d.UnitUUID, d.Name, d.AddedAt)
 		if err != nil {
 			return errors.Capture(err)
 		}

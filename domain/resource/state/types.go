@@ -132,9 +132,10 @@ func (rv resourceView) toResource() (coreresource.Resource, error) {
 
 // unitResource represents the mapping of a resource to a unit.
 type unitResource struct {
-	ResourceUUID string    `db:"resource_uuid"`
-	UnitUUID     string    `db:"unit_uuid"`
-	AddedAt      time.Time `db:"added_at"`
+	ResourceUUID      string    `db:"resource_uuid"`
+	UnitUUID          string    `db:"unit_uuid"`
+	CharmResourceName string    `db:"charm_resource_name"`
+	AddedAt           time.Time `db:"added_at"`
 }
 
 type applicationNameAndID struct {
