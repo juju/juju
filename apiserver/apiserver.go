@@ -458,7 +458,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		logSink:          cfg.LogSink,
 		metricsCollector: cfg.MetricsCollector,
 
-		healthStatus:    "starting",
+		healthStatus:   "starting",
 		sshProxyConfig: cfg.SSHProxyConfig,
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
@@ -1222,19 +1222,14 @@ func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
 			http.Error(w, "authentication info missing", http.StatusUnauthorized)
 			return
 		}
-		// relayJWTAuthorizer runs first and admits only JWT delegators,
-		// so this guard should be unreachable. Kept as a defensive check.
-		delegator, ok := authInfo.Delegator.(*jwt.PermissionDelegator)
-		if !ok || delegator == nil {
-			srv.shared.logger.Criticalf(r.Context(),
-				"relay wrapper invariant violated: relayJWTAuthorizer admitted a %T delegator", authInfo.Delegator)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
+		// relayJWTAuthorizer admits only JWT delegators. If the cast
+		// somehow fails, the token is omitted and the handler returns 401.
+		delegator, _ := authInfo.Delegator.(*jwt.PermissionDelegator)
+		if delegator != nil {
+			// The token was signature-verified by the JWT authenticator.
+			r = r.WithContext(context.WithValue(r.Context(), sshproxy.RelayJWTKey{}, delegator.Token))
 		}
-		// delegator.Token was signature-verified by the JWT
-		// authenticator, so the relay handler trusts it as-is.
-		ctx := context.WithValue(r.Context(), sshproxy.RelayJWTKey{}, delegator.Token)
-		h.ServeHTTP(w, r.WithContext(ctx))
+		h.ServeHTTP(w, r)
 	})
 }
 
