@@ -47,15 +47,15 @@ How clients express network intent: the space record's life as a grouping, its s
 :file: ../juju.ggarch
 :view: Network spaces
 :no-legend:
-:caption: Topology: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
+:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
 :alt: Application record to space record to subnet record.
 ```
 
-In the model database, a space is a small record set (`0008-space.sql`, `0009-subnet.sql`):
+A space is persisted in the {ref}`model database <data-model-full-spine>` as follows:
 
-- **`space`**: The identity pair: a `uuid` primary key and a model-unique `name`; the unique index rejects a second space of the same name (`space already exists`). The DDL seeds `alpha`, the default space.
-- **`provider_space`**: The cloud's own identifier for the same grouping, where the cloud has one; at most one per space.
-- **`subnet`**: Carries the space pointer (`subnet.space_uuid`); the pointer is nullable, so a subnet belongs to exactly one space or to none.
+- **The space is one record:** the identity pair, a `uuid` primary key and a model-unique `name`; the unique index rejects a second space of the same name (`space already exists`). The model seeds `alpha`, the default space.
+- **The cloud's own identifier for the same grouping is its own record,** where the cloud has one; at most one per space.
+- **The subnet carries the space pointer;** the pointer is nullable, so a subnet belongs to exactly one space or to none.
 - **The pointers that name it:** An {ref}`application <application>` carries its default-binding space on its own record, each charm endpoint can carry a space binding of its own, and exposed endpoints grant spaces to the outside; {ref}`constraints <constraint>` can name the spaces a machine's subnets must come from.
 
 A space has no state machine and no life column: it is a naming record, created, renamed, or removed; nothing transitions.
@@ -64,7 +64,7 @@ A space has no state machine and no life column: it is a naming record, created,
 ### Persistence rules and errors
 
 - **Rules:**
-  - A subnet belongs to at most one space or to none (`subnet.space_uuid` is nullable).
+  - A subnet belongs to at most one space or to none: the space pointer is nullable.
   - Deleting a space resets what names it: constraints naming it are removed, default bindings and exposed endpoints move to `alpha`, endpoint bindings are dropped, and its subnets move to `alpha`.
 - **Errors:**
   - **`space not found`:** Triggered when querying a space by UUID or name that does not exist. Remediation: verify the space exists in the model.

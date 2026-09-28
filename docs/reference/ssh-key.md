@@ -81,25 +81,23 @@ the machines' host keys live in each model database (see {ref}`the
 full spine <data-model-full-spine>`). An SSH key has no state machine:
 it is added, listed, or deleted, nothing transitions.
 
-The record set over the DDL (`0021-user-ssh-keys.sql`,
-`0022-model-authorized-keys.sql`, `0018-machine.sql`):
+The record set:
 
-- **`ssh_fingerprint_hash_algorithm`:** the fingerprint algorithm
-  lookup, `md5` and `sha256`.
-- **`user_public_ssh_key`:** the user's key: the material, its
-  comment (also indexed for deletion, the DDL's own comment), its
-  fingerprint with the algorithm it was taken with, and the owning
-  user.
-- **`model_authorized_keys`:** the projection: one record per (model,
-  key) pair, a composite primary key. The projection carries no key
-  material: it points at the key record.
-- **`machine_ssh_host_key`:** a machine's host keys, per model
+- **The fingerprint algorithm is a lookup:** the two values, `md5`
+  and `sha256`.
+- **The user's key is one record:** the material, its comment (also
+  indexed for deletion, the schema's own comment), its fingerprint
+  with the algorithm it was taken with, and the owning user.
+- **The projection is one record per (model, key) pair,** a composite
+  primary key; it carries no key material: it points at the key
+  record.
+- **A machine's host keys are records of their own,** per model
   database: a UUID primary key, the {ref}`machine <machine>`, and the
   key material.
-- **The view the authorisation read uses:**
-  `v_model_authorized_keys` joins the projection to the user and the
-  user's authentication: a removed or disabled user's keys stop being
-  authorised (the view's own comment).
+- **The authorisation read runs over a view:** it joins the
+  projection to the user and the user's authentication: a removed or
+  disabled user's keys stop being authorised (the view's own
+  comment).
 
 The identity: the key record's id is the join handle every projection
 points at; the projection pair (model, key) is what a machine's
@@ -159,7 +157,7 @@ the host-key reporting, split by owner:
 The user-facing key domain exposes no watch surface. The
 machine-facing authorisation read is watchable: the key updater
 service's per-machine notify watcher covers the model's projection
-(the `model_authorized_keys` namespace) and the user-authentication
+(the projection namespace) and the user-authentication
 namespace, so a disabled user's keys ripple to the machines. Its one
 consumer is the agent keyupdater facade, which the machine agents' key
 updater drives.

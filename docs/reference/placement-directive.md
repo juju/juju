@@ -42,7 +42,7 @@ resource; no Terraform howto covers placement directives.
 
 A placement directive is a **value, not an entity**: the directive itself is not stored; what persists is its resolution.
 
-- **The placement record (`machine_placement`)**: One record per machine, the machine UUID being the natural key; it carries the directive string verbatim and a scope. The schema seeds one scope, `provider` (`0018-machine.sql`).
+- **The placement record is one per machine,** the machine UUID being the natural key; it carries the directive string verbatim and a scope. The schema seeds one scope, `provider`.
 - **What is not stored:** Only the key-value forms are recorded. A machine designation resolves into the machine records themselves: an existing machine is reused, a container designation creates the parent and child machine records.
 
 (the-placement-directive-persistence-rules)=

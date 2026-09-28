@@ -686,7 +686,7 @@ precedent).
 :file: ../juju.ggarch
 :view: Network spaces
 :no-legend:
-:caption: Topology: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
+:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
 :alt: Application record to space record to subnet record; arrows: subnet belongs to 0..1 space; application default binding (one).
 ```
 
