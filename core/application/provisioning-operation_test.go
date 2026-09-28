@@ -94,3 +94,37 @@ func (s *ProvisioningOperationSuite) TestString(c *tc.C) {
 		c.Check(test.op.String(), tc.Equals, test.expected)
 	}
 }
+
+func (s *ProvisioningOperationSuite) TestIsValid(c *tc.C) {
+	tests := []struct {
+		name     string
+		op       ProvisioningOperation
+		expected bool
+	}{
+		{name: "no operation", op: NoOperation, expected: true},
+		{name: "scale operation", op: ScaleOperation, expected: true},
+		{name: "storage update operation", op: StorageUpdateOperation, expected: true},
+		{
+			// A misspelled operation must not be valid; every
+			// consumer comparing against the defined constants
+			// would otherwise silently treat it as no operation.
+			name:     "misspelled scale operation",
+			op:       ProvisioningOperation("sclae"),
+			expected: false,
+		},
+		{
+			// The human-readable string is not the operation value.
+			name:     "space instead of hyphen",
+			op:       ProvisioningOperation("storage update"),
+			expected: false,
+		},
+		{name: "capitalised scale operation", op: ProvisioningOperation("Scale"), expected: false},
+		{name: "underscore variant", op: ProvisioningOperation("storage_update"), expected: false},
+		{name: "unknown operation", op: ProvisioningOperation("unknown"), expected: false},
+	}
+
+	for _, test := range tests {
+		c.Logf("test %q", test.name)
+		c.Check(test.op.IsValid(), tc.Equals, test.expected)
+	}
+}

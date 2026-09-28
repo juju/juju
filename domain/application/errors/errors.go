@@ -80,6 +80,10 @@ const (
 	// application.
 	OperationInProgress = errors.ConstError("provisioning operation in progress")
 
+	// ProvisioningOperationNotValid is returned when the provisioning
+	// operation is not one of the defined operations.
+	ProvisioningOperationNotValid = errors.ConstError("provisioning operation not valid")
+
 	// ScaleChangeInvalid is returned when an attempt is made to set an invalid
 	// application scale value.
 	ScaleChangeInvalid = errors.ConstError("scale change invalid")

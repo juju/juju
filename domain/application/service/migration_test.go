@@ -562,6 +562,17 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 	c.Check(receivedUnitArgs, tc.DeepEquals, expectedUnitArgs)
 }
 
+func (s *migrationServiceSuite) TestImportCAASApplicationOperationNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.ImportCAASApplication(c.Context(), "ubuntu", ImportCAASApplicationArgs{
+		ScaleState: application.ScaleState{
+			CurrentOperation: coreapplication.ProvisioningOperation("sclae"),
+		},
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ProvisioningOperationNotValid)
+}
+
 func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
