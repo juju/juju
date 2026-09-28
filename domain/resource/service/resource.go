@@ -654,10 +654,10 @@ func (s *Service) SetRepositoryResources(
 	})
 }
 
-// AddResourcesBeforeApplication adds the details of which resource
-// revision to use before the application exists in the model. The
-// charm and resource metadata must exist. These resources are resolved
-// when the application is created using the returned Resource UUIDs.
+// AddResourcesBeforeApplication stages the resource revisions to use before an
+// application is created or its charm is changed. The charm and resource
+// metadata must exist. The resources are activated by the application
+// operation using the returned UUIDs.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ArgumentNotValid] is returned if the origin is store and

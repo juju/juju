@@ -1367,9 +1367,9 @@ AND    resource_uuid = $replacePotentialResource.old_uuid
 	return errors.Capture(err)
 }
 
-// AddResourcesBeforeApplication adds the details of which resource
-// revisions to use before the application exists in the model. The
-// charm and resource metadata must exist.
+// AddResourcesBeforeApplication stages the resource revisions to use before an
+// application is created or its charm is changed. The charm and resource
+// metadata must exist.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.CharmResourceNotFound] if the charm or charm resource
