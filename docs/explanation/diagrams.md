@@ -254,6 +254,17 @@ crops).
 
 ### reference/controller.md
 
+#### Controller attributes (ERD slice)
+
+**Insert at:** § The controller in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Controller attributes
+:alt: The singleton controller record at the centre with its salient columns; the model registry west with the namespace mapping under it; the HA node record east with its version satellite beside it and the API addresses below it. Each drawn line is a stored pointer; the controller record's only foreign key is the model pointer; nodes and configuration join by the singleton convention.
+:caption: Entity relationship diagram: The controller's stored records. The controller is one record, a schema-enforced singleton, pointing at the controller model it lives in; the model registry names each model's database, and the HA nodes carry their version and API-address satellites; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the key/value configuration and the node passwords (not drawn).
+```
+
 #### Bootstrap K8s
 
 **Insert at:** § The controller's machinery → § Controller operations → § Controller bootstrap.
@@ -661,8 +672,8 @@ precedent).
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Secret attributes
-:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
-:caption: Entity relationship diagram: The secret's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
+:alt: The secret metadata record at the centre with its salient columns; the revision record and its content record west; the owner and the consumer records east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
+:caption: Entity relationship diagram: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those rows. Collapsed record chips, pruned to the salient columns; the record set also holds the rotation clock, the ID reservations, the cross-model consumer record and the deleted-content references (not drawn).
 ```
 
 ### reference/space.md

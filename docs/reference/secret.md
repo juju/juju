@@ -76,76 +76,61 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Terraform Provide
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Secret attributes
-:alt: The secret's stored tables as an entity-relationship slice: the metadata record (keyed by the secret id) at the centre; the revision chain and its content west; the owner and the consumers east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
-:caption: Entity relationship diagram: The secret's stored records and the schema associations between them -- each line starts at the fk column that holds the pointer (the only directionality the storage layer has; the DDL and the fk: badges own it -- the drawing states the association, 1/m at each end, dashed = the row may be absent). The metadata record is keyed by the secret ID; the owner (application | unit | model) and the consumers carry the labels; revisions chain off the secret, each storing its payload either inline or as a backend reference; permission grants hang off the secret itself.
+:alt: The secret metadata record at the centre with its salient columns; the revision record and its content record west; the owner and the consumer records east; the permission grants south. Each line is a stored pointer; 1/m at each end; nothing dashed -- every pointer here is mandatory (the owner and consumer labels are nullable fields, not pointers).
+:caption: Entity relationship diagram: The secret's stored records. A secret is one metadata record keyed by the secret's ID, carrying the latest revision pointer, the description, the rotate policy and the auto-prune flag; the owner and consumer records and the permission grants hang off it, and each revision carries its payload either inline or as a backend reference; every line is a foreign key in one of those rows.
 ```
 
-In the model database, a secret is a native record (`0012-secret.sql`),
-carried to its current shape by the patch stream
-(`0039-secret-metadata`, `0044-secret`, `0047-secret`,
-`0050-secret`, `0051-secret-removal`, `0058-charm-secret-removal`,
-`0061-secret-reservation`):
+In the model database, a secret is a **native record**: the record
+set grew to its current shape over the patch stream, and the schema
+folds some of its tables into the drawn slice. The drawn slice is the
+record set every secret carries; the entity's remaining records round
+out the specific roles:
 
-- **`secret`:** The id-only base row: a single `secret_id` column is
-  the whole key.
-- **`secret_metadata`:** The metadata record, keyed by the secret ID:
-  the version, the description, the rotation policy pointer, the
-  auto-prune flag, the latest revision's checksum, and the create and
-  update times.
-- **`secret_rotation`:** The next rotation time, one row per secret.
-- **`secret_rotate_policy`:** The rotation policy vocabulary, seeded
-  with `never`, `hourly`, `daily`, `weekly`, `monthly`, `quarterly`,
-  `yearly`.
-- **`secret_revision`:** One row per published revision, keyed by its
-  own UUID, unique on secret ID and revision number.
-- **`secret_content`:** The payload: key/value rows per revision, both
-  non-empty.
-- **`secret_value_ref`:** The reference row when a revision's payload
-  lives in a {ref}`secret backend <secret-backend>`'s store: the
-  backend UUID and the backend's revision ID.
-- **`secret_deleted_value_ref`:** Deleted revisions whose content is
-  stored externally; cleaned up after the external content is deleted.
-- **`secret_revision_obsolete`:** The obsolete and pending-delete
-  flags per revision.
-- **`secret_revision_expire`:** The expiry time per revision.
-- **`secret_reservation`:** Secret IDs minted but not yet committed as
-  charm secrets, keyed to the reserving unit; consumed when the secret
-  is created.
-- **`secret_reference`:** The consumer-side record for a cross-model
-  secret: the latest revision and the owner application, the latter
-  filled in lazily after a migration.
-- **`secret_application_owner` / `secret_unit_owner` /
-  `secret_model_owner`:** The owner records, one table per owner kind;
-  the owner label lives here, unique per owner.
-- **`secret_unit_consumer`:** The tracking rows for units consuming in
-  this model: the tracked revision number and the consumer label,
-  unique per secret and unit.
-- **`secret_remote_unit_consumer`:** The tracked revisions of the
-  consuming model's units, for cross-model secrets, keyed by
-  anonymized unit name.
-- **`secret_permission`:** The grant rows: a role (none, view, manage)
-  over a subject (unit, application, model) within a scope (unit,
-  application, model, relation).
-- **`secret_role`, `secret_grant_subject_type`,
-  `secret_grant_scope_type`:** The grant vocabularies, seeded with the
-  roles, the subject types and the scope types above.
-- **The derived views:** `v_secret_metadata` joins the metadata,
-  policy, revision, expiry and owner rows into one shape;
-  `v_secret_permission` resolves the subjects and scopes to natural
-  ids; `v_secret_owner` unions the three owner tables. The services
-  read these, not the stored rows.
+- **A secret has one metadata record.** It is keyed by the secret's
+  ID, and that ID is the whole identity pair: the owner records, the
+  revisions, the consumers and the permission grants all point at
+  it. It carries the latest revision pointer, the description, the
+  rotation policy, and the auto-prune flag.
+- **A secret has an owner** (an application, a unit, or the model;
+  one record kind per owner) **and consumers** (the units tracking
+  it, in this model and, for cross-model secrets, in the consuming
+  model). The owner's and each consumer's label hang there: any
+  string, unique per owner or consumer, for the charm's internal
+  reference.
+- **A secret publishes revisions.** One record per published
+  revision, unique per secret and revision number; a revision no
+  consumer tracks becomes obsolete, and the expiry time hangs off
+  the revision.
+- **Each revision carries its payload**: Key/value records when the
+  content is stored inline, or a reference into a {ref}`secret
+  backend <secret-backend>`'s store (with the deleted-content
+  references cleaned up after the external content is).
+- **A secret carries permission grants**: A role (none, view,
+  manage) over a subject (a unit, an application, the model) within
+  a scope (a unit, an application, a model, a relation), one record
+  per subject. The roles, the subject kinds and the scope kinds are
+  stored vocabularies.
+- **The satellites the record set rounds out:** the rotation clock
+  (the next rotation time per secret), the ID reservations (IDs
+  minted but not yet committed as charm secrets, consumed when the
+  secret is created), the cross-model consumer-side record (the
+  latest revision and, filled in lazily after a migration, the owner
+  application), and the deleted-content references.
 
-The identity pair: there is only one. The secret ID is both the
-primary key and the join handle: the owner records, the revisions, the
-consumers and the permission grants all point at it. The client-facing
-handles hang off that one ID: the **secret URI**, assigned by Juju
-when the secret is added and returned to the caller for subsequent
-actions; a user-chosen **name** for a user secret, stored as its owner
-label; and an **owner** or **consumer** label, any string, unique per
-owner or consumer, for the charm's internal reference. A cross-model
-secret's URI carries the source model's UUID as the URI's host part
+The client-facing handles hang off the secret's ID: the **secret
+URI**, assigned by Juju when the secret is added and returned to the
+caller for subsequent actions; a user-chosen **name** for a user
+secret, stored as its owner label; and an **owner** or **consumer**
+label for the charm's internal reference. A cross-model secret's URI
+carries the source model's UUID as the URI's host part
 (`secret://<source-uuid>/<id>`); a local secret's URI is just
 `secret:<id>`.
+
+The services read the secret's records through derived views that
+join the metadata, policy, revision, expiry and owner rows into one
+shape, resolve the grant subjects and scopes to natural ids, and
+union the owner kinds. The views have no pointers of their own; they
+are not drawn.
 
 (the-secret-states)=
 One state machine, and it is not the shared life: a secret carries no
@@ -168,8 +153,8 @@ that story; the operations in the execution layer drive it.
 
 A secret is typed by who owns it: the owner record is one of an
 application, a unit, or the model, and that is the whole taxonomy. The
-type is a stored discriminator: it is which owner table the secret
-hangs off.
+type is a stored discriminator: it is which owner record kind the
+secret hangs off.
 
 (charm-secret)=
 #### Charm secret
@@ -213,8 +198,8 @@ option. The charm must support the configuration option.
 
 - **Rules:**
   - Owner labels and consumer labels are unique within their scope:
-    per owner table and per consuming unit, enforced by the schema's
-    partial unique indexes.
+    per owner record kind and per consuming unit, enforced by the
+    schema's partial unique indexes.
   - Revisions are unique per secret: one row per secret ID and
     revision number.
   - A reserved secret ID is consumed when the secret is committed, and

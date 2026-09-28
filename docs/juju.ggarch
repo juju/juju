@@ -391,48 +391,23 @@ model "Juju" {
     // exactly one controller, both hang off the singleton convention
     // (the constant-index idiom), not a pointer.
     // -----------------------------------------------------------------------
-    cty_controller  [type: record, label: "controller", ground: "controller:controller"] {
-      fields {
-        uuid            [label: "uuid", type: "uuid", pk: true]
-        model_uuid      [label: "model_uuid (the controller model)", type: "uuid", fk: true]
-        target_version  [label: "target_version", type: "text"]
-        api_port        [label: "api_port", type: "text", null: true]
-        cert            [label: "cert", type: "text", null: true]
-        ca_cert         [label: "ca_cert", type: "text", null: true]
-        private_key     [label: "private_key", type: "text", null: true]
-        ca_private_key  [label: "ca_private_key", type: "text", null: true]
-        system_identity [label: "system_identity", type: "text", null: true]
-      }
-    }
-    cty_namespace   [type: record, label: "model_namespace",
-                     ground: "controller:model_namespace"] {
-      fields {
-        namespace [label: "namespace", type: "text", pk: true]
-        model_uuid [label: "model_uuid (unique)", type: "uuid", fk: true]
-      }
-    }
-    cty_node        [type: record, label: "controller_node", ground: "controller:controller_node"] {
-      fields {
-        controller_id       [label: "controller_id", type: "text", pk: true]
-        dqlite_node_id      [label: "dqlite_node_id", type: "text", null: true]
-        dqlite_bind_address [label: "dqlite_bind_address", type: "text", null: true]
-      }
-    }
-    cty_node_version [type: record, label: "controller_node_agent_version",
-                      ground: "controller:controller_node_agent_version"] {
-      fields {
-        controller_id [label: "controller_id", type: "text", pk: true, fk: true]
-        version       [label: "version", type: "text"]
-      }
-    }
-    cty_api_address  [type: record, label: "controller_api_address", ground: "controller:controller_api_address"] {
-      fields {
-        controller_id [label: "controller_id", type: "text", pk: true, fk: true]
-        address       [label: "address", type: "text", pk: true]
-        is_agent      [label: "is_agent", type: "bool", null: true]
-        scope         [label: "scope (public | private)", type: "text"]
-      }
-    }
+    // Collapsed chips (round 10): salient columns only. DROPPED from
+    // the labels by the relevance call: the cert/private-key class on
+    // the controller row (served material, not salient identity),
+    // the system identity, the namespace's model pointer (the
+    // mapping IS the pointer), the node password's own table, the
+    // dqlite ids (node identity bookkeeping). The node's satellites
+    // are its version and its API addresses.
+    cty_controller  [type: record, label: "controller\n(uuid, model pointer,\ntarget version, api port,\nTLS material)",
+                     ground: "controller:controller"]
+    cty_namespace   [type: record, label: "model namespace\n(namespace)",
+                     ground: "controller:model_namespace"]
+    cty_node        [type: record, label: "controller node\n(dqlite id, bind address)",
+                     ground: "controller:controller_node"]
+    cty_node_version [type: record, label: "node agent version\n(version)",
+                      ground: "controller:controller_node_agent_version"]
+    cty_api_address  [type: record, label: "api address\n(address, public |\nprivate, agent?)",
+                      ground: "controller:controller_api_address"]
 
     // -----------------------------------------------------------------------
     // Uniter — the unit agent's hook execution engine, plus the states
@@ -778,7 +753,7 @@ model "Juju" {
 
     // -----------------------------------------------------------------------
     // Secret attributes (ADR-011 §3, docs/reference/secret.md): the
-    // stored pointers. DECLARED FLATTENINGS (one node/field covers its
+    // stored pointers. DECLARED FLATTENINGS (one node covers its
     // value lookups): the id-only `secret` base row folded into
     // secret_metadata (keyed by the same secret id); the three owner
     // tables (secret_application_owner / secret_unit_owner /
@@ -791,52 +766,25 @@ model "Juju" {
     // rotation record, the deleted value refs, the controller-DB
     // backend tables.
     // -----------------------------------------------------------------------
-    s_meta     [type: record, label: "secret_metadata", ground: "model:secret_metadata"] {
-      fields {
-        secret_id  [label: "secret_id", type: "text", pk: true]
-        version    [label: "latest revision", type: "int"]
-        description [label: "description", type: "text", null: true]
-        rotate_policy [label: "rotate policy (never | hourly | daily | ...)", type: "int"]
-        auto_prune [label: "auto_prune?", type: "bool"]
-      }
-    }
-    s_owner    [type: record, label: "secret owner", ground: "model:secret_application_owner"] {
-      fields {
-        secret_id  [label: "secret_id", type: "uuid", pk: true, fk: true]
-        owner_uuid [label: "owner (application | unit | model)", type: "uuid"]
-        label      [label: "label (unique per owner)", type: "text", null: true]
-      }
-    }
-    s_consumer [type: record, label: "secret consumer", ground: "model:secret_unit_consumer"] {
-      fields {
-        secret_id  [label: "secret_id", type: "uuid", fk: true]
-        consumer_uuid [label: "consumer (unit | remote consumer)", type: "uuid"]
-        label      [label: "label", type: "text", null: true]
-      }
-    }
-    s_revision [type: record, label: "secret_revision", ground: "model:secret_revision"] {
-      fields {
-        uuid       [label: "uuid", type: "uuid", pk: true]
-        secret_id  [label: "secret_id", type: "text", fk: true]
-        revision   [label: "revision", type: "int"]
-        obsolete   [label: "obsolete?", type: "bool", null: true]
-        expire_time [label: "expire_time", type: "time", null: true]
-      }
-    }
-    s_content  [type: record, label: "secret content", ground: "model:secret_content"] {
-      fields {
-        revision_uuid [label: "revision_uuid", type: "uuid", pk: true, fk: true]
-        payload    [label: "payload (inline | backend ref)", type: "text"]
-      }
-    }
-    s_permission [type: record, label: "secret_permission", ground: "model:secret_permission"] {
-      fields {
-        secret_id  [label: "secret_id", type: "text", fk: true]
-        role       [label: "role (none | view | manage)", type: "int"]
-        subject    [label: "subject (unit | application | user | model)", type: "int"]
-        scope      [label: "scope (relation | application | model)", type: "int"]
-      }
-    }
+    // Collapsed chips (round 10): salient columns only. DROPPED from
+    // the labels by the relevance call: the create/update times
+    // (bookkeeping), the rotate-policy and latest-revision pointers
+    // (the rotation story, not drawn), the revision's create time,
+    // the consumers' source-model and tracked-revision bookkeeping.
+    // The owner's and consumer's kind labels (application | unit |
+    // model) name the flattened tables.
+    s_meta     [type: record, label: "secret metadata\n(latest revision, description,\nrotate policy, auto-prune)",
+                ground: "model:secret_metadata"]
+    s_owner    [type: record, label: "secret owner\n(owner, label)",
+                ground: "model:secret_application_owner"]
+    s_consumer [type: record, label: "secret consumer\n(consumer, label)",
+                ground: "model:secret_unit_consumer"]
+    s_revision [type: record, label: "secret revision\n(revision, obsolete?,\nexpire time)",
+                ground: "model:secret_revision"]
+    s_content  [type: record, label: "secret content\n(key, value, inline |\nbackend ref)",
+                ground: "model:secret_content"]
+    s_permission [type: record, label: "secret permission\n(role, subject, scope)",
+                  ground: "model:secret_permission"]
   }
 
   edges {
@@ -1010,14 +958,14 @@ model "Juju" {
     // namespace table names each model's dqlite database. The HA node
     // cluster is FK-connected inward (satellites -> node), never to
     // the controller row — the singleton convention again.
-    cty_controller.model_uuid -> model_rec     [type: data, label: "is in (one)",
-                                                ground: "controller:controller.model_uuid"]
-    cty_namespace.model_uuid  -> model_rec     [type: data, label: "names the database of (one)",
-                                                ground: "controller:model_namespace.model_uuid"]
-    cty_node_version.controller_id -> cty_node [type: data, label: "reports (one)",
-                                                ground: "controller:controller_node_agent_version.controller_id"]
-    cty_api_address.controller_id  -> cty_node [type: data, label: "an address of (one)",
-                                                ground: "controller:controller_api_address.controller_id"]
+    cty_controller   -> model_rec [type: data, label: "is in (one)",
+                                   ground: "controller:controller.model_uuid"]
+    cty_namespace    -> model_rec [type: data, label: "names the database of (one)",
+                                   ground: "controller:model_namespace.model_uuid"]
+    cty_node_version -> cty_node  [type: data, label: "reports (one)",
+                                   ground: "controller:controller_node_agent_version.controller_id"]
+    cty_api_address  -> cty_node  [type: data, label: "an address of (one)",
+                                   ground: "controller:controller_api_address.controller_id"]
     // Controller database
     user_rec        -> cloud_rec       [type: data, label: "accesses 0..N",
                                         ground: "controller:permission_object_access"]
@@ -1372,11 +1320,16 @@ model "Juju" {
 
     // Secret attributes (ADR-011 §3): the stored pointers, one data
     // edge per fk column.
-    s_revision.secret_id           -> s_meta.secret_id            [type: data, label: "carries revisions (0..N)"]
-    s_content.revision_uuid        -> s_revision.uuid             [type: data, label: "stores (one)"]
-    s_owner.secret_id              -> s_meta.secret_id            [type: data, label: "owns (one)"]
-    s_consumer.secret_id           -> s_meta.secret_id            [type: data, label: "tracks (0..N)"]
-    s_permission.secret_id         -> s_meta.secret_id            [type: data, label: "grants (0..N)"]
+    s_revision           -> s_meta      [type: data, label: "carries revisions (0..N)",
+                                         ground: "model:secret_revision.secret_id"]
+    s_content            -> s_revision  [type: data, label: "stores (one)",
+                                         ground: "model:secret_content.revision_uuid"]
+    s_owner              -> s_meta      [type: data, label: "owns (one)",
+                                         ground: "model:secret_application_owner.secret_id"]
+    s_consumer           -> s_meta      [type: data, label: "tracks (0..N)",
+                                         ground: "model:secret_unit_consumer.secret_id"]
+    s_permission         -> s_meta      [type: data, label: "grants (0..N)",
+                                         ground: "model:secret_permission.secret_id"]
   }
 
   behaviours {
@@ -2617,7 +2570,7 @@ diagram "Application attributes" from "Juju" {
     app_charm    align-middle app_rec
     app_status_rec right-of app_rec gap: 30
     app_status_rec align-middle app_rec
-    fan [app_config app_channel app_endpoint] below app_rec gap: 24
+    fan [app_endpoint app_config app_channel] below app_rec gap: 24
   }
   annotations {
     legend [position: "bottom-right",
@@ -2685,74 +2638,71 @@ diagram "Charm attributes" from "Juju" {
 
 // --------------------------------------------------------------------------
 // Reference: secret attributes (docs/reference/secret.md, ADR-011 §3) —
-// the secret's stored records: the metadata row (keyed by the secret
-// id) at the centre; the revision chain and its content west; the
-// owner and the consumers east; the permission grants south.
+// the secret's stored records as collapsed record chips (round 10 form,
+// per the Charm-origins law): the metadata chip (keyed by the secret
+// id) centred; the revision chain and its content west; the owner and
+// the consumers east; the permission grants south.
 // --------------------------------------------------------------------------
 diagram "Secret attributes" from "Juju" {
   select {
     nodes: s_meta s_owner s_consumer s_revision s_content s_permission
     edges: type data
+    sizing: uniform
   }
   positions {
-    s_revision  left-of s_meta gap: 110
+    // Charm-origins form: the focal metadata record centred,
+    // satellites fanned.
+    s_revision  left-of s_meta gap: 30
     s_revision  align-middle s_meta
-    s_content   below s_revision gap: 60
-    s_content   align-centre s_revision
-    s_owner     right-of s_meta gap: 90
+    s_owner     right-of s_meta gap: 30
     s_owner     align-middle s_meta
-    s_consumer  below s_owner gap: 60
-    s_consumer  align-centre s_owner
-    s_permission below s_meta gap: 100
-    s_permission align-centre s_meta
+    fan [s_content s_consumer s_permission] below s_meta gap: 24
   }
   annotations {
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
 // --------------------------------------------------------------------------
-// Reference: controller attributes (docs/reference/controller.md) —
-// the controller's own records in the controller database: the
-// singleton row at the centre; the model it points at (the controller
-// model) west with the namespace mapping under it; the HA node
-// cluster south with its version and API-address satellites. No FK
-// points at the controller row except its model pointer: the nodes
-// (and the prose-only controller_config) hang off the singleton
-// convention — with exactly one controller, no pointer to it is
-// needed.
+// Reference: controller attributes (docs/reference/controller.md,
+// ADR-011 §3) — the controller's own records as collapsed record chips
+// (round 10 form, per the Charm-origins law): the singleton controller
+// chip centred; the model it points at (the controller model) west with
+// the namespace mapping under it; the HA node east with its version and
+// API-address satellites. No FK points at the controller row except its
+// model pointer: the nodes (and the prose-only controller_config) hang
+// off the singleton convention — with exactly one controller, no
+// pointer to it is needed.
 // --------------------------------------------------------------------------
 diagram "Controller attributes" from "Juju" {
   select {
     nodes: cty_controller model_rec cty_namespace cty_node
            cty_node_version cty_api_address
     edges: type data
+    sizing: uniform
   }
   positions {
-    // West: the model registry — the controller row's one FK — with
+    // West: the model registry — the controller chip's one FK — with
     // the namespace mapping under it.
-    model_rec        left-of cty_controller gap: 110
+    model_rec        left-of cty_controller gap: 30
     model_rec        align-middle cty_controller
-    cty_namespace    below model_rec gap: 60
+    cty_namespace    below model_rec gap: 24
     cty_namespace    align-centre model_rec
     // East: the HA node cluster — FK-connected inward (satellites ->
-    // node), never to the controller row (the singleton convention;
+    // node), never to the controller chip (the singleton convention;
     // the box annotation + prose carry it).
-    cty_node         right-of cty_controller gap: 90
+    cty_node         right-of cty_controller gap: 30
     cty_node         align-middle cty_controller
-    cty_node_version right-of cty_node gap: 90
-    cty_node_version align-middle cty_node
-    cty_api_address  below cty_node gap: 100
-    cty_api_address  align-centre cty_node
+    fan [cty_node_version cty_api_address] below cty_node gap: 24
   }
   annotations {
     box [nodes: "cty_controller model_rec cty_namespace cty_node cty_node_version cty_api_address",
          label: "controller database", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 
@@ -3830,13 +3780,14 @@ diagram "Controller attributes (synthesized)" from "Juju" {
     nodes: cty_controller model_rec cty_namespace cty_node
            cty_node_version cty_api_address
     edges: type data
+    sizing: uniform
   }
   annotations {
     box [nodes: "cty_controller model_rec cty_namespace cty_node cty_node_version cty_api_address",
          label: "controller database", style: "dashed", color: "#888"]
     legend [position: "bottom-right",
             record: "database record",
-            data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+            data: "schema association"]
   }
 }
 

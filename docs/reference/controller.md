@@ -30,30 +30,30 @@ See more: {ref}`manage-controllers`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller attributes
-:alt: The controller's stored tables as an entity-relationship slice: the singleton controller record at the centre -- uuid, the pointer to the controller model, target version, API port, TLS material; the model registry west with the namespace mapping under it; the HA node record east with its version satellite beside it and the API addresses below it. Each drawn line is a stored pointer; the controller row's only FK is the model pointer; nodes and configuration join by the singleton convention.
-:caption: Entity relationship diagram: The controller entity schema and relational associations. Notation: each line starts at the foreign key holding the pointer; 1/m cardinality at each end. Core tables: `controller` anchors the entity as a schema-enforced singleton, linked to `model` (the registry; the controller model pointer is the row's only FK) with `model_namespace` under it, and `controller_node` for the HA cluster with its per-node satellites. Omitted for clarity: the configuration key/value rows (`controller_config`, no FK to draw).
+:alt: The singleton controller record at the centre with its salient columns; the model registry west with the namespace mapping under it; the HA node record east with its version satellite beside it and the API addresses below it. Each drawn line is a stored pointer; the controller record's only foreign key is the model pointer; nodes and configuration join by the singleton convention.
+:caption: Entity relationship diagram: The controller's stored records. The controller is one record, a schema-enforced singleton, pointing at the controller model it lives in; the model registry names each model's database, and the HA nodes carry their version and API-address satellites; every line is a foreign key in one of those rows.
 ```
 
-In the controller database, the controller is a **singleton row**: the schema enforces that exactly one exists. The record set (`0004-controller.sql`, `0008-controller-config.sql`, `0010-controller-node.sql`):
+In the controller database, the controller is a **singleton record**: the schema enforces that exactly one exists. The record set:
 
-- **The singleton row (`controller`)**: The controller's UUID, the pointer to the internal controller model it lives in, the target agent version an {ref}`upgrade <upgrading-things>` sets, the API port, and the TLS material and system identity.
-- **The model registry (`model`, `model_namespace`)**: One row per model the controller serves, each naming the separate Dqlite database its records live in. The controller's own `model_uuid` points at the controller model, the one model that runs Juju itself. Nothing is flagged: the controller model, the controller cloud, and the controller machine are derived by schema views (`v_model`, `v_cloud`, `v_machine_is_controller`; see {ref}`the machine's records <the-machine-in-the-data-model>`).
-- **The controller application:** In the controller model's database, the controller is itself an {ref}`application <application>`, named `controller` and deployed from the `juju-controller` {ref}`charm <charm>`: the application's `charm_uuid` points at the charm row (`0019-application.sql`), and the sparse `application_controller` table marks it, schema-enforced to one row (`idx_singleton_application_controller`, the same constant-index idiom as the controller row).
+- **The controller has one record.** It carries the controller's UUID, the pointer to the internal controller model it lives in, the target agent version an {ref}`upgrade <upgrading-things>` sets, the API port, and the TLS material and system identity.
+- **The controller has a model registry**: One record per model the controller serves, each naming the separate Dqlite database its records live in. The controller's own pointer names the controller model, the one model that runs Juju itself. Nothing is flagged: the controller model, the controller cloud, and the controller machine are derived by the schema's own views (see {ref}`the machine's records <the-machine-in-the-data-model>`).
+- **The controller is also an {ref}`application <application>`.** In the controller model's database, the application named `controller` is deployed from the `juju-controller` {ref}`charm <charm>`; a sparse one-row record marks it, schema-enforced to one row by the same constant-index idiom as the controller record.
 - **The controller charm's origin:** The charm archive (`controller.charm`) ships in the agent's data dir and bootstrap deploys it local-first, at revision 0 over a `local:` origin; if the archive is missing, bootstrap falls back to Charmhub.
-- **The controller's units:** The application runs real units: one created at bootstrap, one per {ref}`HA node <high-availability>`. A machine is the controller machine when it hosts a unit of this application (`v_machine_is_controller`).
-- **The HA nodes (`controller_node`)**: One record per Dqlite node in the {ref}`high-availability <high-availability>` cluster: the node's Dqlite identity and bind address, each uniquely indexed. Each node's satellites record the agent version it reports, the API addresses it serves on for agents to re-orient as the cluster changes, and the node password.
-- **The configuration (`controller_config`)**: A key/value satellite of controller-wide settings. `v_controller_config` unions the stored keys with values read from the controller row: `controller-uuid`, `ca-cert`, `api-port`.
+- **The controller's units:** The application runs real units: one created at bootstrap, one per {ref}`HA node <high-availability>`. A machine is the controller machine when it hosts a unit of this application.
+- **The controller has HA nodes**: One record per Dqlite node in the {ref}`high-availability <high-availability>` cluster: the node's Dqlite identity and bind address, each uniquely indexed. Each node's satellites record the agent version it reports, the API addresses it serves on for agents to re-orient as the cluster changes, and the node password.
+- **The controller has configuration**: A key/value record set of controller-wide settings, read back through a derived view that unions the stored keys with values computed from the controller record.
 - **Storage backends:** The controller's persistent data lives in the Dqlite databases and in blob storage. Both default to the controller's filesystem; an S3-compatible object store such as AWS S3, MicroCeph, or MinIO can take over blob storage through the object-store {ref}`controller configuration keys <controller-config-object-store-type>`.
-- **The record set:** The controller database also holds everything that lives controller-side rather than per-model: {ref}`users <user>`, their {ref}`access levels <user-access-levels>`, {ref}`clouds <cloud>` and {ref}`credentials <credential>`, {ref}`SSH keys <ssh-key>`, {ref}`secret backends <secret-backend>`, leases, and the {ref}`migration <the-model-migration>` bookkeeping. The per-model databases are the other half (see {ref}`the full spine <data-model-full-spine>`).
+- **The wider record set:** The controller database also holds everything that lives controller-side rather than per-model: {ref}`users <user>`, their {ref}`access levels <user-access-levels>`, {ref}`clouds <cloud>` and {ref}`credentials <credential>`, {ref}`SSH keys <ssh-key>`, {ref}`secret backends <secret-backend>`, leases, and the {ref}`migration <the-model-migration>` bookkeeping. The per-model databases are the other half (see {ref}`the full spine <data-model-full-spine>`).
 
-The controller row has no life column and no status vocabulary: the controller is up, and its nodes' liveness is the Dqlite cluster's business. High availability does not make a second controller; it makes more **controller nodes** running the same controller's database and API.
+The controller record has no life and no status vocabulary: the controller is up, and its nodes' liveness is the Dqlite cluster's business. High availability does not make a second controller; it makes more **controller nodes** running the same controller's database and API.
 
 (the-controller-persistence-rules)=
 ### Persistence rules and errors
 
 - **Rules:**
-  - The database holds exactly one controller row; the schema enforces it with the `idx_singleton_controller` unique index over a constant expression. HA expansion adds controller {ref}`nodes <high-availability>`, never a second controller.
-  - The controller model and the controller cloud are derived, not marked: `v_model` computes `is_controller_model` from the `model_uuid` join, `v_cloud` computes `is_controller_cloud` from the controller model's cloud.
+  - The database holds exactly one controller record; the schema enforces it with a unique index over a constant expression. HA expansion adds controller {ref}`nodes <high-availability>`, never a second controller.
+  - The controller model and the controller cloud are derived, not marked: the schema's own views compute them from the records around the controller.
 - **Errors:**
   - **`cloud still in use`:** Triggered when deleting a {ref}`cloud <cloud>` that one or more {ref}`models <model>` still reference. Remediation: move the models to another cloud or remove them before deleting.
 
@@ -75,7 +75,7 @@ By the time bootstrap returns, the controller is up: the API server answering, t
 :alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User. The resulting state is the controller machine alone: one controller, one model, no applications yet.
 ```
 
-  Bootstrap is also the controller record's creator: the initialised database gets the controller row, the `admin` {ref}`user <user>` and its superuser access, the controller model, and the bootstrapped {ref}`cloud <cloud>` and {ref}`credential <credential>` records.
+  Bootstrap is also the controller record's creator: the initialised database gets the controller record, the `admin` {ref}`user <user>` and its superuser access, the controller model, and the bootstrapped {ref}`cloud <cloud>` and {ref}`credential <credential>` records.
 - **Configuration:** The controller configuration is the controller's key/value record, read and written through the controller config service and watched for changes. See {ref}`the list of controller configuration keys <list-of-controller-configuration-keys>`.
 - **HA expansion:** The nodes are the HA cluster's membership; adding a node brings another controller agent into the controller's Dqlite cluster. There is no `juju enable-ha` client command; the nodes are added and removed through the Terraform provider's `enable-ha` action.
 
@@ -88,7 +88,7 @@ See more: {ref}`manage-controllers`
 
 The controller side exposes these watch surfaces:
 
-- **Controller configuration:** The controller config record and the controller row; the controller's own workers reconcile on it.
+- **Controller configuration:** The controller config record and the controller record; the controller's own workers reconcile on it.
 - **Controller nodes:** The HA cluster's membership.
 - **The API addresses:** The addresses the controller's nodes serve on, so agents can re-orient as the cluster changes.
 
