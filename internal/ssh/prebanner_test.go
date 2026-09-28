@@ -8,7 +8,6 @@ import (
 	"net"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/juju/tc"
 )
@@ -37,69 +36,35 @@ func readPreBanner(c *tc.C, conn net.Conn, done <-chan error) string {
 	return res.out
 }
 
+// writeAndRead runs WritePreBannerError on one end of a pipe and
+// returns what the other end reads.
+func writeAndRead(c *tc.C, msg string) string {
+	client, server := net.Pipe()
+	defer func() { _ = client.Close() }()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- WritePreBannerError(server, msg)
+		_ = server.Close()
+	}()
+	return readPreBanner(c, client, done)
+}
+
 func (*preBannerSuite) TestWritePreBannerError(c *tc.C) {
-	client, server := net.Pipe()
-	defer func() { _ = client.Close() }()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- WritePreBannerError(server, "no such destination")
-		_ = server.Close()
-	}()
-
-	out := readPreBanner(c, client, done)
-	c.Check(out, tc.Equals, "no such destination\r\n")
-}
-
-func (*preBannerSuite) TestWritePreBannerErrorFlattensNewlines(c *tc.C) {
-	client, server := net.Pipe()
-	defer func() { _ = client.Close() }()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- WritePreBannerError(server, "line one\nline two\nline three")
-		_ = server.Close()
-	}()
-
-	out := readPreBanner(c, client, done)
-	c.Check(out, tc.Equals, "line one line two line three\r\n")
-}
-
-func (*preBannerSuite) TestWritePreBannerErrorCapsLength(c *tc.C) {
-	client, server := net.Pipe()
-	defer func() { _ = client.Close() }()
-
-	msg := strings.Repeat("x", 300)
-
-	done := make(chan error, 1)
-	go func() {
-		done <- WritePreBannerError(server, msg)
-		_ = server.Close()
-	}()
-
-	out := readPreBanner(c, client, done)
-	// 255 bytes minus the 2-byte CR LF terminator.
-	c.Check(out, tc.Equals, strings.Repeat("x", 253)+"\r\n")
-}
-
-func (*preBannerSuite) TestWritePreBannerErrorCapsLengthOnRuneBoundary(c *tc.C) {
-	client, server := net.Pipe()
-	defer func() { _ = client.Close() }()
-
-	// é is two bytes in UTF-8. 128 runes are 256 bytes, so the byte cap
-	// at 253 (255 minus the CR LF terminator) would split the final rune;
-	// the backup to a rune boundary must drop it and emit 126 valid runes.
-	msg := strings.Repeat("é", 128)
-
-	done := make(chan error, 1)
-	go func() {
-		done <- WritePreBannerError(server, msg)
-		_ = server.Close()
-	}()
-
-	out := readPreBanner(c, client, done)
-	c.Check(out, tc.Equals, strings.Repeat("é", 126)+"\r\n")
-	c.Check(utf8.ValidString(out), tc.IsTrue)
+	for _, test := range []struct {
+		name string
+		msg  string
+		out  string
+	}{
+		{"basic", "no such destination", "no such destination\r\n"},
+		{"flattens newlines", "line one\nline two", "line one line two\r\n"},
+		{"caps length", strings.Repeat("x", 300), strings.Repeat("x", 253) + "\r\n"},
+		{"caps on rune boundary", strings.Repeat("é", 128), strings.Repeat("é", 126) + "\r\n"},
+	} {
+		c.Run(test.name, func(t *testing.T) {
+			tc.Check(t, writeAndRead(c, test.msg), tc.Equals, test.out)
+		})
+	}
 }
 
 func (*preBannerSuite) TestWritePreBannerErrorWriteFailure(c *tc.C) {
