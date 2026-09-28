@@ -49,6 +49,29 @@ run_resource_refresh_no_new_charm_rev() {
 	destroy_model "test-${name}"
 }
 
+check_application_and_unit_resources() {
+	local application=$1
+	local resource_name=$2
+	local expected_revision=$3
+	local application_fingerprint unit_fingerprint
+
+	application_fingerprint=$(juju list-resources "${application}" --format json |
+		yq -r '.resources[] | select(.name == "'"${resource_name}"'") | .fingerprint')
+	test -n "${application_fingerprint}"
+	juju list-resources "${application}" --format json |
+		yq -r '.resources[] | select(.name == "'"${resource_name}"'") | .revision' |
+		check "^${expected_revision}$"
+
+	for unit in 0 1; do
+		unit_fingerprint=$(juju list-resources "${application}/${unit}" --format json |
+			yq -r '.[] | select(.name == "'"${resource_name}"'") | .fingerprint')
+		juju list-resources "${application}/${unit}" --format json |
+			yq -r '.[] | select(.name == "'"${resource_name}"'") | .revision' |
+			check "^${expected_revision}$"
+		test "${unit_fingerprint}" = "${application_fingerprint}"
+	done
+}
+
 run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	# refresh the resource revision without changing the
 	# charm url
@@ -59,20 +82,26 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 
 	ensure "test-${name}" "${file}"
 
-	juju deploy juju-qa-test
+	juju charm-resources juju-qa-test --channel latest/stable --format json |
+		yq -r '.[] | select(.name == "foo-file") | .revision' |
+		check '^2$'
+
+	juju deploy juju-qa-test --channel latest/stable -n 2
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	juju config juju-qa-test foo-file=true
 
 	# wait for update-status
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
-	juju resources juju-qa-test --format json | yq '.resources[0] | .[ "revision"] == "2"'
+	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 1).message"
+	check_application_and_unit_resources juju-qa-test foo-file 2
 	juju config juju-qa-test foo-file=false
 
 	juju refresh juju-qa-test --resource foo-file=3
 
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
-	juju resources juju-qa-test --format json | yq '.resources[0] | .[ "revision"] == "3"'
+	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 1).message"
+	check_application_and_unit_resources juju-qa-test foo-file 3
 
 	destroy_model "test-${name}"
 }

@@ -1,0 +1,23 @@
+name: resource-lifecycle
+summary: Invalid resource lifecycle integration test charm.
+description: Changes a retained file resource to an OCI image resource.
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+  arm64:
+  s390x:
+parts:
+  charm:
+    plugin: dump
+    source: .
+    prime:
+      - hooks
+resources:
+  retained:
+    type: oci-image
+    description: An incompatible replacement for the retained file resource.
+  added:
+    type: file
+    filename: added
+    description: A resource staged before the refresh fails.

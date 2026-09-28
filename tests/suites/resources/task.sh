@@ -23,6 +23,7 @@ test_resources() {
 	*)
 		test_attach_resources
 		test_upgrade_resources
+		test_resource_lifecycle
 		;;
 	esac
 

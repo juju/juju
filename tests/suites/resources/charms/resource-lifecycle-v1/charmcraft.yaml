@@ -1,0 +1,24 @@
+name: resource-lifecycle
+summary: Resource lifecycle integration test charm, revision one.
+description: Exercises retained and removed file resources during refresh.
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+  arm64:
+  s390x:
+parts:
+  charm:
+    plugin: dump
+    source: .
+    prime:
+      - hooks
+resources:
+  retained:
+    type: file
+    filename: retained
+    description: A resource retained across charm refresh.
+  removed:
+    type: file
+    filename: removed
+    description: A resource removed by the destination charm.
