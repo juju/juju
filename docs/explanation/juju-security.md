@@ -683,7 +683,7 @@ Any communication to and from a Juju controller’s API server and clients, Char
 User authentication with the controller, machines provisioned by the controller, the controller database, etc., is implemented following industry standards. That is:
 
 * macaroons
-* (for Juju with [JAAS](https://jaas.ai/); added in Juju 3.5) JWTs
+* (for Juju with [JAAS](https://jaas.ai/)) JWTs
 * SSH keys
 * passwords
 

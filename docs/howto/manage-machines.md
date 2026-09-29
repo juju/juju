@@ -266,10 +266,10 @@ juju exec --unit ubuntu/0 echo "hi"
 
 ```
 
-The `exec` command can take many other flags, allowing you to specify an output file, run the commands sequentially (since `juju v.3.0`, the default is to run them in parallel), etc.
+The `exec` command can take many other flags, allowing you to specify an output file, run the commands sequentially (the default is to run them in parallel), etc.
 
 ```{ibnote}
-See more: {ref}`command-juju-exec` (before `juju v.3.0`, `juju run`)
+See more: {ref}`command-juju-exec`
 ```
 
 (access-a-machine-via-ssh)=

@@ -68,10 +68,10 @@ Otherwise, to add a Kubernetes cloud to Juju:
 2. Run the `add-k8s` command followed by the desired cloud name:
 
 ```{important}
-**If you have a Juju 3.0+ CLI client installed from snap and you're using a public Kubernetes cloud (AKS, EKS, GKE):** <br>
+**If you have the Juju CLI client installed from snap and you're using a public Kubernetes cloud (AKS, EKS, GKE):** <br>
 Run this command with the 'raw' (not strictly confined) snap: `/snap/juju/current/bin/juju add-k8s <cloud name>`.
 
-This is required because, starting with Juju 3.0, the `juju` CLI client snap is a strictly confined snap, whereas the public cloud CLIs are not (see [discussion](https://bugs.launchpad.net/juju/+bug/2007575)), and it is only necessary for this step -- for any other step you can go back to using the client from the strictly confined snap (so, you can keep typing just `juju`).
+This is required because the `juju` CLI client snap is a strictly confined snap, whereas the public cloud CLIs are not (see [discussion](https://bugs.launchpad.net/juju/+bug/2007575)), and it is only necessary for this step -- for any other step you can go back to using the client from the strictly confined snap (so, you can keep typing just `juju`).
 
 ```
 

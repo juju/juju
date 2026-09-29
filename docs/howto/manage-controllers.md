@@ -355,9 +355,6 @@ You can do that automatically via Juju relations or manually.
 
 ### Configure Prometheus automatically
 
-```{versionadded} 3.3
-```
-
 ```{important}
 As the required Prometheus charm is only available for Kubernetes, this option requires a Kubernetes cloud.
 

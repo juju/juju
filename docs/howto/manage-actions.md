@@ -104,7 +104,7 @@ Running an action returns the overall operation ID as well as the individual tas
 
 
 ```{ibnote}
-See more: {ref}`command-juju-run` (before Juju 3, `run-action`)
+See more: {ref}`command-juju-run`
 ```
 
 (manage-action-tasks)=
