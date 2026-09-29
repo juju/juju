@@ -53,6 +53,13 @@ resources, which apply when using JAAS.
 (the-access-record)=
 ## Access in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Access attributes
+:alt: The permission grant record at the centre with its salient columns; the level-object pair lookup below; the access level vocabulary west; the object kind vocabulary east. Each line is a stored pointer; 1/m at each end.
+:caption: The access records. A grant is one permission record in the controller database, naming the level, the object kind and the object, the pair validated against the lookup of the ten valid level-object pairs; the level and kind vocabularies bound it. Every line is a foreign key in one of those records.
+```
+
 Access is persisted in the {ref}`controller database <database>` as
 the **permission** record: one record per grant, carrying its UUID,
 the access level and the object kind (stored as records of their own

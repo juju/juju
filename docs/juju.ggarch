@@ -838,6 +838,24 @@ model "Juju" {
              ground: "controller:ssh_fingerprint_hash_algorithm"]
     ssh_proj [type: record, label: "authorised key\n(model, key)",
               ground: "controller:model_authorized_keys"]
+
+    // -----------------------------------------------------------------------
+    // Access attributes (docs/reference/access.md): the stored
+    // pointers. The grant's level pointer is the composite
+    // (access_type_id, object_type_id) FK — grounded on access_type_id
+    // (the uz view's edge uses the same ground; the pair is drawn here
+    // with its two vocabularies). Not drawn: the views that resolve
+    // the identifiers, the everyone@external group grants, the
+    // objects themselves.
+    // -----------------------------------------------------------------------
+    acc_grant [type: record, label: "permission grant\n(level, object, user)",
+               ground: "controller:permission"]
+    acc_pair  [type: record, label: "level-object pairs\n(ten valid pairs)",
+               ground: "controller:permission_object_access"]
+    acc_level [type: record, label: "access level\n(read, write, consume,\nadmin, login, add-model,\nsuperuser)",
+               ground: "controller:permission_access_type"]
+    acc_kind  [type: record, label: "object kind\n(cloud, controller,\nmodel, offer)",
+               ground: "controller:permission_object_type"]
   }
 
   edges {
@@ -1462,6 +1480,15 @@ model "Juju" {
                          ground: "controller:user_public_ssh_key.fingerprint_hash_algorithm_id"]
     ssh_proj -> ssh_key [type: data, label: "points at (one)",
                          ground: "controller:model_authorized_keys.user_public_ssh_key_id"]
+
+    // Access attributes: one data edge per FK, each grounded on its
+    // FK column (the grant's pair pointer is the composite FK).
+    acc_grant -> acc_pair [type: data, label: "validated by (one)",
+                           ground: "controller:permission.access_type_id"]
+    acc_pair  -> acc_level [type: data, label: "levels (0..N)",
+                            ground: "controller:permission_object_access.access_type_id"]
+    acc_pair  -> acc_kind  [type: data, label: "kinds (0..N)",
+                            ground: "controller:permission_object_access.object_type_id"]
   }
 
   behaviours {
@@ -2263,6 +2290,38 @@ diagram "SSH key attributes" from "Juju" {
     ssh_fp   align-middle ssh_key
     ssh_proj right-of ssh_key gap: 30
     ssh_proj align-middle ssh_key
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: access attributes (docs/reference/access.md) — the
+// access records as collapsed record chips (round 10 form, per the
+// Charm-origins law): the permission grant record centred (level,
+// object, user), the level-object pair lookup below, the access
+// level vocabulary west, the object kind vocabulary east. Not drawn:
+// the views that resolve the identifiers, the everyone@external
+// group grants, the objects themselves. Edges stay grounded on the
+// FK columns.
+// --------------------------------------------------------------------------
+diagram "Access attributes" from "Juju" {
+  select {
+    nodes: acc_grant acc_pair acc_level acc_kind
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal grant centred, its flanks.
+    acc_pair  below acc_grant gap: 24
+    acc_pair  align-centre acc_grant
+    acc_level left-of acc_grant gap: 30
+    acc_level align-middle acc_grant
+    acc_kind  right-of acc_grant gap: 30
+    acc_kind  align-middle acc_grant
   }
   annotations {
     legend [position: "bottom-right",
@@ -3990,6 +4049,22 @@ diagram "Constraint attributes (synthesized)" from "Juju" {
 diagram "SSH key attributes (synthesized)" from "Juju" {
   select {
     nodes: ssh_key ssh_fp ssh_proj
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Access attributes (synthesized)" from "Juju" {
+  select {
+    nodes: acc_grant acc_pair acc_level acc_kind
     edges: type data
     sizing: uniform
   }
