@@ -50,7 +50,13 @@ const openSCPTemplate = `scp -o {{.ProxyCommand}} {{.Args}}
 
 const proxyCommandTemplate = `ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUserHost}}`
 
+// minSSHJumpFacadeVersion is the minimum SSHClient facade version that
+// supports proxying through the controller's SSH jump server.
 const minSSHJumpFacadeVersion = 6
+
+// minSSHJumpControllerFacadeVersion is the minimum Controller facade version
+// that serves the SSH jump server host key and port.
+const minSSHJumpControllerFacadeVersion = 15
 
 // SSHAPIJump is the SSH API client used by the SSH jump provider.
 type SSHAPIJump interface {
@@ -111,7 +117,9 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	if err := p.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkSSHJumpFacadeVersion(p.sshClient.BestAPIVersion()); err != nil {
+	if err := checkSSHJumpFacadeVersion(
+		p.sshClient.BestAPIVersion(), p.controllerClient.BestAPIVersion(),
+	); err != nil {
 		return err
 	}
 	// Read the SSH server port from the controller rather than controller
@@ -161,8 +169,8 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	return nil
 }
 
-func checkSSHJumpFacadeVersion(version int) error {
-	if version < minSSHJumpFacadeVersion {
+func checkSSHJumpFacadeVersion(sshClientVersion, controllerVersion int) error {
+	if sshClientVersion < minSSHJumpFacadeVersion || controllerVersion < minSSHJumpControllerFacadeVersion {
 		return errors.Errorf(
 			"controller does not support SSH proxying; use the --direct flag to connect directly",
 		)
