@@ -6,14 +6,13 @@
 //
 // A Watcher[T] is a worker that reports changes of type T on the channel
 // returned by its Changes method; the channel is closed when the watcher is
-// stopped. The package defines the common shapes:
+// killed. The package defines the common shapes:
 //
 //   - NotifyWatcher sends a single value to indicate that the watch is
 //     active, and subsequent values whenever the value or values under
 //     observation change.
-//   - StringsWatcher sends a single value indicating a baseline set of
-//     values, and subsequent values representing additions, changes and
-//     removals of those values.
+//   - StringsWatcher sends a slice of strings indicating a baseline set of
+//     values, and subsequent values representing changes of values.
 //
 // The remaining files define the watchers of specific domains, such as
 // secrets, relations, offers and migrations.

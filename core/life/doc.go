@@ -16,7 +16,9 @@
 // an entity that is not dead is active in some way.
 //
 // Entities that have a life include machines, units, applications and
-// relations (see the domain packages of the same names, and
+// relations. See github.com/juju/juju/domain/machine,
+// github.com/juju/juju/domain/application (which also persists the life of
+// units) and github.com/juju/juju/domain/relation, and
 // github.com/juju/juju/domain/life for the integer form recorded in the life
-// lookup table).
+// lookup table.
 package life
