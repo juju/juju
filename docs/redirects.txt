@@ -48,9 +48,12 @@ contributor/tutorial contributor
 contributor/howto/create-unit-test-suite contributor/howto/create-a-unit-test-suite
 contributor/reference/testing/integration-testing/test-includes contributor/reference/testing/integration-testing/test-include
 # redirects after promoting user docs and demoting contributor docs
-user/explanation/application-modelling explanation/application-modelling
-user/explanation/charming-history explanation/charming-history
-user/explanation/charms-vs-kubernetes-operators explanation/charms-vs-kubernetes-operators
+user/explanation/application-modelling explanation
+explanation/application-modelling explanation
+user/explanation/charming-history explanation
+explanation/charming-history explanation
+user/explanation/charms-vs-kubernetes-operators explanation
+explanation/charms-vs-kubernetes-operators explanation
 user/explanation explanation
 user/explanation/juju-security explanation/juju-security
 user/explanation/performance-with-juju explanation/performance-with-juju
