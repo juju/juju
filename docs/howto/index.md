@@ -51,15 +51,15 @@ Moving from Juju 3.6? Start with {ref}`Upgrade your deployment from 3.6 to 4.0 <
 (your-juju-deployment-the-birds-eye-view)=
 ## Your Juju deployment: the bird's eye view
 
-The high-level logic of a Juju deployment, from day 0 to day 2. Start with {ref}`Manage your deployment <manage-your-deployment>`, or jump to a stage:
+The high-level logic of a Juju deployment, from day 0 to day 2, is covered in {ref}`Manage your deployment <manage-your-deployment>`, with a page for each stage:
 
 - **Set up**: {ref}`Standard <set-up-your-deployment>` • {ref}`Local testing and development <set-things-up>` • {ref}`Offline <take-your-deployment-offline>`
 - **Maintain**: {ref}`Harden <harden-your-deployment>` • {ref}`Troubleshoot <troubleshoot-your-deployment>` • {ref}`Upgrade <upgrade-your-deployment>`
 - **Tear down**: {ref}`Local testing and development <tear-things-down>`
 
-## Set up Juju
+## Setting up Juju
 
-Install the `juju` client, add a cloud to the client, bootstrap a Juju controller, connect further clouds to the client or an existing controller, set up the Juju dashboard, configure secret backends, configure logs.
+Setting up Juju involves installing the `juju` client, adding a cloud to it, bootstrapping a Juju controller, connecting further clouds to the client or an existing controller, setting up the Juju dashboard, and configuring secret backends and logs.
 
 - {ref}`Manage the juju CLI <manage-juju>`
 - {ref}`Add, update, and remove clouds and their regions <manage-clouds>`
@@ -71,16 +71,16 @@ Install the `juju` client, add a cloud to the client, bootstrap a Juju controlle
 - {ref}`Manage secret backends <manage-secret-backends>`
 - {ref}`Manage logs <manage-logs>`
 
-## Handle authentication and authorization
+## Handling authentication and authorization
 
-Set up SSH keys. Add users and control their access to controllers, clouds, models, or application offers.
+Authentication and authorization cover SSH keys, as well as users and their access to controllers, clouds, models, and application offers.
 
 - {ref}`Manage SSH keys <manage-ssh-keys>`
 - {ref}`Administer users and their access <manage-users>`
 
-## Deploy infrastructure and applications
+## Deploying infrastructure and applications
 
-Deploy, configure, integrate, scale, etc., charmed applications. This will automatically provision infrastructure, but you can customise it before, during, or after deploy too.
+Charmed applications are deployed, configured, integrated, scaled, and more. Deploying them automatically provisions infrastructure, which can also be customised before, during, or after deployment.
 
 - {ref}`Manage charms or bundles <manage-charms>`
 - {ref}`Find, specify, and view charm resources <manage-charm-resources>`
