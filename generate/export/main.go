@@ -136,9 +136,11 @@ func controllerPass() generatorPass {
 		versions: export.ControllerExportVersions,
 		// A controller backup is a faithful snapshot: every table the schema
 		// defines is exported, and deciding what a restore replays is the
-		// restore path's business, not the export's. Only SQLite's own
-		// AUTOINCREMENT bookkeeping is skipped.
-		excludedTables: []string{"sqlite_sequence"},
+		// restore path's business, not the export's. SQLite's own
+		// AUTOINCREMENT bookkeeping is skipped, as is controller_ssh_server_port:
+		// the SSH server port is owned by the controller charm, which pushes its
+		// configured value over the control socket, so it is not exported.
+		excludedTables: []string{"sqlite_sequence", "controller_ssh_server_port"},
 		types:          generatedFile{template: "controller_types.tmpl", dir: "domain/export/types/controller", name: "controller.go"},
 		state:          generatedFile{template: "controller_state.tmpl", dir: "domain/export/state/controller", name: "export.go"},
 		stateTest:      generatedFile{template: "controller_state_test.tmpl", dir: "domain/export/state/controller", name: "export_test.go"},
