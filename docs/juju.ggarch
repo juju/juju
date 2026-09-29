@@ -870,6 +870,19 @@ model "Juju" {
              ground: "model:machine_placement"]
     pl_scope [type: record, label: "placement scope\n(provider)",
               ground: "model:machine_placement_scope"]
+
+    // -----------------------------------------------------------------------
+    // Zone attributes (docs/reference/zone.md): the stored pointers.
+    // A zone is a value, not an entity: the lookup entry (the
+    // cloud-side availability-zone name, cached in the model) and its
+    // subnet memberships. Not drawn: the machine instances that land
+    // in the zone (their cloud-instance records carry the pointer),
+    // the constraints and placement directives that name it.
+    // -----------------------------------------------------------------------
+    az_rec    [type: record, label: "availability zone\n(name)",
+               ground: "model:availability_zone"]
+    az_subnet [type: record, label: "zone's subnets\n(subnet)",
+               ground: "model:availability_zone_subnet"]
   }
 
   edges {
@@ -1510,6 +1523,10 @@ model "Juju" {
                             ground: "model:machine_placement.machine_uuid"]
     pl_rec  -> pl_scope   [type: data, label: "scoped by (one)",
                            ground: "model:machine_placement.scope_id"]
+
+    // Zone attributes: one data edge for the subnet-membership join.
+    az_subnet -> az_rec [type: data, label: "of (0..N)",
+                         ground: "model:availability_zone_subnet.availability_zone_uuid"]
   }
 
   behaviours {
@@ -2373,6 +2390,33 @@ diagram "Placement attributes" from "Juju" {
     machine_rec align-middle pl_rec
     pl_scope    right-of pl_rec gap: 30
     pl_scope    align-middle pl_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: zone attributes (docs/reference/zone.md) — the zone's
+// stored records as collapsed record chips (round 10 form, per the
+// Charm-origins law): the availability-zone lookup record centred
+// (its name), the subnet-membership join east. A zone is a value,
+// not an entity. Not drawn: the machine instances that land in the
+// zone, the constraints and placement directives that name it.
+// Edges stay grounded on the FK columns.
+// --------------------------------------------------------------------------
+diagram "Zone attributes" from "Juju" {
+  select {
+    nodes: az_rec az_subnet
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal zone centred, its flank.
+    az_subnet right-of az_rec gap: 30
+    az_subnet align-middle az_rec
   }
   annotations {
     legend [position: "bottom-right",
@@ -4132,6 +4176,22 @@ diagram "Access attributes (synthesized)" from "Juju" {
 diagram "Placement attributes (synthesized)" from "Juju" {
   select {
     nodes: pl_rec machine_rec pl_scope
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Zone attributes (synthesized)" from "Juju" {
+  select {
+    nodes: az_rec az_subnet
     edges: type data
     sizing: uniform
   }

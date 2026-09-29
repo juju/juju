@@ -13,10 +13,17 @@ A(n availability) **`zone`** is a  {ref}`constraint <constraint>` or a {ref}`pla
 (the-zones-records)=
 ## The zone's records
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Zone attributes
+:alt: The availability-zone record at the centre with its salient columns; the zone's subnet memberships east. Each line is a stored pointer; 1/m at each end.
+:caption: The zone's stored records. A zone is one lookup entry, the cloud's availability-zone name cached in the model database; the zone's subnet memberships are their own join records. Every line is a foreign key in one of those records.
+```
+
 ### The zone's identity
 
 A zone is a **value, not an entity**: it is one entry in the cloud's
-list of availability zones. What persists is where it is *used* -- a
+list of availability zones. What persists is where it is *used*: a
 machine's cloud-instance record names the zone its instance landed
 in (an empty pointer until the cloud assigns one).
 
@@ -31,37 +38,37 @@ the `zones` {ref}`constraint <constraint-zones>` (a range) and the
 `zone=` {ref}`placement directive <placement-directive-zone>` (one
 zone).
 
-When passed as a constraint you may specify a range of zones (via the {ref}`constraint-zones` key) whereas when passed as a placement directive you may only specify one zone (via the {ref}`placement-directive-zone` key). If you do both -- that is, there is overlap -- the placement directive takes precedence.
+When passed as a constraint you may specify a range of zones (via the {ref}`constraint-zones` key) whereas when passed as a placement directive you may only specify one zone (via the {ref}`placement-directive-zone` key). If you do both (that is, there is overlap), the placement directive takes precedence.
 
 (the-zone-states)=
 ### Zone states
 
-Not applicable -- a zone is a cloud fact, cached in the model: it is
+Not applicable; a zone is a cloud fact, cached in the model: it is
 read, never written or transitioned.
 
 (the-zone-operations)=
 ## The zone's machinery
 
-A zone has no machinery of its own: it is a cached cloud fact -- the
+A zone has no machinery of its own: it is a cached cloud fact; the
 zone list comes from the provider, and what persists is where a
 machine's instance landed.
 
 ### Zone operations
 
-Not applicable -- zones are not operated on in Juju; they are
+Not applicable: zones are not operated on in Juju; they are
 consumed at provisioning time by the constraints and directives that
 name them (see {ref}`machine provisioning <the-machines-machinery>`).
 
 (the-zone-watchers)=
 ### Zone watchers
 
-Not applicable -- the zone list comes from the cloud provider; it is
+Not applicable: the zone list comes from the cloud provider; it is
 not model state with a change stream.
 
 (the-zone-rules-and-errors)=
 ## Zone rules and errors
 
-- valid zone values are the cloud's own zone names -- Juju validates
+- valid zone values are the cloud's own zone names; Juju validates
   nothing beyond what the provider accepts at provisioning time;
 
 ```{ibnote}

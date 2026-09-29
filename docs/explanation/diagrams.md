@@ -1125,6 +1125,19 @@ Diagrams with no confirmed home yet.
 :alt: User runs juju whoami; the client reads the admin account cached locally at bootstrap. User runs juju show-user admin; the client calls UserManager.UserInfo on the controller; the controller returns the user info with superuser access.
 ```
 
+### reference/zone.md
+
+#### Zone attributes (ERD slice)
+
+**Insert at:** § The zone's records (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Zone attributes
+:alt: The availability-zone record at the centre with its salient columns; the zone's subnet memberships east. Each line is a stored pointer; 1/m at each end.
+:caption: The zone's stored records. A zone is one lookup entry, the cloud's availability-zone name cached in the model database; the zone's subnet memberships are their own join records. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the machine instances that land in the zone and the constraints and placement directives that name it are not drawn.
+```
+
 ## Pending round-2 views
 
 Pages still on hand-drawn visuals: `reference/hook.md` (the
