@@ -62,7 +62,7 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 // watched for changes.
 func GetControllerSSHService(getter dependency.Getter, name string) (*controllersshservice.WatchableService, error) {
 	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) *controllersshservice.WatchableService {
-		return factory.SSHServerHostKey()
+		return factory.ControllerSSH()
 	})
 }
 
