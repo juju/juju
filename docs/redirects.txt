@@ -13,7 +13,8 @@ reference/cloud/list-of-supported-clouds/the-unmanaged-cloud-and-juju reference/
 reference/charm/charm-development-best-practices/ reference/charm
 # redirects after updating landing pages
 explanation/performance-with-juju explanation/juju-performance
-reference/juju/juju-architecture explanation/juju-architecture
+reference/juju/juju-architecture explanation/architecture
+explanation/juju-architecture explanation/architecture
 # redirects after cleaning up contributor unsorted docs
 user/reference/charm/channel/ reference/charm/
 user/reference/charm/revision/ reference/charm/

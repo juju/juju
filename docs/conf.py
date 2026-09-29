@@ -343,6 +343,7 @@ html_css_files = [
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
     "css/domain-list-override.css",
+    "css/blurb.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'

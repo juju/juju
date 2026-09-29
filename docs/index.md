@@ -93,7 +93,7 @@ The CLI, controller, and agents form the engine that coordinates between the app
 
    .. slice:: Architecture
 
-      :doc:`Juju architecture <explanation/juju-architecture>`
+      :doc:`Juju architecture <explanation/architecture>`
 
    .. slice:: Client
 
