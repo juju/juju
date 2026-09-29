@@ -160,6 +160,18 @@ func (s *serviceSuite) TestSetSSHServerPortErrors(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
+func (s *serviceSuite) TestSetSSHServerPortRejectsInvalidPort(c *tc.C) {
+	// No state expectations: an invalid port must be rejected before the
+	// state is touched.
+	controllerState := NewMockState(gomock.NewController(c))
+	svc := controllersshservice.NewService(controllerState)
+
+	for _, port := range []int{-1, 0, 65536} {
+		err := svc.SetSSHServerPort(c.Context(), port)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("port %d", port))
+	}
+}
+
 func (s *serviceSuite) TestWatchSSHServerPort(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	controllerState := NewMockState(ctrl)

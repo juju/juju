@@ -227,6 +227,33 @@ func (s *stateSuite) TestSetSSHServerPortReplacesExisting(c *tc.C) {
 	c.Check(count, tc.Equals, 1)
 }
 
+func (s *stateSuite) TestSetSSHServerPortChangeLog(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	c.Assert(st.SetSSHServerPort(c.Context(), 17022), tc.ErrorIsNil)
+	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
+	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
+
+	// The port is upserted in place, so the change log records one insert (1)
+	// then one update (2), with no delete, and nothing for an unchanged port.
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT cl.edit_type_id FROM change_log AS cl
+JOIN change_log_namespace AS ns ON ns.id = cl.namespace_id
+WHERE ns.namespace = 'controller_ssh_server_port'
+ORDER BY cl.id`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	var editTypes []int
+	for rows.Next() {
+		var editType int
+		c.Assert(rows.Scan(&editType), tc.ErrorIsNil)
+		editTypes = append(editTypes, editType)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(editTypes, tc.DeepEquals, []int{1, 2})
+}
+
 func (s *stateSuite) TestNamespaceForWatchSSHServerPort(c *tc.C) {
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
 	c.Check(st.NamespaceForWatchSSHServerPort(), tc.Equals, "controller_ssh_server_port")

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,8 +32,9 @@ func NewService(state State) *Service {
 }
 
 // GetSSHServerPort returns the port the controller SSH jump server listens on.
-// If no port has been set (e.g. before the controller charm has pushed a
-// value), the default SSH server port is returned.
+// The default port is seeded at bootstrap and replaced when the controller
+// charm pushes its configured value; if no port is stored, the default SSH
+// server port is returned.
 func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -48,9 +50,15 @@ func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
 }
 
 // SetSSHServerPort sets the port the controller SSH jump server listens on.
+// The following errors may be returned:
+//   - [coreerrors.NotValid] if the port is not a valid TCP port.
 func (s *Service) SetSSHServerPort(ctx context.Context, port int) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if err := domainssh.ValidateSSHServerPort(port); err != nil {
+		return errors.Capture(err)
+	}
 
 	if err := s.state.SetSSHServerPort(ctx, port); err != nil {
 		return errors.Errorf("setting controller SSH server port: %w", err)
