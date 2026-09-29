@@ -283,7 +283,7 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 				err = errors.Trace(err)
 				return
 			}
-			logger.Debugf(context.TODO(), "namespace %q is still been terminating", k.namespace)
+			logger.Debugf(context.TODO(), "namespace %q is still terminating", k.namespace)
 		}
 	}
 }
