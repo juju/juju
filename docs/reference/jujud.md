@@ -5,6 +5,7 @@ myst:
 ---
 
 (jujud)=
+(jujuagentd)=
 # `jujud`
 
 In Juju, `jujud` was historically the executable binary that implemented {ref}`agent <agent>` functionality for all of the entities in a Juju deployment on a machine cloud (model, machine, unit, controller) and also some of the entities in a Juju deployment on a Kubernetes cloud (model, controller).
