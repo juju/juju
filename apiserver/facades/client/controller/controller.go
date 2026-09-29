@@ -57,8 +57,12 @@ type ControllerAPIV14 struct {
 	*ControllerAPI
 }
 
-// SSHServerHostKey is not available in v14.
-func (c *ControllerAPIV14) SSHServerHostKey(_ struct{}) {}
+// SSHServerHostKey is not available in v14. The two-argument signature is not
+// a valid RPC method, so it hides the embedded method from the facade.
+func (c *ControllerAPIV14) SSHServerHostKey(_, _ struct{}) {}
+
+// SSHServerPort is not available in v14.
+func (c *ControllerAPIV14) SSHServerPort(_, _ struct{}) {}
 
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
