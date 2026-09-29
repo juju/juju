@@ -37,7 +37,7 @@ Clients connect to a controller -- the central management service that coordinat
 On each machine, agents (`jujuagentd` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
 
 - {ref}`agent`
-- {ref}`jujud`
+- {ref}`jujuagentd`
 - {ref}`containeragent`
 - {ref}`hook`
 - {ref}`hook-command`

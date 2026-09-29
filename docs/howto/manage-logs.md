@@ -149,7 +149,7 @@ values:
 3. Restart the affected agent:
 
 ```text
-sudo systemctl restart jujud-unit-mysql-0.service
+sudo systemctl restart jujuagentd-unit-mysql-0.service
 ```
 
 

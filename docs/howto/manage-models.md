@@ -431,8 +431,8 @@ juju ssh 2 'ls -lh /etc/systemd/system/juju*'
 This will return something similar to:
 
 ```text
--rwxr-xr-x 1 root root 326 Jun 29 19:02 /etc/systemd/system/jujud-machine-2-exec-start.sh
--rw-r--r-- 1 root root 284 Jun 29 19:02 /etc/systemd/system/jujud-machine-2.service
+-rwxr-xr-x 1 root root 326 Jun 29 19:02 /etc/systemd/system/jujuagentd-machine-2-exec-start.sh
+-rw-r--r-- 1 root root 284 Jun 29 19:02 /etc/systemd/system/jujuagentd-machine-2.service
 ```
 
 Therefore, if the agent for machine ‘2’ is not coming up you can connect to the machine in this way:
@@ -444,7 +444,7 @@ juju ssh 2
 Then modify or restore the agent file (`/var/lib/juju/agents/machine-2/agent.conf`), and while still connected to the machine, restart the agent:
 
 ```text
-sudo systemctl restart jujud-machine-2
+sudo systemctl restart jujuagentd-machine-2
 ```
 
 ````

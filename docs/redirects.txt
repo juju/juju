@@ -333,7 +333,8 @@ user/reference/juju/juju-architecture reference/juju/juju-architecture
 user/reference/juju/juju-cross-version-compatibilit reference/juju/juju-cross-version-compatibility
 user/reference/juju/juju-roadmap-and-releases reference/juju/juju-roadmap-and-releases
 user/reference/jujuc reference/jujuc
-user/reference/jujud reference/jujud
+user/reference/jujud reference/jujuagentd
+reference/jujud reference/jujuagentd
 user/reference/log reference/log
 user/reference/machine reference/machine
 user/reference/model reference/model
