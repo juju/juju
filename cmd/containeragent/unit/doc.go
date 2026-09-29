@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package unit defines the unit agent for Kubernetes deployments: the agent
-// that runs the workers for a unit in a CAAS deployment.
+// that runs the workers for a unit.
 //
 // The agent is created by the containeragent command (see
 // github.com/juju/juju/cmd/containeragent) and runs a dependency engine

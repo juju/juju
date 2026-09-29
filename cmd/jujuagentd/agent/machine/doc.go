@@ -11,7 +11,7 @@
 //
 // The manifolds are installed into the agent's dependency engine by the
 // machine agent defined in github.com/juju/juju/cmd/jujuagentd/agent, which
-// selects between the two according to whether it is a CAAS agent. The
-// workers that run per model are declared in
+// selects between the two according to whether it runs in a Kubernetes
+// deployment. The workers that run per model are declared in
 // github.com/juju/juju/cmd/jujuagentd/agent/model.
 package machine

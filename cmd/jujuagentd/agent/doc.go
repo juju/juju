@@ -14,11 +14,12 @@
 // The agents defined here are:
 //
 //   - The machine agent (NewMachineAgentCommand, in machine.go). It runs the
-//     manifolds from the machine package, selecting K8sManifolds when the
-//     agent is a CAAS agent (the controller container in a Kubernetes
-//     deployment) and IAASManifolds otherwise. On controllers it also
-//     starts, for every model, an engine running the manifolds from the model
-//     package (IAASManifolds or CAASManifolds, according to the model type).
+//     manifolds from the machine package: K8sManifolds when the agent runs
+//     as the controller container in a Kubernetes deployment, and
+//     IAASManifolds otherwise. On controllers it also starts an engine for
+//     every model, running the manifolds from the model package:
+//     IAASManifolds for a model on machines, and CAASManifolds (the
+//     Kubernetes counterpart) for a model on Kubernetes.
 //   - The modeloperator agent (NewModelCommand, in model.go), which runs the
 //     manifolds from the modeloperator package: the workers of the
 //     modeloperator pod in a Kubernetes deployment.
