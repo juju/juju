@@ -516,6 +516,17 @@ precedent).
 
 ### reference/model.md
 
+#### Model attributes (ERD slice)
+
+**Insert at:** § Models in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Model attributes
+:alt: The model record at the centre with its salient columns; the controller that hosts it west; the constraint record east; the cloud and the cloud credential above; the application and the model's namespace below. Each line is a stored pointer; 1/m at each end.
+:caption: The model's stored records. A model is one record in the controller database, named by its owner and name, typed iaas or caas, deployed on one cloud, using at most one cloud credential and naming its own Dqlite database via the namespace record; its applications and its constraint record live in the model database. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the model-life mirror, the configuration, the storage-pool registry, the agent version and the secret backend (not drawn).
+```
+
 #### Model removal
 
 **Insert at:** § The model's machinery → § Model operations → § Model removal. also: explanation/architecture.md § Remove.

@@ -334,7 +334,7 @@ model "Juju" {
                      ground: "controller:cloud"]
     credential_rec  [type: record, label: "cloud credential\n(auth attributes)",
                      ground: "controller:cloud_credential"]
-    model_rec       [type: record, label: "model\n(cloud, credential, namespace)",
+    model_rec       [type: record, label: "model\n(name, owner, life,\ntype, cloud, credential)",
                      ground: "controller:model"]
     controller_rec  [type: record, label: "controller\n(identity, HA nodes)",
                      ground: "controller:controller"]
@@ -704,6 +704,21 @@ model "Juju" {
                 ground: "model:secret_content"]
     s_permission [type: record, label: "secret permission\n(role, subject, scope)",
                   ground: "model:secret_permission"]
+
+    // -----------------------------------------------------------------------
+    // Model attributes (docs/reference/model.md): the stored pointers.
+    // DECLARED FLATTENING: the model_constraint link (0..1 per model)
+    // folded into the constraint chip; the chip's ground names the link
+    // (the constraint table itself is a quoted reserved word the
+    // grounding scanner cannot resolve — v_model_constraint is the
+    // projection); the constraint's own satellites (tags, spaces,
+    // zones) and its container-type lookup not drawn. Not drawn: the
+    // model-life mirror and the model-database read-only identity
+    // copy, the configuration, the storage-pool registry, the agent
+    // version and the model's secret backend.
+    // -----------------------------------------------------------------------
+    mdl_constraint [type: record, label: "model constraint\n(arch, cpu cores,\nmemory, root disk)",
+                    ground: "model:model_constraint"]
   }
 
   edges {
@@ -1266,6 +1281,11 @@ model "Juju" {
                                          ground: "model:secret_unit_consumer.secret_id"]
     s_permission         -> s_meta      [type: data, label: "grants (0..N)",
                                          ground: "model:secret_permission.secret_id"]
+
+    // Model attributes: one data edge for the constraint link (the
+    // model_constraint link, flattened into the constraint chip).
+    model_rec      -> mdl_constraint [type: data, label: "constrained by (0..1)",
+                                      ground: "model:model_constraint.model_uuid"]
   }
 
   behaviours {
@@ -2477,6 +2497,46 @@ diagram "Machine attributes" from "Juju" {
     fan [net_node_rec ma_instance] below ma_machine gap: 24
     ma_instance_status below ma_instance gap: 24
     ma_instance_status align-centre ma_instance
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: model attributes (docs/reference/model.md) — the model's
+// stored records as collapsed record chips (round 10 form, per the
+// Charm-origins law): the model record centred (its name + owner
+// qualifier, life, stored type and its cloud/credential pointers), the
+// controller that hosts the controller model west, the constraint
+// record east (the model_constraint link flattened into the chip), the
+// cloud and credential above, the applications and the namespace below.
+// Not drawn: the model-life mirror and the model-database read-only
+// identity copy, the configuration, the storage-pool registry, the
+// agent version and the secret backend (no pointers of their own), and
+// the qualifier user (a name, not an FK). Edges stay grounded on the
+// FK columns.
+// --------------------------------------------------------------------------
+diagram "Model attributes" from "Juju" {
+  select {
+    nodes: model_rec controller_rec cloud_rec credential_rec cty_namespace
+           mdl_constraint application_rec
+    // The cloud defines the credential link is the credential-chain
+    // story (its own view); this view draws only the model's edges.
+    except: cloud_rec -> credential_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal model centred, satellites fanned.
+    controller_rec  left-of model_rec gap: 30
+    controller_rec  align-middle model_rec
+    mdl_constraint  right-of model_rec gap: 30
+    mdl_constraint  align-middle model_rec
+    fan [cloud_rec credential_rec] above model_rec gap: 24
+    fan [cty_namespace application_rec] below model_rec gap: 24
   }
   annotations {
     legend [position: "bottom-right",

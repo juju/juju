@@ -42,6 +42,13 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Juju | Configure a 
 (the-model-record)=
 ## Models in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Model attributes
+:alt: The model record at the centre with its salient columns; the controller that hosts it west; the constraint record east; the cloud and the cloud credential above; the application and the model's namespace below. Each line is a stored pointer; 1/m at each end.
+:caption: The model's stored records. A model is one record in the controller database, named by its owner and name, typed iaas or caas, deployed on one cloud, using at most one cloud credential and naming its own Dqlite database via the namespace record; its applications and its constraint record live in the model database. Every line is a foreign key in one of those records.
+```
+
 A model has a record in Juju's databases, in two places. The
 authoritative record lives in the controller database, identified by
 its natural key, the model's name plus the {ref}`user <user>` that

@@ -44,6 +44,12 @@ SYNTH_SKIP: set[str] = {
     # declared view — the product surface — audits 0 crossings,
     # max-ratio 1.03. Same parked item as above.
     "Machine attributes",
+    # "Model attributes" (session 72, the B5 no-view roll): same failure
+    # class — ER hub slice with satellite fans (cloud + credential
+    # above, applications + namespace below, the controller west, the
+    # constraint record east). The declared view is the product
+    # surface (ADR-007); same parked synthesis-of-ER-forests item.
+    "Model attributes",
     # "Application attributes" / "Unit attributes" (session 18,
     # application.md/unit.md ADR-011 rollout): same failure class as
     # Relation/Machine attributes — ER hub slices with satellite fans
