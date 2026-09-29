@@ -11,6 +11,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/permission"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/life"
@@ -228,6 +229,24 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationUUID string
 
+	// RelationID is the numeric ID of the relation created for this remote
+	// application consumer. It is imported from the source model, so that
+	// relation ids remain stable across the migration; unit agents rely on
+	// the numeric id to locate their relation state.
+	RelationID int
+
+	// RelationScope is the scope of the relation created for this remote
+	// application consumer.
+	RelationScope charm.RelationScope
+
+	// RelationSuspended indicates if the relation created for this remote
+	// application consumer is suspended.
+	RelationSuspended bool
+
+	// RelationSuspendedReason is the reason the relation created for this
+	// remote application consumer was suspended, if any.
+	RelationSuspendedReason string
+
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
 
@@ -250,6 +269,48 @@ type RemoteApplicationConsumerImport struct {
 	// representing the remote application, on the consuming model. This is used
 	// to link the synthetic charm to the remote application consumer.
 	SyntheticCharmUUID string
+}
+
+// RelationNetworkDirection describes the direction of the networks of a
+// relation, either ingress or egress.
+type RelationNetworkDirection string
+
+const (
+	// RelationNetworkIngress indicates the networks are ingress networks for
+	// the relation, being the CIDRs from which the remote side of the relation
+	// connects.
+	RelationNetworkIngress RelationNetworkDirection = "ingress"
+
+	// RelationNetworkEgress indicates the networks are egress networks for
+	// the relation, being the CIDRs from which the local side of the relation
+	// connects to the remote side.
+	RelationNetworkEgress RelationNetworkDirection = "egress"
+)
+
+// RelationNetworkLabel describes the origin of the networks of a relation,
+// either the default networks of the source model or an admin override.
+type RelationNetworkLabel string
+
+const (
+	// RelationNetworkDefault indicates the networks are the default networks
+	// of the source model.
+	RelationNetworkDefault RelationNetworkLabel = "default"
+
+	// RelationNetworkOverride indicates the networks are an admin override of
+	// the default networks of the source model.
+	RelationNetworkOverride RelationNetworkLabel = "override"
+)
+
+// RelationNetworkImport contains the networks of a single relation and
+// direction, to import during migration.
+type RelationNetworkImport struct {
+	RelationKey corerelation.Key
+
+	// Direction is the direction of the networks, either ingress or egress.
+	Direction RelationNetworkDirection
+
+	// CIDRs are the network CIDRs of the relation for the direction.
+	CIDRs []string
 }
 
 // RemoteApplicationConsumer represents a remote application

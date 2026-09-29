@@ -3,4 +3,4 @@
 
 package modelmigration
 
-//go:generate go run github.com/canonical/gomock/mockgen -package modelmigration -destination package_mock_test.go github.com/juju/juju/domain/crossmodelrelation/modelmigration ImportService,ImportSecretService
+//go:generate go run github.com/canonical/gomock/mockgen -package modelmigration -destination package_mock_test.go github.com/juju/juju/domain/crossmodelrelation/modelmigration ImportService,ImportSecretService,RelationNetworkImportService

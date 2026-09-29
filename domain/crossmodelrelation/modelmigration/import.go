@@ -119,7 +119,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
 	}
 
-	relationKeys, err := extractRelationKeys(model)
+	relationKeys, err := extractRelations(model)
 	if err != nil {
 		return errors.Errorf("extracting relation endpoints from relations: %w", err)
 	}
@@ -239,9 +239,27 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				primaryRemoteApp.Name(), err)
 		}
 
-		offererApplicationUUID, err := findApplicationUUIDFromRemoteEntities(remoteEntities, primaryRemoteApp.Name())
+		// The application remote entity token is only created in legacy
+		// models when a relation to the consumed offer is registered. A
+		// consumed offer with no relations yet is a valid state (after
+		// "juju consume" but before "juju integrate"), so fall back to a
+		// newly generated application UUID for the synthetic application
+		// when no token exists in the remote entities.
+		var syntheticApplicationUUID coreapplication.UUID
+		if token, ok := remoteEntities[primaryRemoteApp.Name()]; ok {
+			syntheticApplicationUUID = coreapplication.UUID(token)
+		} else {
+			generated, err := coreapplication.NewUUID()
+			if err != nil {
+				return errors.Errorf(
+					"generating application UUID for remote application %q: %w",
+					primaryRemoteApp.Name(), err)
+			}
+			syntheticApplicationUUID = generated
+		}
+		units, err := remoteApplicationOffererUnits(duplicatedRemoteApps, remoteAppUnits)
 		if err != nil {
-			return errors.Errorf("finding application UUID for remote application %q: %w",
+			return errors.Errorf("rewriting units for remote application %q: %w",
 				primaryRemoteApp.Name(), err)
 		}
 		input = append(input, service.RemoteApplicationOffererImport{
@@ -251,10 +269,10 @@ func (i *importOperation) importRemoteApplicationOfferers(
 				URL:             primaryRemoteApp.URL(),
 				SourceModelUUID: primaryRemoteApp.SourceModelUUID(),
 				Macaroon:        primaryRemoteApp.Macaroon(),
-				Units:           remoteAppUnits[primaryRemoteApp.Name()],
+				Units:           units,
 				Endpoints:       endpoints,
 			},
-			OffererApplicationUUID: offererApplicationUUID,
+			OffererApplicationUUID: syntheticApplicationUUID,
 		})
 	}
 	if len(input) == 0 {
@@ -263,13 +281,60 @@ func (i *importOperation) importRemoteApplicationOfferers(
 	return i.importService.ImportRemoteApplicationOfferers(ctx, input)
 }
 
+// remoteApplicationOffererUnits returns the synthetic unit names to create
+// for the primary remote application of the offerer. Relations may reference
+// any of the offerer's aliases, with unit settings keyed under the alias's
+// unit names. The relation domain import re-keys those settings onto the
+// primary name; the alias unit names are re-written here with the same
+// RemoteApplicationOfferer.RewriteUnitName rule, so that the re-keyed
+// settings address synthetic units that exist. The names are de-duplicated
+// and sorted; nil is returned when there are none. Unit names that are not
+// valid unit names are an error.
+func remoteApplicationOffererUnits(
+	offerer domainmodelmigration.RemoteApplicationOfferer,
+	remoteAppUnits map[string][]string,
+) ([]string, error) {
+	seen := make(map[string]struct{})
+	addUnitNames := func(names []string) error {
+		for _, unitName := range names {
+			// Re-write the alias's unit names onto the primary name, in the
+			// same way the relation domain import re-keys unit settings.
+			rewritten, err := offerer.RewriteUnitName(unitName)
+			if err != nil {
+				return err
+			}
+			seen[rewritten] = struct{}{}
+		}
+		return nil
+	}
+
+	if err := addUnitNames(remoteAppUnits[offerer.Primary.Name()]); err != nil {
+		return nil, err
+	}
+	for _, duplicate := range offerer.Duplicates {
+		if err := addUnitNames(remoteAppUnits[duplicate.Name()]); err != nil {
+			return nil, err
+		}
+	}
+	if len(seen) == 0 {
+		return nil, nil
+	}
+
+	units := make([]string, 0, len(seen))
+	for unitName := range seen {
+		units = append(units, unitName)
+	}
+	sort.Strings(units)
+	return units, nil
+}
+
 func (i *importOperation) importRemoteApplicationConsumers(
 	ctx context.Context,
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
 	offerConnections []offerConnection,
 	relationRemoteEntities []relationRemoteEntity,
-	relationKeys map[string]relation.Key,
+	relationKeys map[string]importRelation,
 	applicationRemoteEntities map[string]string,
 ) error {
 	input := make([]service.RemoteApplicationConsumerImport, 0, len(remoteApps))
@@ -309,10 +374,18 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				remoteApp.Name())
 		}
 
-		relationKey, ok := relationKeys[offerConnection.RelationKeyStr]
+		rel, ok := relationKeys[offerConnection.RelationKeyStr]
 		if !ok {
 			return errors.Errorf("no relation key found for %q with remote application %q",
 				offerConnection.RelationKeyStr, remoteApp.Name())
+		}
+
+		// The offer connection records the relation it was created for, along
+		// with the relation itself. The two must agree, otherwise the
+		// description is inconsistent.
+		if offerConnection.RelationID != rel.Rel.Id() {
+			return errors.Errorf("offer connection relation ID %d does not match relation ID %d for relation %q",
+				offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
 		}
 
 		input = append(input, service.RemoteApplicationConsumerImport{
@@ -325,7 +398,11 @@ func (i *importOperation) importRemoteApplicationConsumers(
 				Units:     remoteAppUnits[remoteApp.Name()],
 			},
 			RelationUUID:            relationUUID,
-			RelationKey:             relationKey,
+			RelationID:              rel.Rel.Id(),
+			RelationScope:           relationScopeFromEndpoints(rel.Rel),
+			RelationSuspended:       rel.Rel.Suspended(),
+			RelationSuspendedReason: rel.Rel.SuspendedReason(),
+			RelationKey:             rel.Key,
 			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
 			ConsumerApplicationUUID: consumerApplicationUUID,
 			UserName:                offerConnection.UserName,
@@ -339,6 +416,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 
 type offerConnection struct {
 	OfferUUID       string
+	RelationID      int
 	RelationKey     relation.Key
 	RelationKeyStr  string
 	SourceModelUUID string
@@ -357,6 +435,7 @@ func extractOfferConnections(model description.Model) ([]offerConnection, error)
 
 		offerConnections = append(offerConnections, offerConnection{
 			OfferUUID:       offerUUID,
+			RelationID:      rel.RelationID(),
 			RelationKey:     relationKey,
 			RelationKeyStr:  rel.RelationKey(),
 			SourceModelUUID: rel.SourceModelUUID(),
@@ -412,8 +491,15 @@ func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmod
 	return endpoints, nil
 }
 
-func extractRelationKeys(model description.Model) (map[string]relation.Key, error) {
-	relationKeys := make(map[string]relation.Key)
+// importRelation holds the canonical relation key, along with the relation
+// description, for each relation of the model.
+type importRelation struct {
+	Key relation.Key
+	Rel description.Relation
+}
+
+func extractRelations(model description.Model) (map[string]importRelation, error) {
+	relations := make(map[string]importRelation)
 	for _, rel := range model.Relations() {
 		var key relation.Key
 		for _, ep := range rel.Endpoints() {
@@ -430,9 +516,24 @@ func extractRelationKeys(model description.Model) (map[string]relation.Key, erro
 		}
 
 		key = relationKeyOrdered(key)
-		relationKeys[rel.Key()] = key
+		relations[rel.Key()] = importRelation{
+			Key: key,
+			Rel: rel,
+		}
 	}
-	return relationKeys, nil
+	return relations, nil
+}
+
+// relationScopeFromEndpoints returns the scope of a relation from its
+// endpoints. A relation is container scoped if any of its endpoints is
+// container scoped, and global scoped otherwise.
+func relationScopeFromEndpoints(rel description.Relation) charm.RelationScope {
+	for _, ep := range rel.Endpoints() {
+		if ep.Scope() == string(charm.ScopeContainer) {
+			return charm.ScopeContainer
+		}
+	}
+	return charm.ScopeGlobal
 }
 
 func relationKeyOrdered(key relation.Key) relation.Key {
@@ -483,15 +584,6 @@ func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey r
 	}
 
 	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
-}
-
-func findApplicationUUIDFromRemoteEntities(remoteEntities map[string]string, appName string) (coreapplication.UUID, error) {
-	appUUIDStr, ok := remoteEntities[appName]
-	if ok {
-		return coreapplication.UUID(appUUIDStr), nil
-	}
-
-	return "", errors.Errorf("no application UUID found for remote application with endpoints")
 }
 
 func relationTagSuffixToKey(s string) string {

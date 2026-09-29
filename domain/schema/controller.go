@@ -117,12 +117,13 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 
 	// Generic triggers.
 	patches = append(patches,
-		// We need to ensure that the internal and kubernetes backends are immutable after
-		// they are created by the controller during bootstrap time.
-		// 0 is 'controller', 1 is 'kubernetes'.
+		// We need to ensure that the internal and kubernetes backends are
+		// immutable after they are created by the controller during bootstrap
+		// time. Immutability is origin based: only built-in backends
+		// (origin_id 0) are immutable, user-created backends are not.
 		triggersForImmutableTable("secret_backend",
-			"OLD.origin_id = 0 OR OLD.backend_type_id IN (0, 1)",
-			"built-in secret backends or secret backends with type controller or kubernetes are immutable"),
+			"OLD.origin_id = 0",
+			"built-in secret backends are immutable"),
 	)
 
 	var postPatchFiles []string

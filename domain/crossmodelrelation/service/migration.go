@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"maps"
+	"net"
 	"slices"
 
 	"github.com/juju/collections/transform"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -47,6 +49,14 @@ type ModelMigrationState interface {
 	// GetRelationUUIDByRelationKey retrieves the UUID of a relation using its
 	// relation key.
 	GetRelationUUIDByRelationKey(ctx context.Context, key relation.Key) (string, error)
+
+	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
+	// relation.
+	AddRelationNetworkIngress(ctx context.Context, relationUUID string, cidrs []string) error
+
+	// AddRelationNetworkEgress adds egress network CIDRs for the specified
+	// relation.
+	AddRelationNetworkEgress(ctx context.Context, relationUUID string, cidrs []string) error
 
 	// ImportRemoteApplicationSecretGrants imports secrets granted by offerer applications
 	// to consumer applications in the offerer model.
@@ -258,6 +268,24 @@ type RemoteApplicationConsumerImport struct {
 	// application consumer.
 	RelationUUID string
 
+	// RelationID is the numeric ID of the relation created for this remote
+	// application consumer. It is imported from the source model, so that
+	// relation ids remain stable across the migration; unit agents rely on
+	// the numeric id to locate their relation state.
+	RelationID int
+
+	// RelationScope is the scope of the relation created for this remote
+	// application consumer.
+	RelationScope charm.RelationScope
+
+	// RelationSuspended indicates if the relation created for this remote
+	// application consumer is suspended.
+	RelationSuspended bool
+
+	// RelationSuspendedReason is the reason the relation created for this
+	// remote application consumer was suspended, if any.
+	RelationSuspendedReason string
+
 	// RelationKey is the key of the relation created for this remote
 	// application consumer.
 	RelationKey relation.Key
@@ -407,6 +435,64 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 	return nil
 }
 
+// ImportRelationNetworks adds the relation networks being migrated to the
+// current model. The relation networks are imported after the relations of
+// the model exist, as the networks are located by relation key. A network
+// referencing a relation that was not migrated, for example because the
+// relation was removed from the source model before the export, only skips
+// that network with a warning instead of failing the migration.
+func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports []crossmodelrelation.RelationNetworkImport) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	for _, network := range imports {
+		if err := network.RelationKey.Validate(); err != nil {
+			return internalerrors.Errorf(
+				"validating relation key: %w", err).Add(errors.NotValid)
+		}
+		if len(network.RelationKey) != 2 {
+			return internalerrors.Errorf(
+				"invalid relation key length %d for relation networks", len(network.RelationKey)).Add(errors.NotValid)
+		}
+		for _, cidr := range network.CIDRs {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return internalerrors.Errorf(
+					"validating CIDR %q for relation %q: %w", cidr, network.RelationKey, err).Add(errors.NotValid)
+			}
+		}
+
+		relationUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, network.RelationKey)
+		if internalerrors.Is(err, relationerrors.RelationNotFound) {
+			// The relation was not migrated, for example because it was
+			// removed from the source model before the export. Only this
+			// network is skipped, the remaining networks are still imported.
+			s.logger.Warningf(ctx, "skipping relation networks for relation %q: %v",
+				network.RelationKey, err)
+			continue
+		} else if err != nil {
+			return internalerrors.Errorf(
+				"getting relation UUID for relation with key %q: %w", network.RelationKey, err)
+		}
+
+		switch network.Direction {
+		case crossmodelrelation.RelationNetworkIngress:
+			if err := s.modelState.AddRelationNetworkIngress(ctx, relationUUID, network.CIDRs); err != nil {
+				return internalerrors.Errorf(
+					"adding relation network ingress for relation with key %q: %w", network.RelationKey, err)
+			}
+		case crossmodelrelation.RelationNetworkEgress:
+			if err := s.modelState.AddRelationNetworkEgress(ctx, relationUUID, network.CIDRs); err != nil {
+				return internalerrors.Errorf(
+					"adding relation network egress for relation with key %q: %w", network.RelationKey, err)
+			}
+		default:
+			return internalerrors.Errorf(
+				"unknown relation network direction %q", network.Direction).Add(errors.NotValid)
+		}
+	}
+	return nil
+}
+
 func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rApp RemoteApplicationConsumerImport) (crossmodelrelation.RemoteApplicationConsumerImport, error) {
 	if err := rApp.RelationKey.Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
@@ -416,6 +502,14 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 	if err := relation.UUID(rApp.RelationUUID).Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
 			"validating relation UUID: %w", err).Add(errors.NotValid)
+	}
+	if rApp.RelationID < 0 {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating relation ID %d: relation ID must not be negative", rApp.RelationID).Add(errors.NotValid)
+	}
+	if rApp.RelationScope != charm.ScopeGlobal && rApp.RelationScope != charm.ScopeContainer {
+		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
+			"validating relation scope %q: unknown relation scope", rApp.RelationScope).Add(errors.NotValid)
 	}
 	if err := offer.UUID(rApp.OfferUUID).Validate(); err != nil {
 		return crossmodelrelation.RemoteApplicationConsumerImport{}, internalerrors.Errorf(
@@ -486,6 +580,10 @@ func (s *MigrationService) constructApplicationConsumer(ctx context.Context, rAp
 			OffererApplicationUUID: offererApplicationUUID,
 		},
 		RelationUUID:                rApp.RelationUUID,
+		RelationID:                  rApp.RelationID,
+		RelationScope:               rApp.RelationScope,
+		RelationSuspended:           rApp.RelationSuspended,
+		RelationSuspendedReason:     rApp.RelationSuspendedReason,
 		ConsumerModelUUID:           rApp.ConsumerModelUUID,
 		ConsumerApplicationUUID:     rApp.ConsumerApplicationUUID,
 		ConsumerApplicationEndpoint: consumerApplicationEndpoint,
