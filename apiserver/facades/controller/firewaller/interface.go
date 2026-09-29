@@ -109,11 +109,3 @@ type ControllerConfigAPI interface {
 	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
 	ControllerAPIInfoForModels(context.Context, params.Entities) (params.ControllerAPIInfoResults, error)
 }
-
-// ModelInfoService provides access to the model services.
-type ModelInfoService interface {
-	// IsControllerModel returns true if the model is the controller model.
-	// The following errors may be returned:
-	// - [modelerrors.NotFound] when the model does not exist.
-	IsControllerModel(ctx context.Context) (bool, error)
-}
