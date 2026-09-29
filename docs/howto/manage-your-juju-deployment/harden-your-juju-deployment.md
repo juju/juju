@@ -45,11 +45,9 @@ In a typical Juju workflow you allow your client to read your locally stored clo
 See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
 ```
 
-Like all the cloud resources provisioned through Juju, the cloud resources (machines or containers) that a controller is deployed on run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is behind a firewall, inside a VPC, with only the following three ports opened -- as well as hardened (through security groups) -- by default:
+Like all the cloud resources provisioned through Juju, the cloud resources (machines or containers) that a controller is deployed on run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is behind a firewall, inside a VPC, with the API port opened -- as well as hardened (through security groups) -- by default:
 
-- (always:) `17070`, to allow access from clients and agents;
-- (in high-availability scenarios): mongo
-- (In high-availability scenarios): `controller-api-port`, which can be turned off (see {ref}`controller-config-api-port`).
+- `17070`, to allow access from clients and agents (see {ref}`controller-config-api-port`).
 
 When a controller deploys a charm, all the traffic between the controller and the resulting application unit agent(s) is [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security)-encrypted (each agent starts out with a CA certificate from the controller and, when they connect to the controller, they get another certificate that is then signed by the preshared CA certificate). In addition to that, every unit agent authenticates itself with the controller using a password.
 

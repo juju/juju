@@ -124,7 +124,7 @@ See more: {ref}`configure-a-model`, {ref}`model-config-logging-config`
 ```
 
 ```{tip}
-**To avoid filling up the database unnecessarily:**
+**To avoid filling up the disk unnecessarily:**
 <br>When verbose logging is no longer needed,  return logging to normal levels!
 ```
 
@@ -144,7 +144,6 @@ values:
   CONTAINER_TYPE: ""
   NAMESPACE: ""
   LOGGING_OVERRIDE: juju=trace
-mongoversion: "0.0"
 ```
 
 3. Restart the affected agent:

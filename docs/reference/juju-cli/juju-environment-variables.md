@@ -78,5 +78,3 @@ This allows you to change the behaviour of the command line interface (CLI) betw
 These exist for development purposes only.
 
 ### `JUJU_DUMMY_DELAY`
-
-### `JUJU_NOTEST_MONGOJS`
