@@ -11,11 +11,11 @@ If you're writing a worker -- and almost everything Juju does happens inside a w
 
 These guidelines apply to every worker, whichever package it lives in. For the ready-made workers that react to watcher events (`NewNotifyWorker`, `NewStringsWorker`), see the package documentation of `core/watcher`.
 
+* Keep the dying error inside the worker that owns it: return `w.catacomb.ErrDying()` (or `tomb.ErrDying` for a bare tomb) only from the loop of that worker. When a method hands it to a client, the client may pass it to its own `Kill`. A catacomb turns another catacomb's `ErrDying` into an error that stops the client, and because a parent kills itself with the error of any child that stops, it stops the parent as well. A bare `tomb.Tomb` panics, because it is not yet dying. Return an ordinary error from methods instead, for example one that names the stopped worker.
+
 * If your worker has any methods outside the `worker.Worker` interface, write a custom worker instead of using a ready-made callback-style one. Those methods communicate with the main goroutine and *need* to know its state, so that they never hang forever. Wrap every channel send and receive in a select that includes `.Dying()`: a structure that seems to need a naked send or receive is most likely the wrong structure.
 
 * If you're writing a custom worker, use a catacomb (`github.com/juju/worker/v5/catacomb`). It is the standard carrier: a catacomb is built on a tomb, so the lifetime mechanics below are the same, and it adds the coordination of child workers. A bare `tomb.Tomb` is correct only for a worker that can have no children.
-
-* If you're letting `tomb.ErrDying` leak out of your workers to any clients, you are definitely doing it wrong -- you risk stopping another worker with that same error, which will quite rightly panic (because that tomb is *not* yet dying).
 
 * Make sure your worker calls `.tomb.Done()` exactly once, on every path.
 
