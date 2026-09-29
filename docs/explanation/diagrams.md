@@ -704,14 +704,13 @@ precedent).
 
 #### Network spaces
 
-**Insert at:** § The space's records → § The space in the data model. also: reference/subnet.md.
+**Insert at:** § The space in the persistence layer (the section's anchor truth).
 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Network spaces
-:no-legend:
-:caption: A space groups subnets; a subnet belongs to 0..1 space (the alpha space exists by default); an application's default binding points at one space, and each charm-relation endpoint can bind 0..1 space of its own.
-:alt: Application record to space record to subnet record; arrows: subnet belongs to 0..1 space; application default binding (one).
+:alt: The space record at the centre with its salient columns; the cloud's provider-space record west; the application's default binding east; the subnets below. Each line is a stored pointer; 1/m at each end.
+:caption: The space's stored records. A space is one naming record in the model database, its alpha default seeded at creation; the cloud's own identifier for the same grouping is a provider-space record, at most one per space; a subnet carries the nullable space pointer, so it belongs to 0..1 space; an application carries its default-binding pointer on its own record. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the endpoint bindings, the exposed grants and the constraints that name a space are pointers from other records (not drawn).
 ```
 
 ### reference/subnet.md

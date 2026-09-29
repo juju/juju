@@ -124,6 +124,8 @@ model "Juju" {
                     ground: "model:space"]
     subnet_rec     [type: record, label: "subnet\n(cidr, vlan, provider id)",
                     ground: "model:subnet"]
+    provider_space_rec [type: record, label: "provider space\n(cloud provider id)",
+                        ground: "model:provider_space"]
     // Subnet attributes slice (ADR-014; 0008-space.sql +
     // 0009-subnet.sql), collapsed chips (round 10): salient columns
     // only; the pointers live in the edge grounds. The DDL carries no
@@ -961,6 +963,8 @@ model "Juju" {
     // Network spaces (0008-space.sql)
     subnet_rec        -> space_rec    [type: data, label: "belongs to 0..1",
                           ground: "model:subnet.space_uuid"]
+    provider_space_rec -> space_rec [type: data, label: "identifies (one)",
+                          ground: "model:provider_space.space_uuid"]
     // Subnet attributes slice (ADR-014): one data edge per fk column,
     // each grounded on the pointer it draws.
     sb_subnet          -> sb_space [type: data, label: "joins (0..1)",
@@ -2815,17 +2819,29 @@ diagram "Machine designations" from "Juju" {
 
 // --------------------------------------------------------------------------
 // Reference: network spaces (docs/reference/space.md, subnet.md) —
-// space -> subnet -> provider identity; endpoint bindings (0008-space.sql).
+// the space's stored records as collapsed record chips (round 10 form,
+// per the Charm-origins law): the space record centred (its name and
+// the seeded alpha default), the cloud's provider-space identifier
+// west, the application's default binding east, the subnets below.
+// Not drawn: the endpoint bindings, the exposed grants and the
+// constraints that name a space (pointers from other records), and
+// the provider identity's own satellites. Edges stay grounded on the
+// FK columns.
 // --------------------------------------------------------------------------
 diagram "Network spaces" from "Juju" {
   select {
-    nodes: application_rec space_rec subnet_rec
+    nodes: space_rec provider_space_rec application_rec subnet_rec
     edges: type data
     sizing: uniform
   }
   positions {
-    application_rec left-of space_rec  gap: 40
-    space_rec       left-of subnet_rec gap: 40
+    // Charm-origins form: the focal space centred, its satellites fanned.
+    provider_space_rec left-of space_rec gap: 30
+    provider_space_rec align-middle space_rec
+    application_rec    right-of space_rec gap: 30
+    application_rec    align-middle space_rec
+    subnet_rec         below space_rec gap: 24
+    subnet_rec         align-centre space_rec
   }
   annotations {
     legend [position: "bottom-right",
@@ -3891,7 +3907,7 @@ diagram "Machine designations (synthesized)" from "Juju" {
 
 diagram "Network spaces (synthesized)" from "Juju" {
   select {
-    nodes: application_rec space_rec subnet_rec
+    nodes: space_rec provider_space_rec application_rec subnet_rec
     edges: type data
     sizing: uniform
   }
