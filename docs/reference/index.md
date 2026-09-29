@@ -11,111 +11,98 @@ Technical specifications, APIs, and comprehensive details of all Juju components
 
 ## Platform
 
-Juju is an orchestration platform that includes the CLI client, agent binaries, and supporting infrastructure for managing cloud deployments.
+Juju's platform is what you install and run: the clients you use, the controller they talk to, and the agents that carry out the work on your machines. Which versions of these components work together is covered by the cross-version compatibility reference.
 
-- {ref}`juju`
+- {ref}`juju-cross-version-compatibility`
 
-## Cloud and Charmhub
+### Client
 
-In Juju, deployments draw from two external sources. Clouds provide compute resources for your infrastructure. Charmhub provides charms -- operators for deploying and managing applications.
-
-- {ref}`cloud`
-- {ref}`credential`
-- {ref}`metadata`
-- [Charmhub](https://charmhub.io/)
-- [`juju-controller` charm](https://charmhub.io/juju-controller)
-
-## Client
-
-In Juju, you interact with these resources through clients -- command-line and web interfaces for managing controllers, models, and deployments.
+You interact with Juju through a client -- a command-line or web interface for managing controllers, models, and deployments.
 
 - {ref}`client`
 - {ref}`juju-cli`
 - {ref}`juju-web-cli`
 - {ref}`juju-dashboard`
 - {ref}`juju-db-repl`
-- {ref}`juju-web-cli`
+
+### Controller
+
+Clients connect to a controller -- the central management service that coordinates between clouds, [Charmhub](https://charmhub.io/), and your deployed resources. The controller records what you declare in its database and is itself deployed through the [`juju-controller` charm](https://charmhub.io/juju-controller).
+
+- {ref}`controller`
+- {ref}`database`
+
+### Agents and charm runtime
+
+On each machine, agents (`jujuagentd` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
+
+- {ref}`agent`
+- {ref}`jujud`
+- {ref}`containeragent`
+- {ref}`hook`
+- {ref}`hook-command`
 - {ref}`jujuc`
 - {ref}`pebble`
 
-## Controller
-
-Clients connect to a controller -- the central management service that coordinates between clouds, Charmhub, and your deployed resources.
-
-- {ref}`action`
-- {ref}`agent`
-- {ref}`application`
-- {ref}`bundle`
-- {ref}`charm`
-- {ref}`client`
-- {ref}`cloud`
-- {ref}`configuration`
-- {ref}`constraint`
-- {ref}`controller`
-- {ref}`credential`
-- {ref}`database`
-- {ref}`log`
-- {ref}`telemetry`
-- {ref}`high-availability`
-- {ref}`scaling`
-
 ## Users
 
-Controller access requires user authentication. User accounts provide authentication and authorization for managing Juju resources.
+Controller access requires user authentication, and what a user can do is a matter of authorization. User accounts cover both.
 
 - {ref}`user`
 
-## Infrastructure and applications
+## Cloud
 
-Once authenticated, users work with deployments. Within a controller, deployments are organized into models -- logical containers for applications, infrastructure, and their supporting components. Each model draws resources from a single cloud.
+Clouds provide the compute resources for your infrastructure, and Juju needs credentials to use them. Charms come from a second external source, [Charmhub](https://charmhub.io/).
+
+- {ref}`cloud`
+- {ref}`credential`
+- {ref}`metadata`
+
+## Models and applications
+
+Within a controller, deployments are organized into models -- logical containers for applications, infrastructure, and their supporting components. Each model draws resources from a single cloud. Models contain applications deployed from charms or bundles and composed of units. Applications connect to each other through relations, and offers enable cross-model relations. Applications are configured through configuration, secrets, actions, and scripts, and charms may require resources.
 
 - {ref}`model`
-
-Models contain applications deployed from charms and composed of units (individual instances).
-
 - {ref}`charm`
+- {ref}`bundle`
 - {ref}`application`
 - {ref}`unit`
-
-Applications connect to each other through relations endpoints -- integration points between compatible interfaces. Offers enable cross-model relations.
-
 - {ref}`relation`
 - {ref}`offer`
-
-Applications are managed through configuration, secrets, actions, and scripts, and support scaling and high availability. Charms may require resources.
-
 - {ref}`configuration`
 - {ref}`charm-resource`
 - {ref}`secret`
 - {ref}`action`
 - {ref}`script`
-- {ref}`high-availability`
-- {ref}`scaling`
 
-Supporting infrastructure -- machines, storage volumes, network spaces and subnets, and availability zones -- is provisioned from the cloud. Constraints and placement directives control how resources are selected and allocated. SSH keys provide access.
+## Infrastructure
+
+Supporting infrastructure -- machines and other compute resources, storage volumes, network spaces and subnets, and availability zones -- is provisioned from the cloud. Constraints and placement directives control how resources are selected and allocated. SSH keys provide access.
 
 - {ref}`machine`
+- {ref}`resource-compute`
 - {ref}`storage`
-- {ref}`constraint`
-- {ref}`placement-directive`
 - {ref}`space`
 - {ref}`subnet`
 - {ref}`zone`
+- {ref}`constraint`
+- {ref}`placement-directive`
 - {ref}`ssh-key`
 
-On each machine, agents (`jujuagentd` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
+## Observability
 
-- {ref}`agent`
-- {ref}`hook`
-- {ref}`hook-command`
-- {ref}`jujuc`
-- {ref}`containeragent`
-- {ref}`pebble`
-Lifecycle management
+Juju records what happens in a deployment and reports on its health.
 
-Removing and upgrading are cross-cutting operations that apply across multiple resource types -- from individual units and applications to entire models and controllers.
-
+- {ref}`log`
 - {ref}`telemetry`
+- {ref}`status`
+
+## Cross-cutting processes
+
+Some operations apply across many kinds of resource -- from individual units and applications to entire models and controllers.
+
+- {ref}`scaling`
+- {ref}`high-availability`
 - {ref}`removing-things`
 - {ref}`upgrading-things`
 
