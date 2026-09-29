@@ -2853,6 +2853,31 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsRelationDetailsError(c *tc.C
 	c.Check(result.Results[0].Error, tc.DeepEquals, apiservererrors.ServerError(boom))
 }
 
+// TestReadRemoteSettingsRelationNotFound checks that a missing relation is
+// masked as unauthorized, so a caller cannot tell "no such relation" from
+// "not your relation" by the error content.
+func (s *uniterRelationSuite) TestReadRemoteSettingsRelationNotFound(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	s.expectGetRelationUUIDByKey(
+		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()),
+		"",
+		relationerrors.RelationNotFound,
+	)
+
+	// act
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
+		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewUnitTag("mysql/2").String()},
+	}}
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
 func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
