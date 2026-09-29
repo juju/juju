@@ -175,7 +175,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		authorizer,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
-		domainServices.SSHServerHostKey(),
+		domainServices.ControllerSSH(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),

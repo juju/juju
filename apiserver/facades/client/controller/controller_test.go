@@ -109,7 +109,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.leadershipReader = noopLeadershipReader{}
-	s.controllerSSHService = s.ControllerDomainServices(c).SSHServerHostKey()
+	s.controllerSSHService = s.ControllerDomainServices(c).ControllerSSH()
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			Auth_:                s.authorizer,
