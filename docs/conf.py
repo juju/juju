@@ -234,6 +234,12 @@ html_extra_path = ["robots.txt", "sitemapindex.xml"]
 redirects = {
     "user/reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
     "reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
+    # The per-key pages folded into the controller key list redirect to the
+    # key's anchor. docs/redirects.txt cannot carry a fragment.
+    "user/reference/configuration/controller-config-audit-log-exclude-methods/": "../../../../reference/configuration/list-of-controller-configuration-keys/#controller-config-audit-log-exclude-methods",
+    "reference/configuration/controller-config-audit-log-exclude-methods/": "../list-of-controller-configuration-keys/#controller-config-audit-log-exclude-methods",
+    "user/reference/configuration/controller-config-juju-mgmt-space/": "../../../../reference/configuration/list-of-controller-configuration-keys/#controller-config-juju-mgmt-space",
+    "reference/configuration/controller-config-juju-mgmt-space/": "../list-of-controller-configuration-keys/#controller-config-juju-mgmt-space",
 }
 
 ###########################
