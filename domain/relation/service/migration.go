@@ -7,12 +7,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/deployment/charm"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
@@ -45,6 +48,15 @@ type MigrationState interface {
 	// GetApplicationUUIDByName returns the application UUID of the given application.
 	GetApplicationUUIDByName(ctx context.Context, appName string) (application.UUID, error)
 
+	// GetRelationEndpoints returns the endpoints of the relation with the
+	// given UUID, ordered requirer first and provider second, matching the
+	// key convention.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+	//     is not found.
+	GetRelationEndpoints(ctx context.Context, relationUUID string) ([]relation.Endpoint, error)
+
 	// SetRelationApplicationSettings records settings for a specific application
 	// relation combination. Replaces all existing settings with the provided set.
 	SetRelationApplicationSettings(
@@ -55,9 +67,11 @@ type MigrationState interface {
 	) error
 
 	// EnterScope indicates that the provided unit has joined the relation.
-	// When the unit has already entered its relation scope, EnterScope will report
-	// success but make no changes to state. The unit's settings are created or
-	// overwritten in the relation according to the supplied map.
+	// The unit's settings are written in the same transaction as the scope
+	// membership, and only when the unit first enters its relation scope:
+	// when the unit is already in scope, EnterScope reports
+	// [relationerrors.RelationUnitAlreadyExists] and makes no changes to
+	// state.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
@@ -133,45 +147,68 @@ func (s *MigrationService) importRelation(ctx context.Context, arg relation.Impo
 	return nil
 }
 
-// ImportRelationData imports the endpoint data of relations that already exist
-// in the model: the application settings of each endpoint, and the settings
-// and relation scope membership of each of its units.
+// ImportConsumerProxyRelationSettingsAndUnits imports the application
+// settings of each endpoint of the relations of remote application
+// consumers, and the settings and scope membership of their units.
 //
-// It is for the relations that migration imports without this domain creating
-// them, which are the relations of remote application consumers: those are
-// created by the cross model relation import, because the offer connections it
-// imports need them, and it hands their data over here because relation
-// settings and unit scope membership belong to this domain.
+// Those relations are created by the cross model relation import, which
+// must run first. Each relation is located by its UUID, being the relation
+// token both models agreed on, and the key of the relation found is checked
+// against the Key of the argument, so the data is only attached to the
+// relation it was exported for. Every unit must belong to an application of
+// the relation, which the state layer enforces.
 //
-// The relation is located by its UUID, which the caller must have resolved
-// before calling. ID and Key are validated and reported, but play no part in
-// locating anything, and Scope is not used, as nothing about the relation
-// itself is written here. Both the relation and its endpoints must already
-// exist, and every unit must belong to an application of the relation, which
-// the state layer enforces.
-//
-// Re-importing a relation is not an error, so an import that failed part way
-// through can be retried.
-func (s *MigrationService) ImportRelationData(ctx context.Context, args relation.ImportRelationsArgs) error {
+// Importing the same relation twice leaves its state unchanged: the
+// application settings are replaced with the same values, and a unit
+// already in scope keeps the settings of its first entry.
+func (s *MigrationService) ImportConsumerProxyRelationSettingsAndUnits(
+	ctx context.Context,
+	args relation.ImportRelationSettingsAndUnitsArgs,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	for _, arg := range args {
 		if err := arg.UUID.Validate(); err != nil {
-			return errors.Errorf("validating relation UUID for relation %d: %w", arg.ID, err)
+			return errors.Errorf("validating relation UUID: %w", err)
 		}
 		if err := arg.Key.Validate(); err != nil {
-			return errors.Errorf("validating relation key for relation %d: %w", arg.ID, err)
+			return errors.Errorf("validating relation key: %w", err)
+		}
+
+		key, err := s.getRelationKeyByUUID(ctx, arg.UUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !domainmodelmigration.RelationKeysEqual(key, arg.Key) {
+			return errors.Errorf("relation %q has key %q, not %q", arg.UUID, key, arg.Key)
 		}
 
 		for _, ep := range arg.Endpoints {
 			if err := s.importRelationEndpoint(ctx, arg.UUID, ep); err != nil {
-				return errors.Errorf("importing %q endpoint data for relation %d: %w",
-					ep.ApplicationName, arg.ID, err)
+				return errors.Errorf("importing %q endpoint data for relation %q: %w",
+					ep.ApplicationName, arg.Key, err)
 			}
 		}
 	}
 	return nil
+}
+
+// getRelationKeyByUUID returns the key of the relation with the given UUID.
+// A relation that does not exist is reported with the ordering the import
+// depends on: the relations of remote application consumers are created by
+// the cross model relation import, which must run before the relation
+// import.
+func (s *MigrationService) getRelationKeyByUUID(ctx context.Context, relUUID corerelation.UUID) (corerelation.Key, error) {
+	endpoints, err := s.st.GetRelationEndpoints(ctx, relUUID.String())
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		return nil, errors.Errorf("relation %q not found: relations of remote application consumers are created by the cross model relation import, which must run before the relation import", relUUID)
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return corerelation.Key(transform.Slice(endpoints, func(in relation.Endpoint) corerelation.EndpointIdentifier {
+		return in.EndpointIdentifier()
+	})), nil
 }
 
 // importRelationEndpoint imports the data of a single endpoint of a relation.
@@ -205,11 +242,11 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 		}
 		_, err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
 		if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
-			// The unit is already in scope, and keeps the settings it was given
-			// when it first entered, which EnterScope writes in the same
-			// transaction as the scope membership. Nothing is left to do, so
-			// the error is ignored, which keeps an import that failed part way
-			// through retriable.
+			// The unit is already in scope, and keeps the settings it was
+			// given when it first entered, which EnterScope writes in the
+			// same transaction as the scope membership. Nothing is left to
+			// do, so the error is ignored: the same relation can be
+			// imported twice in one run.
 			continue
 		} else if err != nil {
 			return err

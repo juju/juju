@@ -13,10 +13,8 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// RelationRemoteEntity is the token a legacy model exported for a relation
-// that crosses a model boundary. Legacy models exchange tokens rather than
-// UUIDs, and the token of a relation is the relation UUID that the exporting
-// model uses for it.
+// RelationRemoteEntity is a relation token recorded for a relation that
+// crosses a model boundary: the relation UUID of the exporting model.
 type RelationRemoteEntity struct {
 	// RelationKey is the key of the relation the token was recorded for.
 	RelationKey relation.Key
@@ -58,7 +56,8 @@ func ExtractRelationUUIDFromRemoteEntities(model description.Model) ([]RelationR
 // FindRelationUUID returns the relation token recorded for the given relation
 // key, and whether a token was found. The endpoints of a relation key are not
 // guaranteed to be in any particular order, so the lookup is order
-// insensitive.
+// insensitive, and if several remote entities record the same key, the first
+// one wins.
 //
 // A missing token is not reported as an error here: callers decide whether an
 // absent token means an inconsistent description, or whether a new relation
@@ -73,9 +72,11 @@ func FindRelationUUID(remoteEntities []RelationRemoteEntity, key relation.Key) (
 }
 
 // RelationKeysEqual compares two relation keys for equality, ignoring order.
-// Assumes both keys have exactly two endpoints and no scopes.
+// Both keys must have exactly two endpoints: cross model relations are
+// regular relations, so keys with any other number of endpoints are never
+// equal.
 func RelationKeysEqual(a, b relation.Key) bool {
-	if len(a) != len(b) {
+	if len(a) != 2 || len(b) != 2 {
 		return false
 	}
 

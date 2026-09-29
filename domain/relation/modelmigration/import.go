@@ -45,12 +45,11 @@ type ImportService interface {
 	// ImportRelations sets relations imported in migration.
 	ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error
 
-	// ImportRelationData imports the endpoint data, being the application
-	// settings, unit settings and unit scope membership, of relations that
-	// were created by another domain's import, such as the relations of
-	// remote application consumers created by the cross model relation
-	// domain.
-	ImportRelationData(ctx context.Context, args relation.ImportRelationsArgs) error
+	// ImportConsumerProxyRelationSettingsAndUnits imports the application
+	// settings, unit settings and unit scope membership of the relations of
+	// remote application consumers, which the cross model relation import
+	// creates.
+	ImportConsumerProxyRelationSettingsAndUnits(ctx context.Context, args relation.ImportRelationSettingsAndUnitsArgs) error
 }
 
 type importOperation struct {
@@ -107,14 +106,12 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	var (
 		args     relation.ImportRelationsArgs
-		dataArgs relation.ImportRelationsArgs
+		dataArgs relation.ImportRelationSettingsAndUnitsArgs
 	)
 	for _, rel := range model.Relations() {
-		// Relations with remote consumer proxy applications were created by
-		// the cross model relation import, which runs first, as the relations
-		// are required by the offer connections that are also imported by that
-		// domain. Only the relation data is imported here, the relation itself
-		// already exists.
+		// Relations of remote application consumers are created by the
+		// cross model relation import, which runs first. Only their data is
+		// imported here.
 		if domainmodelmigration.ContainsRelationEndpointApplicationName(rel, consumerRemoteApplications) {
 			arg, err := i.createConsumerProxyImportArg(rel, relationRemoteEntities)
 			if err != nil {
@@ -157,7 +154,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	// If there are no remote consumer relations to import data for, then we
 	// can skip calling the service method.
 	if len(dataArgs) > 0 {
-		if err := i.service.ImportRelationData(ctx, dataArgs); err != nil {
+		if err := i.service.ImportConsumerProxyRelationSettingsAndUnits(ctx, dataArgs); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -253,8 +250,6 @@ func (i *importOperation) createRemoteImportArg(
 		}
 	}
 
-
-
 	arg := relation.ImportRelationArg{
 		UUID:  relationUUID,
 		ID:    rel.Id(),
@@ -332,38 +327,33 @@ func renameUnitSettings(
 }
 
 // createConsumerProxyImportArg creates the import argument for the data of a
-// relation that has remote consumer proxy applications. The relation itself
-// is imported by the cross model relation domain, which requires the relation
-// to exist before the relation import operation runs, so that the offer
-// connections can reference it. Only the relation data, being the application
-// settings, unit settings and unit scope membership, is imported here.
+// relation of a remote application consumer. The relation itself was
+// imported by the cross model relation import, under the UUID of the
+// relation token; only the relation data, being the application settings,
+// unit settings and unit scope membership, is imported here.
 func (i *importOperation) createConsumerProxyImportArg(
 	rel description.Relation,
 	remoteEntities []domainmodelmigration.RelationRemoteEntity,
-) (relation.ImportRelationArg, error) {
+) (relation.ImportRelationSettingsAndUnitsArg, error) {
 	key, err := corerelation.NewKeyFromString(rel.Key())
 	if err != nil {
-		return relation.ImportRelationArg{}, err
+		return relation.ImportRelationSettingsAndUnitsArg{}, err
 	}
 
-	// The cross model relation domain already created this relation under the
-	// UUID of the relation token, so the data is attached to the same UUID.
+	// The cross model relation domain already created this relation under
+	// the UUID of the relation token, so the data is attached to the same
+	// UUID.
 	relationUUID, err := findConsumerProxyRelationUUID(key, remoteEntities)
 	if err != nil {
-		return relation.ImportRelationArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
+		return relation.ImportRelationSettingsAndUnitsArg{}, errors.Errorf("finding relation UUID for relation with key %q: %w", key, err)
 	}
 
-	arg := relation.ImportRelationArg{
-		UUID:  relationUUID,
-		ID:    rel.Id(),
-		Key:   key,
-		Scope: charm.ScopeGlobal,
+	arg := relation.ImportRelationSettingsAndUnitsArg{
+		UUID: relationUUID,
+		Key:  key,
 	}
 
 	for _, v := range rel.Endpoints() {
-		if v.Scope() == string(charm.ScopeContainer) {
-			arg.Scope = charm.ScopeContainer
-		}
 		arg.Endpoints = append(arg.Endpoints, relation.ImportEndpoint{
 			ApplicationName:     v.ApplicationName(),
 			EndpointName:        v.Name(),

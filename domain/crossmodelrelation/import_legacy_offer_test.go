@@ -12,10 +12,12 @@ import (
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	applicationmigration "github.com/juju/juju/domain/application/modelmigration"
 	cmrmigration "github.com/juju/juju/domain/crossmodelrelation/modelmigration"
+	machinemigration "github.com/juju/juju/domain/machine/modelmigration"
 	migrationtesting "github.com/juju/juju/domain/modelmigration/testing"
 	relationmigration "github.com/juju/juju/domain/relation/modelmigration"
 	sequencemigration "github.com/juju/juju/domain/sequence/modelmigration"
@@ -31,6 +33,7 @@ type legacyOffer struct {
 	relationUUID  string
 	remoteApp     string
 	remoteUnit    string
+	localUnit     string
 	relationKey   string
 	appSettings   map[string]string
 	unitSettings  map[string]string
@@ -39,16 +42,18 @@ type legacyOffer struct {
 	suspendedName string
 }
 
-// legacyOfferModel returns the model description of an offering model with one
-// established cross model relation, as exported by Juju 3.6: the offered
-// application, the remote application standing in for the consumer, and the
-// relation between them, carrying the settings of both endpoints and the
-// settings of the unit that is in relation scope.
+// legacyOfferModel returns the model description of an offering model with
+// one established cross model relation, as exported by Juju 3.6: the
+// offered application with a unit of its own, the remote application
+// standing in for the consumer, and the relation between them, carrying the
+// settings of both endpoints and the settings and scope membership of both
+// units.
 //
-// The relation also carries the numeric relation ID, the suspended state and
-// the status of the source model. Reallocating the numeric relation ID breaks
-// agent checkpoints, and losing the settings or the scope membership of a unit
-// changes what existing hooks see once the model has migrated.
+// The relation also carries the numeric relation ID, the suspended state
+// and the status of the source model. Reallocating the numeric relation ID
+// breaks agent checkpoints, and losing the settings or the scope
+// membership of a unit changes what existing hooks see once the model has
+// migrated.
 func legacyOfferModel() (description.Model, legacyOffer) {
 	offer := legacyOffer{
 		offerUUID:     "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
@@ -59,25 +64,42 @@ func legacyOfferModel() (description.Model, legacyOffer) {
 	}
 	offer.remoteApp = "remote-13ea27915e7840d888c5e9451444b45d"
 	offer.remoteUnit = offer.remoteApp + "/0"
+	offer.localUnit = "mysql/0"
 	offer.relationKey = offer.remoteApp + ":db mysql:db"
 	offer.appSettings = map[string]string{
 		"mysql:password":              "keep-me",
 		offer.remoteApp + ":database": "keep-me-too",
 	}
 	offer.unitSettings = map[string]string{
-		offer.remoteUnit + ":request": "keep-unit-data",
+		offer.localUnit + ":database-user": "keep-local-unit-data",
+		offer.remoteUnit + ":request":      "keep-unit-data",
 	}
-	offer.unitsInScope = []string{offer.remoteUnit}
+	offer.unitsInScope = []string{offer.localUnit, offer.remoteUnit}
 
 	m := description.NewModel(description.ModelArgs{Type: model.IAAS.String()})
+	// The offering application runs a unit of its own, on a machine of the
+	// model, that is in the scope of the relation like the remote unit.
+	machine := m.AddMachine(description.MachineArgs{Id: "0", Base: "ubuntu@24.04"})
+	machine.SetInstance(description.CloudInstanceArgs{InstanceId: "inst-0"})
+	machine.SetStatus(description.StatusArgs{Value: "started", Updated: time.Now().UTC()})
+	machine.Instance().SetStatus(description.StatusArgs{Value: "running", Updated: time.Now().UTC()})
 	a := m.AddApplication(description.ApplicationArgs{Name: "mysql", CharmURL: "ch:mysql-1"})
+	unit := a.AddUnit(description.UnitArgs{Name: offer.localUnit, Machine: "0"})
+	unit.SetAgentStatus(description.StatusArgs{Value: "idle", Updated: time.Now().UTC()})
+	unit.SetWorkloadStatus(description.StatusArgs{Value: "active", Updated: time.Now().UTC()})
 	a.SetCharmOrigin(description.CharmOriginArgs{
 		Source: "charm-hub", ID: "deadbeef", Hash: "deadbeef2", Revision: 1,
 		Channel: "latest/stable", Platform: "amd64/ubuntu/20.04",
 	})
 	a.SetCharmMetadata(description.CharmMetadataArgs{
-		Name: "mysql", Provides: map[string]description.CharmMetadataRelation{
+		Name: "mysql",
+		Provides: map[string]description.CharmMetadataRelation{
 			"db": migrationtesting.Relation{Name_: "db", Role_: "provider", InterfaceName_: "db", Scope_: "global"},
+		},
+		// The peer endpoint lets tests import a purely local relation
+		// alongside the cross model one.
+		Peers: map[string]description.CharmMetadataRelation{
+			"cluster": migrationtesting.Relation{Name_: "cluster", Role_: "peer", InterfaceName_: "cluster", Scope_: "global"},
 		},
 	})
 	a.SetCharmManifest(description.CharmManifestArgs{Bases: []description.CharmManifestBase{
@@ -104,6 +126,9 @@ func legacyOfferModel() (description.Model, legacyOffer) {
 		ApplicationName: "mysql", Name: "db", Role: "provider", Interface: "db",
 	})
 	ep.SetApplicationSettings(map[string]any{"password": "keep-me"})
+	ep.SetUnitSettings(offer.localUnit, map[string]any{
+		"database-user": "keep-local-unit-data",
+	})
 	ep = rel.AddEndpoint(description.EndpointArgs{
 		ApplicationName: offer.remoteApp, Name: "db",
 		Role: "requirer", Interface: "db",
@@ -151,6 +176,7 @@ func registerLegacyOfferImports(
 ) {
 	logger := loggertesting.WrapCheckLog(c)
 	sequencemigration.RegisterImport(coordinator)
+	machinemigration.RegisterImport(coordinator, clock.WallClock, logger)
 	applicationmigration.RegisterImport(coordinator, clock.WallClock, logger)
 	cmrmigration.RegisterImport(coordinator, clock.WallClock, logger)
 	relationmigration.RegisterImport(coordinator, clock.WallClock, logger)
@@ -164,9 +190,21 @@ func registerLegacyOfferImports(
 // side of an established 3.6 cross model relation before workers can republish
 // any data: the numeric relation ID, the suspended state, the status, the
 // application settings of both endpoints, and the settings and scope membership
-// of the remote unit.
+// of both the local and the remote unit. A purely local peer relation is
+// imported by the same run, so the regular and the consumer proxy relation
+// imports are exercised together.
 func (s *importSuite) TestImportLegacyOfferRelationPreservesIdentityAndData(c *tc.C) {
 	m, offer := legacyOfferModel()
+	local := m.AddRelation(description.RelationArgs{Id: 1, Key: "mysql:cluster"})
+	lep := local.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "mysql", Name: "cluster", Role: "peer",
+		Interface: "cluster", Scope: "global",
+	})
+	lep.SetApplicationSettings(map[string]any{"cluster-name": "keep-cluster"})
+	lep.SetUnitSettings(offer.localUnit, map[string]any{
+		"cluster-token": "keep-cluster-unit",
+	})
+	local.SetStatus(description.StatusArgs{Value: "joined", Updated: time.Now().UTC()})
 
 	_, scope, _ := s.setupCoordinatorScopeAndService(c)
 	coordinator := coremodelmigration.NewCoordinator(
@@ -183,28 +221,95 @@ func (s *importSuite) TestImportLegacyOfferRelationPreservesIdentityAndData(c *t
 		suspended       bool
 		suspendedReason string
 		relationStatus  string
-		appSettings     map[string]string
-		unitSettings    map[string]string
-		units           []string
 	)
 	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		appSettings = make(map[string]string)
-		unitSettings = make(map[string]string)
-		units = nil
-
 		if err := tx.QueryRowContext(ctx, `
 SELECT relation_id, suspended, COALESCE(suspended_reason, '')
 FROM relation WHERE uuid = ?`, offer.relationUUID).
 			Scan(&relationID, &suspended, &suspendedReason); err != nil {
 			return err
 		}
-		if err := tx.QueryRowContext(ctx, `
+		return tx.QueryRowContext(ctx, `
 SELECT rst.name
 FROM relation_status AS rs
 JOIN relation_status_type AS rst ON rs.relation_status_type_id = rst.id
-WHERE rs.relation_uuid = ?`, offer.relationUUID).Scan(&relationStatus); err != nil {
-			return err
-		}
+WHERE rs.relation_uuid = ?`, offer.relationUUID).Scan(&relationStatus)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationID, tc.Equals, offer.relationID)
+	c.Check(suspended, tc.IsTrue)
+	c.Check(suspendedReason, tc.Equals, offer.suspendedName)
+	c.Check(relationStatus, tc.Equals, "joined")
+
+	data := readRelationData(c, runner, offer.relationUUID)
+	c.Check(data.appSettings, tc.DeepEquals, offer.appSettings)
+	c.Check(data.unitSettings, tc.DeepEquals, offer.unitSettings)
+	c.Check(data.units, tc.SameContents, offer.unitsInScope)
+
+	// The local relation is imported by the same run, with its own data.
+	var localRelationUUID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT uuid FROM relation WHERE relation_id = ?`, 1).Scan(&localRelationUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	localData := readRelationData(c, runner, localRelationUUID)
+	c.Check(localData.appSettings, tc.DeepEquals, map[string]string{
+		"mysql:cluster-name": "keep-cluster",
+	})
+	c.Check(localData.unitSettings, tc.DeepEquals, map[string]string{
+		offer.localUnit + ":cluster-token": "keep-cluster-unit",
+	})
+	c.Check(localData.units, tc.SameContents, []string{offer.localUnit})
+}
+
+// TestImportLegacyOfferRelationDataIsIdempotent checks that importing the
+// data of the relation of the remote application consumer a second time
+// leaves the state unchanged: the application settings are replaced with
+// the same values, and a unit that is already in scope keeps the settings
+// of its first entry.
+func (s *importSuite) TestImportLegacyOfferRelationDataIsIdempotent(c *tc.C) {
+	m, offer := legacyOfferModel()
+
+	_, scope, _ := s.setupCoordinatorScopeAndService(c)
+	coordinator := coremodelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+	)
+	registerLegacyOfferImports(c, coordinator, false)
+	c.Assert(coordinator.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+
+	// Replay the relation import alone: the relation of the remote
+	// application consumer already exists, so only its data is imported
+	// again.
+	replay := coremodelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	relationmigration.RegisterImport(replay, clock.WallClock, loggertesting.WrapCheckLog(c))
+	c.Assert(replay.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+
+	runner, err := scope.ModelDB()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	data := readRelationData(c, runner, offer.relationUUID)
+	c.Check(data.appSettings, tc.DeepEquals, offer.appSettings)
+	c.Check(data.unitSettings, tc.DeepEquals, offer.unitSettings)
+	c.Check(data.units, tc.SameContents, offer.unitsInScope)
+}
+
+// relationData is the settings and unit scope state of a relation in the
+// model database.
+type relationData struct {
+	appSettings  map[string]string
+	unitSettings map[string]string
+	units        []string
+}
+
+// readRelationData reads the application settings, the unit settings and
+// the unit scope membership of the relation with the given UUID from the
+// model database.
+func readRelationData(c *tc.C, runner database.TxnRunner, relationUUID string) relationData {
+	var data relationData
+	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		data.appSettings = make(map[string]string)
+		data.unitSettings = make(map[string]string)
+		data.units = nil
 
 		rows, err := tx.QueryContext(ctx, `
 SELECT a.name, s.key, s.value
@@ -212,7 +317,7 @@ FROM relation_application_setting AS s
 JOIN relation_endpoint AS re ON re.uuid = s.relation_endpoint_uuid
 JOIN application_endpoint AS ae ON ae.uuid = re.endpoint_uuid
 JOIN application AS a ON a.uuid = ae.application_uuid
-WHERE re.relation_uuid = ?`, offer.relationUUID)
+WHERE re.relation_uuid = ?`, relationUUID)
 		if err != nil {
 			return err
 		}
@@ -222,10 +327,10 @@ WHERE re.relation_uuid = ?`, offer.relationUUID)
 			if err := rows.Scan(&app, &key, &value); err != nil {
 				return err
 			}
-			appSettings[app+":"+key] = value
+			data.appSettings[app+":"+key] = value
 		}
 		if err := rows.Err(); err != nil {
-			return rows.Err()
+			return err
 		}
 
 		rows, err = tx.QueryContext(ctx, `
@@ -234,7 +339,7 @@ FROM relation_unit_setting AS s
 JOIN relation_unit AS ru ON ru.uuid = s.relation_unit_uuid
 JOIN relation_endpoint AS re ON re.uuid = ru.relation_endpoint_uuid
 JOIN unit AS u ON u.uuid = ru.unit_uuid
-WHERE re.relation_uuid = ?`, offer.relationUUID)
+WHERE re.relation_uuid = ?`, relationUUID)
 		if err != nil {
 			return err
 		}
@@ -244,10 +349,10 @@ WHERE re.relation_uuid = ?`, offer.relationUUID)
 			if err := rows.Scan(&unit, &key, &value); err != nil {
 				return err
 			}
-			unitSettings[unit+":"+key] = value
+			data.unitSettings[unit+":"+key] = value
 		}
 		if err := rows.Err(); err != nil {
-			return rows.Err()
+			return err
 		}
 
 		rows, err = tx.QueryContext(ctx, `
@@ -255,7 +360,7 @@ SELECT u.name
 FROM relation_unit AS ru
 JOIN relation_endpoint AS re ON re.uuid = ru.relation_endpoint_uuid
 JOIN unit AS u ON u.uuid = ru.unit_uuid
-WHERE re.relation_uuid = ?`, offer.relationUUID)
+WHERE re.relation_uuid = ?`, relationUUID)
 		if err != nil {
 			return err
 		}
@@ -265,19 +370,12 @@ WHERE re.relation_uuid = ?`, offer.relationUUID)
 			if err := rows.Scan(&name); err != nil {
 				return err
 			}
-			units = append(units, name)
+			data.units = append(data.units, name)
 		}
 		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(relationID, tc.Equals, offer.relationID)
-	c.Check(suspended, tc.IsTrue)
-	c.Check(suspendedReason, tc.Equals, offer.suspendedName)
-	c.Check(relationStatus, tc.Equals, "joined")
-	c.Check(appSettings, tc.DeepEquals, offer.appSettings)
-	c.Check(unitSettings, tc.DeepEquals, offer.unitSettings)
-	c.Check(units, tc.SameContents, offer.unitsInScope)
+	return data
 }
 
 // TestImportLegacyOfferRelationNetworks checks the relation networks of the

@@ -14,6 +14,7 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -108,17 +109,16 @@ func (s *migrationServiceSuite) TestImportRelations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationServiceSuite) TestImportRelationData(c *tc.C) {
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnits(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
 	ep := key.EndpointIdentifiers()
 	relUUID := tc.Must(c, corerelation.NewUUID)
 
-	args := relation.ImportRelationsArgs{
+	args := relation.ImportRelationSettingsAndUnitsArgs{
 		{
 			UUID: relUUID,
-			ID:   7,
 			Key:  key,
 			Endpoints: []relation.ImportEndpoint{
 				{
@@ -137,44 +137,127 @@ func (s *migrationServiceSuite) TestImportRelationData(c *tc.C) {
 		},
 	}
 
+	s.expectGetRelationEndpoints(relUUID, ep)
 	app1ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[0].ApplicationName)
 	app2ID := s.expectGetApplicationUUIDByName(c, args[0].Endpoints[1].ApplicationName)
 	s.expectSetRelationApplicationSettings(relUUID, app1ID, args[0].Endpoints[0].ApplicationSettings)
 	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[0].Endpoints[1].ApplicationSettings)
 	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "remote-13ea/0"), args[0].Endpoints[1].UnitSettings["remote-13ea/0"])
 
-	// The relation is not created by ImportRelationData, it already exists.
+	// The relation is not created by ImportConsumerProxyRelationSettingsAndUnits,
+	// it already exists.
 	s.state.EXPECT().ImportRelation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 	s.state.EXPECT().ImportPeerRelation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	// Act
-	err := s.service.ImportRelationData(c.Context(), args)
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *migrationServiceSuite) TestImportRelationDataInvalidUUID(c *tc.C) {
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsInvalidUUID(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
 
 	// Act
-	err := s.service.ImportRelationData(c.Context(), relation.ImportRelationsArgs{{
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
 		UUID: "not-a-uuid",
-		ID:   7,
 		Key:  key,
 	}})
 
 	// Assert
-	c.Assert(err, tc.ErrorMatches, "validating relation UUID for relation 7:.*")
+	c.Assert(err, tc.ErrorMatches, "validating relation UUID:.*")
+}
+
+// The key is validated before the relation is located, so an invalid key
+// fails the import even when the relation exists.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsInvalidKey(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: tc.Must(c, corerelation.NewUUID),
+		Key:  corerelation.Key{},
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "validating relation key:.*")
+}
+
+// The relations of remote application consumers are created by the cross
+// model relation import, so a relation that does not exist is an ordering
+// error rather than a missing relation to create.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsRelationNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relUUID.String()).
+		Return(nil, relationerrors.RelationNotFound)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*relation.*not found.*created by the cross model relation import.*")
+}
+
+// The key of the located relation is checked against the key of the
+// argument, so a token pointing at another relation fails the import
+// instead of attaching the data to it.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsKeyMismatch(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	otherKey := corerelationtesting.GenNewKey(c, "mysql:db mediawiki:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	s.expectGetRelationEndpoints(relUUID, otherKey.EndpointIdentifiers())
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `relation ".*" has key "mysql:db mediawiki:db", not "wordpress:db remote-13ea:db"`)
+}
+
+// Any error other than RelationNotFound from the relation lookup surfaces
+// unchanged.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsRelationLookupError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	boom := errors.New("boom")
+
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relUUID.String()).
+		Return(nil, boom)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+	}})
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
 }
 
 // An import that failed part way through is retried, so a unit that is already
 // in the relation scope is not an error: it is in scope, with the settings it
 // was given when it first entered, which EnterScope records alongside the
 // scope membership.
-func (s *migrationServiceSuite) TestImportRelationDataUnitAlreadyInScope(c *tc.C) {
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsUnitAlreadyInScope(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
@@ -182,9 +265,8 @@ func (s *migrationServiceSuite) TestImportRelationDataUnitAlreadyInScope(c *tc.C
 	relUUID := tc.Must(c, corerelation.NewUUID)
 
 	unitSettings := map[string]any{"request": "keep-unit-data"}
-	args := relation.ImportRelationsArgs{{
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
 		UUID: relUUID,
-		ID:   7,
 		Key:  key,
 		Endpoints: []relation.ImportEndpoint{{
 			ApplicationName: ep[1].ApplicationName,
@@ -195,6 +277,7 @@ func (s *migrationServiceSuite) TestImportRelationDataUnitAlreadyInScope(c *tc.C
 		}},
 	}}
 
+	s.expectGetRelationEndpoints(relUUID, ep)
 	appID := s.expectGetApplicationUUIDByName(c, ep[1].ApplicationName)
 	s.expectSetRelationApplicationSettings(relUUID, appID, nil)
 	converted, _ := settingsMap(func(string) {}, unitSettings)
@@ -204,10 +287,81 @@ func (s *migrationServiceSuite) TestImportRelationDataUnitAlreadyInScope(c *tc.C
 			relationerrors.RelationUnitAlreadyExists)
 
 	// Act
-	err := s.service.ImportRelationData(c.Context(), args)
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// Only RelationUnitAlreadyExists is tolerated: any other error from the
+// state layer surfaces, so unit data is never dropped silently.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsStateError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	unitSettings := map[string]any{"request": "keep-unit-data"}
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
+			ApplicationSettings: map[string]any{
+				"database": "keep-me-too",
+			},
+			UnitSettings: map[string]map[string]any{
+				"remote-13ea/0": unitSettings,
+			},
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, ep)
+	appID := s.expectGetApplicationUUIDByName(c, ep[1].ApplicationName)
+	s.expectSetRelationApplicationSettings(relUUID, appID, args[0].Endpoints[0].ApplicationSettings)
+	converted, _ := settingsMap(func(string) {}, unitSettings)
+	s.state.EXPECT().EnterScope(gomock.Any(), relUUID,
+		coreunittesting.GenNewName(c, "remote-13ea/0"), converted).
+		Return(internal.SubordinateUnitStatusHistoryData{},
+			relationerrors.RelationNotFound)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+// An application that does not exist is reported rather than silently
+// dropping the endpoint data.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsApplicationNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     ep[0].ApplicationName,
+			EndpointName:        ep[0].EndpointName,
+			ApplicationSettings: map[string]any{"password": "keep-me"},
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, ep)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), ep[0].ApplicationName).
+		Return("", applicationerrors.ApplicationNotFound)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
 func (s *migrationServiceSuite) TestExportRelations(c *tc.C) {
@@ -331,6 +485,23 @@ func (s *migrationServiceSuite) expectSetRelationApplicationSettings(
 ) {
 	appSettings, _ := settingsMap(func(string) {}, settings)
 	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), uuid, id, appSettings).Return(nil)
+}
+
+func (s *migrationServiceSuite) expectGetRelationEndpoints(
+	relUUID corerelation.UUID,
+	eps []corerelation.EndpointIdentifier,
+) {
+	endpoints := make([]relation.Endpoint, len(eps))
+	for i, ep := range eps {
+		endpoints[i] = relation.Endpoint{
+			ApplicationName: ep.ApplicationName,
+			Relation: charm.Relation{
+				Name: ep.EndpointName,
+				Role: ep.Role,
+			},
+		}
+	}
+	s.state.EXPECT().GetRelationEndpoints(gomock.Any(), relUUID.String()).Return(endpoints, nil)
 }
 
 func (s *migrationServiceSuite) expectEnterScope(

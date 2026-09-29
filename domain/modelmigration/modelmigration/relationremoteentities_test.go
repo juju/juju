@@ -161,3 +161,49 @@ func (s *relationRemoteEntitiesSuite) TestFindRelationUUIDNotFound(c *tc.C) {
 	c.Check(found, tc.IsFalse)
 	c.Check(token, tc.Equals, "")
 }
+
+// A peer relation key has a single endpoint, and the token lookup is only
+// defined for the two endpoints of a cross model relation, so peer keys are
+// never equal, not even to themselves.
+func (s *relationRemoteEntitiesSuite) TestRelationKeysEqualPeerKeys(c *tc.C) {
+	peer := relation.Key{{
+		ApplicationName: "mysql", EndpointName: "cluster", Role: deploymentcharm.RolePeer,
+	}}
+	regular := relation.Key{
+		{ApplicationName: "mysql", EndpointName: "db"},
+		{ApplicationName: "wordpress", EndpointName: "db"},
+	}
+
+	c.Check(RelationKeysEqual(peer, peer), tc.IsFalse)
+	c.Check(RelationKeysEqual(peer, regular), tc.IsFalse)
+}
+
+// Keys with more than two endpoints are never equal, rather than silently
+// comparing only the first two endpoints.
+func (s *relationRemoteEntitiesSuite) TestRelationKeysEqualTooManyEndpoints(c *tc.C) {
+	key := relation.Key{
+		{ApplicationName: "mysql", EndpointName: "db"},
+		{ApplicationName: "wordpress", EndpointName: "db"},
+		{ApplicationName: "mediawiki", EndpointName: "db"},
+	}
+
+	c.Check(RelationKeysEqual(key, key), tc.IsFalse)
+}
+
+// Remote entities that record the same relation key with divergent tokens
+// are resolved first-match-wins.
+func (s *relationRemoteEntitiesSuite) TestFindRelationUUIDDuplicateKeys(c *tc.C) {
+	key := relation.Key{
+		{ApplicationName: "mysql", EndpointName: "db"},
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "db"},
+	}
+	entities := []RelationRemoteEntity{
+		{RelationKey: key, RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2"},
+		{RelationKey: key, RelationUUID: "ec7383b4-7ca1-49de-85d3-1ce8d9cf3d6e"},
+	}
+
+	token, found := FindRelationUUID(entities, key)
+
+	c.Check(found, tc.IsTrue)
+	c.Check(token, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac2")
+}
