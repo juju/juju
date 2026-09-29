@@ -9,23 +9,21 @@ myst:
 
 If you're writing a worker -- and almost everything Juju does happens inside a worker -- you should be aware of the following guidelines. They're not necessarily comprehensive, and not *necessarily* to be followed without question; but if you're not following the advice on this page, you should have a very good reason.
 
-These guidelines apply to every worker, whichever package it lives in. For the ready-made workers that run a function once (`NewSimpleWorker`), run it periodically (`NewPeriodicWorker`), or react to watcher events (`NewNotifyWorker`, `NewStringsWorker`), see the package documentation of `internal/worker` and `core/watcher`.
+These guidelines apply to every worker, whichever package it lives in. For the ready-made workers that react to watcher events (`NewNotifyWorker`, `NewStringsWorker`), see the package documentation of `core/watcher`.
 
-* If your worker has any methods outside the `worker.Worker` interface, DO NOT use the ready-made callback-style workers. Those methods, which need to communicate with the main goroutine, *need* to know that goroutine's state, so that they don't just hang forever.
-
-* To restate the previous point: basically *never* do a naked channel send/receive. If you're building a structure that makes you think you need them, you're most likely building the wrong structure.
+* If your worker has any methods outside the `worker.Worker` interface, write a custom worker instead of using a ready-made callback-style one. Those methods communicate with the main goroutine and *need* to know its state, so that they never hang forever. Wrap every channel send and receive in a select that includes `.Dying()`: a structure that seems to need a naked send or receive is most likely the wrong structure.
 
 * If you're writing a custom worker, use a catacomb (`github.com/juju/worker/v5/catacomb`). It is the standard carrier: a catacomb is built on a tomb, so the lifetime mechanics below are the same, and it adds the coordination of child workers. A bare `tomb.Tomb` is correct only for a worker that can have no children.
 
 * If you're letting `tomb.ErrDying` leak out of your workers to any clients, you are definitely doing it wrong -- you risk stopping another worker with that same error, which will quite rightly panic (because that tomb is *not* yet dying).
 
-* If it's possible for your worker to call `.tomb.Done()` more than once, or less than once, you are *definitely* doing it very very wrong indeed.
+* Make sure your worker calls `.tomb.Done()` exactly once, on every path.
 
-* If you're using `.tomb.Dead()`, you are very probably doing it wrong -- the only reason to select on `.Dead()` rather than on `.Dying()` is to leak inappropriate information to your clients. They don't care if you're dying or dead; they care only that the component is no longer functioning reliably and cannot fulfil their requests. Whatever started the component needs to know why it failed, but that parent is usually not the same entity as the client that's calling methods.
+* Select on `.Dying()`. Clients don't care whether the component is dying or dead; they care only that it is no longer functioning reliably and cannot fulfil their requests. Whatever started the component needs to know why it failed, but that parent is usually a different entity from the client calling methods.
 
-* If you're using `internal/worker/singular`, be careful: a worker that only works as a singleton breaks when distributed. Prefer workers that collaborate correctly with themselves.
+* Prefer workers that collaborate correctly with themselves over `internal/worker/singular`, since a worker that only works as a singleton breaks when distributed.
 
-* Don't try to make a worker into a singleton (this isn't particularly related to workers, really: a singleton is enough of an antipattern on its own). Singletons are basically the same as global variables, except even worse, and if you try to make them responsible for goroutines they become more horrible still.
+* Let each worker hold its own state. A singleton is basically a global variable, except even worse, and a singleton responsible for goroutines is more horrible still.
 
 ## Example worker
 
