@@ -41,8 +41,9 @@ func (*controllerServiceSuite) TestServiceAddresses(c *tc.C) {
 	// of controller API Service addresses.
 	for _, name := range []string{"controller", constants.ControllerServiceEndpointsName} {
 		_, err := services.Create(c.Context(), &corev1.Service{
-			Name: name, UID: types.UID(name),
-			Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeClusterIP, ClusterIP: "10.0.0.99"},
+			Name: name,
+			UID:  types.UID(name),
+			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeClusterIP, ClusterIP: "10.0.0.99"},
 		}, metav1.CreateOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -51,7 +52,7 @@ func (*controllerServiceSuite) TestServiceAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	_, err = services.Create(c.Context(), &corev1.Service{
 		Name: constants.ControllerServiceName, UID: "api-service-uid",
-		Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, ClusterIP: "10.0.0.1"},
+		Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, ClusterIP: "10.0.0.1"},
 		Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
 			Ingress: []corev1.LoadBalancerIngress{{IP: "192.0.2.1", Hostname: "api.example.com"}},
 		}},
@@ -106,7 +107,7 @@ func (*controllerServiceSuite) TestWatchServiceLifecycle(c *tc.C) {
 	services := client.CoreV1().Services("controller-test")
 	svc, err := services.Create(c.Context(), &corev1.Service{
 		Name: constants.ControllerServiceName, UID: "first",
-		Spec:       corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
+		Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer},
 	}, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	_, ok = <-w.Changes()
