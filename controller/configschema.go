@@ -258,7 +258,7 @@ Use "caas-image-repo" instead.`,
 	},
 	CAASImageRepo: {
 		Type:        configschema.Tstring,
-		Description: `The docker repo to use for the jujud operator and mongo images`,
+		Description: `The docker repo to use for the Juju operator (jujud-operator) and charm-base images`,
 	},
 	Features: {
 		Type:        configschema.Tstring,
