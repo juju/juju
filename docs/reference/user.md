@@ -143,7 +143,14 @@ Abilities: You can do anything that it is possible to do at the level of an offe
 (the-users-persistence)=
 ## The user in the persistence layer
 
-In the controller database, a user is a record and its satellites:
+```{ggarch}
+:file: ../juju.ggarch
+:view: User attributes
+:alt: The user record at the centre with its salient columns; the authentication record west; the permission grants east, the access-level lookup under them. Each line is a stored pointer; 1/m at each end.
+:caption: The user's stored records. A user is one record in the controller database, named, with the display name, the external flag and the creator; the authentication records hold the disabled flag, the salted password hash and the activation key; each permission grant names the level and the object kind it allows, validated against the access-level lookup. Every line is a foreign key in one of those records.
+```
+
+In the {ref}`controller database <database>`, a user is a record and its satellites:
 
 - **The user record:** The name (one active user per name), the display name, the external flag, the creator, and the removed flag. The `admin` user is seeded implicitly at bootstrap; every other user is added explicitly.
 - **The authentication records:** The salted password hash, the activation key a new user sets their password with, and the disabled-authentication flag.

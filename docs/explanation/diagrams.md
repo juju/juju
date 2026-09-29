@@ -779,6 +779,19 @@ precedent).
 :alt: User calls juju remove-unit. Controller marks unit Dying and fires watcher to unit agent. Unit agent runs stop, teardown, and remove hooks, then marks unit Dead. Controller releases machine and deletes unit records.
 ```
 
+### reference/user.md
+
+#### User attributes (ERD slice)
+
+**Insert at:** § The user in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: User attributes
+:alt: The user record at the centre with its salient columns; the authentication record west; the permission grants east, the access-level lookup under them. Each line is a stored pointer; 1/m at each end.
+:caption: The user's stored records. A user is one record in the controller database, named, with the display name, the external flag and the creator; the authentication records hold the disabled flag, the salted password hash and the activation key; each permission grant names the level and the object kind it allows, validated against the access-level lookup. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the cloud, model, controller and offer records the grants name, the last-login records, the SSH public keys and the macaroon configuration are not drawn.
+```
+
 ### reference/upgrading-things.md
 
 #### Upgrade paths (sequence)

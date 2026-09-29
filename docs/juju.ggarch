@@ -753,6 +753,26 @@ model "Juju" {
                    ground: "model:resource_file_store"]
     rc_store_image [type: record, label: "image store link\n(registry path, size)",
                     ground: "model:resource_image_store"]
+
+    // -----------------------------------------------------------------------
+    // User attributes (docs/reference/user.md): the stored pointers.
+    // DECLARED FLATTENINGS (one node covers its value lookups): the
+    // user_password and user_activation_key records fold into the
+    // authentication chip (the hash and the key hang off the
+    // authentication row); the two vocab lookups (permission_access_type,
+    // permission_object_type) fold into the access-level chip; the
+    // creator is the user's self-pointer. Not drawn: the last-login
+    // records, the SSH public keys (ssh-key.md's story), the macaroon
+    // configuration, the removed flag (bookkeeping).
+    // -----------------------------------------------------------------------
+    uz_user  [type: record, label: "user\n(name, display name,\nexternal, creator)",
+              ground: "controller:user"]
+    uz_auth  [type: record, label: "authentication\n(disabled, activation)",
+              ground: "controller:user_authentication"]
+    uz_grant [type: record, label: "permission grant\n(level, object)",
+              ground: "controller:permission"]
+    uz_access [type: record, label: "access level\n(level, object kind)",
+               ground: "controller:permission_object_access"]
   }
 
   edges {
@@ -1340,6 +1360,16 @@ model "Juju" {
                                    ground: "model:resource_file_store.resource_uuid"]
     rc_store_image -> rc_resource [type: data, label: "backs image (one)",
                                    ground: "model:resource_image_store.resource_uuid"]
+
+    // User attributes: one data edge per FK, each grounded on its FK
+    // column. The grant's level pointer is the composite
+    // (access_type_id, object_type_id) FK — grounded on access_type_id.
+    uz_auth  -> uz_user  [type: data, label: "authenticates (one)",
+                          ground: "controller:user_authentication.user_uuid"]
+    uz_grant -> uz_user  [type: data, label: "grants to (0..N)",
+                          ground: "controller:permission.grant_to"]
+    uz_grant -> uz_access [type: data, label: "levels by (one)",
+                           ground: "controller:permission.access_type_id"]
   }
 
   behaviours {
@@ -2637,6 +2667,38 @@ diagram "Resource attributes" from "Juju" {
 }
 
 // --------------------------------------------------------------------------
+// Reference: user attributes (docs/reference/user.md) — the user's
+// stored records as collapsed record chips (round 10 form, per the
+// Charm-origins law): the user record centred (its name, display
+// name, external flag and creator), the authentication record west,
+// the permission grants east, the access-level lookup under them.
+// Not drawn: the last-login records, the SSH public keys, the
+// macaroon configuration, the objects the grants name. Edges stay
+// grounded on the FK columns.
+// --------------------------------------------------------------------------
+diagram "User attributes" from "Juju" {
+  select {
+    nodes: uz_user uz_auth uz_grant uz_access
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal user centred, satellites fanned.
+    uz_auth  left-of uz_user gap: 30
+    uz_auth  align-middle uz_user
+    uz_grant right-of uz_user gap: 30
+    uz_grant align-middle uz_user
+    uz_access below uz_grant gap: 24
+    uz_access align-centre uz_grant
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
 // Reference: application attributes (docs/reference/application.md,
 // ADR-011 §3) — the application's stored records as collapsed record
 // chips (round 10 form, per the Charm-origins law): the application
@@ -3869,6 +3931,22 @@ diagram "Agent taxonomy (synthesized)" from "Juju" {
     nodes: controller machine_agent unit_agent containeragent
     edges: type control type stream type api
     sizing: uniform
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "User attributes (synthesized)" from "Juju" {
+  select {
+    nodes: uz_user uz_auth uz_grant uz_access
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
   }
 }
 
