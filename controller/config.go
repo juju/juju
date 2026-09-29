@@ -71,7 +71,12 @@ const (
 	// aren't interesting for audit logging purposes. A conversation
 	// with only calls to these will be excluded from the
 	// log. (They'll still appear in conversations that have other
-	// interesting calls though.)
+	// interesting calls though.) A conversation is one client API
+	// connection, typically a single top-level CLI command. Names are
+	// given as a comma-separated list, for example
+	// "ReadOnlyMethods,Pinger.Ping". The default, "ReadOnlyMethods",
+	// stands for the fixed set of read-only methods listed in
+	// apiserver/observer/auditfilter.go.
 	AuditLogExcludeMethods = "audit-log-exclude-methods"
 
 	// ReadOnlyMethodsWildcard is the special value that can be added
@@ -182,14 +187,17 @@ const (
 
 	// MaxCharmStateSize is the maximum allowed size of charm-specific
 	// per-unit state data that charms can store to the controller in
-	// bytes. A value of 0 disables the quota checks although in
-	// principle, mongo imposes a hard (but configurable) limit of 16M.
+	// bytes.
+	// NOTE: In Juju 4.1 this limit is not currently implemented, so
+	// setting this key has no effect: It was not carried over when unit
+	// state moved to the controller's Dqlite database.
 	MaxCharmStateSize = "max-charm-state-size"
 
 	// MaxAgentStateSize is the maximum allowed size of internal state
-	// data that agents can store to the controller in bytes. A value of 0
-	// disables the quota checks although in principle, mongo imposes a
-	// hard (but configurable) limit of 16M.
+	// data that agents can store to the controller in bytes.
+	// NOTE: In Juju 4.1 this limit is not currently implemented, so
+	// setting this key has no effect: It was not carried over when unit
+	// state moved to the controller's Dqlite database.
 	MaxAgentStateSize = "max-agent-state-size"
 
 	// MigrationMinionWaitMax is the maximum time that the migration-master
@@ -198,7 +206,12 @@ const (
 	MigrationMinionWaitMax = "migration-agent-wait-time"
 
 	// JujuManagementSpace is the network space that agents should use to
-	// communicate with controllers.
+	// communicate with controllers. Controller API addresses are filtered
+	// to those in the space; if the space is unknown, or the filter would
+	// remove every address, the unfiltered addresses are used so that
+	// agents never lose contact with the controller. At bootstrap, the
+	// space is also added to the spaces constraint of the controller
+	// machine.
 	JujuManagementSpace = "juju-mgmt-space"
 
 	// CAASOperatorImagePath sets the URL of the docker image
@@ -207,8 +220,8 @@ const (
 	// Deprecated: use CAASImageRepo
 	CAASOperatorImagePath = "caas-operator-image-path"
 
-	// CAASImageRepo sets the docker repo to use
-	// for the jujud operator and mongo images.
+	// CAASImageRepo sets the docker repo to use for the Juju operator
+	// (jujud-operator) and charm-base images.
 	// Note: the repository itself is read-only after bootstrap; only
 	// authentication credentials (for a private registry) can be updated.
 	CAASImageRepo = "caas-image-repo"
@@ -931,8 +944,8 @@ func (c Config) CAASOperatorImagePath() string {
 	return c.asString(CAASOperatorImagePath)
 }
 
-// CAASImageRepo sets the URL of the docker repo
-// used for the jujud operator and mongo images.
+// CAASImageRepo sets the URL of the docker repo used for the Juju
+// operator (jujud-operator) and charm-base images.
 func (c Config) CAASImageRepo() string {
 	return c.asString(CAASImageRepo)
 }
