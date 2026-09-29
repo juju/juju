@@ -97,6 +97,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		}
 	}
 
+	isControllerModel, err := domainServices.ModelInfo().IsControllerModel(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "checking if the model is the controller model")
+	}
+
 	firewallerAPI := &firewallerAPIAdapter{
 		machineSvc:       domainServices.Machine(),
 		modelConfigSvc:   domainServices.Config(),
@@ -105,7 +110,6 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		relationSvc:      domainServices.Relation(),
 		extControllerSvc: domainServices.ExternalController(),
 		appSvc:           domainServices.Application(),
-		modelInfoSvc:     domainServices.ModelInfo(),
 	}
 
 	// Check if the env supports IPV6 CIDRs for firewall ingress rules.
@@ -128,6 +132,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		EnvironModelFirewaller:    modelFw,
 		EnvironInstances:          environ,
 		EnvironIPV6CIDRSupport:    envIPV6CIDRSupport,
+		IsControllerModel:         isControllerModel,
 		Mode:                      mode,
 		NewCrossModelFacadeFunc:   crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 		Logger:                    cfg.Logger,
