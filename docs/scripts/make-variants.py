@@ -50,6 +50,13 @@ SYNTH_SKIP: set[str] = {
     # constraint record east). The declared view is the product
     # surface (ADR-007); same parked synthesis-of-ER-forests item.
     "Model attributes",
+    # "Resource attributes" (session 72, the B5 no-view roll): same
+    # failure class — ER hub slice with satellite fans (the two store
+    # links above, the staged/retrieval/unit-copy records below, the
+    # definition west, the usage east). The declared view is the
+    # product surface (ADR-007); same parked synthesis-of-ER-forests
+    # item.
+    "Resource attributes",
     # "Application attributes" / "Unit attributes" (session 18,
     # application.md/unit.md ADR-011 rollout): same failure class as
     # Relation/Machine attributes — ER hub slices with satellite fans

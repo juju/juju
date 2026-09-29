@@ -578,6 +578,19 @@ precedent).
 ````
 `````
 
+### reference/resource-charm.md
+
+#### Resource attributes (ERD slice)
+
+**Insert at:** § The resource in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Resource attributes
+:alt: The resource record at the centre with its salient columns; the charm-resource definition it fills west; the application usage east; the file and image store links above; the pending resource, the retrieval and the unit copy below. Each line is a stored pointer; 1/m at each end.
+:caption: The charm resource's stored records. A resource is one content record in the model database, filling one charm-resource definition and carrying the revision, the origin (upload or store), the store-lifecycle state and the poll time; the record set also holds the application usage, the staged pending record, the retrieval, the unit copies and the two store links, split by type (file and OCI image). Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the application and unit pointers' far sides, the store-side object metadata and the application's Kubernetes-resources satellite are not drawn.
+```
+
 ### reference/relation.md
 
 #### Types of relation (taxonomy)

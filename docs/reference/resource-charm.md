@@ -115,6 +115,13 @@ password: supersecretpassword
 (the-resource-in-the-data-model)=
 ## The resource in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Resource attributes
+:alt: The resource record at the centre with its salient columns; the charm-resource definition it fills west; the application usage east; the file and image store links above; the pending resource, the retrieval and the unit copy below. Each line is a stored pointer; 1/m at each end.
+:caption: The charm resource's stored records. A resource is one content record in the model database, filling one charm-resource definition and carrying the revision, the origin (upload or store), the store-lifecycle state and the poll time; the record set also holds the application usage, the staged pending record, the retrieval, the unit copies and the two store links, split by type (file and OCI image). Every line is a foreign key in one of those records.
+```
+
 A charm resource is persisted in the {ref}`model database
 <data-model-full-spine>` as follows: the charm's **definition** (the
 resource's name, its type, its storage path within the charm, a

@@ -719,6 +719,38 @@ model "Juju" {
     // -----------------------------------------------------------------------
     mdl_constraint [type: record, label: "model constraint\n(arch, cpu cores,\nmemory, root disk)",
                     ground: "model:model_constraint"]
+
+    // -----------------------------------------------------------------------
+    // Resource attributes (docs/reference/resource-charm.md): the stored
+    // pointers. DECLARED FLATTENINGS (one node/field covers its value
+    // lookups): the charm_resource_kind lookup folded into the
+    // definition chip; the origin and state lookups (upload | store,
+    // available | potential) folded into the resource chip; the
+    // retrieved-by-type vocabulary folded into the retrieval chip; the
+    // OCI metadata lookup (resource_container_image_metadata_store)
+    // folded into the image store link chip. Not drawn: the
+    // application and unit far sides of the usage and copy pointers
+    // (the application's and unit's own stories), the store-side
+    // object metadata, the application's Kubernetes-resources
+    // satellite, the composite definition pointer's shape
+    // (charm_uuid + charm_resource_name — grounded on charm_uuid).
+    // -----------------------------------------------------------------------
+    rc_charm_resource [type: record, label: "charm resource\n(kind, path,\ndescription)",
+                       ground: "model:charm_resource"]
+    rc_resource [type: record, label: "resource\n(revision, origin,\nstate, poll time)",
+                 ground: "model:resource"]
+    rc_usage    [type: record, label: "application usage\n(application)",
+                 ground: "model:application_resource"]
+    rc_pending  [type: record, label: "pending resource\n(application name)",
+                 ground: "model:pending_application_resource"]
+    rc_retrieval [type: record, label: "retrieved by\n(user, unit,\napplication)",
+                  ground: "model:resource_retrieved_by"]
+    rc_unit     [type: record, label: "unit resource\n(unit, added)",
+                 ground: "model:unit_resource"]
+    rc_store_file [type: record, label: "file store link\n(size, sha384)",
+                   ground: "model:resource_file_store"]
+    rc_store_image [type: record, label: "image store link\n(registry path, size)",
+                    ground: "model:resource_image_store"]
   }
 
   edges {
@@ -1286,6 +1318,24 @@ model "Juju" {
     // model_constraint link, flattened into the constraint chip).
     model_rec      -> mdl_constraint [type: data, label: "constrained by (0..1)",
                                       ground: "model:model_constraint.model_uuid"]
+
+    // Resource attributes: one data edge per FK, each grounded on its
+    // FK column. The composite definition pointer (charm_uuid +
+    // charm_resource_name) is grounded on charm_uuid.
+    rc_resource  -> rc_charm_resource [type: data, label: "fills (one)",
+                                       ground: "model:resource.charm_uuid"]
+    rc_usage     -> rc_resource [type: data, label: "uses (one)",
+                                 ground: "model:application_resource.resource_uuid"]
+    rc_pending   -> rc_resource [type: data, label: "stages (one)",
+                                 ground: "model:pending_application_resource.resource_uuid"]
+    rc_retrieval -> rc_resource [type: data, label: "records (one)",
+                                 ground: "model:resource_retrieved_by.resource_uuid"]
+    rc_unit      -> rc_resource [type: data, label: "belongs to (one)",
+                                 ground: "model:unit_resource.resource_uuid"]
+    rc_store_file  -> rc_resource [type: data, label: "backs file blob (one)",
+                                   ground: "model:resource_file_store.resource_uuid"]
+    rc_store_image -> rc_resource [type: data, label: "backs image (one)",
+                                   ground: "model:resource_image_store.resource_uuid"]
   }
 
   behaviours {
@@ -2537,6 +2587,43 @@ diagram "Model attributes" from "Juju" {
     mdl_constraint  align-middle model_rec
     fan [cloud_rec credential_rec] above model_rec gap: 24
     fan [cty_namespace application_rec] below model_rec gap: 24
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: resource attributes (docs/reference/resource-charm.md) —
+// the charm resource's stored records as collapsed record chips (round
+// 10 form, per the Charm-origins law): the content record centred (the
+// blob: revision, origin, store-lifecycle state and poll time), the
+// definition it fills west, the application usage east, the two store
+// links above, the staged, retrieval and unit-copy records below.
+// Not drawn: the application and unit far sides of the pointers, the
+// store-side object metadata, the application's Kubernetes-resources
+// satellite, the vocabulary lookups. Edges stay grounded on the FK
+// columns.
+// --------------------------------------------------------------------------
+diagram "Resource attributes" from "Juju" {
+  select {
+    nodes: rc_resource rc_charm_resource rc_usage rc_pending rc_retrieval
+           rc_unit rc_store_file rc_store_image
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal resource centred, satellites fanned.
+    rc_charm_resource left-of rc_resource gap: 30
+    rc_charm_resource align-middle rc_resource
+    rc_usage          right-of rc_resource gap: 30
+    rc_usage          align-middle rc_resource
+    fan [rc_store_file rc_store_image] above rc_resource gap: 24
+    fan [rc_pending rc_unit] below rc_resource gap: 24
+    rc_retrieval below rc_pending gap: 24
+    rc_retrieval align-centre rc_pending
   }
   annotations {
     legend [position: "bottom-right",
