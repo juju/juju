@@ -32,6 +32,34 @@ If guidance conflicts, architectural rules take precedence.
   - Use `c.Assert(err, tc.ErrorIs, MySentinalErr)` instead of `c.Assert(errors.Is(err, MySentinalErr), tc.Equals, true)`.
   - Use `c.Check(booleanExpr, tc.IsTrue)` instead of `c.Check(booleanExpr, tc.Equals, true)`.
   - There are more Checkers, look for the most appropriate checker.
+- Test suites:
+  - A suite is a struct that embeds the util suites it needs, and is run
+    from a `Test` function with `tc.Run`. Embed
+    `internal/testing.BaseSuite` (imported as `coretesting`) unless there is
+    a reason not to: it redirects the logger, isolates the user's home
+    directory, scrubs the Juju environment variables and blocks outgoing
+    network access.
+  - Suite methods named `TestXxx` take a `*tc.C`.
+  - A `SetUpTest` must call the `SetUpTest` of the embedded suites first, in
+    the order they are embedded with `BaseSuite` first, and a `TearDownTest`
+    must call theirs in reverse.
+
+    ```go
+    type toolsSuite struct {
+        coretesting.BaseSuite
+
+        dataDir string
+    }
+
+    func TestToolsSuite(t *testing.T) {
+        tc.Run(t, &toolsSuite{})
+    }
+
+    func (s *toolsSuite) SetUpTest(c *tc.C) {
+        s.BaseSuite.SetUpTest(c)
+        s.dataDir = c.MkDir()
+    }
+    ```
 - For `select` cases, use test context (`c.Context`) instead of timeouts.
 - If a test event must occur, block on it and rely on the native test timeout
   instead of adding an explicit timeout branch.
