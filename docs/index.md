@@ -30,14 +30,14 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 ## In this documentation
 
-**Point of entry**
+### Point of entry
 
 Start here if you're new to Juju.
 
 * Tutorial: {doc}`Get started with Juju <tutorial/index>`
 * Installation: {doc}`Install Juju <howto/manage-juju>`
 
-**Models and charms**
+### Models and charms
 
 Juju models business deployment logic through charms; charms describe how an application is deployed.
 
@@ -87,7 +87,7 @@ Juju models business deployment logic through charms; charms describe how an app
       :doc:`Scaling <reference/scaling>`
 ```
 
-**Juju's core machinery**
+### Juju's core machinery
 
 The CLI, controller, and agents form the engine that coordinates between the application and cloud layers.
 
@@ -134,7 +134,7 @@ The CLI, controller, and agents form the engine that coordinates between the app
       :doc:`Reference <reference/script>` slice
 ```
 
-**Enterprise features**
+### Enterprise features
 
 Additional capabilities for production and enterprise deployments, including access control, observability, and high availability.
 
@@ -165,9 +165,9 @@ Additional capabilities for production and enterprise deployments, including acc
       :doc:`Manage the Juju Dashboard <howto/manage-the-juju-dashboard>`
 ```
 
-**Clouds**
+### Clouds
 
-Juju provisions and manages the cloud resources — machines, networking, storage — that applications run on.
+Juju provisions and manages the cloud resources -- machines, networking, storage -- that applications run on.
 
 ```{eval-rst}
 .. domain:: Clouds
@@ -218,7 +218,7 @@ Juju provisions and manages the cloud resources — machines, networking, storag
       :doc:`Manage storage pools <howto/manage-storage-pools>`
 ```
 
-**Security and performance**
+### Security and performance
 
 Guidance on securing and optimising your Juju deployment.
 
@@ -235,7 +235,7 @@ Guidance on securing and optimising your Juju deployment.
       :doc:`Performance with Juju <explanation/juju-performance>`
 ```
 
-**Deployment lifecycle**
+### Deployment lifecycle
 
 End-to-end procedures for standing up, maintaining, and tearing down a Juju deployment.
 
