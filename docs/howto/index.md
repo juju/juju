@@ -45,7 +45,7 @@ Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 ```
 
 ```{tip}
-{ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
+Moving from Juju 3.6? Start with {ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`.
 ```
 
 (your-juju-deployment-the-birds-eye-view)=
