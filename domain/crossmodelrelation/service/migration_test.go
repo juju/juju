@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -276,7 +277,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -308,7 +311,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 				},
 				Units: []string{"remote-a50f295556314aa4803f766a8802e33a/0"},
 			},
-			RelationUUID: "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
+			RelationUUID:  "ed736d84-0007-438c-8c0e-eac6e0d6dadd",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -364,6 +369,123 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 	c.Check(got[1].UserName, tc.Equals, "admin")
 }
 
+func (s *migrationSuite) TestImportRelationNetworks(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"10.0.0.0/24"},
+		}, {
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkEgress,
+			CIDRs:       []string{"192.168.0.0/16", "192.168.1.0/24"},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
+		Return("6049aa01-76c9-462d-8440-964a6e26aac2", nil).Times(2)
+	s.modelMigrationState.EXPECT().AddRelationNetworkIngress(
+		gomock.Any(), "6049aa01-76c9-462d-8440-964a6e26aac2", []string{"10.0.0.0/24"}).Return(nil)
+	s.modelMigrationState.EXPECT().AddRelationNetworkEgress(
+		gomock.Any(), "6049aa01-76c9-462d-8440-964a6e26aac2", []string{"192.168.0.0/16", "192.168.1.0/24"}).Return(nil)
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationSuite) TestImportRelationNetworksInvalidCIDR(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"not-a-cidr"},
+		},
+	}
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*validating CIDR "not-a-cidr".*`)
+}
+
+func (s *migrationSuite) TestImportRelationNetworksUnknownDirection(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkDirection("invalid"),
+			CIDRs:       []string{"10.0.0.0/24"},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
+		Return("6049aa01-76c9-462d-8440-964a6e26aac2", nil)
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*unknown relation network direction "invalid".*`)
+}
+
+func (s *migrationSuite) TestImportRelationNetworksRelationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	key, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+	otherKey, err := relation.NewKeyFromString("wordpress:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	input := []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey: key,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"10.0.0.0/24"},
+		}, {
+			RelationKey: otherKey,
+			Direction:   crossmodelrelation.RelationNetworkIngress,
+			CIDRs:       []string{"192.0.2.0/24"},
+		},
+	}
+
+	// The first relation was not migrated, so its networks are skipped and
+	// the remaining networks are still imported.
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), key).
+		Return("", relationerrors.RelationNotFound)
+	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), otherKey).
+		Return("ed736d84-0007-438c-8c0e-eac6e0d6dadd", nil)
+	s.modelMigrationState.EXPECT().AddRelationNetworkIngress(
+		gomock.Any(), "ed736d84-0007-438c-8c0e-eac6e0d6dadd", []string{"192.0.2.0/24"}).Return(nil)
+
+	// Act
+	err = s.service(c).ImportRelationNetworks(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *migrationSuite) TestImportRemoteApplicationConsumersApplicationError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -383,7 +505,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumersApplicationError(c 
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -428,7 +552,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationKey(c
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -465,7 +591,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationUUID(
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "!!6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "!!6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -488,6 +616,96 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationUUID(
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+func (s *migrationSuite) TestImportRemoteApplicationConsumerNegativeRelationID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	input := []RemoteApplicationConsumerImport{
+		{
+			RemoteApplicationImport: RemoteApplicationImport{
+				Name:      "remote-13ea27915e7840d888c5e9451444b45d",
+				OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+				URL:       "",
+				Macaroon:  "",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "source",
+						Role:      charm.RoleProvider,
+						Interface: "dummy-token",
+					},
+				},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+			},
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    -1,
+			RelationScope: charm.ScopeGlobal,
+			RelationKey: relation.Key{
+				relation.EndpointIdentifier{
+					ApplicationName: "dummy-source",
+					EndpointName:    "sink",
+					Role:            deploymentcharm.RoleRequirer,
+				},
+				relation.EndpointIdentifier{
+					ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+					EndpointName:    "source",
+					Role:            deploymentcharm.RoleProvider,
+				},
+			},
+			ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
+			ConsumerApplicationUUID: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+			UserName:                "admin",
+		},
+	}
+
+	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorMatches, ".*validating relation ID -1.*")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidRelationScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	input := []RemoteApplicationConsumerImport{
+		{
+			RemoteApplicationImport: RemoteApplicationImport{
+				Name:      "remote-13ea27915e7840d888c5e9451444b45d",
+				OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+				URL:       "",
+				Macaroon:  "",
+				Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{
+					{
+						Name:      "source",
+						Role:      charm.RoleProvider,
+						Interface: "dummy-token",
+					},
+				},
+				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
+			},
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.RelationScope("bogus"),
+			RelationKey: relation.Key{
+				relation.EndpointIdentifier{
+					ApplicationName: "dummy-source",
+					EndpointName:    "sink",
+					Role:            deploymentcharm.RoleRequirer,
+				},
+				relation.EndpointIdentifier{
+					ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
+					EndpointName:    "source",
+					Role:            deploymentcharm.RoleProvider,
+				},
+			},
+			ConsumerModelUUID:       "4ddd6454-931d-4278-8779-b0b7208994d9",
+			ConsumerApplicationUUID: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+			UserName:                "admin",
+		},
+	}
+
+	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorMatches, `.*validating relation scope "bogus".*`)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidOfferUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -507,7 +725,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidOfferUUID(c *
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -549,7 +769,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidConsumerModel
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
@@ -591,7 +813,9 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumerInvalidConsumerAppli
 				},
 				Units: []string{"remote-13ea27915e7840d888c5e9451444b45d/0"},
 			},
-			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationUUID:  "6049aa01-76c9-462d-8440-964a6e26aac2",
+			RelationID:    0,
+			RelationScope: charm.ScopeGlobal,
 			RelationKey: relation.Key{
 				relation.EndpointIdentifier{
 					ApplicationName: "dummy-source",
