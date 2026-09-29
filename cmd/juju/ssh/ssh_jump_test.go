@@ -41,13 +41,17 @@ func TestSSHJumpSuite(t *stdtesting.T) {
 }
 
 func (s *sshJumpSuite) TestCheckSSHJumpFacadeVersion(c *tc.C) {
-	c.Check(checkSSHJumpFacadeVersion(minSSHJumpFacadeVersion), tc.ErrorIsNil)
-	c.Check(checkSSHJumpFacadeVersion(minSSHJumpFacadeVersion+1), tc.ErrorIsNil)
-	c.Check(
-		checkSSHJumpFacadeVersion(minSSHJumpFacadeVersion-1),
-		tc.ErrorMatches,
-		`controller does not support SSH proxying; use the --direct flag to connect directly`,
-	)
+	const unsupported = `controller does not support SSH proxying; use the --direct flag to connect directly`
+	sshMin, ctrlMin := minSSHJumpFacadeVersion, minSSHJumpControllerFacadeVersion
+
+	c.Check(checkSSHJumpFacadeVersion(sshMin, ctrlMin), tc.ErrorIsNil)
+	c.Check(checkSSHJumpFacadeVersion(sshMin+1, ctrlMin+1), tc.ErrorIsNil)
+
+	// The jump flow needs both the SSHClient facade and the Controller facade
+	// methods serving the jump server host key and port, so an older version
+	// of either is rejected with the friendly --direct hint.
+	c.Check(checkSSHJumpFacadeVersion(sshMin-1, ctrlMin), tc.ErrorMatches, unsupported)
+	c.Check(checkSSHJumpFacadeVersion(sshMin, ctrlMin-1), tc.ErrorMatches, unsupported)
 }
 
 func (s *sshJumpSuite) setupMocks(c *tc.C) *gomock.Controller {
