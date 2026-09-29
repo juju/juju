@@ -87,11 +87,6 @@ type LocalState struct {
 	// been committed.
 	LeaderSettingsVersion int
 
-	// CompletedActions is the set of actions that have been completed.
-	// This is used to prevent us re running actions requested by the
-	// controller.
-	CompletedActions map[string]struct{}
-
 	// UpgradeMachineStatus is the current state of any currently running
 	// upgrade series.
 	UpgradeMachineStatus model.UpgradeSeriesStatus

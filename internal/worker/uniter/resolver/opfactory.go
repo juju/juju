@@ -100,49 +100,6 @@ func (s *resolverOpFactory) NewResolvedUpgrade(charmURL string) (operation.Opera
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
-	op, err := s.Factory.NewAction(id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	f := func(*operation.State) {
-		if s.LocalState.CompletedActions == nil {
-			s.LocalState.CompletedActions = make(map[string]struct{})
-		}
-		s.LocalState.CompletedActions[id] = struct{}{}
-		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.ActionsPending, s.LocalState.CompletedActions)
-	}
-	op = onCommitWrapper{op, f}
-	return op, nil
-}
-
-func trimCompletedActions(pendingActions []string, completedActions map[string]struct{}) map[string]struct{} {
-	newCompletedActions := map[string]struct{}{}
-	for _, pendingAction := range pendingActions {
-		if _, ok := completedActions[pendingAction]; ok {
-			newCompletedActions[pendingAction] = struct{}{}
-		}
-	}
-	return newCompletedActions
-}
-
-// NewFailAction is part of the factory interface.
-func (s *resolverOpFactory) NewFailAction(actionId string) (operation.Operation, error) {
-	op, err := s.Factory.NewFailAction(actionId)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	f := func(*operation.State) {
-		if s.LocalState.CompletedActions == nil {
-			s.LocalState.CompletedActions = make(map[string]struct{})
-		}
-		s.LocalState.CompletedActions[actionId] = struct{}{}
-		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.ActionsPending, s.LocalState.CompletedActions)
-	}
-	op = onCommitWrapper{op, f}
-	return op, nil
-}
-
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL string) operation.Operation {
 	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	return onCommitWrapper{op, func(*operation.State) {
