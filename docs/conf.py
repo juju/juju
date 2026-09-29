@@ -307,6 +307,7 @@ extensions = [
     "sphinxcontrib.lightbox2",
     "ibnote",
     "sphinx_structured_toc",
+    "ggarch.sphinxcontrib_ggarch",
 ]
 
 # Customize sphinx_llm.txt
