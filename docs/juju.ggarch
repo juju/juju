@@ -787,6 +787,25 @@ model "Juju" {
     // -----------------------------------------------------------------------
     of_endpoint [type: record, label: "offer endpoint\n(application endpoint)",
                  ground: "model:offer_endpoint"]
+
+    // -----------------------------------------------------------------------
+    // Cloud attributes (docs/reference/cloud.md): the stored pointers.
+    // DECLARED FLATTENINGS (one node/field covers its value lookups):
+    // the cloud_ca_cert record and the endpoint fields fold into the
+    // cloud chip; the cloud_region_defaults fold into the region chip;
+    // the auth-type lookup folds into the authentication chip. Not
+    // drawn: the models and credentials that name the cloud, the
+    // seeded controller cloud, the credential records (their own
+    // page's story).
+    // -----------------------------------------------------------------------
+    cld_cloud   [type: record, label: "cloud\n(name, type,\nendpoints, CA)",
+                 ground: "controller:cloud"]
+    cld_region  [type: record, label: "cloud region\n(region, defaults)",
+                 ground: "controller:cloud_region"]
+    cld_defaults [type: record, label: "cloud defaults\n(setting, value)",
+                  ground: "controller:cloud_defaults"]
+    cld_auth    [type: record, label: "authentication type\n(type)",
+                 ground: "controller:cloud_auth_type"]
   }
 
   edges {
@@ -1388,6 +1407,15 @@ model "Juju" {
     // Offer attributes: one data edge for the endpoint join record.
     of_endpoint -> offer_rec [type: data, label: "belongs to (one)",
                               ground: "model:offer_endpoint.offer_uuid"]
+
+    // Cloud attributes: one data edge per FK, each grounded on its
+    // FK column.
+    cld_region   -> cld_cloud   [type: data, label: "of (0..N)",
+                                 ground: "controller:cloud_region.cloud_uuid"]
+    cld_defaults -> cld_cloud   [type: data, label: "defaults (0..N)",
+                                 ground: "controller:cloud_defaults.cloud_uuid"]
+    cld_auth     -> cld_cloud   [type: data, label: "admits (0..N)",
+                                 ground: "controller:cloud_auth_type.cloud_uuid"]
   }
 
   behaviours {
@@ -2098,6 +2126,38 @@ diagram "Offer attributes" from "Juju" {
     of_endpoint        align-middle offer_rec
     offer_connection_rec right-of offer_rec gap: 30
     offer_connection_rec align-middle offer_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: cloud attributes (docs/reference/cloud.md) — the cloud's
+// stored records as collapsed record chips (round 10 form, per the
+// Charm-origins law): the cloud record centred (its name, type,
+// endpoints and CA certificate), the region records west, the default
+// configuration values east, the admitted authentication types below.
+// Not drawn: the models and credentials that name the cloud, the
+// seeded controller cloud, the credential records. Edges stay grounded
+// on the FK columns.
+// --------------------------------------------------------------------------
+diagram "Cloud attributes" from "Juju" {
+  select {
+    nodes: cld_cloud cld_region cld_defaults cld_auth
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal cloud centred, satellites fanned.
+    cld_region   left-of cld_cloud gap: 30
+    cld_region   align-middle cld_cloud
+    cld_defaults right-of cld_cloud gap: 30
+    cld_defaults align-middle cld_cloud
+    cld_auth     below cld_cloud gap: 24
+    cld_auth     align-centre cld_cloud
   }
   annotations {
     legend [position: "bottom-right",
@@ -3777,6 +3837,22 @@ diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
 diagram "Offer attributes (synthesized)" from "Juju" {
   select {
     nodes: offer_rec of_endpoint offer_connection_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Cloud attributes (synthesized)" from "Juju" {
+  select {
+    nodes: cld_cloud cld_region cld_defaults cld_auth
     edges: type data
     sizing: uniform
   }

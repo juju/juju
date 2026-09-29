@@ -41,6 +41,13 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 (the-clouds-persistence)=
 ## Cloud in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cloud attributes
+:alt: The cloud record at the centre with its salient columns; the region records west; the default configuration values east; the admitted authentication types below. Each line is a stored pointer; 1/m at each end.
+:caption: The cloud's stored records. A cloud is one record in the controller database, named, typed, carrying the endpoints Juju talks to and the CA certificate for TLS; the regions with their per-region defaults, the default configuration values and the admitted authentication types are records of their own. Every line is a foreign key in one of those records.
+```
+
 A cloud is persisted in the {ref}`controller database <database>` as follows:
 
 - **The cloud is one record:** the name (unique), the cloud type, the endpoints Juju talks to (the cloud's API, identity, and storage endpoints, and whether to skip TLS verification), and the CA certificate for TLS.

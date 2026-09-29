@@ -238,6 +238,19 @@ crops).
 :caption: The charm's stored records. A charm is one record per revision, its metadata, its Charmhub download bookkeeping, and the payloads it defines (endpoints, config schema, actions); every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the record set also holds the storage, device, container, term, tag and category definitions and the manifest bases (not drawn).
 ```
 
+### reference/cloud.md
+
+#### Cloud attributes (ERD slice)
+
+**Insert at:** § Cloud in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Cloud attributes
+:alt: The cloud record at the centre with its salient columns; the region records west; the default configuration values east; the admitted authentication types below. Each line is a stored pointer; 1/m at each end.
+:caption: The cloud's stored records. A cloud is one record in the controller database, named, typed, carrying the endpoints Juju talks to and the CA certificate for TLS; the regions with their per-region defaults, the default configuration values and the admitted authentication types are records of their own. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the models and credentials that name the cloud and the seeded controller cloud are not drawn.
+```
+
 ### reference/configuration.md
 
 #### Configuration levels (where each lives)
