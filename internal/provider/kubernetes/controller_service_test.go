@@ -34,7 +34,7 @@ func (*controllerAddressServiceSuite) TestControllerServiceIdentity(c *tc.C) {
 		_, err := services.Create(c.Context(), &corev1.Service{
 			Name: name, UID: types.UID(name + "-uid"),
 			Labels: utils.LabelsForApp("controller", constants.LastLabelVersion),
-			Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, ClusterIP: "10.0.0.1"},
+			Spec:   corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, ClusterIP: "10.0.0.1"},
 			Status: corev1.ServiceStatus{LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{{IP: "192.0.2.1", Hostname: "api.example.com"}},
 			}},
@@ -55,4 +55,42 @@ func (*controllerAddressServiceSuite) TestControllerServiceIdentity(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(svc.Id, tc.Equals, "")
 	c.Check(svc.Addresses, tc.HasLen, 0)
+}
+
+func (s *controllerAddressServiceSuite) TestControllerNamedApplicationInWorkloadModel(c *tc.C) {
+	s.assertApplicationServiceIdentity(c, "controller", "workload")
+}
+
+func (s *controllerAddressServiceSuite) TestOtherApplicationInControllerModel(c *tc.C) {
+	s.assertApplicationServiceIdentity(c, "postgresql", "controller")
+}
+
+func (*controllerAddressServiceSuite) assertApplicationServiceIdentity(c *tc.C, appName, modelName string) {
+	client := fake.NewClientset()
+	k := &kubernetesClient{
+		namespace: "test", modelName: modelName,
+		clientUnlocked: client, labelVersion: constants.LastLabelVersion,
+	}
+	services := client.CoreV1().Services(k.namespace)
+	_, err := services.Create(c.Context(), &corev1.Service{
+		Name: appName, UID: "app-service-uid",
+		Labels: utils.LabelsMerge(utils.LabelsForApp(appName, constants.LastLabelVersion), utils.LabelsJuju),
+		Spec:   corev1.ServiceSpec{Type: corev1.ServiceTypeClusterIP, ClusterIP: "10.0.0.2"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	// A controller API Service must only supply addresses for the controller
+	// application in the controller model, even when both Services exist.
+	_, err = services.Create(c.Context(), &corev1.Service{
+		Name: constants.ControllerServiceName, UID: "api-service-uid",
+		Labels: utils.LabelsMerge(utils.LabelsForApp("controller", constants.LastLabelVersion), utils.LabelsJuju),
+		Spec:   corev1.ServiceSpec{Type: corev1.ServiceTypeLoadBalancer, LoadBalancerIP: "192.0.2.1"},
+	}, metav1.CreateOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	svc, err := k.GetService(c.Context(), appName, false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(svc.Id, tc.Equals, "app-service-uid")
+	c.Check(svc.Addresses, tc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress("10.0.0.2", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+	})
 }

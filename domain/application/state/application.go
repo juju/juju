@@ -1295,7 +1295,7 @@ WHERE  name = $unitName.name
 // that it will get fired very often and the probability of a change that is
 // of interest for the unit is low.
 // A possible future improvement would be to accumulate the change events and
-// check whether the unit of interest has been effected, before hitting the db.
+// check whether the unit of interest has been affected, before hitting the db.
 func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.UUID, netNodeUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

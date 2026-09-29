@@ -82,6 +82,7 @@ type ApplicationState interface {
 
 	// DeleteK8sServiceAddresses deletes an application's Service addresses after
 	// the provider reports that the Service no longer exists.
+	// An application without a recorded Service is a no-op.
 	DeleteK8sServiceAddresses(ctx context.Context, appUUID string) error
 
 	// SetApplicationHasK8sResources records that the provisioner is managing

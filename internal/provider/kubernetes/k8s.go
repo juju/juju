@@ -635,6 +635,9 @@ func (k *kubernetesClient) getStorageClass(ctx context.Context, name string) (*s
 }
 
 // GetService returns the service for the specified application.
+// If its address Service is absent, the result has an empty Id and no Addresses,
+// but may still contain workload status and scale information.
+// Absence alone does not return an error.
 func (k *kubernetesClient) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
@@ -721,6 +724,7 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 }
 
 // getAddressService finds the normal Service supplying application addresses.
+// It returns (nil, nil) if no matching Service exists.
 func (k *kubernetesClient) getAddressService(ctx context.Context, appName string) (*core.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
 	serviceName := utils.ServiceAddressName(appName, k.ModelName())
