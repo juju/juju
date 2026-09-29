@@ -1989,8 +1989,12 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 	}
 
 	relUUID, err := u.relationService.GetRelationUUIDByKey(ctx, relationKey)
-	if err != nil {
-		return nil, err
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		// Mask the missing relation as a permission error so a caller
+		// cannot tell "no such relation" from "not your relation".
+		return nil, apiservererrors.ErrPerm
+	} else if err != nil {
+		return nil, internalerrors.Capture(err)
 	}
 
 	// The relation key names any relation in the model, so the relation has
@@ -1999,7 +2003,9 @@ func (u *UniterAPI) readOneRemoteSettings(ctx context.Context, canAccess common.
 	// settings.
 	applicationName, err := names.UnitApplication(unitTag.Id())
 	if err != nil {
-		return nil, apiservererrors.ErrBadId
+		// Defensive: unitTag was already parsed by ParseUnitTag above, so
+		// this cannot fail. Keep aligned with the ErrPerm paths above.
+		return nil, apiservererrors.ErrPerm
 	}
 	if err := u.checkApplicationInRelation(ctx, relUUID, applicationName); err != nil {
 		return nil, err
