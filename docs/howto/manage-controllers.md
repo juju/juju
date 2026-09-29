@@ -101,7 +101,7 @@ Sample output for a case where there is just a single controller boostrapped int
 Use --refresh option with this command to see the latest information.
 
 Controller             Model       User   Access     Cloud/Region         Models  Nodes    HA  Version
-localhost-controller*  controller  admin  superuser  localhost/localhost       1      1  none  3.0.0
+localhost-controller*  controller  admin  superuser  localhost/localhost       1      1  none  4.0.15
 ```
 
 By specifying various options you can also choose a specific output format, an output file, etc.

@@ -101,7 +101,7 @@ juju status
 
 ```text
 Model  Controller           Cloud/Region         Version  SLA          Timestamp
-test   localhost-localhost  localhost/localhost  3.1.0    unsupported  16:07:52+01:00
+test   localhost-localhost  localhost/localhost  4.0.15   unsupported  16:07:52+01:00
 
 Model "admin/test" is empty.
 ```
@@ -147,7 +147,7 @@ test:
       access: admin
       last-connection: 2 minutes ago
   sla: unsupported
-  agent-version: 3.1.0
+  agent-version: 4.0.15
   credential:
     name: localhost
     owner: admin
@@ -156,7 +156,7 @@ test:
   supported-features:
   - name: juju
     description: the version of Juju used by the model
-    version: 3.1.0
+    version: 4.0.15
 ```
 
 ````
