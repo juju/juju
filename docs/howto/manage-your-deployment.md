@@ -48,9 +48,9 @@ At all time, try to stay up to date:
 
 - {ref}`upgrade-your-deployment`
 
-If you're upgrading from Juju 3.6 to 4.0, check out the specific guide for that:
+If you're upgrading from Juju 3.6 to 4.1, check out the specific guide for that:
 
-- {ref}`upgrade-your-deployment-from-36-to-40`
+- {ref}`upgrade-your-deployment-from-36-to-41`
 
 And, if you're trying things locally, here's how to clean up:
 

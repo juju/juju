@@ -13,7 +13,7 @@ myst:
 :maxdepth: 2
 :hidden:
 
-Upgrade your deployment from 3.6 to 4.0 <upgrade-your-juju-deployment-from-36-to-40>
+Upgrade your deployment from 3.6 to 4.1 <upgrade-your-juju-deployment-from-36-to-41>
 Manage your deployment <manage-your-deployment>
 Manage juju <manage-juju>
 Add, update, and remove clouds and their regions <manage-clouds>
@@ -45,7 +45,7 @@ Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 ```
 
 ```{tip}
-Moving from Juju 3.6? Start with {ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`.
+Moving from Juju 3.6? Start with {ref}`Upgrade your deployment from 3.6 to 4.1 <upgrade-your-deployment-from-36-to-41>`.
 ```
 
 (your-juju-deployment-the-birds-eye-view)=

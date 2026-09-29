@@ -252,7 +252,7 @@ End-to-end procedures for standing up, maintaining, and tearing down a Juju depl
    .. slice:: Upgrade
 
       :doc:`Upgrade your deployment <howto/manage-your-juju-deployment/upgrade-your-juju-deployment>`
-      :doc:`From 3.6 to 4.0 <howto/upgrade-your-juju-deployment-from-36-to-40>`
+      :doc:`From 3.6 to 4.1 <howto/upgrade-your-juju-deployment-from-36-to-41>`
 
    .. slice:: Troubleshoot
 
