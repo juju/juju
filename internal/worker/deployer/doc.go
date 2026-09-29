@@ -8,6 +8,6 @@
 // deployment: it runs a dependency engine (dependency.NewEngine) over the
 // manifolds constructed in unit_manifolds.go.
 //
-// See github.com/juju/juju/cmd/containeragent/unit for the equivalent unit
+// See the unit package of cmd/containeragent for the equivalent unit
 // agent in Kubernetes deployments.
 package deployer

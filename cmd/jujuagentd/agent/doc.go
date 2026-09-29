@@ -29,5 +29,5 @@
 // See github.com/juju/juju/cmd/jujuagentd for the binary that registers
 // these commands. The unit agent for machine deployments is defined in
 // github.com/juju/juju/internal/worker/deployer, and the unit agent for
-// Kubernetes deployments in github.com/juju/juju/cmd/containeragent/unit.
+// Kubernetes deployments in the unit package of cmd/containeragent.
 package agent
