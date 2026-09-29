@@ -18,6 +18,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/internal/charms"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/crossmodel"
@@ -189,10 +190,14 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 		// The SSH server port is owned by the controller charm and pushed to
 		// the SSH domain at runtime, so read it from there rather than
-		// controller config, which may hold a stale value.
+		// controller config, which may hold a stale value. The port is only
+		// used to decorate the controller application's ports, so a failure
+		// to read it degrades to the default rather than failing status.
 		sshServerPort, err := c.controllerSSHService.GetSSHServerPort(ctx)
 		if err != nil {
-			return noStatus, internalerrors.Errorf("could not fetch controller SSH server port: %w", err)
+			logger.Warningf(ctx, "could not fetch controller SSH server port, using default %d: %v",
+				controller.DefaultSSHServerPort, err)
+			sshServerPort = controller.DefaultSSHServerPort
 		}
 		context.populateControllerPorts(controllerConfig.APIPort(), sshServerPort)
 	}
