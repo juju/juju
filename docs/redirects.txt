@@ -382,7 +382,8 @@ user/reference/storage reference/storage
 user/reference/subnet reference/subnet
 user/reference/telemetry reference/telemetry
 user/reference/unit reference/unit
-user/reference/upgrading-things reference/upgrading-things
+user/reference/upgrading-things howto/manage-your-juju-deployment/upgrade-your-juju-deployment
+reference/upgrading-things howto/manage-your-juju-deployment/upgrade-your-juju-deployment
 user/reference/user reference/user
 user/reference/zone reference/zone
 user/tutorial tutorial

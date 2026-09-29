@@ -362,7 +362,7 @@ See more: {ref}`command-juju-enable-command`
 ## Upgrade a model
 
 ```{ibnote}
-See more: {ref}`upgrading-things`
+See more: {ref}`upgrade-your-deployment`
 ```
 
 A model upgrade affects the version of Juju (Juju machine and unit agents) on all the Juju machines in the model.

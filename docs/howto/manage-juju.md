@@ -250,7 +250,7 @@ tar -xzf juju-yymmdd-hhmmss.tar.gz
 ## Upgrade `juju`
 
 ```{ibnote}
-See also: {ref}`upgrading-things`
+See also: {ref}`upgrade-your-deployment`
 ```
 
 ``````{tabs}

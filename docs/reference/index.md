@@ -104,7 +104,7 @@ Some operations apply across many kinds of resource -- from individual units and
 - {ref}`scaling`
 - {ref}`high-availability`
 - {ref}`removing-things`
-- {ref}`upgrading-things`
+- {ref}`upgrade-your-deployment`
 
 ```{toctree}
 :titlesonly:
