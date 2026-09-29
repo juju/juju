@@ -12,13 +12,12 @@ Commonly, you may have to work with multiple versions of Juju at once. This docu
 ## {ref}`juju-cli`, {ref}`controllers <controller>`, and {ref}`agents <agent>`
 
 Juju controllers, agents, and the `juju` CLI client all are [semantically versioned](https://semver.org/). This means:
-- Controllers/agents/clients **in the same major/minor series** (e.g. 3.5.0 and 3.5.2) are fully compatible.
-- Controllers/agents/clients **in the same major series** (e.g. 3.4 and 3.5) are compatible, but older versions may be lacking features present in newer versions.
-- Controllers/agents/clients with different major versions (e.g. 2.8 and 3.1) are **not guaranteed to be compatible.** The one exception is that we guarantee a basic set of operations (e.g. status and migration) is compatible between **the last minor in a major series** and the next major. This enables users to upgrade their existing deployments to the next major version. Related to that: A Juju client only bootstraps a Juju controller of the same major/minor version.
+- Controllers/agents/clients **in the same major/minor series** (e.g. 4.0.0 and 4.0.2) are fully compatible.
+- Controllers/agents/clients **in the same major series** (e.g. 4.0 and 4.1) are compatible, but older versions may be lacking features present in newer versions.
+- Controllers/agents/clients with different major versions (e.g. 3.6 and 4.1) are **not guaranteed to be compatible.** The one exception is that we guarantee a basic set of operations (e.g. status and migration) is compatible between **the last minor in a major series** and the next major. This enables users to upgrade their existing deployments to the next major version. Related to that: A Juju client only bootstraps a Juju controller of the same major/minor version.
 
 ## [Python Libjuju](https://pythonlibjuju.readthedocs.io/en/latest/)
 
-- For a 2.9.x controller, you should use the latest python-libjuju in the 2.9 track.
 - For 3.x controllers, you should use the latest version of python-libjuju.
 
 ## [Terraform Provider for Juju](https://canonical-terraform-provider-juju.readthedocs-hosted.com/en/latest/tutorial/)

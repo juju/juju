@@ -9,8 +9,6 @@ myst:
 
 The Juju web CLI gives you access to model level Juju CLI commands from within the Juju Dashboard when viewing a model’s detail page.
 
-> This feature is only available in Juju 2.9 and above.
-
 When viewing the model details page, along the bottom you’ll see an input where you can enter Juju CLI commands:
 
 ![Juju web CLI](juju-web-cli-1.png)

@@ -26,18 +26,6 @@ This sets the path where Juju will look for its configuration files. You do not 
 ~/.local/share/juju
 ```
 
-## `JUJU_HOME` (deprecated)
-
-For versions of Juju prior to 2.0, this variable indicated the 'home' directory where Juju kept configuration and other data.
-
-    JUJU_HOME=~/.juju
-
-## `JUJU_REPOSITORY` (deprecated)
-
-For versions prior to 2.0, this variable set a local charms directory that Juju would search when deploying an application. The equivalent `--repository=/path/to/charms` switch (with `juju deploy`) was also available.
-
-Both the environment variable and the switch are no longer functional in 2.x versions.
-
 ## `JUJU_LOGGING_CONFIG`
 
 This setting takes effect on an environment only at bootstrap time. In stable Juju releases, agents are started with logging set to WARNING, and units are set to INFO. Development releases are set to DEBUG globally. Post bootstrap, on a running environment you can change the logging options to be more or less verbose. For example:

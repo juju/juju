@@ -479,7 +479,7 @@ scrape_configs:
 (upgrade-a-controller)=
 ## Upgrade a controller
 
-The procedure depends on whether you're upgrading your controller's patch version (e.g. `2.9.25` &rarr; `2.9.48`) or rather its minor or major version (e.g., `3.1` &rarr; `3.4` or  `2.9` &rarr; `3.0`).
+The procedure depends on whether you're upgrading your controller's patch version (e.g. `4.0.14` &rarr; `4.0.15`) or rather its minor or major version (e.g., `4.0` &rarr; `4.1` or `3.6` &rarr; `4.0`).
 
 (upgrade-a-controllers-patch-version)=
 ### Upgrade a controller's patch version
@@ -490,10 +490,10 @@ To upgrade your controller's patch version, on the target controller, use the `j
 juju upgrade-controller --agent-version <current major. current minor. target patch>
 ```
 
-For example, assuming a controller version `3.0.0`, to upgrade to `3.0.2`:
+For example, assuming a controller version `4.1.0`, to upgrade to `4.1.2`:
 
 ```text
-juju upgrade-controller --agent-version 3.0.2
+juju upgrade-controller --agent-version 4.1.2
 ```
 
 (upgrade-a-controllers-minor-or-major-version)=
@@ -513,7 +513,7 @@ juju bootstrap <cloud> newcontroller
 See more: {ref}`upgrade-juju`, {ref}`bootstrap-a-controller`
 ```
 
-2. Recreate your old controller's configuration (settings, users, clouds, and models) in the new controller (on machine clouds, through our dedicated tools for backup and restore).
+2. Recreate your old controller's configuration (settings, users, clouds, and models) in the new controller.
 
 3. Migrate your models from the old controller to the new, then upgrade them to match the new controller's version.
 

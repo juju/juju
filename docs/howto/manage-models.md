@@ -372,7 +372,7 @@ First, prepare for the upgrade:
 -  Ensure the controller has already been upgraded. See more: {ref}`upgrade-a-controller`.
 -  Ensure the models that are to be upgraded are in good working order (`juju status`).
 
-Then, perform the upgrade. How you upgrade a model depends on whether you'd be crossing patch versions (e.g., `v.2.9.25` -> `v.2.9.26`) or rather minor (e.g., `v.2.7` -> `v.2.8`) or major versions (`v.2` -> `v.3`).
+Then, perform the upgrade. How you upgrade a model depends on whether you'd be crossing patch versions (e.g., `4.0.14` -> `4.0.15`) or rather minor (e.g., `4.0` -> `4.1`) or major versions (e.g., `3.6` -> `4.0`).
 
 - To upgrade the current model across patch versions, use the `upgrade-model` command:
 
