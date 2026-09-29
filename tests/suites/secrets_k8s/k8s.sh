@@ -29,12 +29,21 @@ run_secrets() {
 	wait_for_unit_count "prometheus-k8s" 1
 	check_contains "$(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${short_uri1}"'-1")')" "${short_uri1}-1"
 	# Which unit is removed on scale down depends on the Juju version: 4.0
-	# keeps the lowest ordinals, 4.1 keeps the highest. Wait until exactly one
-	# of the two unit owned secrets is gone instead of naming the survivor.
+	# keeps the lowest ordinals, 4.1 keeps the highest. Derive the surviving
+	# unit from the status and check that its secret remains while the
+	# removed unit's secret is deleted.
+	surviving_unit=$(juju status --format json | yq -r '.applications."prometheus-k8s".units | keys[]')
+	if [[ ${surviving_unit##*/} -eq 0 ]]; then
+		expected_uri=${short_uri2}
+		removed_uri=${short_uri3}
+	else
+		expected_uri=${short_uri3}
+		removed_uri=${short_uri2}
+	fi
 	attempt=0
-	until [[ $(kubectl -n "$model_name" get secrets -o json | yq '[.items[].metadata.name | select(. == "'"${short_uri2}"'-1" or . == "'"${short_uri3}"'-1")] | length') -eq 1 ]]; do
+	until [[ -n $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${expected_uri}"'-1")') && -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${removed_uri}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: expected exactly one unit owned secret to remain after scaling down to one unit."
+			echo "Failed: expected the surviving unit secret ${expected_uri}-1 to remain and the removed unit secret ${removed_uri}-1 to be deleted."
 			exit 1
 		fi
 		sleep 2

@@ -409,6 +409,7 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 	backendUUID1 := utils.MustNewUUID().String()
 	backendUUID2 := utils.MustNewUUID().String()
 	backendUUID3 := utils.MustNewUUID().String()
+	backendUUID4 := utils.MustNewUUID().String()
 	s.assertExecSQL(c,
 		"INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) VALUES (?, 'controller-sb', 0, 0);",
 		backendUUID1)
@@ -418,6 +419,9 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 	s.assertExecSQL(c,
 		"INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) VALUES (?, 'user-k8s-sb', 1, 1);",
 		backendUUID3)
+	s.assertExecSQL(c,
+		"INSERT INTO secret_backend (uuid, name, backend_type_id, origin_id) VALUES (?, 'user-controller-sb', 0, 1);",
+		backendUUID4)
 	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
 		"built-in secret backends are immutable", backendUUID1)
@@ -427,6 +431,9 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 	s.assertExecSQL(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
 		backendUUID3)
+	s.assertExecSQL(c,
+		"UPDATE secret_backend SET name = 'another-name' WHERE uuid = ?",
+		backendUUID4)
 
 	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
@@ -437,6 +444,9 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 	s.assertExecSQL(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
 		backendUUID3)
+	s.assertExecSQL(c,
+		"DELETE FROM secret_backend WHERE uuid = ?;",
+		backendUUID4)
 }
 
 // TestVModelStateMigratingForImportPhases asserts that v_model_state.migrating
