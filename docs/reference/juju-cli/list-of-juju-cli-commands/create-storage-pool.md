@@ -27,5 +27,5 @@ juju create-storage-pool [options] <name> <storage provider> [<key>=<value> [<ke
 
 Further reading:
 
-- https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-pool
-- https://documentation.ubuntu.com/juju/3.6/reference/storage/#storage-provider
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/#storage-pool
+- https://canonical.com/juju/docs/juju-cli/latest/reference/storage/#storage-provider

@@ -318,7 +318,7 @@ llms_txt_description = (
 )
 ## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
 llms_txt_suffix_mode = "url-suffix"
-markdown_http_base = "https://documentation.ubuntu.com/juju/latest"
+markdown_http_base = "https://canonical.com/juju/docs/juju-cli/latest"
 ## Build llms-full.txt, which concatenates all pages (off by default):
 llms_txt_full_build = True
 

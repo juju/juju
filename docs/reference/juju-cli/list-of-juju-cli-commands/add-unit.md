@@ -70,5 +70,5 @@ documentation for specific charms to check how scale-out is supported.
 
 Further reading:
 
-- https://documentation.ubuntu.com/juju/3.6/reference/unit/
-- https://documentation.ubuntu.com/juju/3.6/reference/placement-directive/
+- https://canonical.com/juju/docs/juju-cli/latest/reference/unit/
+- https://canonical.com/juju/docs/juju-cli/latest/reference/placement-directive/
