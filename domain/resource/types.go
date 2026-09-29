@@ -161,9 +161,9 @@ type UpdateUploadResourceArgs struct {
 // update the resource to expect a new blob to be uploaded.
 type StateUpdateUploadResourceArgs struct {
 	// ResourceUUID is the unique identifier of the resource being replaced.
-	ResourceUUID coreresource.UUID
+	ResourceUUID string
 	// NewResourceUUID is the unique identifier of the replacement resource.
-	NewResourceUUID coreresource.UUID
+	NewResourceUUID string
 }
 
 // UpdateResourceRevisionArgs holds arguments to update a resource to have
@@ -179,9 +179,9 @@ type UpdateResourceRevisionArgs struct {
 // with a different revision.
 type StateUpdateResourceRevisionArgs struct {
 	// ResourceUUID is the unique identifier of the resource being replaced.
-	ResourceUUID coreresource.UUID
+	ResourceUUID string
 	// NewResourceUUID is the unique identifier of the replacement resource.
-	NewResourceUUID coreresource.UUID
+	NewResourceUUID string
 	// Revision is the revision of the replacement resource.
 	Revision int
 }

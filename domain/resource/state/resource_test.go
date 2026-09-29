@@ -2514,8 +2514,8 @@ func (s *resourceSuite) TestUpdateResourceRevisionFile(c *tc.C) {
 	expectedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String()) + 1
 	newUUID := coreresourcetesting.GenResourceUUID(c)
 	err = s.state.UpdateResourceRevision(c.Context(), resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    resID,
-		NewResourceUUID: newUUID,
+		ResourceUUID:    resID.String(),
+		NewResourceUUID: newUUID.String(),
 		Revision:        5,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2562,8 +2562,8 @@ UPDATE application SET charm_uuid = ? WHERE uuid = ?`,
 
 	newResourceUUID := coreresourcetesting.GenResourceUUID(c)
 	err = s.state.UpdateResourceRevision(c.Context(), resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    oldResourceUUID,
-		NewResourceUUID: newResourceUUID,
+		ResourceUUID:    oldResourceUUID.String(),
+		NewResourceUUID: newResourceUUID.String(),
 		Revision:        5,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2633,8 +2633,8 @@ func (s *resourceSuite) TestUpdateResourceRevisionImage(c *tc.C) {
 	expectedCharmModifiedVersion := s.getCharmModifiedVersion(c, resID.String()) + 1
 	newUUID := coreresourcetesting.GenResourceUUID(c)
 	err = s.state.UpdateResourceRevision(c.Context(), resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    resID,
-		NewResourceUUID: newUUID,
+		ResourceUUID:    resID.String(),
+		NewResourceUUID: newUUID.String(),
 		Revision:        5,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2681,8 +2681,8 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	c.Assert(err, tc.ErrorIs, sqlair.ErrNoRows)
 
 	err = s.state.UpdateResourceRevision(c.Context(), resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    resID,
-		NewResourceUUID: newUUID,
+		ResourceUUID:    resID.String(),
+		NewResourceUUID: newUUID.String(),
 		Revision:        5,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2715,8 +2715,8 @@ WHERE  resource_uuid = ?`, resID).Scan(&foundStoreUUID)
 	c.Check(err, tc.ErrorMatches, "sql: no rows in result set")
 
 	err = s.state.UpdateResourceRevision(c.Context(), resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    resID,
-		NewResourceUUID: newUUID,
+		ResourceUUID:    resID.String(),
+		NewResourceUUID: newUUID.String(),
 		Revision:        5,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2775,8 +2775,8 @@ UPDATE application SET charm_uuid = ? WHERE uuid = ?`,
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	args := resource.StateUpdateUploadResourceArgs{
-		ResourceUUID:    originalUUID,
-		NewResourceUUID: coreresourcetesting.GenResourceUUID(c),
+		ResourceUUID:    originalUUID.String(),
+		NewResourceUUID: coreresourcetesting.GenResourceUUID(c).String(),
 	}
 
 	// Act: update resource to expect upload.
@@ -2787,8 +2787,8 @@ UPDATE application SET charm_uuid = ? WHERE uuid = ?`,
 
 	// Assert check the application resource was updated to the newly inserted
 	// record and that it has the correct origin and revision.
-	s.checkApplicationResourceUpdated(c, input.ApplicationUUID, args.NewResourceUUID.String())
-	s.checkResourceCharm(c, args.NewResourceUUID, newCharmUUID)
+	s.checkApplicationResourceUpdated(c, input.ApplicationUUID, args.NewResourceUUID)
+	s.checkResourceCharm(c, coreresource.UUID(args.NewResourceUUID), newCharmUUID)
 
 	// The old resource and its blob remain available to lagging units.
 	s.checkResourceImageStore(c, originalUUID, "file-store-uuid")
@@ -2844,8 +2844,8 @@ func (s *resourceSuite) TestUpdateUploadResourceFileStore(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
 	args := resource.StateUpdateUploadResourceArgs{
-		ResourceUUID:    originalUUID,
-		NewResourceUUID: coreresourcetesting.GenResourceUUID(c),
+		ResourceUUID:    originalUUID.String(),
+		NewResourceUUID: coreresourcetesting.GenResourceUUID(c).String(),
 	}
 
 	// Act: update resource to expect upload.
@@ -2856,7 +2856,7 @@ func (s *resourceSuite) TestUpdateUploadResourceFileStore(c *tc.C) {
 
 	// Assert check the application resource was updated to the newly inserted
 	// record and that it has the correct origin and revision.
-	s.checkApplicationResourceUpdated(c, input.ApplicationUUID, args.NewResourceUUID.String())
+	s.checkApplicationResourceUpdated(c, input.ApplicationUUID, args.NewResourceUUID)
 
 	// The old resource and its blob remain available to lagging units.
 	s.checkResourceFileStore(c, originalUUID, "object-store-uuid")

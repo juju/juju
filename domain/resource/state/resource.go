@@ -697,7 +697,7 @@ func (st *State) RecordStoredResource(
 		}
 
 		if args.IncrementCharmModifiedVersion {
-			err := st.incrementCharmModifiedVersion(ctx, tx, args.ResourceUUID)
+			err := st.incrementCharmModifiedVersion(ctx, tx, args.ResourceUUID.String())
 			if err != nil {
 				return errors.Errorf("incrementing charm modified version for application of resource %s: %w", args.ResourceUUID, err)
 			}
@@ -1045,8 +1045,8 @@ ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved
 
 // incrementCharmModifiedVersion increments the charm modified version on the
 // application associated with a resource.
-func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID coreresource.UUID) error {
-	resID := resourceIdentity{UUID: resourceUUID.String()}
+func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID string) error {
+	resID := resourceIdentity{UUID: resourceUUID}
 	getApplicationUUIDsStmt, err := st.Prepare(`
 SELECT &applicationUUID.*
 FROM   application_resource
@@ -1539,7 +1539,7 @@ func (st *State) UpdateUploadResource(
 		}
 
 		res := addResource{
-			UUID:      args.NewResourceUUID.String(),
+			UUID:      args.NewResourceUUID,
 			CharmUUID: resourceToUpdate.CharmUUID,
 			Name:      resourceToUpdate.Name,
 			Origin:    charmresource.OriginUpload.String(),
@@ -1566,7 +1566,7 @@ func (st *State) UpdateUploadResource(
 func (st *State) getResourceCharmDataForUpdate(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid coreresource.UUID,
+	uuid string,
 ) (resourceCharmData, error) {
 
 	type availableResource struct {
@@ -1574,7 +1574,7 @@ func (st *State) getResourceCharmDataForUpdate(
 		State string `db:"state_name"`
 	}
 	input := availableResource{
-		UUID:  uuid.String(),
+		UUID:  uuid,
 		State: resource.StateAvailable.String(),
 	}
 	var output resourceCharmData
@@ -1637,12 +1637,12 @@ AND    rs.name = $addResource.state_name`, res)
 func (st *State) replaceResourceInApplicationResource(
 	ctx context.Context,
 	tx *sqlair.TX,
-	oldUUID coreresource.UUID,
-	newUUID coreresource.UUID,
+	oldUUID string,
+	newUUID string,
 ) error {
 	type update struct {
-		OldUUID coreresource.UUID `db:"old_uuid"`
-		NewUUID coreresource.UUID `db:"new_uuid"`
+		OldUUID string `db:"old_uuid"`
+		NewUUID string `db:"new_uuid"`
 	}
 	args := update{
 		OldUUID: oldUUID,
@@ -1697,7 +1697,7 @@ func (st *State) UpdateResourceRevision(
 		}
 
 		res := addResource{
-			UUID:      args.NewResourceUUID.String(),
+			UUID:      args.NewResourceUUID,
 			CharmUUID: resourceToUpdate.CharmUUID,
 			Name:      resourceToUpdate.Name,
 			Revision:  &args.Revision,

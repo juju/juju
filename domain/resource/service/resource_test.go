@@ -1202,10 +1202,10 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionFile(c *tc.C) {
 	expectedUUID := resourcetesting.GenResourceUUID(c)
 	s.state.EXPECT().UpdateResourceRevision(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, args resource.StateUpdateResourceRevisionArgs) error {
-			c.Check(args.ResourceUUID, tc.Equals, expectedArgs.ResourceUUID)
+			c.Check(args.ResourceUUID, tc.Equals, expectedArgs.ResourceUUID.String())
 			c.Check(args.Revision, tc.Equals, expectedArgs.Revision)
 			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
-			expectedUUID = args.NewResourceUUID
+			expectedUUID = coreresource.UUID(args.NewResourceUUID)
 			return nil
 		},
 	)
@@ -1233,10 +1233,10 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionImage(c *tc.C) {
 	expectedUUID := resourcetesting.GenResourceUUID(c)
 	s.state.EXPECT().UpdateResourceRevision(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, args resource.StateUpdateResourceRevisionArgs) error {
-			c.Check(args.ResourceUUID, tc.Equals, expectedArgs.ResourceUUID)
+			c.Check(args.ResourceUUID, tc.Equals, expectedArgs.ResourceUUID.String())
 			c.Check(args.Revision, tc.Equals, expectedArgs.Revision)
 			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
-			expectedUUID = args.NewResourceUUID
+			expectedUUID = coreresource.UUID(args.NewResourceUUID)
 			return nil
 		},
 	)
@@ -1292,9 +1292,9 @@ func (s *resourceServiceSuite) testUpdateUploadResource(c *tc.C) {
 
 	s.state.EXPECT().UpdateUploadResource(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, args resource.StateUpdateUploadResourceArgs) error {
-			c.Check(args.ResourceUUID, tc.Equals, oldResUUID)
+			c.Check(args.ResourceUUID, tc.Equals, oldResUUID.String())
 			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
-			newResUUID = args.NewResourceUUID
+			newResUUID = coreresource.UUID(args.NewResourceUUID)
 			return nil
 		},
 	)

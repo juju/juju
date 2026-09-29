@@ -719,8 +719,8 @@ func (s *Service) UpdateResourceRevision(
 	}
 
 	err = s.st.UpdateResourceRevision(ctx, resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    arg.ResourceUUID,
-		NewResourceUUID: newUUID,
+		ResourceUUID:    arg.ResourceUUID.String(),
+		NewResourceUUID: newUUID.String(),
 		Revision:        arg.Revision,
 	})
 	if err != nil {
@@ -750,8 +750,8 @@ func (s *Service) UpdateUploadResource(
 	}
 
 	stateArgs := resource.StateUpdateUploadResourceArgs{
-		ResourceUUID:    resourceToUpdate,
-		NewResourceUUID: newResourceUUID,
+		ResourceUUID:    resourceToUpdate.String(),
+		NewResourceUUID: newResourceUUID.String(),
 	}
 	err = s.st.UpdateUploadResource(ctx, stateArgs)
 	if err != nil {
