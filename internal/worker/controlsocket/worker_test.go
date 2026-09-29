@@ -1428,7 +1428,10 @@ func (s *workerSuite) TestSetSSHServerPort(c *tc.C) {
 func (s *workerSuite) TestSetSSHServerPortInvalidPort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// An out-of-range port is rejected before touching controller config.
+	// The SSH server service rejects an out-of-range port as NotValid, which
+	// the handler maps to a bad request.
+	s.sshServerService.EXPECT().SetSSHServerPort(gomock.Any(), 70000).
+		Return(internalerrors.Errorf("invalid ssh server port 70000").Add(coreerrors.NotValid))
 	socket := s.newSocket(c)
 
 	w := s.newWorker(c, socket)

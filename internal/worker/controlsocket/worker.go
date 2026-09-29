@@ -123,6 +123,8 @@ type LoggingService interface {
 // configuration.
 type SSHServerService interface {
 	// SetSSHServerPort sets the port the controller SSH jump server listens on.
+	// An error satisfying [coreerrors.NotValid] is returned if the port is not
+	// a valid TCP port.
 	SetSSHServerPort(ctx context.Context, port int) error
 }
 
@@ -729,14 +731,8 @@ func (w *Worker) handleSetSSHServerPort(resp http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	if parsedBody.Port <= 0 || parsedBody.Port > 65535 {
-		w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
-			internalerrors.Errorf("invalid ssh server port %d", parsedBody.Port))
-		return
-	}
-
-	// Persist the port to the SSH server service. The SSH server worker watches
-	// this value and restarts the server on the new port.
+	// Persist the port to the SSH server service, which validates it. The SSH
+	// server worker watches this value and restarts the server on the new port.
 	if err := w.sshServerService.SetSSHServerPort(ctx, parsedBody.Port); internalerrors.Is(err, coreerrors.NotValid) {
 		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid ssh server port: %w", err))
 		return

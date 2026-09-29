@@ -231,22 +231,20 @@ func (st *State) SetSSHServerPort(ctx context.Context, port int) error {
 		return errors.Capture(err)
 	}
 
-	deleteStmt, err := st.Prepare(`DELETE FROM controller_ssh_server_port`)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	insertStmt, err := st.Prepare(`
+	// The conflict target is omitted because SQLite cannot target the
+	// singleton's ((1)) expression index; the singleton index is the only
+	// uniqueness constraint on the table, so any conflict is on it. Updating in
+	// place emits a single change-log entry, and none if the port is unchanged.
+	upsertStmt, err := st.Prepare(`
 INSERT INTO controller_ssh_server_port (port)
-VALUES ($sshServerPort.port)`, sshServerPort{})
+VALUES ($sshServerPort.port)
+ON CONFLICT DO UPDATE SET port = excluded.port`, sshServerPort{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
-			return errors.Errorf("clearing controller SSH server port: %w", err)
-		}
-		if err := tx.Query(ctx, insertStmt, sshServerPort{Port: port}).Run(); err != nil {
+		if err := tx.Query(ctx, upsertStmt, sshServerPort{Port: port}).Run(); err != nil {
 			return errors.Errorf("setting controller SSH server port: %w", err)
 		}
 		return nil
