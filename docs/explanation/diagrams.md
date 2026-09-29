@@ -317,6 +317,19 @@ precedent).
 :alt: User invokes juju bootstrap. CLI authenticates with Cloud and provisions a VM. CLI installs jujud on the Controller machine. Controller machine starts the controller agent, API server, and database. Controller machine reports API ready. CLI reports Bootstrap complete to User. The resulting state is the controller machine alone: one controller, one model, no applications yet.
 ```
 
+### reference/constraint.md
+
+#### Constraint attributes (ERD slice)
+
+**Insert at:** § Constraint in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Constraint attributes
+:alt: The constraint record at the centre with its salient columns (the model's defaults); the application's nullable constraint record east; the machines' constraint record below. Each line is a stored pointer; 1/m at each end.
+:caption: The constraint's stored records. A constraint is one record holding the compute spec (the arch, CPU cores, memory and root disk); the model's defaults are the same record linked through the model-constraint record, the application carries a nullable constraint record of its own, and each machine carries the constraints it was provisioned with. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the constraint's tag, space and zone lists and the owners the links name are not drawn.
+```
+
 ### reference/credential.md
 
 #### Credential chain

@@ -806,6 +806,24 @@ model "Juju" {
                   ground: "controller:cloud_defaults"]
     cld_auth    [type: record, label: "authentication type\n(type)",
                  ground: "controller:cloud_auth_type"]
+
+    // -----------------------------------------------------------------------
+    // Constraint attributes (docs/reference/constraint.md): the stored
+    // pointers. DECLARED FLATTENING + GROUND STAND-IN: the quoted
+    // reserved-word "constraint" catalog table is unresolvable to the
+    // grounding scanner (the mdl_constraint precedent), so the focal
+    // chip's ground names the model-constraint link whose projection
+    // (v_model_constraint) is the model-facing shape of the record;
+    // the model's placement IS the focal chip (the page's first
+    // bullet). Not drawn: the constraint's tag, space and zone lists,
+    // the owners the app and machine links name.
+    // -----------------------------------------------------------------------
+    cst_rec [type: record, label: "constraint\n(arch, cpu cores,\nmemory, root disk)",
+             ground: "model:model_constraint"]
+    cst_app [type: record, label: "application's constraint\n(nullable)",
+             ground: "model:application_constraint"]
+    cst_mach [type: record, label: "machine's constraint\n(provisioned)",
+              ground: "model:machine_constraint"]
   }
 
   edges {
@@ -1416,6 +1434,13 @@ model "Juju" {
                                  ground: "controller:cloud_defaults.cloud_uuid"]
     cld_auth     -> cld_cloud   [type: data, label: "admits (0..N)",
                                  ground: "controller:cloud_auth_type.cloud_uuid"]
+
+    // Constraint attributes: one data edge per FK, each grounded on
+    // its constraint pointer.
+    cst_app  -> cst_rec [type: data, label: "overrides (0..1)",
+                         ground: "model:application_constraint.constraint_uuid"]
+    cst_mach -> cst_rec [type: data, label: "records (0..1)",
+                         ground: "model:machine_constraint.constraint_uuid"]
   }
 
   behaviours {
@@ -2158,6 +2183,36 @@ diagram "Cloud attributes" from "Juju" {
     cld_defaults align-middle cld_cloud
     cld_auth     below cld_cloud gap: 24
     cld_auth     align-centre cld_cloud
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: constraint attributes (docs/reference/constraint.md) —
+// the constraint's stored records as collapsed record chips (round 10
+// form, per the Charm-origins law): the constraint record centred
+// (the model's defaults; the model-constraint link stands in for the
+// quoted catalog table), the application's nullable constraint east,
+// the machines' constraint below. Not drawn: the tag, space and zone
+// lists, the owners the links name. Edges stay grounded on the FK
+// columns.
+// --------------------------------------------------------------------------
+diagram "Constraint attributes" from "Juju" {
+  select {
+    nodes: cst_rec cst_app cst_mach
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal constraint centred, its flanks.
+    cst_app  right-of cst_rec gap: 30
+    cst_app  align-middle cst_rec
+    cst_mach below cst_rec gap: 24
+    cst_mach align-centre cst_rec
   }
   annotations {
     legend [position: "bottom-right",
@@ -3853,6 +3908,22 @@ diagram "Offer attributes (synthesized)" from "Juju" {
 diagram "Cloud attributes (synthesized)" from "Juju" {
   select {
     nodes: cld_cloud cld_region cld_defaults cld_auth
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Constraint attributes (synthesized)" from "Juju" {
+  select {
+    nodes: cst_rec cst_app cst_mach
     edges: type data
     sizing: uniform
   }

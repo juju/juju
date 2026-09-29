@@ -35,6 +35,13 @@ application resource.
 
 ## Constraint in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Constraint attributes
+:alt: The constraint record at the centre with its salient columns (the model's defaults); the application's nullable constraint record east; the machines' constraint record below. Each line is a stored pointer; 1/m at each end.
+:caption: The constraint's stored records. A constraint is one record holding the compute spec (the arch, CPU cores, memory and root disk); the model's defaults are the same record linked through the model-constraint record, the application carries a nullable constraint record of its own, and each machine carries the constraints it was provisioned with. Every line is a foreign key in one of those records.
+```
+
 A constraint is a **value, not an entity**: it has no life, no status, and no watchers of its own; it is a stored key/value whose meaning comes from the entity it constrains.
 
 - **The model's constraints:** The {ref}`model's <model>` defaults for everything it spawns.
@@ -86,7 +93,7 @@ Abstract CPU power. <br> <br> **Type:** integer, where 100 units is roughly equi
 
 The image ID. If not nil, indicates that a machine must use the specified image.
 
-**Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command -- the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the operating system  used by the image to be deployed on those machines.
+**Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command: the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the operating system  used by the image to be deployed on those machines.
 
 (constraint-instance-role)=
 ### `instance-role`
