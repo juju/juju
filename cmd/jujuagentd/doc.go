@@ -21,6 +21,6 @@
 // forwards the invocation over RPC to the unit agent.
 //
 // See github.com/juju/juju/cmd/jujuagentd/agent for the agent-creating
-// commands and github.com/juju/juju/cmd/containeragent for the equivalent
+// commands and cmd/containeragent for the equivalent
 // binary in a unit pod.
 package main
