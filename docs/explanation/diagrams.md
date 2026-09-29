@@ -553,6 +553,17 @@ precedent).
 
 ### reference/offer.md
 
+#### Offer attributes (ERD slice)
+
+**Insert at:** § The offer in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Offer attributes
+:alt: The offer record at the centre with its salient columns; the endpoint join record west; the connection records east. Each line is a stored pointer; 1/m at each end.
+:caption: The offer's stored records. An offer is one record in the offering model's database, publishing the application endpoints through the endpoint join record, one join per published endpoint; each consumer's connection is one record naming the consumer's remote relation and offer user. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the application endpoints the joins name and the consuming side's proxy application and remote-offerer record are not drawn.
+```
+
 #### Cross-model relation (CMR)
 
 **Insert at:** § The offer's records → § The offer's identity.

@@ -44,6 +44,13 @@ See also: {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offer
 
 ```{ggarch}
 :file: ../juju.ggarch
+:view: Offer attributes
+:alt: The offer record at the centre with its salient columns; the endpoint join record west; the connection records east. Each line is a stored pointer; 1/m at each end.
+:caption: The offer's stored records. An offer is one record in the offering model's database, publishing the application endpoints through the endpoint join record, one join per published endpoint; each consumer's connection is one record naming the consumer's remote relation and offer user. Every line is a foreign key in one of those records.
+```
+
+```{ggarch}
+:file: ../juju.ggarch
 :view: Cross-model relation (CMR)
 :alt: Two model databases side by side. In the offering model: relation and endpoint records belonging to the offer, offer and offer-connection records, external controller record. In the consuming model: application, relation and endpoint records for the proxy application, remote application record. Arrows follow the foreign keys from each side's records into the shared offer machinery.
 :caption: The cross-model relation, record by record. The offering side stores the offer and its connections; the consuming side stores a proxy application and a remote-application record; both sides agree on the endpoint and relation records that carry the actual relation data. Nothing is shared between the two model databases except the offer URL and credentials.

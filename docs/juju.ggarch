@@ -773,6 +773,20 @@ model "Juju" {
               ground: "controller:permission"]
     uz_access [type: record, label: "access level\n(level, object kind)",
                ground: "controller:permission_object_access"]
+
+    // -----------------------------------------------------------------------
+    // Offer attributes (docs/reference/offer.md): the stored pointers.
+    // DECLARED FLATTENINGS (one node covers its far sides): the schema
+    // trigger's single-application rule lives on the endpoint join
+    // (the far side, the application endpoint, flattened into the
+    // chip); the connection chip's far side is the consumer's remote
+    // relation (the CMR machinery's records). Not drawn: the offer's
+    // users (controller-database permission records), the application
+    // endpoints the joins name, the consuming side's proxy application
+    // and remote-offerer record.
+    // -----------------------------------------------------------------------
+    of_endpoint [type: record, label: "offer endpoint\n(application endpoint)",
+                 ground: "model:offer_endpoint"]
   }
 
   edges {
@@ -1370,6 +1384,10 @@ model "Juju" {
                           ground: "controller:permission.grant_to"]
     uz_grant -> uz_access [type: data, label: "levels by (one)",
                            ground: "controller:permission.access_type_id"]
+
+    // Offer attributes: one data edge for the endpoint join record.
+    of_endpoint -> offer_rec [type: data, label: "belongs to (one)",
+                              ground: "model:offer_endpoint.offer_uuid"]
   }
 
   behaviours {
@@ -2057,6 +2075,36 @@ diagram "Cross-model relation (CMR)" from "Juju" {
   }
 }
 
+
+// --------------------------------------------------------------------------
+// Reference: offer attributes (docs/reference/offer.md) — the offer's
+// stored records as collapsed record chips (round 10 form, per the
+// Charm-origins law): the offer record centred (its name and the
+// published endpoints), the endpoint join record west, the consumer
+// connection records east. Not drawn: the offer's users (controller-
+// database permission records), the application endpoints the joins
+// name, the consuming side's records. Edges stay grounded on the FK
+// columns.
+// --------------------------------------------------------------------------
+diagram "Offer attributes" from "Juju" {
+  select {
+    nodes: offer_rec of_endpoint offer_connection_rec
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal offer centred, its flanks.
+    of_endpoint        left-of offer_rec gap: 30
+    of_endpoint        align-middle offer_rec
+    offer_connection_rec right-of offer_rec gap: 30
+    offer_connection_rec align-middle offer_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
 
 // --------------------------------------------------------------------------
 // Per-type relation shapes (docs/reference/relation.md § Types of
@@ -3720,6 +3768,22 @@ diagram "Cross-model relation (CMR) (synthesized)" from "Juju" {
     legend [position: "bottom-right",
             record: "database record",
             data: "schema association — 1/m at each end; dashed = nullable (the row may be absent)"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Offer attributes (synthesized)" from "Juju" {
+  select {
+    nodes: offer_rec of_endpoint offer_connection_rec
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
   }
 }
 
