@@ -93,6 +93,8 @@ func (s *Service) Get(
 
 // Put stores data from io.Reader in the resource store at the path specified in
 // the resource.
+// The read is bounded at maxContainerImageResourceSize; a blob that exceeds it
+// is rejected with a "exceeds maximum size" error before anything is stored.
 // If an image is already stored under the storage key, it returns:
 // - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
 func (s *Service) Put(

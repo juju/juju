@@ -4,18 +4,16 @@
 package migration_test
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -25,7 +23,9 @@ import (
 	"github.com/juju/juju/core/semversion"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/internal/docker"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testhelpers"
@@ -34,8 +34,12 @@ import (
 
 type ImportSuite struct {
 	testhelpers.IsolationSuite
-	charmService     *MockCharmService
-	agentBinaryStore *MockAgentBinaryStore
+	charmService       *MockCharmService
+	agentBinaryStore   *MockAgentBinaryStore
+	charmUploader      *MockCharmUploader
+	toolsUploader      *MockToolsUploader
+	resourceDownloader *MockResourceDownloader
+	resourceUploader   *MockResourceUploader
 }
 
 func TestImportSuite(t *testing.T) {
@@ -47,6 +51,10 @@ func (s *ImportSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.charmService = NewMockCharmService(ctrl)
 	s.agentBinaryStore = NewMockAgentBinaryStore(ctrl)
+	s.charmUploader = NewMockCharmUploader(ctrl)
+	s.toolsUploader = NewMockToolsUploader(ctrl)
+	s.resourceDownloader = NewMockResourceDownloader(ctrl)
+	s.resourceUploader = NewMockResourceUploader(ctrl)
 
 	return ctrl
 }
@@ -173,23 +181,24 @@ func (s *ImportSuite) TestUploadBinariesConfigValidate(c *tc.C) {
 }
 
 func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	downloader := &fakeDownloader{}
-	uploader := &fakeUploader{
-		tools:     make(map[semversion.Binary]string),
-		resources: make(map[string]string),
-	}
+	s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "blob0").
+		Return(io.NopCloser(strings.NewReader("blob0")), nil)
+	s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app1", "blob1").
+		Return(io.NopCloser(strings.NewReader("blob1")), nil)
 
 	toolsMap := map[string]semversion.Binary{
 		"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
 		"c4e12eaa8a3bf7a1a3029e2cbfccb2d88f59e8efc19f2531c423ce515afcb436": semversion.MustParseBinary("2.0.0-ubuntu-amd64"),
 	}
 
-	dataStream := ioutil.NopCloser(strings.NewReader("test agent data"))
-
 	for sha := range toolsMap {
-		s.agentBinaryStore.EXPECT().GetAgentBinaryUsingSHA256(gomock.Any(), sha).Return(dataStream, 15, nil)
+		// Each expectation returns its own reader: UploadTools consumes
+		// the body.
+		s.agentBinaryStore.EXPECT().GetAgentBinaryUsingSHA256(gomock.Any(), sha).
+			Return(ioutil.NopCloser(strings.NewReader("test agent data")), 15, nil)
 	}
 
 	app0Res := resourcetesting.NewResource(c, nil, "blob0", "app0", "blob0").Resource
@@ -212,6 +221,41 @@ func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 		Revision: 10,
 		Source:   domaincharm.LocalSource,
 	}).Return(ioutil.NopCloser(strings.NewReader("magic content")), "hash0123", nil)
+
+	// The uploaders echo the charm URL back and record what they received,
+	// mirroring the previous fake's body checks.
+	var curls, charmRefs []string
+	s.charmUploader.EXPECT().UploadCharm(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, curl string, charmRef string, content io.Reader) (string, error) {
+			body, rErr := io.ReadAll(content)
+			c.Assert(rErr, tc.ErrorIsNil)
+			c.Assert(string(body), tc.Equals, charm.MustParseURL(curl).Name+" content")
+			curls = append(curls, curl)
+			charmRefs = append(charmRefs, charmRef)
+			return curl, nil
+		}).Times(3)
+
+	var uploadedTools []semversion.Binary
+	s.toolsUploader.EXPECT().UploadTools(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, r io.Reader, v semversion.Binary) (tools.List, error) {
+			body, rErr := io.ReadAll(r)
+			c.Assert(rErr, tc.ErrorIsNil)
+			c.Check(string(body), tc.Equals, "test agent data")
+			uploadedTools = append(uploadedTools, v)
+			return tools.List{&tools.Tools{Version: v}}, nil
+		}).Times(len(toolsMap))
+
+	// The placeholder resource has no blob, so exactly two uploads are
+	// expected.
+	uploadedResources := make(map[string]string)
+	s.resourceUploader.EXPECT().UploadResource(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, res resource.Resource, r io.Reader) error {
+			body, rErr := io.ReadAll(r)
+			c.Assert(rErr, tc.ErrorIsNil)
+			uploadedResources[res.ApplicationName+"/"+res.Name] = string(body)
+			return nil
+		}).Times(2)
+
 	config := migration.UploadBinariesConfig{
 		Charms: []string{
 			// These 2 are out of order. Rev 2 must be uploaded first.
@@ -220,187 +264,224 @@ func (s *ImportSuite) TestBinariesMigration(c *tc.C) {
 			"ch:trusty/postgresql-42",
 		},
 		CharmService:       s.charmService,
-		CharmUploader:      uploader,
+		CharmUploader:      s.charmUploader,
 		Tools:              toolsMap,
 		AgentBinaryStore:   s.agentBinaryStore,
-		ToolsUploader:      uploader,
+		ToolsUploader:      s.toolsUploader,
 		Resources:          resources,
-		ResourceDownloader: downloader,
-		ResourceUploader:   uploader,
+		ResourceDownloader: s.resourceDownloader,
+		ResourceUploader:   s.resourceUploader,
 	}
 	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
-	expectedCurls := []string{
-		// Note ordering.
+	// Note ordering.
+	c.Assert(curls, tc.DeepEquals, []string{
 		"ch:trusty/postgresql-42",
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
-	}
-	c.Assert(uploader.curls, tc.DeepEquals, expectedCurls)
-
-	expectedRefs := []string{
+	})
+	c.Assert(charmRefs, tc.DeepEquals, []string{
 		"postgresql-hash0123",
 		"magic-hash0123",
 		"magic-hash0123",
-	}
-	c.Assert(uploader.charmRefs, tc.DeepEquals, expectedRefs)
-
-	c.Check(len(uploader.tools), tc.Equals, len(toolsMap))
-	for _, ver := range toolsMap {
-		_, exists := uploader.tools[ver]
-		c.Check(exists, tc.IsTrue)
-	}
-
-	c.Assert(downloader.resources, tc.SameContents, []string{
-		"app0/blob0",
-		"app1/blob1",
 	})
-	c.Assert(uploader.resources, tc.DeepEquals, map[string]string{
+	c.Assert(uploadedTools, tc.SameContents, toolsVersions(toolsMap))
+	c.Assert(uploadedResources, tc.DeepEquals, map[string]string{
 		"app0/blob0": "blob0",
 		"app1/blob1": "blob1",
 	})
 }
 
 func (s *ImportSuite) TestWrongCharmURLAssigned(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	downloader := &fakeDownloader{}
-	uploader := &fakeUploader{
-		reassignCharmURL: true,
-	}
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	s.charmService.EXPECT().GetCharmArchive(gomock.Any(), domaincharm.CharmLocator{
 		Name:     "bar",
 		Revision: 2,
 		Source:   domaincharm.CharmHubSource,
 	}).Return(ioutil.NopCloser(strings.NewReader("bar content")), "hash0123", nil)
+
+	// No expectations on the other uploaders or the resource downloader:
+	// the charm failure must abort before any resource is opened.
+	s.charmUploader.EXPECT().UploadCharm(gomock.Any(), "ch:foo/bar-2", "bar-hash0123", gomock.Any()).
+		DoAndReturn(func(_ context.Context, curl string, _ string, content io.Reader) (string, error) {
+			body, rErr := io.ReadAll(content)
+			c.Assert(rErr, tc.ErrorIsNil)
+			c.Assert(string(body), tc.Equals, "bar content")
+			// The target controller shouldn't assign a different charm URL.
+			return charm.MustParseURL(curl).WithRevision(100).String(), nil
+		})
+
 	config := migration.UploadBinariesConfig{
 		Charms:             []string{"ch:foo/bar-2"},
 		CharmService:       s.charmService,
-		CharmUploader:      uploader,
+		CharmUploader:      s.charmUploader,
 		AgentBinaryStore:   s.agentBinaryStore,
-		ToolsUploader:      uploader,
-		ResourceDownloader: downloader,
-		ResourceUploader:   uploader,
+		ToolsUploader:      s.toolsUploader,
+		ResourceDownloader: s.resourceDownloader,
+		ResourceUploader:   s.resourceUploader,
 	}
 	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches,
 		"cannot upload charms: charm ch:foo/bar-2 unexpectedly assigned ch:foo/bar-100")
 }
 
-type fakeDownloader struct {
-	uris      []string
-	resources []string
-}
-
 func (s *ImportSuite) TestUploadResourcesFingerprintMismatch(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
-	// The claims describe "contenx" but the downloader serves the resource
-	// name-based content with a different fingerprint of the same length.
+	// The claims describe "content" (7 bytes) but the downloader serves
+	// "contenx" (7 bytes), which hashes to a different fingerprint.
 	res := resourcetesting.NewResource(c, nil, "contenx", "app0", "content").Resource
-	uploader := &fakeUploader{
-		resources: make(map[string]string),
-	}
-	downloader := &fakeDownloader{}
+
+	s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "contenx").
+		Return(io.NopCloser(strings.NewReader("contenx")), nil)
+	// No UploadResource expectation: the resource must not reach the target.
+
 	config := migration.UploadBinariesConfig{
-		CharmService:       struct{ migration.CharmService }{},
-		CharmUploader:      struct{ migration.CharmUploader }{},
-		AgentBinaryStore:   struct{ migration.AgentBinaryStore }{},
-		ToolsUploader:      struct{ migration.ToolsUploader }{},
+		CharmService:       s.charmService,
+		CharmUploader:      s.charmUploader,
+		AgentBinaryStore:   s.agentBinaryStore,
+		ToolsUploader:      s.toolsUploader,
 		Resources:          []resource.Resource{res},
-		ResourceDownloader: downloader,
-		ResourceUploader:   uploader,
+		ResourceDownloader: s.resourceDownloader,
+		ResourceUploader:   s.resourceUploader,
 	}
 	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches,
 		`cannot upload resources: resource "contenx" of application "app0": blob fingerprint .* does not match expected fingerprint .*`)
-	// The resource must not have been uploaded to the target.
-	c.Assert(uploader.resources, tc.HasLen, 0)
 }
 
 func (s *ImportSuite) TestUploadResourcesSizeMismatch(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	// The claims describe "content" (7 bytes) but the downloader serves
 	// "abc" (3 bytes).
 	res := resourcetesting.NewResource(c, nil, "abc", "app0", "content").Resource
-	uploader := &fakeUploader{
-		resources: make(map[string]string),
-	}
-	downloader := &fakeDownloader{}
+
+	s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "abc").
+		Return(io.NopCloser(strings.NewReader("abc")), nil)
+	// No UploadResource expectation: the resource must not reach the target.
+
 	config := migration.UploadBinariesConfig{
-		CharmService:       struct{ migration.CharmService }{},
-		CharmUploader:      struct{ migration.CharmUploader }{},
-		AgentBinaryStore:   struct{ migration.AgentBinaryStore }{},
-		ToolsUploader:      struct{ migration.ToolsUploader }{},
+		CharmService:       s.charmService,
+		CharmUploader:      s.charmUploader,
+		AgentBinaryStore:   s.agentBinaryStore,
+		ToolsUploader:      s.toolsUploader,
 		Resources:          []resource.Resource{res},
-		ResourceDownloader: downloader,
-		ResourceUploader:   uploader,
+		ResourceDownloader: s.resourceDownloader,
+		ResourceUploader:   s.resourceUploader,
 	}
 	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches,
 		`cannot upload resources: resource "abc" of application "app0": blob size 3 does not match expected size 7`)
-	// The resource must not have been uploaded to the target.
-	c.Assert(uploader.resources, tc.HasLen, 0)
 }
 
-func (d *fakeDownloader) OpenURI(_ context.Context, uri string, query url.Values) (io.ReadCloser, error) {
-	if query != nil {
-		panic("query should be empty")
+// TestUploadResourcesFailFastKeepsEarlierUploads pins the fail-fast,
+// non-atomic semantics of the upload loop: the first (valid) resource stays
+// uploaded on the target, and the error is attributed to the second
+// (corrupt) resource by name.
+func (s *ImportSuite) TestUploadResourcesFailFastKeepsEarlierUploads(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	okRes := resourcetesting.NewResource(c, nil, "ok-file", "app0", "ok-content").Resource
+	// The claims describe "content" (7 bytes) but the downloader serves
+	// "contenx" (7 bytes), which hashes to a different fingerprint.
+	badRes := resourcetesting.NewResource(c, nil, "contenx", "app0", "content").Resource
+
+	openOK := s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "ok-file").
+		Return(io.NopCloser(strings.NewReader("ok-content")), nil)
+	uploadOK := s.resourceUploader.EXPECT().UploadResource(gomock.Any(), okRes, gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ resource.Resource, r io.Reader) error {
+			body, rErr := io.ReadAll(r)
+			c.Assert(rErr, tc.ErrorIsNil)
+			c.Check(string(body), tc.Equals, "ok-content")
+			return nil
+		})
+	openBad := s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "contenx").
+		Return(io.NopCloser(strings.NewReader("contenx")), nil)
+	gomock.InOrder(openOK, uploadOK, openBad)
+	// No UploadResource expectation for badRes: the loop aborts without
+	// uploading it, and without rolling back okRes.
+
+	config := migration.UploadBinariesConfig{
+		CharmService:       s.charmService,
+		CharmUploader:      s.charmUploader,
+		AgentBinaryStore:   s.agentBinaryStore,
+		ToolsUploader:      s.toolsUploader,
+		Resources:          []resource.Resource{okRes, badRes},
+		ResourceDownloader: s.resourceDownloader,
+		ResourceUploader:   s.resourceUploader,
 	}
-	d.uris = append(d.uris, uri)
-	// Return the URI string as fake content
-	return io.NopCloser(bytes.NewReader([]byte(uri))), nil
+	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorMatches,
+		`cannot upload resources: resource "contenx" of application "app0": blob fingerprint .* does not match expected fingerprint .*`)
 }
 
-func (d *fakeDownloader) OpenResource(_ context.Context, app, name string) (io.ReadCloser, error) {
-	d.resources = append(d.resources, app+"/"+name)
-	// Use the resource name as the content.
-	return io.NopCloser(bytes.NewReader([]byte(name))), nil
+// TestUploadResourcesContainerImageValidBlob pins the source-side happy path
+// for container image resources: the claims recorded in the database equal
+// the canonical JSON marshalling of DockerImageDetails — what the container
+// image resource store serves on Get — so the blob the source reads always
+// matches them. If this ever drifts, every container image migration would
+// be rejected on the source.
+func (s *ImportSuite) TestUploadResourcesContainerImageValidBlob(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	details := docker.DockerImageDetails{
+		RegistryPath: "url@sha256:abc123",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "testuser",
+				Password: "hunter2",
+			},
+		},
+	}
+	blob, err := json.Marshal(details)
+	c.Assert(err, tc.ErrorIsNil)
+
+	res := resourcetesting.NewDockerResource(c, nil, "image", "app0", string(blob)).Resource
+	res.Type = charmresource.TypeContainerImage
+	// A 4.x source records the claims derived from the canonical
+	// marshalling, not a placeholder.
+	res.Size = int64(len(blob))
+	res.Fingerprint, err = charmresource.GenerateFingerprint(strings.NewReader(string(blob)))
+	c.Assert(err, tc.ErrorIsNil)
+
+	open := s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "image").
+		Return(io.NopCloser(strings.NewReader(string(blob))), nil)
+	upload := s.resourceUploader.EXPECT().UploadResource(gomock.Any(), res, gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ resource.Resource, r io.Reader) error {
+			body, rErr := io.ReadAll(r)
+			c.Assert(rErr, tc.ErrorIsNil)
+			c.Check(string(body), tc.Equals, string(blob))
+			return nil
+		})
+	gomock.InOrder(open, upload)
+
+	config := migration.UploadBinariesConfig{
+		CharmService:       s.charmService,
+		CharmUploader:      s.charmUploader,
+		AgentBinaryStore:   s.agentBinaryStore,
+		ToolsUploader:      s.toolsUploader,
+		Resources:          []resource.Resource{res},
+		ResourceDownloader: s.resourceDownloader,
+		ResourceUploader:   s.resourceUploader,
+	}
+	err = migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
 }
 
-type fakeUploader struct {
-	tools            map[semversion.Binary]string
-	curls            []string
-	charmRefs        []string
-	resources        map[string]string
-	reassignCharmURL bool
-}
-
-func (f *fakeUploader) UploadTools(_ context.Context, r io.Reader, v semversion.Binary) (tools.List, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, errors.Trace(err)
+// toolsVersions returns the binary versions in toolsMap as a slice for
+// order-insensitive assertions.
+func toolsVersions(toolsMap map[string]semversion.Binary) []semversion.Binary {
+	versions := make([]semversion.Binary, 0, len(toolsMap))
+	for _, v := range toolsMap {
+		versions = append(versions, v)
 	}
-	f.tools[v] = string(data)
-	return tools.List{&tools.Tools{Version: v}}, nil
-}
-
-func (f *fakeUploader) UploadCharm(_ context.Context, curl string, charmRef string, r io.Reader) (string, error) {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if string(data) != charm.MustParseURL(curl).Name+" content" {
-		panic(fmt.Sprintf("unexpected charm body for %s: %s", curl, data))
-	}
-	f.curls = append(f.curls, curl)
-	f.charmRefs = append(f.charmRefs, charmRef)
-
-	outU := curl
-	if f.reassignCharmURL {
-		outU = charm.MustParseURL(outU).WithRevision(100).String()
-	}
-	return outU, nil
-}
-
-func (f *fakeUploader) UploadResource(_ context.Context, res resource.Resource, r io.Reader) error {
-	body, err := io.ReadAll(r)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	f.resources[res.ApplicationName+"/"+res.Name] = string(body)
-	return nil
+	return versions
 }

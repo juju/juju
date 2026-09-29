@@ -167,7 +167,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	var reader io.Reader = r.Body
 	if res.Type != charmresource.TypeContainerImage {
 		validated, err := h.downloader.Download(
-			r.Context(),
+			ctx,
 			limitReadCloser(r.Body, details.size+1),
 			details.fingerprint.String(),
 			details.size,

@@ -450,7 +450,10 @@ func (s *resourceServiceSuite) TestStoreResourceContainerImageClaimMismatchIsLog
 	var warnings []string
 	s.service = NewService(s.state, s.resourceStoreGetter, loggertesting.WrapCheckLog(
 		loggertesting.RecordLog(func(msg string, a ...any) {
-			// RecordLog forwards the format args as a single []any element.
+			// RecordLog.Logf calls r(msg, args) without spreading, so the
+			// five format args arrive as a single []any element here
+			// (see internal/logger/testing/record.go). Unpack before
+			// formatting.
 			if len(a) == 1 {
 				if inner, ok := a[0].([]any); ok {
 					a = inner
