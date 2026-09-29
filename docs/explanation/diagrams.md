@@ -763,6 +763,19 @@ precedent).
 :caption: The subnet's stored records. A subnet is one record carrying the range, its VLAN tag and the space grouping; the provider identity, the provider-network membership and the zone membership hang off it; every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the space, zone and provider-network records are drawn as chips -- their stories are their own pages'.
 ```
 
+### reference/ssh-key.md
+
+#### SSH key attributes (ERD slice)
+
+**Insert at:** § The SSH key in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: SSH key attributes
+:alt: The user's key record at the centre with its salient columns; the fingerprint algorithm lookup west; the per-model authorised-key projection records east. Each line is a stored pointer; 1/m at each end.
+:caption: The SSH key's stored records. A user's key is one record carrying the material, the comment and the fingerprint, taken with one of the two fingerprint algorithms; the per-model authorised-key projections name each (model, key) pair the machines may use. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the owning user, the machines' host keys and the authorisation read are not drawn.
+```
+
 ### reference/status.md
 
 #### Status domains (who sets what)

@@ -76,6 +76,13 @@ database. The client's acts on them are:
 (the-ssh-key-in-the-data-model)=
 ## The SSH key in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: SSH key attributes
+:alt: The user's key record at the centre with its salient columns; the fingerprint algorithm lookup west; the per-model authorised-key projection records east. Each line is a stored pointer; 1/m at each end.
+:caption: The SSH key's stored records. A user's key is one record carrying the material, the comment and the fingerprint, taken with one of the two fingerprint algorithms; the per-model authorised-key projections name each (model, key) pair the machines may use. Every line is a foreign key in one of those records.
+```
+
 The key records live in the controller database, projections included;
 the machines' host keys live in each model database (see {ref}`the
 full spine <data-model-full-spine>`). An SSH key has no state machine:

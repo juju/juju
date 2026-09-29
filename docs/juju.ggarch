@@ -824,6 +824,20 @@ model "Juju" {
              ground: "model:application_constraint"]
     cst_mach [type: record, label: "machine's constraint\n(provisioned)",
               ground: "model:machine_constraint"]
+
+    // -----------------------------------------------------------------------
+    // SSH key attributes (docs/reference/ssh-key.md): the stored
+    // pointers. DECLARED FLATTENING: the owning user folds into the
+    // key chip (the user's story is user.md's). PROSE-ONLY (no FK to
+    // the key, per the validator law): the machine host keys and the
+    // authorisation read. Not drawn: the owning user record.
+    // -----------------------------------------------------------------------
+    ssh_key [type: record, label: "user's key\n(material, comment,\nfingerprint)",
+             ground: "controller:user_public_ssh_key"]
+    ssh_fp  [type: record, label: "fingerprint algorithm\n(md5, sha256)",
+             ground: "controller:ssh_fingerprint_hash_algorithm"]
+    ssh_proj [type: record, label: "authorised key\n(model, key)",
+              ground: "controller:model_authorized_keys"]
   }
 
   edges {
@@ -1441,6 +1455,13 @@ model "Juju" {
                          ground: "model:application_constraint.constraint_uuid"]
     cst_mach -> cst_rec [type: data, label: "records (0..1)",
                          ground: "model:machine_constraint.constraint_uuid"]
+
+    // SSH key attributes: one data edge per FK, each grounded on its
+    // FK column.
+    ssh_key  -> ssh_fp  [type: data, label: "fingerprinted with (one)",
+                         ground: "controller:user_public_ssh_key.fingerprint_hash_algorithm_id"]
+    ssh_proj -> ssh_key [type: data, label: "points at (one)",
+                         ground: "controller:model_authorized_keys.user_public_ssh_key_id"]
   }
 
   behaviours {
@@ -2213,6 +2234,35 @@ diagram "Constraint attributes" from "Juju" {
     cst_app  align-middle cst_rec
     cst_mach below cst_rec gap: 24
     cst_mach align-centre cst_rec
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: ssh key attributes (docs/reference/ssh-key.md) — the
+// user's key records as collapsed record chips (round 10 form, per
+// the Charm-origins law): the key record centred (material, comment,
+// fingerprint), the fingerprint-algorithm lookup west, the per-model
+// authorised-key projections east. The machines' host keys are
+// PROSE-ONLY (no pointer to the key record). Edges stay grounded on
+// the FK columns.
+// --------------------------------------------------------------------------
+diagram "SSH key attributes" from "Juju" {
+  select {
+    nodes: ssh_key ssh_fp ssh_proj
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal key centred, its flanks.
+    ssh_fp   left-of ssh_key gap: 30
+    ssh_fp   align-middle ssh_key
+    ssh_proj right-of ssh_key gap: 30
+    ssh_proj align-middle ssh_key
   }
   annotations {
     legend [position: "bottom-right",
@@ -3924,6 +3974,22 @@ diagram "Cloud attributes (synthesized)" from "Juju" {
 diagram "Constraint attributes (synthesized)" from "Juju" {
   select {
     nodes: cst_rec cst_app cst_mach
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "SSH key attributes (synthesized)" from "Juju" {
+  select {
+    nodes: ssh_key ssh_fp ssh_proj
     edges: type data
     sizing: uniform
   }
