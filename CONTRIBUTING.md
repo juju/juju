@@ -296,7 +296,7 @@ can replace these with any source and target branch.
    PR description, please include a list of the patches being merged, and
    list any merge conflicts you encountered. To get the PR numbers of the
    patches in your merge, use
-   `git log upstream/<TARGET-BRANCH>..upstream/<SOURCE-BRANCH> --first-parent --oneline --no-decorate | sed 's~.*\(#[0-9]*\)/.*~- \1~g'`
+   `git log upstream/<TARGET-BRANCH>..upstream/<SOURCE-BRANCH> --first-parent --oneline --no-decorate | sed -E 's~.*#([0-9]+).*~- \1~'`
 
 ## Contributor docs and rules
 
@@ -308,8 +308,8 @@ Beyond this guide, contributor knowledge lives in a few other places:
   `docs/agents/` holds the documentation rules, including the docstring rules
   (`AGENTS.doc-dot-go-rules.md`).
 - **The package docs.** Juju packages document themselves in `doc.go` files
-  (for example, `cmd/jujud/agent/doc.go`), rendered on pkg.go.dev -- see
-  [github.com/juju/juju/cmd/jujud/agent](https://pkg.go.dev/github.com/juju/juju/cmd/jujud/agent)
+  (for example, `cmd/jujuagentd/agent/doc.go`), rendered on pkg.go.dev -- see
+  [github.com/juju/juju/cmd/jujuagentd/agent](https://pkg.go.dev/github.com/juju/juju/cmd/jujuagentd/agent)
   and
   [github.com/juju/worker/v5/dependency](https://pkg.go.dev/github.com/juju/worker/v5/dependency).
 - **The developer how-to guides.** The how-to section of the
