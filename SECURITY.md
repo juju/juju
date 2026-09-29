@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security updates will be released for versions that [receive security updates](https://juju.is/docs/juju/roadmap).
+Security updates will be released for versions that [receive security updates](https://canonical.com/juju/docs/).
 
 ## Reporting a vulnerability
 
@@ -52,7 +52,7 @@ advisory is published on
 [GitHub](https://github.com/juju/juju/security/advisories) with the related
 CVE record published on the [CVE website](https://www.cve.org/). Users are
 made aware of the issue, the fix, and what they need to do to get the fix
-through the [Roadmap & Releases](https://juju.is/docs/juju/roadmap) which
+through the release notes in the [documentation](https://canonical.com/juju/docs/) which
 also point to the official CVE record on the [CVE
 website](https://www.cve.org/).
 
