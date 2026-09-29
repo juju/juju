@@ -98,7 +98,6 @@ user/reference/agent reference/agent
 user/reference/application reference/application
 user/reference/bundle reference/bundle
 user/reference/charm/charm-development-best-practices reference/charm/charm-development-best-practices
-user/reference/charm/charm-maturity reference/charm/charm-maturity
 user/reference/charm reference/charm
 user/reference/cloud reference/cloud
 user/reference/cloud/kubernetes-clouds-and-juju reference/cloud/list-of-supported-clouds/index
