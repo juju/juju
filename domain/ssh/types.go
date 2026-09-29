@@ -16,7 +16,7 @@ import (
 // [coreerrors.NotValid] is returned if it is not.
 func ValidateSSHServerPort(port int) error {
 	if port <= 0 || port > 65535 {
-		return errors.Errorf("invalid ssh server port %d", port).Add(coreerrors.NotValid)
+		return errors.Errorf("port %d out of range 1-65535", port).Add(coreerrors.NotValid)
 	}
 	return nil
 }

@@ -414,8 +414,11 @@ func (s *fullStatusSuite) TestFullStatusControllerSSHPortFallback(c *tc.C) {
 	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
 		Status: status.Available,
 	}, nil)
+	// A non-default config port proves the fallback uses the default rather
+	// than the controller config value.
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.APIPort: 17777,
+		controller.APIPort:       17777,
+		controller.SSHServerPort: 2222,
 	}, nil)
 	s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, errors.New("boom"))
 	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
@@ -460,6 +463,7 @@ func (s *fullStatusSuite) TestFullStatusControllerSSHPortFallback(c *tc.C) {
 	unit := output.Applications["controller"].Units["controller/0"]
 	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", 17777)), tc.IsTrue)
 	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", controller.DefaultSSHServerPort)), tc.IsTrue)
+	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", 2222)), tc.IsFalse)
 }
 
 func (s *fullStatusSuite) TestFullStatusExposedEndpointsFetchedInBulk(c *tc.C) {

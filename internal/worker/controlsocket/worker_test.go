@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/logging"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
+	domainssh "github.com/juju/juju/domain/ssh"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -1431,7 +1432,7 @@ func (s *workerSuite) TestSetSSHServerPortInvalidPort(c *tc.C) {
 	// The SSH server service rejects an out-of-range port as NotValid, which
 	// the handler maps to a bad request.
 	s.sshServerService.EXPECT().SetSSHServerPort(gomock.Any(), 70000).
-		Return(internalerrors.Errorf("invalid ssh server port 70000").Add(coreerrors.NotValid))
+		Return(domainssh.ValidateSSHServerPort(70000))
 	socket := s.newSocket(c)
 
 	w := s.newWorker(c, socket)
@@ -1442,7 +1443,7 @@ func (s *workerSuite) TestSetSSHServerPortInvalidPort(c *tc.C) {
 		endpoint:   "/ssh-server-port",
 		body:       `{"port":70000}`,
 		statusCode: http.StatusBadRequest,
-		response:   ".*invalid ssh server port.*",
+		response:   `.*"invalid ssh server port: port 70000 out of range 1-65535".*`,
 	})
 }
 
