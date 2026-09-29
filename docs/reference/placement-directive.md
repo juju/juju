@@ -40,6 +40,13 @@ resource; no Terraform howto covers placement directives.
 
 ## The placement directive in the persistence layer
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Placement attributes
+:alt: The placement record at the centre with its salient columns; the machine it belongs to west; the placement scope lookup east. Each line is a stored pointer; 1/m at each end.
+:caption: The placement directive's stored records. A placement is one record per machine, carrying the directive string verbatim and the scope, one scope (provider) seeded by the schema. Every line is a foreign key in one of those records.
+```
+
 A placement directive is a **value, not an entity**: the directive itself is not stored; what persists is its resolution.
 
 - **The placement record is one per machine,** the machine UUID being the natural key; it carries the directive string verbatim and a scope. The schema seeds one scope, `provider`.

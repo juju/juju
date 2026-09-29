@@ -628,6 +628,19 @@ precedent).
 ````
 `````
 
+### reference/placement-directive.md
+
+#### Placement attributes (ERD slice)
+
+**Insert at:** § The placement directive in the persistence layer (the section's anchor truth).
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Placement attributes
+:alt: The placement record at the centre with its salient columns; the machine it belongs to west; the placement scope lookup east. Each line is a stored pointer; 1/m at each end.
+:caption: The placement directive's stored records. A placement is one record per machine, carrying the directive string verbatim and the scope, one scope (provider) seeded by the schema. Every line is a foreign key in one of those records. Collapsed record chips, pruned to the salient columns; the machine records a designation resolves to are not drawn.
+```
+
 ### reference/resource-charm.md
 
 #### Resource attributes (ERD slice)

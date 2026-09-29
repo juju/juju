@@ -856,6 +856,20 @@ model "Juju" {
                ground: "controller:permission_access_type"]
     acc_kind  [type: record, label: "object kind\n(cloud, controller,\nmodel, offer)",
                ground: "controller:permission_object_type"]
+
+    // -----------------------------------------------------------------------
+    // Placement directive attributes (docs/reference/placement-directive.md):
+    // the stored pointers. The directive values (machine designations,
+    // subnets, system IDs) fold into the directive chip; the machine
+    // the placement belongs to is the real spine node. The scope
+    // lookup is seeded with the single value `provider`. Not drawn:
+    // the machine records a designation resolves to (machine.md's
+    // story).
+    // -----------------------------------------------------------------------
+    pl_rec  [type: record, label: "placement\n(directive, scope)",
+             ground: "model:machine_placement"]
+    pl_scope [type: record, label: "placement scope\n(provider)",
+              ground: "model:machine_placement_scope"]
   }
 
   edges {
@@ -1489,6 +1503,13 @@ model "Juju" {
                             ground: "controller:permission_object_access.access_type_id"]
     acc_pair  -> acc_kind  [type: data, label: "kinds (0..N)",
                             ground: "controller:permission_object_access.object_type_id"]
+
+    // Placement directive attributes: one data edge per FK, each
+    // grounded on its FK column.
+    pl_rec  -> machine_rec [type: data, label: "places (one)",
+                            ground: "model:machine_placement.machine_uuid"]
+    pl_rec  -> pl_scope   [type: data, label: "scoped by (one)",
+                           ground: "model:machine_placement.scope_id"]
   }
 
   behaviours {
@@ -2322,6 +2343,36 @@ diagram "Access attributes" from "Juju" {
     acc_level align-middle acc_grant
     acc_kind  right-of acc_grant gap: 30
     acc_kind  align-middle acc_grant
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+// Reference: placement directive attributes
+// (docs/reference/placement-directive.md) — the placement records as
+// collapsed record chips (round 10 form, per the Charm-origins law):
+// the placement record centred (the directive and its scope), the
+// machine it belongs to west, the scope lookup east. The directive
+// values (machine designations, subnets, system IDs) fold into the
+// chips. Not drawn: the machine records a designation resolves to.
+// Edges stay grounded on the FK columns.
+// --------------------------------------------------------------------------
+diagram "Placement attributes" from "Juju" {
+  select {
+    nodes: pl_rec machine_rec pl_scope
+    edges: type data
+    sizing: uniform
+  }
+  positions {
+    // Charm-origins form: the focal placement centred, its flanks.
+    machine_rec left-of pl_rec gap: 30
+    machine_rec align-middle pl_rec
+    pl_scope    right-of pl_rec gap: 30
+    pl_scope    align-middle pl_rec
   }
   annotations {
     legend [position: "bottom-right",
@@ -4065,6 +4116,22 @@ diagram "SSH key attributes (synthesized)" from "Juju" {
 diagram "Access attributes (synthesized)" from "Juju" {
   select {
     nodes: acc_grant acc_pair acc_level acc_kind
+    edges: type data
+    sizing: uniform
+  }
+  annotations {
+    legend [position: "bottom-right",
+            record: "database record",
+            data: "schema association"]
+  }
+}
+
+// --------------------------------------------------------------------------
+
+
+diagram "Placement attributes (synthesized)" from "Juju" {
+  select {
+    nodes: pl_rec machine_rec pl_scope
     edges: type data
     sizing: uniform
   }
