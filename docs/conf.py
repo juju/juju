@@ -236,36 +236,41 @@ redirects = {
     "reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
     # The contributor package pages were demoted to Go package docs (doc.go)
     # or point at the upstream worker library docs.
-    "contributor/reference/agent": "https://pkg.go.dev/github.com/juju/juju/cmd/jujuagentd/agent",
-    "contributor/reference/dependency-package": "https://pkg.go.dev/github.com/juju/worker/v5/dependency",
-    "contributor/reference/catacomb-package": "https://pkg.go.dev/github.com/juju/worker/v5/catacomb",
-    "contributor/reference/worker": "https://pkg.go.dev/github.com/juju/worker/v5",
-    "contributor/reference/worker-interface": "https://pkg.go.dev/github.com/juju/worker/v5",
-    "contributor/reference/worker-package": "https://pkg.go.dev/github.com/juju/worker/v5",
-    "contributor/reference/tomb-package": "https://pkg.go.dev/gopkg.in/tomb.v2",
+    "contributor/reference/agent/": "https://pkg.go.dev/github.com/juju/juju/cmd/jujuagentd/agent",
+    "contributor/reference/dependency-package/": "https://pkg.go.dev/github.com/juju/worker/v5/dependency",
+    "contributor/reference/catacomb-package/": "https://pkg.go.dev/github.com/juju/worker/v5/catacomb",
+    "contributor/reference/worker/": "https://pkg.go.dev/github.com/juju/worker/v5",
+    "contributor/reference/worker-interface/": "https://pkg.go.dev/github.com/juju/worker/v5",
+    "contributor/reference/worker-package/": "https://pkg.go.dev/github.com/juju/worker/v5",
+    "contributor/reference/tomb-package/": "https://pkg.go.dev/gopkg.in/tomb.v2",
+    # The entity lifecycle page was dropped; the life values are documented
+    # in the core/life package.
+    "contributor/reference/entity-lifecycle/": "https://pkg.go.dev/github.com/juju/juju/core/life",
+    "contributor/unsorted/death-and-destruction/": "https://pkg.go.dev/github.com/juju/juju/core/life",
+    "contributor/unsorted/lifecycles/": "https://pkg.go.dev/github.com/juju/juju/core/life",
     # The CVE process lives in the repo-root SECURITY.md.
-    "contributor/reference/cve": "https://github.com/juju/juju/security",
+    "contributor/reference/cve/": "https://github.com/juju/juju/security",
     # The commit-format guidance was folded into the agent-commit instructions.
-    "contributor/reference/conventional-commits": "https://github.com/juju/juju/blob/HEAD/.github/instructions/agent-commit.instructions.md",
+    "contributor/reference/conventional-commits/": "https://github.com/juju/juju/blob/HEAD/.github/instructions/agent-commit.instructions.md",
     # The forward-merge mechanics were folded into CONTRIBUTING.md.
-    "contributor/howto/merge-forward": "https://github.com/juju/juju/blob/HEAD/CONTRIBUTING.md",
+    "contributor/howto/merge-forward/": "https://github.com/juju/juju/blob/HEAD/CONTRIBUTING.md",
     # The test howtos were retired: the unit-test conventions live in the
     # repo-root AGENTS.md, the integration framework in tests/README.md.
-    "contributor/howto/write-tests": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/howto/write-a-unit-test": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/howto/create-a-unit-test-suite": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/howto/create-unit-test-suite": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/unsorted/debugging-races": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/reference/testing": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/reference/testing/unit-testing": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/reference/testing/unit-testing/util-suite": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/reference/testing/unit-testing/checker": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/reference/testing/unit-testing/unit-test-suite": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
-    "contributor/howto/write-an-integration-test": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
-    "contributor/reference/testing/integration-testing": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
-    "contributor/reference/testing/integration-testing/integration-test-suite": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
-    "contributor/reference/testing/integration-testing/test-include": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
-    "contributor/reference/testing/integration-testing/test-includes": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
+    "contributor/howto/write-tests/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/howto/write-a-unit-test/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/howto/create-a-unit-test-suite/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/howto/create-unit-test-suite/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/unsorted/debugging-races/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/reference/testing/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/reference/testing/unit-testing/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/reference/testing/unit-testing/util-suite/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/reference/testing/unit-testing/checker/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/reference/testing/unit-testing/unit-test-suite/": "https://github.com/juju/juju/blob/HEAD/AGENTS.md",
+    "contributor/howto/write-an-integration-test/": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
+    "contributor/reference/testing/integration-testing/": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
+    "contributor/reference/testing/integration-testing/integration-test-suite/": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
+    "contributor/reference/testing/integration-testing/test-include/": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
+    "contributor/reference/testing/integration-testing/test-includes/": "https://github.com/juju/juju/blob/HEAD/tests/README.md",
 }
 
 ###########################
