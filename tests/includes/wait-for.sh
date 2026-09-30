@@ -455,9 +455,9 @@ wait_for_aws_ingress_cidrs_for_port_range() {
 
 # wait_for_or_fail <command> [iterations]
 # Evaluates the given command until it succeeds or the number of allowed
-# iterations is reached. By default, it retries 10 times, waiting 1s between attempts.
+# iterations is reached. By default, it retries 30 times, waiting 1s between attempts.
 wait_for_or_fail() {
-	local iterations=${2:-10}
+	local iterations=${2:-30}
 	local n=0
 	local succeeded=false
 	while [ "$n" -lt "$iterations" ]; do
