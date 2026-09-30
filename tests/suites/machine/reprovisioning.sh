@@ -25,6 +25,7 @@ test_reprovisioning() {
 		run "run_reprovisioning_workload"
 		run "run_reprovisioning_hooks"
 		run "run_reprovisioning_relations"
+		run "run_reprovisioning_relation_departure"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"aws" | "ec2")
@@ -143,6 +144,39 @@ run_reprovisioning_relations() {
 	wait_for_relation_log "unit-${replacement_unit_name//\//-}" "reprovision-relations: hook=install machine=${machine_id}"
 	wait_for_relation_log "unit-reprovision-relations-1" "reprovision-relations: hook=peers-relation-joined remote=${replacement_unit_name}"
 	wait_for_relation_log "unit-${replacement_unit_name//\//-}" "reprovision-relations: hook=peers-relation-joined remote=reprovision-relations/1"
+
+	destroy_model "${model_name}"
+	wait_for_provider_instance_absent "${new_instance_id}"
+}
+
+run_reprovisioning_relation_departure() {
+	local file model_name sink_charm machine_id old_instance_id replacement_unit_name
+	local replacement_info new_instance_id
+	model_name="reprovisioning-relation-departure"
+	file="${TEST_DIR}/test-${model_name}.log"
+
+	check_dependencies charmcraft
+	ensure "${model_name}" "${file}"
+
+	sink_charm=$(pack_charm ./testcharms/charms/dummy-sink)
+	juju deploy "${sink_charm}" dummy-sink
+	juju deploy juju-qa-dummy-source --config token=becomegreen
+	juju integrate dummy-sink dummy-source
+	wait_for "dummy-sink" "$(active_idle_condition "dummy-sink" 0)"
+	wait_for "dummy-source" "$(active_idle_condition "dummy-source" 0)"
+
+	machine_id=$(juju status --format json | yq -r '.applications."dummy-source".units["dummy-source/0"].machine')
+	old_instance_id=$(juju show-machine "${machine_id}" --format json | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
+
+	delete_provider_instance "${old_instance_id}"
+
+	reprovision_lost_machine "${machine_id}"
+	replacement_unit_name=$(wait_for_replacement_unit "dummy-source" "dummy-source/0" "dummy-source/1" "${machine_id}")
+	wait_for "dummy-source" "$(active_idle_condition "dummy-source" "${replacement_unit_name##*/}")"
+
+	replacement_info=$(juju show-machine "${machine_id}" --format json)
+	new_instance_id=$(printf '%s\n' "${replacement_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
+	wait_for_relation_log "unit-dummy-sink-0" "dummy-sink: hook=source-relation-departed remote=dummy-source/0"
 
 	destroy_model "${model_name}"
 	wait_for_provider_instance_absent "${new_instance_id}"
