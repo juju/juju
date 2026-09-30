@@ -31,8 +31,7 @@ Juju expects to see an operating system-like environment, so a LXD system contai
 (lxd-requirements)=
 ## Requirements
 
-- Juju `2.9.x`: LXD `5.0`
-- Juju `3.x.x`: LXD `5.x`
+- LXD `5.0` or later (the minimum version that Juju accepts).
 
 (lxd-concepts)=
 ## Concepts

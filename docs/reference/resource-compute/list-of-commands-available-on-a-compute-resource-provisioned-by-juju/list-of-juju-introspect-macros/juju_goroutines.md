@@ -15,7 +15,7 @@ The output of this is mostly just useful for Juju developers to help identify wh
 
 ```bash
 $ juju_goroutines
-Querying @jujud-machine-0 introspection socket: /debug/pprof/goroutine?debug=1
+Querying /var/lib/juju/agents/machine-0/introspection.socket introspection socket: /debug/pprof/goroutine?debug=1
 goroutine profile: total 234
 19 @ 0x42f59a 0x42f64e 0x406c62 0x40691b 0x951ada 0x9c34ed 0x9c0177 0x45b211
 #	0x951ad9	gopkg.in/tomb%2ev1.(*Tomb).Wait+0x49				/home/tim/go/src/gopkg.in/tomb.v1/tomb.go:113
@@ -77,7 +77,7 @@ To call on a unit agent, the agent name as defined in `/var/lib/juju/agents/` sh
 
 ```bash
 $ juju_goroutines unit-ubuntu-lite-2
-Querying @jujud-unit-ubuntu-lite-2 introspection socket: /debug/pprof/goroutine?debug=1
+Querying /var/lib/juju/agents/unit-ubuntu-lite-2/introspection.socket introspection socket: /debug/pprof/goroutine?debug=1
 goroutine profile: total 216
 19 @ 0x42f59a 0x43f2b0 0x9c02d8 0x45b211
 #	0x9c02d7	github.com/juju/juju/internal/worker/catacomb.(*Catacomb).add.func2+0x107	/home/tim/go/src/github.com/juju/juju/internal/worker/catacomb/catacomb.go:181

@@ -85,9 +85,6 @@ A machine's specific hardware can be customised via {ref}`constraints <constrain
 (machine-base)=
 ## Machine base
 
-```{versionadded} 3.1.0
-```
-
 In Juju, a **base** is  a way to identify a particular operating system (OS) image for a Juju {ref}`machine <machine>`.
 
 This can be done via the name of the OS followed by the `@` symbol and the channel of the OS that you want to target, specified in terms of `<track>` or, optionally, `<track>/<risk>`. For example, `ubuntu@22.04` or `ubuntu@22.04/stable`.

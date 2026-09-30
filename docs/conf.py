@@ -234,6 +234,8 @@ html_extra_path = ["robots.txt", "sitemapindex.xml"]
 redirects = {
     "user/reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
     "reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
+    "user/reference/charm/charm-maturity/": "https://canonical.com/juju/docs/ops/latest/explanation/charm-maturity/",
+    "reference/charm/charm-maturity/": "https://canonical.com/juju/docs/ops/latest/explanation/charm-maturity/",
 }
 
 ###########################

@@ -53,6 +53,6 @@ The output of the heap profile can be difficult to read on its own. Using the `p
 To find a memory leak, compare 2 heap profiles:
 
 ```text
-go tool pprof -http localhost:8100 -base juju_heap_profile-2022-06-11.00 jujud-2.9.29/jujud juju_heap_profile-2022-06-12.16
+go tool pprof -http localhost:8100 -base juju_heap_profile-2022-06-11.00 jujuagentd-4.0.15/jujuagentd juju_heap_profile-2022-06-12.16
 ```
-Find `jujud` binaries in the [streams](https://streams.canonical.com/juju/tools/agent/).
+Find `jujuagentd` binaries in the [streams](https://streams.canonical.com/juju/tools/agent/).

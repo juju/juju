@@ -526,7 +526,7 @@ However, as newer versions typically contain improvements, Juju will notify you 
 # Find out the current channel (see App > Channel):
 $  juju status
 Model        Controller  Cloud/Region         Version  SLA          Timestamp
-welcome-lxd  lxd         localhost/localhost  3.1.6    unsupported  14:58:37+01:00
+welcome-lxd  lxd         localhost/localhost  4.0.15   unsupported  14:58:37+01:00
 
 App          Version        Status   Scale  Charm           Channel    Rev  Exposed  Message
 postgresql                  waiting    0/1  postgresql      14/stable  351  no       agent initialising
@@ -577,7 +577,7 @@ no change to endpoints in space "alpha": certificates, cos-agent, database, data
 
 $ juju status
 Model        Controller  Cloud/Region         Version  SLA          Timestamp
-welcome-lxd  lxd         localhost/localhost  3.1.6    unsupported  15:05:16+01:00
+welcome-lxd  lxd         localhost/localhost  4.0.15   unsupported  15:05:16+01:00
 
 App          Version        Status  Scale  Charm           Channel  Rev  Exposed  Message
 postgresql   14.9           active      1  postgresql      14/edge  365  no

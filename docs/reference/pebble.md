@@ -23,7 +23,7 @@ In Pebble, a **notice** is an aggregated event to record when custom events happ
 See more: [Pebble | Notices](https://canonical-pebble.readthedocs-hosted.com/en/latest/reference/notices/#)
 ```
 
-Pebble notices are supported in Juju starting with version 3.4. Juju polls each workload container's Pebble server for new notices, and fires an event to the charm when a notice first occurs as well as each time it repeats.
+Juju supports Pebble notices. Juju polls each workload container's Pebble server for new notices, and fires an event to the charm when a notice first occurs as well as each time it repeats.
 
 Each notice has a *type* and *key*, the combination of which uniquely identifies it. A notice's count of occurrences is incremented every time a notice with that type and key combination occurs.
 

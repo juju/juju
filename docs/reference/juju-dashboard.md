@@ -21,11 +21,7 @@ Juju Dashboard is hosted on [JAAS](https://jaas.ai/) for use with JAAS controlle
 
 ![Juju dashboard](juju-dashboard.png)
 
-```{caution}
-
-Prior to `juju v.3.0`,  the Juju dashboard was automatically deployed with every controller, but from `juju v.3.0` it needs to be set up by deploying the `juju-dashboard` or `juju-dashboard-k8s` charm in the controller model and integrating it with the `controller` application. See more: {ref}`set-up-the-juju-dashboard`
-
-```
+To use the Juju dashboard with a local controller, deploy the `juju-dashboard` or `juju-dashboard-k8s` charm in the controller model and integrate it with the `controller` application. See more: {ref}`set-up-the-juju-dashboard`
 
 (juju-dashboard-models-view)=
 ## Models view

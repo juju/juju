@@ -99,7 +99,6 @@ user/reference/agent reference/agent
 user/reference/application reference/application
 user/reference/bundle reference/bundle
 user/reference/charm/charm-development-best-practices reference/charm/charm-development-best-practices
-user/reference/charm/charm-maturity reference/charm/charm-maturity
 user/reference/charm reference/charm
 user/reference/cloud reference/cloud
 user/reference/cloud/kubernetes-clouds-and-juju reference/cloud/list-of-supported-clouds/index
@@ -335,7 +334,8 @@ user/reference/juju/juju-architecture reference/juju/juju-architecture
 user/reference/juju/juju-cross-version-compatibilit reference/juju/juju-cross-version-compatibility
 user/reference/juju/juju-roadmap-and-releases reference/juju/juju-roadmap-and-releases
 user/reference/jujuc reference/jujuc
-user/reference/jujud reference/jujud
+user/reference/jujud reference/jujuagentd
+reference/jujud reference/jujuagentd
 user/reference/log reference/log
 user/reference/machine reference/machine
 user/reference/model reference/model
@@ -364,10 +364,14 @@ user/reference/resource-compute/list-of-commands-available-on-a-compute-resource
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_agent_name reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_agent_name
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_lock reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_machine_lock
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_metrics reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_metrics
-user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_pubsub_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_pubsub_report
-user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_start_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_start_unit
-user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_statetracker_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_statetracker_report
-user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_stop_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_stop_unit
+user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_pubsub_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_pubsub_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_start_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_start_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_statetracker_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_statetracker_report reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_stop_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
+reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_stop_unit reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/index
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_agent_name reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_agent_name
 user/reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_status reference/resource-compute/list-of-commands-available-on-a-compute-resource-provisioned-by-juju/list-of-juju-introspect-macros/juju_unit_status
 user/reference/scaling reference/scaling
@@ -380,7 +384,8 @@ user/reference/storage reference/storage
 user/reference/subnet reference/subnet
 user/reference/telemetry reference/telemetry
 user/reference/unit reference/unit
-user/reference/upgrading-things reference/upgrading-things
+user/reference/upgrading-things howto/manage-your-juju-deployment/upgrade-your-juju-deployment
+reference/upgrading-things howto/manage-your-juju-deployment/upgrade-your-juju-deployment
 user/reference/user reference/user
 user/reference/zone reference/zone
 user/tutorial tutorial

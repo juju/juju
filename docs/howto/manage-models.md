@@ -101,7 +101,7 @@ juju status
 
 ```text
 Model  Controller           Cloud/Region         Version  SLA          Timestamp
-test   localhost-localhost  localhost/localhost  3.1.0    unsupported  16:07:52+01:00
+test   localhost-localhost  localhost/localhost  4.0.15   unsupported  16:07:52+01:00
 
 Model "admin/test" is empty.
 ```
@@ -147,7 +147,7 @@ test:
       access: admin
       last-connection: 2 minutes ago
   sla: unsupported
-  agent-version: 3.1.0
+  agent-version: 4.0.15
   credential:
     name: localhost
     owner: admin
@@ -156,7 +156,7 @@ test:
   supported-features:
   - name: juju
     description: the version of Juju used by the model
-    version: 3.1.0
+    version: 4.0.15
 ```
 
 ````
@@ -362,7 +362,7 @@ See more: {ref}`command-juju-enable-command`
 ## Upgrade a model
 
 ```{ibnote}
-See more: {ref}`upgrading-things`
+See more: {ref}`upgrade-your-deployment`
 ```
 
 A model upgrade affects the version of Juju (Juju machine and unit agents) on all the Juju machines in the model.
@@ -372,7 +372,7 @@ First, prepare for the upgrade:
 -  Ensure the controller has already been upgraded. See more: {ref}`upgrade-a-controller`.
 -  Ensure the models that are to be upgraded are in good working order (`juju status`).
 
-Then, perform the upgrade. How you upgrade a model depends on whether you'd be crossing patch versions (e.g., `v.2.9.25` -> `v.2.9.26`) or rather minor (e.g., `v.2.7` -> `v.2.8`) or major versions (`v.2` -> `v.3`).
+Then, perform the upgrade. How you upgrade a model depends on whether you'd be crossing patch versions (e.g., `4.0.14` -> `4.0.15`) or rather minor (e.g., `4.0` -> `4.1`) or major versions (e.g., `3.6` -> `4.0`).
 
 - To upgrade the current model across patch versions, use the `upgrade-model` command:
 
@@ -431,8 +431,8 @@ juju ssh 2 'ls -lh /etc/systemd/system/juju*'
 This will return something similar to:
 
 ```text
--rwxr-xr-x 1 root root 326 Jun 29 19:02 /etc/systemd/system/jujud-machine-2-exec-start.sh
--rw-r--r-- 1 root root 284 Jun 29 19:02 /etc/systemd/system/jujud-machine-2.service
+-rwxr-xr-x 1 root root 326 Jun 29 19:02 /etc/systemd/system/jujuagentd-machine-2-exec-start.sh
+-rw-r--r-- 1 root root 284 Jun 29 19:02 /etc/systemd/system/jujuagentd-machine-2.service
 ```
 
 Therefore, if the agent for machine ‘2’ is not coming up you can connect to the machine in this way:
@@ -444,7 +444,7 @@ juju ssh 2
 Then modify or restore the agent file (`/var/lib/juju/agents/machine-2/agent.conf`), and while still connected to the machine, restart the agent:
 
 ```text
-sudo systemctl restart jujud-machine-2
+sudo systemctl restart jujuagentd-machine-2
 ```
 
 ````

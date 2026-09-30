@@ -11,11 +11,6 @@ myst:
 See also: {ref}`manage-charms`
 ```
 
-```{toctree}
-:hidden:
-charm/charm-maturity
-```
-
 In Juju, a **charm** is an operator -- software that wraps an {ref}`application <application>` and that contains all of the instructions necessary for deploying, configuring, scaling, integrating, etc., the application on any {ref}`Juju-supported cloud <list-of-supported-clouds>`.
 
 Charms are often published on [Charmhub](https://charmhub.io/).

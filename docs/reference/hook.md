@@ -461,8 +461,6 @@ Once all consumers have stopped tracking a specific outdated revision, the owner
 (hook-secret-expired)=
 #### `secret-expired`
 
-```{versionadded} 3.0.2
-```
 ```{important}
 Currently supported only for {ref}`charm secrets <charm-secret>`.
 ```
@@ -517,8 +515,6 @@ All the {ref}`generic environment variables <generic-environment-variables>` and
 
 (hook-secret-rotate)=
 #### `secret-rotate`
-```{versionadded} 3.0.2
-```
 ```{important}
 Currently supported only for charm secrets.
 ```
