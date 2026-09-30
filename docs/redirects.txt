@@ -402,3 +402,4 @@ reference/cloud/list-of-supported-clouds/the-oracle-oci-cloud-and-juju reference
 reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju reference/cloud/list-of-supported-clouds/vmware-vsphere
 
 
+howto/upgrade-your-juju-deployment-from-36-to-40 howto/upgrade-your-juju-deployment-from-36-to-41
