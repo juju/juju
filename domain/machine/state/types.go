@@ -607,6 +607,7 @@ type reprovisionUnit struct {
 type reprovisionUnitReplacement struct {
 	OldUUID          string     `db:"old_uuid"`
 	NewUUID          string     `db:"new_uuid"`
+	RemovalUUID      string     `db:"removal_uuid"`
 	PrincipalOldUUID string     `db:"principal_old_uuid"`
 	Name             string     `db:"name"`
 	ApplicationUUID  string     `db:"application_uuid"`

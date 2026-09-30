@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	provisionermodelstate "github.com/juju/juju/domain/provisioner/state/model"
+	removalmodelstate "github.com/juju/juju/domain/removal/state/model"
 	domainstatus "github.com/juju/juju/domain/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -129,6 +130,21 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 2)
 	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ? AND life_id = ?",
 		"reprovision-unit", "reprovision/0", life.Dead), tc.Equals, 1)
+	var removalTypeID int
+	var removalEntityUUID string
+	var removalForce bool
+	var removalScheduledFor time.Time
+	err = db.QueryRowContext(c.Context(), `
+SELECT removal_type_id, entity_uuid, force, scheduled_for
+FROM   removal
+WHERE  entity_uuid = ?`, "reprovision-unit").Scan(
+		&removalTypeID, &removalEntityUUID, &removalForce, &removalScheduledFor,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalTypeID, tc.Equals, 1)
+	c.Check(removalEntityUUID, tc.Equals, "reprovision-unit")
+	c.Check(removalForce, tc.IsFalse)
+	c.Check(removalScheduledFor, tc.Equals, updatedAt)
 	var replacementUnitUUID string
 	err = db.QueryRowContext(c.Context(), `
 SELECT uuid
@@ -286,6 +302,48 @@ WHERE  name = ? AND life_id = ?`, "reprovision/1", life.Alive).Scan(&replacement
 		replacementUnitUUID, replacementUnitUUID), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "secret_permission", "subject_uuid = ? OR scope_uuid = ?",
 		"reprovision-unit", "reprovision-unit"), tc.Equals, 0)
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceAllowsRetiredUnitRemoval(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionRelationScope(c)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+	s.runQuery(c, `
+INSERT INTO unit_state (unit_uuid, uniter_state, storage_state, secret_state)
+VALUES (?, ?, ?, ?)`, "reprovision-unit", "installed", "storage", "secrets")
+	s.runQuery(c, `
+INSERT INTO unit_state_charm (unit_uuid, "key", value)
+VALUES (?, ?, ?)`, "reprovision-unit", "state", "value")
+	s.runQuery(c, `
+INSERT INTO unit_state_relation (unit_uuid, "key", value)
+VALUES (?, ?, ?)`, "reprovision-unit", "0", "value")
+	s.runQuery(c, `
+INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
+VALUES (?, ?, ?)`, "reprovision-unit", 0, "old-host-key")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	removalState := removalmodelstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = removalState.DeleteUnit(c.Context(), "reprovision-unit", true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.rowCountWhere(c, "unit", "uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "relation_unit", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "storage_attachment", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "storage_unit_owner", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "unit_virtual_ssh_host_key", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+
+	// We should use foreign key checks to ensure that all the related data has
+	// been removed in the removal domain.
+	rows, err := s.DB().QueryContext(c.Context(), "PRAGMA foreign_key_check")
+	c.Assert(err, tc.ErrorIsNil)
+	defer rows.Close()
+	c.Check(rows.Next(), tc.IsFalse)
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsReplacementUnitNameCollision(c *tc.C) {

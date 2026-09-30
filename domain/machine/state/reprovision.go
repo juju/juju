@@ -16,6 +16,7 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/sequence"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstatus "github.com/juju/juju/domain/status"
@@ -177,6 +178,17 @@ VALUES ($reprovisionUnitReplacement.new_uuid,
 	if err != nil {
 		return errors.Errorf("preparing replacement unit workload status: %w", err)
 	}
+	removeRetiredUnitStmt, err := st.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for)
+VALUES ($reprovisionUnitReplacement.removal_uuid,
+        1,
+        $reprovisionUnitReplacement.old_uuid,
+        FALSE,
+        $reprovisionUnitReplacement.updated_at)
+`, reprovisionUnitReplacement{})
+	if err != nil {
+		return errors.Errorf("preparing retired unit removal: %w", err)
+	}
 	unitNameExistsStmt, err := st.Prepare(`
 SELECT name AS &reprovisionUnitReplacement.name
 FROM   unit
@@ -294,6 +306,7 @@ VALUES ($reprovisionUnitReplacement.new_uuid,
 			ctx, tx, unitReplacements, markReplacementUnitStmt,
 			createReplacementUnitStmt, deleteUnitPresenceStmt,
 			setReplacementAgentStatusStmt, setReplacementWorkloadStatusStmt,
+			removeRetiredUnitStmt,
 			replacementStateStmt,
 			resetUnitCharmStateStmt, resetUnitRelationStateStmt,
 			transferUnitStatements, insertUnitPrincipalStmt,
@@ -361,9 +374,14 @@ func (st *State) allocateReprovisionUnitReplacements(
 		if err != nil {
 			return nil, errors.Errorf("generating replacement unit UUID: %w", err)
 		}
+		removalUUID, err := removal.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf("generating retired unit removal UUID: %w", err)
+		}
 		replacement := reprovisionUnitReplacement{
 			OldUUID:          unit.UUID,
 			NewUUID:          newUUID.String(),
+			RemovalUUID:      removalUUID.String(),
 			PrincipalOldUUID: unit.PrincipalUUID,
 			Name:             name.String(),
 			ApplicationUUID:  unit.ApplicationUUID,
@@ -391,7 +409,7 @@ func (st *State) replaceReprovisionUnits(
 	tx *sqlair.TX,
 	replacements []reprovisionUnitReplacement,
 	markUnitStmt, createUnitStmt, deleteUnitPresenceStmt,
-	setAgentStatusStmt, setWorkloadStatusStmt, stateStmt, resetUnitCharmStateStmt,
+	setAgentStatusStmt, setWorkloadStatusStmt, removeRetiredUnitStmt, stateStmt, resetUnitCharmStateStmt,
 	resetUnitRelationStateStmt *sqlair.Statement,
 	transferStatements []*sqlair.Statement,
 	insertUnitPrincipalStmt *sqlair.Statement,
@@ -425,6 +443,9 @@ func (st *State) replaceReprovisionUnits(
 		}
 		if err := tx.Query(ctx, setWorkloadStatusStmt, replacement).Run(); err != nil {
 			return errors.Errorf("setting replacement unit workload status %q: %w", replacement.NewUUID, err)
+		}
+		if err := tx.Query(ctx, removeRetiredUnitStmt, replacement).Run(); err != nil {
+			return errors.Errorf("scheduling retired unit removal %q: %w", replacement.OldUUID, err)
 		}
 		if err := tx.Query(ctx, stateStmt, replacement).Run(); err != nil {
 			return errors.Errorf("creating replacement unit state %q: %w", replacement.NewUUID, err)
