@@ -1,0 +1,13 @@
+/* A short standfirst under a page title: smaller, muted and italic, at the
+   full width of the text. */
+.blurb {
+  font-size: 0.9em;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--color-foreground-secondary, #555);
+  margin: 0 0 2.2em;
+}
+
+.blurb p {
+  margin: 0;
+}

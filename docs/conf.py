@@ -307,6 +307,7 @@ extensions = [
     "sphinxcontrib.lightbox2",
     "ibnote",
     "sphinx_structured_toc",
+    "ggarch.sphinxcontrib_ggarch",
 ]
 
 # Customize sphinx_llm.txt
@@ -344,6 +345,7 @@ html_css_files = [
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
     "css/domain-list-override.css",
+    "css/blurb.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'
