@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
-	proxyerrors "github.com/juju/juju/internal/proxy/errors"
+	proxyerrors "github.com/juju/juju/proxy/errors"
 )
 
 type Proxier struct {
@@ -38,7 +38,7 @@ const (
 )
 
 func (p *Proxier) Host() string {
-	return "127.0.0.1"
+	return "localhost"
 }
 
 func NewProxier(config ProxierConfig) *Proxier {
@@ -71,7 +71,7 @@ func NewProxierConfig() *ProxierConfig {
 	return &ProxierConfig{}
 }
 
-func NewProxierFromRawConfig(rawConf any) (*Proxier, error) {
+func NewProxierFromRawConfig(rawConf interface{}) (*Proxier, error) {
 	conf, valid := rawConf.(*ProxierConfig)
 	if !valid {
 		return nil, errors.NewNotValid(nil, "config is not of type *ProxierConfig")
@@ -87,28 +87,19 @@ func (p *Proxier) SetAPIHost(host string) {
 }
 
 // RawConfig implements Proxier RawConfig interface.
-func (p *Proxier) RawConfig() (map[string]any, error) {
-	rval := map[string]any{}
+func (p *Proxier) RawConfig() (map[string]interface{}, error) {
+	rval := map[string]interface{}{}
 	err := mapstructure.Decode(&p.config, &rval)
 	return rval, errors.Trace(err)
 }
 
 // MarshalYAML implements the yaml Marshaler interface
-func (p *Proxier) MarshalYAML() (any, error) {
+func (p *Proxier) MarshalYAML() (interface{}, error) {
 	return &p.config, nil
 }
 
 func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
-}
-
-// ProxyError reports asynchronous port-forwarding errors observed after the
-// tunnel was reported as ready.
-func (p *Proxier) ProxyError() error {
-	if p.tunnel == nil {
-		return nil
-	}
-	return p.tunnel.ForwardError()
 }
 
 const retryableProxyError = "etcdserver: leader changed"
