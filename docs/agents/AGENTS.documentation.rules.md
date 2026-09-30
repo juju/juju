@@ -171,7 +171,7 @@ The generated pages are committed, and the docs CI enforces two distinct outcome
 Diagrams are drawn from one plain-text model, `docs/juju.ggarch`, with [ggarch](https://github.com/tmihoc/ggarch). The model describes Juju once; each figure is a view of it.
 
 - **One model.** Declare every node and edge once in `docs/juju.ggarch`. A `diagram` or `sequence` view selects what one figure needs, so renaming a node updates every figure. Extend the model when a page needs a new entity; keep to the existing node and edge types.
-- **Embed a view** in a page with the `{ggarch}` directive. `:file:` is relative to the page, `:view:` is the view name, `:caption:` says what the reader should take from the figure in one or two sentences, and `:alt:` describes the picture for readers who cannot see it:
+- **Embed a view** in a page with the `{ggarch}` directive. `:file:` is relative to the page, `:view:` is the view name, `:caption:` carries the technical detail of the layer the figure shows, defining each term in brackets where it first appears, and `:alt:` describes the picture for readers who cannot see it. Start a caption with its subject and its point, as the example below does, so it reads like every other caption in the docs. The text around the figure stays light and leaves the detail to the caption:
 
   ````text
   ```{ggarch}
