@@ -126,11 +126,10 @@ func (s *relayAuthSuite) TestRelayWrapperRejectsMissingAuthInfo(c *tc.C) {
 	c.Check(captured.ok, tc.IsFalse)
 }
 
-// TestRelayWrapperOmitsTokenForBadDelegator checks that a delegator which
-// is not a *jwt.PermissionDelegator (which relayJWTAuthorizer never admits)
-// forwards to the handler with no token injected, leaving the handler to
-// reject the missing JWT.
-func (s *relayAuthSuite) TestRelayWrapperOmitsTokenForBadDelegator(c *tc.C) {
+// TestRelayWrapperRejectsBadDelegator checks that a delegator which is
+// not a *jwt.PermissionDelegator (which relayJWTAuthorizer never admits)
+// is rejected with a 401 without calling the handler.
+func (s *relayAuthSuite) TestRelayWrapperRejectsBadDelegator(c *tc.C) {
 	srv := newRelayServer(c)
 	captured := &captureJWT{}
 	wrapper := srv.sshRelayRequestWrapper(captured)
@@ -157,8 +156,7 @@ func (s *relayAuthSuite) TestRelayWrapperOmitsTokenForBadDelegator(c *tc.C) {
 			w := httptest.NewRecorder()
 			wrapper.ServeHTTP(w, r)
 
-			// The wrapper forwards to the handler without a token; the
-			// handler is responsible for rejecting the missing JWT.
+			tc.Check(t, w.Code, tc.Equals, http.StatusUnauthorized)
 			tc.Check(t, captured.ok, tc.IsFalse)
 		})
 	}

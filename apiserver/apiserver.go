@@ -1222,13 +1222,15 @@ func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
 			http.Error(w, "authentication info missing", http.StatusUnauthorized)
 			return
 		}
-		// relayJWTAuthorizer admits only JWT delegators. If the cast
-		// somehow fails, the token is omitted and the handler returns 401.
-		delegator, _ := authInfo.Delegator.(*jwt.PermissionDelegator)
-		if delegator != nil {
-			// The token was signature-verified by the JWT authenticator.
-			r = r.WithContext(context.WithValue(r.Context(), sshproxy.RelayJWTKey{}, delegator.Token))
+
+		// relayJWTAuthorizer admits only JWT delegators
+		delegator, ok := authInfo.Delegator.(*jwt.PermissionDelegator)
+		if !ok || delegator == nil {
+			http.Error(w, "JWT delegator not found", http.StatusUnauthorized)
+			return
 		}
+		// The token was signature-verified by the JWT authenticator.
+		r = r.WithContext(context.WithValue(r.Context(), sshproxy.RelayJWTKey{}, delegator.Token))
 		h.ServeHTTP(w, r)
 	})
 }
