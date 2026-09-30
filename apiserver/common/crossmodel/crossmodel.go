@@ -72,8 +72,14 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 			if len(oppErrs) > 0 {
 				logger.Warningf("errors forcing cleanup of %v: %v", rel.Tag().Id(), oppErrs)
 			}
+			if err != nil {
+				// The consuming model cannot resolve a failure on this
+				// side and would only repeat the request, so report it
+				// here instead.
+				logger.Warningf("cannot force cleanup of %v: %v", relationTag.Id(), err)
+			}
 			// If we are forcing cleanup, we can exit early here.
-			return errors.Trace(err)
+			return nil
 		}
 		if err := rel.Destroy(); err != nil {
 			return errors.Trace(err)
