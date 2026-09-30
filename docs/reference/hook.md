@@ -562,41 +562,6 @@ A storage volume having been attached to the charm's host machine or container a
 
 A request to detach storage having been processed.
 
-(upgrade-series-hooks)=
-### Upgrade series hooks
-
-> Juju `3.6` or earlier only. To be removed in Juju 4.
-
-These hooks are run to tell the charm the version of OS that the host machine will be upgraded to.
-
-Upgrade series hooks operate in an environment with additional environment variables available:
-
-* `JUJU_TARGET_BASE` holds the target base for the machine.
-
-(hook-post-series-upgrade)=
-#### `post-series-upgrade`
-
-*What triggers it?*
-
-Fired after the series upgrade has taken place.
-
-(hook-pre-series-upgrade)=
-#### `pre-series-upgrade`
-
-*What triggers it?*
-
-This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line. This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
-
-|  Scenario | Example command | Resulting events |
-|:-:|-|-|
-| {ref}`upgrade-series-hooks` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
-
- Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
-
-```{caution}
- Leadership is pinned during the series upgrade process.  Even if the current leader dies or is removed, re-election will not occur for applications on the upgrading machine until the series upgrade operation completes.
-```
-
 (workload-hooks)=
 ### Workload (Pebble) hooks
 
