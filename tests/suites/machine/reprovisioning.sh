@@ -23,6 +23,7 @@ test_reprovisioning() {
 		cd .. || exit
 
 		run "run_reprovisioning_workload"
+		run "run_reprovisioning_multiple_units"
 		run "run_reprovisioning_hooks"
 		run "run_reprovisioning_relations"
 		run "run_reprovisioning_relation_departure"
@@ -74,6 +75,39 @@ run_reprovisioning_workload() {
 	wait_for "reprovision" "$(active_idle_condition "reprovision" "${replacement_unit_name##*/}")"
 	assert_replacement_unit_assignment "reprovision" "${replacement_unit_name}" "${machine_id}"
 
+	destroy_model "${model_name}"
+	wait_for_provider_instance_absent "${new_instance_id}"
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "aws" || ${BOOTSTRAP_PROVIDER:-} == "ec2" ]]; then
+		wait_for_ec2_model_resources_absent "${model_uuid}"
+	fi
+}
+
+run_reprovisioning_multiple_units() {
+	local file model_name model_uuid machine_id old_instance_id new_instance_id
+	model_name="reprovisioning-multiple-units"
+	file="${TEST_DIR}/test-${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+	model_uuid=$(model_uuid "${model_name}")
+
+	echo "Add a machine and deploy two units on it"
+	juju add-machine --base ubuntu@22.04
+	machine_id=0
+	wait_for_machine_agent_status "${machine_id}" "started"
+	juju deploy juju-qa-test reprovision -n 2 --to "${machine_id},${machine_id}"
+	wait_for "reprovision" "$(active_idle_condition "reprovision" 0)"
+	wait_for "reprovision" "$(active_idle_condition "reprovision" 1)"
+	wait_for_replacement_units "reprovision" "reprovision/0,reprovision/1" "${machine_id}"
+
+	old_instance_id=$(juju show-machine "${machine_id}" --format json | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
+	delete_provider_instance "${old_instance_id}"
+
+	reprovision_lost_machine "${machine_id}"
+	wait_for_replacement_units "reprovision" "reprovision/2,reprovision/3" "${machine_id}"
+	wait_for "reprovision" "$(active_idle_condition "reprovision" 2)"
+	wait_for "reprovision" "$(active_idle_condition "reprovision" 3)"
+
+	new_instance_id=$(juju show-machine "${machine_id}" --format json | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"]')
 	destroy_model "${model_name}"
 	wait_for_provider_instance_absent "${new_instance_id}"
 	if [[ ${BOOTSTRAP_PROVIDER:-} == "aws" || ${BOOTSTRAP_PROVIDER:-} == "ec2" ]]; then
@@ -285,6 +319,37 @@ wait_for_replacement_unit() {
 		elapsed=$(($(date -u +%s) - start_time))
 		if [[ ${elapsed} -ge 900 ]]; then
 			echo "ERROR: timed out waiting for replacement unit for ${old_unit_name}" >&2
+			juju status >&2 || true
+			return 1
+		fi
+	done
+}
+
+wait_for_replacement_units() {
+	local application_name expected_unit_names machine_id
+	application_name=$1
+	expected_unit_names=$2
+	machine_id=$3
+	local status unit_names unit_machines machine_info instance_id agent_status start_time elapsed
+	start_time=$(date -u +%s)
+
+	while true; do
+		status=$(juju status --format json)
+		unit_names=$(printf '%s\n' "${status}" | application_name="${application_name}" yq -r '.applications[env(application_name)].units | keys | sort | join(",")')
+		unit_machines=$(printf '%s\n' "${status}" | application_name="${application_name}" yq -r '[.applications[env(application_name)].units[] | .machine] | unique | join(",")')
+		if [[ ${unit_names} == "${expected_unit_names}" && ${unit_machines} == "${machine_id}" ]]; then
+			machine_info=$(juju show-machine "${machine_id}" --format json 2>/dev/null || true)
+			instance_id=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["instance-id"] // ""')
+			agent_status=$(printf '%s\n' "${machine_info}" | machine_id="${machine_id}" yq -r '.machines[env(machine_id)]["juju-status"].current // ""')
+			if [[ -n ${instance_id} && ${agent_status} == "started" ]]; then
+				return
+			fi
+		fi
+
+		sleep "${SHORT_TIMEOUT}"
+		elapsed=$(($(date -u +%s) - start_time))
+		if [[ ${elapsed} -ge 900 ]]; then
+			echo "ERROR: timed out waiting for replacement units ${expected_unit_names}" >&2
 			juju status >&2 || true
 			return 1
 		fi
