@@ -69,6 +69,9 @@ const (
 	// StoragePoolAlreadyExists is used when a storage pool already exists.
 	StoragePoolAlreadyExists = errors.ConstError("storage pool already exists")
 
+	// StoragePoolInUse is used when a pool is still referenced by the model.
+	StoragePoolInUse = errors.ConstError("storage pool is in use")
+
 	// StoragePoolNameInvalid is used when a storage pool name is invalid.
 	StoragePoolNameInvalid = errors.ConstError("storage pool name is invalid")
 

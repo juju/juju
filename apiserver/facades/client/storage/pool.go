@@ -7,10 +7,10 @@ import (
 	"context"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreversion "github.com/juju/juju/core/version"
 	domainstorage "github.com/juju/juju/domain/storage"
 	domainstorageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
+	internalstorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -39,6 +39,17 @@ type StoragePoolService interface {
 		domainstorage.ProviderType,
 		map[string]any,
 	) (domainstorage.StoragePoolUUID, error)
+
+	// DeleteStoragePool deletes the named pool, returning
+	// [domainstorageerrors.StoragePoolNotFound] if it does not exist or
+	// [domainstorageerrors.StoragePoolInUse] if it is still referenced.
+	DeleteStoragePool(context.Context, string) error
+
+	// ReplaceStoragePool replaces a pool's configuration, retaining its
+	// provider when none is supplied. It returns
+	// [domainstorageerrors.StoragePoolNotFound] if the pool does not exist or
+	// [domainstorageerrors.StoragePoolNameInvalid] if its name is invalid.
+	ReplaceStoragePool(context.Context, string, internalstorage.ProviderType, map[string]any) error
 }
 
 // CreatePool creates a new storage pool in the model with specified parameters.
@@ -216,14 +227,43 @@ func (a *StorageAPI) listPools(ctx context.Context, filter params.StoragePoolFil
 
 // RemovePool deletes the named pool
 func (a *StorageAPI) RemovePool(ctx context.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(p.Pools))}
+	for i, pool := range p.Pools {
+		err := a.storageService.DeleteStoragePool(ctx, pool.Name)
+		results.Results[i].Error = storagePoolError(err)
+	}
+	return results, nil
 }
 
-// UpdatePool deletes the named pool
+// UpdatePool replaces the configuration of each named pool.
 func (a *StorageAPI) UpdatePool(ctx context.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
-	return params.ErrorResults{}, apiservererrors.ParamsErrorf(
-		params.CodeNotYetAvailable, "not yet available in %s", coreversion.Current.String(),
-	)
+	if err := a.checkCanWrite(ctx); err != nil {
+		return params.ErrorResults{}, err
+	}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(p.Pools))}
+	for i, pool := range p.Pools {
+		err := a.storageService.ReplaceStoragePool(ctx, pool.Name, internalstorage.ProviderType(pool.Provider), pool.Attrs)
+		results.Results[i].Error = storagePoolError(err)
+	}
+	return results, nil
+}
+
+func storagePoolError(err error) *params.Error {
+	switch {
+	case errors.Is(err, domainstorageerrors.StoragePoolNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "%s", err)
+	case errors.Is(err, domainstorageerrors.StoragePoolInUse),
+		errors.Is(err, domainstorageerrors.StoragePoolNameInvalid),
+		errors.Is(err, domainstorageerrors.ProviderTypeInvalid):
+		return apiservererrors.ParamsErrorf(params.CodeNotValid, "%s", err)
+	case errors.Is(err, domainstorageerrors.ProviderTypeNotFound):
+		return apiservererrors.ParamsErrorf(params.CodeNotFound, "%s", err)
+	case errors.HasType[domainstorageerrors.StoragePoolAttributeInvalid](err):
+		return apiservererrors.ParamsErrorf(params.CodeNotValid, "%s", err)
+	default:
+		return apiservererrors.ServerError(err)
+	}
 }

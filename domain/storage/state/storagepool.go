@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"slices"
 
 	"github.com/canonical/sqlair"
@@ -285,48 +286,74 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 
 // DeleteStoragePool deletes a storage pool with the specified name.
 // The following errors can be expected:
-// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
-func (st State) DeleteStoragePool(ctx context.Context, name string) error {
+// - [domainstorageerrors.StoragePoolNotFound] if the pool does not exist.
+// - [domainstorageerrors.StoragePoolInUse] if the pool is still referenced.
+func (st State) DeleteStoragePool(ctx context.Context, poolName string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	poolAttributeDeleteQ := `
-DELETE FROM storage_pool_attribute
-WHERE  storage_pool_attribute.storage_pool_uuid = (select uuid FROM storage_pool WHERE name = $M.name)
-`
-
-	poolDeleteQ := `
-DELETE FROM storage_pool
-WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
-`
-
-	poolAttributeDeleteStmt, err := st.Prepare(poolAttributeDeleteQ, sqlair.M{})
+	type storagePoolUsage struct {
+		UUID  string `db:"uuid"`
+		InUse bool   `db:"in_use"`
+	}
+	usage := storagePoolUsage{}
+	inputName := name{Name: poolName}
+	usageStmt, err := st.Prepare(`
+WITH used_pool AS (
+    SELECT msp.storage_pool_uuid AS uuid FROM model_storage_pool AS msp
+    UNION
+    SELECT asd.storage_pool_uuid AS uuid FROM application_storage_directive AS asd
+    UNION
+    SELECT usd.storage_pool_uuid AS uuid FROM unit_storage_directive AS usd
+    UNION
+    SELECT si.storage_pool_uuid AS uuid FROM storage_instance AS si
+    UNION
+    SELECT sp.uuid AS uuid
+    FROM storage_pool AS sp
+    JOIN model_config AS mc ON mc.value = sp.name AND mc.key = 'operator-storage'
+    JOIN model AS m ON m.type = 'caas'
+    CROSS JOIN application AS a
+)
+SELECT sp.uuid AS &storagePoolUsage.uuid,
+       COUNT(up.uuid) > 0 AS &storagePoolUsage.in_use
+FROM storage_pool AS sp
+LEFT JOIN used_pool AS up ON up.uuid = sp.uuid
+WHERE sp.name = $name.name
+GROUP BY sp.uuid
+`, inputName, usage)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	poolDeleteStmt, err := st.Prepare(poolDeleteQ, sqlair.M{})
+	poolAttributeDeleteStmt, err := st.Prepare(`
+DELETE FROM storage_pool_attribute
+WHERE storage_pool_uuid = $storagePoolUsage.uuid
+`, usage)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	poolDeleteStmt, err := st.Prepare(`
+DELETE FROM storage_pool WHERE uuid = $storagePoolUsage.uuid
+`, usage)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		nameMap := sqlair.M{"name": name}
-		if err := tx.Query(ctx, poolAttributeDeleteStmt, nameMap).Run(); err != nil {
+		if err := tx.Query(ctx, usageStmt, inputName).Get(&usage); errors.Is(err, sql.ErrNoRows) {
+			return domainstorageerrors.StoragePoolNotFound
+		} else if err != nil {
+			return errors.Errorf("checking storage pool usage: %w", err)
+		}
+		if usage.InUse {
+			return domainstorageerrors.StoragePoolInUse
+		}
+		if err := tx.Query(ctx, poolAttributeDeleteStmt, usage).Run(); err != nil {
 			return errors.Errorf("deleting storage pool attributes: %w", err)
 		}
-		var outcome = sqlair.Outcome{}
-		err = tx.Query(ctx, poolDeleteStmt, nameMap).Get(&outcome)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		rowsAffected, err := outcome.Result().RowsAffected()
-		if err != nil {
+		if err := tx.Query(ctx, poolDeleteStmt, usage).Run(); err != nil {
 			return errors.Errorf("deleting storage pool: %w", err)
-		}
-		if rowsAffected == 0 {
-			return errors.Errorf("storage pool %q not found", name).Add(domainstorageerrors.StoragePoolNotFound)
 		}
 		return nil
 	})
