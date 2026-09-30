@@ -1806,6 +1806,59 @@ func (s *resourceSuite) TestVerifyApplicationExistsForResourceMissingResource(c 
 
 // TestGetResourceNameAndTypeFile verifies that the resource name and file type
 // are returned for a file resource.
+// TestGetResourceTypeMultipleResources verifies that each resource gets its
+// own type when the charm has resources of different types.
+func (s *resourceSuite) TestGetResourceTypeMultipleResources(c *tc.C) {
+	imageUUID, fileUUID := s.insertImageAndFileResources(c)
+
+	imageType, err := s.state.GetResourceType(c.Context(), imageUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	fileType, err := s.state.GetResourceType(c.Context(), fileUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(imageType, tc.Equals, charmresource.TypeContainerImage)
+	c.Check(fileType, tc.Equals, charmresource.TypeFile)
+}
+
+// TestGetResourceNameAndTypeMultipleResources verifies that each resource gets
+// its own type when the charm has resources of different types.
+func (s *resourceSuite) TestGetResourceNameAndTypeMultipleResources(c *tc.C) {
+	imageUUID, fileUUID := s.insertImageAndFileResources(c)
+
+	_, imageType, err := s.state.GetResourceNameAndType(c.Context(), imageUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, fileType, err := s.state.GetResourceNameAndType(c.Context(), fileUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(imageType, tc.Equals, charmresource.TypeContainerImage.String())
+	c.Check(fileType, tc.Equals, charmresource.TypeFile.String())
+}
+
+// insertImageAndFileResources inserts an image and a file resource for the
+// same charm and returns their UUIDs.
+func (s *resourceSuite) insertImageAndFileResources(c *tc.C) (coreresource.UUID, coreresource.UUID) {
+	image := resourceData{
+		UUID:            "image-resource-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "image-resource",
+		Type:            charmresource.TypeContainerImage,
+	}
+	file := resourceData{
+		UUID:            "file-resource-id",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "file-resource",
+		Type:            charmresource.TypeFile,
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := image.insert(ctx, tx); err != nil {
+			return errors.Capture(err)
+		}
+		return errors.Capture(file.insert(ctx, tx))
+	})
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
+	return coreresource.UUID(image.UUID), coreresource.UUID(file.UUID)
+}
+
 func (s *resourceSuite) TestGetResourceNameAndTypeFile(c *tc.C) {
 	// Arrange: insert a file resource.
 	resID := "resource-id"
