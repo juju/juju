@@ -7,6 +7,8 @@ import (
 	"context"
 	"net"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/mitchellh/mapstructure"
@@ -109,24 +111,58 @@ func (p *Proxier) ProxyError() error {
 	return p.tunnel.ForwardError()
 }
 
-func (p *Proxier) Start(ctx context.Context) (err error) {
-	tunnel, err := kubernetes.NewTunnelForConfig(
-		&p.restConfig,
-		kubernetes.TunnelKindServices,
-		p.config.Namespace,
-		p.config.Service,
-		p.config.RemotePort,
-	)
+const retryableProxyError = "etcdserver: leader changed"
 
-	if err != nil {
-		return errors.Trace(err)
-	}
-	p.tunnel = tunnel
+func isRetryableProxyError(err error) bool {
+	return strings.Contains(err.Error(), retryableProxyError)
+}
+
+func (p *Proxier) Start(ctx context.Context) (err error) {
+	const (
+		maxAttempts = 3
+		retryDelay  = time.Second
+	)
 
 	defer func() {
 		err = errors.Annotate(err, "connecting k8s proxy")
 	}()
-	err = p.tunnel.ForwardPort(ctx)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		tunnel, tunnelErr := kubernetes.NewTunnelForConfig(
+			&p.restConfig,
+			kubernetes.TunnelKindServices,
+			p.config.Namespace,
+			p.config.Service,
+			p.config.RemotePort,
+		)
+		if tunnelErr != nil {
+			return errors.Trace(tunnelErr)
+		}
+
+		p.tunnel = tunnel
+
+		err = tunnel.ForwardPort(ctx)
+		if err == nil {
+			return nil
+		}
+
+		tunnel.Close()
+
+		if !isRetryableProxyError(err) {
+			return errors.Trace(err)
+		}
+
+		if attempt == maxAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Trace(ctx.Err())
+		case <-time.After(retryDelay):
+		}
+	}
+
 	urlErr, ok := errors.Cause(err).(*url.Error)
 	if !ok {
 		return errors.Trace(err)
