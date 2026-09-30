@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/containermanager"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	corenetwork "github.com/juju/juju/core/network"
@@ -460,6 +461,147 @@ func (s *containerSuite) TestDevicesToBridgeNetworkingMethodError(c *tc.C) {
 	c.Check(err, tc.ErrorIs, methodErr)
 }
 
+// TestDevicesToBridgeAutoMethodNoContainerAddressSupport covers the
+// default configuration: the unset "auto" method resolved against a
+// provider that cannot allocate container addresses (e.g. EC2). The model
+// uses local networking, so the default LXD bridge satisfies all space
+// requirements and no host devices are selected for bridging.
+func (s *containerSuite) TestDevicesToBridgeAutoMethodNoContainerAddressSupport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge is observed, but its subnet is not
+	// registered with Juju, so it is reported in no space.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+			"positive-space-uuid": {{
+				Name: "eth0",
+				Type: corenetwork.EthernetDevice,
+			}},
+		},
+		"",
+	)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	toBridge, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(toBridge, tc.HasLen, 0)
+}
+
+// TestDevicesToBridgeAutoMethodNoSupportDoesNotBridgeHostDevice ensures
+// that with the unset "auto" method on a provider without container
+// address support, a missing default LXD bridge is never compensated for
+// by bridging host devices: the space requirements are reported
+// unsatisfiable so the caller retries, giving the host agent time to
+// report the bridge.
+func (s *containerSuite) TestDevicesToBridgeAutoMethodNoSupportDoesNotBridgeHostDevice(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "eth0",
+				Type: corenetwork.EthernetDevice,
+			}},
+		},
+		"",
+	)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
+}
+
+// TestDevicesToBridgeAutoMethodContainerAddressSupport ensures that the
+// unset "auto" method on a provider that supports allocating container
+// addresses uses provider networking, bridging host devices as required.
+func (s *containerSuite) TestDevicesToBridgeAutoMethodContainerAddressSupport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name:       "eth0",
+				Type:       corenetwork.EthernetDevice,
+				MACAddress: new("aa:bb:cc:dd:ee:ff"),
+			}},
+		},
+		"",
+	)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	toBridge, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(toBridge, tc.HasLen, 1)
+	c.Check(toBridge[0].DeviceName, tc.Equals, "eth0")
+	c.Check(toBridge[0].BridgeName, tc.Equals, "br-eth0")
+	c.Check(toBridge[0].MACAddress, tc.Equals, "aa:bb:cc:dd:ee:ff")
+}
+
+// TestDevicesToBridgeAutoMethodProviderNotSupported ensures the unset
+// "auto" method resolves to local networking when the provider does not
+// implement the networking capability at all.
+func (s *containerSuite) TestDevicesToBridgeAutoMethodProviderNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// Replace the provider getter with one whose provider does not
+	// support the networking capability.
+	s.svc = NewProviderService(
+		s.st,
+		func(ctx context.Context) (ProviderWithNetworking, error) {
+			return nil, internalerrors.Errorf(
+				"provider type %T %w", ProviderWithNetworking(nil), coreerrors.NotSupported,
+			)
+		},
+		nil, // No provider with zones needed for this suite.
+		loggertesting.WrapCheckLog(c),
+	)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		"",
+	)
+
+	toBridge, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(toBridge, tc.HasLen, 0)
+}
+
+// TestDevicesToBridgeNetworkingMethodNotValid ensures an unknown raw
+// model config value is rejected rather than silently treated as
+// provider networking.
+func (s *containerSuite) TestDevicesToBridgeNetworkingMethodNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c, nil, nil, "bogus")
+
+	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -885,6 +1027,89 @@ func (s *containerSuite) TestDevicesForGuestNetworkingMethodError(c *tc.C) {
 
 	_, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
 	c.Check(err, tc.ErrorIs, methodErr)
+}
+
+// TestDevicesForGuestAutoMethodNoContainerAddressSupport covers the
+// default configuration: the unset "auto" method resolved against a
+// provider that cannot allocate container addresses (e.g. EC2). The guest
+// device is parented to the default LXD bridge with DHCP addressing.
+func (s *containerSuite) TestDevicesForGuestAutoMethodNoContainerAddressSupport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The default LXD bridge is observed, but its subnet is not
+	// registered with Juju, so it is reported in no space.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		"",
+	)
+	// The provider capability is consulted once to resolve the auto
+	// method, and once to determine the guest device addressing.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.Name, tc.Equals, "eth0")
+	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "")
+	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
+// TestDevicesForGuestAutoMethodProviderNotSupported ensures the unset
+// "auto" method resolves to local networking when the provider does not
+// implement the networking capability at all, and the guest device is
+// parented to the default LXD bridge with DHCP addressing.
+func (s *containerSuite) TestDevicesForGuestAutoMethodProviderNotSupported(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// Replace the provider getter with one whose provider does not
+	// support the networking capability.
+	s.svc = NewProviderService(
+		s.st,
+		func(ctx context.Context) (ProviderWithNetworking, error) {
+			return nil, internalerrors.Errorf(
+				"provider type %T %w", ProviderWithNetworking(nil), coreerrors.NotSupported,
+			)
+		},
+		nil, // No provider with zones needed for this suite.
+		loggertesting.WrapCheckLog(c),
+	)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		"",
+	)
+
+	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addrs, tc.HasLen, 1)
+	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
 func (s *containerSuite) TestDevicesForGuestNoSpaces(c *tc.C) {
