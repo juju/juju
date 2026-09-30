@@ -49,12 +49,12 @@ type MachineState interface {
 	GetInstanceLife(ctx context.Context, mUUID string) (life.Life, error)
 
 	// MarkMachineAsDead marks the machine with the input UUID as dead.
+	// A machine removal job is scheduled in the same transaction, unless
+	// one has been scheduled already.
 	MarkMachineAsDead(ctx context.Context, mUUID string) error
 
 	// DeleteMachine deletes the specified machine and any dependent child
-	// records. If the machine is a child machine and its parent is now
-	// ready for removal, a machine removal job is scheduled for the
-	// parent in the same transaction.
+	// records.
 	DeleteMachine(ctx context.Context, mName string, force bool) error
 
 	// MarkInstanceAsDead marks the machine cloud instance with the input UUID as
@@ -245,7 +245,9 @@ func (s *Service) RemoveMachine(
 
 // MarkMachineAsDead marks the machine as dead. It will not remove the machine as
 // that is a separate operation. This will advance the machines's life to dead
-// and will not allow it to be transitioned back to alive.
+// and will not allow it to be transitioned back to alive. A machine removal
+// job is scheduled in the same transaction, unless one has been scheduled
+// already.
 // The following errors are returned:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [removalerrors.EntityStillAlive] if the machine is alive.
