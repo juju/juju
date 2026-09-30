@@ -27,10 +27,10 @@ import (
 // reprovisioning preconditions, clears stale provider-observed state, and
 // moves the machine and its cloud instance back to pending. Units on the
 // machine receive new ordinals so replacement unit agents start with fresh
-// identities. Machine-scoped storage provider state is reset so the normal
-// provisioning paths can create empty replacement storage while preserving
-// Juju identity and intent.
-// Unsupported storage is rejected in the same transaction.
+// identities. Machine-scoped storage provider state is reset so normal
+// provisioning creates empty replacement storage while preserving Juju storage
+// identity and intent. Unsupported storage is rejected in the same
+// transaction.
 func (st *State) DetachLostMachineCloudInstance(
 	ctx context.Context,
 	mName string,
@@ -187,7 +187,7 @@ WHERE  name = $reprovisionUnitReplacement.name
 	}
 	replacementStateStmt, err := st.Prepare(`
 INSERT INTO unit_state (unit_uuid, uniter_state, storage_state, secret_state)
-SELECT $reprovisionUnitReplacement.new_uuid, '', storage_state, secret_state
+SELECT $reprovisionUnitReplacement.new_uuid, '', '', secret_state
 FROM   unit_state
 WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid
 `, reprovisionUnitReplacement{})
@@ -473,6 +473,18 @@ SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
 WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
 		`
 UPDATE unit_resource
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE unit_storage_directive
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE storage_unit_owner
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE storage_attachment
 SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
 WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
 		`
@@ -836,6 +848,7 @@ type reprovisionStorageTargetStatements struct {
 	volumeAttachments, volumePlans            *sqlair.Statement
 	filesystems, filesystemLogicalAttachments *sqlair.Statement
 	filesystemAttachments                     *sqlair.Statement
+	unclassifiedStorageInstances              *sqlair.Statement
 }
 
 // prepareReprovisionStorageLifeStatement returns a query for the first
@@ -1094,6 +1107,21 @@ WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
 	if err != nil {
 		return reprovisionStorageTargetStatements{}, errors.Capture(err)
 	}
+	statements.unclassifiedStorageInstances, err = st.Prepare(`
+SELECT sa.storage_instance_uuid AS &reprovisionStorageLogicalAttachment.entity_uuid
+FROM   storage_attachment AS sa
+JOIN   unit AS u ON sa.unit_uuid = u.uuid
+LEFT JOIN storage_instance_volume AS siv
+       ON sa.storage_instance_uuid = siv.storage_instance_uuid
+LEFT JOIN storage_instance_filesystem AS sif
+       ON sa.storage_instance_uuid = sif.storage_instance_uuid
+WHERE  u.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+AND    siv.storage_instance_uuid IS NULL
+AND    sif.storage_instance_uuid IS NULL
+LIMIT 1`, reprovisionStorageTargetParams{}, reprovisionStorageLogicalAttachment{})
+	if err != nil {
+		return reprovisionStorageTargetStatements{}, errors.Capture(err)
+	}
 	return statements, nil
 }
 
@@ -1131,6 +1159,20 @@ func (st *State) getReprovisionStorageTargets(
 	statements reprovisionStorageTargetStatements,
 	params reprovisionStorageTargetParams,
 ) (reprovisionStorageTargets, error) {
+	var unclassifiedStorageInstance reprovisionStorageLogicalAttachment
+	if err := tx.Query(ctx, statements.unclassifiedStorageInstances, params).Get(
+		&unclassifiedStorageInstance,
+	); err == nil {
+		return reprovisionStorageTargets{}, errors.Errorf(
+			"storage instance %q: %w", unclassifiedStorageInstance.EntityUUID,
+			machineerrors.StorageScopeAmbiguous,
+		)
+	} else if !errors.Is(err, sqlair.ErrNoRows) {
+		return reprovisionStorageTargets{}, errors.Errorf(
+			"querying unclassified storage instances: %w", err,
+		)
+	}
+
 	var volumeRows []reprovisionStorageEntityTarget
 	if err := tx.Query(ctx, statements.volumes, params).GetAll(&volumeRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return reprovisionStorageTargets{}, errors.Errorf("querying attached volumes: %w", err)
@@ -1335,7 +1377,7 @@ AND NOT EXISTS (
     WHERE sva.block_device_uuid = block_device.uuid
 )`},
 		// Clear the old provider realization while retaining the Juju volume
-		// identity.
+		// identity and logical storage intent.
 		{stmt: &statements.volumes, query: `
 UPDATE storage_volume
 SET provider_id = NULL,
@@ -1355,8 +1397,8 @@ ON CONFLICT (volume_uuid) DO UPDATE SET
     status_id = excluded.status_id,
     message = excluded.message,
     updated_at = excluded.updated_at`},
-		// Clear the old provider realization while retaining the filesystem
-		// identity.
+		// Clear the old provider realization while retaining the Juju filesystem
+		// identity and logical storage intent.
 		{stmt: &statements.filesystems, query: `
 UPDATE storage_filesystem
 SET provider_id = NULL,

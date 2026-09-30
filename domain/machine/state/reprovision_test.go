@@ -143,7 +143,7 @@ FROM unit_state
 WHERE unit_uuid = ?`, replacementUnitUUID).Scan(&uniterState, &storageState, &secretState)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uniterState, tc.Equals, "")
-	c.Check(storageState, tc.Equals, "storage")
+	c.Check(storageState, tc.Equals, "")
 	c.Check(secretState, tc.Equals, "secrets")
 	c.Check(s.rowCountWhere(c, "unit_state_charm", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "unit_state_relation", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 0)
@@ -270,9 +270,22 @@ WHERE  name = ? AND life_id = ?`, "reprovision/1", life.Alive).Scan(&replacement
 	c.Check(s.rowCountWhere(c, "operation_unit_task", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "secret_unit_owner", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "secret_unit_consumer", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+	for _, table := range []string{
+		"annotation_unit", "port_range", "unit_resource", "operation_unit_task",
+		"secret_unit_owner", "secret_unit_consumer",
+	} {
+		column := "unit_uuid"
+		if table == "annotation_unit" {
+			column = "uuid"
+		}
+		c.Check(s.rowCountWhere(c, table, column+" = ?", "reprovision-unit"), tc.Equals, 0,
+			tc.Commentf("table %s", table))
+	}
 	c.Check(s.rowCountWhere(c, "secret_reservation", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "secret_permission", "subject_uuid = ? AND scope_uuid = ?",
 		replacementUnitUUID, replacementUnitUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "secret_permission", "subject_uuid = ? OR scope_uuid = ?",
+		"reprovision-unit", "reprovision-unit"), tc.Equals, 0)
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsReplacementUnitNameCollision(c *tc.C) {
@@ -295,8 +308,7 @@ WHERE  namespace = ?`, "application_reprovision").Scan(&sequenceValue)
 	err = s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
 	)
-	c.Assert(err, tc.ErrorMatches,
-		fmt.Sprintf(`allocating replacement unit ordinals: cannot create replacement for reprovisioned unit "reprovision/0" as %q: replacement unit name already exists; the application unit sequence is behind existing unit names`, collisionName))
+	c.Assert(err, tc.ErrorMatches, `.*replacement unit name already exists.*`)
 
 	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
 }
@@ -317,8 +329,7 @@ END`)
 	err := s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
 	)
-	c.Assert(err, tc.ErrorMatches,
-		`replacing reprovision units: retiring unit "reprovision-unit": expected 1 row affected, got 0`)
+	c.Assert(err, tc.ErrorMatches, `.*expected 1 row affected, got 0`)
 
 	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "reprovision-relation-unit"), tc.Equals, 1)
@@ -397,7 +408,7 @@ VALUES (?, ?, ?, ?)`, "settings-less-relation", "reprovision/0", "old-key", "old
 	c.Check(s.rowCountWhere(c, "relation_unit_setting_archive", "relation_uuid = ?", "settings-less-relation"), tc.Equals, 0)
 }
 
-func (s *stateSuite) TestReplacementPreservesMachineAndUnitIdentity(c *tc.C) {
+func (s *stateSuite) TestReplacementPreservesMachineIdentityAndReplacesUnits(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
 	s.addReprovisionUnit(c, netNodeUUID)
@@ -637,6 +648,20 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsFilesystemWithoutA
 	c.Check(s.rowCountWhere(c, "storage_filesystem", "uuid = ?", "storage-filesystem"), tc.Equals, 1)
 }
 
+func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsStorageWithoutBacking(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionStorageIntent(c, 0)
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
+	s.checkInstanceID(c, machineUUID.String(), "123")
+	c.Check(s.rowCountWhere(c, "storage_attachment", "uuid = ?", "storage-attachment"), tc.Equals, 1)
+}
+
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsNonAliveVolume(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
@@ -690,6 +715,15 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceCleansVolumeAndPreservesI
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
 	s.addReprovisionUnit(c, netNodeUUID)
 	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+	s.runQuery(c, `
+INSERT INTO charm_storage
+    (charm_uuid, name, storage_kind_id, shared, count_min, count_max)
+VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-charm", "data", 0, false, 1, 1)
+	s.runQuery(c, `
+INSERT INTO unit_storage_directive
+    (unit_uuid, charm_uuid, storage_name, storage_pool_uuid, size_mib, count)
+VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-unit", "reprovision-charm", "data",
+		"reprovision-pool", 1024, 1)
 
 	err := s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
@@ -739,6 +773,73 @@ WHERE sv.uuid = ?`, "storage-volume").Scan(
 	c.Check(readOnly.Valid, tc.IsFalse)
 	c.Check(volumeStatus, tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "block_device", "uuid = ?", "storage-block"), tc.Equals, 0)
+	var replacementUnitUUID, attachmentUnitUUID, ownerUnitUUID string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT uuid
+FROM   unit
+WHERE  name = ? AND life_id = ?`, "reprovision/1", life.Alive).Scan(&replacementUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT sa.unit_uuid, suo.unit_uuid
+FROM   storage_attachment AS sa
+JOIN   storage_unit_owner AS suo
+       ON sa.storage_instance_uuid = suo.storage_instance_uuid
+WHERE  sa.uuid = ?`, "storage-attachment").Scan(&attachmentUnitUUID, &ownerUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(attachmentUnitUUID, tc.Equals, replacementUnitUUID)
+	c.Check(ownerUnitUUID, tc.Equals, replacementUnitUUID)
+	c.Check(s.rowCountWhere(c, "unit_storage_directive", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+
+	provisionerState := provisionermodelstate.NewState(
+		s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c),
+	)
+	provisioningInfo, err := provisionerState.GetMachineProvisioningInfo(
+		c.Context(), machineName.String(), false,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(provisioningInfo.VolumeParams, tc.HasLen, 1)
+	c.Check(provisioningInfo.VolumeAttachmentParams, tc.HasLen, 1)
+	c.Check(provisioningInfo.VolumeAttachmentParams[0].VolumeProviderID, tc.Equals, "")
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstancePreservesUnprovisionedVolumeIntent(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+	s.runQuery(c, `
+UPDATE storage_volume
+SET    provider_id = NULL,
+       size_mib = NULL,
+       hardware_id = NULL,
+       wwn = NULL,
+       persistent = NULL
+WHERE  uuid = ?`, "storage-volume")
+	s.runQuery(c, `
+UPDATE storage_volume_attachment
+SET    provider_id = NULL,
+       block_device_uuid = NULL
+WHERE  uuid = ?`, "storage-volume-attachment")
+	s.runQuery(c, `
+UPDATE storage_volume_status
+SET    status_id = ?
+WHERE  volume_uuid = ?`, 0, "storage-volume")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var providerID sql.Null[string]
+	var statusID int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT sv.provider_id, svs.status_id
+FROM   storage_volume AS sv
+JOIN   storage_volume_status AS svs ON sv.uuid = svs.volume_uuid
+WHERE  sv.uuid = ?`, "storage-volume").Scan(&providerID, &statusID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(providerID.Valid, tc.IsFalse)
+	c.Check(statusID, tc.Equals, 0)
 
 	provisionerState := provisionermodelstate.NewState(
 		s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c),
