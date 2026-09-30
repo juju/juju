@@ -40,4 +40,4 @@ sphinx-structured-toc
 
 # Architecture diagrams (docs/*.ggarch), pinned to a known-good revision.
 # Bump the revision when a diagram needs a newer renderer.
-ggarch @ git+https://github.com/tmihoc/ggarch@9462603efa202433b624a870d1f6ec97e3312e36
+ggarch @ git+https://github.com/tmihoc/ggarch@85546a97f1a572ff7469fc84bf2973e9ee4f9b44
