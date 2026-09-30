@@ -63,7 +63,7 @@ juju bootstrap cloudx
 ```
 
 ```{note}
-You may need to specify additional `bootstrap-constrains` to help juju
+You may need to specify additional `--bootstrap-constraints` to help juju
 choose the correct architecture.
 ```
 

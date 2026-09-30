@@ -7,7 +7,7 @@ myst:
 (agent)=
 # Agent
 
-In Juju, an **agent** is a {ref}`jujuagentd` / {ref}`containeragent` process that works to realise the state declared by a Juju end-user with a Juju client (e.g., {ref}`the juju CLI <juju-cli>`) for a Juju entity (e.g., {ref}`controller <controller>`, {ref}`model <model>`, {ref}`machine <machine>`, {ref}`unit <unit>`) via {ref}`workers <worker-cont>`.
+In Juju, an **agent** is a {ref}`jujuagentd` / {ref}`containeragent` process that works to realise the state declared by a Juju end-user with a Juju client (e.g., {ref}`the juju CLI <juju-cli>`) for a Juju entity (e.g., {ref}`controller <controller>`, {ref}`model <model>`, {ref}`machine <machine>`, {ref}`unit <unit>`) via [workers](https://pkg.go.dev/github.com/juju/worker/v5).
 
 On machines, an agent is managed by `systemd`.
 
