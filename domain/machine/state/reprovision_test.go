@@ -34,9 +34,10 @@ VALUES (?, ?, ?)`, "reprovision-unit", "charm-state", "value")
 	s.runQuery(c, `
 INSERT INTO unit_state_relation (unit_uuid, "key", value)
 VALUES (?, ?, ?)`, "reprovision-unit", "relation-state", "value")
+	s.runQuery(c, "INSERT INTO unit_agent_presence (unit_uuid, last_seen) VALUES (?, ?)",
+		"reprovision-unit", time.Now())
 	preservedCounts := map[string]int{
 		"application":        s.rowCount(c, "application"),
-		"unit":               s.rowCount(c, "unit"),
 		"machine_platform":   s.rowCount(c, "machine_platform"),
 		"machine_constraint": s.rowCount(c, "machine_constraint"),
 		"machine_placement":  s.rowCount(c, "machine_placement"),
@@ -125,18 +126,41 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 	for table, count := range preservedCounts {
 		c.Check(s.rowCount(c, table), tc.Equals, count, tc.Commentf("table %s", table))
 	}
-	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 2)
+	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ? AND life_id = ?",
+		"reprovision-unit", "reprovision/0", life.Dead), tc.Equals, 1)
+	var replacementUnitUUID string
+	err = db.QueryRowContext(c.Context(), `
+SELECT uuid
+FROM   unit
+WHERE  name = ? AND life_id = ?`, "reprovision/1", life.Alive).Scan(&replacementUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(replacementUnitUUID, tc.Not(tc.Equals), "reprovision-unit")
 	var uniterState, storageState, secretState string
 	err = db.QueryRowContext(c.Context(), `
 SELECT uniter_state, storage_state, secret_state
 FROM unit_state
-WHERE unit_uuid = ?`, "reprovision-unit").Scan(&uniterState, &storageState, &secretState)
+WHERE unit_uuid = ?`, replacementUnitUUID).Scan(&uniterState, &storageState, &secretState)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uniterState, tc.Equals, "")
 	c.Check(storageState, tc.Equals, "storage")
 	c.Check(secretState, tc.Equals, "secrets")
-	c.Check(s.rowCountWhere(c, "unit_state_charm", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
-	c.Check(s.rowCountWhere(c, "unit_state_relation", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "unit_state_charm", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "unit_state_relation", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "unit_agent_presence", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	var agentStatusID, workloadStatusID int
+	var workloadMessage string
+	err = db.QueryRowContext(c.Context(), `
+SELECT uas.status_id, uws.status_id, uws.message
+FROM   unit_agent_status AS uas
+JOIN   unit_workload_status AS uws ON uas.unit_uuid = uws.unit_uuid
+WHERE  uas.unit_uuid = ?`, replacementUnitUUID).Scan(
+		&agentStatusID, &workloadStatusID, &workloadMessage,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(agentStatusID, tc.Equals, int(domainstatus.UnitAgentStatusAllocating))
+	c.Check(workloadStatusID, tc.Equals, int(domainstatus.WorkloadStatusWaiting))
+	c.Check(workloadMessage, tc.Equals, "waiting for machine")
 
 	var reprovisionMachineName string
 	err = db.QueryRowContext(c.Context(), `
@@ -170,10 +194,85 @@ VALUES (?, ?, 0, ?, ?, ?)`, unitUUID, "reprovision/"+ordinal,
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/9"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ? AND life_id = ?",
+		"reprovision-unit", "reprovision/2", life.Dead), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "unit", "name = ? AND life_id = ?", "reprovision/9", life.Alive), tc.Equals, 1)
 	for _, ordinal := range []string{"1", "5", "6", "7"} {
 		c.Check(s.rowCountWhere(c, "unit", "name = ?", "reprovision/"+ordinal), tc.Equals, 1)
 	}
+}
+
+func (s *stateSuite) TestDetachLostMachineCloudInstanceTransfersUnitData(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.runQuery(c, `
+INSERT INTO annotation_unit (uuid, "key", value)
+VALUES (?, ?, ?)`, "reprovision-unit", "operator-note", "keep")
+	s.runQuery(c, `
+INSERT INTO port_range (uuid, protocol_id, from_port, to_port, unit_uuid)
+VALUES (?, ?, ?, ?, ?)`, "reprovision-port", 1, 8080, 8080, "reprovision-unit")
+	s.runQuery(c, `
+INSERT INTO charm_resource (charm_uuid, name, kind_id)
+VALUES (?, ?, ?)`, "reprovision-charm", "resource", 0)
+	s.runQuery(c, `
+INSERT INTO resource (uuid, charm_uuid, charm_resource_name, origin_type_id, state_id, created_at)
+VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-resource", "reprovision-charm", "resource", 0, 0, time.Now())
+	s.runQuery(c, `
+INSERT INTO unit_resource (resource_uuid, unit_uuid, added_at)
+VALUES (?, ?, ?)`, "reprovision-resource", "reprovision-unit", time.Now())
+	s.runQuery(c, `
+INSERT INTO operation (uuid, operation_id, enqueued_at)
+VALUES (?, ?, ?)`, "reprovision-operation", 1, time.Now())
+	s.runQuery(c, `
+INSERT INTO operation_task (uuid, operation_uuid, task_id, enqueued_at)
+VALUES (?, ?, ?, ?)`, "reprovision-operation-task", "reprovision-operation", "1", time.Now())
+	s.runQuery(c, `
+INSERT INTO operation_unit_task (task_uuid, unit_uuid)
+VALUES (?, ?)`, "reprovision-operation-task", "reprovision-unit")
+	s.runQuery(c, "INSERT INTO secret (id) VALUES (?)", "reprovision-secret")
+	s.runQuery(c, `
+INSERT INTO secret_metadata
+    (secret_id, version, rotate_policy_id, auto_prune, create_time, update_time)
+VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-secret", 1, 0, false, time.Now(), time.Now())
+	s.runQuery(c, `
+INSERT INTO secret_unit_owner (secret_id, unit_uuid, label)
+VALUES (?, ?, ?)`, "reprovision-secret", "reprovision-unit", "owned")
+	s.runQuery(c, `
+INSERT INTO secret_unit_consumer
+    (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES (?, ?, ?, ?, ?)`, "reprovision-secret", "model", "reprovision-unit", "consumed", 1)
+	s.runQuery(c, `
+INSERT INTO secret_reservation (secret_id, unit_uuid, created_at)
+VALUES (?, ?, ?)`, "reprovision-secret-reservation", "reprovision-unit", time.Now())
+	s.runQuery(c, `
+INSERT INTO secret_permission
+    (secret_id, role_id, subject_uuid, subject_type_id, scope_uuid, scope_type_id)
+VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-secret", 2, "reprovision-unit", 0,
+		"reprovision-unit", 0)
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var replacementUnitUUID string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT uuid
+FROM   unit
+WHERE  name = ? AND life_id = ?`, "reprovision/1", life.Alive).Scan(&replacementUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.rowCountWhere(c, "annotation_unit", "uuid = ? AND \"key\" = ?",
+		replacementUnitUUID, "operator-note"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "port_range", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "unit_resource", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "operation_unit_task", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "secret_unit_owner", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "secret_unit_consumer", "unit_uuid = ?", replacementUnitUUID), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "secret_reservation", "unit_uuid = ?", "reprovision-unit"), tc.Equals, 0)
+	c.Check(s.rowCountWhere(c, "secret_permission", "subject_uuid = ? AND scope_uuid = ?",
+		replacementUnitUUID, replacementUnitUUID), tc.Equals, 1)
 }
 
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsReplacementUnitNameCollision(c *tc.C) {
@@ -197,7 +296,7 @@ WHERE  namespace = ?`, "application_reprovision").Scan(&sequenceValue)
 		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
 	)
 	c.Assert(err, tc.ErrorMatches,
-		fmt.Sprintf(`allocating replacement unit ordinals: cannot rename reprovisioned unit "reprovision/0" to %q: replacement unit name already exists; the application unit sequence is behind existing unit names`, collisionName))
+		fmt.Sprintf(`allocating replacement unit ordinals: cannot create replacement for reprovisioned unit "reprovision/0" as %q: replacement unit name already exists; the application unit sequence is behind existing unit names`, collisionName))
 
 	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
 }
@@ -219,7 +318,7 @@ END`)
 		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
 	)
 	c.Assert(err, tc.ErrorMatches,
-		`renaming reprovision units: renaming unit "reprovision-unit": expected 1 row affected, got 0`)
+		`replacing reprovision units: retiring unit "reprovision-unit": expected 1 row affected, got 0`)
 
 	c.Check(s.rowCountWhere(c, "unit", "uuid = ? AND name = ?", "reprovision-unit", "reprovision/0"), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "relation_unit", "uuid = ?", "reprovision-relation-unit"), tc.Equals, 1)
@@ -303,6 +402,8 @@ func (s *stateSuite) TestReplacementPreservesMachineAndUnitIdentity(c *tc.C) {
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
 	s.addReprovisionUnit(c, netNodeUUID)
 	s.addReprovisionUnitOnMachine(c, "second", netNodeUUID)
+	s.runQuery(c, "INSERT INTO unit_principal (unit_uuid, principal_uuid) VALUES (?, ?)",
+		"second-unit", "reprovision-unit")
 	s.runQuery(c, `
 UPDATE machine
 SET hostname = ?, agent_started_at = ?, password_hash_algorithm_id = 0,
@@ -360,26 +461,43 @@ WHERE m.uuid = ?`, machineUUID.String()).Scan(
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(replacementMachineUUID, tc.Equals, machineUUID)
 
-	var unitUUID, unitName, unitNetNode string
+	var oldUnitName, oldUnitNetNode string
 	var unitLife int
 	err = s.DB().QueryRowContext(c.Context(), `
-SELECT uuid, name, life_id, net_node_uuid
+SELECT name, life_id, net_node_uuid
 FROM unit
 WHERE uuid = ?`, "reprovision-unit").Scan(
-		&unitUUID, &unitName, &unitLife, &unitNetNode,
+		&oldUnitName, &unitLife, &oldUnitNetNode,
 	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(unitUUID, tc.Equals, "reprovision-unit")
-	c.Check(unitName, tc.Equals, "reprovision/1")
-	c.Check(unitLife, tc.Equals, 0)
-	c.Check(unitNetNode, tc.Equals, netNodeUUID)
+	c.Check(oldUnitName, tc.Equals, "reprovision/0")
+	c.Check(unitLife, tc.Equals, int(life.Dead))
+	c.Check(oldUnitNetNode, tc.Equals, netNodeUUID)
 
-	var secondUnitName string
-	err = s.DB().QueryRowContext(c.Context(), "SELECT name FROM unit WHERE uuid = ?", "second-unit").Scan(&secondUnitName)
+	var replacementUnitUUID, replacementUnitNetNode string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT uuid, net_node_uuid
+FROM   unit
+WHERE  name = ? AND life_id = ?`, "reprovision/1", life.Alive).Scan(
+		&replacementUnitUUID, &replacementUnitNetNode,
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(secondUnitName, tc.Equals, "reprovision/2")
+	c.Check(replacementUnitUUID, tc.Not(tc.Equals), "reprovision-unit")
+	c.Check(replacementUnitNetNode, tc.Equals, netNodeUUID)
 
-	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 2)
+	var replacementSecondUnitUUID, replacementPrincipalUUID string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT u.uuid, up.principal_uuid
+FROM   unit AS u
+JOIN   unit_principal AS up ON u.uuid = up.unit_uuid
+WHERE  u.name = ? AND u.life_id = ?`, "reprovision/2", life.Alive).Scan(
+		&replacementSecondUnitUUID, &replacementPrincipalUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(replacementSecondUnitUUID, tc.Not(tc.Equals), "second-unit")
+	c.Check(replacementPrincipalUUID, tc.Equals, replacementUnitUUID)
+
+	c.Check(s.rowCountWhere(c, "unit", "net_node_uuid = ?", netNodeUUID), tc.Equals, 4)
 	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "machine", "name = ?", machineName.String()), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "instance_tag", "machine_uuid = ? AND tag = ?",

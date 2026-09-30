@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	corestatus "github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
@@ -110,53 +111,114 @@ VALUES ($machineReprovision.*)
 	targetUnitsStmt, err := st.Prepare(`
 SELECT u.uuid AS &reprovisionUnit.uuid,
        u.name AS &reprovisionUnit.name,
-       a.name AS &reprovisionUnit.application_name
+       a.name AS &reprovisionUnit.application_name,
+       u.application_uuid AS &reprovisionUnit.application_uuid,
+       u.net_node_uuid AS &reprovisionUnit.net_node_uuid,
+       u.charm_uuid AS &reprovisionUnit.charm_uuid,
+       COALESCE(up.principal_uuid, '') AS &reprovisionUnit.principal_uuid
 FROM   unit AS u
 JOIN   application AS a ON u.application_uuid = a.uuid
 JOIN   machine AS m ON u.net_node_uuid = m.net_node_uuid
+LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
 WHERE  m.uuid = $entityUUID.uuid
 ORDER BY u.name
 `, entityUUID{}, reprovisionUnit{})
 	if err != nil {
 		return errors.Errorf("preparing reprovision unit query: %w", err)
 	}
-	renameUnitStmt, err := st.Prepare(`
+	markReplacementUnitStmt, err := st.Prepare(`
 UPDATE unit
-SET    name = $reprovisionUnitRename.name
-WHERE  uuid = $reprovisionUnitRename.uuid
-`, reprovisionUnitRename{})
+SET    life_id = $reprovisionUnitReplacement.dead_life_id,
+       password_hash = NULL,
+       password_hash_algorithm_id = NULL
+WHERE  uuid = $reprovisionUnitReplacement.old_uuid
+`, reprovisionUnitReplacement{})
 	if err != nil {
-		return errors.Errorf("preparing reprovision unit rename: %w", err)
+		return errors.Errorf("preparing reprovision unit retirement: %w", err)
+	}
+	createReplacementUnitStmt, err := st.Prepare(`
+INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid)
+VALUES ($reprovisionUnitReplacement.new_uuid,
+        $reprovisionUnitReplacement.name,
+        0,
+        $reprovisionUnitReplacement.application_uuid,
+        $reprovisionUnitReplacement.net_node_uuid,
+        $reprovisionUnitReplacement.charm_uuid)
+`, reprovisionUnitReplacement{})
+	if err != nil {
+		return errors.Errorf("preparing replacement unit creation: %w", err)
+	}
+	deleteUnitPresenceStmt, err := st.Prepare(`
+DELETE FROM unit_agent_presence
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid
+`, reprovisionUnitReplacement{})
+	if err != nil {
+		return errors.Errorf("preparing retired unit presence cleanup: %w", err)
+	}
+	setReplacementAgentStatusStmt, err := st.Prepare(`
+INSERT INTO unit_agent_status (unit_uuid, status_id, message, data, updated_at)
+VALUES ($reprovisionUnitReplacement.new_uuid,
+        $reprovisionUnitReplacement.agent_status_id,
+        NULL,
+        NULL,
+        $reprovisionUnitReplacement.updated_at)
+`, reprovisionUnitReplacement{})
+	if err != nil {
+		return errors.Errorf("preparing replacement unit agent status: %w", err)
+	}
+	setReplacementWorkloadStatusStmt, err := st.Prepare(`
+INSERT INTO unit_workload_status (unit_uuid, status_id, message, data, updated_at)
+VALUES ($reprovisionUnitReplacement.new_uuid,
+        $reprovisionUnitReplacement.workload_status_id,
+        $reprovisionUnitReplacement.workload_message,
+        NULL,
+        $reprovisionUnitReplacement.updated_at)
+`, reprovisionUnitReplacement{})
+	if err != nil {
+		return errors.Errorf("preparing replacement unit workload status: %w", err)
 	}
 	unitNameExistsStmt, err := st.Prepare(`
-SELECT name AS &reprovisionUnitRename.name
+SELECT name AS &reprovisionUnitReplacement.name
 FROM   unit
-WHERE  name = $reprovisionUnitRename.name
-`, reprovisionUnitRename{})
+WHERE  name = $reprovisionUnitReplacement.name
+`, reprovisionUnitReplacement{})
 	if err != nil {
 		return errors.Errorf("preparing replacement unit name query: %w", err)
 	}
-	resetUnitUniterStateStmt, err := st.Prepare(`
-UPDATE unit_state
-SET    uniter_state = ''
-WHERE  unit_uuid = $reprovisionUnitRename.uuid
-`, reprovisionUnitRename{})
+	replacementStateStmt, err := st.Prepare(`
+INSERT INTO unit_state (unit_uuid, uniter_state, storage_state, secret_state)
+SELECT $reprovisionUnitReplacement.new_uuid, '', storage_state, secret_state
+FROM   unit_state
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid
+`, reprovisionUnitReplacement{})
 	if err != nil {
-		return errors.Errorf("preparing reprovision unit state reset: %w", err)
+		return errors.Errorf("preparing replacement unit state creation: %w", err)
 	}
 	resetUnitCharmStateStmt, err := st.Prepare(`
 DELETE FROM unit_state_charm
-WHERE       unit_uuid = $reprovisionUnitRename.uuid
-`, reprovisionUnitRename{})
+WHERE       unit_uuid = $reprovisionUnitReplacement.old_uuid
+`, reprovisionUnitReplacement{})
 	if err != nil {
 		return errors.Errorf("preparing reprovision unit charm state reset: %w", err)
 	}
 	resetUnitRelationStateStmt, err := st.Prepare(`
 DELETE FROM unit_state_relation
-WHERE       unit_uuid = $reprovisionUnitRename.uuid
-`, reprovisionUnitRename{})
+WHERE       unit_uuid = $reprovisionUnitReplacement.old_uuid
+`, reprovisionUnitReplacement{})
 	if err != nil {
 		return errors.Errorf("preparing reprovision unit relation state reset: %w", err)
+	}
+	transferUnitStatements, err := st.prepareReprovisionUnitTransferStatements()
+	if err != nil {
+		return errors.Errorf("preparing replacement unit data transfer: %w", err)
+	}
+	insertUnitPrincipalStmt, err := st.Prepare(`
+INSERT INTO unit_principal (unit_uuid, principal_uuid)
+VALUES ($reprovisionUnitReplacement.new_uuid,
+        $reprovisionUnitReplacement.old_uuid)
+`, reprovisionUnitReplacement{})
+	if err != nil {
+		return errors.Errorf("preparing replacement unit principal creation: %w", err)
 	}
 	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
 	if err != nil {
@@ -203,8 +265,8 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 			return errors.Capture(err)
 		}
 		machineUUID := entityUUID{UUID: target.UUID}
-		unitRenames, err := st.allocateReprovisionUnitRenames(
-			ctx, tx, targetUnitsStmt, unitNameExistsStmt, machineUUID,
+		unitReplacements, err := st.allocateReprovisionUnitReplacements(
+			ctx, tx, targetUnitsStmt, unitNameExistsStmt, machineUUID, updatedAt,
 		)
 		if err != nil {
 			return errors.Errorf("allocating replacement unit ordinals: %w", err)
@@ -228,12 +290,15 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 		if err := runReprovisionStatements(ctx, tx, relationScopeStmts, machineUUID); err != nil {
 			return errors.Errorf("departing relation scopes: %w", err)
 		}
-		if err := st.renameReprovisionUnits(
-			ctx, tx, unitRenames, renameUnitStmt,
-			resetUnitUniterStateStmt, resetUnitCharmStateStmt,
-			resetUnitRelationStateStmt,
+		if err := st.replaceReprovisionUnits(
+			ctx, tx, unitReplacements, markReplacementUnitStmt,
+			createReplacementUnitStmt, deleteUnitPresenceStmt,
+			setReplacementAgentStatusStmt, setReplacementWorkloadStatusStmt,
+			replacementStateStmt,
+			resetUnitCharmStateStmt, resetUnitRelationStateStmt,
+			transferUnitStatements, insertUnitPrincipalStmt,
 		); err != nil {
-			return errors.Errorf("renaming reprovision units: %w", err)
+			return errors.Errorf("replacing reprovision units: %w", err)
 		}
 
 		if err := runReprovisionStatements(ctx, tx, machineDataStmts, machineUUID); err != nil {
@@ -264,12 +329,13 @@ WHERE       unit_uuid = $reprovisionUnitRename.uuid
 	})
 }
 
-func (st *State) allocateReprovisionUnitRenames(
+func (st *State) allocateReprovisionUnitReplacements(
 	ctx context.Context,
 	tx *sqlair.TX,
 	targetUnitsStmt, unitNameExistsStmt *sqlair.Statement,
 	machineUUID entityUUID,
-) ([]reprovisionUnitRename, error) {
+	updatedAt time.Time,
+) ([]reprovisionUnitReplacement, error) {
 	var units []reprovisionUnit
 	if err := tx.Query(ctx, targetUnitsStmt, machineUUID).GetAll(&units); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -278,7 +344,7 @@ func (st *State) allocateReprovisionUnitRenames(
 		return nil, errors.Errorf("getting machine units: %w", err)
 	}
 
-	renames := make([]reprovisionUnitRename, 0, len(units))
+	replacements := make([]reprovisionUnitReplacement, 0, len(units))
 	for _, unit := range units {
 		namespace := sequence.MakePrefixNamespace(
 			domainapplication.ApplicationSequenceNamespace, unit.ApplicationName,
@@ -291,64 +357,174 @@ func (st *State) allocateReprovisionUnitRenames(
 		if err != nil {
 			return nil, errors.Errorf("creating replacement unit name: %w", err)
 		}
-		rename := reprovisionUnitRename{
-			UUID: unit.UUID,
-			Name: name.String(),
+		newUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Errorf("generating replacement unit UUID: %w", err)
 		}
-		var existing reprovisionUnitRename
-		if err := tx.Query(ctx, unitNameExistsStmt, rename).Get(&existing); err == nil {
-			return nil, replacementUnitNameCollisionError(unit.Name, rename.Name)
+		replacement := reprovisionUnitReplacement{
+			OldUUID:          unit.UUID,
+			NewUUID:          newUUID.String(),
+			PrincipalOldUUID: unit.PrincipalUUID,
+			Name:             name.String(),
+			ApplicationUUID:  unit.ApplicationUUID,
+			NetNodeUUID:      unit.NetNodeUUID,
+			CharmUUID:        unit.CharmUUID,
+			DeadLifeID:       int(life.Dead),
+			AgentStatusID:    int(domainstatus.UnitAgentStatusAllocating),
+			WorkloadStatusID: int(domainstatus.WorkloadStatusWaiting),
+			WorkloadMessage:  corestatus.MessageWaitForMachine,
+			UpdatedAt:        &updatedAt,
+		}
+		var existing reprovisionUnitReplacement
+		if err := tx.Query(ctx, unitNameExistsStmt, replacement).Get(&existing); err == nil {
+			return nil, replacementUnitNameCollisionError(unit.Name, replacement.Name)
 		} else if !errors.Is(err, sqlair.ErrNoRows) {
-			return nil, errors.Errorf("checking replacement unit name %q: %w", rename.Name, err)
+			return nil, errors.Errorf("checking replacement unit name %q: %w", replacement.Name, err)
 		}
-		renames = append(renames, rename)
+		replacements = append(replacements, replacement)
 	}
-	return renames, nil
+	return replacements, nil
 }
 
-func (st *State) renameReprovisionUnits(
+func (st *State) replaceReprovisionUnits(
 	ctx context.Context,
 	tx *sqlair.TX,
-	renames []reprovisionUnitRename,
-	renameUnitStmt, resetUnitUniterStateStmt, resetUnitCharmStateStmt,
+	replacements []reprovisionUnitReplacement,
+	markUnitStmt, createUnitStmt, deleteUnitPresenceStmt,
+	setAgentStatusStmt, setWorkloadStatusStmt, stateStmt, resetUnitCharmStateStmt,
 	resetUnitRelationStateStmt *sqlair.Statement,
+	transferStatements []*sqlair.Statement,
+	insertUnitPrincipalStmt *sqlair.Statement,
 ) error {
-	for _, rename := range renames {
+	replacementByOldUUID := make(map[string]reprovisionUnitReplacement, len(replacements))
+	for _, replacement := range replacements {
+		replacementByOldUUID[replacement.OldUUID] = replacement
+	}
+
+	for _, replacement := range replacements {
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, renameUnitStmt, rename).Get(&outcome); err != nil {
-			return errors.Errorf("renaming unit %q: %w", rename.UUID, err)
+		if err := tx.Query(ctx, markUnitStmt, replacement).Get(&outcome); err != nil {
+			return errors.Errorf("retiring unit %q: %w", replacement.OldUUID, err)
 		}
 		if affected, err := outcome.Result().RowsAffected(); err != nil {
-			return errors.Errorf("checking renamed unit %q: %w", rename.UUID, err)
+			return errors.Errorf("checking retired unit %q: %w", replacement.OldUUID, err)
 		} else if affected != 1 {
 			return errors.Errorf(
-				"renaming unit %q: expected 1 row affected, got %d",
-				rename.UUID, affected,
+				"retiring unit %q: expected 1 row affected, got %d",
+				replacement.OldUUID, affected,
 			)
 		}
-		if err := tx.Query(ctx, resetUnitUniterStateStmt, reprovisionUnitRename{
-			UUID: rename.UUID,
-		}).Run(); err != nil {
-			return errors.Errorf("resetting unit state %q: %w", rename.UUID, err)
+		if err := tx.Query(ctx, createUnitStmt, replacement).Run(); err != nil {
+			return errors.Errorf("creating replacement unit %q: %w", replacement.NewUUID, err)
 		}
-		if err := tx.Query(ctx, resetUnitCharmStateStmt, reprovisionUnitRename{
-			UUID: rename.UUID,
-		}).Run(); err != nil {
-			return errors.Errorf("resetting unit charm state %q: %w", rename.UUID, err)
+		if err := tx.Query(ctx, deleteUnitPresenceStmt, replacement).Run(); err != nil {
+			return errors.Errorf("clearing retired unit presence %q: %w", replacement.OldUUID, err)
 		}
-		if err := tx.Query(ctx, resetUnitRelationStateStmt, reprovisionUnitRename{
-			UUID: rename.UUID,
-		}).Run(); err != nil {
-			return errors.Errorf("resetting unit relation state %q: %w", rename.UUID, err)
+		if err := tx.Query(ctx, setAgentStatusStmt, replacement).Run(); err != nil {
+			return errors.Errorf("setting replacement unit agent status %q: %w", replacement.NewUUID, err)
+		}
+		if err := tx.Query(ctx, setWorkloadStatusStmt, replacement).Run(); err != nil {
+			return errors.Errorf("setting replacement unit workload status %q: %w", replacement.NewUUID, err)
+		}
+		if err := tx.Query(ctx, stateStmt, replacement).Run(); err != nil {
+			return errors.Errorf("creating replacement unit state %q: %w", replacement.NewUUID, err)
+		}
+		if err := tx.Query(ctx, resetUnitCharmStateStmt, replacement).Run(); err != nil {
+			return errors.Errorf("resetting retired unit charm state %q: %w", replacement.OldUUID, err)
+		}
+		if err := tx.Query(ctx, resetUnitRelationStateStmt, replacement).Run(); err != nil {
+			return errors.Errorf("resetting retired unit relation state %q: %w", replacement.OldUUID, err)
+		}
+		if err := runReprovisionStatements(ctx, tx, transferStatements, replacement); err != nil {
+			return errors.Errorf("transferring replacement unit data %q: %w", replacement.NewUUID, err)
+		}
+	}
+
+	for _, replacement := range replacements {
+		if replacement.PrincipalOldUUID == "" {
+			continue
+		}
+		principal, ok := replacementByOldUUID[replacement.PrincipalOldUUID]
+		if !ok {
+			return errors.Errorf(
+				"replacement unit %q has principal %q outside the reprovisioned machine",
+				replacement.NewUUID, replacement.PrincipalOldUUID,
+			)
+		}
+		principalLink := replacement
+		principalLink.OldUUID = principal.NewUUID
+		if err := tx.Query(ctx, insertUnitPrincipalStmt, principalLink).Run(); err != nil {
+			return errors.Errorf("recording replacement unit principal %q: %w", replacement.NewUUID, err)
 		}
 	}
 
 	return nil
 }
 
+func (st *State) prepareReprovisionUnitTransferStatements() ([]*sqlair.Statement, error) {
+	queries := []string{
+		`
+UPDATE annotation_unit
+SET    uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE port_range
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE unit_resource
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+INSERT INTO operation_unit_task (task_uuid, unit_uuid)
+SELECT task_uuid, $reprovisionUnitReplacement.new_uuid
+FROM   operation_unit_task
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+DELETE FROM operation_unit_task
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE secret_unit_owner
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+UPDATE secret_unit_consumer
+SET    unit_uuid = $reprovisionUnitReplacement.new_uuid
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+DELETE FROM secret_reservation
+WHERE  unit_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+INSERT INTO secret_permission
+    (secret_id, role_id, subject_uuid, subject_type_id, scope_uuid, scope_type_id)
+SELECT secret_id,
+       role_id,
+       CASE
+           WHEN subject_uuid = $reprovisionUnitReplacement.old_uuid
+           THEN $reprovisionUnitReplacement.new_uuid
+           ELSE subject_uuid
+       END,
+       subject_type_id,
+       CASE
+           WHEN scope_uuid = $reprovisionUnitReplacement.old_uuid
+           THEN $reprovisionUnitReplacement.new_uuid
+           ELSE scope_uuid
+       END,
+       scope_type_id
+FROM   secret_permission
+WHERE  subject_uuid = $reprovisionUnitReplacement.old_uuid
+OR     scope_uuid = $reprovisionUnitReplacement.old_uuid`,
+		`
+DELETE FROM secret_permission
+WHERE  subject_uuid = $reprovisionUnitReplacement.old_uuid
+OR     scope_uuid = $reprovisionUnitReplacement.old_uuid`,
+	}
+	return st.prepareReprovisionStatements(queries, reprovisionUnitReplacement{})
+}
+
 func replacementUnitNameCollisionError(oldName, newName string) error {
 	return errors.Errorf(
-		"cannot rename reprovisioned unit %q to %q: replacement unit name already exists; the application unit sequence is behind existing unit names",
+		"cannot create replacement for reprovisioned unit %q as %q: replacement unit name already exists; the application unit sequence is behind existing unit names",
 		oldName, newName,
 	)
 }
