@@ -105,7 +105,7 @@ func (s *relayAuthSuite) TestRelayWrapperInjectsDelegatorToken(c *tc.C) {
 	r = withAuthInfo(c.T, r, newRelayAuthInfo(&authjwt.PermissionDelegator{Token: token}))
 
 	captured := &captureJWT{}
-	wrapper := srv.sshRelayRequestWrapper(captured)
+	wrapper := srv.sshRelayMiddleware(captured)
 	wrapper.ServeHTTP(httptest.NewRecorder(), r)
 
 	c.Check(captured.ok, tc.IsTrue)
@@ -115,7 +115,7 @@ func (s *relayAuthSuite) TestRelayWrapperInjectsDelegatorToken(c *tc.C) {
 func (s *relayAuthSuite) TestRelayWrapperRejectsMissingAuthInfo(c *tc.C) {
 	srv := newRelayServer(c)
 	captured := &captureJWT{}
-	wrapper := srv.sshRelayRequestWrapper(captured)
+	wrapper := srv.sshRelayMiddleware(captured)
 
 	// No auth info in the context: the wrapper's own precondition.
 	r := httptest.NewRequest(http.MethodGet, "/ssh-relay/x.juju.local", nil)
@@ -132,7 +132,7 @@ func (s *relayAuthSuite) TestRelayWrapperRejectsMissingAuthInfo(c *tc.C) {
 func (s *relayAuthSuite) TestRelayWrapperRejectsBadDelegator(c *tc.C) {
 	srv := newRelayServer(c)
 	captured := &captureJWT{}
-	wrapper := srv.sshRelayRequestWrapper(captured)
+	wrapper := srv.sshRelayMiddleware(captured)
 
 	for _, test := range []struct {
 		name     string

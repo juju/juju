@@ -1019,7 +1019,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	if err := srv.catacomb.Add(tunnelHandler); err != nil {
 		return nil, errors.Trace(err)
 	}
-	sshTunnelHandler := srv.sshTunnelRequestWrapper(tunnelHandler)
+	sshTunnelHandler := srv.sshTunnelMiddleware(tunnelHandler)
 
 	relayHandler, err := sshproxy.NewRelayHandler(sshproxy.RelayHandlerConfig{
 		Logger:                   logger.Child("sshrelay"),
@@ -1032,7 +1032,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	if err := srv.catacomb.Add(relayHandler); err != nil {
 		return nil, errors.Trace(err)
 	}
-	sshRelayHandler := srv.sshRelayRequestWrapper(relayHandler)
+	sshRelayHandler := srv.sshRelayMiddleware(relayHandler)
 
 	// HTTP handler for application offer macaroon authentication.
 	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared, srv.shared.offersThirdPartyKeyPair, srv.mux, srv.shared.logger); err != nil {
@@ -1191,11 +1191,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	return endpoints, nil
 }
 
-// sshTunnelRequestWrapper injects the authenticated machine name into
+// sshTunnelMiddleware injects the authenticated machine name into
 // the request context for the SSH tunnel upgrade endpoint. The machine
 // identity is resolved from the HTTP authentication layer, never from the
 // request.
-func (srv *Server) sshTunnelRequestWrapper(h http.Handler) http.Handler {
+func (srv *Server) sshTunnelMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tag, err := (&httpContext{srv: srv}).authenticatedTagFromRequest(r, names.MachineTagKind)
 		if err != nil {
@@ -1213,9 +1213,9 @@ func (srv *Server) sshTunnelRequestWrapper(h http.Handler) http.Handler {
 	})
 }
 
-// sshRelayRequestWrapper injects the relay JWT into the request context
+// sshRelayMiddleware injects the relay JWT into the request context
 // for the SSH relay upgrade endpoint.
-func (srv *Server) sshRelayRequestWrapper(h http.Handler) http.Handler {
+func (srv *Server) sshRelayMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authInfo, ok := httpcontext.RequestAuthInfo(r.Context())
 		if !ok {
