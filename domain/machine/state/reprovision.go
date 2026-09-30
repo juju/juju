@@ -45,16 +45,48 @@ func (st *State) DetachLostMachineCloudInstance(
 		return errors.Capture(err)
 	}
 
-	machineNameParam := machineName{Name: mName}
-	existingReprovisionStmt, err := st.Prepare(`
+	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	instanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	params := reprovisionDetachParams{
+		machineName:      machineName{Name: mName},
+		expectedInstance: expectedInstanceID,
+		statusMessage:    statusMessage,
+		statusData:       statusData,
+		updatedAt:        updatedAt,
+		machineStatusID:  machineStatusID,
+		instanceStatusID: instanceStatusID,
+	}
+	statements, err := st.prepareReprovisionDetachStatements()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.detachLostMachineCloudInstance(ctx, tx, params, statements)
+	})
+}
+
+// prepareReprovisionDetachStatements prepares the fixed statement set before
+// entering the transaction. Retried transactions reuse these immutable
+// statements, while all database-derived values are recreated per attempt.
+func (st *State) prepareReprovisionDetachStatements() (reprovisionDetachStatements, error) {
+	var statements reprovisionDetachStatements
+
+	var err error
+	statements.existingReprovision, err = st.Prepare(`
 SELECT mr.* AS &machineReprovision.*
 FROM machine_reprovision AS mr
 WHERE mr.machine_name = $machineName.name
-`, machineNameParam, machineReprovision{})
+`, machineName{}, machineReprovision{})
 	if err != nil {
-		return errors.Errorf("preparing existing reprovision query: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing existing reprovision query: %w", err)
 	}
-	targetStmt, err := st.Prepare(`
+	statements.target, err = st.Prepare(`
 SELECT     m.uuid AS &reprovisionDetachTarget.machine_uuid,
            m.net_node_uuid AS &reprovisionDetachTarget.net_node_uuid,
            mci.instance_id AS &reprovisionDetachTarget.instance_id,
@@ -65,90 +97,54 @@ JOIN       machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
 LEFT JOIN  machine_agent_presence AS mapr ON m.uuid = mapr.machine_uuid
 WHERE      m.name = $machineName.name
 GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
-`, machineNameParam, reprovisionDetachTarget{})
+`, machineName{}, reprovisionDetachTarget{})
 	if err != nil {
-		return errors.Errorf("preparing reprovision detach target query: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing reprovision detach target query: %w", err)
 	}
-
-	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
+	statements.network, err = st.prepareReprovisionNetworkStatements()
 	if err != nil {
-		return errors.Capture(err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing network cleanup statements: %w", err)
 	}
-	instanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
+	statements.blockDevice, err = st.prepareReprovisionBlockDeviceStatements()
 	if err != nil {
-		return errors.Capture(err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing block device cleanup statements: %w", err)
 	}
-	params := reprovisionDetachParams{
-		machineName:      machineNameParam,
-		expectedInstance: expectedInstanceID,
-		statusMessage:    statusMessage,
-		statusData:       statusData,
-		updatedAt:        updatedAt,
-		machineStatusID:  machineStatusID,
-		instanceStatusID: instanceStatusID,
-	}
-	networkStmts, err := st.prepareReprovisionNetworkStatements()
+	statements.machineData, err = st.prepareReprovisionMachineDataStatements()
 	if err != nil {
-		return errors.Errorf("preparing network cleanup statements: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing machine data cleanup statements: %w", err)
 	}
-	blockDeviceStmts, err := st.prepareReprovisionBlockDeviceStatements()
+	statements.machineStatus, statements.instanceStatus, err = st.prepareReprovisionStatusStatements()
 	if err != nil {
-		return errors.Errorf("preparing block device cleanup statements: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing status statements: %w", err)
 	}
-	machineDataStmts, err := st.prepareReprovisionMachineDataStatements()
+	statements.storageLife, err = st.prepareReprovisionStorageLifeStatement()
 	if err != nil {
-		return errors.Errorf("preparing machine data cleanup statements: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing storage lifecycle statement: %w", err)
 	}
-	machineStatusStmt, instanceStatusStmt, err := st.prepareReprovisionStatusStatements()
+	statements.storageTargets, err = st.prepareReprovisionStorageTargetStatements()
 	if err != nil {
-		return errors.Errorf("preparing status statements: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing storage target statements: %w", err)
 	}
-	storageLifeStmt, err := st.prepareReprovisionStorageLifeStatement()
-	if err != nil {
-		return errors.Errorf("preparing storage lifecycle statement: %w", err)
-	}
-	storageTargetStmts, err := st.prepareReprovisionStorageTargetStatements()
-	if err != nil {
-		return errors.Errorf("preparing storage target statements: %w", err)
-	}
-	reprovisionStmt, err := st.Prepare(`
+	statements.reprovision, err = st.Prepare(`
 INSERT INTO machine_reprovision (*)
 VALUES ($machineReprovision.*)
 `, machineReprovision{})
 	if err != nil {
-		return errors.Errorf("preparing reprovision statement: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing reprovision statement: %w", err)
 	}
-	unitStmts, err := st.prepareReprovisionUnitStatements()
+	statements.units, err = st.prepareReprovisionUnitStatements()
 	if err != nil {
-		return errors.Capture(err)
+		return reprovisionDetachStatements{}, errors.Capture(err)
 	}
-	storageResetStmts, err := st.prepareReprovisionStorageResetStatements()
+	statements.storageReset, err = st.prepareReprovisionStorageResetStatements()
 	if err != nil {
-		return errors.Errorf("preparing storage reset statements: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing storage reset statements: %w", err)
 	}
-	relationScopeStmts, err := st.prepareReprovisionRelationScopeStatements()
+	statements.relationScope, err = st.prepareReprovisionRelationScopeStatements()
 	if err != nil {
-		return errors.Errorf("preparing relation scope departure statements: %w", err)
+		return reprovisionDetachStatements{}, errors.Errorf("preparing relation scope departure statements: %w", err)
 	}
-
-	statements := reprovisionDetachStatements{
-		existingReprovision: existingReprovisionStmt,
-		target:              targetStmt,
-		network:             networkStmts,
-		blockDevice:         blockDeviceStmts,
-		machineData:         machineDataStmts,
-		machineStatus:       machineStatusStmt,
-		instanceStatus:      instanceStatusStmt,
-		storageLife:         storageLifeStmt,
-		storageTargets:      storageTargetStmts,
-		reprovision:         reprovisionStmt,
-		units:               unitStmts,
-		storageReset:        storageResetStmts,
-		relationScope:       relationScopeStmts,
-	}
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.detachLostMachineCloudInstance(ctx, tx, params, statements)
-	})
+	return statements, nil
 }
 
 type reprovisionDetachParams struct {
@@ -178,6 +174,9 @@ func (st *State) detachLostMachineCloudInstance(
 	params reprovisionDetachParams,
 	statements reprovisionDetachStatements,
 ) error {
+	// Target discovery, validation, and mutation must share this transaction.
+	// Splitting them would allow a concurrent machine or unit change to leave
+	// provider state detached without a consistent replacement plan.
 	var existingReprovision machineReprovision
 	if err := tx.Query(ctx, statements.existingReprovision, params.machineName).Get(&existingReprovision); err == nil {
 		return machineerrors.MachineReprovisionAlreadyExists
@@ -433,6 +432,10 @@ func (st *State) allocateReprovisionUnitReplacements(
 		if err != nil {
 			return nil, errors.Errorf("creating replacement unit name: %w", err)
 		}
+		// TODO: UUIDs belong in the service layer. This state transaction first
+		// discovers affected units and allocates their ordinals, so moving UUID
+		// generation requires an atomic service-owned reprovision plan. A separate
+		// preflight read could become stale before this transaction commits.
 		newUUID, err := coreunit.NewUUID()
 		if err != nil {
 			return nil, errors.Errorf("generating replacement unit UUID: %w", err)
