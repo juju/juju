@@ -751,7 +751,7 @@ func (w *localConsumerWorker) handleRelationConsumption(
 		return errors.Annotatef(err, "creating unit relation workers for %q", details.UUID)
 	}
 
-	err = w.ensureSecretChangesWatcher(ctx, result.offererApplicationUUID, details.UUID)
+	err = w.ensureSecretChangesWatcher(ctx, result.offererApplicationUUID, consumingApplicationUUID, details.UUID)
 	if err != nil {
 		return errors.Annotate(err, "watching consumed secret changes")
 	}
@@ -769,14 +769,21 @@ func (w *localConsumerWorker) handleRelationConsumption(
 }
 
 func (w *localConsumerWorker) ensureSecretChangesWatcher(
-	ctx context.Context, offererApplicationUUID application.UUID, relationUUID corerelation.UUID,
+	ctx context.Context, offererApplicationUUID, consumingApplicationUUID application.UUID, relationUUID corerelation.UUID,
 ) error {
 	if w.secretChangesWatcher != nil {
 		return nil
 	}
+	// Legacy (pre-4.0) offering controllers resolve the application token
+	// as the consuming application's identity, so we must send that
+	// instead of the offering application's UUID.
+	appToken := offererApplicationUUID.String()
+	if w.remoteModelClient.IsLegacyController() {
+		appToken = consumingApplicationUUID.String()
+	}
 	var err error
 	w.secretChangesWatcher, err = w.remoteModelClient.WatchConsumedSecretsChanges(
-		ctx, offererApplicationUUID.String(), relationUUID.String(), w.offerMacaroon)
+		ctx, appToken, relationUUID.String(), w.offerMacaroon)
 	// Controller we are connecting to doesn't support secrets.
 	if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotImplemented) {
 		return nil

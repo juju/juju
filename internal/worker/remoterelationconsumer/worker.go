@@ -83,6 +83,13 @@ type RemoteModelRelationsClient interface {
 	// WatchConsumedSecretsChanges starts a watcher for any changes to secrets
 	// consumed by the specified application.
 	WatchConsumedSecretsChanges(ctx context.Context, applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
+
+	// IsLegacyController reports whether the controller hosting the remote
+	// (offering) model is running a pre-4.0 Juju version. Legacy offering
+	// controllers resolve the application token passed to
+	// WatchConsumedSecretsChanges as the consuming application's identity,
+	// rather than the offering application's UUID.
+	IsLegacyController() bool
 }
 
 // CrossModelService is an interface that groups together the local

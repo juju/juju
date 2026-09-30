@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
@@ -533,4 +534,30 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationTok
 
 	w := apiwatcher.NewSecretsRevisionWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
+}
+
+// serverVersioner is implemented by API connections that can report
+// the version of the server they are connected to.
+type serverVersioner interface {
+	ServerVersion() (semversion.Number, bool)
+}
+
+// IsLegacyController returns true if the remote model is hosted by a
+// controller running a pre-4.0 Juju version. Legacy controllers resolve
+// the application token passed to WatchConsumedSecretsChanges as the
+// consuming application's identity, rather than the offering
+// application's UUID.
+func (c *Client) IsLegacyController() bool {
+	conn, ok := c.facade.RawAPICaller().(serverVersioner)
+	if !ok {
+		// The caller cannot report the remote server version, assume
+		// the peer is a legacy controller.
+		return true
+	}
+	version, ok := conn.ServerVersion()
+	if !ok || version.Major < 4 {
+		// The remote server did not report a version, or is pre-4.0.
+		return true
+	}
+	return false
 }

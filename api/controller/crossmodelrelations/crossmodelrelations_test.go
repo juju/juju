@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
+	"github.com/juju/juju/core/semversion"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -804,4 +805,48 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 	ms, ok := s.cache.Get("rel-token")
 	c.Assert(ok, tc.IsTrue)
 	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+}
+
+// versionedAPICaller is an APICaller that can report a server version.
+type versionedAPICaller struct {
+	testing.APICallerFunc
+	version    semversion.Number
+	versionSet bool
+}
+
+func (c versionedAPICaller) ServerVersion() (semversion.Number, bool) {
+	return c.version, c.versionSet
+}
+
+func (s *CrossModelRelationsSuite) TestIsLegacyController(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		return nil
+	})
+
+	tests := []struct {
+		name     string
+		caller   base.APICallCloser
+		expected bool
+	}{{
+		name:     "legacy controller reports version 3.6",
+		caller:   versionedAPICaller{APICallerFunc: apiCaller, version: semversion.MustParse("3.6.28"), versionSet: true},
+		expected: true,
+	}, {
+		name:     "modern controller reports version 4.0",
+		caller:   versionedAPICaller{APICallerFunc: apiCaller, version: semversion.MustParse("4.0.16"), versionSet: true},
+		expected: false,
+	}, {
+		name:     "controller does not report a version",
+		caller:   versionedAPICaller{APICallerFunc: apiCaller},
+		expected: true,
+	}, {
+		name:     "caller cannot report the server version",
+		caller:   apiCaller,
+		expected: true,
+	}}
+	for _, test := range tests {
+		c.Logf("running test %q", test.name)
+		client := crossmodelrelations.NewClientWithCache(test.caller, s.cache)
+		c.Check(client.IsLegacyController(), tc.Equals, test.expected)
+	}
 }

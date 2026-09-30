@@ -181,6 +181,7 @@ type MockRemoteModelRelationsClient struct {
 // MockRemoteModelRelationsClientMockRecorder is the mock recorder for MockRemoteModelRelationsClient.
 type MockRemoteModelRelationsClientMockRecorder struct {
 	mock                                *MockRemoteModelRelationsClient
+	isLegacyControllerExpects           []*gomock.Call0_1[bool]
 	publishRelationChangeExpects        []*gomock.Call2_1[context.Context, params.RemoteRelationChangeEvent, error]
 	registerRemoteRelationsExpects      []*gomock.Call1V_2[context.Context, params.RegisterConsumingRelationArg, []params.RegisterConsumingRelationResult, error]
 	watchConsumedSecretsChangesExpects  []*gomock.Call4_2[context.Context, string, string, *macaroon.Macaroon, watcher0.SecretsRevisionWatcher, error]
@@ -200,6 +201,24 @@ func NewMockRemoteModelRelationsClient(ctrl *gomock.Controller) *MockRemoteModel
 func (m *MockRemoteModelRelationsClient) EXPECT() *MockRemoteModelRelationsClientMockRecorder {
 	return m.recorder
 }
+
+// IsLegacyController mocks base method.
+func (m *MockRemoteModelRelationsClient) IsLegacyController() bool {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.isLegacyControllerExpects, m.ctrl, m, "IsLegacyController")
+}
+
+// IsLegacyController indicates an expected call of IsLegacyController.
+func (mr *MockRemoteModelRelationsClientMockRecorder) IsLegacyController() *MockRemoteModelRelationsClientIsLegacyControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[bool](mr.mock.ctrl.T, mr.mock, "IsLegacyController")
+	mr.isLegacyControllerExpects = append(mr.isLegacyControllerExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockRemoteModelRelationsClientIsLegacyControllerCall is the typed call wrapper for IsLegacyController.
+type MockRemoteModelRelationsClientIsLegacyControllerCall = gomock.Call0_1[bool]
 
 // PublishRelationChange mocks base method.
 func (m *MockRemoteModelRelationsClient) PublishRelationChange(arg0 context.Context, arg1 params.RemoteRelationChangeEvent) error {

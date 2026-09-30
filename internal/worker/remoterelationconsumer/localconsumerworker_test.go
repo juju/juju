@@ -507,6 +507,10 @@ func (s *localConsumerWorkerSuite) expectRegisterRemoteRelation(c *tc.C) relatio
 }
 
 func (s *localConsumerWorkerSuite) expectRegisterRemoteRelationMultiple(c *tc.C, times int) relation.UUID {
+	return s.expectRegisterRemoteRelationWithSecretToken(c, times, "")
+}
+
+func (s *localConsumerWorkerSuite) expectRegisterRemoteRelationWithSecretToken(c *tc.C, times int, watchApplicationToken string) relation.UUID {
 	consumingRelationUUID := tc.Must(c, relation.NewUUID)
 
 	mac := newMacaroon(c, "test")
@@ -540,15 +544,72 @@ func (s *localConsumerWorkerSuite) expectRegisterRemoteRelationMultiple(c *tc.C,
 			},
 		}}, nil).Times(times)
 
+	checkLegacyToken := watchApplicationToken != ""
+	if watchApplicationToken == "" {
+		watchApplicationToken = offeredAppToken
+	}
 	s.remoteModelRelationClient.EXPECT().
-		WatchConsumedSecretsChanges(gomock.Any(), offeredAppToken, consumingRelationUUID.String(), s.macaroon).
+		IsLegacyController().
+		Return(checkLegacyToken).
+		AnyTimes()
+	s.remoteModelRelationClient.EXPECT().
+		WatchConsumedSecretsChanges(gomock.Any(), gomock.Any(), consumingRelationUUID.String(), s.macaroon).
 		DoAndReturn(func(ctx context.Context, appToken, relToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+			c.Check(appToken, tc.Equals, watchApplicationToken)
+			if checkLegacyToken {
+				s.secretRevisionWatcherStarted <- struct{}{}
+			}
 			return watchertest.NewMockWatcher(s.secretRevisionChanges), nil
 		})
 	s.crossModelService.EXPECT().
 		SaveMacaroonForRelation(gomock.Any(), consumingRelationUUID, mac).
 		Return(nil).Times(times)
 	return consumingRelationUUID
+}
+
+// TestLegacySecretWatchUsesConsumingApplicationToken checks continuity when
+// the consuming model migrates to 4.0 while the offering model remains on
+// 3.6. CrossModelRelations v3 interprets ApplicationToken as the consumer
+// identity, even though relation registration returns the offering identity.
+// Sending the latter silently subscribes to the wrong secret consumers on
+// the 3.6 peer.
+func (s *localConsumerWorkerSuite) TestLegacySecretWatchUsesConsumingApplicationToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+	consumingRelationUUID := s.expectRegisterRemoteRelationWithSecretToken(c, 1, s.consumerApplicationUUID.String())
+
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(domainrelation.RelationDetails{
+		UUID: consumingRelationUUID,
+		Life: life.Alive,
+		ID:   1,
+		Key:  corerelationtesting.GenNewKey(c, "bar:blog foo:db"),
+		Endpoints: []domainrelation.Endpoint{{
+			ApplicationName: "foo",
+			Relation: charm.Relation{
+				Name:      "db",
+				Role:      charm.RoleProvider,
+				Interface: "db",
+			},
+		}, {
+			ApplicationName: "bar",
+			Relation: charm.Relation{
+				Name:      "blog",
+				Role:      charm.RoleRequirer,
+				Interface: "blog",
+			},
+		}},
+		Suspended:    false,
+		InScopeUnits: 0,
+	}, nil)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	<-done
+	s.relationLifeChanges <- []string{consumingRelationUUID.String()}
+	<-s.secretRevisionWatcherStarted
+	s.waitForAllWorkersStarted(c)
 }
 
 func (s *localConsumerWorkerSuite) TestHandleConsumerRelationChange(c *tc.C) {
