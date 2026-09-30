@@ -264,7 +264,8 @@ Controller configuration keys:
         to the API
     caas-image-repo:
       type: string
-      description: The docker repo to use for the jujud operator and mongo images
+      description: The docker repo to use for the Juju operator (jujud-operator) and charm-base
+        images
     caas-operator-image-path:
       type: string
       description: |-
