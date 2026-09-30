@@ -1,31 +1,66 @@
 ---
 myst:
   html_meta:
-    description: "Placement directive reference: specify deployment locations using --to flag with machines, zones, subnets, and availability zones."
+    description: "Placement directive reference: specify deployment locations with machine designations, zones, subnets, and system IDs. The directive value, where it is stored, and its rules."
 ---
 
 (placement-directive)=
 # Placement directive
 
-<!--TO DOCS MAINTAINERS:
-To retrieve info about the keys, grep the `provider` directory in the code for `placement` (case insensitive); find all the providers that match; and go to each of those providers' `parsePlacement` method and look at the code. For example, here's the ec2 one: https://github.com/juju/juju/blob/137a772ed339b73b856e9adc0a5624976c2890b2/provider/ec2/environ.go#L389 (note the switch statement with two cases, `zone` and `subnet`). Then follow a couple of the functions through to get further details (e.g., about the ec2 subset query).
---->
+In Juju, a **placement directive** names the location a compute request targets: an existing machine, a container designation, or a key-value pair naming a subnet, a system ID, or an availability zone.
 
-<!--  See also: {ref}`Binding <binding>`, {ref}`Constraint <constraint>`-->
+(the-placement-directive-declaration-rules)=
+## The placement directive in the declaration layer
 
-In Juju, a **placement directive** is an option based on the `--to` flag that can be passed to certain commands to specify a deploy location, where the commands include {ref}`command-juju-add-machine` ,  {ref}`command-juju-add-unit`,  {ref}`command-juju-bootstrap`,  {ref}`command-juju-deploy`, and the location is  (1) an existing or a new machine or (2) a key-value pair specifying a subnet, system ID, or an availability zone.
+How clients target compute at a location.
 
-Example: `juju add-machine --to 1`, `juju deploy --to zone=us-east-1a`
+- **Where it travels:** The directive is passed wherever compute is requested: deploy, add-unit, add-machine, and bootstrap requests; the deploy, add-unit, and add-machine paths are gated on model {ref}`write access <user-access-model-write>`.
+  - *Rule:* Kubernetes models take no placement directives.
+  - *Related error:*
+    - **`k8s models do not support placement directives`**: *Trigger:* A directive on an add-unit request for a Kubernetes model. *Remediation:* Place on machine clouds only.
+- **Machine forms:** A directive naming a machine uses the {ref}`machine designations <machine>`: an existing machine or container, or a new one.
+  - *Rule:* A machine designation must satisfy the designation grammar (see {ref}`the machine's declaration rules <machine-declaration-rules>`).
+  - *Related errors:*
+    - **`invalid --to parameter "<directive>"`**: *Trigger:* The client cannot parse the directive. *Remediation:* Use a valid directive form.
+    - **`invalid placement`**: *Trigger:* The controller cannot resolve the directive. *Remediation:* Check the directive and that the named machine exists in the model.
+- **Key-value forms:** A directive naming a location is a key-value pair: `subnet=`, `system-id=`, or `zone=`, handed to the provider.
+  - *Rule:* Bootstrap accepts only the unscoped key-value forms; the model does not exist yet to place into.
+  - *Related errors:*
+    - **`unsupported bootstrap placement directive "<directive>"`**: *Trigger:* A scoped directive on the bootstrap path. *Remediation:* Pass only the unscoped key-value forms.
+    - **`invalid model id "<id>"`**: *Trigger:* A provider-scoped directive whose value is not the model's UUID. *Remediation:* Use the model-scoped form.
+- **Overlap with constraints:** A `zone=` directive overrides the `zones` {ref}`constraint <constraint>`.
+- **Overlap with container types:** A machine request names a container type or a placement, not both.
+  - *Related error:*
+    - **`container type and placement are mutually exclusive`**: *Trigger:* An add-machine request that names both. *Remediation:* Use one or the other.
 
-The rest of this document gives details about the locations.
+```{ibnote}
+See examples: {ref}`deploy-a-charm` (the deploy-targets examples).
+The Terraform provider takes a placement argument on its machine
+resource; no Terraform howto covers placement directives.
+```
+
+(the-placement-directive-persistence-rules)=
+## The placement directive in the persistence layer
+
+A placement directive is a **value, not an entity**: the directive itself is not stored; what persists is its resolution.
+
+- **Placement record:** One per machine, the machine UUID being the natural key. It carries the directive string verbatim and a scope. The schema seeds one scope, `provider`.
+  - *Rule:* A machine has exactly one placement record.
+- **What is not stored:** Only the key-value forms are recorded. A machine designation resolves into the machine records themselves: an existing machine is reused, a container designation creates the parent and child machine records.
+
+**Writers:** The record is written at machine-creation time, by the machine state's placement resolver, called from the machine service's machine-creation path.
+
+## The placement directive in the execution layer
+
+A placement directive has no machinery of its own: it is request input, resolved when the machine record is written. Whether the cloud can honour a key-value directive is discovered later, at provisioning time, when the machine provisioner reads the stored directive back and asks the cloud for a machine in that location (see {ref}`machine provisioning <the-machines-machinery>`). Nothing watches a directive; the machines it resolves into have their own watchers.
+
+## List of placement directives
 
 ```{caution}
 
 When the location is a key-value pair, its availability and meaning may vary from cloud to cloud. For details see {ref}`list-of-supported-clouds` > `<cloud name>`.
 
 ```
-
-## List of placement directive locations
 
 (placement-directive-machine)=
 ### `<machine>`
@@ -40,14 +75,12 @@ Depending on whether this is an existing machine or a new machine, this will be:
 
 **Examples:** `lxd` (new container on a new machine), `lxd:5` (new container on machine 5)
 
-```{ibnote}
-See more: {ref}`machine-designations`
-```
+See the full grammar: {ref}`machine designations <machine>`.
 
 (placement-directive-subnet)=
 ### `subnet=<subnet>`
 
-Available for Azure and AWS EC2.
+Available for Azure, AWS EC2, and GCE.
 
 (placement-directive-system-id)=
 ### `system-id=<system ID>`
@@ -64,5 +97,3 @@ Available for MAAS.
 The `zone` placement directive may be used to override a `zones` {ref}`constraint <constraint>`.
 
 ```
-
-**Example:** `zone=us-east-1a`
