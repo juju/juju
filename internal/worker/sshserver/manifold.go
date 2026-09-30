@@ -234,7 +234,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		ServerFactory: NewTerminatingServerFactory(proxyFactory, sshService),
+		ServerFactory: newTerminatingServerFactory(proxyFactory, sshService),
 		Metrics:       metricsCollector,
 	})
 	if err != nil {

@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/core/virtualhostname"
 )
 
-// NewTerminatingServerFactory returns a TerminatingServerFactory.
-func NewTerminatingServerFactory(factory ProxyFactory, svc SSHService) coresshproxy.TerminatingServerFactory {
+// newTerminatingServerFactory returns a TerminatingServerFactory.
+func newTerminatingServerFactory(factory ProxyFactory, svc SSHService) coresshproxy.TerminatingServerFactory {
 	return terminatingServerFactory{factory: factory, svc: svc}
 }
 
