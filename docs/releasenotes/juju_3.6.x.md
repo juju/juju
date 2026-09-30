@@ -11,6 +11,117 @@ myst:
 ```{note}
 Juju 3.6 series is LTS
 ```
+### 🔸 **Juju 3.6.29**
+🗓️ 30 September 2026
+
+🚀 **New features**
+
+### OpenStack root disk storage pools
+
+OpenStack now supports a named Cinder storage pool as the `root-disk-source`
+constraint. Previously, this constraint accepted only `local` or `volume`.
+
+A storage pool allows the root volume type, tag and disk bus to be configured.
+For example, using a volume type available in your cloud:
+
+```text
+juju create-storage-pool fast-root cinder volume-type=Ceph_NVMe
+juju deploy mysql --constraints "root-disk-source=fast-root"
+```
+
+The `tag` and `disk-bus` pool attributes apply to root disks, not additional
+charm storage volumes. Additional charm storage continues to support
+`volume-type`. Root disk configurations using a volume type or tag require
+Nova compute API microversion 2.67.
+
+* feat(openstack): add support for specifying additional cinder volume attributes by @wallyworld https://github.com/juju/juju/pull/23237
+
+🛠️ **Bug fixes**
+
+### Cross-model relation removal and re-consumption
+
+Several fixes improve the reliability of removing cross-model relations and
+consuming an offer again after removing its SAAS application.
+
+Calling `remove-saas` immediately after `remove-relation` could leave the
+relation alive on the offering model and its offer connection count unchanged.
+Juju now makes a best-effort notification, with retries, when the local relation
+has already disappeared.
+
+Further fixes address incorrect relation counts, orphaned relation records and
+stale unit state after forced removal. Remote application watchers now detect
+changes to offer identity and consume version, and workers check the current
+application identity to reduce the risk of an old operation affecting a
+replacement application.
+
+These changes mitigate the observed teardown and re-consumption races; they do
+not guarantee recovery from every forced-removal scenario.
+
+* fix(cmr): notify offering side of relation removal to avoid race by @wallyworld https://github.com/juju/juju/pull/23152
+* fix(cmr): address various cmr model corruption symptoms by @wallyworld https://github.com/juju/juju/pull/23350
+* fix: reliability following CMR teardown by @manadart https://github.com/juju/juju/pull/23394
+
+### Repair cross-model relation records during upgrade
+
+Upgrading to 3.6.29 includes steps to repair incorrect application relation
+counts and remove orphaned relation references, relation scope and settings
+records, and stale relation IDs in unit state.
+
+Repairs are best effort. Records that cannot be safely repaired are logged for
+manual attention. In particular, missing external controller reference-count
+records no longer block the orphaned-relation cleanup step; the affected
+relation is left for manual repair instead.
+
+* feat: upgrade steps to repair broken cross model records by @wallyworld https://github.com/juju/juju/pull/23317
+* fix: best-effort data cleanse avoids blocking upgrades by @manadart https://github.com/juju/juju/pull/23375
+
+### Cross-model secret change notifications
+
+Charms consuming secrets through cross-model relations could fail to receive
+secret-changed events when the offering application created a new revision.
+This fixes a regression introduced in 3.6.11 and handles secret references from
+older controllers that omit the source model UUID.
+
+* fix: ensure cross model consumers see secret-changed events by @wallyworld https://github.com/juju/juju/pull/23302
+
+### Controller DNS addresses in offer details
+
+Offer consumption details now include the configured `public-dns-address`.
+This fixes cross-controller connections where the offering controller is
+reachable through its public DNS address but its other API addresses are not
+routable from the consuming controller.
+
+* fix: add dns-name if configured to consume details by @SimoneDutto https://github.com/juju/juju/pull/23271
+
+### Model migration with cross-model relations
+
+Model migration now imports offer connection details and restores remote
+application relation counts, which were previously omitted during import.
+
+* fix: import offer connnection details when migrating models by @wallyworld https://github.com/juju/juju/pull/23312
+
+### Goal state with broken relations
+
+The goal-state hook tool now skips relations whose remote application record
+is missing. This prevents an orphaned cross-model relation from causing calls
+such as a charm's `planned_units()` to fail.
+
+* fix: ignore broken relations for goal state by @wallyworld https://github.com/juju/juju/pull/23313
+
+### Database maintenance tools
+
+A new repository script, `scripts/check-db-orphans.py`, generates transaction
+JSON for cleaning up orphaned MongoDB records. The existing
+`scripts/mgo-run-txn` tool has also been updated for MongoDB 4.4.30 and can
+obtain connection settings directly when run on the primary controller.
+
+These are maintenance tools for investigating and repairing affected databases,
+not a routine manual step required for every upgrade.
+
+* feat: add orphaned record cleanup script for mongo by @wallyworld https://github.com/juju/juju/pull/23310
+
+Full changelog: https://github.com/juju/juju/compare/v3.6.28...v3.6.29
+
 ### 🔸 **Juju 3.6.28**
 🗓️ 2 September 2026
 
@@ -1282,4 +1393,3 @@ contributing to observed connection / file handle leaks.
 See the full list in these milestone pages:
 * [RC2](https://launchpad.net/juju/3.6/3.6-rc2)
 * [RC1](https://launchpad.net/juju/3.6/3.6-rc1)
-
