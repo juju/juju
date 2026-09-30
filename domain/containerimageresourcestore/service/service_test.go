@@ -17,6 +17,7 @@ import (
 	resourcestore "github.com/juju/juju/core/resource/store"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/domain/containerimageresourcestore"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
@@ -176,8 +177,10 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutOve
 	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
 
 	storageKey := resourcetesting.GenResourceUUID(c).String()
-	// Build a body larger than the cap: 1 MiB + 1 byte.
-	oversized := io.NopCloser(strings.NewReader(strings.Repeat("x", 1<<20+1)))
+	// Build a body larger than the cap by one byte.
+	oversized := io.NopCloser(strings.NewReader(
+		strings.Repeat("x", int(MaxContainerImageResourceSize+1)),
+	))
 
 	_, _, _, err := store.Put(
 		c.Context(),
@@ -186,7 +189,43 @@ func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutOve
 		0,
 		resourcestore.Fingerprint{},
 	)
-	c.Assert(err, tc.ErrorMatches, ".*exceeds maximum size.*")
+	c.Assert(err, tc.ErrorIs, containerimageresourcestoreerrors.ContainerImageResourceTooLarge)
+}
+
+func (s *containerImageResourceStoreSuite) TestContainerImageResourceStorePutAtMaximumSize(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	store := NewService(s.containerImageResourceState, loggertesting.WrapCheckLog(c))
+	storageKey := resourcetesting.GenResourceUUID(c).String()
+
+	details := s.imageMetadata
+	details.Password = ""
+	base, err := json.Marshal(details)
+	c.Assert(err, tc.ErrorIsNil)
+	details.Password = strings.Repeat("x", int(MaxContainerImageResourceSize)-len(base))
+	data, err := json.Marshal(details)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(int64(len(data)), tc.Equals, MaxContainerImageResourceSize)
+
+	expectedUUID, err := resourcestore.NewContainerImageMetadataResourceID("expected-uuid")
+	c.Assert(err, tc.ErrorIsNil)
+	s.containerImageResourceState.EXPECT().PutContainerImageMetadata(
+		gomock.Any(),
+		storageKey,
+		details.RegistryPath,
+		details.Username,
+		details.Password,
+	).Return(expectedUUID, nil)
+
+	_, size, _, err := store.Put(
+		c.Context(),
+		storageKey,
+		bytes.NewReader(data),
+		0,
+		resourcestore.Fingerprint{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(size, tc.Equals, MaxContainerImageResourceSize)
 }
 
 func (s *containerImageResourceStoreSuite) TestFileResourceStoreGet(c *tc.C) {

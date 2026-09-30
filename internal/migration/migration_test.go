@@ -388,6 +388,7 @@ func (s *ImportSuite) TestUploadResourcesFailFastKeepsEarlierUploads(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	uploadedResources := make(map[string]string)
 	okRes := resourcetesting.NewResource(c, nil, "ok-file", "app0", "ok-content").Resource
 	// The claims describe "content" (7 bytes) but the downloader serves
 	// "contenx" (7 bytes), which hashes to a different fingerprint.
@@ -396,10 +397,10 @@ func (s *ImportSuite) TestUploadResourcesFailFastKeepsEarlierUploads(c *tc.C) {
 	openOK := s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "ok-file").
 		Return(io.NopCloser(strings.NewReader("ok-content")), nil)
 	uploadOK := s.resourceUploader.EXPECT().UploadResource(gomock.Any(), okRes, gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ resource.Resource, r io.Reader) error {
+		DoAndReturn(func(_ context.Context, res resource.Resource, r io.Reader) error {
 			body, rErr := io.ReadAll(r)
 			c.Assert(rErr, tc.ErrorIsNil)
-			c.Check(string(body), tc.Equals, "ok-content")
+			uploadedResources[res.ApplicationName+"/"+res.Name] = string(body)
 			return nil
 		})
 	openBad := s.resourceDownloader.EXPECT().OpenResource(gomock.Any(), "app0", "contenx").
@@ -420,6 +421,9 @@ func (s *ImportSuite) TestUploadResourcesFailFastKeepsEarlierUploads(c *tc.C) {
 	err := migration.UploadBinaries(c.Context(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorMatches,
 		`cannot upload resources: resource "contenx" of application "app0": blob fingerprint .* does not match expected fingerprint .*`)
+	c.Assert(uploadedResources, tc.DeepEquals, map[string]string{
+		"app0/ok-file": "ok-content",
+	})
 }
 
 // TestUploadResourcesContainerImageValidBlob pins the source-side happy path

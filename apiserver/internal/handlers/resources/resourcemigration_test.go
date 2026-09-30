@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,8 +23,11 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	"github.com/juju/juju/core/resource"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	containerimageservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainresource "github.com/juju/juju/domain/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -552,10 +556,24 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationSizeMismatch(c *tc.C) {
 	c.Check(string(body), tc.Matches, ".*unexpected size.*")
 }
 
+// TestResourceDetailsFromQueryRejectsInvalidSizeBounds verifies negative sizes
+// and MaxInt64 are rejected before computing the size+1 read limit.
+func (s *resourcesUploadSuite) TestResourceDetailsFromQueryRejectsInvalidSizeBounds(c *tc.C) {
+	for _, size := range []string{"-1", strconv.FormatInt(math.MaxInt64, 10)} {
+		query := url.Values{
+			"origin":      {s.originStr},
+			"revision":    {s.revisionStr},
+			"size":        {size},
+			"fingerprint": {s.fingerprintStr},
+		}
+		_, err := resourceDetailsFromQuery(query)
+		c.Check(err, tc.ErrorMatches, ".*invalid size.*", tc.Commentf("size %q", size))
+	}
+}
+
 // TestServeUploadApplicationOversizedBody verifies that a body longer than the
-// claimed size is rejected with a 400 and never stored: the read is bounded at
-// the claimed size, so the validation fails instead of the blob being buffered
-// in full.
+// claimed size is rejected. The read is bounded at size+1, so the validator
+// sees one extra byte and rejects the hash without buffering the entire body.
 func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedBody(c *tc.C) {
 	// Arrange
 	defer s.setupHandlerWithDownloader(c,
@@ -826,6 +844,55 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationContainerImageSkipsVali
 	c.Check(storedArgs.Fingerprint.String(), tc.Equals, strings.Repeat("a", 96))
 }
 
+// TestServeUploadApplicationOversizedContainerImage verifies that the image
+// body is bounded at the store limit plus one and the typed error maps to 400.
+func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedContainerImage(c *tc.C) {
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(), "app-name", "resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeContainerImage,
+		},
+	}, nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			body, err := io.ReadAll(args.Reader)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(len(body), tc.Equals, int(containerimageservice.MaxContainerImageResourceSize+1))
+			return resource.Resource{}, internalerrors.Errorf(
+				"persisting container image metadata: %w",
+				containerimageresourcestoreerrors.ContainerImageResourceTooLarge,
+			)
+		})
+
+	response, err := http.Post(
+		s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream",
+		strings.NewReader(strings.Repeat("x", int(containerimageservice.MaxContainerImageResourceSize+100))),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer response.Body.Close()
+
+	c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest)
+	body, err := io.ReadAll(response.Body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(body), tc.Matches, ".*container image resource exceeds maximum size.*")
+}
+
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
 // with a placeholder in the resource upload service. It is basically the same
 // test than the one with application, with one call to SetUnitResource.
@@ -898,7 +965,7 @@ func (s *resourcesUploadSuite) setupHandlerWithImporting(c *tc.C, importing bool
 // setupHandlerWithDownloader configures mocks for an importing model and
 // registers the handler with the given downloader. Use it for tests that need
 // a downloader other than the suite mock.
-func (s *resourcesUploadSuite) setupHandlerWithDownloader(c *tc.C, downloading Downloader) Finisher {
+func (s *resourcesUploadSuite) setupHandlerWithDownloader(c *tc.C, downloading BlobValidator) Finisher {
 	finish := s.setupMocks(c).Finish
 	s.expectApplicationService(true)
 	s.expectResourceService()
@@ -914,7 +981,7 @@ func (s *resourcesUploadSuite) setupHandlerWithDownloader(c *tc.C, downloading D
 
 // registerHandlerWithDownloader registers the resources migration upload HTTP
 // handler with the given downloader. Mocks must have been initialised first.
-func (s *resourcesUploadSuite) registerHandlerWithDownloader(c *tc.C, downloading Downloader) Finisher {
+func (s *resourcesUploadSuite) registerHandlerWithDownloader(c *tc.C, downloading BlobValidator) Finisher {
 	handler := NewResourceMigrationUploadHandler(
 		s.modelServiceGetter,
 		s.resourceServiceGetter,

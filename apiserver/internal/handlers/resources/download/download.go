@@ -41,10 +41,8 @@ func NewDownloader(logger logger.Logger, fileSystem FileSystem) *Downloader {
 	}
 }
 
-// Download takes a request body ReadCloser containing a resource blob and
-// checks that the size and hash match the expected values. It downloads the
-// blob to a temporary file and returns a ReadCloser that deletes the
-// temporary file on closure.
+// Download consumes and validates the request body. It stages the bytes in a
+// temporary file and returns a ReadCloser that removes the file when closed.
 func (v *Downloader) Download(
 	ctx context.Context,
 	reader io.ReadCloser,

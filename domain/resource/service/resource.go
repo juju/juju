@@ -382,8 +382,8 @@ func (s *Service) GetResourceWithoutApplication(
 // resource is returned. An application is not required, as it may not
 // exist yet, e.g. when uploading a local resource during deploy.
 //
-// The Size and Fingerprint should be validated against the resource blob before
-// the resource is passed in.
+// For file resources, Size and Fingerprint must match the bytes stored.
+// Container image resources are parsed and their canonical values are used.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
@@ -392,6 +392,8 @@ func (s *Service) GetResourceWithoutApplication(
 //     invalid.
 //   - [resourceerrors.StoredResourceAlreadyExists] if a resource is already
 //     stored for this resource UUID.
+//   - [containerimageresourcestoreerrors.ContainerImageResourceTooLarge] if
+//     a container image metadata blob exceeds its maximum size.
 func (s *Service) StoreResource(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
@@ -413,8 +415,8 @@ func (s *Service) StoreResource(
 // for the resource and also increments the charm modified version for the
 // resources' application. The identified resource is returned.
 //
-// The Size and Fingerprint should be validated against the resource blob before
-// the resource is passed in.
+// For file resources, Size and Fingerprint must match the bytes stored.
+// Container image resources are parsed and their canonical values are used.
 //
 // If storing a blob for a resource that already has a blob stored, the old blob
 // will be replaced and removed from the store.
@@ -426,6 +428,8 @@ func (s *Service) StoreResource(
 //     found.
 //   - [resourceerrors.RetrievedByTypeNotValid] if the retrieved by type is
 //     invalid.
+//   - [containerimageresourcestoreerrors.ContainerImageResourceTooLarge] if
+//     a container image metadata blob exceeds its maximum size.
 func (s *Service) StoreResourceAndIncrementCharmModifiedVersion(
 	ctx context.Context,
 	args resource.StoreResourceArgs,
@@ -482,20 +486,8 @@ func (s *Service) storeResource(
 		return errors.Errorf("putting resource %q in store: %w", resName, err)
 	}
 
-	// The resource store derives the size and fingerprint from the blob
-	// itself. For file resources those always match the given values; for
-	// container image resources they are re-derived from the parsed
-	// DockerImageDetails, which can legitimately differ from the values
-	// claimed by the source of models exported from Juju 3.6. Log the
-	// divergence so operators can trace what is recorded in the database.
-	if size != args.Size || fingerprint.String() != args.Fingerprint.String() {
-		s.logger.Warningf(ctx,
-			"stored resource %q: stored size %d and fingerprint %s differ from claimed size %d and fingerprint %s; expected for container image resources migrated from Juju 3.6",
-			resName, size, fingerprint.String(), args.Size, args.Fingerprint.String())
-	}
-
+	// Remove the blob if recording fails or a claims mismatch is detected.
 	defer func() {
-		// If any subsequent operation fails, remove the resource blob.
 		if err != nil {
 			rErr := store.Remove(ctx, path)
 			if rErr != nil {
@@ -503,6 +495,23 @@ func (s *Service) storeResource(
 			}
 		}
 	}()
+
+	// Container image storage parses and re-serializes metadata, so its derived
+	// values can differ from claims provided by Charmhub or older controllers.
+	// Keep the canonical values and log the divergence at info level. Other
+	// resource types must match their claims; reject a mismatch instead of
+	// recording inconsistent metadata.
+	if size != args.Size || fingerprint.String() != args.Fingerprint.String() {
+		if resourceType == charmresource.TypeContainerImage {
+			s.logger.Infof(ctx,
+				"stored container image resource %q with derived size %d and fingerprint %s; claimed size %d and fingerprint %s",
+				resName, size, fingerprint.String(), args.Size, args.Fingerprint.String())
+		} else {
+			return errors.Errorf(
+				"stored resource %q has size %d and fingerprint %s, expected size %d and fingerprint %s",
+				resName, size, fingerprint.String(), args.Size, args.Fingerprint.String())
+		}
+	}
 
 	err = s.st.RecordStoredResource(
 		ctx,

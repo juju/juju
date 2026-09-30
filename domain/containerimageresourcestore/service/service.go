@@ -13,17 +13,17 @@ import (
 	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/containerimageresourcestore"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 )
 
-// maxContainerImageResourceSize is the maximum size accepted for a container
-// image resource blob. The blob is a marshalled docker.DockerImageDetails
-// value — a few hundred bytes — so 1MiB is a generous bound. It exists to
-// stop unbounded reads into memory from sources like model migration
-// uploads and charmhub downloads.
-const maxContainerImageResourceSize = 1 << 20
+// MaxContainerImageResourceSize is the maximum encoded metadata blob accepted
+// for a container image resource. It is an explicit memory bound, not a limit
+// imposed by DockerImageDetails, whose string fields have no format-level
+// maximum. Oversized blobs are rejected before state is modified.
+const MaxContainerImageResourceSize int64 = 1 << 20
 
 // State provides methods for interacting
 // with the container image resource store.
@@ -92,11 +92,13 @@ func (s *Service) Get(
 }
 
 // Put stores data from io.Reader in the resource store at the path specified in
-// the resource.
-// The read is bounded at maxContainerImageResourceSize; a blob that exceeds it
-// is rejected with a "exceeds maximum size" error before anything is stored.
-// If an image is already stored under the storage key, it returns:
-// - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
+// the resource. The read is bounded by [MaxContainerImageResourceSize].
+//
+// The following errors can be expected to be returned:
+//   - [containerimageresourcestoreerrors.ContainerImageResourceTooLarge] if the
+//     encoded metadata exceeds the maximum size.
+//   - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
+//     if an image is already stored under the storage key.
 func (s *Service) Put(
 	ctx context.Context,
 	storageKey string,
@@ -108,13 +110,15 @@ func (s *Service) Put(
 	defer span.End()
 
 	respBuf := new(bytes.Buffer)
-	bytesRead, err := respBuf.ReadFrom(io.LimitReader(r, maxContainerImageResourceSize+1))
+	bytesRead, err := respBuf.ReadFrom(io.LimitReader(r, MaxContainerImageResourceSize+1))
 	if err != nil {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("reading container image resource: %w", err)
 	}
-	if bytesRead > maxContainerImageResourceSize {
+	if bytesRead > MaxContainerImageResourceSize {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf(
-			"container image resource exceeds maximum size of %d bytes", maxContainerImageResourceSize)
+			"container image resource exceeds maximum size of %d bytes: %w",
+			MaxContainerImageResourceSize,
+			containerimageresourcestoreerrors.ContainerImageResourceTooLarge)
 	}
 	if bytesRead == 0 {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("reading container image resource: zero bytes read")

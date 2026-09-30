@@ -5,6 +5,7 @@ package resources
 
 import (
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,6 +16,8 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	containerimageservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -25,7 +28,7 @@ import (
 type resourcesMigrationUploadHandler struct {
 	resourceServiceGetter ResourceServiceGetter
 	modelService          ModelServiceGetter
-	downloader            Downloader
+	validator             BlobValidator
 	logger                logger.Logger
 }
 
@@ -34,13 +37,13 @@ type resourcesMigrationUploadHandler struct {
 func NewResourceMigrationUploadHandler(
 	modelService ModelServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
-	downloader Downloader,
+	validator BlobValidator,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
 		modelService:          modelService,
 		resourceServiceGetter: resourceServiceGetter,
-		downloader:            downloader,
+		validator:             validator,
 		logger:                logger,
 	}
 }
@@ -154,19 +157,20 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	}
 	retrievedBy, retrievedByType := determineRetrievedBy(query)
 
-	// Container image resources are exempt from blob validation: models
-	// exported from Juju 3.6 carry container image fingerprints that do not
-	// match the blob bytes (commit 432c96a1c2 removed an earlier
-	// unconditional check for exactly this reason), and the container image
-	// resource store re-derives the size and fingerprint from the parsed
-	// DockerImageDetails. For every other type the blob must match the
-	// claimed size and fingerprint before it is stored. The stream is
-	// bounded at the claimed size so an over-long body fails the size check
-	// instead of being buffered in full; migration uploads are chunked, so
-	// r.ContentLength is not usable here.
-	var reader io.Reader = r.Body
-	if res.Type != charmresource.TypeContainerImage {
-		validated, err := h.downloader.Download(
+	// Container image resource blobs are exempt from comparing their claims
+	// because Juju 3.6 exported fingerprints that differ from blob bytes. The
+	// store parses the metadata and derives canonical values, so bound those
+	// bodies by the store's maximum instead. For other resources, read one
+	// byte beyond the claimed size before validation to detect over-long
+	// bodies without reading them in full. The validator hashes before checking
+	// size. An extra byte usually changes the hash; the size check catches the
+	// case where the fingerprint matches the size+1 byte prefix. Migration
+	// uploads are chunked, so r.ContentLength is unavailable.
+	var reader io.Reader
+	if res.Type == charmresource.TypeContainerImage {
+		reader = limitReadCloser(r.Body, containerimageservice.MaxContainerImageResourceSize+1)
+	} else {
+		validated, err := h.validator.Download(
 			ctx,
 			limitReadCloser(r.Body, details.size+1),
 			details.fingerprint.String(),
@@ -178,7 +182,7 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		defer validated.Close()
 		reader = validated
 	}
-	return resourceService.StoreResource(ctx, resource.StoreResourceArgs{
+	stored, err := resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
 		Reader:          reader,
 		RetrievedBy:     retrievedBy,
@@ -186,11 +190,18 @@ func (h *resourcesMigrationUploadHandler) processPost(
 		Size:            details.size,
 		Fingerprint:     details.fingerprint,
 	})
+	if internalerrors.Is(err, containerimageresourcestoreerrors.ContainerImageResourceTooLarge) {
+		return empty, errors.BadRequestf(
+			"container image resource exceeds maximum size of %d bytes",
+			containerimageservice.MaxContainerImageResourceSize,
+		)
+	}
+	return stored, err
 }
 
-// limitReadCloser bounds the number of bytes read from r at n; reading past
-// n returns EOF, so an over-long body is detected by the size check instead
-// of being streamed to disk in full.
+// limitReadCloser exposes at most n bytes from r. EOF at the limit is normal.
+// Callers include one sentinel byte beyond an expected bound to detect an
+// oversized request without reading the remaining body.
 func limitReadCloser(r io.ReadCloser, n int64) io.ReadCloser {
 	return struct {
 		io.Reader
@@ -266,6 +277,9 @@ func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
 	details.size, err = strconv.ParseInt(query.Get("size"), 10, 64)
 	if err != nil {
 		return details, errors.BadRequestf("invalid size: %w", err)
+	}
+	if details.size < 0 || details.size == math.MaxInt64 {
+		return details, errors.BadRequestf("invalid size: %d", details.size)
 	}
 	details.fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
 	if err != nil {
