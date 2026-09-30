@@ -7,13 +7,15 @@ import (
 	"context"
 	"net"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/mitchellh/mapstructure"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
-	proxyerrors "github.com/juju/juju/proxy/errors"
+	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 )
 
 type Proxier struct {
@@ -36,7 +38,7 @@ const (
 )
 
 func (p *Proxier) Host() string {
-	return "localhost"
+	return "127.0.0.1"
 }
 
 func NewProxier(config ProxierConfig) *Proxier {
@@ -69,7 +71,7 @@ func NewProxierConfig() *ProxierConfig {
 	return &ProxierConfig{}
 }
 
-func NewProxierFromRawConfig(rawConf interface{}) (*Proxier, error) {
+func NewProxierFromRawConfig(rawConf any) (*Proxier, error) {
 	conf, valid := rawConf.(*ProxierConfig)
 	if !valid {
 		return nil, errors.NewNotValid(nil, "config is not of type *ProxierConfig")
@@ -85,14 +87,14 @@ func (p *Proxier) SetAPIHost(host string) {
 }
 
 // RawConfig implements Proxier RawConfig interface.
-func (p *Proxier) RawConfig() (map[string]interface{}, error) {
-	rval := map[string]interface{}{}
+func (p *Proxier) RawConfig() (map[string]any, error) {
+	rval := map[string]any{}
 	err := mapstructure.Decode(&p.config, &rval)
 	return rval, errors.Trace(err)
 }
 
 // MarshalYAML implements the yaml Marshaler interface
-func (p *Proxier) MarshalYAML() (interface{}, error) {
+func (p *Proxier) MarshalYAML() (any, error) {
 	return &p.config, nil
 }
 
@@ -100,24 +102,67 @@ func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
 }
 
-func (p *Proxier) Start(ctx context.Context) (err error) {
-	tunnel, err := kubernetes.NewTunnelForConfig(
-		&p.restConfig,
-		kubernetes.TunnelKindServices,
-		p.config.Namespace,
-		p.config.Service,
-		p.config.RemotePort,
-	)
-
-	if err != nil {
-		return errors.Trace(err)
+// ProxyError reports asynchronous port-forwarding errors observed after the
+// tunnel was reported as ready.
+func (p *Proxier) ProxyError() error {
+	if p.tunnel == nil {
+		return nil
 	}
-	p.tunnel = tunnel
+	return p.tunnel.ForwardError()
+}
+
+const retryableProxyError = "etcdserver: leader changed"
+
+func isRetryableProxyError(err error) bool {
+	return strings.Contains(err.Error(), retryableProxyError)
+}
+
+func (p *Proxier) Start(ctx context.Context) (err error) {
+	const (
+		maxAttempts = 3
+		retryDelay  = time.Second
+	)
 
 	defer func() {
 		err = errors.Annotate(err, "connecting k8s proxy")
 	}()
-	err = p.tunnel.ForwardPort(ctx)
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		tunnel, tunnelErr := kubernetes.NewTunnelForConfig(
+			&p.restConfig,
+			kubernetes.TunnelKindServices,
+			p.config.Namespace,
+			p.config.Service,
+			p.config.RemotePort,
+		)
+		if tunnelErr != nil {
+			return errors.Trace(tunnelErr)
+		}
+
+		p.tunnel = tunnel
+
+		err = tunnel.ForwardPort(ctx)
+		if err == nil {
+			return nil
+		}
+
+		tunnel.Close()
+
+		if !isRetryableProxyError(err) {
+			return errors.Trace(err)
+		}
+
+		if attempt == maxAttempts {
+			break
+		}
+
+		select {
+		case <-ctx.Done():
+			return errors.Trace(ctx.Err())
+		case <-time.After(retryDelay):
+		}
+	}
+
 	urlErr, ok := errors.Cause(err).(*url.Error)
 	if !ok {
 		return errors.Trace(err)
