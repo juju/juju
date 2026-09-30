@@ -282,7 +282,8 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsU
 	s.expectSetRelationApplicationSettings(relUUID, appID, nil)
 	converted, _ := settingsMap(func(string) {}, unitSettings)
 	s.state.EXPECT().EnterScope(gomock.Any(), relUUID,
-		coreunittesting.GenNewName(c, "remote-13ea/0"), converted).
+		coreunittesting.GenNewName(c, "remote-13ea/0"), converted,
+		internal.SubordinateUnitStorageArgs{}).
 		Return(internal.SubordinateUnitStatusHistoryData{},
 			relationerrors.RelationUnitAlreadyExists)
 
@@ -323,7 +324,8 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsS
 	s.expectSetRelationApplicationSettings(relUUID, appID, args[0].Endpoints[0].ApplicationSettings)
 	converted, _ := settingsMap(func(string) {}, unitSettings)
 	s.state.EXPECT().EnterScope(gomock.Any(), relUUID,
-		coreunittesting.GenNewName(c, "remote-13ea/0"), converted).
+		coreunittesting.GenNewName(c, "remote-13ea/0"), converted,
+		internal.SubordinateUnitStorageArgs{}).
 		Return(internal.SubordinateUnitStatusHistoryData{},
 			relationerrors.RelationNotFound)
 
@@ -545,5 +547,5 @@ func (s *migrationServiceSuite) expectEnterScope(
 ) {
 	unitSettings, _ := settingsMap(func(string) {}, settings)
 	data := internal.SubordinateUnitStatusHistoryData{}
-	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(data, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings, internal.SubordinateUnitStorageArgs{}).Return(data, nil)
 }
