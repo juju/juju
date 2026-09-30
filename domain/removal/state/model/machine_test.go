@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"
@@ -1234,8 +1235,10 @@ func (s *machineSuite) TestMarkMachineAsDead(c *tc.C) {
 	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The machine should now be dead.
+	// The machine should now be dead, and its death is paired with a
+	// removal job.
 	s.checkMachineLife(c, machineUUID.String(), life.Dead)
+	s.checkMachineRemovalJobs(c, machineUUID, 1)
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadNotFound(c *tc.C) {
@@ -1278,6 +1281,8 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasContainers(c *tc.C) {
 	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
 
 	s.checkMachineLife(c, machineUUID.String(), life.Dying)
+	// The failure means no removal job is scheduled.
+	s.checkMachineRemovalJobs(c, machineUUID, 0)
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
@@ -1293,6 +1298,8 @@ func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnits(c *tc.C) {
 	c.Check(err, tc.ErrorIs, removalerrors.MachineHasUnits)
 
 	s.checkMachineLife(c, machineUUID.String(), life.Dying)
+	// The failure means no removal job is scheduled.
+	s.checkMachineRemovalJobs(c, machineUUID, 0)
 }
 
 func (s *machineSuite) TestMarkMachineAsDeadMachineHasUnitsWithDeadUnits(c *tc.C) {
@@ -1565,8 +1572,11 @@ func (s *machineSuite) addContainerMachinesOnHost(
 }
 
 // addUnitOnMachine creates a single-unit application with the unit placed
-// on the machine with the input name, returning the unit UUID.
-func (s *machineSuite) addUnitOnMachine(c *tc.C, machineName string) unit.UUID {
+// on the machine with the input name, returning the unit and application
+// UUIDs.
+func (s *machineSuite) addUnitOnMachine(
+	c *tc.C, machineName string,
+) (unit.UUID, coreapplication.UUID) {
 	appSvc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, appSvc, "some-app", applicationservice.AddIAASUnitArg{
 		AddUnitArg: applicationservice.AddUnitArg{
@@ -1575,19 +1585,15 @@ func (s *machineSuite) addUnitOnMachine(c *tc.C, machineName string) unit.UUID {
 	})
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(unitUUIDs, tc.HasLen, 1)
-	return unitUUIDs[0]
+	return unitUUIDs[0], appUUID
 }
 
-// deleteMachineViaRemovalJob advances the machine and its cloud instance
-// to the dead life, as the agent-driven lifecycle does, then deletes the
-// machine row as the machine removal job does.
-func (s *machineSuite) deleteMachineViaRemovalJob(c *tc.C, machineUUID coremachine.UUID) {
-	s.advanceMachineLife(c, machineUUID, life.Dead)
-	s.advanceInstanceLife(c, machineUUID, life.Dead)
-
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err := st.DeleteMachine(c.Context(), machineUUID.String(), false)
+// getModelUUID returns the UUID of the model under test.
+func (s *machineSuite) getModelUUID(c *tc.C) string {
+	var modelUUID string
+	err := s.DB().QueryRow(`SELECT uuid FROM model LIMIT 1`).Scan(&modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
+	return modelUUID
 }
 
 // checkMachineRemovalJobs asserts that the input number of machine
@@ -1605,88 +1611,149 @@ WHERE  t.name = 'machine' AND r.entity_uuid = ?`, machineUUID.String())
 	c.Check(count, tc.Equals, expected)
 }
 
-// TestDeleteMachineLastChildSchedulesParentRemovalJob covers the
-// container-host gap: the model removal cascade refuses hosts with child
-// machines and the unit removal cascade skips them, so deleting the last
-// child machine is the point where the host's death is paired with a
-// removal job.
-func (s *machineSuite) TestDeleteMachineLastChildSchedulesParentRemovalJob(c *tc.C) {
-	_, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 2)
+// TestMarkMachineAsDeadSchedulesRemovalJob ensures the invariant that a
+// machine's death is always paired with a machine removal job: a machine
+// row is only ever deleted by one, so a death without a job would strand
+// the row and block model removal forever.
+func (s *machineSuite) TestMarkMachineAsDeadSchedulesRemovalJob(c *tc.C) {
+	_, hostUUID, _ := s.addContainerMachinesOnHost(c, 0)
 
-	// The host is dying, as the model removal cascade sets it.
+	// The machine is dying, as the removal cascades set it.
 	s.advanceMachineLife(c, hostUUID, life.Dying)
-	s.advanceInstanceLife(c, hostUUID, life.Dying)
 
-	// Removing the first child machine does not schedule a job for the
-	// host: another child machine remains.
-	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
-	s.checkMachineRemovalJobs(c, hostUUID, 0)
-
-	// Removing the last child machine pairs the host's death with a
-	// machine removal job.
-	s.deleteMachineViaRemovalJob(c, childUUIDs[1])
-	s.checkMachineRemovalJobs(c, hostUUID, 1)
-}
-
-// TestDeleteMachineChildDoesNotScheduleRemovalForAliveParent ensures that
-// removing child machines from a host that is still alive does not
-// schedule the host's removal.
-func (s *machineSuite) TestDeleteMachineChildDoesNotScheduleRemovalForAliveParent(c *tc.C) {
-	_, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
-
-	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
-	s.checkMachineRemovalJobs(c, hostUUID, 0)
-}
-
-// TestDeleteMachineLastChildWithAliveUnitOnParent ensures the host's
-// death is not paired with a removal job while it still hosts alive
-// units: the unit removal cascade pairs it when the last unit leaves.
-func (s *machineSuite) TestDeleteMachineLastChildWithAliveUnitOnParent(c *tc.C) {
-	hostName, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
-	s.addUnitOnMachine(c, hostName)
-
-	s.advanceMachineLife(c, hostUUID, life.Dying)
-	s.advanceInstanceLife(c, hostUUID, life.Dying)
-
-	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
-	s.checkMachineRemovalJobs(c, hostUUID, 0)
-}
-
-// TestDeleteMachineLastChildWithDyingUnitOnParent ensures the host's
-// death is still paired with a removal job when its last unit is not
-// alive but its row remains: the job's own gates keep the host row until
-// the unit row is gone.
-func (s *machineSuite) TestDeleteMachineLastChildWithDyingUnitOnParent(c *tc.C) {
-	hostName, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
-	unitUUID := s.addUnitOnMachine(c, hostName)
-
-	s.advanceMachineLife(c, hostUUID, life.Dying)
-	s.advanceInstanceLife(c, hostUUID, life.Dying)
-
-	s.advanceUnitLife(c, unitUUID, life.Dying)
-	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
-	s.checkMachineRemovalJobs(c, hostUUID, 1)
-}
-
-// TestDeleteMachineLastChildDoesNotDuplicateRemovalJob ensures the pairing
-// is idempotent when a removal job has already been scheduled for the
-// host.
-func (s *machineSuite) TestDeleteMachineLastChildDoesNotDuplicateRemovalJob(c *tc.C) {
-	_, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
-
-	// A removal job has already been scheduled for the host, as the
-	// remove-machine flow does when it sets the machine dying.
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.MarkMachineAsDead(c.Context(), hostUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkMachineLife(c, hostUUID.String(), life.Dead)
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
+
+	// The scheduled job is never qualified with force: its own gates
+	// (machine not alive, cloud instance dead unless forced) keep the
+	// machine row until the instance is gone.
+	var forced bool
+	err = s.DB().QueryRow(`
+SELECT r.force
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  t.name = 'machine' AND r.entity_uuid = ?`, hostUUID.String()).Scan(&forced)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(forced, tc.IsFalse)
+}
+
+// TestMarkMachineAsDeadDoesNotDuplicateRemovalJob ensures scheduling is
+// idempotent: a machine whose removal was already scheduled, as the
+// remove-machine flow does when it sets the machine dying, is not
+// scheduled again.
+func (s *machineSuite) TestMarkMachineAsDeadDoesNotDuplicateRemovalJob(c *tc.C) {
+	_, hostUUID, _ := s.addContainerMachinesOnHost(c, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, hostUUID, life.Dying)
 	err := st.MachineScheduleRemoval(
 		c.Context(), "removal-uuid", hostUUID.String(), false, time.Now().UTC(),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.advanceMachineLife(c, hostUUID, life.Dying)
-	s.advanceInstanceLife(c, hostUUID, life.Dying)
+	err = st.MarkMachineAsDead(c.Context(), hostUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
 
-	s.deleteMachineViaRemovalJob(c, childUUIDs[0])
 	s.checkMachineRemovalJobs(c, hostUUID, 1)
+}
+
+// TestMarkMachineAsDeadRepairsDeadMachineWithoutRemovalJob ensures a
+// machine that already reached the dead life without a removal job is
+// repaired when its agent reattempts EnsureDead: its death is paired with
+// a removal job, and repeating the attempt does not duplicate it.
+func (s *machineSuite) TestMarkMachineAsDeadRepairsDeadMachineWithoutRemovalJob(c *tc.C) {
+	_, hostUUID, _ := s.addContainerMachinesOnHost(c, 0)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// A machine that reached the dead life without a removal job, as
+	// container hosts did before scheduling was made invariant with
+	// death.
+	s.advanceMachineLife(c, hostUUID, life.Dying)
+	s.advanceMachineLife(c, hostUUID, life.Dead)
+	s.checkMachineRemovalJobs(c, hostUUID, 0)
+
+	err := st.MarkMachineAsDead(c.Context(), hostUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
+
+	err = st.MarkMachineAsDead(c.Context(), hostUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
+}
+
+// TestHostUnitRemovedBeforeFinalChildConverges covers the removal ordering
+// in which the host's last unit is removed before its final child machine:
+// the unit removal cascade skips the host while it hosts child machines,
+// and the model removal cascade refuses it, so the host's death is only
+// paired with a removal job when the host machiner reattempts EnsureDead
+// after the child machine is deleted.
+func (s *machineSuite) TestHostUnitRemovedBeforeFinalChildConverges(c *tc.C) {
+	hostName, hostUUID, childUUIDs := s.addContainerMachinesOnHost(c, 1)
+	c.Assert(childUUIDs, tc.HasLen, 1)
+	childUUID := childUUIDs[0]
+	unitUUID, appUUID := s.addUnitOnMachine(c, hostName)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// The model removal cascade marks the model and everything in it
+	// dying at once.
+	modelUUID := s.getModelUUID(c)
+	s.advanceModelLife(c, modelUUID, life.Dying)
+	s.advanceApplicationLife(c, appUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dying)
+	s.advanceMachineLife(c, childUUID, life.Dying)
+	s.advanceMachineLife(c, hostUUID, life.Dying)
+
+	// The unit's removal flow deletes the unit row. The last-unit cascade
+	// does not pair the host with a removal job: it still hosts the child
+	// machine.
+	err := st.MarkUnitAsDead(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkMachineRemovalJobs(c, hostUUID, 0)
+
+	// The child machine's agent marks it dead, which pairs it with a
+	// removal job, and the job deletes the child machine row.
+	s.advanceInstanceLife(c, childUUID, life.Dead)
+	err = st.MarkMachineAsDead(c.Context(), childUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkMachineRemovalJobs(c, childUUID, 1)
+	err = st.DeleteMachine(c.Context(), childUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine_parent delete trigger prompts the host machiner to
+	// reattempt EnsureDead: marking the host dead pairs its death with a
+	// removal job.
+	s.advanceInstanceLife(c, hostUUID, life.Dead)
+	err = st.MarkMachineAsDead(c.Context(), hostUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkMachineLife(c, hostUUID.String(), life.Dead)
+	s.checkMachineRemovalJobs(c, hostUUID, 1)
+
+	// The host row still blocks the model removal.
+	err = st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The host's removal job deletes its row, and the application's
+	// removal flow removes the application row, unblocking the model
+	// removal.
+	err = st.DeleteMachine(c.Context(), hostUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkApplicationAsDead(c.Context(), appUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkModelAsDead(c.Context(), modelUUID, false)
+	c.Assert(err, tc.ErrorIsNil)
+	s.checkModelLife(c, modelUUID, life.Dead)
 }
 
 func (s *machineSuite) getMachineNetNode(c *tc.C, machineUUID coremachine.UUID) string {
