@@ -88,3 +88,9 @@ func (s *deltasSuite) TestOfferLeavesDescriptionNil(c *tc.C) {
 		{UUID: "offer-uuid", Name: "test-offer", Description: nil},
 	})
 }
+
+func (s *deltasSuite) TestRelationUnitDepartureStartsEmpty(c *tc.C) {
+	got, err := deltas{}.RelationUnitDeparture(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}

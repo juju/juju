@@ -266,6 +266,30 @@ func (s *relationSuite) TestDeleteRelationUnitsInScopeSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *relationSuite) TestDeleteRelationRemovesUnitDeparture(c *tc.C) {
+	rel, _, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteRelationUnits(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+	var departureCount int
+	err = s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   relation_unit_departure
+WHERE  relation_uuid = ?`, rel).Scan(&departureCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(departureCount, tc.Equals, 1)
+
+	err = st.DeleteRelation(c.Context(), rel)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   relation_unit_departure
+WHERE  relation_uuid = ?`, rel).Scan(&departureCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(departureCount, tc.Equals, 0)
+}
+
 func (s *relationSuite) TestDeleteRelationRemovesUnitState(c *tc.C) {
 	rel, unitUUID, _ := s.addAppUnitRelationScope(c, domaincharm.CharmHubSource)
 	otherUnitUUID := s.addUnit(c, "some-charm-uuid")

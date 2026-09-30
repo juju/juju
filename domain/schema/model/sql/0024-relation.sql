@@ -124,6 +124,20 @@ ON relation_unit (relation_endpoint_uuid, unit_uuid);
 CREATE INDEX idx_relation_unit_unit
 ON relation_unit (unit_uuid);
 
+-- relation_unit_departure retains the identity of a departed relation unit so
+-- watchers can report its original name after the unit itself is removed.
+-- Rows remain until the owning relation is removed.
+CREATE TABLE relation_unit_departure (
+    relation_uuid TEXT NOT NULL,
+    relation_endpoint_uuid TEXT NOT NULL,
+    unit_uuid TEXT NOT NULL,
+    unit_name TEXT NOT NULL,
+    CONSTRAINT fk_relation_unit_departure_relation_uuid
+    FOREIGN KEY (relation_uuid)
+    REFERENCES relation (uuid),
+    PRIMARY KEY (relation_uuid, unit_uuid)
+);
+
 -- The relation_unit_setting holds key value pair settings
 -- for a relation at the unit level. Keys must be unique
 -- per unit.

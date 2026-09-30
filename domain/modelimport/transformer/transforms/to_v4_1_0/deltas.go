@@ -148,6 +148,12 @@ func (d deltas) MachineReprovision(_ context.Context, _ *v4_0_12.ModelExport) ([
 	return nil, nil
 }
 
+// RelationUnitDeparture returns no rows for 4.0.12 payloads. The source schema
+// has no relation unit departure table.
+func (d deltas) RelationUnitDeparture(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitDeparture, error) {
+	return nil, nil
+}
+
 // MachineVirtualSshHostKey returns no rows for 4.0.12 payloads. The source
 // schema has no machine virtual SSH host key table.
 func (d deltas) MachineVirtualSshHostKey(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error) {
