@@ -172,10 +172,10 @@ These become the application's default constraints (i.e. they are used if the
 application is later scaled out with the `add-unit` command). To overcome this
 behaviour use the `set-constraints` command to change the application's default
 constraints or add a machine (`add-machine`) with a certain constraint and then
-target that machine with `add-unit` by using the `--to`option.
+target that machine with `add-unit` by using the `--to` option.
 
 Use the `--storage` option to specify a storage directive for the application;
-see more: https://documentation.ubuntu.com/juju/latest/reference/storage/#storage-directive.
+see more: https://canonical.com/juju/docs/juju-cli/latest/reference/storage/#storage-directive.
 These directives will control the application's default persistent storage layout (i.e. they are used when the application is later
 scaled out with the `add-unit` command and new units need storage provisioned).
 
