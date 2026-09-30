@@ -93,7 +93,6 @@ func (s *relaySuite) TestRelaySessionServedEndToEnd(c *tc.C) {
 	case <-time.After(5 * time.Second):
 		c.Fatal("timed out waiting for the relayed session to run")
 	}
-	ctrl.Finish()
 }
 
 // stubProxyHandlers provides a session handler that writes a greeting and
@@ -152,7 +151,6 @@ func (s *relaySuite) TestResolveErrorWrittenToConn(c *tc.C) {
 	// errors are not leaked over the wire.
 	c.Check(string(out), tc.Contains, "juju ssh relay: cannot reach destination")
 	c.Check(string(out), tc.Not(tc.Contains), "no such destination")
-	ctrl.Finish()
 }
 
 // TestConcurrentConnectionsCapped checks that a relay over the cap is
@@ -177,7 +175,6 @@ func (s *relaySuite) TestConcurrentConnectionsCapped(c *tc.C) {
 	handler.ServeHTTP(w, r)
 
 	c.Check(w.Code, tc.Equals, http.StatusServiceUnavailable)
-	ctrl.Finish()
 }
 
 // TestRelayMaxConnectionsDrainAndReadmit exercises the live cap cycle over
@@ -227,7 +224,6 @@ func (s *relaySuite) TestRelayMaxConnectionsDrainAndReadmit(c *tc.C) {
 	admitted := s.startRelay(c, handler)
 	_ = admitted.Close()
 
-	ctrl.Finish()
 }
 
 // TestKillDrainsInFlightRelay checks that killing the handler mid-session
@@ -273,7 +269,6 @@ func (s *relaySuite) TestKillDrainsInFlightRelay(c *tc.C) {
 
 	// The slot drains once the killed relay returns.
 	s.checkRelayConnCount(c, handler, 0)
-	ctrl.Finish()
 }
 
 // startBlockingRelay dials a relay against the handler, performs the HTTP
@@ -340,7 +335,6 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 			factory := NewMockTerminatingServerFactory(ctrl)
 			w := s.serveRelay(c, factory, test.modelUUID, test.access)
 			tc.Check(t, w.Code, tc.Equals, test.wantCode)
-			ctrl.Finish()
 		})
 	}
 }
@@ -350,7 +344,6 @@ func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	factory := NewMockTerminatingServerFactory(ctrl)
 	w := s.serveRelay(c, factory, testModelUUID, "")
 	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
-	ctrl.Finish()
 }
 
 // TestMalformedHostnameBadRequest checks that an unparseable destination
@@ -370,7 +363,6 @@ func (s *relaySuite) TestMalformedHostnameBadRequest(c *tc.C) {
 
 	c.Check(w.Code, tc.Equals, http.StatusBadRequest)
 	c.Check(w.Body.String(), tc.Contains, "failed to parse destination hostname")
-	ctrl.Finish()
 }
 
 // dialRelay starts a relay test server with the given factory, injects
