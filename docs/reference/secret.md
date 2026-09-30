@@ -1,131 +1,251 @@
 ---
 myst:
   html_meta:
-    description: "Juju secret reference: manage sensitive data like credentials, API keys, and certificates. Learn charm secrets, user secrets, and secret backends."
+    description: "Juju secret reference: the sensitive payload Juju stores on behalf of its owner. The secret record and its revisions, charm and user secrets, access grants, rotation and expiry, backends, and watchers."
 ---
 
 (secret)=
 # Secret
 
+In Juju, a **secret** is a piece of sensitive information (an API key, a
+password, a certificate) that Juju stores on behalf of its owner and
+shares only with the consumers it is granted to. It is one object across
+the three layers: the owner declares it over the controller API or its
+unit's hook context, the model database persists its metadata, its owner
+record and its revisions, and the owner's unit agent executes it,
+turning the policy clocks into events and serving the payload to the
+consumers.
+
+(the-secrets-declaration)=
+(the-secrets-declaration-rules)=
+## Secrets in the declaration layer
+
+- **Charm secrets:** The owner unit's hook context carries the secret commands: `secret-add`, `secret-set`, `secret-grant`, `secret-revoke`, `secret-get`, `secret-info-get`, `secret-ids`, `secret-remove`.
+  - *Rule:* Charm secrets cannot be created with auto-prune; only user secrets auto-prune.
+  - *Related error:*
+    - **`charm secrets do not support auto prune`**: *Trigger:* A charm secret is created with auto-prune. *Remediation:* None; auto-prune is a user-secret behavior.
+- **User secrets:** A Juju client carries the secret commands: `add-secret`, `update-secret`, `grant-secret`, `revoke-secret`, `remove-secret`; adding, updating, granting and revoking require model {ref}`write access <user-access-model-write>`.
+- **Secret content:** The data of a secret is a set of key/value pairs.
+  - *Rule:* Secret data keys must match the name pattern (lowercase letter first, then letters, numbers and dashes, at least three characters) and must not be empty.
+  - *Rule:* A secret value may be at most 1 MB (1,000,000 bytes) base64-encoded per key, and the secret's total content at most 1 MB.
+  - *Related error:*
+    - **`key "<key>" not valid`**: *Trigger:* A secret data key does not match the name pattern. *Remediation:* Rename the key with lowercase letters, numbers and dashes.
+- **Rotation policy:** A secret may carry a rotation policy and a next rotation time.
+  - *Rule:* A rotation policy and a next rotation time always come together; one without the other is invalid.
+  - *Related errors:*
+    - **`cannot specify a secret rotate policy without a next rotate time`**: *Trigger:* A rotation policy is set with no next rotation time. *Remediation:* Set the policy and the time together.
+    - **`cannot specify a secret rotate time without a rotate policy`**: *Trigger:* A next rotation time is set with no rotation policy. *Remediation:* Set the policy and the time together.
+- **Labels:** An owner and each consumer can label a secret.
+  - *Rule:* A label is unique per owner or consumer scope: an owner's label and each consumer's label are unique among that owner's or consumer's secrets.
+  - *Related error:*
+    - **`secret label already exists`**: *Trigger:* A secret is created or updated with a label that its owner or consumer scope already uses. *Remediation:* Choose another label.
+- **Secret ID:** The secret ID is minted by Juju; a secret that originated in another model carries that model's UUID in its URI.
+- **Backends:** Selecting a model's active backend is its own model operation; see {ref}`secret backends <secret-backend>` below.
+
 ```{ibnote}
-See also: {ref}`manage-secrets`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Terraform Provider for Juju | Manage secrets <tfjuju:manage-secrets>`
 ```
 
-In Juju, a **secret** is a sensitive bit of information (e.g., account credential, password, certificate, SSH key, API key, encryption key, etc.) that a {ref}`charm <charm>` needs to know.
+(the-secrets-persistence)=
+(the-secrets-persistence-rules)=
+## Secrets in the persistence layer
 
-## Secret taxonomy
+In the {ref}`model database <database>`, a secret is a **native record**: the record
+set grew to its current shape over the patch stream, and the schema
+folds some of its records into one another. The record set every secret carries, with the records that round out its specific roles:
+
+- **Metadata record:** One per secret, keyed by the secret's ID, and that ID is the whole identity pair: the owner records, the revisions, the consumers and the permission grants all point at it. It carries the latest revision pointer, the description, the rotation policy, and the auto-prune flag.
+  - *Related errors:*
+    - **`secret not found`**: *Trigger:* Operating on a secret ID that does not exist. *Remediation:* Check the URI or the label.
+    - **`secret is from a different model`**: *Trigger:* Operating locally on a secret whose URI names another model. *Remediation:* Consume the secret from the model that owns it.
+- **Owner and consumer records:** A secret has an owner (an application, a unit, or the model; one record kind per owner) and consumers (the units tracking it, in this model and, for cross-model secrets, in the consuming model). The owner's and each consumer's label hang there: any string, unique per owner or consumer, for the charm's internal reference.
+  - *Rule:* Owner labels and consumer labels are unique within their scope: per owner record kind and per consuming unit, enforced by the schema's partial unique indexes.
+  - *Related error:*
+    - **`secret consumer not found`**: *Trigger:* The named unit has no consumer record for the secret. *Remediation:* Get the secret once to start tracking it.
+- **Revision records:** One record per published revision, unique per secret and revision number; a revision no consumer tracks becomes obsolete, and the expiry time hangs off the revision.
+  - *Rule:* Revisions are unique per secret: one record per secret ID and revision number.
+  - *Related error:*
+    - **`secret revision not found`**: *Trigger:* Operating on a revision that does not exist. *Remediation:* Check the revision number.
+- **Payload records:** Each revision carries its payload: key/value records when the content is stored inline, or a reference into a {ref}`secret backend <secret-backend>`'s store (with the deleted-content references cleaned up after the external content is).
+  - *Related error:*
+    - **`missing secret backend id`**: *Trigger:* Importing a secret whose backend cannot be identified. *Remediation:* Check the backend's configuration.
+- **Permission grants:** A role (none, view, manage) over a subject (a unit, an application, the model) within a scope (a unit, an application, a model, a relation), one record per subject. The roles, the subject kinds and the scope kinds are stored vocabularies.
+  - *Related error:*
+    - **`secret access scope not found`**: *Trigger:* The grant's scope does not exist. *Remediation:* Check the scope entity.
+- **Satellites:** The rotation clock (the next rotation time per secret), the ID reservations (IDs minted but not yet committed as charm secrets, consumed when the secret is created), the cross-model consumer-side record (the latest revision and, filled in lazily after a migration, the owner application), and the deleted-content references.
+  - *Rule:* A reserved secret ID is consumed when the secret is committed, and a unit can only write backend content for IDs it reserved.
+
+The client-facing handles hang off the secret's ID: the **secret
+URI**, assigned by Juju when the secret is added and returned to the
+caller for subsequent actions; a user-chosen **name** for a user
+secret, stored as its owner label; and an **owner** or **consumer**
+label for the charm's internal reference. A cross-model secret's URI
+carries the source model's UUID as the URI's host part
+(`secret://<source-uuid>/<id>`); a local secret's URI is just
+`secret:<id>`.
+
+The services read the secret's records through derived views that
+join the metadata, policy, revision, expiry and owner records into one
+shape, resolve the grant subjects and scopes to natural ids, and
+union the owner kinds. The views have no pointers of their own.
+
+(the-secret-states)=
+One state machine, and it is not the shared life: a secret carries no
+alive, dying, dead cycle of the shared kind. The owner publishes
+revisions, the controller writes the grant and tracking records, the
+rotation and expiry policies fire the owner's hooks, and the owner or
+the auto-pruner retires superseded revisions; removing the secret
+deletes the records and the backend payloads. The records above store
+that story; the operations in the execution layer drive it. A secret is reserved (its URI minted), becomes active (its latest revision stored in a backend), and can be granted (view or manage roles) and superseded; a rotate policy fires `secret-rotate` (on the leader), expiry fires `secret-expired`; a revision no consumer tracks becomes obsolete (pending delete) and the owner charm retires it via `secret-remove` (or user secrets auto-prune); consumers see `secret-changed`.
+
+### Types of secret
+
+A secret is typed by who owns it: the owner record is one of an
+application, a unit, or the model, and that is the whole taxonomy. The
+type is a stored discriminator: it is which owner record kind the
+secret hangs off.
 
 (charm-secret)=
-### Charm secret
+#### Charm secret
 
-A **charm secret** is a secret created by a charm. A charm secret is shared with another charm (the secret 'observer') over relation data. The secret is tied to the lifecycle of the relation.
+A **charm secret** is a secret created by a charm. A charm secret is
+shared with another charm (the secret's observer) over relation data,
+and its access is tied to the lifecycle of the relation: a grant
+scoped to a relation is deleted when the relation is removed.
 
 (unit-secret)=
-#### Unit secret
+##### Unit secret
 
-A **unit secret** is a {ref}`charm secret <charm-secret>` created by a unit and owned by the unit.
+A **unit secret** is a {ref}`charm secret <charm-secret>` created by a
+unit and owned by the unit.
 
 (application-secret)=
-#### Application secret
+##### Application secret
 
-An **application secret** is a {ref}`charm secret <charm-secret>` created by the leader unit and (because the leader unit does not have a fixed identity) owned by the application (i.e., when the leader unit changes, the secret is owned by the new leader).
+An **application secret** is a {ref}`charm secret <charm-secret>`
+created by the leader unit and, because the leader unit does not have
+a fixed identity, owned by the application: when the leader unit
+changes, the secret is owned by the new leader.
 
 (user-secret)=
-### User secret
+#### User secret
 
-A **user secret** is a secret created by a {ref}`user <user>` with a {ref}`model admin access level <user-access-model-admin>` and (because this does not have a fixed identity) owned by the model. A user secret is shared with a charm (the secret 'observer') via a configuration option. The charm must support the configuration option.
+A **user secret** is a secret created by a {ref}`user <user>` with a
+{ref}`model admin access level <user-access-model-admin>` and, because
+this does not have a fixed identity, owned by the model. A user secret
+is shared with a charm (the secret's observer) via a configuration
+option. The charm must support the configuration option.
 
-## Secret identification
+(the-secrets-execution)=
+(the-secrets-execution-rules)=
+## Secrets in the execution layer
 
-Secrets are identified by an automatically assigned URI (see more: {ref}`secret-uri`).
+A secret has machinery of its own: on the controller the secret is
+stored, granted and pruned, and on the owner unit's agent the rotation
+and expiry workers turn the policy clocks into the `secret-rotate` and
+`secret-expired` events. Changing a model's active backend starts a
+drain worker that moves the model's secrets to the new backend.
 
-The secret URI can always be used in any content to identify a secret. Additionally, users give secrets they create names (see more: {ref}`secret-name`), and charms may choose to assign labels to secrets (see more: {ref}`secret-label`).
+(the-secret-operations)=
+### Secret operations
 
-In short, the same secret may end up being associated with multiple identifiers. For example:
+- **Access checks:** Access is checked on every operation.
+  - *Rule:* The owner can manage its secret (update, grant, revoke, inspect); anyone else needs a granted role, view to get the payload; the owner application's units read it implicitly.
+  - *Rule:* On an application-owned secret, management and the rotate, expire and remove hooks run on the leader unit only.
+  - *Related error:*
+    - **`permission denied`**: *Trigger:* The caller lacks the role the operation requires. *Remediation:* Ask the owner to grant the needed role.
+- **Creating and updating:** The owner creates the secret (a charm's `secret-add`, a user's `add-secret`): Juju mints the secret ID, writes the metadata and owner records, and stores the first revision's payload in the active backend. Publishing a new revision (a charm's `secret-set`, a user's `update-secret`) adds a revision record and notifies the consumers; the consumers then track or peek it.
+  - *Rule:* Backend write authority is granted only for the secret IDs a unit actually reserved.
+- **Granting and revoking:** Access is a grant record on the secret: the owner grants a subject (an application, a unit, or the model) a role, view or manage, optionally scoped to a relation, and can revoke it. The owner application's units read it implicitly, and the relation that carries a grant revokes it when it is removed.
+  - *Rule:* A grant cannot change its scope or subject type; a role change is an update of the role alone.
+  - *Related error:*
+    - **`cannot change a secret permission scope or subject type`**: *Trigger:* A grant is updated with a different scope or subject type. *Remediation:* Revoke the grant and grant it again with the scope or subject wanted.
+- **Tracking and peeking:** A unit that gets a secret for the first time starts tracking its latest revision. A unit cannot choose to track an outdated revision, but it can refuse to update to a newer one: it can peek the latest revision without updating to it, or do nothing.
 
-- (name vs. URI vs. label:) I as a user might create a secret with a name that makes sense to me, for example, `my-api-key`. Juju assigns it a URI, for example, `9m4e2mr0ui3e8a215n4g`. When I then configure a charm to use it, the charm might give it a label, for example, `vault-api-token`.
-- (label vs. URI vs. label:) A leader unit creates an application secret and assigns to it a label in its capacity as the secret owner, for example, `db-password`. Juju assigns it a URI, e.g., `6k7n4ps1vj2d9b318x5w`. Any unit granted permission to the secret (peer units get implicit permission) might assign another label in their capacity as secret consumers, for example, `shared-db-creds`.
+```{important}
 
-(secret-uri)=
-### Secret URI
+When a unit gets a secret for the first time it will automatically be
+set to track the latest revision. A unit cannot choose to track an
+outdated revision, but it can in principle refuse to update to a newer
+one.
 
-In both {ref}`user secrets <user-secret>` and {ref}`charm secrets <charm-secret>`, a secret URI is automatically assigned by Juju when the secret is added, either by a user through `juju add-secret` (or its equivalent in other Juju clients) or by a charm via `secret-add`. The URI is returned to the caller so they can then use it in subsequent actions (for example, a charm might grant permission to that secret using the URI and then put the URI in relation data).
+```
 
-(secret-name)=
-### Secret name
+- **Rotating:** A rotation policy (hourly, daily, weekly, monthly, quarterly, yearly) puts the secret on a rotation clock: when it fires, the owner unit's agent runs the charm's `secret-rotate` hook, the charm publishes a new revision, and the next rotation time moves on. On an application-owned secret the hook runs on the leader unit only.
+- **Expiring and removing:** An expiry date on a revision fires the `secret-expired` event when it passes, telling the owner to retire the secret. Revisions no consumer tracks become obsolete: the charm removes them (`secret-remove`) or, for secrets with auto-prune, Juju deletes them itself. Removing a secret deletes its records and its backend payloads.
 
-In {ref}`user secrets <user-secret>`, a secret name is the string identifier assigned to a secret by the user when adding the secret to Juju, for their own reference.
+```{important}
 
-Secret names must start with a lowercase letter, followed by a sequence of letters, numbers, and dashes, and must not end with a dash; in short, they must comply with the following regex: `^([a-z](?:-?[a-z0-9]){2,})$`.
+Charms that create secrets should _always_ handle the `secret-remove`
+event. That is because secret revisions, even if obsolete, remain
+until removed by the charm; if a charm does not remove them, they
+accumulate indefinitely.
 
-(secret-label)=
-### Secret label
+```
 
-In {ref}`user secrets <user-secret>` or {ref}` charm secrets <charm-secret>`, a secret label is a string identifier that may be assigned to a secret by the secret owning and, respectively, the secret consuming charm for their own internal reference.
-
-Unlike secret names, labels have no format constraints and can be any string. This flexibility allows charms to use their own naming conventions for internal reference.
-
-## Secret size
-
-The maximum size for a base64-encoded secret value is `1MB` (1,000,000 bytes) per key. This limit ensures compatibility across all secret backends, including Vault and Kubernetes.
+- **User secrets:** The user's workflow: the user creates the secret (`add-secret`), grants an application access (`grant-secret`, which fires no hook), sets the application's configuration option to the secret URI (which fires `config-changed` on the charm), and updates the content (`update-secret`, which fires `secret-changed` on the observing units). The only hook a user-secret observer receives is `secret-changed`: user secrets have no rotate, expire or remove lifecycle.
 
 (secret-backend)=
-## Secret backend
+### Secret backends
 
 ```{ibnote}
 See also: {ref}`manage-secret-backends`
 ```
 
-A **secret backend** is a service that is used to store sensitive content which Juju manages as {ref}`secrets <secret>`.
+A **secret backend** is a service that is used to store sensitive
+content which Juju manages as {ref}`secrets <secret>`. The backend
+records live in the controller database; each model points at one
+active backend.
 
-Secret backends are per model.
+A secret backend is identified by a name and a type, and admits various
+configuration options, some of them generic and some
+backend-type-specific.
 
-A secret backend is identified by a name and a type, and admits various configuration options, some of them generic and some backend-type-specific.
-
-### Name
+#### Name
 
 The name of a secret backend can be:
 
-- `auto` (i.e., `internal` for machine models and `local` for Kubernetes models)
+- `auto` (i.e., `internal` for machine models and the model's built-in
+  `<model name>-local` backend for Kubernetes models)
 - `internal`
 - `<some custom name>`
 
-The name is set via the `secret-backend` model configuration key.
+The model's active backend is set per model, as its own model operation
+(see {ref}`manage secret backends <manage-secret-backends>`); it is no
+longer model configuration: the `secret-backend` model configuration
+key is gone.
 
-```{ibnote}
-See more: {ref}`list-of-model-configuration-keys`
-```
+#### Type
 
-### Type
-
-The type of a secret backend can be `controller`, `kubernetes`, and `vault`.
+The type of a secret backend can be `controller`, `kubernetes`, and
+`vault`.
 
 ```{tip}
 For production use, we recommend `vault`.
 ```
 
-#### `controller`
+##### `controller`
 
 The `controller` backend is the Juju model database.
 
 It is the default secret backend for machine (VM) models.
 
-#### `kubernetes`
+##### `kubernetes`
 
 The `kubernetes` backend is the model's Kubernetes namespace.
 
 It is the default secret backend for container (Kubernetes) models.
 
-#### `vault`
+##### `vault`
 
 The `vault` backend refers to the Hashicorp Vault.
 
-It is available as an opt-in to both machine  and Kubernetes models.
+It is available as an opt-in to both machine and Kubernetes models.
 
 (secret-backend-configuration-options)=
-### Configuration options
+#### Configuration options
 
-#### Generic
+##### Generic
 
 The generic configuration keys currently include just the following:
 
@@ -135,7 +255,7 @@ The generic configuration keys currently include just the following:
 
 The `vault` backend is the only one that supports it for now.
 
-#### Backend-specific
+##### Backend-specific
 
 The `vault` backend supports the following configuration keys:
 
@@ -143,7 +263,7 @@ The `vault` backend supports the following configuration keys:
 |-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
 | `ca-cert`         | The path to a PEM-encoded CA certificate file on the local disk. This file is used to verify the Vault server's SSL certificate.                |
 | `client-cert`     | The path to a PEM-encoded client certificate on the local disk. This file is used for TLS communication with the Vault server.                  |
-| `client-key`      | The path to an unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.                               |
+| `client-key`      | An unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.                                           |
 | `endpoint`        |                                                                                                                                                 |
 | `namespace`       | The namespace to use for the secret store. Setting this is not necessary but allows using relative paths.                                       |
 | `mount-point`     | The mount point to use as a prefix for the secret store. If specified, secrets are stored under `<mount-point>/<model-name>-<model-shortuuid>`. |
@@ -154,7 +274,11 @@ The `vault` backend supports the following configuration keys:
 See more: [Vault | `vault server`](https://fig.io/manual/vault/server), [Hashicorp | Vault CLI](https://developer.hashicorp.com/vault/docs/commands). <br> (You will see more options there as we currently support only a subset.)
 ```
 
-A minimum configuration must include the `endpoint` and `token`. However, just that would not be insecure, as it wouldn't establish an encrypted TLS connection to Vault. For production you should configure your Vault securely, following recommendations in the upstream Vault documentation.
+A minimum configuration must include the `endpoint` and `token`.
+However, just that would not be secure, as it would not establish an
+encrypted TLS connection to Vault. For production you should configure
+your Vault securely, following recommendations in the upstream Vault
+documentation.
 
 The `kubernetes` backend supports the following configuration keys:
 
@@ -168,15 +292,19 @@ The `kubernetes` backend supports the following configuration keys:
 | `namespace`| The namespace to use store the secrets. The namespace must already exist (it is not created).|
 | `service-account`| The service account for the access token refresh.|
 | `skip-tls-verify`| Do not verify the TLS certificate. For testing only.|
-| `token`| The Kuberneres authentication token (can be generated using `kubectl create token ${service-account} --namespace ${namespace}`.|
-| `username`| The Kuberneres authentication username.|
-| `password`| The Kuberneres authentication password.|
+| `token`| The Kubernetes authentication token (can be generated using `kubectl create token ${service-account} --namespace ${namespace}`.|
+| `username`| The Kubernetes authentication username.|
+| `password`| The Kubernetes authentication password.|
 
-A minimum configuration must include the `endpoint`, `namespace`, and `ca-cert`.
+A minimum configuration must include the `endpoint`, `namespace`, and
+`ca-cert`.
 In most cases, `token` would also be specified for authentication.
-If the token is to expire and needs to be rotated, the token's service account must be specified so a new token can be created.
+If the token is to expire and needs to be rotated, the token's service
+account must be specified so a new token can be created.
 
-The service account used to generate the access token must have been configured with a cluster role binding to allow the necessary access privileges.
+The service account used to generate the access token must have been
+configured with a cluster role binding to allow the necessary access
+privileges.
 The following is an example of how this might be done:
 
 ```
@@ -184,56 +312,28 @@ kubectl create clusterrole juju-secrets --verb='*' --resource=namespaces,cluster
 kubectl create clusterrolebinding juju-secrets --clusterrole=juju-secrets --serviceaccount=${namespace}:${serviceaccount}
 ```
 
-## Permissions around secrets
+Changing a model's active backend moves the model's secrets: the
+controller drains the revisions from the old backend into the new one
+and rewrites the payload references.
 
-An entity -- unit/app or user -- that has created / owns the secret can **manage** it (call `secret-set, secret-grant, secret-revoke, secret-info-get`, etc.).
+(the-secret-watchers)=
+### Secret watchers
 
-An entity that does not own the secret can only **view** it (call `secret-get`), and only if it has been granted access to it -- except for peer units or a model admin user, who get view access automatically.
+The secret domain's watchable service exposes these watch surfaces,
+what a watcher fires on:
 
-## Secret lifecycle
+- **Consumed secrets changes:** a consumer's tracked secret got a new
+  revision; this is what delivers the `secret-changed` event (see
+  {ref}`the unit agent <unit-agent>`).
+- **Obsolete secrets** and **obsolete user secrets to prune:** the
+  revisions no consumer tracks; the owner's `secret-remove` and the
+  auto-prune housekeeping.
+- **Deleted secrets:** secrets removed entirely.
+- **Secret revisions' expiry changes:** the expiry clock; the unit
+  agent's expiry worker turns it into the `secret-expired` event.
+- **Secrets' rotation changes:** the rotation clock; the unit agent's
+  rotation worker turns it into the `secret-rotate` event.
 
-### Charm-secret lifecycle
-
-Charms can use relations to share secrets, such as API keys, a database's address, credentials and so on. Like a relation has a "provider" and a "requirer", so a secret has an "owner" and an "observer" -- though these need not coincide with the applications' roles in the relation.
-
-Every secret has a **scope**, and that is the relation its lifecycle is tied to. If the relation is removed, the secret access will be revoked.
-
-When a unit adds a secret, it becomes that secret's **owner**, and it will obtain from Juju a **secret ID**, which it can then pass to some remote application via relation data. Any remote unit with access to that ID can get the secret (that is, access its contents). Before that is possible, however, the owner needs to **grant** the secret to the whole application or a specific unit.
-
-Once the remote unit (the secret **observer**) gets its contents for the first time, it starts to track that secret in Juju -- more specifically, its *latest revision*, as we will see later. When the owner adds the secret, and when the observer gets it, they both have a chance to assign to the secret a **label**, a locally-unique string that will be associated with that secret and can be used by the charm to refer to the secret "by name".
-
-The owner can choose at any time to publish a new **revision** of the secret, that is, change its payload (for example, replace an old key with a new one). When that happens, the observer will be notified by means of a `secret-changed` event. The observer can then **refresh** the secret, which means inform Juju that it wishes to start tracking the latest revision. From that moment on, every time the unit gets the secret, it will receive the newly-tracked revision's contents.
-
-However, a unit does not have to immediately update whenever a new revision becomes available. It can **peek** the secret's contents, which means to inspect the latest revision of the secret without updating to it, or choose to do nothing.
-
-```{important}
-
-When a unit gets a secret for the first time it will automatically be set to track the latest revision. A unit cannot choose to track an outdated revision, but it can in principle refuse to update to a newer one.
-
-```
-
-When a charm secret is added, the owner can configure it to have a **rotation** policy (hourly, daily, monthly, and so on). In that case, the owner will be periodically notified, by means of a `secret-rotate` event, that it is time to rotate the secret -- that is, create a new revision for it.
-
-Alternatively, a charm secret can be configured to have an **expiration** date, that is, a specific point in time at which the charm will be notified by Juju that it is time to retire the secret by means of a `secret-expired` event.
-
-Juju maintains a list of which observers are tracking each revision of each secret. The idea is that if an observer receives a `secret-changed` event, it will update the secret and start tracking the latest revision. Once Juju notices that there are no observers left for a given revision, it will notify the secret owner that that secret revision can be safely **removed** -- which corresponds to the `secret-remove` event.
-
-```{important}
-
-Charms that create secrets should _always_ handle the `secret-remove` event. That is because secret revisions, even if obsolete, remain until removed by the charm; if a charm does not remove them, they accumulate indefinitely.
-
-```
-
-### User-secret lifecycle
-
-A user secret's lifecycle consists of:
-
-1. **Create**: A model admin creates the secret: `juju add-secret <name> <key>=<value>`.
-2. **Grant**: The admin grants access to an application: `juju grant-secret <name> <app-name>` — this does **not** fire a hook on the observing charm.
-3. **Configure**: The admin sets the application's configuration option to the secret URI: `juju config <app-name> <option>=<secret-uri>` — this triggers a `config-changed` hook on the observing charm.
-4. **Update**: The admin updates the secret content: `juju update-secret <name> <key>=<new-value>` — this triggers `secret-changed` on all observing units.
-
-The **only hook** a user-secret observer receives is `secret-changed`. There is no `secret-rotate`, `secret-expired`, or `secret-remove` lifecycle for user secrets.
-
-> See also: {ref}`hook-secret-changed`, {ref}`manage-secrets`
-
+Every watcher fires once immediately when it is created, the initial
+query being the baseline snapshot, and again on each qualifying change
+(see {ref}`the watcher pattern <watchers>`).
