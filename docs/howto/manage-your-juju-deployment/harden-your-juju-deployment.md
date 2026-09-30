@@ -45,9 +45,13 @@ In a typical Juju workflow you allow your client to read your locally stored clo
 See more: {ref}`bootstrap-a-controller`, {ref}`cloud-ec2`, {ref}`cloud-azure`
 ```
 
-Like all the cloud resources provisioned through Juju, the cloud resources (machines or containers) that a controller is deployed on run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is behind a firewall, inside a VPC, with the API port opened -- as well as hardened (through security groups) -- by default:
+Like all the cloud resources provisioned through Juju, the cloud resources (machines or containers) that a controller is deployed on run the latest Ubuntu LTS.  This Ubuntu is *not* CIS- and DISA-STIG-compliant (see more: [Ubuntu | The Ubuntu Security Guide](https://ubuntu.com/security/certifications/docs/usg)). However, it is behind a firewall, inside a VPC, with only the following ports opened -- as well as hardened (through security groups) -- by default:
 
-- `17070`, to allow access from clients and agents (see {ref}`controller-config-api-port`).
+- `17070`, to allow access from clients and agents (see {ref}`controller-config-api-port`);
+- `22`, for SSH, from the addresses in the `ssh-allow` model configuration key, which are all addresses by default (see {ref}`model-config-ssh-allow`);
+- `80`, only if the controller sets `autocert-dns-name`, to answer the Let's Encrypt HTTP challenge (see {ref}`controller-config-autocert-dns-name`).
+
+The controller also runs an SSH server on port `17022` (see {ref}`controller-config-ssh-server-port`), through which `juju ssh` and `juju scp` are proxied by default. On Kubernetes, Juju exposes this port in the controller's service. On machine clouds, open it in the controller's security group for the clients that need it.
 
 When a controller deploys a charm, all the traffic between the controller and the resulting application unit agent(s) is [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security)-encrypted (each agent starts out with a CA certificate from the controller and, when they connect to the controller, they get another certificate that is then signed by the preshared CA certificate). In addition to that, every unit agent authenticates itself with the controller using a password.
 
