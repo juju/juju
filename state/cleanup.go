@@ -669,9 +669,9 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	app, err := st.Application(applicationname)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Nothing to do, the application is already gone.
-			logger.Tracef("cleanupApplication(%s): application already gone", applicationname)
-			return nil
+			// Forced relation removal also queues this cleanup for
+			// dying remote applications.
+			return st.cleanupDyingRemoteApplication(applicationname)
 		}
 		return errors.Trace(err)
 	}
@@ -704,6 +704,38 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	err = st.ApplyOperation(op)
 	if len(op.Errors) != 0 {
 		logger.Warningf("operational errors cleaning up application %v: %v", applicationname, op.Errors)
+	}
+	return err
+}
+
+// cleanupDyingRemoteApplication removes a dying remote application once no
+// relations reference it.
+func (st *State) cleanupDyingRemoteApplication(name string) error {
+	app, err := st.RemoteApplication(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Nothing to do, the application is already gone.
+			logger.Tracef("cleanupApplication(%s): application already gone", name)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if app.Life() == Alive {
+		return nil
+	}
+	refCount, err := countRelationsForApplication(st, name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if refCount > 0 {
+		// Removing the last relation also removes the application.
+		logger.Tracef("cleanupApplication(%s) called, but it still has %d relations", name, refCount)
+		return nil
+	}
+	// Only a forced destroy removes an application that is already dying.
+	errs, err := app.DestroyWithForce(true, 0)
+	if len(errs) != 0 {
+		logger.Warningf("operational errors cleaning up saas application %v: %v", name, errs)
 	}
 	return err
 }

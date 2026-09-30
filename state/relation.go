@@ -668,6 +668,19 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 		}
 		return removeOps, nil
 	}
+	// A forced application destroy can remove several relations to a
+	// dying remote application in one transaction without any of them
+	// seeing it lose its final relation, so queue a cleanup to remove
+	// it once no relations reference it.
+	var cleanupOps []txn.Op
+	if force && app.doc.Life != Alive {
+		cleanupOps = append(cleanupOps, newCleanupOp(
+			cleanupApplication,
+			ep.ApplicationName,
+			false, // destroyStorage
+			force,
+		))
+	}
 	// The stored count may be out of date. An application destroy can
 	// remove several relations referencing the same remote application
 	// in one transaction, so each removal must decrement the count by
@@ -701,11 +714,11 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 		// Keep the revision assertion even when leaving the count alone.
 		// If a concurrent add caused the mismatch between the two reads,
 		// the removal must abort and retry with the updated application.
-		return []txn.Op{{
+		return append([]txn.Op{{
 				C:      remoteApplicationsC,
 				Id:     app.doc.DocID,
 				Assert: bson.D{{"txn-revno", app.doc.TxnRevno}},
-			}}, stateerrors.NewRelationCountCorruptError(
+			}}, cleanupOps...), stateerrors.NewRelationCountCorruptError(
 				app.Name(), app.doc.RelationCount, refCount)
 	}
 	if !unitDying && !force {
@@ -717,12 +730,12 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 	} else {
 		asserts = append(bson.D{}, hasRelation...)
 	}
-	return []txn.Op{{
+	return append([]txn.Op{{
 		C:      remoteApplicationsC,
 		Id:     r.st.docID(ep.ApplicationName),
 		Assert: append(asserts, bson.DocElem{Name: "txn-revno", Value: app.doc.TxnRevno}),
 		Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
-	}}, nil
+	}}, cleanupOps...), nil
 }
 
 // countRelationsForApplication returns the number of relations whose endpoints

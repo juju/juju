@@ -1988,6 +1988,51 @@ func (s *RelationSuite) TestDestroyRemoteApplicationForcePreservesZeroLocalRelat
 	c.Check(app.RelationCount(), gc.Equals, 0)
 }
 
+func (s *RelationSuite) TestDestroyApplicationForceRemovesDyingRemoteApplicationWithTwoRelations(c *gc.C) {
+	remote, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "remote-wordpress",
+		SourceModel: names.NewModelTag("source-model"),
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}, {
+			Interface: "mysql-root",
+			Name:      "admin",
+			Role:      charm.RoleRequirer,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	for _, pair := range [][]string{
+		{"mysql:server", "remote-wordpress:db"},
+		{"mysql:server-admin", "remote-wordpress:admin"},
+	} {
+		eps, err := s.State.InferEndpoints(pair...)
+		c.Assert(err, jc.ErrorIsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, jc.ErrorIsNil)
+		s.setLife(c, "relations", rel.String(), state.Dying)
+	}
+	s.setLife(c, "remoteApplications", remote.Name(), state.Dying)
+
+	// Both relations are removed in one transaction, so neither removal
+	// sees the other and the dying remote application is left in place.
+	op := app.DestroyOperation()
+	op.Force = true
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+	c.Check(op.Errors, gc.HasLen, 0)
+	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	// The queued cleanup removes it once no relations reference it.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	s.assertNoCleanups(c)
+}
+
 func (s *RelationSuite) TestForceCleanupModelContinuesAfterSaasFailure(c *gc.C) {
 	s.assertCleanupModelAfterSaasFailure(c, true)
 }
@@ -2099,22 +2144,9 @@ func (s *RelationSuite) makeDyingRelationWithoutScopes(c *gc.C, consumerProxy bo
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Reproduce interrupted teardown with no units or scopes remaining.
-	for collection, id := range map[string]string{
-		"applications":       app.Name(),
-		"remoteApplications": remote.Name(),
-		"relations":          rel.String(),
-	} {
-		life := endpointLife
-		if collection == "relations" {
-			life = state.Dying
-		}
-		coll, closer := state.GetCollection(s.State, collection)
-		err := coll.Writeable().UpdateId(state.DocID(s.State, id), bson.M{
-			"$set": bson.M{"life": life},
-		})
-		closer()
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	s.setLife(c, "applications", app.Name(), endpointLife)
+	s.setLife(c, "remoteApplications", remote.Name(), endpointLife)
+	s.setLife(c, "relations", rel.String(), state.Dying)
 	c.Assert(app.Refresh(), jc.ErrorIsNil)
 	c.Assert(remote.Refresh(), jc.ErrorIsNil)
 	c.Assert(rel.Refresh(), jc.ErrorIsNil)
@@ -2124,6 +2156,15 @@ func (s *RelationSuite) makeDyingRelationWithoutScopes(c *gc.C, consumerProxy bo
 	c.Check(rel.UnitCount(), gc.Equals, 0)
 
 	return app, remote, rel
+}
+
+func (s *RelationSuite) setLife(c *gc.C, collection, id string, life state.Life) {
+	coll, closer := state.GetCollection(s.State, collection)
+	defer closer()
+	err := coll.Writeable().UpdateId(state.DocID(s.State, id), bson.M{
+		"$set": bson.M{"life": life},
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, relUnits []*state.RelationUnit) {
