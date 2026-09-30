@@ -15,8 +15,10 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/containermanager"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/modelconfig"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/network"
@@ -47,8 +49,10 @@ type ContainerState interface {
 	// default LXD bridge when using local container networking.
 	NICsInSpaces(ctx context.Context, nodeUUID string) (map[string][]network.NetInterface, error)
 
-	// GetContainerNetworkingMethod returns the model's configured value
-	// for container-networking-method.
+	// GetContainerNetworkingMethod returns the model's raw configured
+	// value for container-networking-method. The value is not resolved:
+	// an empty value indicates "auto", which is resolved against the
+	// model's provider by the service.
 	GetContainerNetworkingMethod(ctx context.Context) (string, error)
 
 	// GetSubnetCIDRForDevice uses the device identified by the input node UUID
@@ -62,13 +66,14 @@ type ContainerState interface {
 // parents of the guest's virtual network devices.
 // This determination is made based on the guest's space constraints, bindings
 // of applications to run on the guest, and any host bridges that already exist.
-// When the container networking method is "local", the default LXD bridge
-// satisfies all space requirements, wherever its addresses are reported, and
-// no host devices are selected for bridging.
+// When the container networking method resolves to "local" (explicitly
+// configured, or "auto" on a provider without container address support),
+// the default LXD bridge satisfies all space requirements, wherever its
+// addresses are reported, and no host devices are selected for bridging.
 // Note that negative space constraints are not enforced in this mode: the
 // default LXD bridge is used regardless of whether the space (if any) in
 // which its addresses are reported is negatively constrained.
-func (s *Service) DevicesToBridge(
+func (s *ProviderService) DevicesToBridge(
 	ctx context.Context, hostUUID, guestUUID machine.UUID,
 ) ([]network.DeviceToBridge, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -79,8 +84,7 @@ func (s *Service) DevicesToBridge(
 		return nil, errors.Capture(err)
 	}
 
-	toBridge, err := s.devicesToBridge(ctx, hostUUID, spaceUUIDs, nics)
-	return toBridge, errors.Capture(err)
+	return s.devicesToBridge(ctx, hostUUID, spaceUUIDs, nics)
 }
 
 // AllocateContainerAddresses allocates a static address for each of the
@@ -112,9 +116,11 @@ func (s *ProviderService) AllocateContainerAddresses(ctx context.Context,
 
 // DevicesForGuest returns the network devices that should be configured in the
 // guest machine with the input UUID, based on the host machine's bridges.
-// When the container networking method is "local", the default LXD bridge is
-// used for spaces that have no in-space bridge. Devices attached to it are
-// configured for DHCP, as no subnet CIDR is registered for the bridge.
+// When the container networking method resolves to "local" (explicitly
+// configured, or "auto" on a provider without container address support),
+// the default LXD bridge is used for spaces that have no in-space bridge.
+// Devices attached to it are configured for DHCP, as no subnet CIDR is
+// registered for the bridge.
 // Note that negative space constraints are not enforced in this mode: the
 // default LXD bridge is used regardless of whether the space (if any) in
 // which its addresses are reported is negatively constrained.
@@ -129,8 +135,7 @@ func (s *ProviderService) DevicesForGuest(
 		return nil, errors.Capture(err)
 	}
 
-	guestDevices, err := s.guestDevices(ctx, hostUUID, nodeUUID, spaceUUIDs, nics)
-	return guestDevices, errors.Capture(err)
+	return s.guestDevices(ctx, hostUUID, nodeUUID, spaceUUIDs, nics)
 }
 
 func (s *Service) spacesAndDevicesForMachine(
@@ -218,10 +223,11 @@ func (s *Service) spaceRequirementsForMachine(
 	return positive, nil
 }
 
-func (s *Service) devicesToBridge(
-	ctx context.Context, mUUID machine.UUID, spaceUUIDs []string, nics map[string][]network.NetInterface,
+func (s *ProviderService) devicesToBridge(
+	ctx context.Context, mUUID machine.UUID,
+	spaceUUIDs []string, nics map[string][]network.NetInterface,
 ) ([]network.DeviceToBridge, error) {
-	isLocal, lxdBridge, err := s.localContainerNetworking(ctx, nics)
+	isLocal, err := s.isLocalContainerNetworking(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -229,7 +235,7 @@ func (s *Service) devicesToBridge(
 	// When using local container networking, the default LXD bridge
 	// satisfies all space requirements, regardless of the space (if any)
 	// in which its addresses are reported. No host devices are bridged.
-	if isLocal && lxdBridge != nil {
+	if isLocal && defaultLXDBridge(nics) != nil {
 		return nil, nil
 	}
 
@@ -346,33 +352,54 @@ func findParent(parentName string, nics map[string][]network.NetInterface) *netw
 	return nil
 }
 
-// localContainerNetworking reports whether the model uses the "local"
-// container networking method, and returns the default LXD bridge observed
-// on the host, in whatever space (if any) its addresses are reported.
+// isLocalContainerNetworking reports whether the effective container
+// networking method for the model is local. "local" and "provider" are
+// used as configured, while the unset "auto" value is resolved against
+// the model's provider: local unless it supports allocating container
+// addresses. Explicitly configured values never consult the provider.
+func (s *ProviderService) isLocalContainerNetworking(ctx context.Context) (bool, error) {
+	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	method, err := containermanager.ResolveNetworkingMethodWithCapability(
+		modelconfig.ContainerNetworkingMethod(netMethod),
+		func() (bool, error) { return s.supportsContainerAddresses(ctx) },
+	)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return method == containermanager.NetworkingMethodLocal, nil
+}
+
+// supportsContainerAddresses reports whether the model's provider
+// supports allocating container addresses. A provider without the
+// networking capability cannot allocate them either, so false is
+// reported for it without error.
+func (s *ProviderService) supportsContainerAddresses(ctx context.Context) (bool, error) {
+	provider, err := s.providerWithNetworking(ctx)
+	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
+		return false, errors.Errorf("retrieving networking provider: %w", err)
+	}
+	return provider != nil && provider.SupportsContainerAddresses(), nil
+}
+
+// defaultLXDBridge returns the default LXD bridge observed on the host,
+// in whatever space (if any) its addresses are reported.
 // This accommodates the common case where the subnet of the default LXD
 // bridge is not registered with Juju, so the device is not associated with
 // any space.
-// A nil bridge with a true result indicates that the bridge has not been
-// observed on the host.
-func (s *Service) localContainerNetworking(
-	ctx context.Context, nics map[string][]network.NetInterface,
-) (bool, *network.NetInterface, error) {
-	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
-	if err != nil {
-		return false, nil, errors.Capture(err)
-	}
-	if netMethod != containermanager.NetworkingMethodLocal.String() {
-		return false, nil, nil
-	}
-
+// A nil result indicates that the bridge has not been observed on the host.
+func defaultLXDBridge(nics map[string][]network.NetInterface) *network.NetInterface {
 	for _, spaceNics := range nics {
 		if idx := slices.IndexFunc(spaceNics, func(nic network.NetInterface) bool {
 			return nic.Name == internalNetwork.DefaultLXDBridge
 		}); idx >= 0 {
-			return true, &spaceNics[idx], nil
+			return &spaceNics[idx]
 		}
 	}
-	return true, nil, nil
+	return nil
 }
 
 // bridgeNameForDevice returns a name to use for a new
@@ -409,22 +436,24 @@ func (s *ProviderService) guestDevices(
 	spaceUUIDs []string,
 	nics map[string][]network.NetInterface,
 ) ([]network.NetInterface, error) {
+	isLocal, err := s.isLocalContainerNetworking(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	var (
 		guestDevices []network.NetInterface
 		deviceIndex  int
 	)
 
-	isLocal, lxdBridge, err := s.localContainerNetworking(ctx, nics)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 	// A single device parented to the default LXD bridge suffices for all
 	// spaces without an in-space bridge.
 	lxdBridgeUsed := false
+	lxdBridge := defaultLXDBridge(nics)
 
-	networkingProvider, err := s.providerWithNetworking(ctx)
+	supportsAddresses, err := s.supportsContainerAddresses(ctx)
 	if err != nil {
-		return nil, errors.Errorf("retrieving networking provider: %w", err)
+		return nil, errors.Capture(err)
 	}
 
 	// In most cases, the container will rely on DHCP assigned addresses.
@@ -432,7 +461,7 @@ func (s *ProviderService) guestDevices(
 	// each device's address will be obtained downstream, and we indicate
 	// that said address is configured statically.
 	configMethod := corenetwork.ConfigDHCP
-	if networkingProvider.SupportsContainerAddresses() {
+	if supportsAddresses {
 		configMethod = corenetwork.ConfigStatic
 	}
 
