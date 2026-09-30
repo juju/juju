@@ -98,5 +98,5 @@ Declaring works the same way on every cloud, but what happens behind the command
 ``````
 
 ```{ibnote}
-See more: {ref}`hook`, {ref}`hook-execution-guarantees`, {ref}`hook-command`, {ref}`relation`, {ref}`jujuc`, {ref}`pebble`, {ref}`jujud`, {ref}`containeragent`, {ref}`bootstrap-a-controller`, {ref}`command-juju-add-k8s`, {ref}`command-juju-add-cloud`, {ref}`command-juju-add-credential`, {ref}`command-juju-bootstrap`, {ref}`command-juju-add-model`, {ref}`command-juju-deploy`, {ref}`command-juju-config`, {ref}`command-juju-integrate`
+See more: {ref}`hook`, {ref}`hook-execution-guarantees`, {ref}`hook-command`, {ref}`relation`, {ref}`jujuc`, {ref}`pebble`, {ref}`jujuagentd`, {ref}`containeragent`, {ref}`bootstrap-a-controller`, {ref}`command-juju-add-k8s`, {ref}`command-juju-add-cloud`, {ref}`command-juju-add-credential`, {ref}`command-juju-bootstrap`, {ref}`command-juju-add-model`, {ref}`command-juju-deploy`, {ref}`command-juju-config`, {ref}`command-juju-integrate`
 ```
