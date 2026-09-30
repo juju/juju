@@ -10,7 +10,8 @@
 //   - Relay endpoint (GET /ssh-relay/:virtualHostname): user SSH
 //     sessions, relayed blind by an intermediary such as JIMM,
 //     terminate in the embedded SSH server built via
-//     TerminatingServerFactory.
+//     TerminatingServerFactory. This lets the intermediary
+//     intermediary handle authentication on behalf of a user.
 //
 // The wire-level upgrade helpers shared with the agent-side dialer live
 // in core/sshproxy, since this package's internal path is only importable
