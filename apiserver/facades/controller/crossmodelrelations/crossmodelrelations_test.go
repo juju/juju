@@ -13,6 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -109,12 +110,16 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool, destroyErr error) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")] = "token-db2"
 	s.st.offers["f47ac10b-58cc-4372-a567-0e02b2c3d479"] = &crossmodel.ApplicationOffer{
 		OfferName: "db2-offer", ApplicationName: "db2"}
 	rel := newMockRelation(1)
+	if destroyErr != nil {
+		// AllRemoteUnits is called before DestroyWithForce.
+		rel.SetErrors(nil, destroyErr)
+	}
 	ru1 := newMockRelationUnit()
 	ru2 := newMockRelationUnit()
 	rel.units["db2/1"] = ru1
@@ -216,19 +221,24 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
-	s.assertPublishRelationsChanges(c, life.Alive, "", false)
+	s.assertPublishRelationsChanges(c, life.Alive, "", false, nil)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
-	s.assertPublishRelationsChanges(c, life.Alive, "reason", false)
+	s.assertPublishRelationsChanges(c, life.Alive, "reason", false, nil)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
-	s.assertPublishRelationsChanges(c, life.Dying, "", false)
+	s.assertPublishRelationsChanges(c, life.Dying, "", false, nil)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *gc.C) {
-	s.assertPublishRelationsChanges(c, life.Dying, "", true)
+	s.assertPublishRelationsChanges(c, life.Dying, "", true, nil)
+}
+
+func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanupFailure(c *gc.C) {
+	// The consuming model cannot resolve a failure on this side.
+	s.assertPublishRelationsChanges(c, life.Dying, "", true, errors.New("boom"))
 }
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
