@@ -556,8 +556,9 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationSizeMismatch(c *tc.C) {
 	c.Check(string(body), tc.Matches, ".*unexpected size.*")
 }
 
-// TestResourceDetailsFromQueryRejectsInvalidSizeBounds verifies negative sizes
-// and MaxInt64 are rejected before computing the size+1 read limit.
+// TestResourceDetailsFromQueryRejectsInvalidSizeBounds verifies that sizes
+// that cannot describe a resource are rejected before being used as a read
+// limit.
 func (s *resourcesUploadSuite) TestResourceDetailsFromQueryRejectsInvalidSizeBounds(c *tc.C) {
 	for _, size := range []string{"-1", strconv.FormatInt(math.MaxInt64, 10)} {
 		query := url.Values{
@@ -571,10 +572,11 @@ func (s *resourcesUploadSuite) TestResourceDetailsFromQueryRejectsInvalidSizeBou
 	}
 }
 
-// TestServeUploadApplicationOversizedBody verifies that a body longer than the
-// claimed size is rejected. The read is bounded at size+1, so the validator
-// sees one extra byte and rejects the hash without buffering the entire body.
-func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedBody(c *tc.C) {
+// TestServeUploadApplicationOversizedBodyStoresClaimedPrefix verifies that a
+// body longer than the claimed size is truncated at the claimed size: the
+// hash over exactly those bytes matches the claimed fingerprint, so the
+// claimed prefix is stored and the trailing bytes are never read.
+func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedBodyStoresClaimedPrefix(c *tc.C) {
 	// Arrange
 	defer s.setupHandlerWithDownloader(c,
 		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
@@ -600,7 +602,14 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedBody(c *tc.C) 
 			Type:     charmresource.TypeFile,
 		},
 	}, nil)
-	// StoreResource is deliberately not expected: the upload must be rejected.
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			return resource.Resource{}, nil
+		})
 
 	// Act: the body is longer than the claimed size.
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
@@ -608,18 +617,16 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedBody(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 	defer response.Body.Close()
 
-	// Assert
-	c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest,
+	// Assert: only the claimed prefix reaches the store.
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
 		tc.Commentf("(Assert) unexpected status code."))
-	body, err := io.ReadAll(response.Body)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(body), tc.Matches, ".*validating resource blob.*")
+	c.Check(storedContent, tc.Equals, s.content)
 }
 
 // TestServeUploadApplicationZeroSizeValidBlob verifies that a zero-size claim
 // with an empty body and the fingerprint of empty content is accepted and
-// stored: the read is bounded at 0+1 bytes, which is enough for the empty
-// blob.
+// stored: the read is bounded at 0 bytes, and the empty read hashes to the
+// fingerprint of empty content.
 func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeValidBlob(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
@@ -676,11 +683,11 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeValidBlob(c *tc
 	c.Check(storedArgs.Fingerprint.String(), tc.Equals, emptyFP.String())
 }
 
-// TestServeUploadApplicationZeroSizeNonEmptyBody verifies that a zero-size
-// claim with a non-empty body is rejected: the read is bounded at 0+1 bytes,
-// and the hash computed over that single byte cannot match the fingerprint of
-// empty content.
-func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeNonEmptyBody(c *tc.C) {
+// TestServeUploadApplicationZeroSizeClaimIgnoresBodyBytes verifies that a
+// zero-size claim accepts any body: the bounded read is empty, which hashes
+// to the fingerprint of empty content, so an empty blob is stored and the
+// body bytes are never read.
+func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeClaimIgnoresBodyBytes(c *tc.C) {
 	// Arrange
 	defer s.setupHandlerWithDownloader(c,
 		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
@@ -708,7 +715,14 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeNonEmptyBody(c 
 			Type:     charmresource.TypeFile,
 		},
 	}, nil)
-	// StoreResource is deliberately not expected: the upload must be rejected.
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			return resource.Resource{}, nil
+		})
 
 	// Act: non-empty body, zero-size claim.
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
@@ -716,12 +730,10 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeNonEmptyBody(c 
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 	defer response.Body.Close()
 
-	// Assert
-	c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest,
+	// Assert: the body bytes are never read; an empty blob is stored.
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
 		tc.Commentf("(Assert) unexpected status code."))
-	body, err := io.ReadAll(response.Body)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(string(body), tc.Matches, ".*unexpected hash.*")
+	c.Check(storedContent, tc.Equals, "")
 }
 
 // TestServeUploadApplicationValidBlob verifies that a file resource blob

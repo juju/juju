@@ -157,22 +157,26 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	}
 	retrievedBy, retrievedByType := determineRetrievedBy(query)
 
-	// Container image resource blobs are exempt from comparing their claims
-	// because Juju 3.6 exported fingerprints that differ from blob bytes. The
-	// store parses the metadata and derives canonical values, so bound those
-	// bodies by the store's maximum instead. For other resources, read one
-	// byte beyond the claimed size before validation to detect over-long
-	// bodies without reading them in full. The validator hashes before checking
-	// size. An extra byte usually changes the hash; the size check catches the
-	// case where the fingerprint matches the size+1 byte prefix. Migration
-	// uploads are chunked, so r.ContentLength is unavailable.
+	// Container image resources are exempt from claim comparison: models
+	// exported from Juju 3.6 carry fingerprints that do not match the blob
+	// bytes (commit 432c96a1c2 removed an earlier unconditional check for
+	// exactly this reason), and the store re-derives both values from the
+	// parsed metadata. Those bodies are bounded at the store maximum plus
+	// one byte, so the store rejects an oversized blob instead of
+	// truncating it. Every other type is bounded at exactly the claimed
+	// size: the bytes read must hash to the claimed fingerprint and number
+	// exactly the claimed size. A corrupt body fails the hash check, as
+	// does a truncated one when the claims are consistent; internally
+	// inconsistent claims fail the size check; and the trailing bytes of
+	// an over-long body are neither hashed nor stored. Migration uploads
+	// are chunked, so r.ContentLength is not usable here.
 	var reader io.Reader
 	if res.Type == charmresource.TypeContainerImage {
 		reader = limitReadCloser(r.Body, containerimageservice.MaxContainerImageResourceSize+1)
 	} else {
 		validated, err := h.validator.Download(
 			ctx,
-			limitReadCloser(r.Body, details.size+1),
+			limitReadCloser(r.Body, details.size),
 			details.fingerprint.String(),
 			details.size,
 		)
@@ -199,9 +203,8 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	return stored, err
 }
 
-// limitReadCloser exposes at most n bytes from r. EOF at the limit is normal.
-// Callers include one sentinel byte beyond an expected bound to detect an
-// oversized request without reading the remaining body.
+// limitReadCloser exposes at most n bytes from r. Reaching the limit reports
+// EOF, which io.Copy treats as a normal end of stream.
 func limitReadCloser(r io.ReadCloser, n int64) io.ReadCloser {
 	return struct {
 		io.Reader
