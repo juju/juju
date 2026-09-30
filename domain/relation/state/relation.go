@@ -1304,9 +1304,24 @@ WHERE r.uuid = $relationUUID.uuid AND ae.application_uuid IN ($uuids[:])`, chang
 	}
 
 	departedStmt, err := st.Prepare(`
-SELECT &getUnit.*
-FROM unit AS u
-WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
+WITH departed AS (
+    SELECT rud.unit_uuid, rud.unit_name
+    FROM   relation_unit_departure AS rud
+    WHERE  rud.relation_uuid = $relationUUID.uuid
+    AND    rud.unit_uuid IN ($uuids[:])
+), identities AS (
+    SELECT d.unit_uuid, d.unit_name
+    FROM   departed AS d
+    UNION ALL
+    SELECT u.uuid, u.name
+    FROM   unit AS u
+    LEFT JOIN departed AS d ON d.unit_uuid = u.uuid
+    WHERE  u.uuid IN ($uuids[:])
+    AND    d.unit_uuid IS NULL
+)
+SELECT i.unit_uuid AS &getUnit.uuid,
+       i.unit_name AS &getUnit.name
+FROM   identities AS i`, getUnit{}, rel, uuids{})
 	if err != nil {
 		return domainrelation.RelationUnitsChange{}, errors.Capture(err)
 	}
@@ -1332,7 +1347,7 @@ WHERE u.uuid IN ($uuids[:])`, getUnit{}, uuids{})
 			requested.Remove(c.UUID)
 		}
 
-		err = tx.Query(ctx, departedStmt, uuids(requested.Values())).GetAll(&departedUnits)
+		err = tx.Query(ctx, departedStmt, rel, uuids(requested.Values())).GetAll(&departedUnits)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting relation application changes: %w", err)
 		}

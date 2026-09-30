@@ -10,8 +10,27 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain/deployment/charm"
+	domainrelation "github.com/juju/juju/domain/relation"
 )
+
+type relatedUnitChangeEvent struct {
+	namespace string
+	changed   string
+}
+
+func (e relatedUnitChangeEvent) Type() changestream.ChangeType {
+	return changestream.Deleted
+}
+
+func (e relatedUnitChangeEvent) Namespace() string {
+	return e.namespace
+}
+
+func (e relatedUnitChangeEvent) Changed() string {
+	return e.changed
+}
 
 // relatedUnitWatcherSuite is a test suite for checking functions used in
 // the related unit watcher, which relies on some state methods to filter events.
@@ -124,6 +143,43 @@ func (s *relatedUnitWatcherSuite) TestGetRelatedUnitsPeerRelation(c *tc.C) {
 			UnitUUID:             u11UUID.String(),
 		},
 	})
+}
+
+func (s *relatedUnitWatcherSuite) TestRelatedUnitMapperIncludesDeletedUnitFromDepartureTombstone(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	providesUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
+		Name:  "provides",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	})
+	requiresUUID := s.addCharmRelation(c, charmUUID, charm.Relation{
+		Name:  "requires",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	})
+	localAppUUID := s.addApplication(c, charmUUID, "local")
+	remoteAppUUID := s.addApplication(c, charmUUID, "remote")
+	relationUUID := s.addRelation(c)
+	localEndpointUUID := s.addRelationEndpoint(c, relationUUID, s.addApplicationEndpoint(c, localAppUUID, requiresUUID))
+	remoteEndpointUUID := s.addRelationEndpoint(c, relationUUID, s.addApplicationEndpoint(c, remoteAppUUID, providesUUID))
+	localUnitUUID := s.addUnit(c, "local/0", localAppUUID, charmUUID)
+	remoteUnitUUID := s.addUnit(c, "remote/0", remoteAppUUID, charmUUID)
+	s.addRelationUnit(c, localUnitUUID, localEndpointUUID)
+	s.addRelationUnit(c, remoteUnitUUID, remoteEndpointUUID)
+
+	_, _, mapper, err := s.state.InitialWatchRelatedUnits(c.Context(), localUnitUUID.String(), relationUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), "DELETE FROM relation_unit WHERE unit_uuid = ?", remoteUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), "DELETE FROM unit WHERE uuid = ?", remoteUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	changes, err := mapper(c.Context(), []changestream.ChangeEvent{relatedUnitChangeEvent{
+		namespace: "relation_unit",
+		changed:   remoteUnitUUID.String(),
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes, tc.DeepEquals, []string{domainrelation.EncodeUnitUUID(remoteUnitUUID.String())})
 }
 
 func (s *relatedUnitWatcherSuite) TestGetRelatedAppEndpoints(c *tc.C) {
