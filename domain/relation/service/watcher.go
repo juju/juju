@@ -134,13 +134,14 @@ type WatchableService struct {
 // NewWatchableService returns a new watchable service reference wrapping the input state.
 func NewWatchableService(
 	st State,
+	iaasUnitStorageArgs IAASUnitStorageArgsFactory,
 	watcherFactory WatcherFactory,
 	leaderEnsurer leadership.Ensurer,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
-		LeadershipService: NewLeadershipService(st, leaderEnsurer, statusHistory, logger),
+		LeadershipService: NewLeadershipService(st, iaasUnitStorageArgs, leaderEnsurer, statusHistory, logger),
 		watcherFactory:    watcherFactory,
 	}
 }

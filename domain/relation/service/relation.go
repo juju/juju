@@ -20,10 +20,12 @@ import (
 	"github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -36,6 +38,21 @@ type StatusHistory interface {
 	// If the status data cannot be marshalled, it will not be recorded, instead
 	// the error will be logged under the data_error key.
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
+}
+
+// IAASUnitStorageArgsFactory provides the capability to make the storage
+// arguments required when creating new IAAS subordinate units.
+type IAASUnitStorageArgsFactory interface {
+	// MakeIAASSubordinateUnitStorageArgs returns the unit storage arguments
+	// and IAAS unit storage arguments required to provision storage for a
+	// new IAAS subordinate unit of the given application. The subordinate
+	// unit's storage is attached to the net node of the machine hosting the
+	// principal unit.
+	MakeIAASSubordinateUnitStorageArgs(
+		ctx context.Context,
+		subordinateAppUUID application.UUID,
+		machineNetNodeUUID domainnetwork.NetNodeUUID,
+	) (domainstorage.CreateUnitStorageArg, domainstorage.CreateIAASUnitStorageArg, error)
 }
 
 // State describes retrieval and persistence methods for relations.
@@ -56,17 +73,32 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
+	// GetSubordinateUnitCreationInfo returns the information required to
+	// make the storage arguments for a subordinate unit, and true, if
+	// entering scope of the given relation with the given unit would create
+	// one. If no subordinate unit would be created, false is returned.
+	GetSubordinateUnitCreationInfo(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+	) (internal.SubordinateUnitCreationInfo, bool, error)
+
 	// EnterScope indicates that the provided unit has joined the relation. When
 	// the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created in
 	// the relation according to the supplied map.
 	// Returns [relationerrors.RelationUnitAlreadyExists] if the unit is already
 	// in the relation.
+	//
+	// If entering scope creates a subordinate unit, its storage is provisioned
+	// using the supplied storage arguments. Zero-value storage arguments mean
+	// that no storage is provisioned.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
+		subordinateStorageArgs internal.SubordinateUnitStorageArgs,
 	) (internal.SubordinateUnitStatusHistoryData, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
@@ -253,12 +285,13 @@ type LeadershipService struct {
 // the underlying state.
 func NewLeadershipService(
 	st State,
+	iaasUnitStorageArgs IAASUnitStorageArgsFactory,
 	leaderEnsurer leadership.Ensurer,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service:       NewService(st, statusHistory, logger),
+		Service:       NewService(st, iaasUnitStorageArgs, statusHistory, logger),
 		leaderEnsurer: leaderEnsurer,
 	}
 }
@@ -374,19 +407,22 @@ type Service struct {
 	st     State
 	logger logger.Logger
 
-	statusHistory StatusHistory
+	statusHistory       StatusHistory
+	iaasUnitStorageArgs IAASUnitStorageArgsFactory
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
+	iaasUnitStorageArgs IAASUnitStorageArgsFactory,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		st:            st,
-		logger:        logger,
-		statusHistory: statusHistory,
+		st:                  st,
+		logger:              logger,
+		statusHistory:       statusHistory,
+		iaasUnitStorageArgs: iaasUnitStorageArgs,
 	}
 }
 
@@ -449,7 +485,8 @@ func (s *Service) ApplicationRelationsInfo(
 // report success but make no changes to state, nor trigger a subordinate unit.
 //
 // If there is a subordinate application related to the unit entering scope that
-// needs a subordinate unit created, then the subordinate unit will be created.
+// needs a subordinate unit created, then the subordinate unit will be created,
+// with its storage provisioned using the application's storage directives.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
@@ -477,6 +514,15 @@ func (s *Service) EnterScope(
 		return errors.Capture(err)
 	}
 
+	// If entering scope of the relation creates a subordinate unit, make the
+	// storage arguments for it before entering scope. The checks to create a
+	// subordinate unit are repeated when entering scope, so the storage
+	// arguments are only used if a subordinate unit is actually created.
+	subordinateStorageArgs, err := s.makeSubordinateStorageArgs(ctx, relationUUID, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Enter the unit into the relation scope.
 	warning := func(key string) {
 		s.logger.Warningf(ctx, "dropping empty value for key %q in unit %q settings of relation %q",
@@ -487,6 +533,7 @@ func (s *Service) EnterScope(
 		relationUUID,
 		unitName,
 		ensureNoEmptySettingsValues(warning, settings),
+		subordinateStorageArgs,
 	)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
@@ -504,6 +551,46 @@ func (s *Service) EnterScope(
 	}
 
 	return nil
+}
+
+// makeSubordinateStorageArgs returns the storage arguments to use when
+// entering scope of the given relation with the given unit creates a
+// subordinate unit. If no subordinate unit will be created, zero storage
+// arguments are returned.
+//
+// The subordinate unit's storage arguments are made via the IAAS unit
+// storage arguments factory, using the subordinate application and the
+// machine net node of the principal unit that will host the subordinate
+// unit.
+func (s *Service) makeSubordinateStorageArgs(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) (internal.SubordinateUnitStorageArgs, error) {
+	creationInfo, createSubordinate, err := s.st.GetSubordinateUnitCreationInfo(ctx, relationUUID, unitName)
+	if err != nil {
+		return internal.SubordinateUnitStorageArgs{}, errors.Errorf(
+			"getting subordinate unit creation info: %w", err)
+	}
+	if !createSubordinate {
+		return internal.SubordinateUnitStorageArgs{}, nil
+	}
+
+	unitStorageArgs, iaasUnitStorageArgs, err := s.iaasUnitStorageArgs.MakeIAASSubordinateUnitStorageArgs(
+		ctx,
+		creationInfo.SubordinateApplicationUUID,
+		creationInfo.MachineNetNodeUUID,
+	)
+	if err != nil {
+		return internal.SubordinateUnitStorageArgs{}, errors.Errorf(
+			"making storage arguments for subordinate unit of application %q: %w",
+			creationInfo.SubordinateApplicationUUID, err)
+	}
+
+	return internal.SubordinateUnitStorageArgs{
+		UnitStorageArgs:     unitStorageArgs,
+		IAASUnitStorageArgs: iaasUnitStorageArgs,
+	}, nil
 }
 
 // recordUnitStatusHistory records the initial status history for the unit

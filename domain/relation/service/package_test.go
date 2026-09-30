@@ -12,13 +12,15 @@ import (
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
-//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/relation/service MigrationState,State,StatusHistory,WatcherFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/relation/service IAASUnitStorageArgsFactory,MigrationState,State,StatusHistory,WatcherFactory
 
 type baseServiceSuite struct {
 	testhelpers.IsolationSuite
 
 	state         *MockState
 	statusHistory *MockStatusHistory
+
+	iaasUnitStorageArgs *MockIAASUnitStorageArgsFactory
 
 	service *Service
 }
@@ -28,12 +30,14 @@ func (s *baseServiceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.statusHistory = NewMockStatusHistory(ctrl)
+	s.iaasUnitStorageArgs = NewMockIAASUnitStorageArgsFactory(ctrl)
 
-	s.service = NewService(s.state, s.statusHistory, loggertesting.WrapCheckLog(c))
+	s.service = NewService(s.state, s.iaasUnitStorageArgs, s.statusHistory, loggertesting.WrapCheckLog(c))
 
 	c.Cleanup(func() {
 		s.state = nil
 		s.statusHistory = nil
+		s.iaasUnitStorageArgs = nil
 	})
 
 	return ctrl

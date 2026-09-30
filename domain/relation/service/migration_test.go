@@ -237,5 +237,5 @@ func (s *migrationServiceSuite) expectEnterScope(
 ) {
 	unitSettings, _ := settingsMap(func(string) {}, settings)
 	data := internal.SubordinateUnitStatusHistoryData{}
-	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings).Return(data, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), uuid, name, unitSettings, internal.SubordinateUnitStorageArgs{}).Return(data, nil)
 }

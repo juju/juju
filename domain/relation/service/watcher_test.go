@@ -594,7 +594,7 @@ func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.state = NewMockState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
-	s.service = NewWatchableService(s.state, s.watcherFactory, nil, nil, loggertesting.WrapCheckLog(c))
+	s.service = NewWatchableService(s.state, nil, s.watcherFactory, nil, nil, loggertesting.WrapCheckLog(c))
 
 	c.Cleanup(func() {
 		s.state = nil

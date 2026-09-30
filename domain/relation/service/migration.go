@@ -57,11 +57,15 @@ type MigrationState interface {
 	// When the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created or
 	// overwritten in the relation according to the supplied map.
+	//
+	// When importing relations, zero-value storage arguments are expected: no
+	// storage is provisioned for subordinate units during relation import.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
+		subordinateStorageArgs internal.SubordinateUnitStorageArgs,
 	) (internal.SubordinateUnitStatusHistoryData, error)
 
 	// ExportRelations returns all relation information to be exported for the
@@ -160,7 +164,10 @@ func (s *MigrationService) importRelationEndpoint(ctx context.Context, relUUID c
 		if err != nil {
 			return err
 		}
-		_, err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings)
+		// Subordinate units are imported by the application domain before
+		// relations, so entering scope here never creates a subordinate unit
+		// that requires storage arguments.
+		_, err = s.st.EnterScope(ctx, relUUID, unit.Name(unitName), settings, internal.SubordinateUnitStorageArgs{})
 		if err != nil {
 			return err
 		}

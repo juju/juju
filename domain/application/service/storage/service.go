@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/core/trace"
@@ -882,6 +883,75 @@ func (s Service) MakeIAASUnitStorageArgs(
 		}
 	}
 	return arg, nil
+}
+
+// MakeIAASSubordinateUnitStorageArgs returns the unit storage arguments and
+// IAAS unit storage arguments required to provision storage for a new IAAS
+// subordinate unit of the given application. The subordinate unit's storage
+// is attached to the net node of the machine hosting the principal unit, the
+// same as any other IAAS unit.
+//
+// This is used by the relation domain, which creates subordinate units when
+// a unit enters scope of a container scoped relation.
+//
+// The following errors may be expected:
+//   - [applicationerrors.ApplicationNotFound] when the application no longer
+//     exists.
+//   - [coreerrors.NotValid] when the application UUID or the machine net
+//     node UUID is not valid.
+func (s *Service) MakeIAASSubordinateUnitStorageArgs(
+	ctx context.Context,
+	subordinateAppUUID coreapplication.UUID,
+	machineNetNodeUUID domainnetwork.NetNodeUUID,
+) (domainstorage.CreateUnitStorageArg, domainstorage.CreateIAASUnitStorageArg, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := subordinateAppUUID.Validate(); err != nil {
+		return domainstorage.CreateUnitStorageArg{},
+			domainstorage.CreateIAASUnitStorageArg{},
+			errors.Errorf("validating subordinate application uuid: %w", err)
+	}
+	if err := machineNetNodeUUID.Validate(); err != nil {
+		return domainstorage.CreateUnitStorageArg{},
+			domainstorage.CreateIAASUnitStorageArg{},
+			errors.Errorf("validating machine net node uuid: %w", err).
+				Add(coreerrors.NotValid)
+	}
+
+	storageDirectives, err := s.GetApplicationStorageDirectives(ctx, subordinateAppUUID)
+	if err != nil {
+		return domainstorage.CreateUnitStorageArg{},
+			domainstorage.CreateIAASUnitStorageArg{},
+			errors.Errorf("getting application %q storage directives: %w",
+				subordinateAppUUID, err)
+	}
+
+	// A brand-new subordinate unit has no existing storage instances or
+	// attachments to reuse, so the existing-storage arguments are nil.
+	unitStorageArgs, err := s.MakeUnitStorageArgs(
+		ctx,
+		machineNetNodeUUID,
+		storageDirectives,
+		nil, // no existing storage instances to reuse
+		nil, // no existing storage attachments to reuse
+	)
+	if err != nil {
+		return domainstorage.CreateUnitStorageArg{},
+			domainstorage.CreateIAASUnitStorageArg{},
+			errors.Errorf("making storage arguments for subordinate unit: %w", err)
+	}
+
+	iaasUnitStorageArgs, err := s.MakeIAASUnitStorageArgs(
+		ctx, unitStorageArgs.StorageInstances,
+	)
+	if err != nil {
+		return domainstorage.CreateUnitStorageArg{},
+			domainstorage.CreateIAASUnitStorageArg{},
+			errors.Errorf("making IAAS storage arguments for subordinate unit: %w", err)
+	}
+
+	return unitStorageArgs, iaasUnitStorageArgs, nil
 }
 
 // MakeUnitAddStorageArgs creates the storage arguments required to

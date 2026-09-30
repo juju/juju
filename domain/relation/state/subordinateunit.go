@@ -9,8 +9,10 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
+	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -39,6 +41,7 @@ func (st *State) addSubordinateUnit(
 	ctx context.Context,
 	tx *sqlair.TX,
 	relationUUID, relationUnitUUID, enteringUnitUUID string,
+	storageArgs internal.SubordinateUnitStorageArgs,
 ) (internal.SubordinateUnitStatusHistoryData, error) {
 	var empty internal.SubordinateUnitStatusHistoryData
 	// Check that we are in a container scoped relation.
@@ -112,14 +115,17 @@ func (st *State) addSubordinateUnit(
 		MachineUUID:        machine.UUID(machineIdentifiers.UUID),
 		AddUnitArg: application.AddUnitArg{
 			UnitUUID: unitUUID,
-			// TODO: storage for subordinate units.
+			// Subordinate storage is attached to the machine's net node of
+			// the principal unit, the same as any other IAAS unit.
 			NetNodeUUID: principalNetNodeUUID,
 			Placement: deployment.Placement{
 				Type:      deployment.PlacementTypeMachine,
 				Directive: machineIdentifiers.Name,
 			},
-			UnitStatusArg: unitStatus,
+			UnitStatusArg:        unitStatus,
+			CreateUnitStorageArg: storageArgs.UnitStorageArgs,
 		},
+		CreateIAASUnitStorageArg: storageArgs.IAASUnitStorageArgs,
 	}
 
 	unitName, _, err := st.unitState.InsertIAASUnit(
@@ -153,6 +159,121 @@ func (st *State) makeIAASUnitStatusArgs() application.UnitStatusArg {
 			Since:   now,
 		},
 	}
+}
+
+// GetSubordinateUnitCreationInfo returns the information required to make
+// the storage arguments for a subordinate unit, and true, if entering scope
+// of the given relation with the given unit would create one. If no
+// subordinate unit would be created, false is returned.
+//
+// The checks mirror those of [State.addSubordinateUnit], the authoritative
+// in-transaction implementation, so that the storage arguments for a new
+// subordinate unit can be made before the unit enters scope. The
+// in-transaction checks win: the storage arguments are only consumed when a
+// subordinate unit is actually created.
+//
+// The following errors may be expected:
+//   - [relationerrors.RelationNotFound] if the relation does not exist.
+//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate
+//     unit already exists, but is not alive.
+//   - [applicationerrors.UnitNotFound] if the unit entering scope does not
+//     exist.
+//   - [applicationerrors.UnitMachineNotAssigned] if the principal unit is
+//     not assigned to a machine.
+func (st *State) GetSubordinateUnitCreationInfo(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) (internal.SubordinateUnitCreationInfo, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.SubordinateUnitCreationInfo{}, false, errors.Capture(err)
+	}
+
+	var (
+		info              internal.SubordinateUnitCreationInfo
+		createSubordinate bool
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		info = internal.SubordinateUnitCreationInfo{}
+		createSubordinate = false
+
+		// Only container scoped relations create subordinate units. Map
+		// a missing relation to its typed error so that callers do not
+		// have to match on raw sqlair errors.
+		scope, err := st.getRelationScope(ctx, tx, relationUUID.String())
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("getting relation scope: %w", err)
+		} else if scope != string(internalcharm.ScopeContainer) {
+			return nil
+		}
+
+		// Get the UUID of the unit entering scope.
+		unitArgs := getUnit{Name: unitName}
+		getUnitStmt, err := st.Prepare(`
+SELECT &getUnit.*
+FROM   unit
+WHERE  name = $getUnit.name
+`, unitArgs)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, getUnitStmt, unitArgs).Get(&unitArgs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		// Get the UUID of the related subordinate application, if it exists.
+		subAppUUID, relatedSubExists, err := st.getRelatedSubordinateApplication(
+			ctx, tx, relationUUID.String(), unitArgs.UUID.String(),
+		)
+		if err != nil {
+			return errors.Errorf("getting related subordinate application: %w", err)
+		} else if !relatedSubExists {
+			return nil
+		}
+
+		// The entering unit is the principal unit of the new subordinate
+		// unit, unless the entering unit is itself a subordinate unit.
+		principalUnitUUID := unitArgs.UUID.String()
+		if principalUUID, found, err := st.getUnitPrincipalUUID(ctx, tx, unitArgs.UUID.String()); err != nil {
+			return errors.Errorf("getting principal unit of entering unit: %w", err)
+		} else if found {
+			principalUnitUUID = principalUUID
+		}
+
+		// Check if there is already a subordinate unit for the principal
+		// unit. If there is, no new subordinate unit will be created.
+		if exists, err := st.subordinateUnitExists(ctx, tx, subAppUUID, principalUnitUUID); err != nil {
+			return errors.Errorf("checking if subordinate already exists: %w", err)
+		} else if exists {
+			return nil
+		}
+
+		// The subordinate unit is placed on the same machine as the principal
+		// unit, and its storage is attached to the machine's net node.
+		machineIdentifiers, err := st.getUnitMachineIdentifier(
+			ctx, tx, principalUnitUUID,
+		)
+		if err != nil {
+			return errors.Errorf("getting principal unit machine information: %w", err)
+		}
+
+		info = internal.SubordinateUnitCreationInfo{
+			SubordinateApplicationUUID: coreapplication.UUID(subAppUUID),
+			MachineNetNodeUUID:         network.NetNodeUUID(machineIdentifiers.NetNodeUUID),
+		}
+		createSubordinate = true
+		return nil
+	})
+	if err != nil {
+		return internal.SubordinateUnitCreationInfo{}, false, errors.Capture(err)
+	}
+	return info, createSubordinate, nil
 }
 
 // getUnitMachineIdentifier gets the identifiers of the machine that a unit is
@@ -335,6 +456,76 @@ WHERE  ru.uuid = $getSub.unit_uuid
 	}
 
 	return arg.ApplicationID, arg.Subordinate, nil
+}
+
+// getRelatedSubordinateApplication returns the application UUID of the
+// subordinate application related to the given relation, relative to the
+// application of the given unit, if it exists and is alive. False is
+// returned if there is no such application, or if a related application
+// exists but is not a subordinate.
+//
+// Unlike [State.findRelatedSubordinateApplication], the related application
+// is resolved via the application of the given unit itself, so the unit does
+// not need to have entered scope of the relation yet. Also unlike the
+// original, no error is returned when there is no related application: a
+// nil error is returned with false, where the original returns
+// [applicationerrors.ApplicationNotFound].
+func (st *State) getRelatedSubordinateApplication(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID, unitUUID string,
+) (string, bool, error) {
+	type relatedSubordinateAppRow struct {
+		Subordinate   bool   `db:"subordinate"`
+		ApplicationID string `db:"application_uuid"`
+		Life          string `db:"value"`
+	}
+	type relatedSubordinateAppQuery struct {
+		RelationUUID string `db:"relation_uuid"`
+		UnitUUID     string `db:"unit_uuid"`
+	}
+
+	arg := relatedSubordinateAppQuery{
+		RelationUUID: relationUUID,
+		UnitUUID:     unitUUID,
+	}
+	stmt, err := st.Prepare(`
+SELECT (cm.subordinate, ae2.application_uuid, l.value) AS (&relatedSubordinateAppRow.*)
+FROM   relation_endpoint AS re1
+JOIN   relation_endpoint AS re2
+       ON re1.relation_uuid = re2.relation_uuid AND re1.uuid != re2.uuid
+JOIN   application_endpoint AS ae1 ON re1.endpoint_uuid = ae1.uuid
+JOIN   application_endpoint AS ae2 ON re2.endpoint_uuid = ae2.uuid
+JOIN   charm_relation AS cr ON ae2.charm_relation_uuid = cr.uuid
+JOIN   charm_metadata AS cm ON cr.charm_uuid = cm.charm_uuid
+JOIN   application AS a ON ae2.application_uuid = a.uuid
+JOIN   life AS l ON a.life_id = l.id
+JOIN   unit AS u ON u.application_uuid = ae1.application_uuid
+WHERE  re1.relation_uuid = $relatedSubordinateAppQuery.relation_uuid
+AND    u.uuid = $relatedSubordinateAppQuery.unit_uuid
+`, relatedSubordinateAppRow{}, arg)
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	var sub relatedSubordinateAppRow
+	err = tx.Query(ctx, stmt, arg).Get(&sub)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// Peer relations will return no rows, as will relations where the
+		// unit's application has no endpoint.
+		return "", false, nil
+	} else if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	switch sub.Life {
+	case string(corelife.Dead):
+		return "", false, applicationerrors.ApplicationIsDead
+	case string(corelife.Dying):
+		return "", false, applicationerrors.ApplicationNotAlive
+	}
+
+	return sub.ApplicationID, sub.Subordinate, nil
 }
 
 // subordinateUnitExists checks if the principal unit already has a subordinate
