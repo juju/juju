@@ -15,6 +15,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/sequence"
@@ -39,28 +40,21 @@ func (st *State) DetachLostMachineCloudInstance(
 	statusMessage string,
 	statusData []byte,
 	updatedAt time.Time,
+	statusIDs domainmachine.ReprovisionStatusIDs,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	instanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
-	if err != nil {
-		return errors.Capture(err)
-	}
 	params := reprovisionDetachParams{
 		machineName:      machineName{Name: mName},
 		expectedInstance: expectedInstanceID,
 		statusMessage:    statusMessage,
 		statusData:       statusData,
 		updatedAt:        updatedAt,
-		machineStatusID:  machineStatusID,
-		instanceStatusID: instanceStatusID,
+		machineStatusID:  statusIDs.MachineStatusID,
+		instanceStatusID: statusIDs.InstanceStatusID,
 	}
 	statements, err := st.prepareReprovisionDetachStatements()
 	if err != nil {

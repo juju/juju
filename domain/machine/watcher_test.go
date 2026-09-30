@@ -137,7 +137,10 @@ WHERE machine_uuid = ?`, machineUUID.String())
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.st.DetachLostMachineCloudInstance(
 			c.Context(), res.MachineName.String(), "i-1234",
-			"reprovisioning requested", nil, time.Now(),
+			"reprovisioning requested", nil, time.Now(), domainmachine.ReprovisionStatusIDs{
+				MachineStatusID:  2,
+				InstanceStatusID: 1,
+			},
 		)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
@@ -326,7 +329,10 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesReprovision(c *tc.C) {
 
 	err = s.st.DetachLostMachineCloudInstance(
 		c.Context(), res.MachineName.String(), "old-instance",
-		"reprovisioning requested", nil, time.Now(),
+		"reprovisioning requested", nil, time.Now(), domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  2,
+			InstanceStatusID: 1,
+		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	watcherC.AssertChange(res.MachineName.String())

@@ -13,12 +13,24 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	provisionermodelstate "github.com/juju/juju/domain/provisioner/state/model"
 	removalmodelstate "github.com/juju/juju/domain/removal/state/model"
 	domainstatus "github.com/juju/juju/domain/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
+
+func pendingReprovisionStatusIDs(c *tc.C) domainmachine.ReprovisionStatusIDs {
+	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
+	c.Assert(err, tc.ErrorIsNil)
+	instanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
+	c.Assert(err, tc.ErrorIsNil)
+	return domainmachine.ReprovisionStatusIDs{
+		MachineStatusID:  machineStatusID,
+		InstanceStatusID: instanceStatusID,
+	}
+}
 
 func (s *stateSuite) TestDetachLostMachineCloudInstance(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
@@ -48,7 +60,7 @@ VALUES (?, ?, ?)`, "reprovision-unit", "relation-state", "value")
 	statusData := []byte(`{"old-instance-id":"123"}`)
 	err := s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123",
-		"reprovisioning requested", statusData, updatedAt,
+		"reprovisioning requested", statusData, updatedAt, pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -206,7 +218,7 @@ VALUES (?, ?, 0, ?, ?, ?)`, unitUUID, "reprovision/"+ordinal,
 	s.runQuery(c, "UPDATE sequence SET value = ? WHERE namespace = ?", 8, "application_reprovision")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -268,7 +280,7 @@ VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-secret", 2, "reprovision-unit", 0,
 		"reprovision-unit", 0)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -324,7 +336,7 @@ INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
 VALUES (?, ?, ?)`, "reprovision-unit", 0, "old-host-key")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -364,7 +376,7 @@ WHERE  namespace = ?`, "application_reprovision").Scan(&sequenceValue)
 	s.runQuery(c, "UPDATE unit SET name = ? WHERE uuid = ?", collisionName, "collision-unit")
 
 	err = s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorMatches, `.*replacement unit name already exists.*`)
 
@@ -385,7 +397,7 @@ BEGIN
 END`)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorMatches, `.*expected 1 row affected, got 0`)
 
@@ -408,7 +420,7 @@ INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", valu
 VALUES (?, ?, ?, ?)`, "reprovision-relation", "reprovision/0", "obsolete-key", "obsolete-value")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -437,7 +449,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceLeavesOtherMachineRelatio
 	s.addReprovisionRelationScopeForUnit(c, "other-relation", 2, "other-unit", "other-value")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -458,7 +470,7 @@ INSERT INTO relation_unit_setting_archive (relation_uuid, unit_name, "key", valu
 VALUES (?, ?, ?, ?)`, "settings-less-relation", "reprovision/0", "old-key", "old-value")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "reprovisioning requested", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -481,7 +493,7 @@ WHERE uuid = ?`, "old-hostname", time.Now(), "machine-password", machineUUID.Str
 
 	err := s.state.DetachLostMachineCloudInstance(
 		c.Context(), machineName.String(), "123", "reprovisioning requested",
-		nil, time.Now(),
+		nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -580,7 +592,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRechecksLife(c *tc.C) {
 	s.runQuery(c, "UPDATE machine SET life_id = ? WHERE uuid = ?", life.Dying, machineUUID.String())
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotAlive)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -591,7 +603,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRechecksPresence(c *tc.C)
 	s.runQuery(c, "INSERT INTO machine_agent_presence (machine_uuid) VALUES (?)", machineUUID.String())
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAgentPresent)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -601,7 +613,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRechecksInstance(c *tc.C)
 	machineUUID, machineName := s.ensureInstance(c)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "old-instance", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "old-instance", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineCloudInstanceChanged)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -610,12 +622,12 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRechecksInstance(c *tc.C)
 func (s *stateSuite) TestDetachLostMachineCloudInstanceRepeated(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
 	s.checkInstanceID(c, machineUUID.String(), "")
@@ -628,7 +640,7 @@ INSERT INTO machine_reprovision (machine_name, requested_at)
 VALUES (?, ?)`, machineName.String(), time.Now())
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineReprovisionAlreadyExists)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -641,7 +653,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsModelScopedStorage
 	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 0, 0)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -655,7 +667,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsAmbiguousStorage(c
 	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 0)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -669,7 +681,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsModelScopedFilesys
 	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 0, 0)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -683,7 +695,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsAmbiguousFilesyste
 	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 1, 0)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -699,7 +711,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsFilesystemWithoutA
 		"storage-filesystem-attachment")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -713,7 +725,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsStorageWithoutBack
 	s.addReprovisionStorageIntent(c, 0)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -729,7 +741,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsNonAliveVolume(c *
 		life.Dying, "storage-volume")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineStorageNotAlive)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -745,7 +757,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsNonAliveStorageIns
 		life.Dying, "storage-instance")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineStorageNotAlive)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -761,7 +773,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsNonAliveFilesystem
 		life.Dying, "storage-filesystem-attachment")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineStorageNotAlive)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -784,7 +796,7 @@ VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-unit", "reprovision-charm", "data",
 		"reprovision-pool", 1024, 1)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -884,7 +896,7 @@ SET    status_id = ?
 WHERE  volume_uuid = ?`, 0, "storage-volume")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -917,7 +929,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceCleansFilesystemAndPreser
 	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -964,7 +976,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsPlanOnlyVolume(c *
 	s.addReprovisionVolumePlanStorage(c, machineUUID.String(), netNodeUUID, 1)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -982,7 +994,7 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsVolumeWithoutAttac
 	s.runQuery(c, "DELETE FROM storage_volume_attachment")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
 	s.checkInstanceID(c, machineUUID.String(), "123")
@@ -1019,7 +1031,7 @@ VALUES (?, ?, ?, 1, 0)`, "other-filesystem-attachment", "other-filesystem",
 		otherMachineUUID.String(), "other-filesystem")
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1057,7 +1069,7 @@ BEGIN
 END`)
 
 	err := s.state.DetachLostMachineCloudInstance(
-		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(), pendingReprovisionStatusIDs(c),
 	)
 	c.Assert(err, tc.ErrorMatches, ".*detach failed.*")
 	s.checkInstanceID(c, machineUUID.String(), "123")
