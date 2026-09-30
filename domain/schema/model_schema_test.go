@@ -532,6 +532,12 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_ip_address_delete",
 		"trg_log_ip_address_insert",
 		"trg_log_ip_address_update",
+		"trg_log_link_layer_device_delete",
+		"trg_log_link_layer_device_insert",
+		"trg_log_link_layer_device_update",
+		"trg_log_space_delete",
+		"trg_log_space_insert",
+		"trg_log_space_update",
 
 		"trg_log_machine_cloud_instance_delete",
 		"trg_log_machine_cloud_instance_insert",
