@@ -88,6 +88,7 @@ type MockControllerDomainServicesMockRecorder struct {
 	controllerConfigExpects           []*gomock.Call0_1[*service12.WatchableService]
 	controllerExportExpects           []*gomock.Call0_1[*service17.ControllerService]
 	controllerNodeExpects             []*gomock.Call0_1[*service13.WatchableService]
+	controllerSSHExpects              []*gomock.Call0_1[*controller.WatchableService]
 	credentialExpects                 []*gomock.Call0_1[*service15.WatchableService]
 	externalControllerExpects         []*gomock.Call0_1[*service18.WatchableService]
 	flagExpects                       []*gomock.Call0_1[*service19.Service]
@@ -96,7 +97,6 @@ type MockControllerDomainServicesMockRecorder struct {
 	modelExpects                      []*gomock.Call0_1[*service25.WatchableService]
 	modelDefaultsExpects              []*gomock.Call0_1[*service28.Service]
 	modelMigrationImportExpects       []*gomock.Call0_1[*service29.WatchableService]
-	sSHServerHostKeyExpects           []*gomock.Call0_1[*controller.Service]
 	secretBackendExpects              []*gomock.Call0_1[*service41.WatchableService]
 	tracingExpects                    []*gomock.Call0_1[*service45.WatchableService]
 	upgradeExpects                    []*gomock.Call0_1[*service48.WatchableService]
@@ -276,6 +276,24 @@ func (mr *MockControllerDomainServicesMockRecorder) ControllerNode() *MockContro
 // MockControllerDomainServicesControllerNodeCall is the typed call wrapper for ControllerNode.
 type MockControllerDomainServicesControllerNodeCall = gomock.Call0_1[*service13.WatchableService]
 
+// ControllerSSH mocks base method.
+func (m *MockControllerDomainServices) ControllerSSH() *controller.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.controllerSSHExpects, m.ctrl, m, "ControllerSSH")
+}
+
+// ControllerSSH indicates an expected call of ControllerSSH.
+func (mr *MockControllerDomainServicesMockRecorder) ControllerSSH() *MockControllerDomainServicesControllerSSHCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*controller.WatchableService](mr.mock.ctrl.T, mr.mock, "ControllerSSH")
+	mr.controllerSSHExpects = append(mr.controllerSSHExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerDomainServicesControllerSSHCall is the typed call wrapper for ControllerSSH.
+type MockControllerDomainServicesControllerSSHCall = gomock.Call0_1[*controller.WatchableService]
+
 // Credential mocks base method.
 func (m *MockControllerDomainServices) Credential() *service15.WatchableService {
 	m.ctrl.T.Helper()
@@ -419,24 +437,6 @@ func (mr *MockControllerDomainServicesMockRecorder) ModelMigrationImport() *Mock
 
 // MockControllerDomainServicesModelMigrationImportCall is the typed call wrapper for ModelMigrationImport.
 type MockControllerDomainServicesModelMigrationImportCall = gomock.Call0_1[*service29.WatchableService]
-
-// SSHServerHostKey mocks base method.
-func (m *MockControllerDomainServices) SSHServerHostKey() *controller.Service {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.sSHServerHostKeyExpects, m.ctrl, m, "SSHServerHostKey")
-}
-
-// SSHServerHostKey indicates an expected call of SSHServerHostKey.
-func (mr *MockControllerDomainServicesMockRecorder) SSHServerHostKey() *MockControllerDomainServicesSSHServerHostKeyCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*controller.Service](mr.mock.ctrl.T, mr.mock, "SSHServerHostKey")
-	mr.sSHServerHostKeyExpects = append(mr.sSHServerHostKeyExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerDomainServicesSSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
-type MockControllerDomainServicesSSHServerHostKeyCall = gomock.Call0_1[*controller.Service]
 
 // SecretBackend mocks base method.
 func (m *MockControllerDomainServices) SecretBackend() *service41.WatchableService {
@@ -1288,6 +1288,7 @@ type MockDomainServicesMockRecorder struct {
 	controllerConfigExpects           []*gomock.Call0_1[*service12.WatchableService]
 	controllerExportExpects           []*gomock.Call0_1[*service17.ControllerService]
 	controllerNodeExpects             []*gomock.Call0_1[*service13.WatchableService]
+	controllerSSHExpects              []*gomock.Call0_1[*controller.WatchableService]
 	controllerUpgraderExpects         []*gomock.Call0_1[*service14.Service]
 	credentialExpects                 []*gomock.Call0_1[*service15.WatchableService]
 	crossModelRelationExpects         []*gomock.Call0_1[*service16.WatchableService]
@@ -1317,7 +1318,6 @@ type MockDomainServicesMockRecorder struct {
 	resolveExpects                    []*gomock.Call0_1[*service38.WatchableService]
 	resourceExpects                   []*gomock.Call0_1[*service39.Service]
 	sSHExpects                        []*gomock.Call0_1[*model0.WatchableService]
-	sSHServerHostKeyExpects           []*gomock.Call0_1[*controller.Service]
 	secretExpects                     []*gomock.Call0_1[*service40.WatchableService]
 	secretBackendExpects              []*gomock.Call0_1[*service41.WatchableService]
 	statusExpects                     []*gomock.Call0_1[*service42.LeadershipService]
@@ -1718,6 +1718,24 @@ func (mr *MockDomainServicesMockRecorder) ControllerNode() *MockDomainServicesCo
 
 // MockDomainServicesControllerNodeCall is the typed call wrapper for ControllerNode.
 type MockDomainServicesControllerNodeCall = gomock.Call0_1[*service13.WatchableService]
+
+// ControllerSSH mocks base method.
+func (m *MockDomainServices) ControllerSSH() *controller.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.controllerSSHExpects, m.ctrl, m, "ControllerSSH")
+}
+
+// ControllerSSH indicates an expected call of ControllerSSH.
+func (mr *MockDomainServicesMockRecorder) ControllerSSH() *MockDomainServicesControllerSSHCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*controller.WatchableService](mr.mock.ctrl.T, mr.mock, "ControllerSSH")
+	mr.controllerSSHExpects = append(mr.controllerSSHExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDomainServicesControllerSSHCall is the typed call wrapper for ControllerSSH.
+type MockDomainServicesControllerSSHCall = gomock.Call0_1[*controller.WatchableService]
 
 // ControllerUpgrader mocks base method.
 func (m *MockDomainServices) ControllerUpgrader() *service14.Service {
@@ -2240,24 +2258,6 @@ func (mr *MockDomainServicesMockRecorder) SSH() *MockDomainServicesSSHCall {
 
 // MockDomainServicesSSHCall is the typed call wrapper for SSH.
 type MockDomainServicesSSHCall = gomock.Call0_1[*model0.WatchableService]
-
-// SSHServerHostKey mocks base method.
-func (m *MockDomainServices) SSHServerHostKey() *controller.Service {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.sSHServerHostKeyExpects, m.ctrl, m, "SSHServerHostKey")
-}
-
-// SSHServerHostKey indicates an expected call of SSHServerHostKey.
-func (mr *MockDomainServicesMockRecorder) SSHServerHostKey() *MockDomainServicesSSHServerHostKeyCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*controller.Service](mr.mock.ctrl.T, mr.mock, "SSHServerHostKey")
-	mr.sSHServerHostKeyExpects = append(mr.sSHServerHostKeyExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockDomainServicesSSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
-type MockDomainServicesSSHServerHostKeyCall = gomock.Call0_1[*controller.Service]
 
 // Secret mocks base method.
 func (m *MockDomainServices) Secret() *service40.WatchableService {

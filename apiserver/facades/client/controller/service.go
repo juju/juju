@@ -43,10 +43,14 @@ type ControllerConfigService interface {
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
 }
 
-// ControllerSSHService provides the controller's SSH jump server host key.
+// ControllerSSHService provides the controller's SSH jump server host key and
+// listening port.
 type ControllerSSHService interface {
 	// SSHServerHostPublicKey returns the public host key of the SSH jump server.
 	SSHServerHostPublicKey(ctx context.Context) ([]byte, error)
+	// GetSSHServerPort returns the port the controller SSH jump server listens
+	// on.
+	GetSSHServerPort(ctx context.Context) (int, error)
 }
 
 // ControllerNodeService represents a way to get controller api addresses.

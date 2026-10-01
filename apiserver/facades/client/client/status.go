@@ -188,7 +188,18 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		if err != nil {
 			return noStatus, internalerrors.Errorf("could not fetch controller config: %w", err)
 		}
-		context.populateControllerPorts(controllerConfig)
+		// The SSH server port is owned by the controller charm and pushed to
+		// the SSH domain at runtime, so read it from there rather than
+		// controller config, which may hold a stale value. The port is only
+		// used to decorate the controller application's ports, so a failure
+		// to read it degrades to the default rather than failing status.
+		sshServerPort, err := c.controllerSSHService.GetSSHServerPort(ctx)
+		if err != nil {
+			logger.Warningf(ctx, "could not fetch controller SSH server port, using default %d: %v",
+				controller.DefaultSSHServerPort, err)
+			sshServerPort = controller.DefaultSSHServerPort
+		}
+		context.populateControllerPorts(controllerConfig.APIPort(), sshServerPort)
 	}
 	// These may be empty when machines have not finished deployment.
 	if context.ipAddresses, context.linkLayerDevices, err = fetchNetworkInterfaces(ctx,
@@ -441,7 +452,7 @@ func (c *statusContext) fetchAllOpenPortRanges(ctx context.Context, portService 
 	return err
 }
 
-func (c *statusContext) populateControllerPorts(controllerConfig controller.Config) {
+func (c *statusContext) populateControllerPorts(apiPort, sshServerPort int) {
 	controllerApp, ok := c.allAppsUnitsCharmBindings.applications[coreapplication.ControllerApplicationName]
 	if !ok || len(controllerApp.Units) == 0 {
 		return
@@ -451,8 +462,8 @@ func (c *statusContext) populateControllerPorts(controllerConfig controller.Conf
 		c.allOpenPortRanges = make(port.UnitGroupedPortRanges)
 	}
 	controllerPorts := []network.PortRange{
-		network.MustParsePortRange(strconv.Itoa(controllerConfig.APIPort())),
-		network.MustParsePortRange(strconv.Itoa(controllerConfig.SSHServerPort())),
+		network.MustParsePortRange(strconv.Itoa(apiPort)),
+		network.MustParsePortRange(strconv.Itoa(sshServerPort)),
 	}
 	for unitName := range controllerApp.Units {
 		existing := c.allOpenPortRanges[unitName]

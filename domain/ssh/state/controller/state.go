@@ -190,6 +190,77 @@ WHERE u.name = $entityName.name
 	return found, nil
 }
 
+// GetSSHServerPort returns the port the controller SSH jump server listens on.
+// If no port has been set, it returns 0 and a NotFound error, leaving the
+// caller to decide on a default.
+func (st *State) GetSSHServerPort(ctx context.Context) (int, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &sshServerPort.port
+FROM controller_ssh_server_port`, sshServerPort{})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var row sshServerPort
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("controller SSH server port not found").Add(coreerrors.NotFound)
+		}
+		if err != nil {
+			return errors.Errorf("querying controller SSH server port: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+	return row.Port, nil
+}
+
+// SetSSHServerPort sets the port the controller SSH jump server listens on.
+// The port is a singleton value, so any existing value is replaced.
+func (st *State) SetSSHServerPort(ctx context.Context, port int) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// The conflict target is omitted because SQLite cannot target the
+	// singleton's ((1)) expression index; the singleton index is the only
+	// uniqueness constraint on the table, so any conflict is on it. Updating in
+	// place emits a single change-log entry, and none if the port is unchanged.
+	upsertStmt, err := st.Prepare(`
+INSERT INTO controller_ssh_server_port (port)
+VALUES ($sshServerPort.port)
+ON CONFLICT DO UPDATE SET port = excluded.port`, sshServerPort{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, upsertStmt, sshServerPort{Port: port}).Run(); err != nil {
+			return errors.Errorf("setting controller SSH server port: %w", err)
+		}
+		return nil
+	}))
+}
+
+// NamespaceForWatchSSHServerPort returns the change-stream namespace used to
+// watch for changes to the controller SSH server port.
+func (st *State) NamespaceForWatchSSHServerPort() string {
+	return "controller_ssh_server_port"
+}
+
+type sshServerPort struct {
+	Port int `db:"port"`
+}
+
 type controllerSSHHostKey struct {
 	ID              string `db:"id"`
 	AlgorithmTypeID int    `db:"algorithm_type_id"`

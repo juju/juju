@@ -554,8 +554,10 @@ type MockSSHControllerAPI struct {
 // MockSSHControllerAPIMockRecorder is the mock recorder for MockSSHControllerAPI.
 type MockSSHControllerAPIMockRecorder struct {
 	mock                    *MockSSHControllerAPI
+	bestAPIVersionExpects   []*gomock.Call0_1[int]
 	controllerConfigExpects []*gomock.Call1_2[context.Context, controller.Config, error]
 	sSHServerHostKeyExpects []*gomock.Call1_2[context.Context, []byte, error]
+	sSHServerPortExpects    []*gomock.Call1_2[context.Context, int, error]
 }
 
 // NewMockSSHControllerAPI creates a new mock instance.
@@ -569,6 +571,24 @@ func NewMockSSHControllerAPI(ctrl *gomock.Controller) *MockSSHControllerAPI {
 func (m *MockSSHControllerAPI) EXPECT() *MockSSHControllerAPIMockRecorder {
 	return m.recorder
 }
+
+// BestAPIVersion mocks base method.
+func (m *MockSSHControllerAPI) BestAPIVersion() int {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.bestAPIVersionExpects, m.ctrl, m, "BestAPIVersion")
+}
+
+// BestAPIVersion indicates an expected call of BestAPIVersion.
+func (mr *MockSSHControllerAPIMockRecorder) BestAPIVersion() *MockSSHControllerAPIBestAPIVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[int](mr.mock.ctrl.T, mr.mock, "BestAPIVersion")
+	mr.bestAPIVersionExpects = append(mr.bestAPIVersionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSSHControllerAPIBestAPIVersionCall is the typed call wrapper for BestAPIVersion.
+type MockSSHControllerAPIBestAPIVersionCall = gomock.Call0_1[int]
 
 // ControllerConfig mocks base method.
 func (m *MockSSHControllerAPI) ControllerConfig(arg0 context.Context) (controller.Config, error) {
@@ -605,6 +625,24 @@ func (mr *MockSSHControllerAPIMockRecorder) SSHServerHostKey(arg0 any) *MockSSHC
 
 // MockSSHControllerAPISSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
 type MockSSHControllerAPISSHServerHostKeyCall = gomock.Call1_2[context.Context, []byte, error]
+
+// SSHServerPort mocks base method.
+func (m *MockSSHControllerAPI) SSHServerPort(arg0 context.Context) (int, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.sSHServerPortExpects, m.ctrl, m, "SSHServerPort", arg0)
+}
+
+// SSHServerPort indicates an expected call of SSHServerPort.
+func (mr *MockSSHControllerAPIMockRecorder) SSHServerPort(arg0 any) *MockSSHControllerAPISSHServerPortCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, int, error](mr.mock.ctrl.T, mr.mock, "SSHServerPort", gomock.EnsureMatcher(arg0))
+	mr.sSHServerPortExpects = append(mr.sSHServerPortExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSSHControllerAPISSHServerPortCall is the typed call wrapper for SSHServerPort.
+type MockSSHControllerAPISSHServerPortCall = gomock.Call1_2[context.Context, int, error]
 
 // MockStatusClientAPI is a mock of StatusClientAPI interface.
 type MockStatusClientAPI struct {

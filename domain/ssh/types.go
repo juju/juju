@@ -6,8 +6,20 @@ package ssh
 import (
 	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/errors"
 )
+
+// ValidateSSHServerPort checks that port is a valid TCP port for the
+// controller SSH jump server to listen on. An error satisfying
+// [coreerrors.NotValid] is returned if it is not.
+func ValidateSSHServerPort(port int) error {
+	if port <= 0 || port > 65535 {
+		return errors.Errorf("port %d out of range 1-65535", port).Add(coreerrors.NotValid)
+	}
+	return nil
+}
 
 // SSHConnRequest describes a one-shot reverse tunnel request for a machine in
 // a model.

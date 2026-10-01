@@ -100,6 +100,15 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerSSHService provides the controller SSH jump server port. The port
+// is owned by the controller charm and pushed to the SSH domain at runtime, so
+// it must be read from there rather than controller config, which may be stale.
+type ControllerSSHService interface {
+	// GetSSHServerPort returns the port the controller SSH jump server listens
+	// on.
+	GetSSHServerPort(context.Context) (int, error)
+}
+
 // BlockDeviceService instances can fetch block devices for a machine.
 type BlockDeviceService interface {
 	// GetBlockDevicesForMachine returns the BlockDevices for the specified

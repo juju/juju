@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -49,6 +50,18 @@ func (s *bootstrapSuite) TestSSHServerHostKeyUUID(c *tc.C) {
 
 	wellKnownUUID := uuid.NewSHA1(namespaceUUID, []byte(domainssh.SSHServerHostKeyWellKnownName))
 	c.Check(wellKnownUUID.String(), tc.Equals, domainssh.SSHServerHostKeyUUID)
+}
+
+func (s *bootstrapSuite) TestInsertInitialSSHServerPort(c *tc.C) {
+	err := InsertInitialSSHServerPort()(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The default port is seeded so the SSH server has a stored port to listen
+	// on before the controller charm pushes its configured value.
+	var port int
+	row := s.DB().QueryRow(`SELECT port FROM controller_ssh_server_port`)
+	c.Assert(row.Scan(&port), tc.ErrorIsNil)
+	c.Check(port, tc.Equals, controller.DefaultSSHServerPort)
 }
 
 func (s *bootstrapSuite) TestInsertInitialSSHServerHostKeyValidatesEmpty(c *tc.C) {

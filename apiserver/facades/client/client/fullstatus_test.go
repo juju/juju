@@ -32,6 +32,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	service "github.com/juju/juju/domain/status/service"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	internaluuid "github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -55,6 +56,7 @@ type fullStatusSuite struct {
 	relationService           *MockRelationService
 	statusService             *MockStatusService
 	controllerConfigService   *MockControllerConfigService
+	controllerSSHService      *MockControllerSSHService
 }
 
 type stubLeadershipReader struct {
@@ -305,6 +307,7 @@ func (s *fullStatusSuite) TestFullStatusUsesControllerFlagOnMachineStatus(c *tc.
 		controller.APIPort:       17070,
 		controller.SSHServerPort: 22,
 	}, nil)
+	s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(22, nil)
 	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(map[machine.Name]service.Machine{
 		"0": {
 			Name:         "0",
@@ -347,6 +350,7 @@ func (s *fullStatusSuite) TestFullStatusControllerAppPortsAugmented(c *tc.C) {
 		controller.APIPort:       17777,
 		controller.SSHServerPort: 2222,
 	}, nil)
+	s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(2222, nil)
 	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
 		"controller": {
 			CharmLocator: charm.CharmLocator{
@@ -389,6 +393,77 @@ func (s *fullStatusSuite) TestFullStatusControllerAppPortsAugmented(c *tc.C) {
 	unit := output.Applications["controller"].Units["controller/0"]
 	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", 17777)), tc.IsTrue)
 	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", 2222)), tc.IsTrue)
+}
+
+// TestFullStatusControllerSSHPortFallback tests that failing to read the
+// controller SSH server port does not fail status, and that the controller
+// application's ports fall back to the default SSH server port.
+func (s *fullStatusSuite) TestFullStatusControllerSSHPortFallback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client := s.client(true)
+	s.expectCheckCanRead(client, true)
+	s.expectCheckIsAdmin(client, false)
+
+	s.modelInfoService.EXPECT().GetModelInfo(c.Context()).Return(model.ModelInfo{
+		Name:      "controller",
+		Cloud:     "dummy",
+		CloudType: "dummy",
+		Type:      model.IAAS,
+	}, nil)
+	s.statusService.EXPECT().GetModelStatus(gomock.Any()).Return(status.StatusInfo{
+		Status: status.Available,
+	}, nil)
+	// A non-default config port proves the fallback uses the default rather
+	// than the controller config value.
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
+		controller.APIPort:       17777,
+		controller.SSHServerPort: 2222,
+	}, nil)
+	s.controllerSSHService.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, errors.New("boom"))
+	s.statusService.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(map[string]service.Application{
+		"controller": {
+			CharmLocator: charm.CharmLocator{
+				Name:         "juju-controller",
+				Revision:     1,
+				Source:       charm.LocalSource,
+				Architecture: architecture.AMD64,
+			},
+			Platform: deployment.Platform{
+				OSType:  deployment.Ubuntu,
+				Channel: "22.04/stable",
+			},
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+			Units: map[coreunit.Name]service.Unit{
+				"controller/0": {
+					ApplicationName: "controller",
+					AgentStatus: status.StatusInfo{
+						Status: status.Idle,
+					},
+					WorkloadStatus: status.StatusInfo{
+						Status: status.Active,
+					},
+				},
+			},
+		},
+	}, nil)
+	s.applicationService.EXPECT().GetAllEndpointBindings(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetRemoteApplicationOffererStatuses(gomock.Any()).Return(nil, nil)
+	s.statusService.EXPECT().GetMachineFullStatuses(gomock.Any()).Return(nil, nil)
+	s.portService.EXPECT().GetAllOpenedPorts(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().GetAllDevicesByMachineNames(gomock.Any()).Return(nil, nil)
+	s.relationService.EXPECT().GetAllRelationDetails(gomock.Any()).Return(nil, nil)
+
+	output, err := client.FullStatus(c.Context(), params.StatusParams{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	unit := output.Applications["controller"].Units["controller/0"]
+	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", 17777)), tc.IsTrue)
+	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", controller.DefaultSSHServerPort)), tc.IsTrue)
+	c.Check(slices.Contains(unit.OpenedPorts, fmt.Sprintf("%d/tcp", 2222)), tc.IsFalse)
 }
 
 func (s *fullStatusSuite) TestFullStatusExposedEndpointsFetchedInBulk(c *tc.C) {
@@ -818,6 +893,7 @@ func (s *fullStatusSuite) client(isControllerModel bool) *Client {
 		relationService:           s.relationService,
 		statusService:             s.statusService,
 		controllerConfigService:   s.controllerConfigService,
+		controllerSSHService:      s.controllerSSHService,
 	}
 }
 
@@ -835,6 +911,7 @@ func (s *fullStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.relationService = NewMockRelationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerSSHService = NewMockControllerSSHService(ctrl)
 
 	c.Cleanup(func() {
 		s.authorizer = nil
@@ -848,6 +925,7 @@ func (s *fullStatusSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.relationService = nil
 		s.statusService = nil
 		s.controllerConfigService = nil
+		s.controllerSSHService = nil
 	})
 
 	return ctrl

@@ -238,6 +238,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		controllerconifgbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
 		controllerbootstrap.InsertInitialController(controllerAgentInfo.Cert, controllerAgentInfo.PrivateKey, controllerAgentInfo.CAPrivateKey, controllerAgentInfo.SystemIdentity),
 		sshbootstrap.InsertInitialSSHServerHostKey(stateParams.SSHServerHostKey),
+		sshbootstrap.InsertInitialSSHServerPort(),
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,

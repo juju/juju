@@ -19,6 +19,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	"github.com/juju/juju/apiserver/facades/client/controller/mocks"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type controllerSuite struct {
@@ -109,7 +111,7 @@ func (s *controllerSuite) SetUpTest(c *tc.C) {
 	}
 
 	s.leadershipReader = noopLeadershipReader{}
-	s.controllerSSHService = s.ControllerDomainServices(c).SSHServerHostKey()
+	s.controllerSSHService = s.ControllerDomainServices(c).ControllerSSH()
 	s.context = facadetest.MultiModelContext{
 		ModelContext: facadetest.ModelContext{
 			Auth_:                s.authorizer,
@@ -273,15 +275,51 @@ func (s *controllerSuite) TestSSHServerHostKey(c *tc.C) {
 	c.Check(result.Error, tc.IsNil)
 }
 
+// TestSSHServerMethodsFacadeVersions tests that the SSH jump server host key
+// and port methods are only served from Controller facade v15, which the
+// juju ssh jump flow gates on.
+func (s *controllerSuite) TestSSHServerMethodsFacadeVersions(c *tc.C) {
+	registry := new(facade.Registry)
+	controller.Register(registry)
+
+	for version, served := range map[int]bool{12: false, 13: false, 14: false, 15: true} {
+		goType, err := registry.GetType("Controller", version)
+		c.Assert(err, tc.ErrorIsNil)
+		for _, name := range []string{"SSHServerHostKey", "SSHServerPort"} {
+			_, err := rpcreflect.ObjTypeOf(goType).Method(name)
+			if served {
+				c.Check(err, tc.ErrorIsNil, tc.Commentf("%s on v%d", name, version))
+			} else {
+				c.Check(err, tc.ErrorIs, rpcreflect.ErrMethodNotFound, tc.Commentf("%s on v%d", name, version))
+			}
+		}
+	}
+}
+
+func (s *controllerSuite) TestSSHServerPort(c *tc.C) {
+	s.controllerSSHService = &stubControllerSSHService{port: 17099}
+
+	result, err := s.controllerAPI(c).SSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Port, tc.Equals, 17099)
+	c.Check(result.Error, tc.IsNil)
+}
+
 type stubControllerSSHService struct {
 	publicKey []byte
 	err       error
 	called    bool
+	port      int
+	portErr   error
 }
 
 func (s *stubControllerSSHService) SSHServerHostPublicKey(context.Context) ([]byte, error) {
 	s.called = true
 	return s.publicKey, s.err
+}
+
+func (s *stubControllerSSHService) GetSSHServerPort(context.Context) (int, error) {
+	return s.port, s.portErr
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *tc.C) {
