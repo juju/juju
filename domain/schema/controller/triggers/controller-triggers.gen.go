@@ -28,7 +28,7 @@ END;
 -- update trigger for ControllerAgentAddress
 CREATE TRIGGER trg_log_controller_agent_address_update
 AFTER UPDATE ON controller_agent_address FOR EACH ROW
-WHEN
+WHEN 
 	NEW.uuid != OLD.uuid OR
 	(NEW.controller_id != OLD.controller_id OR (NEW.controller_id IS NOT NULL AND OLD.controller_id IS NULL) OR (NEW.controller_id IS NULL AND OLD.controller_id IS NOT NULL)) OR
 	NEW.address != OLD.address OR
@@ -67,7 +67,7 @@ END;
 -- update trigger for ControllerApiAddress
 CREATE TRIGGER trg_log_controller_api_address_update
 AFTER UPDATE ON controller_api_address FOR EACH ROW
-WHEN
+WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
 	(NEW.is_agent != OLD.is_agent OR (NEW.is_agent IS NOT NULL AND OLD.is_agent IS NULL) OR (NEW.is_agent IS NULL AND OLD.is_agent IS NOT NULL)) OR
@@ -105,7 +105,7 @@ END;
 -- update trigger for ControllerClientAddress
 CREATE TRIGGER trg_log_controller_client_address_update
 AFTER UPDATE ON controller_client_address FOR EACH ROW
-WHEN
+WHEN 
 	NEW.uuid != OLD.uuid OR
 	(NEW.controller_id != OLD.controller_id OR (NEW.controller_id IS NOT NULL AND OLD.controller_id IS NULL) OR (NEW.controller_id IS NULL AND OLD.controller_id IS NOT NULL)) OR
 	NEW.address != OLD.address OR
@@ -144,7 +144,7 @@ END;
 -- update trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_update
 AFTER UPDATE ON controller_config FOR EACH ROW
-WHEN
+WHEN 
 	NEW.key != OLD.key OR
 	(NEW.value != OLD.value OR (NEW.value IS NOT NULL AND OLD.value IS NULL) OR (NEW.value IS NULL AND OLD.value IS NOT NULL))
 BEGIN
@@ -180,7 +180,7 @@ END;
 -- update trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_update
 AFTER UPDATE ON controller_node FOR EACH ROW
-WHEN
+WHEN 
 	NEW.controller_id != OLD.controller_id OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.dqlite_node_id != OLD.dqlite_node_id OR (NEW.dqlite_node_id IS NOT NULL AND OLD.dqlite_node_id IS NULL) OR (NEW.dqlite_node_id IS NULL AND OLD.dqlite_node_id IS NOT NULL)) OR
@@ -218,7 +218,7 @@ END;
 -- update trigger for ControllerPeerAddress
 CREATE TRIGGER trg_log_controller_peer_address_update
 AFTER UPDATE ON controller_peer_address FOR EACH ROW
-WHEN
+WHEN 
 	NEW.uuid != OLD.uuid OR
 	NEW.controller_id != OLD.controller_id OR
 	NEW.address != OLD.address OR
@@ -257,7 +257,7 @@ END;
 -- update trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_update
 AFTER UPDATE ON external_controller FOR EACH ROW
-WHEN
+WHEN 
 	NEW.uuid != OLD.uuid OR
 	(NEW.alias != OLD.alias OR (NEW.alias IS NOT NULL AND OLD.alias IS NULL) OR (NEW.alias IS NULL AND OLD.alias IS NOT NULL)) OR
 	NEW.ca_cert != OLD.ca_cert
