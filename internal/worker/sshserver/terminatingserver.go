@@ -15,24 +15,19 @@ import (
 
 // TerminatingServerFactory builds terminating SSH servers for routed
 // destinations. It is the type the worker's manifold outputs.
-type TerminatingServerFactory interface {
-	// New returns a terminating SSH server for the destination, with proxy
-	// handlers and the destination's host key configured.
-	New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error)
-}
-
-// newTerminatingServerFactory returns a TerminatingServerFactory.
-func newTerminatingServerFactory(factory ProxyFactory, svc SSHService) TerminatingServerFactory {
-	return terminatingServerFactory{factory: factory, svc: svc}
-}
-
-type terminatingServerFactory struct {
+type TerminatingServerFactory struct {
 	factory ProxyFactory
 	svc     SSHService
 }
 
-// New implements TerminatingServerFactory.
-func (f terminatingServerFactory) New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error) {
+// NewTerminatingServerFactory returns a TerminatingServerFactory.
+func NewTerminatingServerFactory(factory ProxyFactory, svc SSHService) *TerminatingServerFactory {
+	return &TerminatingServerFactory{factory: factory, svc: svc}
+}
+
+// New returns a terminating SSH server for the destination, with proxy
+// handlers and the destination's host key configured.
+func (f *TerminatingServerFactory) New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error) {
 	handlers, err := f.factory.New(destination)
 	if err != nil {
 		return nil, errors.Trace(err)

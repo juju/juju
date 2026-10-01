@@ -35,7 +35,7 @@ type sshServerSuite struct {
 	authenticator *MockAuthenticator
 	authorizer    *MockAuthorizer
 	proxyFactory  *MockProxyFactory
-	serverFactory *MockTerminatingServerFactory
+	serverFactory *TerminatingServerFactory
 	proxyHandlers *MockProxyHandlers
 }
 
@@ -63,8 +63,11 @@ func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	s.authenticator = NewMockAuthenticator(ctrl)
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.proxyFactory = NewMockProxyFactory(ctrl)
-	s.serverFactory = NewMockTerminatingServerFactory(ctrl)
 	s.proxyHandlers = NewMockProxyHandlers(ctrl)
+	s.serverFactory = NewTerminatingServerFactory(
+		s.proxyFactory,
+		stubSSHService{jumpHostKey: testHostKey, virtualHostKey: jujutesting.SSHServerHostKey},
+	)
 	return ctrl
 }
 
@@ -151,14 +154,12 @@ func (s *sshServerSuite) testSSHServerSession(c *tc.C, auth gossh.AuthMethod, us
 	destination, err := virtualhostname.Parse(testVirtualHostname)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Authorize the user and setup the factory and handlers. The handler
+	// Authorize the user and setup the proxy factory and handlers. The handler
 	// expectations must precede server construction, which consumes them.
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
 	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(rejectDirectTCPIP)
 	s.proxyHandlers.EXPECT().SFTPHandler().Return(rejectSFTP)
-	terminatingServer := newTerminatingSSHServer(s.proxyHandlers)
-	terminatingServer.AddHostKey(s.userSigner)
-	s.serverFactory.EXPECT().New(gomock.Any(), destination).Return(terminatingServer, nil)
+	s.proxyFactory.EXPECT().New(destination).Return(s.proxyHandlers, nil)
 
 	sessionOutput := fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname)
 	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).Do(func(session ssh.Session) {
@@ -291,7 +292,7 @@ func (s *sshServerSuite) TestTerminatingSSHServerReportsFactoryError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), s.userSigner.PublicKey()).Return(true, nil)
 	s.authorizer.EXPECT().Authorize(gomock.Any(), destination).Return(true, nil)
-	s.serverFactory.EXPECT().New(gomock.Any(), destination).Return(nil, errors.New("factory failed"))
+	s.proxyFactory.EXPECT().New(destination).Return(nil, errors.New("factory failed"))
 
 	_, listener, cleanup := s.newServer(c)
 	defer cleanup()

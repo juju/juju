@@ -72,7 +72,7 @@ type ServerWorkerConfig struct {
 	// Authorizer checks whether an authenticated user may access a destination.
 	Authorizer Authorizer
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory TerminatingServerFactory
+	ServerFactory *TerminatingServerFactory
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
 }

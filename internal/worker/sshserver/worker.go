@@ -50,7 +50,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ServerFactory           TerminatingServerFactory
+	ServerFactory           *TerminatingServerFactory
 	Metrics                 *Collector
 }
 
@@ -126,7 +126,7 @@ func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, er
 // TerminatingServerFactory returns the factory that builds per-destination
 // terminating SSH servers, exposed through the manifold output for the
 // apiserver's relay endpoint.
-func (ssw *serverWrapperWorker) TerminatingServerFactory() TerminatingServerFactory {
+func (ssw *serverWrapperWorker) TerminatingServerFactory() *TerminatingServerFactory {
 	return ssw.config.ServerFactory
 }
 

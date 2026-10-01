@@ -53,7 +53,10 @@ func newServerWrapperWorkerConfig(
 func setMockServerDependencies(ctrl *gomock.Controller, cfg *ServerWrapperWorkerConfig) {
 	cfg.Authenticator = NewMockAuthenticator(ctrl)
 	cfg.Authorizer = NewMockAuthorizer(ctrl)
-	cfg.ServerFactory = NewMockTerminatingServerFactory(ctrl)
+	cfg.ServerFactory = NewTerminatingServerFactory(
+		NewMockProxyFactory(ctrl),
+		stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+	)
 }
 
 func (s *workerSuite) TestValidate(c *tc.C) {
