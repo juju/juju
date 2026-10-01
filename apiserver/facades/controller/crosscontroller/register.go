@@ -42,7 +42,7 @@ func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, e
 			}
 			return config.PublicDNSAddress(), nil
 		},
-		domainServices.ControllerNode().WatchControllerAPIAddresses,
+		domainServices.ControllerNode().WatchControllerClientAddresses,
 	)
 }
 
