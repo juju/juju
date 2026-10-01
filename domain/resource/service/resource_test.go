@@ -22,6 +22,7 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	storetesting "github.com/juju/juju/core/resource/store/testing"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -158,6 +159,41 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *tc.C) {
 		Name:            "",
 	}
 	_, err := s.service.GetApplicationResourceID(c.Context(), args)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
+}
+
+func (s *resourceServiceSuite) TestGetUnitResourceID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	retID := resourcetesting.GenResourceUUID(c)
+	args := resource.GetUnitResourceIDArgs{
+		UnitName: coreunit.Name("application/0"),
+		Name:     "test-resource",
+	}
+	s.state.EXPECT().GetUnitResourceID(
+		gomock.Any(), args.UnitName.String(), args.Name,
+	).Return(retID, nil)
+
+	ret, err := s.service.GetUnitResourceID(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ret, tc.Equals, retID)
+}
+
+func (s *resourceServiceSuite) TestGetUnitResourceIDBadUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitResourceID(c.Context(), resource.GetUnitResourceIDArgs{
+		Name: "test-resource",
+	})
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *resourceServiceSuite) TestGetUnitResourceIDBadName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitResourceID(c.Context(), resource.GetUnitResourceIDArgs{
+		UnitName: coreunit.Name("application/0"),
+	})
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 

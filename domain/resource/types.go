@@ -12,6 +12,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -41,6 +42,12 @@ const (
 type GetApplicationResourceIDArgs struct {
 	ApplicationUUID application.UUID
 	Name            string
+}
+
+// GetUnitResourceIDArgs holds the arguments for the GetUnitResourceID method.
+type GetUnitResourceIDArgs struct {
+	UnitName coreunit.Name
+	Name     string
 }
 
 // SetRepositoryResourcesArgs holds the arguments for the

@@ -515,6 +515,43 @@ func (s *resourceSuite) TestGetApplicationResourceIDCannotGetPotentialResource(c
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound, tc.Commentf("(Act) unexpected error"))
 }
 
+func (s *resourceSuite) TestGetUnitResourceID(c *tc.C) {
+	resourceData := resourceData{
+		UUID:     "unit-resource-uuid",
+		Name:     "removed-resource",
+		UnitUUID: s.constants.fakeUnitUUID1,
+		AddedAt:  time.Now().UTC(),
+	}
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return resourceData.insert(ctx, tx)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	id, err := s.state.GetUnitResourceID(
+		c.Context(), s.constants.fakeUnitName1, resourceData.Name,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, coreresource.UUID(resourceData.UUID))
+
+	res, err := s.state.GetResourceWithoutApplication(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.ApplicationName, tc.Equals, s.constants.fakeApplicationName1)
+}
+
+func (s *resourceSuite) TestGetUnitResourceIDNotFound(c *tc.C) {
+	_, err := s.state.GetUnitResourceID(
+		c.Context(), s.constants.fakeUnitName1, "removed-resource",
+	)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNotFound)
+}
+
+func (s *resourceSuite) TestGetUnitResourceIDUnitNotFound(c *tc.C) {
+	_, err := s.state.GetUnitResourceID(
+		c.Context(), "missing/0", "removed-resource",
+	)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 // TestGetResourceUUIDByApplicationAndResourceName tests that the resource ID can be correctly
 // retrieved from the database, given a name and an application
 func (s *resourceSuite) TestGetResourceUUIDByApplicationAndResourceName(c *tc.C) {

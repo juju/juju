@@ -43,6 +43,7 @@ type MockStateMockRecorder struct {
 	getResourceUUIDByApplicationAndResourceNameExpects []*gomock.Call3_2[context.Context, string, string, resource.UUID, error]
 	getResourceWithoutApplicationExpects               []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 	getResourcesByApplicationUUIDExpects               []*gomock.Call2_2[context.Context, application.UUID, []resource.Resource, error]
+	getUnitResourceIDExpects                           []*gomock.Call3_2[context.Context, string, string, resource.UUID, error]
 	importResourcesExpects                             []*gomock.Call2_1[context.Context, resource1.ImportResourcesArgs, error]
 	listAllModelResourcesExpects                       []*gomock.Call1_2[context.Context, []resource.Resource, error]
 	listResourcesExpects                               []*gomock.Call2_2[context.Context, application.UUID, resource.ApplicationResources, error]
@@ -281,6 +282,24 @@ func (mr *MockStateMockRecorder) GetResourcesByApplicationUUID(ctx, applicationI
 
 // MockStateGetResourcesByApplicationUUIDCall is the typed call wrapper for GetResourcesByApplicationUUID.
 type MockStateGetResourcesByApplicationUUIDCall = gomock.Call2_2[context.Context, application.UUID, []resource.Resource, error]
+
+// GetUnitResourceID mocks base method.
+func (m *MockState) GetUnitResourceID(ctx context.Context, unitName, resourceName string) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getUnitResourceIDExpects, m.ctrl, m, "GetUnitResourceID", ctx, unitName, resourceName)
+}
+
+// GetUnitResourceID indicates an expected call of GetUnitResourceID.
+func (mr *MockStateMockRecorder) GetUnitResourceID(ctx, unitName, resourceName any) *MockStateGetUnitResourceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitResourceID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(resourceName))
+	mr.getUnitResourceIDExpects = append(mr.getUnitResourceIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetUnitResourceIDCall is the typed call wrapper for GetUnitResourceID.
+type MockStateGetUnitResourceIDCall = gomock.Call3_2[context.Context, string, string, resource.UUID, error]
 
 // ImportResources mocks base method.
 func (m *MockState) ImportResources(ctx context.Context, args resource1.ImportResourcesArgs) error {

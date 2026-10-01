@@ -17,7 +17,9 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	domainresource "github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -163,6 +165,52 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationUUIDError(c *tc.C) {
 		result.Error))
 }
 
+func (s *unitFacadeSuite) TestGetResourceInfoUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("a-application/0")
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(coreapplication.UUID(""), applicationerrors.UnitNotFound)
+	facade, err := NewUnitFacade(
+		names.NewUnitTag(unitName.String()),
+		s.applicationService,
+		s.resourceService,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{
+		ResourceNames: []string{"resource"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *unitFacadeSuite) TestGetResourceInfoApplicationNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.applicationService.EXPECT().GetApplicationUUIDByName(
+		gomock.Any(), "a-application",
+	).Return(coreapplication.UUID("application-uuid"), nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(
+		gomock.Any(), coreapplication.UUID("application-uuid"),
+	).Return(nil, applicationerrors.ApplicationNotFound)
+	facade, err := NewUnitFacade(
+		names.NewApplicationTag("a-application"),
+		s.applicationService,
+		s.resourceService,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{
+		ResourceNames: []string{"resource"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
 // TestGetApplicationUUIDCache verifies that the application UUID is correctly
 // retrieved and cached to avoid redundant API calls.
 func (s *unitFacadeSuite) TestGetApplicationUUIDCache(c *tc.C) {
@@ -298,4 +346,81 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *tc.C) {
 			},
 		},
 	}, tc.Commentf("(Assert) unexpected resources result: %+v", result))
+}
+
+func (s *unitFacadeSuite) TestGetResourceInfoFallsBackToUnitResource(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("a-application/0")
+	resourceUUID := coreresource.UUID("resource-uuid")
+	resource := coreresource.Resource{
+		ID: resourceUUID.String(),
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{Name: "removed-resource"},
+		},
+	}
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(coreapplication.UUID("application-uuid"), nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(
+		gomock.Any(), coreapplication.UUID("application-uuid"),
+	).Return(nil, nil)
+	s.resourceService.EXPECT().GetUnitResourceID(
+		gomock.Any(), domainresource.GetUnitResourceIDArgs{
+			UnitName: unitName,
+			Name:     "removed-resource",
+		},
+	).Return(resourceUUID, nil)
+	s.resourceService.EXPECT().GetResourceWithoutApplication(
+		gomock.Any(), resourceUUID,
+	).Return(resource, nil)
+
+	facade, err := NewUnitFacade(
+		names.NewUnitTag(unitName.String()),
+		s.applicationService,
+		s.resourceService,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{
+		ResourceNames: []string{"removed-resource"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Resources, tc.HasLen, 1)
+	c.Check(result.Resources[0].Error, tc.IsNil)
+	c.Check(result.Resources[0].Resource.Name, tc.Equals, "removed-resource")
+	c.Check(result.Resources[0].Resource.ID, tc.Equals, resourceUUID.String())
+}
+
+func (s *unitFacadeSuite) TestGetResourceInfoFallbackUnitNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("a-application/0")
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(coreapplication.UUID("application-uuid"), nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(
+		gomock.Any(), coreapplication.UUID("application-uuid"),
+	).Return(nil, nil)
+	s.resourceService.EXPECT().GetUnitResourceID(
+		gomock.Any(), domainresource.GetUnitResourceIDArgs{
+			UnitName: unitName,
+			Name:     "removed-resource",
+		},
+	).Return(coreresource.UUID(""), applicationerrors.UnitNotFound)
+
+	facade, err := NewUnitFacade(
+		names.NewUnitTag(unitName.String()),
+		s.applicationService,
+		s.resourceService,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{
+		ResourceNames: []string{"removed-resource"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
 }

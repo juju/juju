@@ -258,6 +258,57 @@ AND    state = 'available'
 	return coreresource.UUID(resource.UUID), nil
 }
 
+// GetUnitResourceID returns the ID of the resource selected by a unit for a
+// logical resource name.
+func (st *State) GetUnitResourceID(
+	ctx context.Context,
+	unitName, resourceName string,
+) (coreresource.UUID, error) {
+	type unitResourceResult struct {
+		UnitUUID     string         `db:"unit_uuid"`
+		ResourceUUID sql.NullString `db:"resource_uuid"`
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	resourceInput := unitResource{
+		CharmResourceName: resourceName,
+	}
+	unitInput := unitUUIDAndName{Name: unitName}
+	var result unitResourceResult
+	stmt, err := st.Prepare(`
+SELECT u.uuid AS &unitResourceResult.unit_uuid,
+       ur.resource_uuid AS &unitResourceResult.resource_uuid
+FROM   unit AS u
+LEFT JOIN unit_resource AS ur
+ON     ur.unit_uuid = u.uuid
+AND    ur.charm_resource_name = $unitResource.charm_resource_name
+WHERE  u.name = $unitUUIDAndName.name
+`, result, resourceInput, unitInput)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, resourceInput, unitInput).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		if !result.ResourceUUID.Valid {
+			return resourceerrors.ResourceNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return coreresource.UUID(result.ResourceUUID.String), nil
+}
+
 // GetResourceUUIDByApplicationAndResourceName returns the ID of the application
 // resource specified by natural key of application and resource name. Only
 // resources with state available will be returned, not state potential.
@@ -628,14 +679,23 @@ func (st *State) GetResourceWithoutApplication(
 	resourceOutput := resourceView{}
 
 	stmt, err := st.Prepare(`
+WITH resource_application (resource_uuid, application_name) AS (
+    SELECT ar.resource_uuid, a.name
+    FROM   application_resource AS ar
+    JOIN   application AS a ON a.uuid = ar.application_uuid
+    UNION
+    SELECT ur.resource_uuid, a.name
+    FROM   unit_resource AS ur
+    JOIN   unit AS u ON u.uuid = ur.unit_uuid
+    JOIN   application AS a ON a.uuid = u.application_uuid
+)
 SELECT ( r.uuid, r.name, r.created_at, r.revision, r.origin_type,
     r.state, r.retrieved_by, r.path, r.description, r.kind_name,
     r.size, r.sha384) AS (&resourceView.*),
-    a.name AS &resourceView.application_name
-FROM v_resource AS r
-LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-LEFT JOIN application AS a ON ar.application_uuid = a.uuid
-WHERE r.uuid = $resourceIdentity.uuid
+    ra.application_name AS &resourceView.application_name
+FROM   v_resource AS r
+LEFT JOIN resource_application AS ra ON ra.resource_uuid = r.uuid
+WHERE  r.uuid = $resourceIdentity.uuid
 `,
 		resourceParam, resourceOutput)
 	if err != nil {

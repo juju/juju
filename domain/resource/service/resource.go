@@ -54,6 +54,10 @@ type State interface {
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
+	// GetUnitResourceID returns the ID of the resource selected by a unit for a
+	// logical resource name.
+	GetUnitResourceID(ctx context.Context, unitName, resourceName string) (coreresource.UUID, error)
+
 	// GetResourceUUIDByApplicationAndResourceName returns the UUID of the
 	// application resource specified by natural key of application and resource
 	// name.
@@ -272,6 +276,28 @@ func (s *Service) GetApplicationResourceID(
 		return "", resourceerrors.ResourceNameNotValid
 	}
 	return s.st.GetApplicationResourceID(ctx, args)
+}
+
+// GetUnitResourceID returns the ID of the resource selected by a unit for a
+// logical resource name.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNameNotValid] if no resource name is provided.
+//   - [coreunit.InvalidUnitName] if the unit name is not valid.
+//   - [applicationerrors.UnitNotFound] if the unit does not exist.
+//   - [resourceerrors.ResourceNotFound] if the unit has no resource with the
+//     supplied name.
+func (s *Service) GetUnitResourceID(
+	ctx context.Context,
+	args resource.GetUnitResourceIDArgs,
+) (coreresource.UUID, error) {
+	if err := args.UnitName.Validate(); err != nil {
+		return "", errors.Errorf("unit name: %w", err)
+	}
+	if args.Name == "" {
+		return "", resourceerrors.ResourceNameNotValid
+	}
+	return s.st.GetUnitResourceID(ctx, args.UnitName.String(), args.Name)
 }
 
 // GetResourceUUIDByApplicationAndResourceName returns the ID of the application
