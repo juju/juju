@@ -12,8 +12,11 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -69,47 +72,80 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_api_address")
-	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchControllerAPIAddresses(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
+func (s *watcherSuite) TestControllerAgentAddresses(c *tc.C) {
+	s.checkAddressWatcher(c, "controller_agent_address", (*service.WatchableService).WatchControllerAgentAddresses)
+}
 
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-	// This watcher still observes the legacy table until readers migrate.
-	exec := func(c *tc.C, query string) {
-		err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, query)
-			return err
+func (s *watcherSuite) TestControllerClientAddresses(c *tc.C) {
+	s.checkAddressWatcher(c, "controller_client_address", (*service.WatchableService).WatchControllerClientAddresses)
+}
+
+func (s *watcherSuite) checkAddressWatcher(c *tc.C, table string, watch func(*service.WatchableService, context.Context) (watcher.NotifyWatcher, error)) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, database.ControllerNS)
+	svc := s.setupService(c, factory)
+	w, err := watch(svc, c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+
+	// Publish through the setter after the initial event, so a consumer that
+	// read an empty projection is notified when addresses become available.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+			APIAddresses: map[string]network.SpaceHostPorts{
+				"0": network.NewSpaceHostPorts(17070, "10.0.0.1"),
+			},
 		})
 		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Shared endpoints have no controller ID but still notify consumers.
+	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "INSERT INTO "+table+" (uuid, address, scope) VALUES ('shared', 'shared.example.com:17070', 'public')")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	for _, update := range []string{
+		"scope = 'local-cloud'", "priority = 2", "controller_id = '0'",
+		"address = 'updated.example.com:17070'",
+	} {
+		harness.AddTest(c, func(c *tc.C) {
+			s.execAddressSQL(c, "UPDATE "+table+" SET "+update+" WHERE uuid = 'shared'")
+		}, func(w watchertest.WatcherC[struct{}]) {
+			w.AssertChange()
+		})
 	}
 	harness.AddTest(c, func(c *tc.C) {
-		exec(c, "INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('0', '10.9.9.32:42', 'local-cloud')")
+		s.execAddressSQL(c, "UPDATE "+table+" SET priority = priority")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "DELETE FROM "+table+" WHERE uuid = 'shared'")
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
+	// Each audience observes only its own projection.
 	harness.AddTest(c, func(c *tc.C) {
-		c.Assert(svc.AddDqliteNode(c.Context(), "1", uint64(1), "10.0.0.1"), tc.ErrorIsNil)
-		exec(c, "INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('1', '10.9.9.32:42', 'local-cloud')")
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-	harness.AddTest(c, func(c *tc.C) {
-		exec(c, "UPDATE controller_api_address SET address = '10.43.25.2:42' WHERE controller_id = '0'")
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-	harness.AddTest(c, func(c *tc.C) {
-		exec(c, "DELETE FROM controller_api_address WHERE controller_id = '0'")
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-	harness.AddTest(c, func(c *tc.C) {
+		for _, other := range []string{"controller_agent_address", "controller_client_address", "controller_peer_address"} {
+			if other != table {
+				s.execAddressSQL(c, "INSERT INTO "+other+" (uuid, controller_id, address, scope) VALUES ('other', '0', 'other.example.com:17070', 'public')")
+			}
+		}
+		s.execAddressSQL(c, "INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('0', 'legacy.example.com:17070', 'public')")
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
 	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) execAddressSQL(c *tc.C, query string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, query)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {

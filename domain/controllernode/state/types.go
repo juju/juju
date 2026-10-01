@@ -42,19 +42,6 @@ type controllerNodeAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
-// controllerAPIAddress is the database representation of a controller api
-// address with the controller id and whether it is for agents or clients.
-type controllerAPIAddress struct {
-	// ControllerID is the controller node id.
-	ControllerID string `db:"controller_id"`
-	// Address is the address of the controller node.
-	Address string `db:"address"`
-	// IsAgent is whether the address is for agents as well as for clients.
-	IsAgent bool `db:"is_agent"`
-	// Scope is the address scope.
-	Scope string `db:"scope"`
-}
-
 // controllerAddress is a row in a client or agent address projection.
 type controllerAddress struct {
 	UUID         string `db:"uuid"`

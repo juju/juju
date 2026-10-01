@@ -31,7 +31,8 @@ type APIAddress struct {
 	UUID string
 	// Address is the address of the API represented as "host:port" string.
 	Address string
-	// IsAgent indicates whether the address is available for agents.
+	// IsAgent selects addresses for the agent projection when publishing.
+	// It is not populated when reading a projection.
 	IsAgent bool
 	// Scope is the address scope.
 	Scope network.Scope

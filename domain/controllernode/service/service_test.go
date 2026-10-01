@@ -509,6 +509,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForAgents(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	args := map[string]controllernode.APIAddresses{
+		"": {{Address: "shared.example.com:17070", Scope: network.ScopePublic}},
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
@@ -561,6 +562,7 @@ func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgents(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	args := map[string]controllernode.APIAddresses{
+		"": {{Address: "shared.example.com:17070", Scope: network.ScopePublic}},
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
@@ -766,6 +768,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClients(c *tc.C) {
 
 	// Arrange
 	args := map[string]controllernode.APIAddresses{
+		"": {{Address: "shared.example.com:17070", Scope: network.ScopePublic}},
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
