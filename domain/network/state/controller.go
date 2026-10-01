@@ -14,31 +14,29 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
-	networkinternal "github.com/juju/juju/domain/network/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetControllerUnitNetwork reads a controller unit's network facts atomically.
+// GetControllerUnitNetwork reads a controller unit's addresses atomically.
 // The model must be the controller model and the unit must belong to its
 // controller application. Alive and Dying applications/units are accepted;
 // Dead units return UnitIsDead and missing/unrelated units return UnitNotFound.
 // A missing model record is an error, not an empty address snapshot.
-func (st *State) GetControllerUnitNetwork(ctx context.Context, name string) (networkinternal.ControllerUnitNetwork, error) {
+func (st *State) GetControllerUnitNetwork(ctx context.Context, name string) (domainnetwork.ControllerAPIAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return networkinternal.ControllerUnitNetwork{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	type controllerModel struct {
-		Type         model.ModelType `db:"type"`
-		IsController bool            `db:"is_controller_model"`
+		IsController bool `db:"is_controller_model"`
 	}
 	modelQuery, err := st.Prepare(`
-SELECT m.type AS &controllerModel.type,
-       m.is_controller_model AS &controllerModel.is_controller_model
+SELECT m.is_controller_model AS &controllerModel.is_controller_model
 FROM model AS m`, controllerModel{})
 	if err != nil {
-		return networkinternal.ControllerUnitNetwork{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	type controllerUnit struct {
 		NetNodeUUID     string    `db:"net_node_uuid"`
@@ -54,7 +52,7 @@ JOIN application AS a ON a.uuid = u.application_uuid
 JOIN application_controller AS ac ON ac.application_uuid = a.uuid
 WHERE u.name = $unitName.name`, controllerUnit{}, unitName{})
 	if err != nil {
-		return networkinternal.ControllerUnitNetwork{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	ipQuery, err := st.Prepare(`
 SELECT ipa.address_value AS &controllerAPIAddress.address_value,
@@ -76,7 +74,7 @@ JOIN ip_address_scope AS ias ON ias.id = ipa.scope_id
 LEFT JOIN subnet AS sn ON sn.uuid = ipa.subnet_uuid
 WHERE ipa.net_node_uuid = $controllerUnit.net_node_uuid`, controllerUnit{}, controllerAPIAddress{})
 	if err != nil {
-		return networkinternal.ControllerUnitNetwork{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	type fqdn struct {
 		Address string        `db:"address"`
@@ -89,9 +87,9 @@ JOIN fqdn_address AS fa ON fa.uuid = nnfa.address_uuid
 JOIN network_address_scope AS nas ON nas.id = fa.scope_id
 WHERE nnfa.net_node_uuid = $controllerUnit.net_node_uuid`, controllerUnit{}, fqdn{})
 	if err != nil {
-		return networkinternal.ControllerUnitNetwork{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	var result networkinternal.ControllerUnitNetwork
+	var result domainnetwork.ControllerAPIAddresses
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var m controllerModel
 		if err := tx.Query(ctx, modelQuery).Get(&m); err != nil {
@@ -99,9 +97,6 @@ WHERE nnfa.net_node_uuid = $controllerUnit.net_node_uuid`, controllerUnit{}, fqd
 		}
 		if !m.IsController {
 			return errors.Errorf("controller network requires the controller model: %w", coreerrors.NotValid)
-		}
-		if !m.Type.IsValid() {
-			return errors.Errorf("invalid controller model type %q", m.Type)
 		}
 		var u controllerUnit
 		if err := tx.Query(ctx, unitQuery, unitName{Name: unit.Name(name)}).Get(&u); errors.Is(err, sqlair.ErrNoRows) {
@@ -131,13 +126,45 @@ WHERE nnfa.net_node_uuid = $controllerUnit.net_node_uuid`, controllerUnit{}, fqd
 				Value:   name.Address, Type: network.HostName, Scope: name.Scope,
 			})
 		}
-		result = networkinternal.ControllerUnitNetwork{ModelType: m.Type, Addresses: addresses}
+		result = addresses
 		return nil
 	})
 	if err != nil {
-		return networkinternal.ControllerUnitNetwork{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 	return result, nil
+}
+
+// GetModelType returns the type of the current model. A missing model record
+// returns [modelerrors.NotFound]. An invalid model type returns an error.
+func (st *State) GetModelType(ctx context.Context) (model.ModelType, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	type modelType struct {
+		Type model.ModelType `db:"type"`
+	}
+	query, err := st.Prepare(`
+SELECT m.type AS &modelType.type
+FROM model AS m`, modelType{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var m modelType
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, query).Get(&m)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return modelerrors.NotFound
+		}
+		return err
+	}); err != nil {
+		return "", errors.Errorf("reading model type: %w", err)
+	}
+	if !m.Type.IsValid() {
+		return "", errors.Errorf("invalid model type %q", m.Type)
+	}
+	return m.Type, nil
 }
 
 // NamespacesForWatchControllerNetwork covers every mutable input to controller

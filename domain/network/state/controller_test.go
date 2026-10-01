@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -29,12 +30,11 @@ VALUES ('ipv4', ?, ?, '10.0.0.2/24', 0, 4, 1, 3), ('ipv6', ?, ?, '2001:db8::2/64
 	s.addK8sService(c, serviceNode, app)
 	s.addFQDNAddress(c, serviceNode, "shared.example.com")
 
-	facts, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
+	addresses, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(facts.ModelType, tc.Equals, model.CAAS)
-	c.Assert(facts.Addresses, tc.HasLen, 3)
+	c.Check(addresses, tc.HasLen, 3)
 	values := make(map[string]network.AddressType)
-	for _, address := range facts.Addresses {
+	for _, address := range addresses {
 		values[address.Value] = address.Type
 		if address.Type != network.HostName {
 			c.Check(address.Scope, tc.Equals, network.ScopeMachineLocal)
@@ -54,19 +54,18 @@ func (s *controllerNetworkSuite) TestMachineAddresses(c *tc.C) {
 	s.query(c, `INSERT INTO subnet (uuid, cidr, space_uuid) VALUES ('subnet', '10.0.0.0/24', ?)`, space)
 	device := s.addLinkLayerDevice(c, node, "eth0", "", network.EthernetDevice)
 	s.addIPAddressWithSubnetAndScope(c, device, node, "subnet", "10.0.0.2/24", network.ScopeCloudLocal)
-	facts, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
+	addresses, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(facts.Addresses, tc.HasLen, 1)
-	c.Check(facts.ModelType, tc.Equals, model.IAAS)
-	c.Check(facts.Addresses[0].SpaceID, tc.Equals, network.SpaceUUID(space))
-	c.Check(facts.Addresses[0].Value, tc.Equals, "10.0.0.2")
+	c.Assert(addresses, tc.HasLen, 1)
+	c.Check(addresses[0].SpaceID, tc.Equals, network.SpaceUUID(space))
+	c.Check(addresses[0].Value, tc.Equals, "10.0.0.2")
 }
 
 func (s *controllerNetworkSuite) TestLifecycle(c *tc.C) {
 	s.controllerUnit(c, model.IAAS)
-	facts, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
+	addresses, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(facts.Addresses, tc.HasLen, 0)
+	c.Check(addresses, tc.HasLen, 0)
 	s.query(c, `UPDATE unit SET life_id = 1`)
 	s.query(c, `UPDATE application SET life_id = 1`)
 	_, err = s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
@@ -110,10 +109,35 @@ func (s *controllerNetworkSuite) TestReassociatedNode(c *tc.C) {
 	replacement := s.addNetNode(c)
 	s.addFQDNAddress(c, replacement, "new.example.com")
 	s.query(c, `UPDATE unit SET net_node_uuid = ?`, replacement)
-	facts, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
+	addresses, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(facts.Addresses, tc.HasLen, 1)
-	c.Check(facts.Addresses[0].Value, tc.Equals, "new.example.com")
+	c.Assert(addresses, tc.HasLen, 1)
+	c.Check(addresses[0].Value, tc.Equals, "new.example.com")
+}
+
+func (s *controllerNetworkSuite) TestGetModelTypeIAAS(c *tc.C) {
+	s.insertModel(c, model.IAAS, true)
+	modelType, err := s.state.GetModelType(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelType, tc.Equals, model.IAAS)
+}
+
+func (s *controllerNetworkSuite) TestGetModelTypeCAAS(c *tc.C) {
+	s.insertModel(c, model.CAAS, true)
+	modelType, err := s.state.GetModelType(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelType, tc.Equals, model.CAAS)
+}
+
+func (s *controllerNetworkSuite) TestGetModelTypeUninitialisedModel(c *tc.C) {
+	_, err := s.state.GetModelType(c.Context())
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *controllerNetworkSuite) TestGetModelTypeInvalid(c *tc.C) {
+	s.insertModel(c, model.ModelType("invalid"), true)
+	_, err := s.state.GetModelType(c.Context())
+	c.Check(err, tc.ErrorMatches, `invalid model type "invalid"`)
 }
 
 func (s *controllerNetworkSuite) controllerUnit(c *tc.C, modelType model.ModelType) (string, string) {
