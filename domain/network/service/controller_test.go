@@ -67,16 +67,20 @@ func (*controllerNetworkSuite) TestManagementSpaceFallback(c *tc.C) {
 	c.Check(addresses, tc.DeepEquals, network.SpaceAddresses{address.SpaceAddress})
 }
 
-func (*controllerNetworkSuite) TestPodIPAndDNS(c *tc.C) {
+func (*controllerNetworkSuite) TestPodIPAndDNSIgnoreManagementSpace(c *tc.C) {
 	st := NewMockState(gomock.NewController(c))
 	ip := controllerCandidate("10.0.0.1", network.ScopeMachineLocal, network.AlphaSpaceId, domainnetwork.DeviceTypeEthernet)
 	dns := controllerCandidate("controller-0.example.test", network.ScopeCloudLocal, network.AlphaSpaceId, domainnetwork.DeviceTypeUnknown)
-	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{ip, dns}, nil)
-	st.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil)
+	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{ip, dns}, nil).Times(2)
+	st.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil).Times(2)
+	st.EXPECT().GetSpaceByName(gomock.Any(), gomock.Any()).Times(0)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
 	addresses, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(addresses, tc.DeepEquals, network.SpaceAddresses{dns.SpaceAddress, ip.SpaceAddress})
+	withManagementSpace, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "management")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(withManagementSpace, tc.DeepEquals, addresses)
 }
 
 func (*controllerNetworkSuite) TestUnsuitableAddresses(c *tc.C) {

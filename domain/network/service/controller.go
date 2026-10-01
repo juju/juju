@@ -45,6 +45,7 @@ type ControllerState interface {
 //
 // A management space restricts machine-controller candidates when it contains
 // eligible addresses; otherwise all eligible candidates remain as a fallback.
+// Management-space configuration is ignored for Kubernetes models.
 // Kubernetes pod scopes are preserved, including legacy machine-local scopes.
 func (s *Service) GetControllerPeerAddresses(ctx context.Context, name unit.Name, managementSpace network.SpaceName) (network.SpaceAddresses, error) {
 	controllerAddresses, err := s.controllerNetwork(ctx, name)
