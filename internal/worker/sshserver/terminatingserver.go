@@ -20,8 +20,8 @@ type TerminatingServerFactory struct {
 	svc     SSHService
 }
 
-// NewTerminatingServerFactory returns a TerminatingServerFactory.
-func NewTerminatingServerFactory(factory ProxyFactory, svc SSHService) *TerminatingServerFactory {
+// newTerminatingServerFactory returns a TerminatingServerFactory.
+func newTerminatingServerFactory(factory ProxyFactory, svc SSHService) *TerminatingServerFactory {
 	return &TerminatingServerFactory{factory: factory, svc: svc}
 }
 

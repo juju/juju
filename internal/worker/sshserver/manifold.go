@@ -232,7 +232,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		ServerFactory: NewTerminatingServerFactory(proxyFactory, sshService),
+		ServerFactory: newTerminatingServerFactory(proxyFactory, sshService),
 		Metrics:       metricsCollector,
 	})
 	if err != nil {
@@ -259,7 +259,7 @@ func outputFunc(in worker.Worker, out any) error {
 	case **TerminatingServerFactory:
 		*outPointer = inWorker.TerminatingServerFactory()
 	default:
-		return errors.Errorf("out should be **TerminatingServerFactory; got %T", out)
+		return errors.Errorf("out should be **sshserver.TerminatingServerFactory; got %T", out)
 	}
 	return nil
 }

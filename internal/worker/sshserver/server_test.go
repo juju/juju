@@ -64,7 +64,7 @@ func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	s.authorizer = NewMockAuthorizer(ctrl)
 	s.proxyFactory = NewMockProxyFactory(ctrl)
 	s.proxyHandlers = NewMockProxyHandlers(ctrl)
-	s.serverFactory = NewTerminatingServerFactory(
+	s.serverFactory = newTerminatingServerFactory(
 		s.proxyFactory,
 		stubSSHService{jumpHostKey: testHostKey, virtualHostKey: jujutesting.SSHServerHostKey},
 	)
