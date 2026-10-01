@@ -55,6 +55,15 @@ type controllerAPIAddress struct {
 	Scope string `db:"scope"`
 }
 
+// controllerAddress is a row in a client or agent address projection.
+type controllerAddress struct {
+	UUID         string `db:"uuid"`
+	ControllerID string `db:"controller_id"`
+	Address      string `db:"address"`
+	Scope        string `db:"scope"`
+	Priority     int    `db:"priority"`
+}
+
 // countResult is the database representation of a count result.
 type countResult struct {
 	Count int `db:"count"`

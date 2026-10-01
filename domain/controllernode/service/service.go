@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence
@@ -51,11 +52,9 @@ type State interface {
 	// controller api addresses.
 	NamespaceForWatchControllerAPIAddresses() string
 
-	// SetAPIAddresses sets the addresses for the provided controller node. It
-	// replaces any existing addresses and stores them in the
-	// api_controller_address table, with the format "host:port" as a string, as
-	// well as the is_agent flag indicating whether the address is available for
-	// agents.
+	// SetAPIAddresses replaces the client and agent address projections for
+	// the supplied controllers. All addresses are published for clients;
+	// addresses marked IsAgent are also published for agents.
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]
 	// if the controller node does not exist.
@@ -168,36 +167,46 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 	return nil
 }
 
-// SetAPIAddresses sets the provided addresses associated with the provided
-// controller IDs.
+// SetAPIAddresses publishes client and agent addresses for the supplied
+// controller IDs, selecting agent addresses using the management space.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if the controller node does not exist.
 func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error {
 	addresses := make(map[string]controllernode.APIAddresses, 0)
 	for controllerID, addrs := range args.APIAddresses {
-		addresses[controllerID] = s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
+		encoded, err := s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
+		if err != nil {
+			return errors.Errorf("encoding addresses for controller %q: %w", controllerID, err)
+		}
+		addresses[controllerID] = encoded
 	}
 	return s.st.SetAPIAddresses(ctx, addresses)
 }
 
-func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) controllernode.APIAddresses {
+func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) (controllernode.APIAddresses, error) {
 	// We map the SpaceHostPorts addresses to controller api addresses by
 	// checking if the address is available for agents (this is the case if the
 	// space ID of the address matches the management space ID), and also by
 	// joining the address host and port to a string "host:port".
 	addresses := make(controllernode.APIAddresses, 0, len(addrs))
 	emptyAgentAddresses := true
-	for _, spHostPort := range addrs {
+	for priority, spHostPort := range addrs {
+		addressUUID, err := uuid.NewUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
 		// Check if the address is available for agents. If no management space
 		// is set, all addresses are available for agents.
 		isAvailableForAgents := mgmtSpace == nil || spHostPort.SpaceID == mgmtSpace.ID
 		// Join the address host and port to a string "host:port".
 		address := net.JoinHostPort(spHostPort.Host(), strconv.Itoa(spHostPort.Port()))
 		addresses = append(addresses, controllernode.APIAddress{
-			Address: address,
-			IsAgent: isAvailableForAgents,
-			Scope:   spHostPort.Scope,
+			UUID:     addressUUID.String(),
+			Address:  address,
+			IsAgent:  isAvailableForAgents,
+			Scope:    spHostPort.Scope,
+			Priority: priority,
 		})
 		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
 	}
@@ -209,7 +218,7 @@ func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.Spa
 		}
 		s.logger.Warningf(ctx, "all provided API addresses were filtered out with regards to the management space, forcing all addresses to be agents to ensure API connectivity")
 	}
-	return addresses
+	return addresses, nil
 }
 
 // GetControllerIDs returns the list of controller IDs from the controller node

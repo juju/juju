@@ -128,3 +128,26 @@ func (s *controllerNodeSuite) TestDeleteDqliteNodePreservesOtherNodes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
 }
+
+func (s *controllerNodeSuite) TestDeleteDqliteNodeAddressProjections(c *tc.C) {
+	_, err := s.DB().ExecContext(c.Context(), "INSERT INTO controller_node (controller_id) VALUES ('99'), ('98')")
+	c.Assert(err, tc.ErrorIsNil)
+	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
+		_, err := s.DB().ExecContext(c.Context(), "INSERT INTO "+table+` (uuid, controller_id, address, scope) VALUES
+('removed', '99', '10.0.0.99:17070', 'local-cloud'),
+('retained', '98', '10.0.0.98:17070', 'local-cloud'),
+('shared', NULL, 'api.example.com:17070', 'public')`)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	c.Assert(st.DeleteDqliteNode(c.Context(), "99"), tc.ErrorIsNil)
+	c.Assert(st.DeleteDqliteNode(c.Context(), "99"), tc.ErrorIsNil)
+	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
+		for id, expected := range map[string]int{"removed": 0, "retained": 1, "shared": 1} {
+			var count int
+			err := s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM "+table+" WHERE uuid = ?", id).Scan(&count)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(count, tc.Equals, expected)
+		}
+	}
+}

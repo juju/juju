@@ -24,6 +24,7 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -193,7 +194,7 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+	s.expectAPIAddresses(c, controllerApiAddrs)
 
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: &network.SpaceInfo{
@@ -249,7 +250,7 @@ func (s *serviceSuite) TestSetAPIAddressesNilMgmtSpace(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+	s.expectAPIAddresses(c, controllerApiAddrs)
 
 	args := controllernode.SetAPIAddressArgs{
 		APIAddresses: map[string]network.SpaceHostPorts{
@@ -300,7 +301,7 @@ func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredForcesAgent(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+	s.expectAPIAddresses(c, controllerApiAddrs)
 
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: &network.SpaceInfo{
@@ -355,7 +356,7 @@ func (s *serviceSuite) TestSetAPIAddressesNotAllAddrsFilteredAgents(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+	s.expectAPIAddresses(c, controllerApiAddrs)
 
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: &network.SpaceInfo{
@@ -421,7 +422,7 @@ func (s *serviceSuite) TestSetAPIAddressesDualStackNoMismatchLeak(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().SetAPIAddresses(gomock.Any(), controllerApiAddrs).Return(nil)
+	s.expectAPIAddresses(c, controllerApiAddrs)
 
 	args := controllernode.SetAPIAddressArgs{
 		MgmtSpace: &network.SpaceInfo{
@@ -457,6 +458,28 @@ func (s *serviceSuite) TestSetAPIAddressesDualStackNoMismatchLeak(c *tc.C) {
 	}
 	err := svc.SetAPIAddresses(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// expectAPIAddresses checks audience selection, generated row identity and order.
+func (s *serviceSuite) expectAPIAddresses(c *tc.C, expected map[string]controllernode.APIAddresses) {
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, addresses map[string]controllernode.APIAddresses) error {
+			actual := make(map[string]controllernode.APIAddresses, len(addresses))
+			ids := make(map[string]bool)
+			for controllerID, addrs := range addresses {
+				for priority, addr := range addrs {
+					c.Check(uuid.IsValidUUIDString(addr.UUID), tc.IsTrue)
+					c.Check(ids[addr.UUID], tc.IsFalse)
+					ids[addr.UUID] = true
+					c.Check(addr.Priority, tc.Equals, priority)
+					addr.UUID = ""
+					addr.Priority = 0
+					actual[controllerID] = append(actual[controllerID], addr)
+				}
+			}
+			c.Check(actual, tc.DeepEquals, expected)
+			return nil
+		})
 }
 
 func (s *serviceSuite) TestGetControllerIDs(c *tc.C) {
