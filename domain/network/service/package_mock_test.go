@@ -15,6 +15,7 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	database "github.com/juju/juju/core/database"
 	instance "github.com/juju/juju/core/instance"
+	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
 	network0 "github.com/juju/juju/domain/network"
@@ -43,12 +44,14 @@ type MockStateMockRecorder struct {
 	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
 	getContainerNetworkingMethodExpects         []*gomock.Call1_2[context.Context, string, error]
 	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+	getControllerUnitNetworkExpects             []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
 	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
 	getMachineNetNodeUUIDExpects                []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineSpaceConstraintsExpects           []*gomock.Call2_3[context.Context, string, []internal.SpaceName, []internal.SpaceName, error]
 	getModelCloudTypeExpects                    []*gomock.Call1_2[context.Context, string, error]
 	getModelEgressSubnetsExpects                []*gomock.Call1_2[context.Context, []string, error]
+	getModelTypeExpects                         []*gomock.Call1_2[context.Context, model.ModelType, error]
 	getNetNodeAddressesExpects                  []*gomock.Call2_2[context.Context, string, network.SpaceAddresses, error]
 	getRelationEgressSubnetsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
 	getSpaceExpects                             []*gomock.Call2_2[context.Context, network.SpaceUUID, *network.SpaceInfo, error]
@@ -72,6 +75,7 @@ type MockStateMockRecorder struct {
 	moveSubnetsToSpaceExpects                   []*gomock.Call4_2[context.Context, []string, string, bool, []network0.MovedSubnets, error]
 	nICsInSpacesExpects                         []*gomock.Call2_2[context.Context, string, map[string][]network0.NetInterface, error]
 	namespaceForWatchSubnetExpects              []*gomock.Call0_1[string]
+	namespacesForWatchControllerNetworkExpects  []*gomock.Call0_1[[]string]
 	removeSpaceExpects                          []*gomock.Call4_2[context.Context, network.SpaceName, bool, bool, network0.RemoveSpaceViolations, error]
 	setMachineNetConfigExpects                  []*gomock.Call4_1[context.Context, string, []network0.NetInterface, bool, error]
 	updateSpaceExpects                          []*gomock.Call3_1[context.Context, network.SpaceUUID, network.SpaceName, error]
@@ -289,6 +293,24 @@ func (mr *MockStateMockRecorder) GetControllerAPIAddresses(ctx, uuid any) *MockS
 // MockStateGetControllerAPIAddressesCall is the typed call wrapper for GetControllerAPIAddresses.
 type MockStateGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
 
+// GetControllerUnitNetwork mocks base method.
+func (m *MockState) GetControllerUnitNetwork(arg0 context.Context, arg1 string) (network0.ControllerAPIAddresses, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getControllerUnitNetworkExpects, m.ctrl, m, "GetControllerUnitNetwork", arg0, arg1)
+}
+
+// GetControllerUnitNetwork indicates an expected call of GetControllerUnitNetwork.
+func (mr *MockStateMockRecorder) GetControllerUnitNetwork(arg0, arg1 any) *MockStateGetControllerUnitNetworkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, network0.ControllerAPIAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerUnitNetwork", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getControllerUnitNetworkExpects = append(mr.getControllerUnitNetworkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerUnitNetworkCall is the typed call wrapper for GetControllerUnitNetwork.
+type MockStateGetControllerUnitNetworkCall = gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+
 // GetControllerUnitUUIDByName mocks base method.
 func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
@@ -396,6 +418,24 @@ func (mr *MockStateMockRecorder) GetModelEgressSubnets(ctx any) *MockStateGetMod
 
 // MockStateGetModelEgressSubnetsCall is the typed call wrapper for GetModelEgressSubnets.
 type MockStateGetModelEgressSubnetsCall = gomock.Call1_2[context.Context, []string, error]
+
+// GetModelType mocks base method.
+func (m *MockState) GetModelType(arg0 context.Context) (model.ModelType, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getModelTypeExpects, m.ctrl, m, "GetModelType", arg0)
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockStateMockRecorder) GetModelType(arg0 any) *MockStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, model.ModelType, error](mr.mock.ctrl.T, mr.mock, "GetModelType", gomock.EnsureMatcher(arg0))
+	mr.getModelTypeExpects = append(mr.getModelTypeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelTypeCall is the typed call wrapper for GetModelType.
+type MockStateGetModelTypeCall = gomock.Call1_2[context.Context, model.ModelType, error]
 
 // GetNetNodeAddresses mocks base method.
 func (m *MockState) GetNetNodeAddresses(ctx context.Context, netNodeUUID string) (network.SpaceAddresses, error) {
@@ -811,6 +851,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchSubnet() *MockStateNamespaceFo
 
 // MockStateNamespaceForWatchSubnetCall is the typed call wrapper for NamespaceForWatchSubnet.
 type MockStateNamespaceForWatchSubnetCall = gomock.Call0_1[string]
+
+// NamespacesForWatchControllerNetwork mocks base method.
+func (m *MockState) NamespacesForWatchControllerNetwork() []string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespacesForWatchControllerNetworkExpects, m.ctrl, m, "NamespacesForWatchControllerNetwork")
+}
+
+// NamespacesForWatchControllerNetwork indicates an expected call of NamespacesForWatchControllerNetwork.
+func (mr *MockStateMockRecorder) NamespacesForWatchControllerNetwork() *MockStateNamespacesForWatchControllerNetworkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[[]string](mr.mock.ctrl.T, mr.mock, "NamespacesForWatchControllerNetwork")
+	mr.namespacesForWatchControllerNetworkExpects = append(mr.namespacesForWatchControllerNetworkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespacesForWatchControllerNetworkCall is the typed call wrapper for NamespacesForWatchControllerNetwork.
+type MockStateNamespacesForWatchControllerNetworkCall = gomock.Call0_1[[]string]
 
 // RemoveSpace mocks base method.
 func (m *MockState) RemoveSpace(ctx context.Context, spaceName network.SpaceName, force, dryRun bool) (network0.RemoveSpaceViolations, error) {

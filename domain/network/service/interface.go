@@ -30,6 +30,7 @@ type ProviderWithZones interface {
 // State describes retrieval and persistence methods needed for the network
 // domain service.
 type State interface {
+	ControllerState
 	SpaceState
 	SubnetState
 	NetConfigState
