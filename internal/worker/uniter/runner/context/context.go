@@ -1501,6 +1501,17 @@ func (c *HookContext) HookVars(
 
 	if scope := coretrace.SpanFromContext(ctx).Scope(); scope.TraceID() != "" {
 		vars = append(vars,
+			// Traceparent and tracestate are the standard W3C trace context
+			// headers.
+			// https://www.w3.org/TR/2021/REC-trace-context-1-20211123/
+			fmt.Sprintf("TRACEPARENT=00-%s-%s-%02x", scope.TraceID(), scope.SpanID(), scope.TraceFlags()),
+			// Juju does not currently propagate vendor-specific trace state.
+			"TRACESTATE=",
+
+			// Deprecated: Juju-specific trace state for charms to use if they
+			// want to propagate Juju trace state. This will move to the
+			// standard W3C trace state header in the future and will be
+			// dropped.
 			"JUJU_TRACE_ID="+scope.TraceID(),
 			"JUJU_SPAN_ID="+scope.SpanID(),
 			fmt.Sprintf("JUJU_TRACE_FLAGS=%d", scope.TraceFlags()),
