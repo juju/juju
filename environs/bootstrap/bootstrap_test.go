@@ -6,6 +6,7 @@ package bootstrap_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1176,6 +1177,13 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
 	resolvedVersion := jujuversion.Current.ToPatch()
 	defaultChannel := "latest/edge"
 
+	// The resolved version matches the bootstrap client, so the store
+	// snap must be used directly and no local snap may be built.
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(_ context.Context, _, _ io.Writer) (string, error) {
+		c.Fatal("must not build a local snap when the store snap matches the client")
+		return "", nil
+	})
+
 	var gotChannel string
 	var gotRevision int
 
@@ -1201,6 +1209,185 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapDefaultStoreMode(c *tc.C) {
 	c.Assert(gotRevision, tc.Equals, 0)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, "")
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 5678)
+}
+
+func (s *bootstrapSuite) TestBootstrapDefaultStoreModeClientNewerFallsBackToLocalSnap(c *tc.C) {
+	// In the implicit default source mode, a bootstrap client newer than
+	// the snap resolved from the default channel falls back to local
+	// artifacts: the controller snap is built locally, and the machine
+	// agent takes the developer-mode local-copy path anchored to the
+	// built snap's version.
+	olderStoreVersion := jujuversion.Current.ToPatch()
+	olderStoreVersion.Major--
+
+	localSnapVersion := jujuversion.Current.ToPatch()
+	localSnapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	c.Assert(os.WriteFile(localSnapPath, []byte("snap content"), 0644), tc.ErrorIsNil)
+
+	var buildSnapCalled bool
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(_ context.Context, _, _ io.Writer) (string, error) {
+		buildSnapCalled = true
+		return localSnapPath, nil
+	})
+
+	// No packaged tools exist, so the machine agent must use the
+	// local-copy fallback.
+	s.PatchValue(bootstrap.FindTools, func(context.Context, envtools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	var capturedBuild bool
+	var capturedForceVersion semversion.Number
+	s.PatchValue(&sync.BuildAgentTarball, func(build bool, _ string,
+		getForceVersion func(semversion.Number) semversion.Number,
+	) (*sync.BuiltAgent, error) {
+		capturedBuild = build
+		capturedForceVersion = getForceVersion(semversion.Zero)
+		return &sync.BuiltAgent{
+			Dir:      c.MkDir(),
+			Official: true,
+			Version: semversion.Binary{
+				Number:  capturedForceVersion.ToPatch(),
+				Release: "ubuntu",
+				Arch:    "amd64",
+			},
+		}, nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return olderStoreVersion.String(), 1111, nil
+			},
+			BuildAgentTarball: sync.BuildAgentTarball,
+			SnapVersionReader: s.snapVersionReader(c, localSnapVersion.String()),
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(buildSnapCalled, tc.IsTrue,
+		tc.Commentf("a client newer than the published snap must build the snap locally"))
+	c.Check(capturedBuild, tc.IsFalse,
+		tc.Commentf("the machine agent must use the local-copy fallback, not a source build"))
+	c.Check(capturedForceVersion, tc.DeepEquals, localSnapVersion,
+		tc.Commentf("the local agent copy must be anchored to the locally built snap's version"))
+	c.Check(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, localSnapPath,
+		tc.Commentf("the machine must install the locally built snap file"))
+	c.Check(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 0,
+		tc.Commentf("the machine must not download a store revision after the fallback"))
+	c.Check(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, localSnapVersion.String(),
+		tc.Commentf("the expected version must come from the locally built snap"))
+}
+
+func (s *bootstrapSuite) TestBootstrapDefaultStoreModeStoreNewerFails(c *tc.C) {
+	// A store snap newer than the bootstrap client cannot serve the
+	// bootstrap; the default mode must fail rather than install a newer
+	// controller snap.
+	newerStoreVersion := semversion.MustParse("99.0.0")
+
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(_ context.Context, _, _ io.Writer) (string, error) {
+		c.Fatal("must not build a local snap when the store snap is newer than the client")
+		return "", nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return newerStoreVersion.String(), 1234, nil
+			},
+		})
+	c.Assert(err, tc.NotNil)
+	c.Check(
+		strings.Contains(err.Error(), "not compatible"),
+		tc.IsTrue,
+		tc.Commentf("expected compatibility error, got: %s", err),
+	)
+}
+
+func (s *bootstrapSuite) TestBootstrapExplicitChannelClientNewerFails(c *tc.C) {
+	// An explicitly selected channel pins the snap source: a client newer
+	// than the resolved snap must fail instead of silently falling back to
+	// a local build.
+	olderStoreVersion := jujuversion.Current.ToPatch()
+	olderStoreVersion.Major--
+
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(_ context.Context, _, _ io.Writer) (string, error) {
+		c.Fatal("must not build a local snap for an explicitly selected channel")
+		return "", nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapChannel:   charm.Channel{Track: "latest", Risk: charm.Edge},
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return olderStoreVersion.String(), 1234, nil
+			},
+		})
+	c.Assert(err, tc.NotNil)
+	c.Check(
+		strings.Contains(err.Error(), "older than bootstrap client"),
+		tc.IsTrue,
+		tc.Commentf("expected older-snap error, got: %s", err),
+	)
+}
+
+func (s *bootstrapSuite) TestBootstrapDefaultStoreModeFallbackBuildFails(c *tc.C) {
+	// When the fallback to a local build is warranted but the snap cannot
+	// be built (for example no source tree or no snapcraft), bootstrap
+	// must fail before provisioning with the build error.
+	olderStoreVersion := jujuversion.Current.ToPatch()
+	olderStoreVersion.Major--
+
+	s.PatchValue(&bootstrap.BuildControllerSnap, func(_ context.Context, _, _ io.Writer) (string, error) {
+		return "", errors.New("snapcraft not found")
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	ctx := cmdtesting.Context(c)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapStoreMode: true,
+			SnapStoreResolver: func(_ context.Context, _, _, _, _ string, _ int) (string, int, error) {
+				return olderStoreVersion.String(), 1111, nil
+			},
+		})
+	c.Assert(err, tc.NotNil)
+	c.Check(
+		strings.Contains(err.Error(), "building a local controller snap"),
+		tc.IsTrue,
+		tc.Commentf("expected local build error, got: %s", err),
+	)
+	c.Check(
+		strings.Contains(err.Error(), "snapcraft not found"),
+		tc.IsTrue,
+		tc.Commentf("expected the underlying build failure to be preserved, got: %s", err),
+	)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C) {
