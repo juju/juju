@@ -83,10 +83,11 @@ func (s *certUpdaterSuite) TestInitialAddress(c *tc.C) {
 	watcherChannel := make(chan struct{})
 	nodeWatcher := watchertest.NewMockNotifyWatcher(watcherChannel)
 	s.controllerNodeService.EXPECT().WatchControllerClientAddresses(gomock.Any()).Return(nodeWatcher, nil)
-	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6"}, nil)
+	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6", "2001:db8::1"}, nil)
 
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
+	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("2001:db8::1"))
 	committed := make(chan struct{})
 	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
 		close(committed)

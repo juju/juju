@@ -50,7 +50,7 @@ func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, e
 // required for cross-controller communication.
 type ControllerInfoGetter interface {
 	// GetAllAPIAddressesForClients returns a string slice of api
-	// addresses available for agents.
+	// addresses available for clients.
 	GetAllAPIAddressesForClients(ctx context.Context) ([]string, error)
 }
 

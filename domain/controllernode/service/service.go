@@ -418,10 +418,9 @@ func (s *Service) GetAPIAddressesByControllerIDForClients(ctx context.Context) (
 	return result, nil
 }
 
-// GetAllCloudLocalAPIAddresses returns a string slice of api
-// addresses available for clients. The list only contains cloud
-// local addresses. The returned strings are IP address only without
-// port numbers.
+// GetAllCloudLocalAPIAddresses returns cloud-local client IP addresses.
+// It strips the API ports stored in state, returning bare IPv4/IPv6 addresses
+// for consumers such as certificate maintenance.
 func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
 	addrs, err := s.st.GetAllCloudLocalAPIAddresses(ctx)
 	if err != nil {

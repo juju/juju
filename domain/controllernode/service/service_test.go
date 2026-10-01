@@ -955,7 +955,7 @@ func (s *serviceSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
 	// Arrange
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	returnAddrs := []string{"9.3.5.2:17070", "3.4.2.5:17070"}
+	returnAddrs := []string{"9.3.5.2:17070", "3.4.2.5:17070", "[2001:db8::1]:17070"}
 	s.state.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return(returnAddrs, nil)
 
 	// Act
@@ -963,7 +963,7 @@ func (s *serviceSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedAddrs, tc.DeepEquals, []string{"9.3.5.2", "3.4.2.5"})
+	c.Check(obtainedAddrs, tc.DeepEquals, []string{"9.3.5.2", "3.4.2.5", "2001:db8::1"})
 }
 
 func (s *serviceSuite) TestGetAllCloudLocalAPIAddressesError(c *tc.C) {

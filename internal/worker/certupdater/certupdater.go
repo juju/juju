@@ -38,10 +38,8 @@ type CertificateUpdater struct {
 
 // ControllerNodeService returns all known API addresses.
 type ControllerNodeService interface {
-	// GetAllCloudLocalAPIAddresses returns a string slice of api
-	// addresses available for clients. The list list only contains cloud
-	// local addresses. The returned strings are IP address only without
-	// port numbers.
+	// GetAllCloudLocalAPIAddresses returns cloud-local client IP addresses.
+	// The service strips the stored API ports before returning these values.
 	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
 	// WatchControllerClientAddresses returns a watcher that observes changes to the
 	// controller api addresses.

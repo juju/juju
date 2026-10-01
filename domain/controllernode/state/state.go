@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/canonical/sqlair"
@@ -327,6 +326,8 @@ func (st *State) NamespaceForWatchControllerClientAddresses() string {
 // supplied controllers. All addresses are published for clients; addresses
 // marked IsAgent are also published for agents. Both projections are updated
 // in one transaction, preserving UUIDs for addresses that already exist.
+// This method publishes controller-associated addresses only; shared endpoints
+// require a separate reconciliation path.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.NotFound] if a controller node is missing or not alive.
@@ -368,28 +369,60 @@ AND node.life_id = 0
 // setAddressProjection reconciles addresses only for the supplied controllers.
 // table must be one of the fixed projection table names used above.
 func (st *State) setAddressProjection(ctx context.Context, tx *sqlair.TX, table string, controllers controllerIDs, addresses []controllerAddress) error {
-	getExistingStmt, err := st.Prepare(fmt.Sprintf(`
+	queries, ok := map[string]struct {
+		getExisting string
+		delete      string
+		upsert      string
+	}{
+		"controller_client_address": {
+			getExisting: `
 SELECT address.* AS &controllerAddress.*
-FROM %s AS address
+FROM controller_client_address AS address
 WHERE address.controller_id IN ($controllerIDs[:])
-`, table), controllerAddress{}, controllers)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	deleteStmt, err := st.Prepare(fmt.Sprintf(`
-DELETE FROM %s AS address
+`,
+			delete: `
+DELETE FROM controller_client_address AS address
 WHERE address.uuid = $controllerAddress.uuid
-`, table), controllerAddress{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	upsertStmt, err := st.Prepare(fmt.Sprintf(`
-INSERT INTO %s AS address (uuid, controller_id, address, scope, priority)
+`,
+			upsert: `
+INSERT INTO controller_client_address AS address (uuid, controller_id, address, scope, priority)
 VALUES ($controllerAddress.*)
 ON CONFLICT (controller_id, address) DO UPDATE
 SET scope = excluded.scope, priority = excluded.priority
 WHERE address.scope != excluded.scope OR address.priority != excluded.priority
-`, table), controllerAddress{})
+`,
+		},
+		"controller_agent_address": {
+			getExisting: `
+SELECT address.* AS &controllerAddress.*
+FROM controller_agent_address AS address
+WHERE address.controller_id IN ($controllerIDs[:])
+`,
+			delete: `
+DELETE FROM controller_agent_address AS address
+WHERE address.uuid = $controllerAddress.uuid
+`,
+			upsert: `
+INSERT INTO controller_agent_address AS address (uuid, controller_id, address, scope, priority)
+VALUES ($controllerAddress.*)
+ON CONFLICT (controller_id, address) DO UPDATE
+SET scope = excluded.scope, priority = excluded.priority
+WHERE address.scope != excluded.scope OR address.priority != excluded.priority
+`,
+		},
+	}[table]
+	if !ok {
+		return errors.Errorf("unsupported controller address projection %q", table)
+	}
+	getExistingStmt, err := st.Prepare(queries.getExisting, controllerAddress{}, controllers)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteStmt, err := st.Prepare(queries.delete, controllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	upsertStmt, err := st.Prepare(queries.upsert, controllerAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -443,15 +476,30 @@ func (st *State) getAPIAddresses(ctx context.Context, table string) (map[string]
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	stmt, err := st.Prepare(fmt.Sprintf(`
+	query, ok := map[string]string{
+		"controller_agent_address": `
 SELECT address.uuid AS &controllerAddress.uuid,
        COALESCE(address.controller_id, '') AS &controllerAddress.controller_id,
        address.address AS &controllerAddress.address,
        address.scope AS &controllerAddress.scope,
        address.priority AS &controllerAddress.priority
-FROM %s AS address
+FROM controller_agent_address AS address
 ORDER BY address.controller_id, address.priority, address.address
-`, table), controllerAddress{})
+`,
+		"controller_client_address": `
+SELECT address.uuid AS &controllerAddress.uuid,
+       COALESCE(address.controller_id, '') AS &controllerAddress.controller_id,
+       address.address AS &controllerAddress.address,
+       address.scope AS &controllerAddress.scope,
+       address.priority AS &controllerAddress.priority
+FROM controller_client_address AS address
+ORDER BY address.controller_id, address.priority, address.address
+`,
+	}[table]
+	if !ok {
+		return nil, errors.Errorf("unsupported controller address projection %q", table)
+	}
+	stmt, err := st.Prepare(query, controllerAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
