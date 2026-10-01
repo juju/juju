@@ -1246,27 +1246,21 @@ VALUES ('stale-resource', ?, 'stale', ?),
 
 	resourcesByUnit := make(map[string][]string)
 	var mismatchedResourceCount int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
+	rows, err := s.DB().QueryContext(c.Context(), `
 SELECT unit_uuid, charm_resource_name
 FROM   unit_resource
 ORDER BY unit_uuid, charm_resource_name
-`)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var unitUUID, resourceName string
-			if err := rows.Scan(&unitUUID, &resourceName); err != nil {
-				return err
-			}
-			resourcesByUnit[unitUUID] = append(resourcesByUnit[unitUUID], resourceName)
-		}
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		return tx.QueryRowContext(ctx, `
+	`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var unitUUID, resourceName string
+		err := rows.Scan(&unitUUID, &resourceName)
+		c.Assert(err, tc.ErrorIsNil)
+		resourcesByUnit[unitUUID] = append(resourcesByUnit[unitUUID], resourceName)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
 SELECT COUNT(*)
 FROM   unit_resource AS ur
 JOIN   resource AS r ON r.uuid = ur.resource_uuid
@@ -1274,7 +1268,6 @@ JOIN   unit AS u ON u.uuid = ur.unit_uuid
 WHERE  ur.unit_uuid = ?
 AND    r.charm_uuid != u.charm_uuid
 `, updatedUnitUUID.String()).Scan(&mismatchedResourceCount)
-	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(resourcesByUnit, tc.DeepEquals, map[string][]string{
 		updatedUnitUUID.String(): {"current"},

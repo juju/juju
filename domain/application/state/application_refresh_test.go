@@ -331,45 +331,35 @@ func (s *applicationRefreshSuite) TestSetApplicationCharmReconcilesDestinationRe
 	var oldResourceUUIDs []string
 	var oldCharmUUID string
 	oldPotentialUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, `
-SELECT charm_uuid FROM application WHERE uuid = ?`, appID).Scan(&oldCharmUUID); err != nil {
-			return err
-		}
-		rows, err := tx.QueryContext(ctx, `
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT charm_uuid FROM application WHERE uuid = ?`, appID).Scan(&oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	oldResourceRows, err := s.DB().QueryContext(c.Context(), `
 SELECT r.uuid
 FROM   resource AS r
 JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
 WHERE  ar.application_uuid = ?
 AND    r.state_id = 0`, appID)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var resourceUUID string
-			if err := rows.Scan(&resourceUUID); err != nil {
-				return err
-			}
-			oldResourceUUIDs = append(oldResourceUUIDs, resourceUUID)
-		}
-		if err := rows.Close(); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, `
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = oldResourceRows.Close() }()
+	for oldResourceRows.Next() {
+		var resourceUUID string
+		err := oldResourceRows.Scan(&resourceUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		oldResourceUUIDs = append(oldResourceUUIDs, resourceUUID)
+	}
+	c.Assert(oldResourceRows.Err(), tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
 INSERT INTO resource (
     uuid, charm_uuid, charm_resource_name, revision, origin_type_id,
     state_id, created_at
 )
 VALUES (?, ?, 'removed', 9, 1, 1, CURRENT_TIMESTAMP)`,
-			oldPotentialUUID, oldCharmUUID); err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `
+		oldPotentialUUID, oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
 INSERT INTO application_resource (resource_uuid, application_uuid)
 VALUES (?, ?)`, oldPotentialUUID, appID)
-		return err
-	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(oldResourceUUIDs, tc.HasLen, 2)
 
@@ -392,65 +382,48 @@ VALUES (?, ?)`, oldPotentialUUID, appID)
 	var current []currentResource
 	var oldRows, pendingRows, oldPotentialRows int
 	var currentRepositoryResourceUUIDs []string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := func() error {
-			rows, err := tx.QueryContext(ctx, `
+	currentRows, err := s.DB().QueryContext(c.Context(), `
 SELECT r.uuid, r.charm_resource_name, r.charm_uuid, r.revision, rot.name
 FROM   resource AS r
 JOIN   resource_origin_type AS rot ON rot.id = r.origin_type_id
 JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
 WHERE  ar.application_uuid = ?
 AND    r.state_id = 0`, appID)
-			if err != nil {
-				return err
-			}
-			defer rows.Close()
-			for rows.Next() {
-				var row currentResource
-				if err := rows.Scan(&row.UUID, &row.Name, &row.CharmUUID, &row.Revision, &row.OriginType); err != nil {
-					return err
-				}
-				current = append(current, row)
-			}
-			return rows.Err()
-		}()
-		if err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, `
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = currentRows.Close() }()
+	for currentRows.Next() {
+		var row currentResource
+		err := currentRows.Scan(&row.UUID, &row.Name, &row.CharmUUID, &row.Revision, &row.OriginType)
+		c.Assert(err, tc.ErrorIsNil)
+		current = append(current, row)
+	}
+	c.Assert(currentRows.Err(), tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
 SELECT COUNT(*) FROM resource WHERE uuid IN (?, ?)`,
-			oldResourceUUIDs[0], oldResourceUUIDs[1]).Scan(&oldRows); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, `
+		oldResourceUUIDs[0], oldResourceUUIDs[1]).Scan(&oldRows)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
 SELECT COUNT(*) FROM pending_application_resource WHERE resource_uuid IN (?, ?)`,
-			retainedUUID, addedUUID).Scan(&pendingRows); err != nil {
-			return err
-		}
-		if err := tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM resource WHERE uuid = ?`, oldPotentialUUID).Scan(&oldPotentialRows); err != nil {
-			return err
-		}
-		rows, err := tx.QueryContext(ctx, `
+		retainedUUID, addedUUID).Scan(&pendingRows)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM resource WHERE uuid = ?`, oldPotentialUUID).Scan(&oldPotentialRows)
+	c.Assert(err, tc.ErrorIsNil)
+	repositoryRows, err := s.DB().QueryContext(c.Context(), `
 SELECT r.uuid
 FROM   resource AS r
 JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
 WHERE  ar.application_uuid = ?
 AND    r.state_id = 1`, appID)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var resourceUUID string
-			if err := rows.Scan(&resourceUUID); err != nil {
-				return err
-			}
-			currentRepositoryResourceUUIDs = append(currentRepositoryResourceUUIDs, resourceUUID)
-		}
-		return rows.Err()
-	})
 	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = repositoryRows.Close() }()
+	for repositoryRows.Next() {
+		var resourceUUID string
+		err := repositoryRows.Scan(&resourceUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		currentRepositoryResourceUUIDs = append(currentRepositoryResourceUUIDs, resourceUUID)
+	}
+	c.Assert(repositoryRows.Err(), tc.ErrorIsNil)
 	c.Check(current, tc.SameContents, []currentResource{
 		{UUID: retainedUUID, Name: "retained", CharmUUID: newCharmUUID.String(), Revision: newRevision, OriginType: "store"},
 		{UUID: addedUUID, Name: "added", CharmUUID: newCharmUUID.String(), Revision: addedRevision, OriginType: "store"},

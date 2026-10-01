@@ -1006,27 +1006,21 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 	})
 
 	var linkedResourceUUIDs []string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, `
+	rows, err := s.DB().QueryContext(c.Context(), `
 SELECT r.uuid
 FROM   resource AS r
 JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
 WHERE  ar.application_uuid = ?
 AND    r.state_id = 1`, s.constants.fakeApplicationUUID1)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var resourceUUID string
-			if err := rows.Scan(&resourceUUID); err != nil {
-				return err
-			}
-			linkedResourceUUIDs = append(linkedResourceUUIDs, resourceUUID)
-		}
-		return rows.Err()
-	})
 	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var resourceUUID string
+		err := rows.Scan(&resourceUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		linkedResourceUUIDs = append(linkedResourceUUIDs, resourceUUID)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 	c.Check(linkedResourceUUIDs, tc.SameContents, []string{
 		replacementUUIDs["not-polled-1"],
 		replacementUUIDs["polled-1"],
