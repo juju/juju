@@ -630,6 +630,11 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 		// Importing a second grant of a granted application would violate
 		// the secret permission primary key.
 		if _, ok := grantByApplications[acl.ApplicationName]; ok {
+			// The application already holds a grant of this secret, so this
+			// grant is ignored, it is not counted as a skipped grant.
+			s.logger.Warningf(ctx,
+				"ignoring secret grant for application %q on relation %q: application already holds a grant",
+				acl.ApplicationName, acl.RelationKey)
 			continue
 		}
 		relUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, acl.RelationKey)
