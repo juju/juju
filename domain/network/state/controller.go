@@ -23,7 +23,7 @@ import (
 // The model must be the controller model and the unit must belong to its
 // controller application. Alive and Dying applications/units are accepted;
 // Dead units return UnitIsDead and missing/unrelated units return UnitNotFound.
-// A missing model record is an error, not an empty address snapshot.
+// A missing model record returns [modelerrors.NotFound].
 func (st *State) GetControllerUnitNetwork(ctx context.Context, name string) (domainnetwork.ControllerAPIAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -72,6 +72,7 @@ WHERE u.name = $unitName.name`, controllerUnit{}, unitName{})
 // application's Kubernetes Service, independently of any unit. Missing Services
 // and missing or Dead controller applications return an empty selection. Dying
 // applications remain eligible. The model must be the controller model.
+// A missing model record returns [modelerrors.NotFound].
 func (st *State) GetControllerServiceAddresses(ctx context.Context) (domainnetwork.ControllerAPIAddresses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -119,7 +120,9 @@ FROM model AS m`, controllerModel{})
 		return errors.Capture(err)
 	}
 	var m controllerModel
-	if err := tx.Query(ctx, modelQuery).Get(&m); err != nil {
+	if err := tx.Query(ctx, modelQuery).Get(&m); errors.Is(err, sqlair.ErrNoRows) {
+		return modelerrors.NotFound
+	} else if err != nil {
 		return errors.Errorf("reading controller model: %w", err)
 	}
 	if !m.IsController {

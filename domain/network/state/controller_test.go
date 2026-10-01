@@ -100,7 +100,7 @@ func (s *controllerNetworkSuite) TestControllerModelRequired(c *tc.C) {
 
 func (s *controllerNetworkSuite) TestUninitialisedModelIsNotEmptySnapshot(c *tc.C) {
 	_, err := s.state.GetControllerUnitNetwork(c.Context(), "controller/0")
-	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *controllerNetworkSuite) TestReassociatedNode(c *tc.C) {
@@ -217,7 +217,7 @@ func (s *controllerNetworkSuite) TestServiceRequiresControllerModel(c *tc.C) {
 
 func (s *controllerNetworkSuite) TestServiceUninitialisedModelIsNotEmptySnapshot(c *tc.C) {
 	_, err := s.state.GetControllerServiceAddresses(c.Context())
-	c.Check(err, tc.NotNil)
+	c.Check(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
 func (s *controllerNetworkSuite) controllerUnit(c *tc.C, modelType model.ModelType) (string, string) {
