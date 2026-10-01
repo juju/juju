@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 )
 
 // NetAddr represents an IP address and its
@@ -70,6 +71,14 @@ type ControllerAPIAddress struct {
 // ControllerAPIAddresses is a collection of controller API address
 // candidates.
 type ControllerAPIAddresses []ControllerAPIAddress
+
+// ControllerAddressSelection separates addresses that reach a particular unit
+// from shared endpoints that can reach any controller. Addresses within each
+// group are ordered by preference.
+type ControllerAddressSelection struct {
+	ByUnit map[unit.Name]network.SpaceAddresses
+	Shared network.SpaceAddresses
+}
 
 // DeviceToBridge indicates a device on a known machine that should be bridged
 // in order to provision a container or virtual machine on it with appropriate

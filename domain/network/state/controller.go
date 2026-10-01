@@ -29,15 +29,6 @@ func (st *State) GetControllerUnitNetwork(ctx context.Context, name string) (dom
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	type controllerModel struct {
-		IsController bool `db:"is_controller_model"`
-	}
-	modelQuery, err := st.Prepare(`
-SELECT m.is_controller_model AS &controllerModel.is_controller_model
-FROM model AS m`, controllerModel{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 	type controllerUnit struct {
 		NetNodeUUID     string    `db:"net_node_uuid"`
 		Life            life.Life `db:"life_id"`
@@ -54,6 +45,90 @@ WHERE u.name = $unitName.name`, controllerUnit{}, unitName{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	var result domainnetwork.ControllerAPIAddresses
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkControllerNetworkModel(ctx, tx); err != nil {
+			return errors.Capture(err)
+		}
+		var u controllerUnit
+		if err := tx.Query(ctx, unitQuery, unitName{Name: unit.Name(name)}).Get(&u); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Errorf("reading controller unit: %w", err)
+		}
+		if u.Life == life.Dead || u.ApplicationLife == life.Dead {
+			return applicationerrors.UnitIsDead
+		}
+		result, err = st.getControllerNodeAddresses(ctx, tx, u.NetNodeUUID)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return result, nil
+}
+
+// GetControllerServiceAddresses reads IP/DNS addresses from the controller
+// application's Kubernetes Service, independently of any unit. Missing Services
+// and missing or Dead controller applications return an empty selection. Dying
+// applications remain eligible. The model must be the controller model.
+func (st *State) GetControllerServiceAddresses(ctx context.Context) (domainnetwork.ControllerAPIAddresses, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	query, err := st.Prepare(`
+SELECT ks.net_node_uuid AS &entityUUID.uuid
+FROM k8s_service AS ks
+JOIN application AS a ON a.uuid = ks.application_uuid
+JOIN application_controller AS ac ON ac.application_uuid = a.uuid
+WHERE a.life_id != 2 /* Dead */`, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var result domainnetwork.ControllerAPIAddresses
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// A retried transaction may no longer have a Service association.
+		result = nil
+		if err := st.checkControllerNetworkModel(ctx, tx); err != nil {
+			return errors.Capture(err)
+		}
+		var node entityUUID
+		if err := tx.Query(ctx, query).Get(&node); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("reading controller Service: %w", err)
+		}
+		result, err = st.getControllerNodeAddresses(ctx, tx, node.UUID)
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return result, nil
+}
+
+func (st *State) checkControllerNetworkModel(ctx context.Context, tx *sqlair.TX) error {
+	type controllerModel struct {
+		IsController bool `db:"is_controller_model"`
+	}
+	modelQuery, err := st.Prepare(`
+SELECT m.is_controller_model AS &controllerModel.is_controller_model
+FROM model AS m`, controllerModel{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var m controllerModel
+	if err := tx.Query(ctx, modelQuery).Get(&m); err != nil {
+		return errors.Errorf("reading controller model: %w", err)
+	}
+	if !m.IsController {
+		return errors.Errorf("controller network requires the controller model: %w", coreerrors.NotValid)
+	}
+	return nil
+}
+
+func (st *State) getControllerNodeAddresses(ctx context.Context, tx *sqlair.TX, netNodeUUID string) (domainnetwork.ControllerAPIAddresses, error) {
 	ipQuery, err := st.Prepare(`
 SELECT ipa.address_value AS &controllerAPIAddress.address_value,
        iact.name AS &controllerAPIAddress.config_type_name,
@@ -72,7 +147,7 @@ JOIN ip_address_type AS iat ON iat.id = ipa.type_id
 JOIN ip_address_origin AS iao ON iao.id = ipa.origin_id
 JOIN ip_address_scope AS ias ON ias.id = ipa.scope_id
 LEFT JOIN subnet AS sn ON sn.uuid = ipa.subnet_uuid
-WHERE ipa.net_node_uuid = $controllerUnit.net_node_uuid`, controllerUnit{}, controllerAPIAddress{})
+WHERE ipa.net_node_uuid = $entityUUID.uuid`, entityUUID{}, controllerAPIAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -85,54 +160,36 @@ SELECT fa.address AS &fqdn.address, nas.name AS &fqdn.scope
 FROM net_node_fqdn_address AS nnfa
 JOIN fqdn_address AS fa ON fa.uuid = nnfa.address_uuid
 JOIN network_address_scope AS nas ON nas.id = fa.scope_id
-WHERE nnfa.net_node_uuid = $controllerUnit.net_node_uuid`, controllerUnit{}, fqdn{})
+WHERE nnfa.net_node_uuid = $entityUUID.uuid`, entityUUID{}, fqdn{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	var result domainnetwork.ControllerAPIAddresses
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var m controllerModel
-		if err := tx.Query(ctx, modelQuery).Get(&m); err != nil {
-			return errors.Errorf("reading controller model: %w", err)
-		}
-		if !m.IsController {
-			return errors.Errorf("controller network requires the controller model: %w", coreerrors.NotValid)
-		}
-		var u controllerUnit
-		if err := tx.Query(ctx, unitQuery, unitName{Name: unit.Name(name)}).Get(&u); errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.UnitNotFound
-		} else if err != nil {
-			return errors.Errorf("reading controller unit: %w", err)
-		}
-		if u.Life == life.Dead || u.ApplicationLife == life.Dead {
-			return applicationerrors.UnitIsDead
-		}
-		var ips []controllerAPIAddress
-		if err := tx.Query(ctx, ipQuery, u).GetAll(&ips); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("reading controller IP addresses: %w", err)
-		}
-		addresses, err := encodeControllerAPIAddresses(ips)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		var names []fqdn
-		if err := tx.Query(ctx, fqdnQuery, u).GetAll(&names); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("reading controller DNS addresses: %w", err)
-		}
-		for _, name := range names {
-			addresses = append(addresses, domainnetwork.ControllerAPIAddress{
+	ident := entityUUID{UUID: netNodeUUID}
+	var ips []controllerAPIAddress
+	if err := tx.Query(ctx, ipQuery, ident).GetAll(&ips); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("reading controller IP addresses: %w", err)
+	}
+	addresses, err := encodeControllerAPIAddresses(ips)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var names []fqdn
+	if err := tx.Query(ctx, fqdnQuery, ident).GetAll(&names); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Errorf("reading controller DNS addresses: %w", err)
+	}
+	for _, name := range names {
+		addresses = append(addresses, domainnetwork.ControllerAPIAddress{
+			SpaceAddress: network.SpaceAddress{
 				SpaceID: network.AlphaSpaceId,
 				Origin:  network.OriginProvider,
-				Value:   name.Address, Type: network.HostName, Scope: name.Scope,
-			})
-		}
-		result = addresses
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
+				MachineAddress: network.MachineAddress{
+					Value: name.Address, Type: network.HostName,
+					Scope: name.Scope,
+				},
+			},
+		})
 	}
-	return result, nil
+	return addresses, nil
 }
 
 // GetModelType returns the type of the current model. A missing model record
@@ -172,7 +229,7 @@ FROM model AS m`, modelType{})
 // Application creation/removal also covers its immutable controller marker.
 func (*State) NamespacesForWatchControllerNetwork() []string {
 	return []string{
-		"unit", "application", "ip_address",
+		"unit", "application", "k8s_service", "ip_address",
 		"fqdn_address", "net_node_fqdn_address", "link_layer_device", "subnet", "space",
 	}
 }

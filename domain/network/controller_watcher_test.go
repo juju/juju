@@ -98,6 +98,73 @@ VALUES ('model', 'controller', 'controller', 'admin', 'caas', 'test', 'test', tr
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 
+func (s *controllerNetworkWatcherSuite) TestServiceAssociationLifecycle(c *tc.C) {
+	svc := s.serviceNetwork(c)
+	w, err := svc.WatchControllerNetwork(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
+	wc.AssertOneChange()
+	// All addresses already exist. These mutations only change the Service
+	// association, so address-table notifications cannot hide a missed event.
+	for _, test := range []struct {
+		statement string
+		address   string
+	}{
+		{`INSERT INTO k8s_service (uuid, application_uuid, net_node_uuid, provider_id) VALUES ('service', 'app', 'old', 'provider')`, "old.example.com"},
+		{`UPDATE k8s_service SET net_node_uuid = 'new'`, "new.example.com"},
+		{`DELETE FROM k8s_service`, ""},
+		{`INSERT INTO k8s_service (uuid, application_uuid, net_node_uuid, provider_id) VALUES ('replacement', 'app', 'old', 'provider')`, "old.example.com"},
+		{`UPDATE application SET life_id = 2 WHERE uuid = 'app'`, ""},
+	} {
+		s.exec(c, test.statement)
+		wc.AssertOneChange()
+		addresses, err := svc.GetControllerClientAddresses(c.Context(), nil)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(addresses.ByUnit, tc.HasLen, 0)
+		if test.address == "" {
+			c.Check(addresses.Shared, tc.HasLen, 0)
+		} else {
+			c.Assert(addresses.Shared, tc.HasLen, 1)
+			c.Check(addresses.Shared[0].Value, tc.Equals, test.address)
+		}
+	}
+}
+
+func (s *controllerNetworkWatcherSuite) TestServiceCreatedDuringWatcherStartup(c *tc.C) {
+	svc := s.serviceNetwork(c)
+	w, err := svc.WatchControllerNetwork(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+	// Change the source after construction but before the readiness barrier.
+	s.exec(c, `INSERT INTO k8s_service (uuid, application_uuid, net_node_uuid, provider_id) VALUES ('service', 'app', 'old', 'provider')`)
+	_, ok := <-w.Changes()
+	c.Assert(ok, tc.IsTrue)
+	addresses, err := svc.GetControllerAgentAddresses(c.Context(), nil, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses.ByUnit, tc.HasLen, 0)
+	c.Assert(addresses.Shared, tc.HasLen, 1)
+	c.Check(addresses.Shared[0].Value, tc.Equals, "old.example.com")
+}
+
+func (s *controllerNetworkWatcherSuite) serviceNetwork(c *tc.C) *service.WatchableService {
+	s.exec(c, `INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, is_controller_model)
+VALUES ('model', 'controller', 'controller', 'admin', 'caas', 'test', 'test', true)`,
+		`INSERT INTO net_node (uuid) VALUES ('old'), ('new')`,
+		`INSERT INTO charm (uuid, reference_name, create_time) VALUES ('charm', 'controller', '2026-01-01')`,
+		`INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES ('app', 'controller', 0, 'charm', '`+network.AlphaSpaceId.String()+`')`,
+		`INSERT INTO application_controller (application_uuid) VALUES ('app')`,
+		`INSERT INTO fqdn_address (uuid, address, scope_id) VALUES ('old-dns', 'old.example.com', 1), ('new-dns', 'new.example.com', 2)`,
+		`INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES ('old', 'old-dns'), ('new', 'new-dns')`)
+	s.AssertChangeStreamIdle(c, "before watching Service associations")
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, s.ModelUUID())
+	log := loggertesting.WrapCheckLog(c)
+	return service.NewWatchableService(
+		state.NewState(changestream.NewTxnRunnerFactory(factory), log),
+		nil, nil, domain.NewWatcherFactory(factory, log), log,
+	)
+}
+
 func (s *controllerNetworkWatcherSuite) exec(c *tc.C, statements ...string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, statement := range statements {

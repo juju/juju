@@ -44,6 +44,7 @@ type MockStateMockRecorder struct {
 	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
 	getContainerNetworkingMethodExpects         []*gomock.Call1_2[context.Context, string, error]
 	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+	getControllerServiceAddressesExpects        []*gomock.Call1_2[context.Context, network0.ControllerAPIAddresses, error]
 	getControllerUnitNetworkExpects             []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
 	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
@@ -292,6 +293,24 @@ func (mr *MockStateMockRecorder) GetControllerAPIAddresses(ctx, uuid any) *MockS
 
 // MockStateGetControllerAPIAddressesCall is the typed call wrapper for GetControllerAPIAddresses.
 type MockStateGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
+
+// GetControllerServiceAddresses mocks base method.
+func (m *MockState) GetControllerServiceAddresses(arg0 context.Context) (network0.ControllerAPIAddresses, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getControllerServiceAddressesExpects, m.ctrl, m, "GetControllerServiceAddresses", arg0)
+}
+
+// GetControllerServiceAddresses indicates an expected call of GetControllerServiceAddresses.
+func (mr *MockStateMockRecorder) GetControllerServiceAddresses(arg0 any) *MockStateGetControllerServiceAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, network0.ControllerAPIAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerServiceAddresses", gomock.EnsureMatcher(arg0))
+	mr.getControllerServiceAddressesExpects = append(mr.getControllerServiceAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerServiceAddressesCall is the typed call wrapper for GetControllerServiceAddresses.
+type MockStateGetControllerServiceAddressesCall = gomock.Call1_2[context.Context, network0.ControllerAPIAddresses, error]
 
 // GetControllerUnitNetwork mocks base method.
 func (m *MockState) GetControllerUnitNetwork(arg0 context.Context, arg1 string) (network0.ControllerAPIAddresses, error) {

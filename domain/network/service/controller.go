@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
@@ -26,6 +25,10 @@ type ControllerState interface {
 	// GetControllerUnitNetwork returns addresses possible for use in contacting
 	// a controller.
 	GetControllerUnitNetwork(context.Context, string) (domainnetwork.ControllerAPIAddresses, error)
+
+	// GetControllerServiceAddresses returns the shared controller Service's
+	// addresses independently of the controller units.
+	GetControllerServiceAddresses(context.Context) (domainnetwork.ControllerAPIAddresses, error)
 
 	// GetModelType returns the type of the current model.
 	GetModelType(context.Context) (model.ModelType, error)
@@ -52,10 +55,84 @@ func (s *Service) GetControllerPeerAddresses(ctx context.Context, name unit.Name
 	if err != nil {
 		return nil, errors.Errorf("getting controller model type: %w", err)
 	}
-	addresses, space, err := s.selectControllerAddresses(ctx, controllerAddresses, modelType, managementSpace)
+	addresses, err := s.selectControllerAddresses(ctx, controllerAddresses, modelType, managementSpace)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	return orderControllerAddresses(addresses, network.ScopeCloudLocal), nil
+}
+
+// GetControllerClientAddresses selects addresses for ordinary client discovery.
+// Machine addresses retain their unit identity and are independent of management
+// space configuration. Kubernetes uses shared Service addresses, preferring
+// public addresses with cloud-local fallback; pod addresses are excluded.
+// The caller supplies controller membership as unit names. Kubernetes Service
+// discovery is independent of that membership, including an empty list.
+// Invalid names and failed reads return errors, never a partial selection.
+func (s *Service) GetControllerClientAddresses(ctx context.Context, names []unit.Name) (domainnetwork.ControllerAddressSelection, error) {
+	return s.getControllerDiscoveryAddresses(ctx, names, "", network.ScopePublic)
+}
+
+// GetControllerAgentAddresses selects addresses for ordinary agent discovery.
+// Machine addresses retain their unit identity and honour the management space,
+// falling back to eligible addresses when that space has no candidates.
+// Kubernetes uses shared Service addresses, preferring cloud-local addresses
+// with public fallback; pod addresses and management-space policy do not apply.
+// Shared addresses remain available even when names is empty. Invalid names
+// and failed reads return errors, never a partial selection.
+func (s *Service) GetControllerAgentAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName) (domainnetwork.ControllerAddressSelection, error) {
+	return s.getControllerDiscoveryAddresses(ctx, names, managementSpace, network.ScopeCloudLocal)
+}
+
+func (s *Service) getControllerDiscoveryAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName, preferredScope network.Scope) (domainnetwork.ControllerAddressSelection, error) {
+	for _, name := range names {
+		if err := validateControllerUnitName(name); err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
+		}
+	}
+	modelType, err := s.st.GetModelType(ctx)
+	if err != nil {
+		return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting controller model type: %w", err)
+	}
+	if modelType == model.CAAS {
+		candidates, err := s.st.GetControllerServiceAddresses(ctx)
+		if err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting controller Service addresses: %w", err)
+		}
+		// Service addresses must be usable for ordinary discovery. In
+		// particular, the legacy pod machine-local exception does not apply.
+		addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, model.IAAS), nil)
+		return domainnetwork.ControllerAddressSelection{
+			Shared: orderControllerAddresses(addresses, preferredScope),
+		}, nil
+	}
+	result := domainnetwork.ControllerAddressSelection{
+		ByUnit: make(map[unit.Name]network.SpaceAddresses, len(names)),
+	}
+	for _, name := range names {
+		candidates, err := s.controllerNetwork(ctx, name)
+		if err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
+		}
+		addresses, err := s.selectControllerAddresses(ctx, candidates, modelType, managementSpace)
+		if err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
+		}
+		result.ByUnit[name] = orderControllerAddresses(addresses, preferredScope)
+	}
+	return result, nil
+}
+
+func (s *Service) selectControllerAddresses(ctx context.Context, candidates domainnetwork.ControllerAPIAddresses, modelType model.ModelType, managementSpace network.SpaceName) (network.SpaceAddresses, error) {
+	var space *network.SpaceInfo
+	if managementSpace != "" && modelType == model.IAAS {
+		var err error
+		space, err = s.st.GetSpaceByName(ctx, managementSpace)
+		if err != nil {
+			return nil, errors.Errorf("getting management space %q: %w", managementSpace, err)
+		}
+	}
+	addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, modelType), space)
 	if space != nil {
 		var matched network.SpaceAddresses
 		for _, address := range addresses {
@@ -67,55 +144,28 @@ func (s *Service) GetControllerPeerAddresses(ctx context.Context, name unit.Name
 			addresses = matched
 		}
 	}
-	return orderControllerAddresses(addresses), nil
-}
-
-// GetControllerTargetAddresses returns addresses for external operations that
-// must reach this particular controller. Alive and Dying units are eligible.
-// Selection is independent of management-space configuration; addresses in that
-// space remain eligible under the ordinary client address-selection rules.
-// Kubernetes returns [coreerrors.NotSupported]: pod reachability inside the
-// cluster is insufficient to establish an external node-specific transport.
-func (s *Service) GetControllerTargetAddresses(ctx context.Context, name unit.Name) (network.SpaceAddresses, error) {
-	controllerAddresses, err := s.controllerNetwork(ctx, name)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	modelType, err := s.st.GetModelType(ctx)
-	if err != nil {
-		return nil, errors.Errorf("getting controller model type: %w", err)
-	}
-	if modelType == model.CAAS {
-		return nil, errors.Errorf("external targeting of Kubernetes controllers: %w", coreerrors.NotSupported)
-	}
-	addresses := selectControllerAPIAddresses(controllerAddressCandidates(controllerAddresses, modelType), nil)
-	return orderControllerAddresses(addresses), nil
-}
-
-func (s *Service) selectControllerAddresses(ctx context.Context, addresses domainnetwork.ControllerAPIAddresses, modelType model.ModelType, managementSpace network.SpaceName) (network.SpaceAddresses, *network.SpaceInfo, error) {
-	var space *network.SpaceInfo
-	if managementSpace != "" && modelType == model.IAAS {
-		var err error
-		space, err = s.st.GetSpaceByName(ctx, managementSpace)
-		if err != nil {
-			return nil, nil, errors.Errorf("getting management space %q: %w", managementSpace, err)
-		}
-	}
-	return selectControllerAPIAddresses(controllerAddressCandidates(addresses, modelType), space), space, nil
+	return addresses, nil
 }
 
 func (s *Service) controllerNetwork(ctx context.Context, name unit.Name) (domainnetwork.ControllerAPIAddresses, error) {
-	if err := name.Validate(); err != nil {
+	if err := validateControllerUnitName(name); err != nil {
 		return nil, errors.Capture(err)
-	}
-	if name.Application() != application.ControllerApplicationName {
-		return nil, applicationerrors.UnitNotFound
 	}
 	addresses, err := s.st.GetControllerUnitNetwork(ctx, name.String())
 	if err != nil {
 		return nil, errors.Errorf("getting network for controller unit %q: %w", name, err)
 	}
 	return addresses, nil
+}
+
+func validateControllerUnitName(name unit.Name) error {
+	if err := name.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if name.Application() != application.ControllerApplicationName {
+		return applicationerrors.UnitNotFound
+	}
+	return nil
 }
 
 func controllerAddressCandidates(addresses domainnetwork.ControllerAPIAddresses, modelType model.ModelType) domainnetwork.ControllerAPIAddresses {
@@ -144,11 +194,14 @@ func controllerAddressCandidates(addresses domainnetwork.ControllerAPIAddresses,
 	return result
 }
 
-func orderControllerAddresses(addresses network.SpaceAddresses) network.SpaceAddresses {
+func orderControllerAddresses(addresses network.SpaceAddresses, preferredScope network.Scope) network.SpaceAddresses {
 	// Stable ordering prevents unchanged facts from causing connection churn.
 	sort.Slice(addresses, func(i, j int) bool {
 		a, b := addresses[i], addresses[j]
 		if a.Scope != b.Scope {
+			if a.Scope == preferredScope || b.Scope == preferredScope {
+				return a.Scope == preferredScope
+			}
 			return a.Scope < b.Scope
 		}
 		if a.Value != b.Value {
@@ -159,8 +212,8 @@ func orderControllerAddresses(addresses network.SpaceAddresses) network.SpaceAdd
 	return addresses
 }
 
-// WatchControllerNetwork observes unit identity/lifecycle, IP/DNS, device and
-// space changes. Consume the initial event before the first address query.
+// WatchControllerNetwork observes unit identity/lifecycle, Service associations,
+// IP/DNS, device and space changes. Consume its initial event before querying.
 // Watching source namespaces rather than a snapshot of net-node IDs ensures
 // reassociation and changes to a replacement node remain observable.
 func (s *WatchableService) WatchControllerNetwork(ctx context.Context) (watcher.NotifyWatcher, error) {
