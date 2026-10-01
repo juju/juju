@@ -23,19 +23,19 @@ type DestroyControllerArgs struct {
 	// This is ternary: nil, false, or true. If nil and there is persistent
 	// storage in the model (or hosted models), an error with the code
 	// params.CodeHasPersistentStorage will be returned.
-	DestroyStorage *bool `json:"destroy-storage,omitempty"`
+	DestroyStorage *bool `json:"destroy-storage,omitzero"`
 
 	// Force specifies whether hosted model destruction will be forced,
 	// i.e. keep going despite operational errors.
-	Force *bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each hosted model destroy step
 	// will wait before forcing the next step to kick-off.
 	// This parameter only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 
 	// ModelTimeout specifies how long to wait for each hosted model destroy process.
-	ModelTimeout *time.Duration `json:"model-timeout,omitempty"`
+	ModelTimeout *time.Duration `json:"model-timeout,omitzero"`
 }
 
 // ModelBlockInfo holds information about a model and its
@@ -75,7 +75,7 @@ type ModelStatus struct {
 	Machines           []ModelMachineInfo     `json:"machines,omitempty"`
 	Volumes            []ModelVolumeInfo      `json:"volumes,omitempty"`
 	Filesystems        []ModelFilesystemInfo  `json:"filesystems,omitempty"`
-	Error              *Error                 `json:"error,omitempty"`
+	Error              *Error                 `json:"error,omitzero"`
 }
 
 // ModelStatusResults holds status information about a group of models.
@@ -104,8 +104,8 @@ type UserAccess struct {
 // UserAccessResult holds an access level for
 // a user, or an error.
 type UserAccessResult struct {
-	Result *UserAccess `json:"result,omitempty"`
-	Error  *Error      `json:"error,omitempty"`
+	Result *UserAccess `json:"result,omitzero"`
+	Error  *Error      `json:"error,omitzero"`
 }
 
 // UserAccessResults holds the results of an api
@@ -153,5 +153,5 @@ type DashboardConnectionSSHTunnel struct {
 type DashboardConnectionInfo struct {
 	ProxyConnection *Proxy                        `json:"proxy-connection"`
 	SSHConnection   *DashboardConnectionSSHTunnel `json:"ssh-connection"`
-	Error           *Error                        `json:"error,omitempty"`
+	Error           *Error                        `json:"error,omitzero"`
 }

@@ -4,7 +4,7 @@
 package params
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"strings"
 	"time"
@@ -44,7 +44,7 @@ type MachineContainerResults struct {
 // MachineContainerResult holds the result of making the call to SupportedContainers
 // on a given machine.
 type MachineContainerResult struct {
-	Error          *Error                   `json:"error,omitempty"`
+	Error          *Error                   `json:"error,omitzero"`
 	ContainerTypes []instance.ContainerType `json:"container-types"`
 	Determined     bool                     `json:"determined"`
 }
@@ -74,7 +74,7 @@ type CharmURLs struct {
 // StringsResult holds the result of an API call that returns a slice
 // of strings or an error.
 type StringsResult struct {
-	Error  *Error   `json:"error,omitempty"`
+	Error  *Error   `json:"error,omitzero"`
 	Result []string `json:"result,omitempty"`
 }
 
@@ -86,7 +86,7 @@ type StringsResults struct {
 
 // StringResult holds a string or an error.
 type StringResult struct {
-	Error  *Error `json:"error,omitempty"`
+	Error  *Error `json:"error,omitzero"`
 	Result string `json:"result"`
 }
 
@@ -98,30 +98,30 @@ type StringResults struct {
 
 // LokiConfigResult holds a controller Loki configuration or an error.
 type LokiConfigResult struct {
-	Error              *Error  `json:"error,omitempty"`
+	Error              *Error  `json:"error,omitzero"`
 	Endpoint           string  `json:"endpoint"`
-	CACert             *string `json:"ca-cert,omitempty"`
-	InsecureSkipVerify *bool   `json:"insecure-skip-verify,omitempty"`
+	CACert             *string `json:"ca-cert,omitzero"`
+	InsecureSkipVerify *bool   `json:"insecure-skip-verify,omitzero"`
 	OrgID              string  `json:"org-id,omitempty"`
 }
 
 // TracingConfigResult holds a controller-wide tracing configuration or an
 // error. A nil pointer field means the default value is in effect.
 type TracingConfigResult struct {
-	Error                 *Error   `json:"error,omitempty"`
+	Error                 *Error   `json:"error,omitzero"`
 	HTTPEndpoint          string   `json:"http-endpoint,omitempty"`
 	GRPCEndpoint          string   `json:"grpc-endpoint,omitempty"`
-	CACert                *string  `json:"ca-cert,omitempty"`
-	InsecureSkipVerify    *bool    `json:"insecure-skip-verify,omitempty"`
-	StackTraces           *bool    `json:"stack-traces,omitempty"`
-	SampleRatio           *float64 `json:"sample-ratio,omitempty"`
-	TailSamplingThreshold *string  `json:"tail-sampling-threshold,omitempty"`
+	CACert                *string  `json:"ca-cert,omitzero"`
+	InsecureSkipVerify    *bool    `json:"insecure-skip-verify,omitzero"`
+	StackTraces           *bool    `json:"stack-traces,omitzero"`
+	SampleRatio           *float64 `json:"sample-ratio,omitzero"`
+	TailSamplingThreshold *string  `json:"tail-sampling-threshold,omitzero"`
 }
 
 // MapResult holds a generic map or an error.
 type MapResult struct {
 	Result map[string]any `json:"result"`
-	Error  *Error         `json:"error,omitempty"`
+	Error  *Error         `json:"error,omitzero"`
 }
 
 // MapResults holds the bulk operation result of an API call
@@ -133,7 +133,7 @@ type MapResults struct {
 // ModelResult holds the result of an API call returning a name and UUID
 // for a model.
 type ModelResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	Name  string `json:"name"`
 	UUID  string `json:"uuid"`
 	Type  string `json:"type"`
@@ -205,7 +205,7 @@ type UserModelList struct {
 
 // ResolvedModeResult holds a resolved mode or an error.
 type ResolvedModeResult struct {
-	Error *Error       `json:"error,omitempty"`
+	Error *Error       `json:"error,omitzero"`
 	Mode  ResolvedMode `json:"mode"`
 }
 
@@ -218,7 +218,7 @@ type ResolvedModeResults struct {
 // StringBoolResult holds the result of an API call that returns a
 // string and a boolean.
 type StringBoolResult struct {
-	Error  *Error `json:"error,omitempty"`
+	Error  *Error `json:"error,omitzero"`
 	Result string `json:"result"`
 	Ok     bool   `json:"ok"`
 }
@@ -232,7 +232,7 @@ type StringBoolResults struct {
 // BoolResult holds the result of an API call that returns a
 // a boolean or an error.
 type BoolResult struct {
-	Error  *Error `json:"error,omitempty"`
+	Error  *Error `json:"error,omitzero"`
 	Result bool   `json:"result"`
 }
 
@@ -251,7 +251,7 @@ type IntResults struct {
 // int or an error.
 type IntResult struct {
 	// Error holds the error (if any) of this call.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	// Result holds the integer result of the call (if Error is nil).
 	Result int `json:"result"`
 }
@@ -261,7 +261,7 @@ type Settings map[string]string
 
 // SettingsResult holds a relation settings map or an error.
 type SettingsResult struct {
-	Error    *Error   `json:"error,omitempty"`
+	Error    *Error   `json:"error,omitzero"`
 	Settings Settings `json:"settings"`
 }
 
@@ -277,7 +277,7 @@ type ConfigSettings map[string]any
 
 // ConfigSettingsResult holds a configuration map or an error.
 type ConfigSettingsResult struct {
-	Error    *Error         `json:"error,omitempty"`
+	Error    *Error         `json:"error,omitzero"`
 	Settings ConfigSettings `json:"settings"`
 }
 
@@ -288,7 +288,7 @@ type ConfigSettingsResults struct {
 
 // UnitStateResult holds a unit's state map or an error.
 type UnitStateResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	// Charm state set by the unit via hook tool.
 	CharmState map[string]string `json:"charm-state,omitempty"`
 	// Uniter internal state for this unit.
@@ -321,11 +321,11 @@ type SetUnitStateArgs struct {
 // empty data will cause the persisted data to be deleted.
 type SetUnitStateArg struct {
 	Tag           string             `json:"tag"`
-	CharmState    *map[string]string `json:"charm-state,omitempty"`
-	UniterState   *string            `json:"uniter-state,omitempty"`
-	RelationState *map[int]string    `json:"relation-state,omitempty"`
-	StorageState  *string            `json:"storage-state,omitempty"`
-	SecretState   *string            `json:"secret-state,omitempty"`
+	CharmState    *map[string]string `json:"charm-state,omitzero"`
+	UniterState   *string            `json:"uniter-state,omitzero"`
+	RelationState *map[int]string    `json:"relation-state,omitzero"`
+	StorageState  *string            `json:"storage-state,omitzero"`
+	SecretState   *string            `json:"secret-state,omitzero"`
 }
 
 // CommitHookChangesArgs serves as a container for CommitHookChangesArg objects
@@ -343,7 +343,7 @@ type CommitHookChangesArg struct {
 	RelationUnitSettings []RelationUnitSettings `json:"relation-unit-settings,omitempty"`
 	OpenPorts            []EntityPortRange      `json:"open-ports,omitempty"`
 	ClosePorts           []EntityPortRange      `json:"close-ports,omitempty"`
-	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
+	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitzero"`
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
 	TrackLatest          []string               `json:"secret-track-latest,omitempty"`
@@ -373,7 +373,7 @@ type ControllerConfigResult struct {
 type ControllerAPIInfoResult struct {
 	Addresses []string `json:"addresses"`
 	CACert    string   `json:"cacert"`
-	Error     *Error   `json:"error,omitempty"`
+	Error     *Error   `json:"error,omitzero"`
 }
 
 // ControllerAPIInfoResults holds controller api address details results.
@@ -463,9 +463,9 @@ func NewCharmRelation(cr charm.Relation) CharmRelation {
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
-	Error            *Error     `json:"error,omitempty"`
+	Error            *Error     `json:"error,omitzero"`
 	Life             life.Value `json:"life"`
-	Suspended        bool       `json:"bool,omitempty"`
+	Suspended        bool       `json:"bool,omitzero"`
 	Id               int        `json:"id"`
 	Key              string     `json:"key"`
 	Endpoint         Endpoint   `json:"endpoint"`
@@ -481,9 +481,9 @@ type RelationResultsV2 struct {
 // RelationResultV2 returns information about a single relation,
 // or an error.
 type RelationResultV2 struct {
-	Error            *Error                    `json:"error,omitempty"`
+	Error            *Error                    `json:"error,omitzero"`
 	Life             life.Value                `json:"life"`
-	Suspended        bool                      `json:"bool,omitempty"`
+	Suspended        bool                      `json:"bool,omitzero"`
 	Id               int                       `json:"id"`
 	Key              string                    `json:"key"`
 	Endpoint         Endpoint                  `json:"endpoint"`
@@ -524,7 +524,7 @@ type BytesResult struct {
 // indicating why it is not available.
 type LifeResult struct {
 	Life  life.Value `json:"life"`
-	Error *Error     `json:"error,omitempty"`
+	Error *Error     `json:"error,omitzero"`
 }
 
 // LifeResults holds the life or error status of multiple entities.
@@ -588,7 +588,7 @@ type SetStatus struct {
 
 // ConstraintsResult holds machine constraints or an error.
 type ConstraintsResult struct {
-	Error       *Error            `json:"error,omitempty"`
+	Error       *Error            `json:"error,omitzero"`
 	Constraints constraints.Value `json:"constraints"`
 }
 
@@ -609,14 +609,14 @@ type AgentGetEntitiesResult struct {
 	Life          life.Value             `json:"life"`
 	Jobs          []model.MachineJob     `json:"jobs"`
 	ContainerType instance.ContainerType `json:"container-type"`
-	Error         *Error                 `json:"error,omitempty"`
+	Error         *Error                 `json:"error,omitzero"`
 }
 
 // VersionResult holds the version and possibly error for a given
 // DesiredVersion() API call.
 type VersionResult struct {
-	Version *semversion.Number `json:"version,omitempty"`
-	Error   *Error             `json:"error,omitempty"`
+	Version *semversion.Number `json:"version,omitzero"`
+	Error   *Error             `json:"error,omitzero"`
 }
 
 // VersionResults is a list of versions for the requested entities.
@@ -628,7 +628,7 @@ type VersionResults struct {
 // Tools() API call.
 type ToolsResult struct {
 	ToolsList tools.List `json:"tools"`
-	Error     *Error     `json:"error,omitempty"`
+	Error     *Error     `json:"error,omitzero"`
 }
 
 // ToolsResults is a list of tools for various requested agents.
@@ -658,7 +658,7 @@ type EntitiesVersion struct {
 // NotifyWatchResult holds a NotifyWatcher id and an error (if any).
 type NotifyWatchResult struct {
 	NotifyWatcherId string
-	Error           *Error `json:"error,omitempty"`
+	Error           *Error `json:"error,omitzero"`
 }
 
 // NotifyWatchResults holds the results for any API call which ends up
@@ -672,7 +672,7 @@ type NotifyWatchResults struct {
 type StringsWatchResult struct {
 	StringsWatcherId string   `json:"watcher-id"`
 	Changes          []string `json:"changes,omitempty"`
-	Error            *Error   `json:"error,omitempty"`
+	Error            *Error   `json:"error,omitzero"`
 }
 
 // StringsWatchResults holds the results for any API call which ends up
@@ -687,7 +687,7 @@ type EntitiesWatchResult struct {
 	// Note legacy serialization tag.
 	EntitiesWatcherId string   `json:"watcher-id"`
 	Changes           []string `json:"changes,omitempty"`
-	Error             *Error   `json:"error,omitempty"`
+	Error             *Error   `json:"error,omitzero"`
 }
 
 // EntitiesWatchResults holds the results for any API call which ends up
@@ -723,7 +723,7 @@ type RelationUnitsChange struct {
 type RelationUnitsWatchResult struct {
 	RelationUnitsWatcherId string              `json:"watcher-id"`
 	Changes                RelationUnitsChange `json:"changes"`
-	Error                  *Error              `json:"error,omitempty"`
+	Error                  *Error              `json:"error,omitzero"`
 }
 
 // RelationUnitsWatchResults holds the results for any API call which ends up
@@ -744,7 +744,7 @@ type RelationUnitStatus struct {
 // relation units, and an error.
 type RelationUnitStatusResult struct {
 	RelationResults []RelationUnitStatus `json:"results"`
-	Error           *Error               `json:"error,omitempty"`
+	Error           *Error               `json:"error,omitzero"`
 }
 
 // RelationUnitStatusResults holds the results of a
@@ -770,7 +770,7 @@ type RelationApplication struct {
 type MachineStorageIdsWatchResult struct {
 	MachineStorageIdsWatcherId string             `json:"watcher-id"`
 	Changes                    []MachineStorageId `json:"changes"`
-	Error                      *Error             `json:"error,omitempty"`
+	Error                      *Error             `json:"error,omitzero"`
 }
 
 // MachineStorageIdsWatchResults holds the results for any API call which ends
@@ -805,8 +805,8 @@ type RunParams struct {
 	Machines       []string      `json:"machines,omitempty"`
 	Applications   []string      `json:"applications,omitempty"`
 	Units          []string      `json:"units,omitempty"`
-	Parallel       *bool         `json:"parallel,omitempty"`
-	ExecutionGroup *string       `json:"execution-group,omitempty"`
+	Parallel       *bool         `json:"parallel,omitzero"`
+	ExecutionGroup *string       `json:"execution-group,omitzero"`
 }
 
 // RunResult contains the result from an individual run call on a machine.
@@ -869,7 +869,7 @@ type ProvisioningInfo struct {
 	Base              Base                     `json:"base"`
 	Placement         string                   `json:"placement"`
 	Jobs              []model.MachineJob       `json:"jobs"`
-	RootDisk          *VolumeParams            `json:"root-disk,omitempty"`
+	RootDisk          *VolumeParams            `json:"root-disk,omitzero"`
 	Volumes           []VolumeParams           `json:"volumes,omitempty"`
 	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
 	Tags              map[string]string        `json:"tags,omitempty"`
@@ -890,7 +890,7 @@ type ProvisioningInfo struct {
 	// LokiInsecureSkipVerify controls whether TLS validation is disabled
 	// for the Loki endpoint. A nil value means the default (verify
 	// enabled) is in effect.
-	LokiInsecureSkipVerify *bool `json:"loki-insecure-skip-verify,omitempty"`
+	LokiInsecureSkipVerify *bool `json:"loki-insecure-skip-verify,omitzero"`
 
 	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
 	// deployments. Empty means no X-Scope-OrgID header is sent.
@@ -911,25 +911,25 @@ type ProvisioningInfo struct {
 	// TracingInsecureSkipVerify controls whether TLS validation is
 	// disabled for the tracing endpoint. A nil value means the default
 	// (verify enabled) is in effect.
-	TracingInsecureSkipVerify *bool `json:"tracing-insecure-skip-verify,omitempty"`
+	TracingInsecureSkipVerify *bool `json:"tracing-insecure-skip-verify,omitzero"`
 
 	// TracingStackTraces controls whether debug stack traces are
 	// attached to spans. A nil value means the default is in effect.
-	TracingStackTraces *bool `json:"tracing-stack-traces,omitempty"`
+	TracingStackTraces *bool `json:"tracing-stack-traces,omitzero"`
 
 	// TracingSampleRatio is the ratio of spans to sample. A nil value
 	// means the default ratio is in effect.
-	TracingSampleRatio *float64 `json:"tracing-sample-ratio,omitempty"`
+	TracingSampleRatio *float64 `json:"tracing-sample-ratio,omitzero"`
 
 	// TracingTailSamplingThreshold is the duration threshold for
 	// tail-based sampling. A nil value means the default is in effect.
-	TracingTailSamplingThreshold *string `json:"tracing-tail-sampling-threshold,omitempty"`
+	TracingTailSamplingThreshold *string `json:"tracing-tail-sampling-threshold,omitzero"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
 type ProvisioningInfoResult struct {
 	Result *ProvisioningInfo `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
+	Error  *Error            `json:"error,omitzero"`
 }
 
 // ProvisioningInfoResults holds multiple machine provisioning info results.
@@ -985,7 +985,7 @@ type logMessageJSON struct {
 	Module    string    `json:"mod"`
 	Location  string    `json:"loc"`
 	Message   string    `json:"msg"`
-	Labels    any       `json:"lab,omitempty"`
+	Labels    any       `json:"lab,omitzero"`
 }
 
 // UnmarshalJSON unmarshalls an incoming log message
@@ -1034,7 +1034,7 @@ func unmarshallLogLabels(in any) map[string]string {
 // uploaded resource.
 type ResourceUploadResult struct {
 	// Error will contain details about a failed upload attempt.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
 	// ID uniquely identifies a resource-application pair within the model.
 	ID string `json:"id"`

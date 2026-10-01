@@ -5,7 +5,7 @@ package jsoncodec_test
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"io"
 	"reflect"
@@ -342,6 +342,9 @@ func (*suite) TestDumpRequest(c *tc.C) {
 		hdr    rpc.Header
 		body   any
 		expect string
+		// expectPattern is a regular expression matched against the
+		// output when the exact text is not stable.
+		expectPattern string
 	}{{
 		hdr: rpc.Header{
 			RequestId: 1,
@@ -427,8 +430,10 @@ func (*suite) TestDumpRequest(c *tc.C) {
 			RequestId: 5,
 			Version:   1,
 		},
-		body:   make(chan int),
-		expect: `"marshal error: json: unsupported type: chan int"`,
+		body: make(chan int),
+		// encoding/json/v2 deliberately varies the wording of its
+		// error messages between processes.
+		expectPattern: `"marshal error: json: (cannot|unable to) marshal from Go chan int within \\"/response\\""`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 1,
@@ -445,6 +450,10 @@ func (*suite) TestDumpRequest(c *tc.C) {
 	}} {
 		c.Logf("test %d; %#v", i, test.hdr)
 		data := jsoncodec.DumpRequest(&test.hdr, test.body)
+		if test.expectPattern != "" {
+			c.Check(string(data), tc.Matches, test.expectPattern)
+			continue
+		}
 		c.Check(string(data), tc.Equals, test.expect)
 	}
 }
@@ -457,9 +466,9 @@ func assertJSONEqual(c *tc.C, v0, v1 string) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = json.Unmarshal([]byte(v1), &m1)
 	c.Assert(err, tc.ErrorIsNil)
-	data0, err := json.Marshal(m0)
+	data0, err := json.Marshal(m0, json.Deterministic(true))
 	c.Assert(err, tc.ErrorIsNil)
-	data1, err := json.Marshal(m1)
+	data1, err := json.Marshal(m1, json.Deterministic(true))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(data0), tc.Equals, string(data1))
 }

@@ -5,7 +5,8 @@ package rpc_test
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"net"
@@ -1575,10 +1576,10 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *tc.C) {
 		X: map[string]int{"hello": 65},
 	}
 	err := client.Call(c.Context(), rpc.Request{Type: "SimpleMethods", Version: 0, Id: "a0", Action: "SliceArg"}, arg0, &ret)
-	c.Assert(err, tc.ErrorMatches, `json: cannot unmarshal object into Go (?:value)|(?:struct field \.X) of type \[\]string`)
+	c.Assert(err, tc.ErrorMatches, `json: (?:cannot|unable to) unmarshal JSON object into Go \[\]string within "/X"`)
 
 	err = client.Call(c.Context(), rpc.Request{Type: "SimpleMethods", Version: 0, Id: "a0", Action: "SliceArg"}, arg0, &ret)
-	c.Assert(err, tc.ErrorMatches, `json: cannot unmarshal object into Go (?:value)|(?:struct field \.X) of type \[\]string`)
+	c.Assert(err, tc.ErrorMatches, `json: (?:cannot|unable to) unmarshal JSON object into Go \[\]string within "/X"`)
 
 	arg1 := struct {
 		X []string
@@ -2173,7 +2174,7 @@ func (*marshalServerCodec) ReadBody(any, bool) error {
 }
 
 func (c *marshalServerCodec) WriteMessage(hdr *rpc.Header, body any) error {
-	if _, err := json.Marshal(body); err != nil {
+	if _, err := json.Marshal(body, jsoncodec.Options()); err != nil {
 		return err
 	}
 	if hdr.Error != "" {
@@ -2383,13 +2384,13 @@ func (c *testCodec) ReadBody(r any, isRequest bool) error {
 		panic(fmt.Errorf("codec role %v; read wrong body type %#v", c.role, r))
 	}
 	// Note: this will need to change if we want to test a non-JSON codec.
-	var m json.RawMessage
+	var m jsontext.Value
 	err := c.Codec.ReadBody(&m, isRequest)
 	if err != nil {
 		return err
 	}
 	logger.Infof(context.TODO(), "got response body: %q", m)
-	err = json.Unmarshal(m, r)
+	err = json.Unmarshal(m, r, jsoncodec.Options())
 	logger.Infof(context.TODO(), "unmarshalled into %#v", r)
 	return err
 }

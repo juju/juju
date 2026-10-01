@@ -29,7 +29,7 @@ type SSHAddressResults struct {
 // SSHAddressResult defines a single SSH address result (see
 // SSHAddressResults).
 type SSHAddressResult struct {
-	Error   *Error `json:"error,omitempty"`
+	Error   *Error `json:"error,omitzero"`
 	Address string `json:"address,omitempty"`
 }
 
@@ -42,7 +42,7 @@ type SSHAddressesResults struct {
 // SSHAddressesResult defines a single result with multiple addresses (see
 // SSHAddressesResults).
 type SSHAddressesResult struct {
-	Error     *Error   `json:"error,omitempty"`
+	Error     *Error   `json:"error,omitzero"`
 	Addresses []string `json:"addresses"`
 }
 
@@ -55,7 +55,7 @@ type SSHPublicKeysResults struct {
 // SSHPublicKeysResult is used to return the SSH public host keys for
 // one SSH target (see SSHPublicKeysResults).
 type SSHPublicKeysResult struct {
-	Error      *Error   `json:"error,omitempty"`
+	Error      *Error   `json:"error,omitzero"`
 	PublicKeys []string `json:"public-keys,omitempty"`
 }
 
@@ -69,7 +69,7 @@ type SSHConnRequestArg struct {
 // SSHConnRequestResult holds the details of a one-shot SSH connection request
 // returned to the machine agent's sshsession worker.
 type SSHConnRequestResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	// MachineName is the name of the machine the request targets.
 	MachineName string `json:"machine-name"`
 	// ControllerAddresses are the controller addresses the machine agent may
@@ -87,7 +87,7 @@ type SSHConnRequestResult struct {
 // host public key, returned by the client Controller facade for the user
 // direct jump flow.
 type SSHControllerPublicKeyResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	// PublicKey is the marshalled controller SSH jump server host public key.
 	PublicKey []byte `json:"public-key"`
 }
@@ -102,7 +102,7 @@ type SSHVirtualHostKeyRequestArg struct {
 // PublicSSHHostKeyResult holds the public SSH host key for a virtual hostname
 // target.
 type PublicSSHHostKeyResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	// PublicKey is the marshalled public host key of the terminating SSH
 	// target.
 	PublicKey []byte `json:"public-key"`
