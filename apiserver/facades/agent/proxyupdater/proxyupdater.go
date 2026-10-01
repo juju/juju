@@ -77,7 +77,7 @@ func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 		return result
 	}
 
-	controllerAPIHostPortsWatcher, err := api.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	controllerAPIHostPortsWatcher, err := api.controllerNodeService.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
