@@ -5,8 +5,11 @@
 
 get_controller_pod() {
 	local pod
+	# Controller pods are labelled with the Juju controller stack name
+	# constant, not the bootstrap controller name; only the namespace is
+	# derived from the controller name.
 	pod=$(kubectl get pods -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" \
-		-l "app.kubernetes.io/name=${BOOTSTRAPPED_JUJU_CTRL_NAME}" \
+		-l "app.kubernetes.io/name=controller" \
 		-o jsonpath='{.items[0].metadata.name}')
 	if [[ -z ${pod} ]]; then
 		echo "Failed to find controller pod in namespace controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" >&2
@@ -81,8 +84,10 @@ test_controller_restart() {
 		restart_pebble_service "jujud"
 
 		echo "====> Waiting for controller API to recover"
-		# Wait for the controller model to become available again.
-		wait_for "controller" '.applications | keys | length > 0' 300
+		# wait_for greps the query output for the application name, so
+		# waiting for the application to be reported again confirms the
+		# controller API is answering.
+		wait_for "snappass-test" '.applications | keys | .[]' 300
 
 		# Verify the workload application is still healthy.
 		wait_for "snappass-test" "$(idle_condition "snappass-test")" 300
@@ -139,7 +144,7 @@ test_machine_agent_restart() {
 
 		local jujud_count
 		jujud_count=$(kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
-			/bin/sh -c "ps aux | grep -c 'jujud controller'" 2>/dev/null || echo "0")
+			/bin/sh -c "ps aux | grep -c '[j]ujud controller'" 2>/dev/null || echo "0")
 		if [[ ${jujud_count} -ne 1 ]]; then
 			echo "Expected exactly 1 jujud controller process, found ${jujud_count}" >&2
 			exit 1
@@ -205,7 +210,10 @@ test_restart_resilience() {
 		restart_pebble_service "jujud"
 
 		echo "====> Waiting for controller API to recover"
-		wait_for "controller" '.applications | keys | length > 0' 300
+		# wait_for greps the query output for the application name, so
+		# waiting for the application to be reported again confirms the
+		# controller API is answering.
+		wait_for "snappass-test" '.applications | keys | .[]' 300
 		wait_for "snappass-test" "$(idle_condition "snappass-test")" 300
 		assert_split_topology
 
@@ -229,7 +237,7 @@ test_restart_resilience() {
 
 		local jujud_count
 		jujud_count=$(kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
-			/bin/sh -c "ps aux | grep -c 'jujud controller'" 2>/dev/null || echo "0")
+			/bin/sh -c "ps aux | grep -c '[j]ujud controller'" 2>/dev/null || echo "0")
 		if [[ ${jujud_count} -ne 1 ]]; then
 			echo "Expected exactly 1 jujud controller process, found ${jujud_count}" >&2
 			exit 1
