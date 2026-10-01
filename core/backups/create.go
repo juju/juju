@@ -5,7 +5,8 @@ package backups
 
 import (
 	"compress/gzip"
-	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"os"
 	"path"
@@ -14,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/utils/v4/hash"
 	"github.com/juju/utils/v4/tar"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -87,11 +87,12 @@ var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 		return "", errors.Errorf("creating temp directories: %w", err)
 	}
 
-	// The metadata file does not contain the ID or the "finished"
-	// data. However, that information is not as critical. The
-	// alternatives are either adding the metadata file to the archive
-	// after the fact or adding placeholders here for the finished data
-	// and filling them in afterward. Neither is particularly trivial.
+	// The metadata file cannot carry the final size and checksum (they
+	// are only known once the archive is built), but the finished time
+	// can: recovery summaries report the backup age from this file, and
+	// a zero time would mislead the operator about backup drift.
+	finished := args.Clock.Now()
+	meta.Finished = &finished
 	metadataReader, err := meta.AsJSONBuffer()
 	if err != nil {
 		return "", errors.Errorf("preparing the metadata: %w", err)
@@ -244,7 +245,7 @@ func buildDump(dumpDir string, entries []DumpEntry) error {
 }
 
 // buildArchiveAndChecksum tars and gzips the content directory into
-// the named archive file, computing the archive's SHA-1 checksum and
+// the named archive file, computing the archive's SHA-256 checksum and
 // size along the way.
 func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
@@ -264,12 +265,12 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 	}()
 
 	// Build the tarball, writing out to both the archive file and a
-	// SHA-1 hash. The hash corresponds to the gzipped file rather than
+	// SHA-256 hash. The hash corresponds to the gzipped file rather than
 	// to the uncompressed contents of the tarball. This is so that
 	// users can compare the published checksum against the checksum of
 	// the file without having to decompress it first.
-	hasher := hash.NewHashingWriter(archiveFile, sha1.New())
-	if err := buildArchive(hasher, stagingDir, contentDir); err != nil {
+	hasher := sha256.New()
+	if err := buildArchive(io.MultiWriter(archiveFile, hasher), stagingDir, contentDir); err != nil {
 		return 0, "", errors.Capture(err)
 	}
 
@@ -278,7 +279,7 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 		return 0, "", errors.Errorf("reading archive file info: %w", err)
 	}
 
-	return stat.Size(), hasher.Base64Sum(), nil
+	return stat.Size(), hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // buildArchive writes the gzipped tar of the content directory to the

@@ -71,20 +71,29 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, serviceConfs...)
 
-	// The following files might not exist; skip the missing ones.
+	// The following files might not exist; skip the missing ones. The
+	// SSH authorized keys of the host user are provenance only, and may
+	// additionally be present but unreadable in container environments
+	// where the apiserver runs as a non-host user: that is not a backup
+	// failure. Permission errors on the other optional files — Juju's
+	// own data-dir files — still fail the backup.
+	sshAuthKeysPath := filepath.Join(rootDir, SSHDir, authKeysFile)
 	optional := []string{
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
 		filepath.Join(rootDir, paths.DataDir, serverPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 		filepath.Join(rootDir, paths.DataDir, nonceFile),
-		filepath.Join(rootDir, SSHDir, authKeysFile),
+		sshAuthKeysPath,
 	}
 	for _, file := range optional {
 		if _, err := os.Stat(file); err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return nil, errors.Capture(err)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
 			}
-			continue
+			if errors.Is(err, os.ErrPermission) && file == sshAuthKeysPath {
+				continue
+			}
+			return nil, errors.Capture(err)
 		}
 		backupFiles = append(backupFiles, file)
 	}
@@ -108,8 +117,19 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 					}
 					return nil
 				}
-				if info.Mode().IsRegular() ||
-					info.Mode()&os.ModeSymlink != 0 {
+				if info.Mode().IsRegular() {
+					finalBackupFiles = append(finalBackupFiles, path)
+				} else if info.Mode()&os.ModeSymlink != 0 {
+					// A dangling symlink cannot be bundled: tar'ing a
+					// symlink opens its target, which fails for a
+					// broken link. Hook-tool symlinks dangle when a
+					// unit's tools directory is wiped and recreated;
+					// a disaster-recovery snapshot must not fail on
+					// them, and recovery never installs archived tools
+					// anyway.
+					if _, err := os.Stat(path); err != nil {
+						return nil
+					}
 					finalBackupFiles = append(finalBackupFiles, path)
 				}
 				return nil

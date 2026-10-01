@@ -4,14 +4,15 @@
 package backups
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v4/hash"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
@@ -38,6 +39,13 @@ again.
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
 finishes.
+
+Each database (the controller database and every model database) is
+exported in its own transaction at a slightly different moment: the
+archive is not a single point-in-time snapshot of the whole controller.
+Create the backup during a quiet window, when models are not being
+deployed, destroyed or upgraded, so that concurrent changes cannot
+produce an inconsistent archive.
 
 Use ` + "`--verbose`" + ` to see extra information about backup.
 `
@@ -97,9 +105,6 @@ func (c *createCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *createCommand) Run(ctx *cmd.Context) error {
-	if err := c.validateIaasController(ctx, c.Info().Name); err != nil {
-		return errors.Trace(err)
-	}
 	client, err := c.NewGetAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -153,11 +158,11 @@ func (c *createCommand) writeArchive(stream io.Reader, checksum, archiveFilename
 		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
 	}
 
-	// The checksum is the base64-encoded SHA-1 sum of the archive as
+	// The checksum is the hex-encoded SHA-256 sum of the archive as
 	// recorded when it was created; hash while streaming so the archive
 	// is only read once.
-	hasher := hash.NewHashingWriter(archive, sha1.New())
-	_, copyErr := io.Copy(hasher, stream)
+	hasher := sha256.New()
+	_, copyErr := io.Copy(io.MultiWriter(archive, hasher), stream)
 	// Close the archive before handling either failure, so that an
 	// incomplete archive can be removed even on platforms that cannot
 	// remove open files.
@@ -172,7 +177,7 @@ func (c *createCommand) writeArchive(stream io.Reader, checksum, archiveFilename
 		}
 		return errors.Annotatef(closeErr, "while closing local archive file %v", archiveFilename)
 	}
-	if hasher.Base64Sum() != checksum {
+	if !strings.EqualFold(hex.EncodeToString(hasher.Sum(nil)), checksum) {
 		// Keep the corrupt archive under a suffix so the operator can
 		// inspect the damage, rather than silently removing it.
 		corruptName := archiveFilename + ".corrupt"

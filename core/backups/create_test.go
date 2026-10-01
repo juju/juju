@@ -5,8 +5,11 @@ package backups_test
 
 import (
 	"archive/tar"
+	"compress/gzip"
+	"encoding/json"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
@@ -249,7 +252,7 @@ func (s *createSuite) TestCreateMetadataFailureRemovesArchive(c *tc.C) {
 	// runs only once the archive file is complete.
 	meta := backups.NewMetadata(testStarted)
 	c.Assert(meta.SetFileInfo(99, "not-the-real-checksum",
-		"SHA-1, base64 encoded"), tc.ErrorIsNil)
+		"SHA-256, hex encoded"), tc.ErrorIsNil)
 
 	_, err := backups.Create(meta, backups.CreateArgs{
 		DestinationDir: destDir,
@@ -270,4 +273,48 @@ func (s *createSuite) TestCreateMetadataFailureRemovesArchive(c *tc.C) {
 		left = append(left, entry.Name())
 	}
 	c.Check(left, tc.HasLen, 0, tc.Commentf("left behind: %v", left))
+}
+
+func (s *createSuite) TestArchivedMetadataCarriesFinished(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+	meta := backups.NewMetadata(testStarted)
+	filename, err := backups.Create(meta, backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Recovery summaries read the backup age from the archived
+	// metadata.json: the finished time must be stamped before the
+	// archive is built, not only on the returned metadata.
+	f, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	c.Assert(err, tc.ErrorIsNil)
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	found := false
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		if path.Clean(hdr.Name) != "juju-backup/metadata.json" {
+			continue
+		}
+		data, err := io.ReadAll(tr)
+		c.Assert(err, tc.ErrorIsNil)
+		var flat struct {
+			Finished string `json:"Finished"`
+		}
+		c.Assert(json.Unmarshal(data, &flat), tc.ErrorIsNil)
+		c.Check(flat.Finished, tc.Not(tc.Equals), "")
+		c.Check(flat.Finished, tc.Not(tc.Equals), "0001-01-01T00:00:00Z")
+		found = true
+	}
+	c.Assert(found, tc.IsTrue)
 }
