@@ -13,7 +13,7 @@ import (
 )
 
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address,controller_agent_address,controller_client_address,controller_peer_address
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_export,model_migration_export_phase,model_migration_export_minion_sync,model_migration_import
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info,object_store_backend
@@ -54,6 +54,9 @@ const (
 	tableWorkloadTracingConfig
 	tableModelDatabaseDeletion
 	tableModelMigrationImport
+	tableControllerAgentAddress
+	tableControllerClientAddress
+	tableControllerPeerAddress
 )
 
 // controllerPostPatchFilesByVersion is used to categorise the post patch files
@@ -96,6 +99,9 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
 		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
+		triggers.ChangeLogTriggersForControllerAgentAddress("uuid", tableControllerAgentAddress),
+		triggers.ChangeLogTriggersForControllerClientAddress("uuid", tableControllerClientAddress),
+		triggers.ChangeLogTriggersForControllerPeerAddress("controller_id", tableControllerPeerAddress),
 		triggers.ChangeLogTriggersForModelMigrationExport("model_uuid", tableModelMigrationExport),
 		triggers.ChangeLogTriggersForModelMigrationExportPhase("model_uuid", tableModelMigrationExportPhase),
 		triggers.ChangeLogTriggersForModelMigrationExportMinionSync("migration_uuid", tableModelMigrationExportMinionSync),

@@ -169,11 +169,27 @@ type Controller struct {
 	SystemIdentity *string `db:"system_identity" json:"system_identity" yaml:"system_identity"`
 }
 
+type ControllerAgentAddress struct {
+	UUID         string  `db:"uuid" json:"uuid" yaml:"uuid"`
+	ControllerID *string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string  `db:"address" json:"address" yaml:"address"`
+	Scope        string  `db:"scope" json:"scope" yaml:"scope"`
+	Priority     int64   `db:"priority" json:"priority" yaml:"priority"`
+}
+
 type ControllerApiAddress struct {
 	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
 	Address      string `db:"address" json:"address" yaml:"address"`
 	IsAgent      *bool  `db:"is_agent" json:"is_agent" yaml:"is_agent"`
 	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
+}
+
+type ControllerClientAddress struct {
+	UUID         string  `db:"uuid" json:"uuid" yaml:"uuid"`
+	ControllerID *string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string  `db:"address" json:"address" yaml:"address"`
+	Scope        string  `db:"scope" json:"scope" yaml:"scope"`
+	Priority     int64   `db:"priority" json:"priority" yaml:"priority"`
 }
 
 type ControllerConfig struct {
@@ -203,6 +219,14 @@ type ControllerNodePassword struct {
 	ControllerID            string  `db:"controller_id" json:"controller_id" yaml:"controller_id"`
 	PasswordHashAlgorithmID *string `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
 	PasswordHash            *string `db:"password_hash" json:"password_hash" yaml:"password_hash"`
+}
+
+type ControllerPeerAddress struct {
+	UUID         string `db:"uuid" json:"uuid" yaml:"uuid"`
+	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
+	Address      string `db:"address" json:"address" yaml:"address"`
+	Scope        string `db:"scope" json:"scope" yaml:"scope"`
+	Priority     int64  `db:"priority" json:"priority" yaml:"priority"`
 }
 
 type ControllerSshHostKey struct {
@@ -630,12 +654,15 @@ type ControllerExport struct {
 	CloudRegionDefaults                         []CloudRegionDefaults                         `json:"cloud_region_defaults" yaml:"cloud_region_defaults"`
 	CloudType                                   []CloudType                                   `json:"cloud_type" yaml:"cloud_type"`
 	Controller                                  []Controller                                  `json:"controller" yaml:"controller"`
+	ControllerAgentAddress                      []ControllerAgentAddress                      `json:"controller_agent_address" yaml:"controller_agent_address"`
 	ControllerApiAddress                        []ControllerApiAddress                        `json:"controller_api_address" yaml:"controller_api_address"`
+	ControllerClientAddress                     []ControllerClientAddress                     `json:"controller_client_address" yaml:"controller_client_address"`
 	ControllerConfig                            []ControllerConfig                            `json:"controller_config" yaml:"controller_config"`
 	ControllerNode                              []ControllerNode                              `json:"controller_node" yaml:"controller_node"`
 	ControllerNodeAgentVersion                  []ControllerNodeAgentVersion                  `json:"controller_node_agent_version" yaml:"controller_node_agent_version"`
 	ControllerNodeNonce                         []ControllerNodeNonce                         `json:"controller_node_nonce" yaml:"controller_node_nonce"`
 	ControllerNodePassword                      []ControllerNodePassword                      `json:"controller_node_password" yaml:"controller_node_password"`
+	ControllerPeerAddress                       []ControllerPeerAddress                       `json:"controller_peer_address" yaml:"controller_peer_address"`
 	ControllerSshHostKey                        []ControllerSshHostKey                        `json:"controller_ssh_host_key" yaml:"controller_ssh_host_key"`
 	ExternalController                          []ExternalController                          `json:"external_controller" yaml:"external_controller"`
 	ExternalControllerAddress                   []ExternalControllerAddress                   `json:"external_controller_address" yaml:"external_controller_address"`
