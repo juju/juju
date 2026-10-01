@@ -368,7 +368,7 @@ func (s *relaySuite) TestMalformedHostnameBadRequest(c *tc.C) {
 // dialRelay starts a relay test server with the given factory, injects
 // an admin JWT as the HTTP authentication layer would, and returns a raw
 // connection to it along with an upgrade request ready to write.
-func (s *relaySuite) dialRelay(c *tc.C, factory coresshproxy.TerminatingServerFactory) (net.Conn, *http.Request) {
+func (s *relaySuite) dialRelay(c *tc.C, factory TerminatingServerFactory) (net.Conn, *http.Request) {
 	return s.dialRelayHandler(c, s.newHandler(c, factory))
 }
 
@@ -414,11 +414,11 @@ func (s *relaySuite) serveRelayHandler(c *tc.C, handler *RelayHandler) *httptest
 	return w
 }
 
-func (s *relaySuite) newHandler(c *tc.C, factory coresshproxy.TerminatingServerFactory) *RelayHandler {
+func (s *relaySuite) newHandler(c *tc.C, factory TerminatingServerFactory) *RelayHandler {
 	return s.newHandlerMaxConns(c, factory, 10)
 }
 
-func (s *relaySuite) newHandlerMaxConns(c *tc.C, factory coresshproxy.TerminatingServerFactory, maxConns int) *RelayHandler {
+func (s *relaySuite) newHandlerMaxConns(c *tc.C, factory TerminatingServerFactory, maxConns int) *RelayHandler {
 	handler, err := NewRelayHandler(RelayHandlerConfig{
 		Logger:                   loggertesting.WrapCheckLog(c),
 		ServerFactory:            factory,
@@ -430,7 +430,7 @@ func (s *relaySuite) newHandlerMaxConns(c *tc.C, factory coresshproxy.Terminatin
 
 // serveRelay dispatches a relay request and returns the response recorder.
 // An empty access produces no JWT, testing the missing-token path.
-func (s *relaySuite) serveRelay(c *tc.C, factory coresshproxy.TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
+func (s *relaySuite) serveRelay(c *tc.C, factory TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)

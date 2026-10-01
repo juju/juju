@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
-	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 )
@@ -51,7 +50,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ServerFactory           coresshproxy.TerminatingServerFactory
+	ServerFactory           TerminatingServerFactory
 	Metrics                 *Collector
 }
 
@@ -127,7 +126,7 @@ func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, er
 // TerminatingServerFactory returns the factory that builds per-destination
 // terminating SSH servers, exposed through the manifold output for the
 // apiserver's relay endpoint.
-func (ssw *serverWrapperWorker) TerminatingServerFactory() coresshproxy.TerminatingServerFactory {
+func (ssw *serverWrapperWorker) TerminatingServerFactory() TerminatingServerFactory {
 	return ssw.config.ServerFactory
 }
 

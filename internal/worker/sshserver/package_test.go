@@ -5,5 +5,5 @@ package sshserver
 
 //go:generate go run github.com/canonical/gomock/mockgen -package sshserver -destination service_mock_test.go github.com/juju/juju/internal/worker/sshserver ControllerConfigService,Authenticator,Authorizer,AccessService
 //go:generate go run github.com/canonical/gomock/mockgen -package sshserver -destination proxy_mock_test.go github.com/juju/juju/internal/worker/sshserver ProxyFactory,ProxyHandlers
-//go:generate go run github.com/canonical/gomock/mockgen -package sshserver -destination terminatingserver_mock_test.go github.com/juju/juju/core/sshproxy TerminatingServerFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package sshserver -destination terminatingserver_mock_test.go github.com/juju/juju/internal/worker/sshserver TerminatingServerFactory
 //go:generate go run github.com/canonical/gomock/mockgen -package sshserver -destination listener_mock_test.go net Listener

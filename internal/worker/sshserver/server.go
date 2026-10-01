@@ -18,7 +18,6 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
-	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/virtualhostname"
 	coressh "github.com/juju/juju/internal/ssh"
 )
@@ -73,7 +72,7 @@ type ServerWorkerConfig struct {
 	// Authorizer checks whether an authenticated user may access a destination.
 	Authorizer Authorizer
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory coresshproxy.TerminatingServerFactory
+	ServerFactory TerminatingServerFactory
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
 }

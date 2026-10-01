@@ -4,10 +4,12 @@
 package sshproxy
 
 import (
+	"context"
 	"net/http"
 	"sync/atomic"
 
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	gliderssh "github.com/tailscale/gliderssh"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/core/logger"
@@ -21,6 +23,15 @@ import (
 // RelayJWTKey is the context key for the relay JWT, set by the apiserver
 // from the request's auth info.
 type RelayJWTKey struct{}
+
+// TerminatingServerFactory builds terminating SSH servers for routed
+// destinations. It is satisfied by the factory the SSH server worker
+// outputs.
+type TerminatingServerFactory interface {
+	// New returns a terminating SSH server for the destination, with proxy
+	// handlers and the destination's host key configured.
+	New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error)
+}
 
 // RelayHandler implements the JIMM relay upgrade endpoint:
 //
@@ -50,7 +61,7 @@ type RelayHandlerConfig struct {
 	// Logger is used for logging.
 	Logger logger.Logger
 	// ServerFactory builds the per-destination terminating SSH server.
-	ServerFactory coresshproxy.TerminatingServerFactory
+	ServerFactory TerminatingServerFactory
 	// MaxConcurrentConnections returns the maximum number of concurrent
 	// relays served at once. It is read per request so runtime
 	// controller-config changes take effect without rebuilding the

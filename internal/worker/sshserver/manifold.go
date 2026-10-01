@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/virtualhostname"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
@@ -258,7 +257,7 @@ func outputFunc(in worker.Worker, out any) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *coresshproxy.TerminatingServerFactory:
+	case *TerminatingServerFactory:
 		*outPointer = inWorker.TerminatingServerFactory()
 	default:
 		return errors.Errorf("out should be *TerminatingServerFactory; got %T", out)

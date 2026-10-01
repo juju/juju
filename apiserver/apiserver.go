@@ -58,7 +58,6 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/securitylog"
-	coresshproxy "github.com/juju/juju/core/sshproxy"
 	coretrace "github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -287,7 +286,7 @@ type SSHProxyConfig struct {
 	TunnelTracker sshproxy.TunnelTracker
 	// ServerFactory builds the per-destination terminating SSH server
 	// for the relay endpoint.
-	ServerFactory coresshproxy.TerminatingServerFactory
+	ServerFactory sshproxy.TerminatingServerFactory
 }
 
 // Validate validates the API server configuration.
