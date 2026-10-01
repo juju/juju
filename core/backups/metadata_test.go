@@ -210,8 +210,8 @@ func (s *metadataSuite) TestBuildMetadata(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(meta.ID(), tc.Equals, "")
-	c.Check(meta.Checksum(), tc.Equals, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=")
-	c.Check(meta.ChecksumFormat(), tc.Equals, "SHA-1, base64 encoded")
+	c.Check(meta.Checksum(), tc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	c.Check(meta.ChecksumFormat(), tc.Equals, "SHA-256, hex encoded")
 	c.Check(meta.Size(), tc.Equals, int64(17))
 	c.Check(meta.Stored(), tc.IsNil)
 	c.Check(meta.Started.Unix(), tc.Equals, testing.ZeroTime().Unix())

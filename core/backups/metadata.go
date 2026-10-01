@@ -5,8 +5,8 @@ package backups
 
 import (
 	"bytes"
-	"crypto/sha1"
-	"encoding/base64"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"math"
@@ -37,7 +37,7 @@ type Paths struct {
 
 // checksumFormat identifies how to interpret the checksum for a backup
 // generated with this version of juju.
-const checksumFormat = "SHA-1, base64 encoded"
+const checksumFormat = "SHA-256, hex encoded"
 
 // Origin identifies where a backup archive came from.  While it is
 // more about where and Metadata about what and when, that distinction
@@ -297,13 +297,13 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	timestamp := fileTimestamp(fi)
 
 	// Get the checksum.
-	hasher := sha1.New()
+	hasher := sha256.New()
 	_, err = io.Copy(hasher, file)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	rawsum := hasher.Sum(nil)
-	checksum := base64.StdEncoding.EncodeToString(rawsum)
+	checksum := hex.EncodeToString(rawsum)
 
 	// Build the metadata.
 	meta := NewMetadata(time.Time{})
