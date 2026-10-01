@@ -5,9 +5,12 @@ package modelmigration
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/logger"
@@ -32,7 +35,9 @@ type Coordinator interface {
 
 // RegisterExternalUsersImport registers the external users import operation
 // with the given coordinator. It must be registered before credential import
-// since external users may be model owners referenced by credentials.
+// since external users may be model owners referenced by credentials. It must
+// also run before offer access import, since offer ACLs may name external
+// users that are not model members.
 func RegisterExternalUsersImport(coordinator Coordinator, clock clock.Clock, logger logger.Logger) {
 	coordinator.Add(&importExternalUsersOperation{
 		clock:  clock,
@@ -109,9 +114,12 @@ func (i *importExternalUsersOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute creates any external users referenced in the model that do not yet
 // exist on the target controller. This must run before credential import since
-// an external user may be the model owner.
+// an external user may be the model owner. They are collected from the model
+// users and offer ACLs, whose grants are keyed by user name without validating
+// the grantee exists.
 func (i *importExternalUsersOperation) Execute(ctx context.Context, model description.Model) error {
 	var externalUsers []internal.ExternalUserImport
+	seen := set.NewStrings()
 	for _, u := range model.Users() {
 		name, err := user.NewName(u.Name())
 		if err != nil {
@@ -120,16 +128,58 @@ func (i *importExternalUsersOperation) Execute(ctx context.Context, model descri
 		if name.IsLocal() {
 			continue
 		}
+		seen.Add(name.Name())
 		externalUsers = append(externalUsers, internal.ExternalUserImport{
 			Name:        name,
 			DisplayName: u.DisplayName(),
 			DateCreated: u.DateCreated(),
 		})
 	}
+	for _, app := range model.Applications() {
+		for _, offer := range app.Offers() {
+			externalUsers = i.collectOfferACLUsers(offer, seen, externalUsers)
+		}
+	}
 	if len(externalUsers) == 0 {
 		return nil
 	}
 	return i.service.ImportExternalUsers(ctx, externalUsers)
+}
+
+// collectOfferACLUsers appends any external user named in the offer ACL that
+// has not already been collected from the model users. Such users have no
+// display name or creation date in the model description, so they are
+// materialised like external users created on first authentication: the user
+// name as display name and now as the creation date. Local users and
+// everyone@external are skipped since they must already exist on the target
+// controller.
+//
+// seen is deliberately shared across calls and mutated by this function, so
+// that a user named in the ACLs of several offers is collected once.
+func (i *importExternalUsersOperation) collectOfferACLUsers(
+	offer description.ApplicationOffer,
+	seen set.Strings,
+	externalUsers []internal.ExternalUserImport,
+) []internal.ExternalUserImport {
+	for _, aclName := range slices.Sorted(maps.Keys(offer.ACL())) {
+		name, err := user.NewName(aclName)
+		if err != nil {
+			// Invalid ACL user names are rejected by the offer access
+			// import operation, nothing to create here.
+			continue
+		}
+		if name.IsLocal() || seen.Contains(name.Name()) ||
+			name.Name() == corepermission.EveryoneUserName.Name() {
+			continue
+		}
+		seen.Add(name.Name())
+		externalUsers = append(externalUsers, internal.ExternalUserImport{
+			Name:        name,
+			DisplayName: name.Name(),
+			DateCreated: i.clock.Now().UTC(),
+		})
+	}
+	return externalUsers
 }
 
 type importOperation struct {
