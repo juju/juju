@@ -90,7 +90,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *tc.C
 	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
 	hostPortWatcher := watchertest.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
 	apiHostPortsForAgentsChanged <- struct{}{}
-	s.controllerNodeService.EXPECT().WatchControllerAPIAddresses(gomock.Any()).Return(hostPortWatcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(hostPortWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("42", nil)
 
 	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(c.Context(), s.oneEntity())

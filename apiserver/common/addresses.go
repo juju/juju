@@ -28,9 +28,9 @@ type APIAddressAccessor interface {
 	// addresses and IPv4 over IPv6 for each machine.
 	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
 
-	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// WatchControllerAgentAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // APIAddresser implements the APIAddresses method.
@@ -67,7 +67,7 @@ func (a *APIAddresser) APIHostPorts(ctx context.Context) (params.APIHostPortsRes
 // WatchAPIHostPorts watches the API server addresses.
 func (a *APIAddresser) WatchAPIHostPorts(ctx context.Context) (params.NotifyWatchResult, error) {
 	var result params.NotifyWatchResult
-	notifyWatcher, err := a.apiAddressAccessor.WatchControllerAPIAddresses(ctx)
+	notifyWatcher, err := a.apiAddressAccessor.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

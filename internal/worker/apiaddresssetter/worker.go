@@ -45,8 +45,8 @@ type ControllerNodeService interface {
 	// records.
 	GetControllerIDs(ctx context.Context) ([]string, error)
 
-	// SetAPIAddresses sets the provided addresses associated with the provided
-	// controller IDs.
+	// SetAPIAddresses publishes client and agent addresses for the provided
+	// controller IDs, selecting agent addresses using the management space.
 	//
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.

@@ -56,7 +56,7 @@ type ProvisionerControllerConfigService interface {
 // ProvisionerControllerNodeService provides controller node information.
 type ProvisionerControllerNodeService interface {
 	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
-	WatchControllerAPIAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerAgentAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ProvisionerModelConfigService provides model configuration.
@@ -274,7 +274,7 @@ func (s *provisionerFacadeShim) WatchProvisioningInfo(ctx context.Context, appNa
 		return nil, errors.Annotate(err, "creating controller config notify watcher")
 	}
 
-	ctrlAPIAddrWatcher, err := s.ctrlNodeSvc.WatchControllerAPIAddresses(ctx)
+	ctrlAPIAddrWatcher, err := s.ctrlNodeSvc.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "watching controller API addresses")
 	}

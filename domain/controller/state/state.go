@@ -245,9 +245,9 @@ func (st *State) getCACert(ctx context.Context, tx *sqlair.TX) (string, error) {
 
 func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
 	stmt, err := st.Prepare(`
-SELECT &controllerAPIAddress.* 
-FROM controller_api_address
-WHERE is_agent = true
+SELECT address.address AS &controllerAPIAddress.address
+FROM controller_agent_address AS address
+ORDER BY address.controller_id, address.priority, address.address
 `, controllerAPIAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -275,7 +275,7 @@ func decodeAPIAddresses(addrs []controllerAPIAddress) []string {
 }
 
 // controllerAPIAddress is the database representation of a controller api
-// address with the controller id and whether it is for agents or clients.
+// address available to agents.
 type controllerAPIAddress struct {
 	// Address is the address of the controller node.
 	Address string `db:"address"`

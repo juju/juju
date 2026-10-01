@@ -145,6 +145,6 @@ type ControllerNodeService interface {
 	// GetAllNoProxyAPIAddressesForAgents returns agent API addresses suitable for
 	// no-proxy settings.
 	GetAllNoProxyAPIAddressesForAgents(context.Context) (string, error)
-	// WatchControllerAPIAddresses watches controller API address changes.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+	// WatchControllerAgentAddresses watches controller API address changes.
+	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
 }

@@ -1805,8 +1805,11 @@ WHERE  key = 'controller-name'
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
 	}
 	stmtAddrs, err := s.Prepare(`
-SELECT &sourceAPIAddress.*
-FROM   controller_api_address
+SELECT COALESCE(address.controller_id, '') AS &sourceAPIAddress.controller_id,
+       address.address AS &sourceAPIAddress.address,
+       address.scope AS &sourceAPIAddress.scope
+FROM controller_client_address AS address
+ORDER BY address.controller_id, address.priority, address.address
 `, sourceAPIAddress{})
 	if err != nil {
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
@@ -1846,7 +1849,6 @@ FROM   controller_api_address
 			ControllerID: addr.ControllerID,
 			Address:      addr.Address,
 			Scope:        addr.Scope,
-			IsAgent:      addr.IsAgent,
 		})
 	}
 

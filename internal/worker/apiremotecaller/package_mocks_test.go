@@ -166,7 +166,7 @@ type MockControllerNodeService struct {
 type MockControllerNodeServiceMockRecorder struct {
 	mock                                          *MockControllerNodeService
 	getAPIAddressesByControllerIDForAgentsExpects []*gomock.Call1_2[context.Context, map[string][]string, error]
-	watchControllerAPIAddressesExpects            []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	watchControllerAgentAddressesExpects          []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 }
 
 // NewMockControllerNodeService creates a new mock instance.
@@ -199,20 +199,20 @@ func (mr *MockControllerNodeServiceMockRecorder) GetAPIAddressesByControllerIDFo
 // MockControllerNodeServiceGetAPIAddressesByControllerIDForAgentsCall is the typed call wrapper for GetAPIAddressesByControllerIDForAgents.
 type MockControllerNodeServiceGetAPIAddressesByControllerIDForAgentsCall = gomock.Call1_2[context.Context, map[string][]string, error]
 
-// WatchControllerAPIAddresses mocks base method.
-func (m *MockControllerNodeService) WatchControllerAPIAddresses(arg0 context.Context) (watcher.NotifyWatcher, error) {
+// WatchControllerAgentAddresses mocks base method.
+func (m *MockControllerNodeService) WatchControllerAgentAddresses(arg0 context.Context) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchControllerAPIAddressesExpects, m.ctrl, m, "WatchControllerAPIAddresses", arg0)
+	return gomock.Dispatch1_2(&m.recorder.watchControllerAgentAddressesExpects, m.ctrl, m, "WatchControllerAgentAddresses", arg0)
 }
 
-// WatchControllerAPIAddresses indicates an expected call of WatchControllerAPIAddresses.
-func (mr *MockControllerNodeServiceMockRecorder) WatchControllerAPIAddresses(arg0 any) *MockControllerNodeServiceWatchControllerAPIAddressesCall {
+// WatchControllerAgentAddresses indicates an expected call of WatchControllerAgentAddresses.
+func (mr *MockControllerNodeServiceMockRecorder) WatchControllerAgentAddresses(arg0 any) *MockControllerNodeServiceWatchControllerAgentAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchControllerAPIAddresses", gomock.EnsureMatcher(arg0))
-	mr.watchControllerAPIAddressesExpects = append(mr.watchControllerAPIAddressesExpects, call)
+	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchControllerAgentAddresses", gomock.EnsureMatcher(arg0))
+	mr.watchControllerAgentAddressesExpects = append(mr.watchControllerAgentAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerNodeServiceWatchControllerAPIAddressesCall is the typed call wrapper for WatchControllerAPIAddresses.
-type MockControllerNodeServiceWatchControllerAPIAddressesCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+// MockControllerNodeServiceWatchControllerAgentAddressesCall is the typed call wrapper for WatchControllerAgentAddresses.
+type MockControllerNodeServiceWatchControllerAgentAddressesCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]

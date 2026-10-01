@@ -155,7 +155,7 @@ func (apiAddressAccessor) GetAllAPIAddressesForAgents(context.Context) ([]string
 	return nil, nil
 }
 
-func (apiAddressAccessor) WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error) {
+func (apiAddressAccessor) WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error) {
 	return nil, nil
 }
 

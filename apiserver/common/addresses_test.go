@@ -104,7 +104,7 @@ func (s *apiAddresserSuite) TestWatchAPIHostPorts(c *tc.C) {
 	defer close(done)
 	ch := make(chan struct{})
 	w := watchertest.NewMockNotifyWatcher(ch)
-	s.apiAddressAccessor.EXPECT().WatchControllerAPIAddresses(gomock.Any()).DoAndReturn(
+	s.apiAddressAccessor.EXPECT().WatchControllerAgentAddresses(gomock.Any()).DoAndReturn(
 		func(_ context.Context) (watcher.Watcher[struct{}], error) {
 			time.AfterFunc(coretesting.ShortWait, func() {
 				// Send initial event.
