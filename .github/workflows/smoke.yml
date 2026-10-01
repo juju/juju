@@ -69,6 +69,14 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
+      # The dev client bootstrapped below is newer than any published
+      # controller snap, so bootstrap falls back to building the controller
+      # snap from the checkout. That fallback needs snapcraft to pack the
+      # snap and unsquashfs to inspect the built snap's version.
+      - name: Install controller snap prerequisites
+        if: matrix.cloud == 'localhost'
+        run: make install-dependencies
+
       - name: Install local Juju
         shell: bash
         run: |
@@ -135,6 +143,13 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache: true
+
+      # The dev client bootstrapped below is newer than any published
+      # controller snap, so bootstrap falls back to building the controller
+      # snap from the checkout. That fallback needs snapcraft to pack the
+      # snap and unsquashfs to inspect the built snap's version.
+      - name: Install controller snap prerequisites
+        run: make install-dependencies
 
       - name: Install local Juju
         shell: bash
