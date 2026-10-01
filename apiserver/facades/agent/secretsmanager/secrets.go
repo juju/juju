@@ -396,6 +396,7 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 
 // GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
 // This facade method is used for remote watcher to get the latest secret revisions and labels for a secret changed hook.
+// The caller may only ask about consumers in its own application.
 func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(args params.GetSecretConsumerInfoArgs) (params.SecretConsumerInfoResults, error) {
 	result := params.SecretConsumerInfoResults{
 		Results: make([]params.SecretConsumerInfoResult, len(args.URIs)),
@@ -403,6 +404,15 @@ func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(args params.GetSecret
 	consumerTag, err := names.ParseTag(args.ConsumerTag)
 	if err != nil {
 		return params.SecretConsumerInfoResults{}, errors.Trace(err)
+	}
+	// The consumer metadata is scoped to the caller: an agent may only ask
+	// about consumers in its own application, matching the check made in
+	// WatchConsumedSecretsChanges. canRead below asks whether the named
+	// consumer may read the secret, not whether the caller may ask about
+	// that consumer, so without this guard a unit could read the label and
+	// latest revision another application holds for a secret it can see.
+	if !commonsecrets.IsSameApplication(s.authTag, consumerTag) {
+		return params.SecretConsumerInfoResults{}, apiservererrors.ErrPerm
 	}
 	for i, uri := range args.URIs {
 		data, err := s.getSecretConsumerInfo(consumerTag, uri)
