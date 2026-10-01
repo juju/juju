@@ -131,6 +131,10 @@ AND    cm.subordinate = 0`
 
 // NICsInSpaces returns the link-layer devices on the machine with the
 // input net node UUID, indexed by the spaces that they are in.
+// Devices that are not associated with any space, e.g. because their
+// subnet is not registered with Juju, are indexed under the empty-string
+// key. This convention is relied upon to locate the default LXD bridge
+// when using local container networking.
 func (st *State) NICsInSpaces(ctx context.Context, nodeUUID string) (map[string][]network.NetInterface, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
