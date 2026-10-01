@@ -627,6 +627,9 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 			}
 		} else if !op.Force {
 			return nil, errors.Trace(err)
+		} else {
+			logger.Warningf("cannot read application %q while force removing relation %v: %v",
+				ep.ApplicationName, r, err)
 		}
 	}
 	return append([]txn.Op{{
