@@ -279,9 +279,9 @@ func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcherStopsWhenTrackerKilled(
 	tunnelTracker := s.newTracker(c)
 	now := time.Now()
 	requestCreated := make(chan struct{})
-	hostKeyChanges := make(chan []string)
+	hostKeyChanges := make(chan []string, 1)
 	hostKeyWatcher := watchertest.NewMockStringsWatcher(hostKeyChanges)
-	watcherStarted := make(chan struct{})
+	hostKeysQueried := make(chan struct{})
 	var sshConnArgs domainssh.SSHConnRequest
 
 	s.clock.EXPECT().Now().Return(now)
@@ -294,8 +294,13 @@ func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcherStopsWhenTrackerKilled(
 		})
 	s.machines.EXPECT().WatchMachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(context.Context, string, string) (watcher.StringsWatcher, error) {
-			close(watcherStarted)
+			hostKeyChanges <- nil
 			return hostKeyWatcher, nil
+		})
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(context.Context, string, string) ([]string, error) {
+			close(hostKeysQueried)
+			return nil, nil
 		})
 
 	result := make(chan error, 1)
@@ -319,9 +324,9 @@ func (s *sshTunnelerSuite) TestMachineHostKeysWithWatcherStopsWhenTrackerKilled(
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
-	case <-watcherStarted:
+	case <-hostKeysQueried:
 	case <-c.Context().Done():
-		c.Fatal("machine host key watcher was not started")
+		c.Fatal("machine host keys were not queried")
 	}
 
 	tunnelTracker.Kill()
