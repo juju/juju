@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -859,6 +860,8 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	iter := remoteApps.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading remote application document")
 
+	var firstErr error
+	var failed []string
 	for iter.Next(&remoteApp.doc) {
 		errs, destroyErr := remoteApp.DestroyWithForce(force, args.MaxWait)
 		if len(errs) != 0 {
@@ -870,10 +873,20 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 			}
 			logger.Warningf("error removing remote application %v for dying model %v: %v",
 				remoteApp.Name(), st.ModelUUID(), destroyErr)
-			err = destroyErr
+			if firstErr == nil {
+				firstErr = destroyErr
+			}
+			failed = append(failed, remoteApp.Name())
 		}
 	}
-	return errors.Trace(err)
+	if firstErr != nil {
+		// Each failure is logged above, so name the remote applications
+		// that were left and report the first failure.
+		sort.Strings(failed)
+		return errors.Annotatef(firstErr, "cannot remove remote application%s %s",
+			plural(len(failed)), strings.Join(failed, ", "))
+	}
+	return nil
 }
 
 func (st *State) removeOffersForDyingModel() (err error) {

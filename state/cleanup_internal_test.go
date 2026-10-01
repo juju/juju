@@ -60,22 +60,28 @@ func (s *cleanupInternalSuite) assertRemoveRemoteApplicationsAfterFailure(c *gc.
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Fail the first removal regardless of which application is read first.
-	failure := errors.New("transaction failed")
-	s.PatchValue(&s.state.database, &cleanupFailureDatabase{
+	// A forced pass also attempts the second application, so fail it too.
+	failures := []error{errors.New("first removal failed")}
+	if force {
+		failures = append(failures, errors.New("second removal failed"))
+	}
+	database := &cleanupFailureDatabase{
 		Database: s.state.database,
-		failure:  failure,
-	})
+		failures: failures,
+	}
+	s.PatchValue(&s.state.database, database)
 	err := s.state.removeRemoteApplicationsForDyingModel(DestroyModelParams{Force: &force})
-	c.Check(err, jc.ErrorIs, failure)
+	c.Check(err, jc.ErrorIs, failures[0])
+	// Every injected failure was consumed, so each application was attempted.
+	c.Check(database.failures, gc.HasLen, 0)
+	if force {
+		c.Check(err, gc.ErrorMatches, `cannot remove remote applications first, second: .*first removal failed`)
+	}
 	remaining, err := s.state.AllRemoteApplications()
 	c.Assert(err, jc.ErrorIsNil)
-	wantRemaining := 2
-	if force {
-		wantRemaining = 1
-	}
-	c.Check(remaining, gc.HasLen, wantRemaining)
+	c.Check(remaining, gc.HasLen, 2)
 
-	// The failed application can be removed on the next pass.
+	// The failed applications can be removed on the next pass.
 	c.Assert(s.state.removeRemoteApplicationsForDyingModel(DestroyModelParams{Force: &force}), jc.ErrorIsNil)
 	remaining, err = s.state.AllRemoteApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -84,13 +90,13 @@ func (s *cleanupInternalSuite) assertRemoveRemoteApplicationsAfterFailure(c *gc.
 
 type cleanupFailureDatabase struct {
 	Database
-	failure error
+	failures []error
 }
 
 func (db *cleanupFailureDatabase) Run(source jujutxn.TransactionSource) error {
-	if db.failure != nil {
-		err := db.failure
-		db.failure = nil
+	if len(db.failures) > 0 {
+		err := db.failures[0]
+		db.failures = db.failures[1:]
 		return err
 	}
 	return db.Database.Run(source)
