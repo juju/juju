@@ -552,6 +552,33 @@ func bootstrapIAAS(
 				"Resolved controller snap from channel/revision %q (revision %d, version %s)",
 				resolvedChannel, rev, rawVersion,
 			)
+
+			// Implicit default source mode: when no channel or revision was
+			// selected, a bootstrap client newer than the published snap is a client
+			// the store cannot serve, most commonly a development build ahead of the
+			// published edge. Fall back to local artifacts for both the controller
+			// snap and the machine agent, restoring the pre-snap behaviour of
+			// bootstrapping local binaries. Explicit channel and revision selections
+			// keep the mismatch error below: the operator pinned that source.
+			if args.ControllerSnapStoreMode && channel.Empty() && revision == 0 &&
+				isNewerClientVersion(jujuversion.Current, snapVersion) {
+				ctx.Infof(
+					"Bootstrap client %s is newer than the latest published"+
+						" controller snap %s on %q; using a locally built"+
+						" controller snap and agent binaries",
+					jujuversion.Current, snapVersion, resolvedChannel,
+				)
+				builtSnapPath, err := BuildControllerSnap(ctx, ctx.GetStdout(), ctx.GetStderr())
+				if err != nil {
+					return errors.Annotate(err, "building a local controller snap")
+				}
+				args.ControllerSnapPath = builtSnapPath
+				args.ControllerSnapStoreMode = false
+				args.ControllerSnapResolvedRevision = 0
+				args.ControllerSnapExpectedVersion = ""
+				snapVersion = semversion.Zero
+				ctx.Infof("Built controller snap at %s", builtSnapPath)
+			}
 		}
 	}
 
@@ -580,7 +607,16 @@ func bootstrapIAAS(
 		snapCompat.Build = 0
 		clientCompat := jujuversion.Current
 		clientCompat.Build = 0
-		if snapCompat.Compare(clientCompat) != 0 {
+		compat := snapCompat.Compare(clientCompat)
+		switch {
+		case compat < 0:
+			return errors.Errorf(
+				"controller snap version %s is older than bootstrap client %s; "+
+					"use a controller snap that matches the current client version, "+
+					"build one locally with --build-snap, or supply one with --controller-snap-path",
+				snapVersion, jujuversion.Current,
+			)
+		case compat > 0:
 			return errors.Errorf(
 				"controller snap version %s is not compatible with bootstrap client %s; "+
 					"use a controller snap that matches the current client version",
@@ -1217,6 +1253,13 @@ func isCompatibleVersion(v1, v2 semversion.Number) bool {
 	x := v1.ToPatch()
 	y := v2.ToPatch()
 	return x.Compare(y) == 0
+}
+
+// isNewerClientVersion reports whether the bootstrap client version is newer
+// than the store-resolved controller snap version, zeroing Build on both sides
+// so an official build number does not affect the comparison.
+func isNewerClientVersion(client, snap semversion.Number) bool {
+	return client.ToPatch().Compare(snap.ToPatch()) > 0
 }
 
 // setPrivateMetadataSources verifies the specified metadataDir exists,
