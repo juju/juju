@@ -1090,9 +1090,10 @@ ON CONFLICT (application_uuid) DO NOTHING
 	return nil
 }
 
-// ClearApplicationHasK8sResources records that the provisioner has finished
+// DeleteAppHasK8sResourcesEntry records that the provisioner has finished
 // managing k8s resources for the given application, unblocking removal.
-func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
+// It is a no-op if no entry exists for the application.
+func (st *State) DeleteAppHasK8sResourcesEntry(ctx context.Context, appUUID coreapplication.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1290,11 +1291,11 @@ WHERE  name = $unitName.name
 // service (if any) addresses along with the associated endpoint bindings.
 //
 // NOTE(nvinuesa): This method is used in the `WatchUnitAddressesHash` watcher
-// to validate if a change has indeed occurred. The issue with this behavior is
+// to validate if a change has indeed occurred. The issue with this behaviour is
 // that it will get fired very often and the probability of a change that is
 // of interest for the unit is low.
 // A possible future improvement would be to accumulate the change events and
-// check whether the unit of interest has been affaceted, before hitting the db.
+// check whether the unit of interest has been affected, before hitting the db.
 func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.UUID, netNodeUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

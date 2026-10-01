@@ -32,6 +32,16 @@ func ControllerPodFQDN(podName, namespace string) string {
 	)
 }
 
+// ServiceAddressName returns the Service that supplies application addresses.
+// The controller API uses the Service created by bootstrap, separately from
+// the controller charm's default Service and the headless per-pod Service.
+func ServiceAddressName(appName, modelName string) string {
+	if appName == constants.JujuControllerStackName && modelName == constants.JujuControllerModelName {
+		return constants.ControllerServiceName
+	}
+	return appName
+}
+
 // GetSvcAddresses returns the network addresses for the given service.
 func GetSvcAddresses(svc *core.Service, includeClusterIP bool) []network.ProviderAddress {
 	var netAddrs []network.ProviderAddress

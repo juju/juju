@@ -200,7 +200,7 @@ type k8sService struct {
 	ProviderID      string `db:"provider_id"`
 }
 
-type k8sServiceDevice struct {
+type netNodeDevice struct {
 	UUID              string `db:"uuid"`
 	Name              string `db:"name"`
 	NetNodeID         string `db:"net_node_uuid"`

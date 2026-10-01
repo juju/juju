@@ -275,6 +275,9 @@ type ProxyManager interface {
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
 	// GetService returns the service for the specified application.
+	// If its address Service is absent, the result has an empty Id and no
+	// Addresses, but may still contain workload status and scale information.
+	// Absence alone does not return an error.
 	GetService(ctx context.Context, appName string, includeClusterIP bool) (*Service, error)
 }
 

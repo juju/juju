@@ -17,12 +17,12 @@ type UpsertK8sServiceArgs struct {
 	ServiceUUID string
 	NetNodeUUID string
 	DeviceUUID  string
-	Addresses   []K8sServiceAddress
+	Addresses   []Address
 }
 
-// K8sServiceAddress associates a provider address with a UUID for a new row.
+// Address associates a provider address with a UUID for a new row.
 // An existing hostname with the same scope retains its UUID instead.
-type K8sServiceAddress struct {
+type Address struct {
 	UUID string
 	network.ProviderAddress
 }
