@@ -1050,9 +1050,8 @@ func (s *containerSuite) TestDevicesForGuestAutoMethodNoContainerAddressSupport(
 		},
 		"",
 	)
-	// The provider capability is consulted once to resolve the auto
-	// method, and once to determine the guest device addressing.
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+	// The provider capability is consulted once: its result resolves the
+	// auto method and selects the guest device addressing.
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)

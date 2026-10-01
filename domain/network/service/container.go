@@ -436,10 +436,27 @@ func (s *ProviderService) guestDevices(
 	spaceUUIDs []string,
 	nics map[string][]network.NetInterface,
 ) ([]network.NetInterface, error) {
-	isLocal, err := s.isLocalContainerNetworking(ctx)
+	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
+	// The provider capability is consulted once per call: its result both
+	// resolves the unset "auto" networking method and selects the guest
+	// device addressing below.
+	supportsAddresses, err := s.supportsContainerAddresses(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	method, err := containermanager.ResolveNetworkingMethodWithCapability(
+		modelconfig.ContainerNetworkingMethod(netMethod),
+		func() (bool, error) { return supportsAddresses, nil },
+	)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	isLocal := method == containermanager.NetworkingMethodLocal
 
 	var (
 		guestDevices []network.NetInterface
@@ -450,11 +467,6 @@ func (s *ProviderService) guestDevices(
 	// spaces without an in-space bridge.
 	lxdBridgeUsed := false
 	lxdBridge := defaultLXDBridge(nics)
-
-	supportsAddresses, err := s.supportsContainerAddresses(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
 
 	// In most cases, the container will rely on DHCP assigned addresses.
 	// If the provider supports allocating addresses to containers,
