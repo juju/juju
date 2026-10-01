@@ -123,9 +123,7 @@ check_prometheus_targets() {
 	local app_name=$1
 	local unit_number=$2
 
-	if ! TARGET=$(get_juju_target "$app_name" "$unit_number"); then
-		return 1
-	fi
+	TARGET=$(get_juju_target "$app_name" "$unit_number") || return $?
 	if [[ -z $TARGET ]]; then
 		echo "Juju controller not found in Prometheus targets"
 		return 1
@@ -147,9 +145,7 @@ check_prometheus_no_target() {
 	local app_name=$1
 	local unit_number=$2
 
-	if ! TARGET=$(get_juju_target "$app_name" "$unit_number"); then
-		return 1
-	fi
+	TARGET=$(get_juju_target "$app_name" "$unit_number") || return $?
 	if [[ -n $TARGET ]]; then
 		echo "Whoops: Juju controller still found in Prometheus targets"
 		return 1
@@ -179,8 +175,9 @@ check_app_active() {
 }
 
 # Extract the Juju controller from the list of Prometheus targets. Returns 2
-# when the Prometheus API cannot be reached, so callers can tell an
-# unreachable API apart from an absent target.
+# when the Prometheus API cannot be reached, or its pod address cannot be
+# resolved, so callers can tell an unreachable API apart from an absent
+# target.
 #   usage: get_juju_target <app-name> <unit-number>
 get_juju_target() {
 	set -uo pipefail
@@ -189,8 +186,15 @@ get_juju_target() {
 
 	PROM_IP=$(juju status --format json |
 		yq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
-	if ! RESPONSE=$(curl -sS --retry 5 --retry-connrefused --retry-delay 2 -m 10 \
-		"http://${PROM_IP}:9090/api/v1/targets"); then
+	# Fail fast when the address itself cannot be resolved, so the retry
+	# log states which leg failed instead of blaming the API.
+	if [[ -z ${PROM_IP} || ${PROM_IP} == "null" ]]; then
+		echo "could not resolve $app_name/$unit_number address" >&2
+		return 2
+	fi
+	# Single-shot probe: the callers' retry loops provide the endurance,
+	# nesting curl retries here would multiply the worst-case latency.
+	if ! RESPONSE=$(curl -sS -m 10 "http://${PROM_IP}:9090/api/v1/targets"); then
 		echo "Prometheus API at ${PROM_IP}:9090 unreachable" >&2
 		return 2
 	fi
