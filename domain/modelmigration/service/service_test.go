@@ -582,17 +582,14 @@ func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C
 			ControllerID: "2",
 			Address:      "10.0.0.2:17070",
 			Scope:        string(network.ScopeCloudLocal),
-			IsAgent:      true,
 		}, {
 			ControllerID: "1",
 			Address:      "10.0.0.1:17070",
 			Scope:        string(network.ScopeCloudLocal),
-			IsAgent:      true,
 		}, {
 			ControllerID: "1",
 			Address:      "192.0.2.1:17070",
 			Scope:        string(network.ScopePublic),
-			IsAgent:      true,
 		}},
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
@@ -622,7 +619,6 @@ func (s *serviceSuite) TestSourceControllerInfoSingleAddress(c *tc.C) {
 			ControllerID: "1",
 			Address:      "10.0.0.1:17070",
 			Scope:        string(network.ScopeCloudLocal),
-			IsAgent:      true,
 		}},
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
@@ -664,7 +660,6 @@ func (s *serviceSuite) TestSourceControllerInfoOnlyUnusableAddresses(c *tc.C) {
 			ControllerID: "1",
 			Address:      "127.0.0.1:17070",
 			Scope:        string(network.ScopeMachineLocal),
-			IsAgent:      true,
 		}},
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
