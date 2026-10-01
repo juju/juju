@@ -15,6 +15,10 @@ const (
 	labelJujuSecretModelName = "secrets.juju.is/model-name"
 	labelJujuSecretModelUUID = "secrets.juju.is/model-id"
 	labelJujuSecretConsumer  = "secrets.juju.is/consumer"
+	// labelJujuIssuedTokenID is the label key for the issued token UUID
+	// stamped on every resource created for a secret access token.
+	// It allows bulk deletion via DeleteCollection with an In selector.
+	labelJujuIssuedTokenID = "secrets.juju.is/issued-token-id"
 )
 
 const (
