@@ -314,14 +314,14 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 		}
 	}
 	return jujuclient.ControllerDetails{
-			APIEndpoints:   []string{apiAddr},
-			ControllerUUID: conn.ControllerTag().Id(),
-			OIDCLogin:      supportsOIDCLogin,
-		}, jujuclient.AccountDetails{
-			User:            user.Id(),
-			LastKnownAccess: conn.ControllerAccess(),
-			SessionToken:    sessionToken,
-		}, nil
+		APIEndpoints:   []string{apiAddr},
+		ControllerUUID: conn.ControllerTag().Id(),
+		OIDCLogin:      supportsOIDCLogin,
+	}, jujuclient.AccountDetails{
+		User:            user.Id(),
+		LastKnownAccess: conn.ControllerAccess(),
+		SessionToken:    sessionToken,
+	}, nil
 }
 
 func getProxier(proxyConfig params.Proxy) (*jujuclient.ProxyConfWrapper, error) {

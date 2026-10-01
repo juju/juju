@@ -579,6 +579,7 @@ func (s *modelRemoteApplicationSuite) TestAddConsumedRelation(c *tc.C) {
 	// Check that the synthetic relation has been created with the expected
 	// UUID and ID 0 (the first relation created in the model).
 	s.assertRelation(c, relationUUID, 0)
+	s.assertRelationSuspended(c, relationUUID, false, "")
 
 	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), synthApplicationUUID)
 

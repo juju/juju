@@ -162,7 +162,7 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 				return result, errors.Trace(err)
 			}
 			secretResult.Access = append(secretResult.Access, params.AccessInfo{
-				TargetTag: accessorTag.String(), ScopeTag: scopeTag.String(), Role: g.Role,
+				TargetTag: accessorTag.String(), ScopeTag: scopeTag.String(), Role: params.SecretRole(g.Role),
 			})
 		}
 		for _, r := range revisionMetadata[i] {

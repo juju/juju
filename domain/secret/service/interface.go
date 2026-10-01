@@ -125,6 +125,10 @@ type State interface {
 	// relation matching the given endpoint identifiers.
 	GetRegularRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint1, endpoint2 corerelation.EndpointIdentifier) (string, error)
 
+	// GetPeerRelationUUIDByEndpointIdentifiers returns the UUID of a peer
+	// relation matching the given endpoint identifier.
+	GetPeerRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint corerelation.EndpointIdentifier) (string, error)
+
 	// GetRelationEndpoints returns the endpoint identifiers for the
 	// relation with the given UUID.
 	GetRelationEndpoints(ctx context.Context, relationUUID string) ([]corerelation.EndpointIdentifier, error)

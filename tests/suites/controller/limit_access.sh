@@ -4,16 +4,16 @@ verify_model_network_tag() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
-		yq -p json -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		yq -p json -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 22) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}" || return 1
 		;;
 	"gce")
 		# Ensure only one allowed item, which is ssh port
 		default_rule=$(gcloud compute firewall-rules list \
 			--filter="targetTags.list():${network_tag}" \
 			--format=json)
-		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports | length' | check "1"
-		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports[0]' | check "22"
-		echo "${default_rule}" | yq -p json -r '.[0].sourceRanges[0]' | check "${sourceRange}"
+		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports | length' | check "1" || return 1
+		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports[0]' | check "22" || return 1
+		echo "${default_rule}" | yq -p json -r '.[0].sourceRanges[0]' | check "${sourceRange}" || return 1
 		;;
 	*)
 		echo "Aborting, we shouldn't be here"
@@ -29,17 +29,17 @@ verify_instance_network_tag() {
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		sg="$(aws ec2 describe-security-groups --filters Name=group-name,Values="$network_tag")"
-		yq -p json -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17070) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
-		yq -p json -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17022) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}"
+		yq -p json -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17070) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}" || return 1
+		yq -p json -r ".SecurityGroups[] |.IpPermissions[] | select(.FromPort == 17022) | .IpRanges[0].CidrIp" <<<"${sg}" | check "${sourceRange}" || return 1
 		;;
 	"gce")
 		default_rule=$(gcloud compute firewall-rules list \
 			--filter="targetTags.list():${network_tag}" \
 			--format=json)
-		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports | length' | check "2"
-		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports[0]' | check "17022"
-		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports[1]' | check "17070"
-		echo "${default_rule}" | yq -p json -r '.[0].sourceRanges[0]' | check "${sourceRange}"
+		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports | length' | check "2" || return 1
+		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports[0]' | check "17022" || return 1
+		echo "${default_rule}" | yq -p json -r '.[0].allowed[0].ports[1]' | check "17070" || return 1
+		echo "${default_rule}" | yq -p json -r '.[0].sourceRanges[0]' | check "${sourceRange}" || return 1
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
@@ -72,9 +72,12 @@ run_limit_access() {
 	juju expose -m controller controller --to-cidrs 10.0.0.0/24
 	verify_model_network_tag "${model_network_tag}" "0.0.0.0/0"
 
-	# Dump juju status would timeout due to limited api port access
+	# Wait for the firewaller worker to apply the restricted CIDRs to the
+	# controller instance firewall rule before probing access.
+	wait_for_or_fail "verify_instance_network_tag ${network_tag_or_group} 10.0.0.0/24"
+
+	# Dump juju status would timeout due to limited api port access.
 	wait_for_or_fail "! timeout 5 juju status"
-	verify_instance_network_tag "${network_tag_or_group}" "10.0.0.0/24"
 
 	echo "Temporarily allow access to the controller to unblock subsequent juju expose calls"
 	allow_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
@@ -86,8 +89,11 @@ run_limit_access() {
 	# Juju should be able to dump status after removing the temporary network tag
 	# to avoid affecting subsequent tests.
 	remove_access_to_api_port "${instance_id}" "${region_or_az}" "${network_tag_or_group}"
+
+	# Wait until the instance firewall rule actually shows the new expose
+	# CIDRs before probing access.
+	wait_for_or_fail "verify_instance_network_tag ${network_tag_or_group} 0.0.0.0/0"
 	wait_for_or_fail "timeout 5 juju status"
-	verify_instance_network_tag "${network_tag_or_group}" "0.0.0.0/0"
 
 	destroy_model "limit-access"
 }

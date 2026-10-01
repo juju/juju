@@ -1690,12 +1690,12 @@ func (s *userStateSuite) TestLastModelLogin(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check login times.
-	time1, err := st.LastModelLogin(c.Context(), username1, modelUUID)
+	time1, err := st.LastModelLogins(c.Context(), username1, []coremodel.UUID{modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(time1.UTC(), tc.Equals, expectedTime1.Truncate(time.Second).UTC())
-	time2, err := st.LastModelLogin(c.Context(), username2, modelUUID)
+	c.Check(time1[modelUUID].UTC(), tc.Equals, expectedTime1.Truncate(time.Second).UTC())
+	time2, err := st.LastModelLogins(c.Context(), username2, []coremodel.UUID{modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(time2.UTC(), tc.Equals, expectedTime2.Truncate(time.Second).UTC())
+	c.Check(time2[modelUUID].UTC(), tc.Equals, expectedTime2.Truncate(time.Second).UTC())
 
 	// Simulate a new login from user1
 	expectedTime3 := expectedTime2.Add(time.Minute)
@@ -1703,31 +1703,79 @@ func (s *userStateSuite) TestLastModelLogin(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Check the time for user1 was updated.
-	time3, err := st.LastModelLogin(c.Context(), username1, modelUUID)
+	time3, err := st.LastModelLogins(c.Context(), username1, []coremodel.UUID{modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(time3, tc.Equals, expectedTime3.Truncate(time.Second).UTC())
+	c.Check(time3[modelUUID], tc.Equals, expectedTime3.Truncate(time.Second).UTC())
 }
 
-func (s *userStateSuite) TestLastModelLoginModelNotFound(c *tc.C) {
+func (s *userStateSuite) TestLastModelLoginsModelNotFound(c *tc.C) {
 	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	name, _ := s.addTestUser(c, st, "admin")
 	badModelUUID, err := coremodel.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Get users last login for non existent model.
-	_, err = st.LastModelLogin(c.Context(), name, badModelUUID)
-	c.Assert(err, tc.ErrorMatches, ".*model not found.*")
-	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+	// Get users last login for non existent models; the models are simply
+	// absent from the result.
+	logins, err := st.LastModelLogins(c.Context(), name, []coremodel.UUID{badModelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(logins, tc.HasLen, 0)
 }
 
-func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *tc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
+func (s *userStateSuite) TestLastModelLogins(c *tc.C) {
+	modelUUID1 := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-logins-1")
+	modelUUID2 := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-logins-2")
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	username1, _ := s.addTestUser(c, st, "user1")
+	username2, _ := s.addTestUser(c, st, "user2")
+	expectedTime1 := time.Now()
+	expectedTime2 := expectedTime1.Add(time.Minute)
+
+	// Simulate logins to both models for user1, and only model 1 for user2.
+	err := st.UpdateLastModelLogin(c.Context(), username1, modelUUID1, expectedTime1)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.UpdateLastModelLogin(c.Context(), username1, modelUUID2, expectedTime2)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.UpdateLastModelLogin(c.Context(), username2, modelUUID1, expectedTime2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Check login times for user1 across both models.
+	logins, err := st.LastModelLogins(c.Context(), username1, []coremodel.UUID{modelUUID1, modelUUID2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(logins[modelUUID1].UTC(), tc.Equals, expectedTime1.Truncate(time.Second).UTC())
+	c.Check(logins[modelUUID2].UTC(), tc.Equals, expectedTime2.Truncate(time.Second).UTC())
+
+	// Check login times for user2; model 2 is absent as they never
+	// accessed it.
+	logins, err = st.LastModelLogins(c.Context(), username2, []coremodel.UUID{modelUUID1, modelUUID2})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(logins[modelUUID1].UTC(), tc.Equals, expectedTime2.Truncate(time.Second).UTC())
+	_, ok := logins[modelUUID2]
+	c.Check(ok, tc.IsFalse)
+}
+
+func (s *userStateSuite) TestLastModelLoginsUserNeverAccessedModel(c *tc.C) {
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-logins")
 	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
 	name, _ := s.addTestUser(c, st, "admin")
 
-	// Get users last login for non existent model.
-	_, err := st.LastModelLogin(c.Context(), name, modelUUID)
-	c.Assert(err, tc.ErrorIs, usererrors.UserNeverAccessedModel)
+	// Get users last logins for a model they never accessed; the model
+	// exists so no error is returned, it is just absent from the result.
+	logins, err := st.LastModelLogins(c.Context(), name, []coremodel.UUID{modelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(logins, tc.HasLen, 0)
+}
+
+func (s *userStateSuite) TestLastModelLoginsEmptyInput(c *tc.C) {
+	st := NewUserState(s.TxnRunnerFactory(), clock.WallClock)
+	name, _ := s.addTestUser(c, st, "admin")
+
+	// Passing an empty slice of model UUIDs must short-circuit before
+	// reaching the SQL layer (an empty "IN ()" clause is not portable
+	// across SQL dialects) and simply return an empty, non-nil result.
+	logins, err := st.LastModelLogins(c.Context(), name, []coremodel.UUID{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(logins, tc.NotNil)
+	c.Check(logins, tc.HasLen, 0)
 }
 
 func (s *userStateSuite) addTestUser(c *tc.C, st *UserState, name string) (user.Name, user.UUID) {

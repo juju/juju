@@ -127,7 +127,7 @@ func (s *ConfigSuite) TestConfigInvalidCAKey(c *tc.C) {
 	s.testConfigError(c, map[string]any{
 		"ca-cert":        testing.CACert,
 		"ca-private-key": invalidCAKey,
-	}, "validating ca-cert and ca-private-key: (crypto/)?tls: failed to parse private key")
+	}, "validating ca-cert and ca-private-key: (crypto/)?tls: failed to parse private key.*")
 }
 
 func (s *ConfigSuite) TestConfigCACertKeyMismatch(c *tc.C) {

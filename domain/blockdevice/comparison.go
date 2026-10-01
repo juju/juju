@@ -178,3 +178,17 @@ func IDLink(devLinks []string) string {
 	}
 	return shortest
 }
+
+// AttachmentLocation returns the location of a block device for a storage
+// attachment: the shortest /dev/disk/by-id device link if one exists, falling
+// back to the /dev device name path (e.g. /dev/loop0 for loop backed volumes).
+// Returns an empty string if neither is available.
+func AttachmentLocation(devLinks []string, deviceName string) string {
+	if link := IDLink(devLinks); link != "" {
+		return link
+	}
+	if deviceName != "" {
+		return path.Join("/dev", deviceName)
+	}
+	return ""
+}

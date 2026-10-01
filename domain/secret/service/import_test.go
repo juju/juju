@@ -238,6 +238,102 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestImportSecretsPeerRelationAccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC().Truncate(time.Hour * 24)
+	uri := coresecrets.NewURI()
+
+	secrets := []*coresecrets.SecretMetadata{{
+		URI:     uri,
+		Version: 0,
+		Owner: coresecrets.Owner{
+			Kind: coresecrets.ApplicationOwner,
+			ID:   "k8s",
+		},
+		Description:            "peer secret",
+		LatestRevisionChecksum: "checksum-1234",
+		CreateTime:             now.Add(1 * time.Hour),
+		UpdateTime:             now.Add(3 * time.Hour),
+	}}
+	revisions := [][]*coresecrets.SecretRevisionMetadata{
+		{
+			{
+				Revision:   1,
+				CreateTime: now.Add(1 * time.Hour),
+				UpdateTime: now.Add(10 * time.Hour),
+			},
+		},
+	}
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUID(c.Context(), "k8s").Return(appUUID, nil).AnyTimes()
+	relUUID := relationtesting.GenRelationUUID(c)
+	s.state.EXPECT().GetPeerRelationUUIDByEndpointIdentifiers(gomock.Any(), relation.EndpointIdentifier{
+		ApplicationName: "k8s",
+		EndpointName:    "cluster",
+		Role:            charm.RolePeer,
+	}).Return(relUUID.String(), nil)
+
+	s.state.EXPECT().ImportSecretWithRevisions(gomock.Any(), 0, uri, domainsecret.Owner{
+		Kind: coresecrets.ApplicationOwner,
+		UUID: appUUID.String(),
+	}, domainsecret.UpsertSecretParams{
+		CreateTime:  secrets[0].CreateTime,
+		UpdateTime:  secrets[0].UpdateTime,
+		Description: new(secrets[0].Description),
+		Checksum:    "checksum-1234",
+	}, []domainsecret.UpsertRevisionParams{
+		{
+			Revision:     1,
+			CreateTime:   revisions[0][0].CreateTime,
+			UpdateTime:   revisions[0][0].UpdateTime,
+			RevisionUUID: new(s.fakeUUID.String()),
+			Data:         map[string]string{"key": "value"},
+			Checksum:     "checksum-1234",
+		},
+	}).Return(nil)
+
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
+	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String(), uri.ID).
+		Return(func() error { return nil }, nil)
+
+	s.state.EXPECT().GrantAccess(gomock.Any(), uri, domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeUUID:     relUUID.String(),
+		SubjectTypeID: domainsecret.SubjectApplication,
+		SubjectUUID:   appUUID.String(),
+		RoleID:        domainsecret.RoleView,
+	})
+
+	toImport := &SecretImport{
+		Secrets: secrets,
+		Revisions: map[string][]*coresecrets.SecretRevisionMetadata{
+			uri.ID: revisions[0],
+		},
+		Content: map[string]map[int]coresecrets.SecretData{
+			uri.ID: {
+				1: {"key": "value"},
+			},
+		},
+		Access: map[string][]SecretAccess{
+			uri.ID: {{
+				Scope: domainsecret.SecretAccessScope{
+					Kind: "relation",
+					ID:   "k8s:cluster",
+				},
+				Subject: domainsecret.SecretAccessor{
+					Kind: "application",
+					ID:   "k8s",
+				},
+				Role: "view",
+			}},
+		},
+	}
+	err := s.service.ImportSecrets(c.Context(), toImport)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestImportSecretsRollbackOnFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

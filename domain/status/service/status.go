@@ -428,14 +428,14 @@ func decodeUnitDisplayAndAgentStatus(
 			}
 		}
 		return corestatus.StatusInfo{
-				Status: corestatus.Idle,
-				Since:  fullUnitStatus.AgentStatus.Since,
-			}, corestatus.StatusInfo{
-				Status:  corestatus.Error,
-				Since:   fullUnitStatus.WorkloadStatus.Since,
-				Data:    data,
-				Message: fullUnitStatus.AgentStatus.Message,
-			}, nil
+			Status: corestatus.Idle,
+			Since:  fullUnitStatus.AgentStatus.Since,
+		}, corestatus.StatusInfo{
+			Status:  corestatus.Error,
+			Since:   fullUnitStatus.WorkloadStatus.Since,
+			Data:    data,
+			Message: fullUnitStatus.AgentStatus.Message,
+		}, nil
 	}
 
 	agentStatus, err := decodeUnitAgentStatus(fullUnitStatus.AgentStatus, fullUnitStatus.Present)

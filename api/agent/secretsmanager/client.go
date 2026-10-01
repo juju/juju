@@ -200,7 +200,7 @@ func (c *Client) SecretMetadata(ctx context.Context) ([]coresecrets.SecretMetada
 		}
 		for _, g := range info.Access {
 			md.Access = append(md.Access, coresecrets.AccessInfo{
-				Target: g.TargetTag, Scope: g.ScopeTag, Role: g.Role,
+				Target: g.TargetTag, Scope: g.ScopeTag, Role: coresecrets.SecretRole(g.Role),
 			})
 		}
 		result = append(result, md)

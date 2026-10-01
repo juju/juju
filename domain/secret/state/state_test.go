@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -2980,6 +2981,21 @@ func (s *stateSuite) setupRelation(c *tc.C, appUUID, charmUUID, appUUID2, charmU
 	return relationUUID.String()
 }
 
+func (s *stateSuite) setupPeerRelation(c *tc.C, appUUID, charmUUID, endpointName string) string {
+	relation := charm.Relation{
+		Name:      endpointName,
+		Role:      charm.RolePeer,
+		Interface: endpointName,
+		Scope:     charm.ScopeGlobal,
+	}
+	charmRelUUID := s.addCharmRelation(c, charmUUID, relation)
+	endpointUUID := s.addApplicationEndpoint(c, appUUID, charmRelUUID)
+
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID.String(), endpointUUID)
+	return relationUUID.String()
+}
+
 func (s *stateSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *tc.C) {
 
 	appUUID, charmUUID := s.setupApplication(c, "mysql")
@@ -2999,6 +3015,47 @@ func (s *stateSuite) TestGetRegularRelationUUIDByEndpointIdentifiers(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.Equals, relUUID)
+}
+
+func (s *stateSuite) TestGetPeerRelationUUIDByEndpointIdentifiers(c *tc.C) {
+	appUUID, charmUUID := s.setupApplication(c, "k8s")
+	relUUID := s.setupPeerRelation(c, appUUID, charmUUID, "cluster")
+
+	got, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "k8s",
+			EndpointName:    "cluster",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.Equals, relUUID)
+}
+
+func (s *stateSuite) TestGetPeerRelationUUIDByEndpointIdentifiersRelationNotFoundRegularRelation(c *tc.C) {
+	appUUID, charmUUID := s.setupApplication(c, "mysql")
+	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
+	_ = s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
+
+	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "mysql",
+			EndpointName:    "db",
+		},
+	)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *stateSuite) TestGetPeerRelationUUIDByEndpointIdentifiersNotFound(c *tc.C) {
+	_, err := s.state.GetPeerRelationUUIDByEndpointIdentifiers(
+		c.Context(),
+		corerelation.EndpointIdentifier{
+			ApplicationName: "fake-application",
+			EndpointName:    "fake-endpoint",
+		},
+	)
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *stateSuite) TestGetRelationEndpoint(c *tc.C) {

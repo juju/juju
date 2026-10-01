@@ -101,6 +101,9 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 			Life:      life.Alive,
 		}, nil)
 
+	s.statusService.EXPECT().GetModelStorageStatuses(gomock.Any()).
+		Return(domainstatus.ModelStorageStatus{}, nil)
+
 	modelStatusAPI := model.NewModelStatusAPI(
 		s.controllerUUID,
 		s.modelUUID,
@@ -113,6 +116,96 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *tc.C) {
 	result, err := modelStatusAPI.ModelStatus(c.Context(), req)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, expected)
+}
+
+// TestModelStatusWithStorage asserts that the storage entries reported by
+// the status service are rendered into the model status volumes and
+// filesystems lists with their detachable flags intact. This is the data
+// the destroy-controller and destroy-model CLIs consult to tell the user
+// which persistent storage remains (juju/juju#22963).
+func (s *modelStatusSuite) TestModelStatusWithStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	req := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewModelTag(s.modelUUID).String()},
+		},
+	}
+
+	s.statusService.EXPECT().GetModelStatusInfo(gomock.Any()).Return(domainstatus.ModelStatusInfo{
+		Type: coremodel.IAAS,
+	}, nil)
+
+	s.statusService.EXPECT().GetApplicationAndUnitModelStatuses(gomock.Any()).
+		Return(map[string]int{}, nil)
+
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).
+		Return([]machine.Name{}, nil)
+	s.statusService.EXPECT().GetAllMachineStatuses(gomock.Any()).
+		Return(map[machine.Name]status.StatusInfo{}, nil)
+	s.statusService.EXPECT().GetModelStorageStatuses(gomock.Any()).
+		Return(domainstatus.ModelStorageStatus{
+			Filesystems: []domainstatus.ModelStorageFilesystemStatus{
+				{
+					ID:         "data/0",
+					ProviderID: "pvc-abc",
+					Status:     "detached",
+					Detachable: true,
+				},
+			},
+			Volumes: []domainstatus.ModelStorageVolumeStatus{
+				{
+					ID:         "ebs-0",
+					ProviderID: "vol-123",
+					Status:     "attached",
+					Detachable: true,
+				},
+				{
+					ID:         "loop-0",
+					Status:     "attached",
+					Detachable: false,
+				},
+			},
+		}, nil)
+	s.modelService.EXPECT().Model(gomock.Any(), coremodel.UUID(s.modelUUID)).
+		Return(coremodel.Model{
+			Qualifier: "prod",
+			Life:      life.Alive,
+		}, nil)
+
+	modelStatusAPI := model.NewModelStatusAPI(
+		s.controllerUUID,
+		s.modelUUID,
+		s.modelService,
+		s.machineServiceGetter,
+		s.statusServiceGetter,
+		s.authorizer,
+		s.authorizer.GetAuthTag().(names.UserTag),
+	)
+	result, err := modelStatusAPI.ModelStatus(c.Context(), req)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Filesystems, tc.DeepEquals, []params.ModelFilesystemInfo{
+		{
+			Id:         "data/0",
+			ProviderId: "pvc-abc",
+			Status:     "detached",
+			Detachable: true,
+		},
+	})
+	c.Check(result.Results[0].Volumes, tc.DeepEquals, []params.ModelVolumeInfo{
+		{
+			Id:         "ebs-0",
+			ProviderId: "vol-123",
+			Status:     "attached",
+			Detachable: true,
+		},
+		{
+			Id:         "loop-0",
+			Status:     "attached",
+			Detachable: false,
+		},
+	})
 }
 
 func (s *modelStatusSuite) machineServiceGetter(ctx context.Context, uuid coremodel.UUID) (model.MachineService, error) {

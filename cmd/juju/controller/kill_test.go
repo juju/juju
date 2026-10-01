@@ -502,10 +502,14 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *tc.C) {
 type mockClock struct {
 	clock.Clock
 	wait time.Duration
+	// waits counts every After call, so tests can assert the total
+	// number of waits and not just the last one.
+	waits int
 }
 
 func (m *mockClock) After(duration time.Duration) <-chan time.Time {
 	m.wait = duration
+	m.waits++
 	return time.After(time.Millisecond)
 }
 

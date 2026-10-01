@@ -292,9 +292,11 @@ type offerConnectionDetail struct {
 }
 
 type relation struct {
-	UUID       string `db:"uuid"`
-	LifeID     int    `db:"life_id"`
-	RelationID uint64 `db:"relation_id"`
+	UUID            string `db:"uuid"`
+	LifeID          int    `db:"life_id"`
+	RelationID      uint64 `db:"relation_id"`
+	Suspended       bool   `db:"suspended"`
+	SuspendedReason string `db:"suspended_reason"`
 }
 
 type relationEndpoint struct {
@@ -459,6 +461,11 @@ type endpointIdentifier struct {
 }
 
 type relationNetworkIngress struct {
+	RelationUUID string `db:"relation_uuid"`
+	CIDR         string `db:"cidr"`
+}
+
+type relationNetworkEgress struct {
 	RelationUUID string `db:"relation_uuid"`
 	CIDR         string `db:"cidr"`
 }

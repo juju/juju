@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/xid"
-
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -50,7 +48,9 @@ type URI struct {
 }
 
 const (
-	idSnippet   = `[0-9a-z]{20}`
+	// XID encodes 12 bytes as 20 base32hex characters. The final character
+	// carries one bit, so its canonical representation is limited to 0 or g.
+	idSnippet   = `[0-9a-v]{19}[0g]`
 	uuidSnippet = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
 	revSnippet  = `[0-9]+`
 
@@ -103,13 +103,9 @@ func ParseURI(str string) (*URI, error) {
 		sourceUUID = u.Host
 	}
 	idPart := matched[secretURIIdIdx]
-	id, err := xid.FromString(idPart)
-	if err != nil {
-		return nil, errors.Errorf("secret URI %q %w", str, coreerrors.NotValid)
-	}
 	result := &URI{
 		SourceUUID: sourceUUID,
-		ID:         id.String(),
+		ID:         idPart,
 	}
 	return result, nil
 }

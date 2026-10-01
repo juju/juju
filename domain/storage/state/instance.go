@@ -95,6 +95,7 @@ FROM (
 		44	0		62		SEARCH sfa USING INDEX idx_storage_filesystem_attachment_net_node_uuid (net_node_uuid=?) LEFT-JOIN
 		54	0		47		SEARCH siv USING INDEX sqlite_autoindex_storage_instance_volume_1 (storage_instance_uuid=?) LEFT-JOIN
 		61	0		46		SEARCH sva USING INDEX idx_storage_volume_attachment_volume_uuid (storage_volume_uuid=?) LEFT-JOIN
+		68	0		44		SEARCH bd USING INDEX sqlite_autoindex_block_device_1 (uuid=?) LEFT-JOIN
 		72	0		0		USE TEMP B-TREE FOR GROUP BY
 	*/
 	const storageInstAttachmentsQ = `
@@ -106,6 +107,7 @@ FROM (
               sfa.mount_point AS storage_filesystem_attachment_mount_point,
               sfa.uuid AS storage_filesystem_attachment_uuid,
               sva.uuid AS storage_volume_attachment_uuid,
+              bd.name AS block_device_name,
               u.name AS unit_name,
               m.name AS machine_name,
               m.uuid AS machine_uuid
@@ -118,6 +120,7 @@ FROM (
     LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid = sa.storage_instance_uuid
     LEFT JOIN storage_volume_attachment sva ON m.net_node_uuid = sva.net_node_uuid
           AND sva.storage_volume_uuid = siv.storage_volume_uuid
+    LEFT JOIN block_device bd ON sva.block_device_uuid = bd.uuid
     WHERE     sa.storage_instance_uuid = $entityUUID.uuid
     GROUP BY  sa.uuid
     ORDER BY  sa.uuid
@@ -439,6 +442,7 @@ func makeStorageInstanceInfoFromDBData(
 
 		if attachment.StorageVolumeAttachmentUUID.Valid {
 			val.Volume = &internal.StorageInstanceInfoAttachmentVolume{
+				DeviceName:      attachment.BlockDeviceName,
 				DeviceNameLinks: deviceNameLinks,
 			}
 		}

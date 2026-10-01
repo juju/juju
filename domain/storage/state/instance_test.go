@@ -262,6 +262,7 @@ func (s *instanceSuite) TestStorageInstanceInfoFilesysteamVolumeBackedUnitAttach
 					UUID: machineUUID,
 				},
 				Volume: &internal.StorageInstanceInfoAttachmentVolume{
+					DeviceName: blockDeviceUUID.String(),
 					DeviceNameLinks: []string{
 						"/dev/disk/by-id/1", "/dev/disk/123",
 					},
@@ -342,9 +343,80 @@ func (s *instanceSuite) TestStorageInstanceInfoVolumeUnitAttach(c *tc.C) {
 					UUID: machineUUID,
 				},
 				Volume: &internal.StorageInstanceInfoAttachmentVolume{
+					DeviceName: blockDeviceUUID.String(),
 					DeviceNameLinks: []string{
 						"/dev/disk/by-id/123",
 					},
+				},
+				UnitName: unitName,
+				UnitUUID: unitUUID,
+				UUID:     saUUID,
+			},
+		},
+		Life:      domainlife.Alive,
+		Kind:      domainstorage.StorageKindBlock,
+		StorageID: siID,
+		Volume: &internal.StorageInstanceInfoVolume{
+			Persistent: true,
+			Status: &internal.StorageInstanceInfoVolumeStatus{
+				Message:   "testVolume",
+				Status:    domainstatus.StorageVolumeStatusTypeAttached,
+				UpdatedAt: &statusTime,
+			},
+			UUID: vUUID,
+		},
+		UnitOwner: &internal.StorageInstanceInfoUnitOwner{
+			Name: unitName,
+			UUID: unitUUID,
+		},
+		UUID: siUUID,
+	})
+}
+
+// TestStorageInstanceInfoVolumeUnitAttachNoDeviceLinks tests that
+// [State.GetStorageInstanceInfo] correctly returns storage instance information
+// for a block storage instance backed by a volume whose block device has no
+// device links (e.g. a loop device). The test verifies that DeviceName is
+// populated from the block device while DeviceNameLinks is nil.
+func (s *instanceSuite) TestStorageInstanceInfoVolumeUnitAttachNoDeviceLinks(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "mypool", "myprovider", nil)
+	appUUID, charmUUID := s.newApplication(c, "app1")
+	siUUID, siID := s.newBlockStorageInstanceForCharmWithPool(
+		c, charmUUID, poolUUID, "storage1",
+	)
+	machineUUID, machineName := s.newMachine(c)
+	unitUUID, unitName, unitNetNodeUUID := s.newUnitForApplicationOnMachine(
+		c, appUUID, machineUUID,
+	)
+	s.newStorageInstanceUnitOwner(c, siUUID, unitUUID)
+	saUUID := s.newStorageAttachment(c, siUUID, unitUUID)
+
+	blockDeviceUUID := s.newBlockDevice(c, machineUUID)
+	// Do not call s.setBlockDeviceLinks to exercise the link-less block device path.
+	vUUID := s.newPersistentModelVolume(c, siUUID)
+	s.newModelVolumeAttachment(
+		c, vUUID, unitNetNodeUUID, blockDeviceUUID,
+	)
+
+	statusTime := time.Now()
+	s.setVolumeStatus(
+		c, vUUID, domainstatus.StorageVolumeStatusTypeAttached,
+		"testVolume", statusTime,
+	)
+
+	st := NewState(s.TxnRunnerFactory())
+	info, err := st.GetStorageInstanceInfo(c.Context(), siUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, internal.StorageInstanceInfo{
+		Attachments: []internal.StorageInstanceInfoAttachment{
+			{
+				Life: domainlife.Alive,
+				Machine: &internal.StorageInstanceInfoAttachmentMachine{
+					Name: machineName,
+					UUID: machineUUID,
+				},
+				Volume: &internal.StorageInstanceInfoAttachmentVolume{
+					DeviceName: blockDeviceUUID.String(),
 				},
 				UnitName: unitName,
 				UnitUUID: unitUUID,

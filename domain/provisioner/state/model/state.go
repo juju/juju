@@ -583,9 +583,20 @@ LIMIT 1
 		})
 	}
 
-	// Fetch ALL unprovisioned attachments for this machine (including
-	// attachments for already-provisioned volumes). An attachment is
-	// unprovisioned when block_device_uuid IS NULL.
+	// Fetch ALL unprovisioned attachments for this machine. An attachment
+	// is unprovisioned when block_device_uuid IS NULL. The results serve
+	// two purposes:
+	//   - Attachments for unprovisioned machine-scoped volumes are absorbed
+	//     into the volume creation params above (the storage provisioner
+	//     creates and attaches the volume in one go).
+	//   - Attachments for already-provisioned volumes (provider_id set,
+	//     e.g. a detached model-scoped volume being re-attached by
+	//     "deploy --attach-storage") are returned as volume attachment
+	//     params. These flow into StartInstanceParams.VolumeAttachments,
+	//     which providers use to constrain the availability zone of the
+	//     new instance to that of the volume (juju/juju#22963: without
+	//     this, AWS places the machine in a different availability zone
+	//     and AttachVolume fails with InvalidVolume.ZoneMismatch forever).
 	attachStmt, err := st.Prepare(`
 SELECT sv.uuid AS &volumeAttachmentRow.volume_uuid,
        sv.volume_id AS &volumeAttachmentRow.volume_id,
@@ -599,8 +610,11 @@ JOIN storage_instance_volume AS siv ON siv.storage_volume_uuid = sv.uuid
 JOIN storage_instance AS si ON si.uuid = siv.storage_instance_uuid
 JOIN storage_pool AS sp ON sp.uuid = si.storage_pool_uuid
 WHERE m.uuid = $machineUUIDParam.uuid
-AND sv.provision_scope_id = 1
 AND sva.block_device_uuid IS NULL
+AND (
+    sv.provision_scope_id = 1
+    OR sv.provider_id IS NOT NULL
+)
 `, volumeAttachmentRow{}, machineUUIDParam{})
 	if err != nil {
 		return nil, nil, errors.Capture(err)

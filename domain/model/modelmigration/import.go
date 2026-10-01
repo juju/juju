@@ -45,6 +45,13 @@ func RegisterModelImport(coordinator Coordinator, clock clock.Clock, logger logg
 		clock:  clock,
 		logger: logger,
 	})
+}
+
+// RegisterModelConstraintsImport registers a new model constraints migration
+// importer into the supplied coordinator. This must be registered after the
+// spaces and subnets import, as model constraints validate that any referenced
+// spaces exist by name.
+func RegisterModelConstraintsImport(coordinator Coordinator, logger logger.Logger) {
 	coordinator.Add(&importModelConstraintsOperation{
 		logger: logger,
 	})

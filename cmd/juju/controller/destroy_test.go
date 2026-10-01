@@ -57,6 +57,10 @@ type baseDestroySuite struct {
 
 	controllerModelConfigAPI *fakeModelConfigAPI
 
+	// clock is the fake clock handed to the command under test; tests can
+	// inspect the last wait duration it was asked for.
+	clock *mockClock
+
 	environsDestroy func(string, environs.ControllerDestroyer, context.Context, jujuclient.ControllerStore) error
 }
 
@@ -77,6 +81,11 @@ type fakeDestroyAPI struct {
 	// the controller model) taking one extra status poll to be removed
 	// after a successful DestroyController.
 	delayMachineRemoval bool
+
+	// persistentDestroyErr when set is returned by every DestroyController
+	// call regardless of the error queue. This simulates a server that
+	// keeps refusing because of persistent storage.
+	persistentDestroyErr error
 
 	// The fields below hold the post-destroy state computed by
 	// DestroyController. When either delay is set, that state is only
@@ -118,6 +127,9 @@ func (f *fakeDestroyAPI) HostedModelConfigs(ctx context.Context) ([]apicontrolle
 
 func (f *fakeDestroyAPI) DestroyController(ctx context.Context, args apicontroller.DestroyControllerParams) error {
 	f.MethodCall(f, "DestroyController", args)
+	if f.persistentDestroyErr != nil {
+		return f.persistentDestroyErr
+	}
 	if err := f.NextErr(); err != nil {
 		return err
 	}
@@ -311,8 +323,9 @@ func (s *DestroySuite) runDestroyCommand(c *tc.C, args ...string) (*cmd.Context,
 }
 
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
+	s.clock = &mockClock{}
 	return controller.NewDestroyCommandForTest(
-		s.api, s.store, s.apierror, s.controllerModelConfigAPI, &mockClock{},
+		s.api, s.store, s.apierror, s.controllerModelConfigAPI, s.clock,
 		s.environsDestroy,
 	)
 }
@@ -560,6 +573,34 @@ option instead. The storage can then be imported
 into another Juju model.
 
 `)
+}
+
+// TestDestroyPersistentStorageServerErrorExitsAfterRetry bounds the retry
+// loop when the server keeps reporting persistent storage that the model
+// status does not show. Without the bound the command would print
+// "Destroying controller" forever.
+func (s *DestroySuite) TestDestroyPersistentStorageServerErrorExitsAfterRetry(c *tc.C) {
+	s.api.persistentDestroyErr = &params.Error{Code: params.CodeHasPersistentStorage}
+	_, err := s.runDestroyCommand(c, "test1", "--no-prompt", "--destroy-all-models")
+	c.Assert(err, tc.ErrorMatches,
+		`the controller reports persistent storage that the model status does not show
+
+Re-run with "--destroy-storage" or "--release-storage" to proceed.`)
+	// The destroy loop must have given up after the bounded number of
+	// attempts rather than retrying indefinitely.
+	destroyCalls := 0
+	for _, call := range s.api.Calls() {
+		if call.FuncName == "DestroyController" {
+			destroyCalls++
+		}
+	}
+	c.Check(destroyCalls, tc.Equals, controller.MaxPersistentStorageAttempts())
+	// Retries are paced through the clock rather than spinning hot; the
+	// delay must match the production persistentStorageRetryDelay, and
+	// every retry must be paced: the bound exits on the 5th attempt
+	// without waiting, so exactly 4 waits must have occurred.
+	c.Check(s.clock.wait, tc.Equals, 2*time.Second)
+	c.Check(s.clock.waits, tc.Equals, controller.MaxPersistentStorageAttempts()-1)
 }
 
 func (s *DestroySuite) TestDestroyControllerGetFails(c *tc.C) {

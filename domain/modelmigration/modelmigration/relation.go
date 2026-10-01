@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -88,6 +89,22 @@ func (o RemoteApplicationOfferer) IsEmpty() bool {
 	return o.Primary == nil
 }
 
+// RewriteUnitName rewrites a unit name belonging to one of the offerer's
+// duplicate aliases onto the primary remote application name. Unit names
+// are in the form "<application name>/<unit number>"; names belonging to
+// other applications pass through unchanged, and names that are not valid
+// unit names are an error.
+func (o RemoteApplicationOfferer) RewriteUnitName(unitName string) (string, error) {
+	var err error
+	for _, duplicate := range o.Duplicates {
+		unitName, err = RewriteUnitName(unitName, duplicate.Name(), o.Primary.Name())
+		if err != nil {
+			return "", err
+		}
+	}
+	return unitName, nil
+}
+
 // UniqueRemoteOfferApplications de-duplicates remote applications based on
 // offer UUID and endpoints, and verifies that there are no conflicting remote
 // applications with the same offer UUID.
@@ -125,6 +142,37 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (
 	}
 
 	return unique, nil
+}
+
+// RewriteUnitName rewrites a unit name belonging to the old application
+// name onto the new application name. Unit names are in the form
+// "<application name>/<unit number>"; names belonging to other
+// applications pass through unchanged, and names that are not valid unit
+// names are an error.
+//
+// The relation domain import re-keys alias unit settings with this rule,
+// and the crossmodelrelation domain import rewrites the synthetic unit
+// names those settings must address with the same rule, so the two stay in
+// lockstep.
+func RewriteUnitName(
+	unitName, oldApplicationName, newApplicationName string,
+) (string, error) {
+	name, err := coreunit.NewName(unitName)
+	if err != nil {
+		return "", errors.Errorf("parsing unit name %q: %w", unitName, err)
+	}
+	if name.Application() != oldApplicationName {
+		return unitName, nil
+	}
+
+	rewritten, err := coreunit.NewNameFromParts(
+		newApplicationName,
+		name.Number(),
+	)
+	if err != nil {
+		return "", errors.Errorf("rewriting unit name %q: %w", unitName, err)
+	}
+	return rewritten.String(), nil
 }
 
 func remoteEndpointsEqual(a, b []description.RemoteEndpoint) bool {

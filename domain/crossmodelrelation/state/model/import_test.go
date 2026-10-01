@@ -451,6 +451,10 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 			OffererApplicationUUID: offerApplicationUUID.String(),
 		},
 		RelationUUID:                relationUUID,
+		RelationID:                  42,
+		RelationScope:               appcharm.ScopeGlobal,
+		RelationSuspended:           true,
+		RelationSuspendedReason:     "imported suspended",
 		ConsumerModelUUID:           consumerModelUUID,
 		ConsumerApplicationUUID:     consumerApplicationUUID,
 		ConsumerApplicationEndpoint: "db",
@@ -471,8 +475,9 @@ func (s *importRemoteApplicationConsumersSuite) TestImportRemoteApplicationConsu
 	}
 
 	// Check that the synthetic relation has been created with the expected
-	// UUID and ID 0 (the first relation created in the model).
-	s.assertRelation(c, relationUUID, 0)
+	// UUID and the relation ID imported from the source model.
+	s.assertRelation(c, relationUUID, 42)
+	s.assertRelationSuspended(c, relationUUID, true, "imported suspended")
 
 	s.assertRelationEndpoints(c, relationUUID, offerApplicationUUID.String(), consumerApplicationUUID)
 }

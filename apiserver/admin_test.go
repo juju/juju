@@ -678,9 +678,9 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(user.LastLogin, tc.Almost, now)
 
-	when, err := accessService.LastModelLogin(c.Context(), name, coremodel.UUID(s.ControllerModelUUID()))
+	when, err := accessService.LastModelLogins(c.Context(), name, []coremodel.UUID{coremodel.UUID(s.ControllerModelUUID())})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(when, tc.Almost, now)
+	c.Assert(when[coremodel.UUID(s.ControllerModelUUID())], tc.Almost, now)
 }
 
 func (s *loginSuite) setEveryoneAccess(c *tc.C, accessLevel permission.Access) {

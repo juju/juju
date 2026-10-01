@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	agentpassword "github.com/juju/juju/domain/agentpassword/modelmigration"
+	annotation "github.com/juju/juju/domain/annotation/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
@@ -77,6 +78,7 @@ func ImportOperations(
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	access.RegisterImport(coordinator, clock, logger.Child("access"))
 	network.RegisterImportSubnets(coordinator, logger.Child("subnets"))
+	model.RegisterModelConstraintsImport(coordinator, logger.Child("modelconstraints"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
 	// Storage pools must be imported before applications so that application
@@ -97,6 +99,9 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	// Relation networks must be imported after relations, as they are
+	// located by relation key which requires the relations to exist.
+	crossmodelrelation.RegisterImportRelationNetworks(coordinator, clock, logger.Child("crossmodelrelation"))
 	access.RegisterOfferAccessImport(coordinator, clock, logger.Child("offeraccess"))
 	status.RegisterImport(coordinator, clock, logger.Child("status"))
 	resource.RegisterImport(coordinator, clock, logger.Child("resource"))
@@ -114,6 +119,11 @@ func ImportOperations(
 	// any block commands from being executed before all the other operations
 	// have been completed.
 	blockcommand.RegisterImport(coordinator, logger.Child("blockcommand"))
+
+	// Annotations are registered after all other operations: they reference
+	// machines, applications, units, storages and no other operation references
+	// annotations.
+	annotation.RegisterImport(coordinator)
 
 	// Finally, we need to activate the model after all other operations
 	// have been completed.

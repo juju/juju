@@ -372,6 +372,8 @@ func (s *uniterResolver) nextOp(
 	}
 
 	configHashChanged := localState.ConfigHash != remoteState.ConfigHash
+	// New remote states keep this in lockstep with ConfigHash. Retain the
+	// separate check to detect trust hashes persisted by earlier uniters.
 	trustHashChanged := localState.TrustHash != remoteState.TrustHash
 	addressesHashChanged := localState.AddressesHash != remoteState.AddressesHash
 	if configHashChanged || trustHashChanged || addressesHashChanged {

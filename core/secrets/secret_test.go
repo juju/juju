@@ -5,6 +5,7 @@ package secrets_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,6 +48,9 @@ func (s *SecretURISuite) TestParseURI(c *tc.C) {
 		}, {
 			in:  "secret:a.b#",
 			err: `secret URI "secret:a.b#" not valid`,
+		}, {
+			in:  "secret:9m4e2mr0ui3e8a215n4w",
+			err: `secret URI "secret:9m4e2mr0ui3e8a215n4w" not valid`,
 		}, {
 			in: secretURI,
 			expected: &secrets.URI{
@@ -117,10 +121,31 @@ func (s *SecretURISuite) TestName(c *tc.C) {
 	c.Assert(name, tc.Equals, `9m4e2mr0ui3e8a215n4g-666`)
 }
 
-func (s *SecretURISuite) TestNew(c *tc.C) {
+func (s *SecretURISuite) TestNewConformsToXID(c *tc.C) {
 	uri := secrets.NewURI()
-	_, err := xid.FromString(uri.ID)
+	id, err := xid.FromString(uri.ID)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id.String(), tc.Equals, uri.ID)
+	_, err = secrets.ParseURI(uri.ID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *SecretURISuite) TestParseURIConformsToXID(c *tc.C) {
+	const legacyIDAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+	for position := range 20 {
+		for _, char := range legacyIDAlphabet {
+			secretID := []byte(strings.Repeat("0", 20))
+			secretID[position] = byte(char)
+
+			id, xidErr := xid.FromString(string(secretID))
+			uri, parseErr := secrets.ParseURI(string(secretID))
+			c.Check((parseErr == nil) == (xidErr == nil), tc.IsTrue)
+			if xidErr == nil {
+				c.Check(uri.ID, tc.Equals, id.String())
+			}
+		}
+	}
 }
 
 func (s *SecretURISuite) TestWithSource(c *tc.C) {
