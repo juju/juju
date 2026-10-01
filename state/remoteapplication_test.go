@@ -1410,6 +1410,46 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 }
 
 func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.C) {
+	uri, unit := s.addRemoteSecretConsumers(c)
+
+	err := s.application.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *remoteApplicationSuite) TestForceDestroyLastRelationAlsoDeletesSecretConsumerInfo(c *gc.C) {
+	uri, unit := s.addRemoteSecretConsumers(c)
+	eps, err := s.State.InferEndpoints("another:db", s.application.Name()+":db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+	coll, closer := state.GetCollection(s.State, "remoteApplications")
+	defer closer()
+	err = coll.Writeable().UpdateId(state.DocID(s.State, s.application.Name()), bson.M{
+		"$set": bson.M{"life": state.Dying},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A forced removal of the last relation of a dying remote application
+	// leaves the application to a cleanup that runs its destroy operation.
+	_, err = rel.DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(s.application.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+}
+
+// addRemoteSecretConsumers records the remote application and one of its
+// units as consumers of a secret owned by a local application.
+func (s *remoteApplicationSuite) addRemoteSecretConsumers(c *gc.C) (*secrets.URI, names.UnitTag) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	app := s.AddTestingApplication(c, "another", ch)
 	store := state.NewSecrets(s.State)
@@ -1437,14 +1477,7 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	return uri, unit
 }
 
 func (s *remoteApplicationSuite) TestDestroyDoesNotDeletePrefixNamedConsumerInfo(c *gc.C) {

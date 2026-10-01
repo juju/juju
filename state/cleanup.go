@@ -46,6 +46,7 @@ const (
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupApplication                   cleanupKind = "application"
+	cleanupRemoteApplication             cleanupKind = "remoteApplication"
 	cleanupForceApplication              cleanupKind = "forceApplication"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
@@ -232,6 +233,8 @@ func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) 
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(doc.Prefix, args, secretContentDeleter)
+		case cleanupRemoteApplication:
+			err = st.cleanupRemoteApplication(doc.Prefix, args)
 		case cleanupForceApplication:
 			err = st.cleanupForceApplication(doc.Prefix, args, secretContentDeleter)
 		case cleanupUnitsForDyingApplication:
@@ -670,9 +673,9 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	app, err := st.Application(applicationname)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Forced relation removal also queues this cleanup for
-			// dying remote applications.
-			return st.cleanupDyingRemoteApplication(applicationname)
+			// Nothing to do, the application is already gone.
+			logger.Tracef("cleanupApplication(%s): application already gone", applicationname)
+			return nil
 		}
 		return errors.Trace(err)
 	}
@@ -709,34 +712,44 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	return err
 }
 
-// cleanupDyingRemoteApplication removes a dying remote application once no
-// relations reference it.
-func (st *State) cleanupDyingRemoteApplication(name string) error {
+// cleanupRemoteApplication checks if all references to a dying remote
+// application or consumer proxy have been removed, and if so, removes it.
+func (st *State) cleanupRemoteApplication(name string, cleanupArgs []bson.Raw) (err error) {
 	app, err := st.RemoteApplication(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Nothing to do, the application is already gone.
-			logger.Tracef("cleanupApplication(%s): application already gone", name)
+			// Nothing to do, the remote application is already gone.
+			logger.Tracef("cleanupRemoteApplication(%s): remote application already gone", name)
 			return nil
 		}
 		return errors.Trace(err)
 	}
-	if app.Life() == Alive {
-		return nil
+	if app.Life() == Alive && !app.IsConsumerProxy() {
+		return errors.BadRequestf("cleanupRemoteApplication requested for a remote application (%s) that is still alive", name)
 	}
+	// Count the relations that reference the remote application rather
+	// than trusting its relationcount, which may be stale.
 	refCount, err := countRelationsForApplication(st, name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if refCount > 0 {
-		// Removing the last relation also removes the application.
-		logger.Tracef("cleanupApplication(%s) called, but it still has %d relations", name, refCount)
+		// this is considered a no-op because whatever is currently referencing the remote application
+		// should queue up a new cleanup once it stops
+		logger.Tracef("cleanupRemoteApplication(%s) called, but it still has %d relations", name, refCount)
 		return nil
 	}
-	// Only a forced destroy removes an application that is already dying.
-	errs, err := app.DestroyWithForce(true, 0)
-	if len(errs) != 0 {
-		logger.Warningf("operational errors cleaning up saas application %v: %v", name, errs)
+	force := false
+	if n := len(cleanupArgs); n != 1 {
+		return errors.Errorf("expected 1 argument, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	}
+	op := app.DestroyOperation(force)
+	err = st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors cleaning up remote application %v: %v", name, op.Errors)
 	}
 	return err
 }

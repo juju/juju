@@ -661,7 +661,7 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if (unitDying || force) && refCount == 1 && (app.doc.Life != Alive || app.doc.IsConsumerProxy) {
+	if unitDying && refCount == 1 && (app.doc.Life != Alive || app.doc.IsConsumerProxy) {
 		// Remove the proxy together with its final relation. Assert on
 		// txn-revno rather than the relationcount so a concurrent change
 		// aborts the removal.
@@ -671,16 +671,16 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 		}
 		return removeOps, nil
 	}
-	// A forced application destroy can remove several relations to a
-	// dying remote application in one transaction without any of them
-	// seeing it lose its final relation, so queue a cleanup to remove
-	// it once no relations reference it.
+	// A forced application destroy can remove several relations to the
+	// same remote application in one transaction without any of them
+	// seeing it lose its final relation. Queue a cleanup that removes a
+	// dying remote application or consumer proxy, through its destroy
+	// operation, once no relations reference it.
 	var cleanupOps []txn.Op
-	if force && app.doc.Life != Alive {
+	if force && (app.doc.Life != Alive || app.doc.IsConsumerProxy) {
 		cleanupOps = append(cleanupOps, newCleanupOp(
-			cleanupApplication,
+			cleanupRemoteApplication,
 			ep.ApplicationName,
-			false, // destroyStorage
 			force,
 		))
 	}
@@ -701,12 +701,12 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 			// This is the final reference, count will be 0. Setting
 			// the count instead of decrementing it heals an inflated
 			// or low (stale) recorded value.
-			return []txn.Op{{
+			return append([]txn.Op{{
 				C:      remoteApplicationsC,
 				Id:     r.st.docID(ep.ApplicationName),
 				Assert: bson.D{{"txn-revno", app.doc.TxnRevno}},
 				Update: bson.D{{"$set", bson.D{{"relationcount", 0}}}},
-			}}, nil
+			}}, cleanupOps...), nil
 		}
 		// This removal might not be the final reference. Refuse to
 		// make things worse: decrementing could drive a low (stale)

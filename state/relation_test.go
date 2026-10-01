@@ -1989,6 +1989,44 @@ func (s *RelationSuite) TestDestroyRemoteApplicationForcePreservesZeroLocalRelat
 }
 
 func (s *RelationSuite) TestDestroyApplicationForceRemovesDyingRemoteApplicationWithTwoRelations(c *gc.C) {
+	app, remote, _ := s.makeDyingRemoteApplicationWithTwoRelations(c)
+
+	// Both relations are removed in one transaction, so neither removal
+	// sees the other and the dying remote application is left in place.
+	op := app.DestroyOperation()
+	op.Force = true
+	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
+	c.Check(op.Errors, gc.HasLen, 0)
+	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	// The queued cleanup removes it once no relations reference it.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	s.assertNoCleanups(c)
+}
+
+func (s *RelationSuite) TestDestroyForceKeepsDyingRemoteApplicationWithRemainingRelation(c *gc.C) {
+	_, remote, rels := s.makeDyingRemoteApplicationWithTwoRelations(c)
+
+	// The cleanup queued by the first removal leaves the remote
+	// application while another relation still references it.
+	_, err := rels[0].DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Assert(remote.Refresh(), jc.ErrorIsNil)
+	c.Check(remote.Life(), gc.Equals, state.Dying)
+	c.Check(remote.RelationCount(), gc.Equals, 1)
+
+	_, err = rels[1].DestroyWithForce(true, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
+	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
+// makeDyingRemoteApplicationWithTwoRelations relates a local application to a
+// dying remote application through two endpoints, with no units in scope.
+func (s *RelationSuite) makeDyingRemoteApplicationWithTwoRelations(c *gc.C) (*state.Application, *state.RemoteApplication, []*state.Relation) {
 	remote, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-wordpress",
 		SourceModel: names.NewModelTag("source-model"),
@@ -2006,6 +2044,7 @@ func (s *RelationSuite) TestDestroyApplicationForceRemovesDyingRemoteApplication
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	app := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	var rels []*state.Relation
 	for _, pair := range [][]string{
 		{"mysql:server", "remote-wordpress:db"},
 		{"mysql:server-admin", "remote-wordpress:admin"},
@@ -2015,22 +2054,10 @@ func (s *RelationSuite) TestDestroyApplicationForceRemovesDyingRemoteApplication
 		rel, err := s.State.AddRelation(eps...)
 		c.Assert(err, jc.ErrorIsNil)
 		s.setLife(c, "relations", rel.String(), state.Dying)
+		rels = append(rels, rel)
 	}
 	s.setLife(c, "remoteApplications", remote.Name(), state.Dying)
-
-	// Both relations are removed in one transaction, so neither removal
-	// sees the other and the dying remote application is left in place.
-	op := app.DestroyOperation()
-	op.Force = true
-	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
-	c.Check(op.Errors, gc.HasLen, 0)
-	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
-
-	// The queued cleanup removes it once no relations reference it.
-	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
-	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
-	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
-	s.assertNoCleanups(c)
+	return app, remote, rels
 }
 
 func (s *RelationSuite) TestForceCleanupModelContinuesAfterSaasFailure(c *gc.C) {
@@ -2112,15 +2139,25 @@ func (s *RelationSuite) assertForceDestroyDyingApplicationsWithoutScopes(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(opErrs, gc.HasLen, 0)
 	c.Check(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+
+	// Removing the last relation must also finish teardown of both
+	// applications, through cleanups where the removal leaves them.
+	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Check(remote.Refresh(), jc.Satisfies, errors.IsNotFound)
 	_, err = state.ControllerRefCount(s.State, "controller-uuid")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-
-	// Removing the last relation must also finish application teardown.
-	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+	if !consumerProxy {
+		c.Check(remoteStatusHistory(c, remote), gc.HasLen, 0)
+	}
 	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)
 	s.assertNoCleanups(c)
+}
+
+func remoteStatusHistory(c *gc.C, remote *state.RemoteApplication) []status.StatusInfo {
+	history, err := remote.StatusHistory(status.StatusHistoryFilter{Size: 100})
+	c.Assert(err, jc.ErrorIsNil)
+	return history
 }
 
 func (s *RelationSuite) makeDyingRelationWithoutScopes(c *gc.C, consumerProxy bool, endpointLife state.Life) (*state.Application, *state.RemoteApplication, *state.Relation) {
@@ -2142,6 +2179,11 @@ func (s *RelationSuite) makeDyingRelationWithoutScopes(c *gc.C, consumerProxy bo
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
+	if !consumerProxy {
+		// Removing the remote application must also erase its history.
+		c.Assert(remote.SetStatus(status.StatusInfo{Status: status.Active}), jc.ErrorIsNil)
+		c.Assert(remoteStatusHistory(c, remote), gc.Not(gc.HasLen), 0)
+	}
 
 	// Reproduce interrupted teardown with no units or scopes remaining.
 	s.setLife(c, "applications", app.Name(), endpointLife)
