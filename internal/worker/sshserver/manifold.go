@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/internal/services"
 	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/common"
-	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 )
 
 // machineConnectionTimeout is the maximum time to wait for a machine
@@ -192,7 +191,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	// connector to request reverse tunnels for user jump sessions.
 	// Machine-pushed tunnels are accepted by the apiserver's SSH tunnel
 	// upgrade endpoint instead.
-	var tunnelTracker workerTunneler.TunnelTracker
+	var tunnelTracker *internalTunneler.Tracker
 	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -375,7 +374,7 @@ func (s sshService) MachineForDestination(ctx context.Context, destination virtu
 }
 
 type tunnelConnector struct {
-	tunnelTracker workerTunneler.TunnelTracker
+	tunnelTracker *internalTunneler.Tracker
 	controllerID  string
 	resolver      sshService
 }

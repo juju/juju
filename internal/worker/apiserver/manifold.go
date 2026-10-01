@@ -28,10 +28,10 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
+	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/sshserver"
-	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 )
@@ -334,7 +334,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var tunnelTracker workerTunneler.TunnelTracker
+	var tunnelTracker *internalTunneler.Tracker
 	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
 		return nil, errors.Trace(err)
 	}

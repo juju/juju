@@ -5,7 +5,6 @@ package sshserver
 
 import (
 	"context"
-	"net"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -17,7 +16,6 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -170,7 +168,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	result, err := manifold.Start(
 		c.Context(),
 		dt.StubGetter(map[string]any{
-			"ssh-tunneler": stubTunnelTracker{},
+			"ssh-tunneler": &internalTunneler.Tracker{},
 		}),
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -328,14 +326,4 @@ func (s stubControllerSSHState) MatchesPublicKeyInModelForUser(_ context.Context
 
 func (stubDomainServicesGetter) ServicesForModel(context.Context, model.UUID) (services.DomainServices, error) {
 	return nil, errors.NotImplementedf("unexpected ServicesForModel call")
-}
-
-type stubTunnelTracker struct{}
-
-func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.RequestArgs) (*gossh.Client, error) {
-	return nil, errors.NotImplementedf("unexpected RequestTunnel call")
-}
-
-func (stubTunnelTracker) PushTunnel(context.Context, string, string, net.Conn) (<-chan struct{}, error) {
-	return nil, errors.NotImplementedf("unexpected PushTunnel call")
 }

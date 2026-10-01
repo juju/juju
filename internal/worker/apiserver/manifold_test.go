@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"context"
 	"maps"
-	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gossh "golang.org/x/crypto/ssh"
 
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -188,7 +186,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"trace":               s.tracerGetter,
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
-		"ssh-tunneler":        stubTunnelTracker{},
+		"ssh-tunneler":        &internalTunneler.Tracker{},
 		"ssh-server":          &sshserver.TerminatingServerFactory{},
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
@@ -200,18 +198,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 
 type mockModelLogger struct {
 	corelogger.ModelLogger
-}
-
-// stubTunnelTracker satisfies workerTunneler.TunnelTracker for the apiserver
-// manifold test.
-type stubTunnelTracker struct{}
-
-func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.RequestArgs) (*gossh.Client, error) {
-	return nil, nil
-}
-
-func (stubTunnelTracker) PushTunnel(context.Context, string, string, net.Conn) (<-chan struct{}, error) {
-	return nil, nil
 }
 
 func (*mockModelLogger) Log([]corelogger.LogRecord) error {
