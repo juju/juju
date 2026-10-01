@@ -257,6 +257,7 @@ func (s *baseSuite) setupRelationService(c *tc.C) *relationservice.Service {
 	return relationservice.NewService(
 		relationstate.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c), nil),
 		nil,
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 }

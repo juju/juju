@@ -20,10 +20,12 @@ import (
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	domainstatus "github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -645,7 +647,10 @@ func (s *relationServiceSuite) TestEnterScope(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	expectedSettings := map[string]string{"ingress": "x.x.x.x"}
 	data := internal.SubordinateUnitStatusHistoryData{}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, expectedSettings).Return(data, nil)
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(internal.SubordinateUnitCreationInfo{}, false, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, expectedSettings,
+		internal.SubordinateUnitStorageArgs{}).Return(data, nil)
 
 	settings := map[string]string{"ingress": "x.x.x.x", "empty": ""}
 
@@ -671,7 +676,10 @@ func (s *relationServiceSuite) TestEnterScopeNthTime(c *tc.C) {
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	settings := map[string]string{"ingress": "x.x.x.x"}
 	data := internal.SubordinateUnitStatusHistoryData{}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(data, relationerrors.RelationUnitAlreadyExists)
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(internal.SubordinateUnitCreationInfo{}, false, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings,
+		internal.SubordinateUnitStorageArgs{}).Return(data, relationerrors.RelationUnitAlreadyExists)
 
 	// Act.
 	err := s.service.EnterScope(
@@ -680,6 +688,114 @@ func (s *relationServiceSuite) TestEnterScopeNthTime(c *tc.C) {
 		unitName,
 		settings,
 	)
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnterScopeNthTimeStorageArgsDiscarded tests that pre-computed
+// storage arguments are discarded when the unit entering scope is already
+// in the relation: the state reports RelationUnitAlreadyExists, no
+// subordinate unit is created, and the storage arguments are not used to
+// provision anything.
+func (s *relationServiceSuite) TestEnterScopeNthTimeStorageArgsDiscarded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	data := internal.SubordinateUnitStatusHistoryData{}
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	creationInfo := internal.SubordinateUnitCreationInfo{
+		SubordinateApplicationUUID: appUUID,
+		MachineNetNodeUUID:         machineNetNodeUUID,
+	}
+	storageArgs := internal.SubordinateUnitStorageArgs{
+		UnitStorageArgs: domainstorage.CreateUnitStorageArg{
+			StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{
+				{UUID: tc.Must(c, domainstorage.NewStorageInstanceUUID)},
+			},
+		},
+		IAASUnitStorageArgs: domainstorage.CreateIAASUnitStorageArg{
+			VolumesToOwn: []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)},
+		},
+	}
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(creationInfo, true, nil)
+	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
+		Return(storageArgs.UnitStorageArgs, storageArgs.IAASUnitStorageArgs, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings, storageArgs).
+		Return(data, relationerrors.RelationUnitAlreadyExists)
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		settings,
+	)
+
+	// Assert.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnterScopeCreatingSubordinateNoStorage tests that a subordinate unit
+// is created even when the subordinate application has no storage
+// directives: zero-value storage arguments are supplied to the state,
+// proving that subordinate creation is not blocked for charms without
+// storage.
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNoStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	settings := map[string]string{"ingress": "x.x.x.x"}
+	data := internal.SubordinateUnitStatusHistoryData{
+		UnitName: unitName.String(),
+		UnitStatus: domainapplication.UnitStatusArg{
+			AgentStatus: &domainstatus.StatusInfo[domainstatus.UnitAgentStatusType]{
+				Status: domainstatus.UnitAgentStatusAllocating,
+			},
+			WorkloadStatus: &domainstatus.StatusInfo[domainstatus.WorkloadStatusType]{
+				Status:  domainstatus.WorkloadStatusActive,
+				Message: "message",
+			},
+		},
+	}
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	creationInfo := internal.SubordinateUnitCreationInfo{
+		SubordinateApplicationUUID: appUUID,
+		MachineNetNodeUUID:         machineNetNodeUUID,
+	}
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(creationInfo, true, nil)
+	// The subordinate application has no storage directives, so the
+	// factory returns zero-value storage arguments.
+	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
+		Return(domainstorage.CreateUnitStorageArg{}, domainstorage.CreateIAASUnitStorageArg{}, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings,
+		internal.SubordinateUnitStorageArgs{}).Return(data, nil)
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.UnitAgentNamespace.WithID(unitName.String()),
+		status.StatusInfo{
+			Status: status.Allocating,
+		})
+	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.UnitWorkloadNamespace.WithID(unitName.String()),
+		status.StatusInfo{
+			Status:  status.Active,
+			Message: "message",
+		})
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		settings,
+	)
+
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -703,7 +819,27 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 			},
 		},
 	}
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings).Return(data, nil)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	creationInfo := internal.SubordinateUnitCreationInfo{
+		SubordinateApplicationUUID: appUUID,
+		MachineNetNodeUUID:         machineNetNodeUUID,
+	}
+	expectedStorageArgs := internal.SubordinateUnitStorageArgs{
+		UnitStorageArgs: domainstorage.CreateUnitStorageArg{
+			StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{
+				{UUID: tc.Must(c, domainstorage.NewStorageInstanceUUID)},
+			},
+		},
+		IAASUnitStorageArgs: domainstorage.CreateIAASUnitStorageArg{
+			VolumesToOwn: []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)},
+		},
+	}
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(creationInfo, true, nil)
+	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
+		Return(expectedStorageArgs.UnitStorageArgs, expectedStorageArgs.IAASUnitStorageArgs, nil)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings, expectedStorageArgs).Return(data, nil)
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.UnitAgentNamespace.WithID(unitName.String()),
 		status.StatusInfo{
 			Status: status.Allocating,
@@ -724,6 +860,64 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestEnterScopeCreatingSubordinateStorageArgsError tests that an error
+// making the storage arguments for a new subordinate unit is returned when
+// entering scope.
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateStorageArgsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	creationInfo := internal.SubordinateUnitCreationInfo{
+		SubordinateApplicationUUID: appUUID,
+		MachineNetNodeUUID:         machineNetNodeUUID,
+	}
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(creationInfo, true, nil)
+	expectedError := errors.New("boom")
+	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
+		Return(domainstorage.CreateUnitStorageArg{}, domainstorage.CreateIAASUnitStorageArg{}, expectedError)
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		map[string]string{},
+	)
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, expectedError)
+}
+
+// TestEnterScopeCreatingSubordinateCreationInfoError tests that an error
+// getting the subordinate unit creation info is returned when entering
+// scope.
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateCreationInfoError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange.
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	expectedError := errors.New("boom")
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(internal.SubordinateUnitCreationInfo{}, false, expectedError)
+
+	// Act.
+	err := s.service.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		map[string]string{},
+	)
+
+	// Assert.
+	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
 func (s *relationServiceSuite) TestEnterScopeRelationUUIDNotValid(c *tc.C) {
@@ -1622,7 +1816,7 @@ func (s *relationLeadershipServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 	ctrl := s.baseServiceSuite.setupMocks(c)
 
 	s.leaderEnsurer = NewMockEnsurer(ctrl)
-	s.leadershipService = NewLeadershipService(s.state, s.leaderEnsurer, s.statusHistory, loggertesting.WrapCheckLog(c))
+	s.leadershipService = NewLeadershipService(s.state, s.iaasUnitStorageArgs, s.leaderEnsurer, s.statusHistory, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }

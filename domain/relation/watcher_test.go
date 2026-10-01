@@ -1221,6 +1221,7 @@ func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) 
 
 	return service.NewWatchableService(
 		state.NewState(modelDB, clock.WallClock, loggertesting.WrapCheckLog(c), nil),
+		nil,
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		domaintesting.NoopLeaderEnsurer(),
 		nil,

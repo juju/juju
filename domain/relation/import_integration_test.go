@@ -265,7 +265,7 @@ func (s *importSuite) TestImportNoRelations(c *tc.C) {
 
 func (s *importSuite) setupService(c *tc.C) *service.Service {
 	st := s.setupState(c)
-	return service.NewService(st, nil, loggertesting.WrapCheckLog(c))
+	return service.NewService(st, nil, nil, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) setupState(c *tc.C) *state.State {
