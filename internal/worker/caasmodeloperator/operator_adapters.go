@@ -39,9 +39,9 @@ type ControllerNodeService interface {
 	// GetAllAPIAddressesForAgents returns all API addresses available for
 	// agents.
 	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
-	// WatchControllerAPIAddresses returns a watcher that observes changes to
+	// WatchControllerAgentAddresses returns a watcher that observes changes to
 	// controller API addresses.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ControllerService provides access to controller information.
@@ -142,7 +142,7 @@ func (a *modelOperatorAPIAdapter) WatchModelOperatorProvisioningInfo(ctx context
 		return nil, errors.Annotate(err, "creating controller config notify watcher")
 	}
 
-	controllerAPIHostPortsWatcher, err := a.ctrlNodeSvc.WatchControllerAPIAddresses(ctx)
+	controllerAPIHostPortsWatcher, err := a.ctrlNodeSvc.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "watching controller API addresses")
 	}
