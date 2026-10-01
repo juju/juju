@@ -383,6 +383,49 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterUpdateStatusHookInterruptedByAgentKill(c *gc.C) {
+	s.runUniterTests(c, []uniterTest{
+		ut(
+			"update status hook interrupted by agent kill is re-run",
+			createCharm{},
+			serveCharm{},
+			createUniter{executorFunc: killDuringUpdateStatusFunc(c)},
+			waitUnitAgent{status: status.Idle},
+			waitHooks(startupHooks(false)),
+			verifyCharm{},
+
+			// The update-status hook fires; the executor simulates the
+			// agent being killed after the hook was prepared (the
+			// in-progress hook state is persisted to the controller)
+			// but before the hook is executed.
+			updateStatusHookTick{},
+			waitUniterDead{err: "agent should be terminated"},
+
+			// Restarting the agent must re-run the interrupted hook
+			// rather than report a hook error (issue #22688).
+			startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
+			waitHooks{"update-status"},
+			waitUnitAgent{status: status.Idle},
+			waitHooks{},
+		),
+		ut(
+			"failed update status hook is still an error",
+			createCharm{badHooks: []string{"update-status"}},
+			serveCharm{},
+			createUniter{},
+			waitUnitAgent{status: status.Idle},
+			waitHooks(startupHooks(false)),
+			updateStatusHookTick{},
+			waitHooks{"fail-update-status"},
+			waitUnitAgent{
+				statusGetter: unitStatusGetter,
+				status:       status.Error,
+				info:         `hook failed: "update-status"`,
+			},
+		),
+	})
+}
+
 func (s *UniterSuite) TestUniterWorkloadReadyHook(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
@@ -1586,6 +1629,41 @@ func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}
+}
+
+// killDuringUpdateStatusFunc returns an operation executor factory which
+// simulates the unit agent being killed while an update-status hook is
+// in flight: the operation is prepared, persisting the in-progress hook
+// state to the controller, and the agent stops before the hook is
+// executed or committed.
+func killDuringUpdateStatusFunc(c *gc.C) uniter.NewOperationExecutorFunc {
+	return func(unitName string, cfg operation.ExecutorConfig) (operation.Executor, error) {
+		e, err := operation.NewExecutor(unitName, cfg)
+		c.Assert(err, jc.ErrorIsNil)
+		return &killDuringUpdateStatusExecutor{Executor: e, cfg: cfg}, nil
+	}
+}
+
+type killDuringUpdateStatusExecutor struct {
+	operation.Executor
+	cfg operation.ExecutorConfig
+}
+
+// Run is part of the operation.Executor interface.
+func (m *killDuringUpdateStatusExecutor) Run(op operation.Operation, rs <-chan remotestate.Snapshot) error {
+	if op.String() != "run update-status hook" {
+		return m.Executor.Run(op, rs)
+	}
+	newState, err := op.Prepare(m.Executor.State())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if newState != nil {
+		if err := operation.NewStateOps(m.cfg.StateReadWriter).Write(newState); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return worker.ErrTerminateAgent
 }
 
 func (s *UniterSuite) TestShutdown(c *gc.C) {

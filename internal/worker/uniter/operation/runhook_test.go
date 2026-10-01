@@ -187,6 +187,29 @@ func (s *RunHookSuite) TestPrepareSuccess_Preserve(c *gc.C) {
 	)
 }
 
+func (s *RunHookSuite) TestPrepareUpdateStatusQueued(c *gc.C) {
+	// The update-status hook is recorded as queued, not pending, so that
+	// if the unit agent is killed while the hook is in flight the hook
+	// is re-run on restart instead of being treated as a hook failure.
+	// The hook step is recorded as well so the re-run intent survives
+	// a charm upgrade (see deploy's Commit).
+	runnerFactory := NewRunHookRunnerFactory(errors.New("should not call"))
+	callbacks := NewPrepareHookCallbacks(hooks.UpdateStatus)
+	factory := newOpFactory(runnerFactory, callbacks)
+	op, err := operation.Factory.NewRunHook(factory, hook.Info{Kind: hooks.UpdateStatus})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(err, jc.ErrorIsNil)
+	queued := operation.Queued
+	c.Check(newState, gc.DeepEquals, &operation.State{
+		Kind:     operation.RunHook,
+		Step:     operation.Queued,
+		Hook:     &hook.Info{Kind: hooks.UpdateStatus},
+		HookStep: &queued,
+	})
+}
+
 func (s *RunHookSuite) getExecuteRunnerTest(
 	c *gc.C, newHook newHook, kind hooks.Kind, runErr error, contextOps ...func(*MockContext),
 ) (operation.Operation, *ExecuteHookCallbacks, *MockRunnerFactory) {
@@ -287,6 +310,28 @@ func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "config-changed")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "config-changed")
+	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
+	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
+}
+
+func (s *RunHookSuite) TestExecuteUpdateStatusOtherError(c *gc.C) {
+	// A genuine update-status hook failure must record pending itself,
+	// because the hook is prepared as queued; otherwise the failed hook
+	// would be re-run in a loop instead of entering the error state.
+	runErr := errors.New("graaargh")
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, operation.Factory.NewRunHook, hooks.UpdateStatus, runErr)
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(operation.State{})
+	c.Assert(err, gc.Equals, operation.ErrHookFailed)
+
+	s.assertStateMatches(c, newState, operation.RunHook, operation.Pending, hooks.UpdateStatus)
+	c.Assert(newState.HookStep, gc.NotNil)
+	c.Assert(*newState.HookStep, gc.Equals, operation.Pending)
+
+	c.Assert(*runnerFactory.MockNewHookRunner.runner.MockRunHook.gotName, gc.Equals, "update-status")
+	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "update-status")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, runnerFactory.MockNewHookRunner.runner.context)
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 }
@@ -461,7 +506,13 @@ func (s *RunHookSuite) testBeforeHookExecute(c *gc.C, newHook newHook, kind hook
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
-	c.Assert(newState, gc.IsNil)
+	if kind == hooks.UpdateStatus {
+		// A genuine update-status failure records pending itself; the
+		// state contract is covered by TestExecuteUpdateStatusOtherError.
+		s.assertStateMatches(c, newState, operation.RunHook, operation.Pending, kind)
+	} else {
+		c.Assert(newState, gc.IsNil)
+	}
 
 	status, err := runnerFactory.MockNewHookRunner.runner.Context().UnitStatus()
 	c.Assert(err, jc.ErrorIsNil)
