@@ -610,6 +610,7 @@ func (s *stateSuite) checkControllerAddressProjections(c *tc.C, controllerID str
 		rows, err := s.DB().QueryContext(c.Context(),
 			"SELECT uuid, controller_id, address, scope, priority FROM "+table+" WHERE controller_id = ?", controllerID)
 		c.Assert(err, tc.ErrorIsNil)
+		defer rows.Close()
 		var actual []controllerAddress
 		for rows.Next() {
 			var row controllerAddress
@@ -619,7 +620,6 @@ func (s *stateSuite) checkControllerAddressProjections(c *tc.C, controllerID str
 			actual = append(actual, row)
 		}
 		c.Assert(rows.Err(), tc.ErrorIsNil)
-		c.Assert(rows.Close(), tc.ErrorIsNil)
 		c.Check(actual, tc.SameContents, wanted, tc.Commentf("table %s", table))
 	}
 }
