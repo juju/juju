@@ -40,7 +40,7 @@ type GetLeadershipSettingsBulkResults struct {
 // leadership settings.
 type GetLeadershipSettingsResult struct {
 	Settings Settings `json:"settings"`
-	Error    *Error   `json:"error,omitempty"`
+	Error    *Error   `json:"error,omitzero"`
 }
 
 // MergeLeadershipSettingsBulkParams is a collection of parameters for
@@ -82,7 +82,7 @@ type PinApplicationResult struct {
 	ApplicationName string `json:"application-name"`
 	// Error will contain a reference to an error resulting from pin/unpin
 	// if one occurred.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // PinnedLeadershipResult holds data representing the current applications for
@@ -96,5 +96,5 @@ type PinnedLeadershipResult struct {
 
 	// Error will contain a reference to an error resulting from
 	// reading lease data, if one occurred.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }

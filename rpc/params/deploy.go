@@ -3,7 +3,7 @@
 
 package params
 
-import "encoding/json"
+import "encoding/json/jsontext"
 
 // DeployRequest describes a request to transactionally deploy a base bundle
 // which may be optionally accompanied by one or more overlay documents.
@@ -72,7 +72,7 @@ type DeployAttachment struct {
 	// When the attachment points to a resource that is local to the client
 	// (e.g. a bundle, include file, controller details etc.), Data will
 	// contain a serialized version of the attachment contents.
-	Data json.RawMessage `json:"data,omitempty"`
+	Data jsontext.Value `json:"data,omitempty"`
 }
 
 // DeployResult describes the outcome of a deploy request.
@@ -91,5 +91,5 @@ type DeployResult struct {
 	// always check if the controller responded with an
 	// ErrAdditionalInformationRequired code and retry the original request
 	// with the required information attached.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }

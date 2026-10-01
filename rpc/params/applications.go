@@ -32,9 +32,9 @@ type CharmOrigin struct {
 	Risk string `json:"risk,omitempty"`
 
 	// Revision is the charm revision number.
-	Revision *int    `json:"revision,omitempty"`
-	Track    *string `json:"track,omitempty"`
-	Branch   *string `json:"branch,omitempty"`
+	Revision *int    `json:"revision,omitzero"`
+	Track    *string `json:"track,omitzero"`
+	Branch   *string `json:"branch,omitzero"`
 
 	Architecture string `json:"architecture,omitempty"`
 	Base         Base   `json:"base,omitempty"`
@@ -51,7 +51,7 @@ type CharmOrigin struct {
 type ApplicationDeploy struct {
 	ApplicationName  string                         `json:"application"`
 	CharmURL         string                         `json:"charm-url"`
-	CharmOrigin      *CharmOrigin                   `json:"charm-origin,omitempty"`
+	CharmOrigin      *CharmOrigin                   `json:"charm-origin,omitzero"`
 	Channel          string                         `json:"channel"`
 	NumUnits         int                            `json:"num-units"`
 	Config           map[string]string              `json:"config,omitempty"` // Takes precedence over yaml entries if both are present.
@@ -80,7 +80,7 @@ type ApplicationSetCharmV2 struct {
 	CharmURL string `json:"charm-url"`
 
 	// CharmOrigin is the charm origin
-	CharmOrigin *CharmOrigin `json:"charm-origin,omitempty"`
+	CharmOrigin *CharmOrigin `json:"charm-origin,omitzero"`
 
 	// Channel is the charm store channel from which the charm came.
 	Channel string `json:"channel"`
@@ -273,7 +273,7 @@ type UpdateApplicationServiceArg struct {
 	ApplicationTag string    `json:"application-tag"`
 	ProviderId     string    `json:"provider-id"`
 	Addresses      []Address `json:"addresses"`
-	Scale          *int      `json:"scale,omitempty"`
+	Scale          *int      `json:"scale,omitzero"`
 }
 
 // ApplicationDestroy holds the parameters for making the deprecated
@@ -302,7 +302,7 @@ type DestroyApplicationParamsV15 struct {
 
 	// DestroyStorage controls whether or not storage attached to
 	// units of the application should be destroyed.
-	DestroyStorage bool `json:"destroy-storage,omitempty"`
+	DestroyStorage bool `json:"destroy-storage,omitzero"`
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
@@ -311,7 +311,7 @@ type DestroyApplicationParamsV15 struct {
 	// MaxWait specifies the amount of time that each step in application removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // DestroyApplicationParams holds parameters for the
@@ -322,7 +322,7 @@ type DestroyApplicationParams struct {
 
 	// DestroyStorage controls whether or not storage attached to
 	// units of the application should be destroyed.
-	DestroyStorage bool `json:"destroy-storage,omitempty"`
+	DestroyStorage bool `json:"destroy-storage,omitzero"`
 
 	// Force controls whether or not the destruction of an application
 	// will be forced, i.e. ignore operational errors.
@@ -331,11 +331,11 @@ type DestroyApplicationParams struct {
 	// MaxWait specifies the amount of time that each step in application removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 
 	// DryRun specifies whether this should perform this destroy
 	// action or just return what this action will destroy
-	DryRun bool `json:"dry-run,omitempty"`
+	DryRun bool `json:"dry-run,omitzero"`
 }
 
 // DestroyConsumedApplicationsParams holds bulk parameters for the
@@ -351,12 +351,12 @@ type DestroyConsumedApplicationParams struct {
 
 	// Force controls whether or not the destruction process ignores
 	// operational errors. When true, the process will ignore them.
-	Force *bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in application removal
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // GetApplicationConstraints stores parameters for making the GetApplicationConstraints call.
@@ -373,7 +373,7 @@ type ApplicationGetConstraintsResults struct {
 // an error for trying to get it.
 type ApplicationConstraint struct {
 	Constraints constraints.Value `json:"constraints"`
-	Error       *Error            `json:"error,omitempty"`
+	Error       *Error            `json:"error,omitzero"`
 }
 
 // DestroyApplicationResults contains the results of a DestroyApplication
@@ -385,8 +385,8 @@ type DestroyApplicationResults struct {
 // DestroyApplicationResult contains one of the results of a
 // DestroyApplication API request.
 type DestroyApplicationResult struct {
-	Error *Error                  `json:"error,omitempty"`
-	Info  *DestroyApplicationInfo `json:"info,omitempty"`
+	Error *Error                  `json:"error,omitzero"`
+	Info  *DestroyApplicationInfo `json:"info,omitzero"`
 }
 
 // DestroyApplicationInfo contains information related to the removal of
@@ -425,7 +425,7 @@ type ScaleApplicationParams struct {
 	Scale int `json:"scale"`
 
 	// Scale is the number of units which should be added/removed from the existing count.
-	ScaleChange int `json:"scale-change,omitempty"`
+	ScaleChange int `json:"scale-change,omitzero"`
 
 	// Force controls whether or not scaling of an application
 	// will be forced, i.e. ignore operational errors.
@@ -442,7 +442,7 @@ type ScaleApplicationParamsV2 struct {
 	Scale int `json:"scale"`
 
 	// Scale is the number of units which should be added/removed from the existing count.
-	ScaleChange int `json:"scale-change,omitempty"`
+	ScaleChange int `json:"scale-change,omitzero"`
 
 	// Force controls whether or not scaling of an application
 	// will be forced, i.e. ignore operational errors.
@@ -463,8 +463,8 @@ type ScaleApplicationResults struct {
 // ScaleApplicationResult contains one of the results of a
 // ScaleApplication API request.
 type ScaleApplicationResult struct {
-	Error *Error                `json:"error,omitempty"`
-	Info  *ScaleApplicationInfo `json:"info,omitempty"`
+	Error *Error                `json:"error,omitzero"`
+	Info  *ScaleApplicationInfo `json:"info,omitzero"`
 }
 
 // ScaleApplicationInfo contains information related to the scaling of
@@ -492,8 +492,8 @@ type ApplicationResult struct {
 
 // ApplicationInfoResults holds an application info result or a retrieval error.
 type ApplicationInfoResult struct {
-	Result *ApplicationResult `json:"result,omitempty"`
-	Error  *Error             `json:"error,omitempty"`
+	Result *ApplicationResult `json:"result,omitzero"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // ApplicationInfoResults holds applications associated with entities.
@@ -525,7 +525,7 @@ type UnitResult struct {
 	OpenedPorts     []string               `json:"opened-ports"`
 	PublicAddress   string                 `json:"public-address,omitempty"`
 	Charm           string                 `json:"charm"`
-	Leader          bool                   `json:"leader,omitempty"`
+	Leader          bool                   `json:"leader,omitzero"`
 	Life            string                 `json:"life,omitempty"`
 	RelationData    []EndpointRelationData `json:"relation-data,omitempty"`
 
@@ -536,8 +536,8 @@ type UnitResult struct {
 
 // UnitInfoResults holds an unit info result or a retrieval error.
 type UnitInfoResult struct {
-	Result *UnitResult `json:"result,omitempty"`
-	Error  *Error      `json:"error,omitempty"`
+	Result *UnitResult `json:"result,omitzero"`
+	Error  *Error      `json:"error,omitzero"`
 }
 
 // UnitInfoResults holds units associated with entities.
@@ -552,9 +552,9 @@ type ExposeInfoResults struct {
 
 // ExposeInfoResult holds the result of a GetExposeInfo call.
 type ExposeInfoResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
-	Exposed bool `json:"exposed,omitempty"`
+	Exposed bool `json:"exposed,omitzero"`
 
 	// Expose parameters grouped by endpoint name. An empty ("") endpoint
 	// name key represents all application endpoints. For compatibility
@@ -586,12 +586,12 @@ type DeployFromRepositoryArg struct {
 	AttachStorage []string
 
 	// Base describes the OS base intended to be used by the charm.
-	Base *Base `json:"base,omitempty"`
+	Base *Base `json:"base,omitzero"`
 
 	// Channel is the channel in the repository to deploy from.
 	// This is an optional value. Required if revision is provided.
 	// Defaults to “stable” if not defined nor required.
-	Channel *string `json:"channel,omitempty"`
+	Channel *string `json:"channel,omitzero"`
 
 	// ConfigYAML is a string that overrides the default config.yml.
 	ConfigYAML string
@@ -615,11 +615,11 @@ type DeployFromRepositoryArg struct {
 	// Force can be set to true to bypass any checks for charm-specific
 	// requirements ("assumes" sections in charm metadata, supported series,
 	// LXD profile allow list)
-	Force bool `json:"force,omitempty"`
+	Force bool `json:"force,omitzero"`
 
 	// NumUnits is the number of units to deploy. Defaults to 1 if no
 	// value provided. Synonymous with scale for kubernetes charms.
-	NumUnits *int `json:"num-units,omitempty"`
+	NumUnits *int `json:"num-units,omitzero"`
 
 	// Placement directives define on which machines the unit(s) must be
 	// created.
@@ -627,7 +627,7 @@ type DeployFromRepositoryArg struct {
 
 	// Revision is the charm revision number. Requires the channel
 	// be explicitly set.
-	Revision *int `json:"revision,omitempty"`
+	Revision *int `json:"revision,omitzero"`
 
 	// Resources is a collection of resource names for the
 	// application, with the value being the revision of the
@@ -676,7 +676,7 @@ type DeployFromRepositoryInfo struct {
 	Channel string `json:"channel"`
 	// EffectiveChannel is the channel actually deployed from as determined
 	// by the charmhub response.
-	EffectiveChannel *string `json:"effective-channel,omitempty"`
+	EffectiveChannel *string `json:"effective-channel,omitzero"`
 	// Is the name of the application deployed. This may vary from
 	// the charm name provided if differs in the metadata.yaml and
 	// no provided on the cli.

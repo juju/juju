@@ -60,7 +60,7 @@ type SubnetV3 struct {
 	SubnetV2
 
 	SpaceID  string `json:"space-id"`
-	IsPublic bool   `json:"is-public,omitempty"`
+	IsPublic bool   `json:"is-public,omitzero"`
 }
 
 // NetworkRoute describes a special route that should be added for a given
@@ -137,7 +137,7 @@ type NetworkConfig struct {
 	// to start automatically on boot. By default and for
 	// backwards-compatibility, interfaces are configured to
 	// auto-start.
-	NoAutoStart bool `json:"no-auto-start,omitempty"`
+	NoAutoStart bool `json:"no-auto-start,omitzero"`
 
 	// ConfigType, if set, defines what type of configuration to use.
 	// See network.AddressConfigType for more info. If not set, for
@@ -170,7 +170,7 @@ type NetworkConfig struct {
 	Routes []NetworkRoute `json:"routes,omitempty"`
 
 	// IsDefaultGateway marks an interface that is a default gateway for a machine.
-	IsDefaultGateway bool `json:"is-default-gateway,omitempty"`
+	IsDefaultGateway bool `json:"is-default-gateway,omitzero"`
 
 	// VirtualPortType provides additional information about the type of
 	// this device if it belongs to a virtual switch (e.g. when using
@@ -322,7 +322,7 @@ type ProviderInterfaceInfoResults struct {
 type ProviderInterfaceInfoResult struct {
 	MachineTag string                  `json:"machine-tag"`
 	Interfaces []ProviderInterfaceInfo `json:"interfaces"`
-	Error      *Error                  `json:"error,omitempty"`
+	Error      *Error                  `json:"error,omitzero"`
 }
 
 // ProviderInterfaceInfo stores the details needed to identify an
@@ -418,7 +418,7 @@ type Address struct {
 	SpaceName       string `json:"space-name,omitempty"`
 	ProviderSpaceID string `json:"space-id,omitempty"`
 	ConfigType      string `json:"config-type,omitempty"`
-	IsSecondary     bool   `json:"is-secondary,omitempty"`
+	IsSecondary     bool   `json:"is-secondary,omitzero"`
 }
 
 // MachineAddress transforms the Address to a MachineAddress,
@@ -646,7 +646,7 @@ type SetProviderNetworkConfigResults struct {
 // SetProviderNetworkConfigResult holds a list of provider addresses or an
 // error.
 type SetProviderNetworkConfigResult struct {
-	Error     *Error    `json:"error,omitempty"`
+	Error     *Error    `json:"error,omitzero"`
 	Addresses []Address `json:"addresses"`
 
 	// Modified will be set to true if the provider address list has been
@@ -690,7 +690,7 @@ func (c *SetMachineNetworkConfig) BackFillMachineOrigin() {
 // MachineAddressesResult holds a list of machine addresses or an
 // error.
 type MachineAddressesResult struct {
-	Error     *Error    `json:"error,omitempty"`
+	Error     *Error    `json:"error,omitzero"`
 	Addresses []Address `json:"addresses"`
 }
 
@@ -724,13 +724,13 @@ type PortsResults struct {
 // PortsResult holds the result of an API call that returns a slice
 // of Port or an error.
 type PortsResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	Ports []Port `json:"ports"`
 }
 
 // UnitNetworkConfigResult holds network configuration for a single unit.
 type UnitNetworkConfigResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
 	// Tagged to Info due to compatibility reasons.
 	Config []NetworkConfig `json:"info"`
@@ -743,7 +743,7 @@ type UnitNetworkConfigResults struct {
 
 // MachineNetworkConfigResult holds network configuration for a single machine.
 type MachineNetworkConfigResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
 	// Tagged to Info due to compatibility reasons.
 	Config []NetworkConfig `json:"info"`
@@ -757,7 +757,7 @@ type MachineNetworkConfigResults struct {
 // HostNetworkChange holds the information about how a host machine should be
 // modified to prepare for a container.
 type HostNetworkChange struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
 	// NewBridges lists the bridges that need to be created and what host
 	// device they should be connected to.
@@ -782,7 +782,7 @@ type ApplicationOpenedPorts struct {
 // ApplicationOpenedPortsResult holds a single result of the
 // CAASFirewallerEmbedded.GetOpenedPorts() API calls.
 type ApplicationOpenedPortsResult struct {
-	Error                 *Error                   `json:"error,omitempty"`
+	Error                 *Error                   `json:"error,omitzero"`
 	ApplicationPortRanges []ApplicationOpenedPorts `json:"application-port-ranges"`
 }
 
@@ -801,7 +801,7 @@ type OpenPortRangesByEndpointResults struct {
 // OpenPortRangesByEndpointResult holds a single result of a request to
 // the uniter's OpenedMachinePortRangesByEndpoint and OpenedPortRangesByEndpoint API.
 type OpenPortRangesByEndpointResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
 	// The set of opened port ranges grouped by unit tag.
 	UnitPortRanges map[string][]OpenUnitPortRangesByEndpoint `json:"unit-port-ranges"`
@@ -816,7 +816,7 @@ type OpenUnitPortRangesByEndpoint struct {
 
 type IngressRulesResult struct {
 	Rules []IngressRule `json:"rules"`
-	Error *Error        `json:"error,omitempty"`
+	Error *Error        `json:"error,omitzero"`
 }
 
 type IngressRule struct {
@@ -840,7 +840,7 @@ func (r APIHostPortsResult) MachineHostsPorts() []network.MachineHostPorts {
 // ZoneResult holds the result of an API call that returns an
 // availability zone name and whether it's available for use.
 type ZoneResult struct {
-	Error     *Error `json:"error,omitempty"`
+	Error     *Error `json:"error,omitzero"`
 	Name      string `json:"name"`
 	Available bool   `json:"available"`
 }
@@ -852,7 +852,7 @@ type ZoneResults struct {
 
 // SpaceResult holds a single space tag or an error.
 type SpaceResult struct {
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 	Tag   string `json:"tag"`
 }
 
@@ -866,10 +866,10 @@ type SpaceResults struct {
 type RemoveSpaceParam struct {
 	Space Entity `json:"space"`
 	// Force specifies whether the space removal will be forced, even if existing bindings, constraints or configurations are found.
-	Force bool `json:"force,omitempty"`
+	Force bool `json:"force,omitzero"`
 	// DryRun specifies whether this command should only be run to return which constraints, bindings and configs are using given space.
 	// Without applying the remove operations.
-	DryRun bool `json:"dry-run,omitempty"`
+	DryRun bool `json:"dry-run,omitzero"`
 }
 
 // RemoveSpaceParams holds a single space tag and whether it should be forced.
@@ -890,7 +890,7 @@ type RemoveSpaceResult struct {
 	Constraints        []Entity `json:"constraints,omitempty"`
 	Bindings           []Entity `json:"bindings,omitempty"`
 	ControllerSettings []string `json:"controller-settings,omitempty"`
-	Error              *Error   `json:"error,omitempty"`
+	Error              *Error   `json:"error,omitzero"`
 }
 
 // ListSubnetsResults holds the result of a ListSubnets API call.
@@ -919,7 +919,7 @@ type AddSubnetParams struct {
 	SubnetProviderId  string   `json:"subnet-provider-id,omitempty"`
 	ProviderNetworkId string   `json:"provider-network-id,omitempty"`
 	SpaceTag          string   `json:"space-tag"`
-	VLANTag           int      `json:"vlan-tag,omitempty"`
+	VLANTag           int      `json:"vlan-tag,omitzero"`
 	Zones             []string `json:"zones,omitempty"`
 }
 
@@ -934,7 +934,7 @@ type CreateSubnetParams struct {
 	SubnetTag string   `json:"subnet-tag,omitempty"`
 	SpaceTag  string   `json:"space-tag"`
 	Zones     []string `json:"zones,omitempty"`
-	VLANTag   int      `json:"vlan-tag,omitempty"`
+	VLANTag   int      `json:"vlan-tag,omitzero"`
 	IsPublic  bool     `json:"is-public"`
 }
 
@@ -1008,7 +1008,7 @@ type MoveSubnetsResult struct {
 	NewSpaceTag string `json:"new-space"`
 
 	// Error will be non-nil if the subnets could not be moved.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // MoveSubnetsResults contains the results of a call to MoveSubnets.
@@ -1024,7 +1024,7 @@ type ShowSpaceResult struct {
 	Applications []string `json:"applications"`
 	// MachineCount is the number of machines connected to a given space.
 	MachineCount int    `json:"machine-count"`
-	Error        *Error `json:"error,omitempty"`
+	Error        *Error `json:"error,omitzero"`
 }
 
 // ShowSpaceResults holds the list of all available spaces.
@@ -1042,7 +1042,7 @@ type Space struct {
 	Id      string   `json:"id"`
 	Name    string   `json:"name"`
 	Subnets []Subnet `json:"subnets"`
-	Error   *Error   `json:"error,omitempty"`
+	Error   *Error   `json:"error,omitzero"`
 }
 
 // ProviderSpace holds the information about a single space and its associated subnets.
@@ -1050,7 +1050,7 @@ type ProviderSpace struct {
 	Name       string   `json:"name"`
 	ProviderId string   `json:"provider-id"`
 	Subnets    []Subnet `json:"subnets"`
-	Error      *Error   `json:"error,omitempty"`
+	Error      *Error   `json:"error,omitzero"`
 }
 
 type ProxyConfig struct {
@@ -1070,7 +1070,7 @@ type ProxyConfigResult struct {
 	SnapStoreProxyAssertions string      `json:"snap-store-assertions,omitempty"`
 	SnapStoreProxyURL        string      `json:"snap-store-proxy-url,omitempty"`
 	AptMirror                string      `json:"apt-mirror,omitempty"`
-	Error                    *Error      `json:"error,omitempty"`
+	Error                    *Error      `json:"error,omitzero"`
 }
 
 // ProxyConfigResults contains information needed to configure multiple clients proxy settings
@@ -1083,7 +1083,7 @@ type ProxyConfigResults struct {
 type ProxyConfigResultV1 struct {
 	ProxySettings    ProxyConfig `json:"proxy-settings"`
 	APTProxySettings ProxyConfig `json:"apt-proxy-settings"`
-	Error            *Error      `json:"error,omitempty"`
+	Error            *Error      `json:"error,omitzero"`
 }
 
 // ProxyConfigResultsV1 contains information needed to configure multiple clients proxy settings.
@@ -1120,7 +1120,7 @@ type NetworkInfo struct {
 // NetworkInfoResult Adds egress and ingress subnets and changes the serialized
 // `Info` key name in the yaml/json API protocol.
 type NetworkInfoResult struct {
-	Error            *Error        `json:"error,omitempty" yaml:"error,omitempty"`
+	Error            *Error        `json:"error,omitzero" yaml:"error,omitempty"`
 	Info             []NetworkInfo `json:"bind-addresses,omitempty" yaml:"bind-addresses,omitempty"`
 	EgressSubnets    []string      `json:"egress-subnets,omitempty" yaml:"egress-subnets,omitempty"`
 	IngressAddresses []string      `json:"ingress-addresses,omitempty" yaml:"ingress-addresses,omitempty"`
@@ -1134,7 +1134,7 @@ type NetworkInfoResults struct {
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
 	Unit       string `json:"unit"`
-	RelationId *int   `json:"relation-id,omitempty"`
+	RelationId *int   `json:"relation-id,omitzero"`
 	// TODO (manadart 2019-10-28): The name of this member was changed to
 	// better indicate what it is, but the encoded name was left as-is to
 	// avoid the need for facade schema regeneration.
@@ -1162,7 +1162,7 @@ type CIDRParams struct {
 // SubnetsResult contains a collection of subnets or an error.
 type SubnetsResult struct {
 	Subnets []SubnetV2 `json:"subnets,omitempty"`
-	Error   *Error     `json:"error,omitempty"`
+	Error   *Error     `json:"error,omitzero"`
 }
 
 // SubnetsResults contains a collection of subnets results.

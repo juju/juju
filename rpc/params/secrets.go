@@ -62,7 +62,7 @@ type SecretContentParams struct {
 	Data map[string]string `json:"data,omitempty"`
 	// ValueRef is the content reference for when a secret
 	// backend like vault is used.
-	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
+	ValueRef *SecretValueRef `json:"value-ref,omitzero"`
 	// Checksum is the hash of the secret context.
 	Checksum string `json:"checksum,omitempty"`
 }
@@ -70,13 +70,13 @@ type SecretContentParams struct {
 // UpsertSecretArg holds the args for creating or updating a secret.
 type UpsertSecretArg struct {
 	// RotatePolicy is how often a secret should be rotated.
-	RotatePolicy *SecretRotatePolicy `json:"rotate-policy,omitempty"`
+	RotatePolicy *SecretRotatePolicy `json:"rotate-policy,omitzero"`
 	// ExpireTime is when a secret should expire.
-	ExpireTime *time.Time `json:"expire-time,omitempty"`
+	ExpireTime *time.Time `json:"expire-time,omitzero"`
 	// Description represents the secret's description.
-	Description *string `json:"description,omitempty"`
+	Description *string `json:"description,omitzero"`
 	// Tags are the secret tags.
-	Label *string `json:"label,omitempty"`
+	Label *string `json:"label,omitzero"`
 	// Params are used when generating secrets server side.
 	// See core/secrets/secret.go.
 	Params map[string]any `json:"params,omitempty"`
@@ -110,7 +110,7 @@ type CreateSecretArg struct {
 	// If empty, the controller generates a URI.
 	//
 	// Deprecated: Do not supply a URI, it will be ignored.
-	URI *string `json:"uri,omitempty"`
+	URI *string `json:"uri,omitzero"`
 	// OwnerTag is the owner of the secret.
 	OwnerTag string `json:"owner-tag"`
 }
@@ -146,7 +146,7 @@ type UpdateUserSecretArg struct {
 	ExistingLabel string `json:"existing-label"`
 
 	// AutoPrune indicates whether the staled secret revisions should be pruned automatically.
-	AutoPrune *bool `json:"auto-prune,omitempty"`
+	AutoPrune *bool `json:"auto-prune,omitzero"`
 }
 
 // Validate validates the UpdateUserSecretArg.
@@ -205,7 +205,7 @@ type SecretConsumerInfoResults struct {
 type SecretConsumerInfoResult struct {
 	Revision int    `json:"revision"`
 	Label    string `json:"label"`
-	Error    *Error `json:"error,omitempty"`
+	Error    *Error `json:"error,omitzero"`
 }
 
 // GetSecretContentArgs holds the args for getting secret values.
@@ -217,8 +217,8 @@ type GetSecretContentArgs struct {
 type GetSecretContentArg struct {
 	URI     string `json:"uri"`
 	Label   string `json:"label,omitempty"`
-	Refresh bool   `json:"refresh,omitempty"`
-	Peek    bool   `json:"peek,omitempty"`
+	Refresh bool   `json:"refresh,omitzero"`
+	Peek    bool   `json:"peek,omitzero"`
 }
 
 // ChangeSecretBackendArgs holds a slice of args for updating secret backend IDs.
@@ -242,23 +242,23 @@ type SecretContentResults struct {
 // SecretContentResult is the result of getting secret content.
 type SecretContentResult struct {
 	Content        SecretContentParams        `json:"content"`
-	BackendConfig  *SecretBackendConfigResult `json:"backend-config,omitempty"`
-	LatestRevision *int                       `json:"latest-revision,omitempty"`
-	Error          *Error                     `json:"error,omitempty"`
+	BackendConfig  *SecretBackendConfigResult `json:"backend-config,omitzero"`
+	LatestRevision *int                       `json:"latest-revision,omitzero"`
+	Error          *Error                     `json:"error,omitzero"`
 }
 
 // SecretValueResult is the result of getting a secret value.
 type SecretValueResult struct {
 	Data  map[string]string `json:"data,omitempty"`
-	Error *Error            `json:"error,omitempty"`
+	Error *Error            `json:"error,omitzero"`
 }
 
 // SecretsFilter is used when querying secrets.
 type SecretsFilter struct {
-	URI      *string `json:"uri,omitempty"`
-	Label    *string `json:"label,omitempty"`
-	Revision *int    `json:"revision,omitempty"`
-	OwnerTag *string `json:"owner-tag,omitempty"`
+	URI      *string `json:"uri,omitzero"`
+	Label    *string `json:"label,omitzero"`
+	Revision *int    `json:"revision,omitzero"`
+	OwnerTag *string `json:"owner-tag,omitzero"`
 }
 
 // ListSecretsArgs holds the args for listing secrets.
@@ -282,11 +282,11 @@ type SecretValueRef struct {
 // SecretRevision holds secret revision metadata.
 type SecretRevision struct {
 	Revision    int             `json:"revision"`
-	ValueRef    *SecretValueRef `json:"value-ref,omitempty"`
-	BackendName *string         `json:"backend-name,omitempty"`
+	ValueRef    *SecretValueRef `json:"value-ref,omitzero"`
+	BackendName *string         `json:"backend-name,omitzero"`
 	CreateTime  time.Time       `json:"create-time,omitempty"`
 	UpdateTime  time.Time       `json:"update-time,omitempty"`
-	ExpireTime  *time.Time      `json:"expire-time,omitempty"`
+	ExpireTime  *time.Time      `json:"expire-time,omitzero"`
 }
 
 // ListSecretResult is the result of getting secret and revision metadata.
@@ -295,16 +295,16 @@ type ListSecretResult struct {
 	Version                int                `json:"version"`
 	OwnerTag               string             `json:"owner-tag"`
 	RotatePolicy           string             `json:"rotate-policy,omitempty"`
-	NextRotateTime         *time.Time         `json:"next-rotate-time,omitempty"`
+	NextRotateTime         *time.Time         `json:"next-rotate-time,omitzero"`
 	Description            string             `json:"description,omitempty"`
 	Label                  string             `json:"label,omitempty"`
 	LatestRevision         int                `json:"latest-revision"`
 	LatestRevisionChecksum string             `json:"latest-revision-checksum"`
-	LatestExpireTime       *time.Time         `json:"latest-expire-time,omitempty"`
+	LatestExpireTime       *time.Time         `json:"latest-expire-time,omitzero"`
 	CreateTime             time.Time          `json:"create-time"`
 	UpdateTime             time.Time          `json:"update-time"`
 	Revisions              []SecretRevision   `json:"revisions"`
-	Value                  *SecretValueResult `json:"value,omitempty"`
+	Value                  *SecretValueResult `json:"value,omitzero"`
 	Access                 []AccessInfo       `json:"access,omitempty"`
 }
 
@@ -319,15 +319,15 @@ type ListSecretMetadataResult struct {
 	Version                int                `json:"version"`
 	OwnerTag               string             `json:"owner-tag"`
 	RotatePolicy           string             `json:"rotate-policy,omitempty"`
-	NextRotateTime         *time.Time         `json:"next-rotate-time,omitempty"`
+	NextRotateTime         *time.Time         `json:"next-rotate-time,omitzero"`
 	Description            string             `json:"description,omitempty"`
 	Label                  string             `json:"label,omitempty"`
 	LatestRevision         int                `json:"latest-revision"`
 	LatestRevisionChecksum string             `json:"latest-revision-checksum"`
-	LatestExpireTime       *time.Time         `json:"latest-expire-time,omitempty"`
+	LatestExpireTime       *time.Time         `json:"latest-expire-time,omitzero"`
 	CreateTime             time.Time          `json:"create-time"`
 	UpdateTime             time.Time          `json:"update-time"`
-	Value                  *SecretValueResult `json:"value,omitempty"`
+	Value                  *SecretValueResult `json:"value,omitzero"`
 	Access                 []AccessInfo       `json:"access,omitempty"`
 }
 
@@ -345,7 +345,7 @@ type SecretRevisionsToDrainResult struct {
 // SecretExternalRevision holds secret revision metadata for an external revision.
 type SecretExternalRevision struct {
 	Revision int             `json:"revision"`
-	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
+	ValueRef *SecretValueRef `json:"value-ref,omitzero"`
 }
 
 // AccessInfo holds info about a secret access information.
@@ -358,7 +358,7 @@ type AccessInfo struct {
 // SecretTriggerChange describes a change to a secret trigger.
 type SecretTriggerChange struct {
 	URI             string    `json:"uri"`
-	Revision        int       `json:"revision,omitempty"`
+	Revision        int       `json:"revision,omitzero"`
 	NextTriggerTime time.Time `json:"next-trigger-time"`
 }
 
@@ -366,7 +366,7 @@ type SecretTriggerChange struct {
 type SecretTriggerWatchResult struct {
 	WatcherId string                `json:"watcher-id"`
 	Changes   []SecretTriggerChange `json:"changes"`
-	Error     *Error                `json:"error,omitempty"`
+	Error     *Error                `json:"error,omitzero"`
 }
 
 // SecretRotatedArgs holds the args for updating rotated secret info.
@@ -427,7 +427,7 @@ type SecretBackendResult struct {
 	NumSecrets int    `json:"num-secrets"`
 	Status     string `json:"status"`
 	Message    string `json:"message,omitempty"`
-	Error      *Error `json:"error,omitempty"`
+	Error      *Error `json:"error,omitzero"`
 }
 
 // AddSecretBackendArgs holds args for adding secret backends.
@@ -454,7 +454,7 @@ type UpdateSecretBackendArg struct {
 	Name string `json:"name"`
 
 	// NameChange if set, renames the backend.
-	NameChange *string `json:"name-change,omitempty"`
+	NameChange *string `json:"name-change,omitzero"`
 
 	// TokenRotateInterval is the interval to rotate
 	// the backend master access token.
@@ -467,7 +467,7 @@ type UpdateSecretBackendArg struct {
 	Reset []string `json:"reset"`
 
 	// Force means to update the backend even if a ping fails.
-	Force bool `json:"force,omitempty"`
+	Force bool `json:"force,omitzero"`
 }
 
 // ListSecretBackendsArgs holds the args for listing secret backends.
@@ -492,7 +492,7 @@ type SecretBackend struct {
 
 	// TokenRotateInterval is the interval to rotate
 	// the backend master access token.
-	TokenRotateInterval *time.Duration `json:"token-rotate-interval,omitempty"`
+	TokenRotateInterval *time.Duration `json:"token-rotate-interval,omitzero"`
 
 	// Config are the backend's configuration attributes.
 	Config map[string]any `json:"config"`
@@ -506,7 +506,7 @@ type RemoveSecretBackendArgs struct {
 // RemoveSecretBackendArg holds args for removing a secret backend.
 type RemoveSecretBackendArg struct {
 	Name  string `json:"name"`
-	Force bool   `json:"force,omitempty"`
+	Force bool   `json:"force,omitzero"`
 }
 
 // RotateSecretBackendArgs holds the args for updating rotated secret backend info.
@@ -525,7 +525,7 @@ type SecretBackendRotateChange struct {
 type SecretBackendRotateWatchResult struct {
 	WatcherId string                      `json:"watcher-id"`
 	Changes   []SecretBackendRotateChange `json:"changes"`
-	Error     *Error                      `json:"error,omitempty"`
+	Error     *Error                      `json:"error,omitzero"`
 }
 
 // GetRemoteSecretContentArgs holds args for fetching remote secret contents.
@@ -545,22 +545,22 @@ type GetRemoteSecretContentArg struct {
 	UnitId int `json:"unit-id"`
 
 	// Revision, if specified, is the secret revision to fetch.
-	Revision *int `json:"revision,omitempty"`
+	Revision *int `json:"revision,omitzero"`
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 
 	// URI is the secret URI.
 	URI string `json:"uri"`
 
 	// Refresh is true if the latest revision should be used from here on.
-	Refresh bool `json:"refresh,omitempty"`
+	Refresh bool `json:"refresh,omitzero"`
 
 	// Peek is true if we want the latest revision just this once.
-	Peek bool `json:"peek,omitempty"`
+	Peek bool `json:"peek,omitzero"`
 }
 
 // GetRemoteSecretAccessArgs holds args for fetching info
@@ -601,7 +601,7 @@ type WatchRemoteSecretChangesArg struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 
 	// BakeryVersion is the version of the bakery used to mint macaroons.
-	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitzero"`
 }
 
 // LatestSecretRevisionChanges holds a collection of secret revision changes
@@ -621,7 +621,7 @@ type SecretRevisionChange struct {
 type SecretRevisionWatchResult struct {
 	WatcherId string                 `json:"watcher-id"`
 	Changes   []SecretRevisionChange `json:"changes"`
-	Error     *Error                 `json:"error,omitempty"`
+	Error     *Error                 `json:"error,omitzero"`
 }
 
 // SecretRevisionWatchResults holds the results for any API call which ends up
@@ -639,7 +639,7 @@ type SecretRevisionIDsResults struct {
 type SecretRevisionIDsResult struct {
 	URI       string `json:"uri"`
 	Revisions []int  `json:"revisions"`
-	Error     *Error `json:"error,omitempty"`
+	Error     *Error `json:"error,omitzero"`
 }
 
 // SecretRevisionArgs holds the secret URI strings to request revision IDs for.
@@ -652,5 +652,5 @@ type SecretRevisionArgs struct {
 // optionally a time for the next revoke.
 type RevokeIssuedTokensResult struct {
 	Next  time.Time `json:"next"`
-	Error *Error    `json:"error,omitempty"`
+	Error *Error    `json:"error,omitzero"`
 }
