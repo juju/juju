@@ -111,16 +111,19 @@ func (s *Service) getControllerDiscoveryAddresses(ctx context.Context, names []u
 			Shared: orderControllerAddresses(addresses, preferredScope),
 		}, nil
 	}
+
 	result := domainnetwork.ControllerAddressSelection{
 		ByUnit: make(map[unit.Name]network.SpaceAddresses, len(names)),
 	}
+
 	var space *network.SpaceInfo
-	if managementSpace != "" && modelType == model.IAAS {
+	if managementSpace != "" {
 		space, err = s.st.GetSpaceByName(ctx, managementSpace)
 		if err != nil {
 			return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting management space %q: %w", managementSpace, err)
 		}
 	}
+
 	for _, name := range names {
 		candidates, err := s.controllerNetwork(ctx, name)
 		if err != nil {
