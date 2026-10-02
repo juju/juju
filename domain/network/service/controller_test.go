@@ -140,7 +140,7 @@ func (*controllerNetworkSuite) TestDiscoveryKeepsControllerIdentityAndManagement
 	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(2)
 	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{public, management}, nil).Times(2)
 	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/1").Return(domainnetwork.ControllerAPIAddresses{fallback}, nil).Times(2)
-	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("management")).Return(&network.SpaceInfo{ID: "management"}, nil).Times(2)
+	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("management")).Return(&network.SpaceInfo{ID: "management"}, nil)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
 	names := []unit.Name{"controller/0", "controller/1"}
 	agents, err := svc.GetControllerAgentAddresses(c.Context(), names, "management")

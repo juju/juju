@@ -56,10 +56,14 @@ func (s *Service) GetControllerPeerAddresses(ctx context.Context, name unit.Name
 	if err != nil {
 		return nil, errors.Errorf("getting controller model type: %w", err)
 	}
-	addresses, err := s.selectControllerAddresses(ctx, controllerAddresses, modelType, managementSpace)
-	if err != nil {
-		return nil, errors.Capture(err)
+	var space *network.SpaceInfo
+	if managementSpace != "" && modelType == model.IAAS {
+		space, err = s.st.GetSpaceByName(ctx, managementSpace)
+		if err != nil {
+			return nil, errors.Errorf("getting management space %q: %w", managementSpace, err)
+		}
 	}
+	addresses := selectControllerAddresses(controllerAddresses, modelType, space)
 	return orderControllerAddresses(addresses, network.ScopeCloudLocal), nil
 }
 
@@ -110,42 +114,39 @@ func (s *Service) getControllerDiscoveryAddresses(ctx context.Context, names []u
 	result := domainnetwork.ControllerAddressSelection{
 		ByUnit: make(map[unit.Name]network.SpaceAddresses, len(names)),
 	}
+	var space *network.SpaceInfo
+	if managementSpace != "" && modelType == model.IAAS {
+		space, err = s.st.GetSpaceByName(ctx, managementSpace)
+		if err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting management space %q: %w", managementSpace, err)
+		}
+	}
 	for _, name := range names {
 		candidates, err := s.controllerNetwork(ctx, name)
 		if err != nil {
 			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
 		}
-		addresses, err := s.selectControllerAddresses(ctx, candidates, modelType, managementSpace)
-		if err != nil {
-			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
-		}
+		addresses := selectControllerAddresses(candidates, modelType, space)
 		result.ByUnit[name] = orderControllerAddresses(addresses, preferredScope)
 	}
 	return result, nil
 }
 
-func (s *Service) selectControllerAddresses(ctx context.Context, candidates domainnetwork.ControllerAPIAddresses, modelType model.ModelType, managementSpace network.SpaceName) (network.SpaceAddresses, error) {
-	var space *network.SpaceInfo
-	if managementSpace != "" && modelType == model.IAAS {
-		var err error
-		space, err = s.st.GetSpaceByName(ctx, managementSpace)
-		if err != nil {
-			return nil, errors.Errorf("getting management space %q: %w", managementSpace, err)
-		}
-	}
+func selectControllerAddresses(candidates domainnetwork.ControllerAPIAddresses, modelType model.ModelType, space *network.SpaceInfo) network.SpaceAddresses {
 	addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, modelType), space)
-	if space != nil {
-		var matched network.SpaceAddresses
-		for _, address := range addresses {
-			if address.SpaceID == space.ID {
-				matched = append(matched, address)
-			}
-		}
-		if len(matched) > 0 {
-			addresses = matched
+	if space == nil {
+		return addresses
+	}
+	var matched network.SpaceAddresses
+	for _, address := range addresses {
+		if address.SpaceID == space.ID {
+			matched = append(matched, address)
 		}
 	}
-	return addresses, nil
+	if len(matched) > 0 {
+		return matched
+	}
+	return addresses
 }
 
 func (s *Service) controllerNetwork(ctx context.Context, name unit.Name) (domainnetwork.ControllerAPIAddresses, error) {
