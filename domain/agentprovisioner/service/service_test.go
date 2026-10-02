@@ -138,6 +138,57 @@ func (s *suite) TestDetermineNetworkingMethodProviderDoesntSupport(c *tc.C) {
 	c.Check(method, tc.Equals, containermanager.NetworkingMethodLocal)
 }
 
+// TestContainerNetworkingMethodExplicitProviderNotConsulted asserts that an
+// explicitly configured "provider" method is used as configured, without
+// consulting the provider for its capabilities.
+func (s *suite) TestContainerNetworkingMethodExplicitProviderNotConsulted(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		config.ContainerNetworkingMethodKey: "provider",
+	}, nil)
+	s.providerGetter = func(ctx context.Context) (Provider, error) {
+		c.Errorf("provider getter must not be called for an explicitly configured method")
+		return nil, nil
+	}
+
+	service := NewService(s.state, s.providerGetter)
+	method, err := service.ContainerNetworkingMethod(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(method, tc.Equals, containermanager.NetworkingMethodProvider)
+}
+
+// TestContainerNetworkingMethodInvalid asserts that a configured value that
+// is not a container networking method is rejected with NotValid.
+func (s *suite) TestContainerNetworkingMethodInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		config.ContainerNetworkingMethodKey: "bogus",
+	}, nil)
+
+	service := NewService(s.state, s.providerGetter)
+	_, err := service.ContainerNetworkingMethod(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestContainerNetworkingMethodProviderGetterError asserts that a failure to
+// obtain the provider during "auto" resolution is propagated.
+func (s *suite) TestContainerNetworkingMethodProviderGetterError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConfigKeyValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		config.ContainerNetworkingMethodKey: "", // auto-configure
+	}, nil)
+	providerGetter := func(ctx context.Context) (Provider, error) {
+		return nil, errors.Errorf("cannot get provider")
+	}
+
+	service := NewService(s.state, providerGetter)
+	_, err := service.ContainerNetworkingMethod(c.Context())
+	c.Assert(err, tc.ErrorMatches, "cannot get networking provider for model: cannot get provider")
+}
+
 func (s *suite) TestContainerConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
