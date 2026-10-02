@@ -16,6 +16,46 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// GetMachineInstanceID returns the cloud instance ID of the machine with the
+// input UUID.
+// If the machine has no cloud instance, or the instance has not yet been
+// created, an error satisfying
+// [networkerrors.HostNotProvisioned] is returned.
+func (st *State) GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	mUUID := entityUUID{UUID: machineUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &instanceID.instance_id
+FROM   machine_cloud_instance
+WHERE  machine_uuid = $entityUUID.uuid`, mUUID, instanceID{})
+	if err != nil {
+		return "", errors.Errorf("preparing machine instance ID statement: %w", err)
+	}
+
+	var result instanceID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = instanceID{}
+		if err := tx.Query(ctx, stmt, mUUID).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return networkerrors.HostNotProvisioned
+		} else if err != nil {
+			return errors.Errorf("querying machine instance ID: %w", err)
+		}
+		if !result.ID.Valid || result.ID.String == "" {
+			return networkerrors.HostNotProvisioned
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return result.ID.String, nil
+}
+
 // GetMachineSpaceConstraints returns the positive and negative
 // space constraints for the machine with the input UUID.
 func (st *State) GetMachineSpaceConstraints(

@@ -37,6 +37,12 @@ type ContainerState interface {
 		ctx context.Context, machineUUID string,
 	) ([]internal.SpaceName, []internal.SpaceName, error)
 
+	// GetMachineInstanceID returns the cloud instance ID of the machine with
+	// the input UUID. If the machine has no cloud instance, or the instance
+	// has not yet been created, an error satisfying
+	// [domainerrors.HostNotProvisioned] is returned.
+	GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error)
+
 	// GetMachineAppBindings returns the bound spaces for applications
 	// with units assigned to the machine with the input UUID.
 	GetMachineAppBindings(ctx context.Context, machineUUID string) ([]internal.SpaceName, error)
@@ -87,46 +93,28 @@ func (s *ProviderService) DevicesToBridge(
 	return s.devicesToBridge(ctx, hostUUID, spaceUUIDs, nics)
 }
 
-// AllocateContainerAddresses allocates a static address for each of the
-// container NICs in preparedInfo, hosted by the hostInstanceID, if the
-// provider supports it. Returns the network config including all allocated
-// addresses on success.
-// Returns [domainerrors.ContainerAddressesNotSupported] if the provider
-// does not support container addressing.
-func (s *ProviderService) AllocateContainerAddresses(ctx context.Context,
-	hostInstanceID instance.Id,
-	containerName string,
-	preparedInfo corenetwork.InterfaceInfos,
-) (corenetwork.InterfaceInfos, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	provider, err := s.providerWithNetworking(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	if !provider.SupportsContainerAddresses() {
-		return nil, domainerrors.ContainerAddressesNotSupported
-	}
-
-	newInfo, err := provider.AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo)
-	return newInfo, errors.Capture(err)
-}
-
-// DevicesForGuest returns the network devices that should be configured in the
-// guest machine with the input UUID, based on the host machine's bridges.
+// NetworkConfigForGuest returns the network configuration to apply to the
+// guest machine with the input UUID and name, hosted by the host machine with
+// the input UUID. It is based on the host machine's bridges.
 // When the container networking method resolves to "local" (explicitly
 // configured, or "auto" on a provider without container address support),
 // the default LXD bridge is used for spaces that have no in-space bridge.
-// Devices attached to it are configured for DHCP, as no subnet CIDR is
-// registered for the bridge.
-// Note that negative space constraints are not enforced in this mode: the
+// In this mode all devices are configured for DHCP, as the container's
+// networking is provided by the host machine, and at most one device is
+// created with the default LXD bridge as its parent.
+// When the effective method is provider networking and the provider supports
+// container address allocation, the provider is asked to allocate an address
+// for each device, and the returned configuration includes them.
+// The provider is never consulted for addresses in any other case.
+// Note that negative space constraints are not enforced in local mode: the
 // default LXD bridge is used regardless of whether the space (if any) in
 // which its addresses are reported is negatively constrained.
-func (s *ProviderService) DevicesForGuest(
-	ctx context.Context, hostUUID, guestUUID machine.UUID,
-) ([]network.NetInterface, error) {
+// If provider address allocation is required, but the host machine has not
+// been provisioned, an error satisfying
+// [domainerrors.HostNotProvisioned] is returned.
+func (s *ProviderService) NetworkConfigForGuest(
+	ctx context.Context, hostUUID, guestUUID machine.UUID, guestName machine.Name,
+) (corenetwork.InterfaceInfos, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -135,7 +123,115 @@ func (s *ProviderService) DevicesForGuest(
 		return nil, errors.Capture(err)
 	}
 
-	return s.guestDevices(ctx, hostUUID, nodeUUID, spaceUUIDs, nics)
+	isLocal, supportsAddresses, err := s.containerNetworking(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// Addresses are allocated by the provider only when it is the provider
+	// that is responsible for container networking, and it is capable.
+	allocateAddresses := !isLocal && supportsAddresses
+
+	configMethod := corenetwork.ConfigDHCP
+	if allocateAddresses {
+		configMethod = corenetwork.ConfigStatic
+	}
+
+	devices, err := s.guestDevices(ctx, hostUUID, nodeUUID, spaceUUIDs, nics, isLocal, configMethod)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// TODO (manadart 2025-07-23): I so, so do not want to use
+	//  InterfaceInfos anymore, but changing it would flow deep into the
+	//  MAAS provider, which is not going to be undertaken under the Dqlite
+	//  rewrite. Ideally we would use NetInterface from the network domain
+	//  everywhere. Note that NetInterface and NetAddr do not yet carry
+	//  everything that providers return (routes, provider VLAN IDs and
+	//  device indices), which would first need to be added.
+	preparedInfo := toInterfaceInfos(devices)
+
+	if !allocateAddresses || len(preparedInfo) == 0 {
+		return preparedInfo, nil
+	}
+
+	hostInstanceID, err := s.st.GetMachineInstanceID(ctx, hostUUID.String())
+	if err != nil {
+		return nil, errors.Errorf("retrieving instance ID for host machine %q: %w", hostUUID, err)
+	}
+
+	info, err := s.allocateContainerAddresses(ctx, instance.Id(hostInstanceID), guestName.String(), preparedInfo)
+	if err != nil {
+		return nil, errors.Errorf("allocating addresses for guest machine %q: %w", guestName, err)
+	}
+	return info, nil
+}
+
+// allocateContainerAddresses asks the provider to allocate a static address
+// for each of the container NICs in preparedInfo, hosted by the
+// hostInstanceID. It returns the network config including all allocated
+// addresses on success.
+func (s *ProviderService) allocateContainerAddresses(
+	ctx context.Context,
+	hostInstanceID instance.Id,
+	containerName string,
+	preparedInfo corenetwork.InterfaceInfos,
+) (corenetwork.InterfaceInfos, error) {
+	provider, err := s.providerWithNetworking(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	newInfo, err := provider.AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo)
+	return newInfo, errors.Capture(err)
+}
+
+// toInterfaceInfos transforms network domain interfaces to the type used by
+// providers and the wire.
+func toInterfaceInfos(netInterfaces []network.NetInterface) corenetwork.InterfaceInfos {
+	res := make(corenetwork.InterfaceInfos, len(netInterfaces))
+	for i, netInterface := range netInterfaces {
+		var mtu int
+		if netInterface.MTU != nil {
+			mtu = int(*netInterface.MTU)
+		}
+		var mac string
+		if netInterface.MACAddress != nil {
+			mac = *netInterface.MACAddress
+		}
+
+		var (
+			addrs         corenetwork.ProviderAddresses
+			nicConfigType corenetwork.AddressConfigType
+		)
+
+		// There is a single address populated for each interface.
+		// The *device* config type is populated from the address.
+		// Note that we populate the *CIDR* from the address value.
+		if len(netInterface.Addrs) > 0 {
+			a := netInterface.Addrs[0]
+			addrs = corenetwork.ProviderAddresses{{MachineAddress: corenetwork.MachineAddress{
+				ConfigType: a.ConfigType,
+				CIDR:       a.AddressValue,
+			}}}
+			nicConfigType = a.ConfigType
+		}
+
+		res[i] = corenetwork.InterfaceInfo{
+			MACAddress:          mac,
+			ConfigType:          nicConfigType,
+			VLANTag:             int(netInterface.VLANTag),
+			InterfaceName:       netInterface.Name,
+			ParentInterfaceName: netInterface.ParentDeviceName,
+			InterfaceType:       netInterface.Type,
+			Disabled:            !netInterface.IsEnabled,
+			NoAutoStart:         !netInterface.IsAutoStart,
+			Addresses:           addrs,
+			DNSServers:          netInterface.DNSAddresses,
+			MTU:                 mtu,
+		}
+	}
+	return res
 }
 
 func (s *Service) spacesAndDevicesForMachine(
@@ -373,6 +469,31 @@ func (s *ProviderService) isLocalContainerNetworking(ctx context.Context) (bool,
 	return method == containermanager.NetworkingMethodLocal, nil
 }
 
+// containerNetworking resolves the effective container networking method for
+// the model, reporting whether it is local, and whether the model's provider
+// supports allocating container addresses.
+// The provider capability is consulted exactly once.
+func (s *ProviderService) containerNetworking(ctx context.Context) (bool, bool, error) {
+	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
+	if err != nil {
+		return false, false, errors.Capture(err)
+	}
+
+	supportsAddresses, err := s.supportsContainerAddresses(ctx)
+	if err != nil {
+		return false, false, errors.Capture(err)
+	}
+
+	method, err := containermanager.ResolveNetworkingMethodWithCapability(
+		modelconfig.ContainerNetworkingMethod(netMethod),
+		func() (bool, error) { return supportsAddresses, nil },
+	)
+	if err != nil {
+		return false, false, errors.Capture(err)
+	}
+	return method == containermanager.NetworkingMethodLocal, supportsAddresses, nil
+}
+
 // supportsContainerAddresses reports whether the model's provider
 // supports allocating container addresses. A provider without the
 // networking capability cannot allocate them either, so false is
@@ -429,35 +550,20 @@ func bridgeNameForDevice(device string) string {
 	}
 }
 
+// guestDevices returns the devices to configure in a guest, one for each of
+// the requested spaces, parented to a bridge on the host.
+// Devices are configured for addressing in the input manner, except for
+// devices parented to the default LXD bridge via the local-networking
+// fallback, which always use DHCP.
 func (s *ProviderService) guestDevices(
 	ctx context.Context,
 	mUUID machine.UUID,
 	nodeUUID string,
 	spaceUUIDs []string,
 	nics map[string][]network.NetInterface,
+	isLocal bool,
+	configMethod corenetwork.AddressConfigType,
 ) ([]network.NetInterface, error) {
-	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// The provider capability is consulted once per call: its result both
-	// resolves the unset "auto" networking method and selects the guest
-	// device addressing below.
-	supportsAddresses, err := s.supportsContainerAddresses(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	method, err := containermanager.ResolveNetworkingMethodWithCapability(
-		modelconfig.ContainerNetworkingMethod(netMethod),
-		func() (bool, error) { return supportsAddresses, nil },
-	)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	isLocal := method == containermanager.NetworkingMethodLocal
-
 	var (
 		guestDevices []network.NetInterface
 		deviceIndex  int
@@ -467,15 +573,6 @@ func (s *ProviderService) guestDevices(
 	// spaces without an in-space bridge.
 	lxdBridgeUsed := false
 	lxdBridge := defaultLXDBridge(nics)
-
-	// In most cases, the container will rely on DHCP assigned addresses.
-	// If the provider supports allocating addresses to containers,
-	// each device's address will be obtained downstream, and we indicate
-	// that said address is configured statically.
-	configMethod := corenetwork.ConfigDHCP
-	if supportsAddresses {
-		configMethod = corenetwork.ConfigStatic
-	}
 
 	// Iterate the required spaces, so that requirements are satisfied in a
 	// deterministic order, and so that spaces without observed devices can

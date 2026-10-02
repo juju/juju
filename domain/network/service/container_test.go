@@ -32,6 +32,7 @@ type containerSuite struct {
 
 	hostUUID  machine.UUID
 	guestUUID machine.UUID
+	guestName machine.Name
 	nodeUUID  string
 
 	svc *ProviderService
@@ -602,7 +603,7 @@ func (s *containerSuite) TestDevicesToBridgeNetworkingMethodNotValid(c *tc.C) {
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestBridgeFoundNoContainerAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -635,25 +636,26 @@ func (s *containerSuite) TestDevicesForGuestBridgeFoundNoContainerAddresses(c *t
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(ctx, s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.Name, tc.Equals, "eth0")
-	c.Check(nic.MACAddress, tc.NotNil)
-	c.Check(nic.Type, tc.Equals, corenetwork.EthernetDevice)
-	c.Check(nic.ParentDeviceName, tc.Equals, bridgeName)
-	c.Check(nic.IsEnabled, tc.IsTrue)
-	c.Check(nic.IsAutoStart, tc.IsTrue)
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.MACAddress, tc.Not(tc.Equals), "")
+	c.Check(nic.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(nic.ParentInterfaceName, tc.Equals, bridgeName)
+	c.Check(nic.Disabled, tc.IsFalse)
+	c.Check(nic.NoAutoStart, tc.IsFalse)
 
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, cidr)
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, cidr)
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestBridgeFoundContainerAddresses(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestBridgeFoundContainerAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -686,25 +688,163 @@ func (s *containerSuite) TestDevicesForGuestBridgeFoundContainerAddresses(c *tc.
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
-	nics, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
+	// The provider is asked to allocate an address for the device, which is
+	// configured statically, on behalf of the guest and via the host's
+	// cloud instance.
+	exp.GetMachineInstanceID(ctx, s.hostUUID.String()).Return("host-instance-id", nil)
+
+	allocated := corenetwork.InterfaceInfos{{
+		InterfaceName: "eth0",
+		Addresses: corenetwork.ProviderAddresses{{MachineAddress: corenetwork.MachineAddress{
+			Value:      "10.10.10.6",
+			CIDR:       cidr,
+			ConfigType: corenetwork.ConfigStatic,
+		}}},
+	}}
+	var prepared corenetwork.InterfaceInfos
+	s.providerWithNetworking.EXPECT().AllocateContainerAddresses(
+		gomock.Any(), instance.Id("host-instance-id"), s.guestName.String(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context, _ instance.Id, _ string, info corenetwork.InterfaceInfos,
+	) (corenetwork.InterfaceInfos, error) {
+		prepared = info
+		return allocated, nil
+	})
+
+	nics, err := s.svc.NetworkConfigForGuest(ctx, s.hostUUID, s.guestUUID, s.guestName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nics, tc.DeepEquals, allocated)
+
+	c.Assert(prepared, tc.HasLen, 1)
+	nic := prepared[0]
+
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.MACAddress, tc.Not(tc.Equals), "")
+	c.Check(nic.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(nic.ParentInterfaceName, tc.Equals, bridgeName)
+	c.Check(nic.Disabled, tc.IsFalse)
+	c.Check(nic.NoAutoStart, tc.IsFalse)
+
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, cidr)
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigStatic)
+}
+
+// TestNetworkConfigForGuestHostNotProvisioned ensures that when the provider
+// is to allocate addresses, a host without a cloud instance is reported.
+func (s *containerSuite) TestNetworkConfigForGuestHostNotProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodProvider.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
+		Return("10.10.10.0/24", nil)
+	s.st.EXPECT().GetMachineInstanceID(c.Context(), s.hostUUID.String()).
+		Return("", errors.HostNotProvisioned)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Check(err, tc.ErrorIs, errors.HostNotProvisioned)
+}
+
+// TestNetworkConfigForGuestProviderAllocationError ensures that a failure
+// to allocate addresses is reported.
+func (s *containerSuite) TestNetworkConfigForGuestProviderAllocationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodProvider.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
+		Return("10.10.10.0/24", nil)
+	s.st.EXPECT().GetMachineInstanceID(c.Context(), s.hostUUID.String()).Return("host-instance-id", nil)
+
+	allocErr := internalerrors.New("boom")
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+	s.providerWithNetworking.EXPECT().AllocateContainerAddresses(
+		gomock.Any(), instance.Id("host-instance-id"), s.guestName.String(), gomock.Any(),
+	).Return(nil, allocErr)
+
+	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Check(err, tc.ErrorIs, allocErr)
+}
+
+// TestNetworkConfigForGuestLocalMethodAddressCapableNoProviderAllocation
+// covers explicit "local" container networking on a provider that supports
+// allocating container addresses. The device for the default LXD bridge is
+// configured for DHCP, and the provider is not asked to allocate an address:
+// neither the provider's allocation nor the host's cloud instance are
+// consulted.
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodAddressCapableNoProviderAllocation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+
+	// There are deliberately no expectations for GetMachineInstanceID or the
+	// provider's AllocateContainerAddresses: unexpected calls fail the test.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.Name, tc.Equals, "eth0")
-	c.Check(nic.MACAddress, tc.NotNil)
-	c.Check(nic.Type, tc.Equals, corenetwork.EthernetDevice)
-	c.Check(nic.ParentDeviceName, tc.Equals, bridgeName)
-	c.Check(nic.IsEnabled, tc.IsTrue)
-	c.Check(nic.IsAutoStart, tc.IsTrue)
-
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, cidr)
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigStatic)
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "")
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestNoBridgeFoundError(c *tc.C) {
+// TestNetworkConfigForGuestNoDevicesNoProviderAllocation ensures that a guest
+// with no space requirements, and so no devices, does not cause the provider
+// to be asked to allocate addresses, even if it is able to.
+func (s *containerSuite) TestNetworkConfigForGuestNoDevicesNoProviderAllocation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c, nil, nil, containermanager.NetworkingMethodProvider.String())
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nics, tc.HasLen, 0)
+}
+
+func (s *containerSuite) TestNetworkConfigForGuestNoBridgeFoundError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -734,11 +874,11 @@ func (s *containerSuite) TestDevicesForGuestNoBridgeFoundError(c *tc.C) {
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
-	_, err := s.svc.DevicesForGuest(ctx, s.hostUUID, s.guestUUID)
+	_, err := s.svc.NetworkConfigForGuest(ctx, s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeNoSpace(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeNoSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -767,26 +907,27 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeNoSpace(c *t
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.Name, tc.Equals, "eth0")
-	c.Check(nic.MACAddress, tc.NotNil)
-	c.Check(nic.Type, tc.Equals, corenetwork.EthernetDevice)
-	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Check(nic.MTU, tc.DeepEquals, &bridgeMTU)
-	c.Check(nic.IsEnabled, tc.IsTrue)
-	c.Check(nic.IsAutoStart, tc.IsTrue)
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.MACAddress, tc.Not(tc.Equals), "")
+	c.Check(nic.InterfaceType, tc.Equals, corenetwork.EthernetDevice)
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Check(nic.MTU, tc.Equals, int(bridgeMTU))
+	c.Check(nic.Disabled, tc.IsFalse)
+	c.Check(nic.NoAutoStart, tc.IsFalse)
 
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "")
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeNotObserved(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeNotObserved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -807,11 +948,11 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeNotObserved(
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	_, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodMultipleSpacesSingleBridge(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodMultipleSpacesSingleBridge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -837,19 +978,20 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodMultipleSpacesSingleBridg
 	// registered with Juju.
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "")
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodMixedBridges(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodMixedBridges(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -880,7 +1022,7 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodMixedBridges(c *tc.C) {
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Devices are appended in the order of the required spaces: the device
@@ -889,18 +1031,20 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodMixedBridges(c *tc.C) {
 	c.Assert(nics, tc.HasLen, 2)
 	bridgedDev, localDev := nics[0], nics[1]
 
-	c.Check(bridgedDev.ParentDeviceName, tc.Equals, "br-eth0")
-	c.Assert(bridgedDev.Addrs, tc.HasLen, 1)
-	c.Check(bridgedDev.Addrs[0].AddressValue, tc.Equals, "10.10.10.0/24")
-	c.Check(bridgedDev.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(bridgedDev.ParentInterfaceName, tc.Equals, "br-eth0")
+	c.Assert(bridgedDev.Addresses, tc.HasLen, 1)
+	c.Check(bridgedDev.Addresses[0].CIDR, tc.Equals, "10.10.10.0/24")
+	c.Check(bridgedDev.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(bridgedDev.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 
-	c.Check(localDev.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Assert(localDev.Addrs, tc.HasLen, 1)
-	c.Check(localDev.Addrs[0].AddressValue, tc.Equals, "")
-	c.Check(localDev.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(localDev.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(localDev.Addresses, tc.HasLen, 1)
+	c.Check(localDev.Addresses[0].CIDR, tc.Equals, "")
+	c.Check(localDev.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(localDev.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeInSpace(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -924,20 +1068,60 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodDefaultBridgeInSpace(c *t
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.Name, tc.Equals, "eth0")
-	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "10.0.0.0/24")
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "10.0.0.0/24")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodNegativeConstraintNotEnforced(c *tc.C) {
+// TestNetworkConfigForGuestLocalMethodInSpaceBridgeAddressCapable ensures that
+// with local networking on a provider that supports allocating container
+// addresses, in-space bridge devices are configured for DHCP rather than
+// static addressing: the container's networking is provided by the host
+// machine, and the provider is not expected to allocate an address.
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodInSpaceBridgeAddressCapable(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
+		Return("10.10.10.0/24", nil)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.ParentInterfaceName, tc.Equals, "br-eth0")
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "10.10.10.0/24")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodNegativeConstraintNotEnforced(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -965,19 +1149,20 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodNegativeConstraintNotEnfo
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.Name, tc.Equals, "eth0")
-	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestLocalMethodInSpaceBridgeNoDefaultBridge(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodInSpaceBridgeNoDefaultBridge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -1000,18 +1185,18 @@ func (s *containerSuite) TestDevicesForGuestLocalMethodInSpaceBridgeNoDefaultBri
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.ParentDeviceName, tc.Equals, "br-eth0")
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "10.10.10.0/24")
+	c.Check(nic.ParentInterfaceName, tc.Equals, "br-eth0")
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "10.10.10.0/24")
 }
 
-func (s *containerSuite) TestDevicesForGuestNetworkingMethodError(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestNetworkingMethodError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -1025,15 +1210,15 @@ func (s *containerSuite) TestDevicesForGuestNetworkingMethodError(c *tc.C) {
 	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(nil, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return("", methodErr)
 
-	_, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Check(err, tc.ErrorIs, methodErr)
 }
 
-// TestDevicesForGuestAutoMethodNoContainerAddressSupport covers the
+// TestNetworkConfigForGuestAutoMethodNoContainerAddressSupport covers the
 // default configuration: the unset "auto" method resolved against a
 // provider that cannot allocate container addresses (e.g. EC2). The guest
 // device is parented to the default LXD bridge with DHCP addressing.
-func (s *containerSuite) TestDevicesForGuestAutoMethodNoContainerAddressSupport(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestAutoMethodNoContainerAddressSupport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -1054,24 +1239,25 @@ func (s *containerSuite) TestDevicesForGuestAutoMethodNoContainerAddressSupport(
 	// auto method and selects the guest device addressing.
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.Name, tc.Equals, "eth0")
-	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].AddressValue, tc.Equals, "")
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-// TestDevicesForGuestAutoMethodProviderNotSupported ensures the unset
+// TestNetworkConfigForGuestAutoMethodProviderNotSupported ensures the unset
 // "auto" method resolves to local networking when the provider does not
 // implement the networking capability at all, and the guest device is
 // parented to the default LXD bridge with DHCP addressing.
-func (s *containerSuite) TestDevicesForGuestAutoMethodProviderNotSupported(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestAutoMethodProviderNotSupported(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -1100,18 +1286,19 @@ func (s *containerSuite) TestDevicesForGuestAutoMethodProviderNotSupported(c *tc
 		"",
 	)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(nics, tc.HasLen, 1)
 	nic := nics[0]
 
-	c.Check(nic.ParentDeviceName, tc.Equals, internalnetwork.DefaultLXDBridge)
-	c.Assert(nic.Addrs, tc.HasLen, 1)
-	c.Check(nic.Addrs[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
-func (s *containerSuite) TestDevicesForGuestNoSpaces(c *tc.C) {
+func (s *containerSuite) TestNetworkConfigForGuestNoSpaces(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.setupServiceAndMachines(c)
@@ -1125,49 +1312,9 @@ func (s *containerSuite) TestDevicesForGuestNoSpaces(c *tc.C) {
 
 	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
-	nics, err := s.svc.DevicesForGuest(c.Context(), s.hostUUID, s.guestUUID)
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(nics, tc.HasLen, 0)
-}
-
-func (s *containerSuite) TestAllocateContainerAddresses(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupService(c)
-
-	// Arrange
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
-	hostInstance := instance.Id("juju-42fbd8-8")
-	containerName := "8/lxd/7"
-	input := corenetwork.InterfaceInfos{}
-	expected := corenetwork.InterfaceInfos{
-		{DeviceIndex: 7},
-	}
-	s.providerWithNetworking.EXPECT().AllocateContainerAddresses(
-		gomock.Any(), hostInstance, containerName, input).Return(expected, nil)
-
-	// Act
-	obtainedInfo, err := s.svc.AllocateContainerAddresses(c.Context(), hostInstance, containerName, input)
-
-	// Assert
-	c.Assert(err, tc.IsNil)
-	c.Assert(obtainedInfo, tc.DeepEquals, expected)
-}
-
-func (s *containerSuite) TestAllocateContainerAddressesNotSupported(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.setupService(c)
-
-	// Arrange
-	hostInstance := instance.Id("juju-42fbd8-8")
-	containerName := "8/lxd/7"
-	input := corenetwork.InterfaceInfos{}
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
-
-	// Act
-	_, err := s.svc.AllocateContainerAddresses(c.Context(), hostInstance, containerName, input)
-
-	// Assert
-	c.Assert(err, tc.ErrorIs, errors.ContainerAddressesNotSupported)
 }
 
 func (s *containerSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -1193,18 +1340,9 @@ func (s *containerSuite) setupServiceAndMachines(c *tc.C) {
 	s.guestUUID, err = machine.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.guestName = machine.Name("0/lxd/0")
 	s.nodeUUID = "net-node-uuid"
 
-	s.svc = NewProviderService(
-		s.st,
-		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },
-		nil, // No provider with zones needed for this suite.
-		loggertesting.WrapCheckLog(c),
-	)
-	c.Cleanup(func() { s.svc = nil })
-}
-
-func (s *containerSuite) setupService(c *tc.C) {
 	s.svc = NewProviderService(
 		s.st,
 		func(ctx context.Context) (ProviderWithNetworking, error) { return s.providerWithNetworking, nil },

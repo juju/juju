@@ -29,6 +29,36 @@ func TestContainerSuite(t *testing.T) {
 	tc.Run(t, &containerSuite{})
 }
 
+func (s *containerSuite) TestGetMachineInstanceID(c *tc.C) {
+	nUUID := s.addNetNode(c)
+	mUUID := s.addMachine(c, "0", nUUID)
+	s.query(c, "INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id) VALUES (?, ?, ?)",
+		mUUID.String(), 0, "i-0123")
+
+	id, err := s.state.GetMachineInstanceID(c.Context(), mUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(id, tc.Equals, "i-0123")
+}
+
+func (s *containerSuite) TestGetMachineInstanceIDNoInstance(c *tc.C) {
+	nUUID := s.addNetNode(c)
+	mUUID := s.addMachine(c, "0", nUUID)
+
+	_, err := s.state.GetMachineInstanceID(c.Context(), mUUID.String())
+	c.Check(err, tc.ErrorIs, errors.HostNotProvisioned)
+}
+
+func (s *containerSuite) TestGetMachineInstanceIDNullInstanceID(c *tc.C) {
+	// The instance record exists, but the instance has not been created.
+	nUUID := s.addNetNode(c)
+	mUUID := s.addMachine(c, "0", nUUID)
+	s.query(c, "INSERT INTO machine_cloud_instance (machine_uuid, life_id) VALUES (?, ?)",
+		mUUID.String(), 0)
+
+	_, err := s.state.GetMachineInstanceID(c.Context(), mUUID.String())
+	c.Check(err, tc.ErrorIs, errors.HostNotProvisioned)
+}
+
 func (s *containerSuite) TestGetMachineSpaceConstraints(c *tc.C) {
 	db := s.DB()
 
