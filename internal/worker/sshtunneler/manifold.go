@@ -14,6 +14,7 @@ import (
 	coredependency "github.com/juju/juju/core/dependency"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshtunneler"
 )
 
 // GetControllerNodeServiceFunc is a helper function that gets the controller
@@ -139,10 +140,10 @@ func outputFunc(in worker.Worker, out any) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *TunnelTracker:
+	case **sshtunneler.Tracker:
 		*outPointer = inWorker.tunnelTracker
 	default:
-		return errors.Errorf("out should be *sshtunneler.TunnelTracker; got %T", out)
+		return errors.Errorf("out should be **sshtunneler.Tracker; got %T", out)
 	}
 	return nil
 }

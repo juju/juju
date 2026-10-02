@@ -8,8 +8,6 @@ import (
 	"net"
 	"net/http"
 
-	"gopkg.in/tomb.v2"
-
 	"github.com/juju/juju/core/logger"
 	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/internal/errors"
@@ -61,7 +59,7 @@ func (cfg TunnelHandlerConfig) Validate() error {
 // handler closes every live tunnel connection, draining them on apiserver
 // shutdown (hijacked connections are invisible to http.Server.Shutdown).
 type TunnelHandler struct {
-	tomb   tomb.Tomb
+	hijackWorker
 	config TunnelHandlerConfig
 }
 
@@ -71,26 +69,8 @@ func NewTunnelHandler(config TunnelHandlerConfig) (*TunnelHandler, error) {
 		return nil, errors.Errorf("validating tunnel handler config: %w", err)
 	}
 	h := &TunnelHandler{config: config}
-	// Without a tracked goroutine the tomb never reaches dead, so Wait
-	// would block forever.
-	h.tomb.Go(func() error {
-		<-h.tomb.Dying()
-		return tomb.ErrDying
-	})
+	h.start()
 	return h, nil
-}
-
-// Kill implements worker.Worker.Kill. It closes all live tunnel
-// connections, letting the ServeHTTP calls owning them return.
-func (h *TunnelHandler) Kill() {
-	h.tomb.Kill(nil)
-}
-
-// Wait implements worker.Worker.Wait. It blocks until the handler is
-// killed. In-flight requests observe the cancellation through their
-// request context and close their tunnel connections.
-func (h *TunnelHandler) Wait() error {
-	return h.tomb.Wait()
 }
 
 // ServeHTTP implements http.Handler.
@@ -98,7 +78,7 @@ func (h *TunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// The request context is cancelled when the handler's tomb starts
 	// dying, so in-flight tunnels observe shutdown and close their
 	// connections.
-	ctx := h.tomb.Context(r.Context())
+	ctx := h.requestContext(r)
 	r = r.WithContext(ctx)
 
 	// The authenticated machine tag comes from the HTTP authentication

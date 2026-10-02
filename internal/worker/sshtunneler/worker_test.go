@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -93,7 +94,7 @@ func (s *workerSuite) TestWorkerExposesTracker(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	var tracker TunnelTracker
+	var tracker *sshtunneler.Tracker
 	err = outputFunc(w, &tracker)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tracker, tc.NotNil)
@@ -116,7 +117,7 @@ func (s *workerSuite) TestOutputFuncTypeError(c *tc.C) {
 
 	var wrongType string
 	err = outputFunc(w, &wrongType)
-	c.Assert(err, tc.ErrorMatches, `out should be \*sshtunneler\.TunnelTracker; got \*string`)
+	c.Assert(err, tc.ErrorMatches, `out should be \*\*sshtunneler\.Tracker; got \*string`)
 
 	workertest.CleanKill(c, w)
 }
