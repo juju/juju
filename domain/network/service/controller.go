@@ -63,7 +63,7 @@ func (s *Service) GetControllerPeerAddresses(ctx context.Context, name unit.Name
 			return nil, errors.Errorf("getting management space %q: %w", managementSpace, err)
 		}
 	}
-	addresses := selectControllerAddresses(controllerAddresses, modelType, space)
+	addresses := selectControllerAddresses(controllerAddresses, modelType == model.CAAS, space)
 	return orderControllerAddresses(addresses, network.ScopeCloudLocal), nil
 }
 
@@ -104,9 +104,7 @@ func (s *Service) getControllerDiscoveryAddresses(ctx context.Context, names []u
 		if err != nil {
 			return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting controller Service addresses: %w", err)
 		}
-		// Service addresses must be usable for ordinary discovery. In
-		// particular, the legacy pod machine-local exception does not apply.
-		addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, model.IAAS), nil)
+		addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, false), nil)
 		return domainnetwork.ControllerAddressSelection{
 			Shared: orderControllerAddresses(addresses, preferredScope),
 		}, nil
@@ -129,14 +127,14 @@ func (s *Service) getControllerDiscoveryAddresses(ctx context.Context, names []u
 		if err != nil {
 			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
 		}
-		addresses := selectControllerAddresses(candidates, modelType, space)
+		addresses := selectControllerAddresses(candidates, false, space)
 		result.ByUnit[name] = orderControllerAddresses(addresses, preferredScope)
 	}
 	return result, nil
 }
 
-func selectControllerAddresses(candidates domainnetwork.ControllerAPIAddresses, modelType model.ModelType, space *network.SpaceInfo) network.SpaceAddresses {
-	addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, modelType), space)
+func selectControllerAddresses(candidates domainnetwork.ControllerAPIAddresses, includeMachineLocal bool, space *network.SpaceInfo) network.SpaceAddresses {
+	addresses := selectControllerAPIAddresses(controllerAddressCandidates(candidates, includeMachineLocal), space)
 	if space == nil {
 		return addresses
 	}
@@ -173,7 +171,7 @@ func validateControllerUnitName(name unit.Name) error {
 	return nil
 }
 
-func controllerAddressCandidates(addresses domainnetwork.ControllerAPIAddresses, modelType model.ModelType) domainnetwork.ControllerAPIAddresses {
+func controllerAddressCandidates(addresses domainnetwork.ControllerAPIAddresses, includeMachineLocal bool) domainnetwork.ControllerAPIAddresses {
 	var result domainnetwork.ControllerAPIAddresses
 	for _, candidate := range addresses {
 		if candidate.DeviceType == domainnetwork.DeviceTypeLoopback {
@@ -188,7 +186,7 @@ func controllerAddressCandidates(addresses domainnetwork.ControllerAPIAddresses,
 		switch candidate.Scope {
 		case network.ScopeCloudLocal, network.ScopePublic:
 		case network.ScopeMachineLocal:
-			if modelType != model.CAAS || candidate.Type == network.HostName {
+			if !includeMachineLocal || candidate.Type == network.HostName {
 				continue
 			}
 		default:
