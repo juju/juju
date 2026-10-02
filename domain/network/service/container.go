@@ -338,20 +338,19 @@ func (s *ProviderService) devicesToBridge(
 	// When using local container networking, the default LXD bridge
 	// satisfies all space requirements, regardless of the space (if any)
 	// in which its addresses are reported. No host devices are bridged.
-	if isLocal && defaultLXDBridge(nics) != nil {
-		return nil, nil
+	if isLocal {
+		if _, observed := defaultLXDBridge(nics); observed {
+			return nil, nil
+		}
 	}
 
 	spacesLeftToSatisfy := set.NewStrings(spaceUUIDs...)
 	var toBridge []network.DeviceToBridge
 
-	for spaceUUID, spaceNics := range nics {
-		// We retrieved all the machine's NICs in order to locate parents if
-		// required, so only consider those that can satisfy the determined
-		// requirements.
-		if !spacesLeftToSatisfy.Contains(spaceUUID) {
-			continue
-		}
+	// Iterate the required spaces in sorted order, so that the selected
+	// devices to bridge are reported deterministically.
+	for _, spaceUUID := range spaceUUIDs {
+		spaceNics := nics[spaceUUID]
 
 		s.logger.Debugf(ctx, "looking for devices in space %q", spaceUUID)
 
@@ -526,16 +525,17 @@ func (s *ProviderService) supportsContainerAddresses(ctx context.Context) (bool,
 // This accommodates the common case where the subnet of the default LXD
 // bridge is not registered with Juju, so the device is not associated with
 // any space.
-// A nil result indicates that the bridge has not been observed on the host.
-func defaultLXDBridge(nics map[string][]network.NetInterface) *network.NetInterface {
+// The boolean result reports whether the bridge has been observed on the
+// host at all.
+func defaultLXDBridge(nics map[string][]network.NetInterface) (network.NetInterface, bool) {
 	for _, spaceNics := range nics {
 		if idx := slices.IndexFunc(spaceNics, func(nic network.NetInterface) bool {
 			return nic.Name == internalNetwork.DefaultLXDBridge
 		}); idx >= 0 {
-			return &spaceNics[idx]
+			return spaceNics[idx], true
 		}
 	}
-	return nil
+	return network.NetInterface{}, false
 }
 
 // bridgeNameForDevice returns a name to use for a new
@@ -587,7 +587,15 @@ func (s *ProviderService) guestDevices(
 	// lxdBridgeUsed indicates that a guest device has already been created
 	// with the default LXD bridge as its parent.
 	lxdBridgeUsed := false
-	lxdBridge := defaultLXDBridge(nics)
+	var (
+		lxdBridge         network.NetInterface
+		lxdBridgeObserved bool
+	)
+	if isLocal {
+		// The default LXD bridge is only ever selected when using local
+		// networking, so it is only located in that case.
+		lxdBridge, lxdBridgeObserved = defaultLXDBridge(nics)
+	}
 
 	// Iterate the required spaces, so that requirements are satisfied in a
 	// deterministic order, and so that spaces without observed devices can
@@ -615,13 +623,13 @@ func (s *ProviderService) guestDevices(
 		}
 
 		if bridgeToUse == nil && isLocal {
-			if lxdBridge == nil {
+			if !lxdBridgeObserved {
 				return nil, errors.Errorf(
 					"no bridge found in space %q for machine %q; the default LXD bridge %q has not been observed",
 					spaceUUID, mUUID, internalNetwork.DefaultLXDBridge,
 				).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 			}
-			bridgeToUse = lxdBridge
+			bridgeToUse = &lxdBridge
 			fromLocalBridge = true
 		}
 
