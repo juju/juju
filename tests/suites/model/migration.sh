@@ -695,7 +695,7 @@ run_model_migration_36_abort() {
 	add_clean_func "cleanup_wrench_die_in_export_36"
 	arm_wrench_die_in_export
 
-	migrate_36 "mig36-abort-src-12345" "mig-abort36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	migrate_36 "mig36-abort-src-12345" "mig-abort36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}" "expect-abort"
 
 	# Wait for the abort to run to completion on the source controller. The
 	# imported model never activates on the target (the wrench fires during
@@ -783,6 +783,13 @@ run_model_migration_36_users_permissions() {
 	user_secret_short_uri=${user_secret_uri##*:}
 	${JUJU_36} grant-secret mysecret "ubuntu"
 	check_contains "$(juju36_exec_output --unit "ubuntu/0" -- secret-get "${user_secret_short_uri}")" "owned-by: model"
+
+	# User accounts are not migrated, so the users must already exist on
+	# the destination controller for the 3.6 migration precheck to pass;
+	# their model grants travel with the model and are asserted after the
+	# import.
+	juju add-user -c "${BOOTSTRAPPED_JUJU_CTRL_NAME}" alice
+	juju add-user -c "${BOOTSTRAPPED_JUJU_CTRL_NAME}" bob
 
 	migrate_36 "mig36-perm-src-12345" "mig-perm36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	wait_source_reaped_36 "mig36-perm-src-12345" "mig-perm36-12345"
@@ -994,13 +1001,18 @@ juju36_exec_output() {
 # controller, then polls the 4.0 client until the model appears on the
 # target controller. The 3.6 migrate CLI returns success before the
 # transfer completes, so the poll also watches for the migration to abort
-# and fails fast with the abort reason.
+# and fails fast with the abort reason. Pass "expect-abort" as the fourth
+# argument when the abort itself is the behaviour under test (see
+# run_model_migration_36_abort): the helper then returns as soon as the
+# abort is observed instead of failing, and the caller asserts the abort
+# details itself.
 migrate_36() {
-	local src_ctrl model target_ctrl attempt start_time elapsed
+	local src_ctrl model target_ctrl expect_abort attempt start_time elapsed
 
 	src_ctrl=${1}
 	model=${2}
 	target_ctrl=${3}
+	expect_abort=${4:-}
 
 	${JUJU_36} switch "${src_ctrl}"
 	if ! ${JUJU_36} migrate "${model}" "${target_ctrl}"; then
@@ -1016,6 +1028,10 @@ migrate_36() {
 		# transfer shows up in the source model's status notes as
 		# "migrating: aborted, ...".
 		if ${JUJU_36} status -m "${src_ctrl}:${model}" 2>/dev/null | grep -qF "migrating: aborted"; then
+			if [[ ${expect_abort} == "expect-abort" ]]; then
+				echo "[+] $(green "Migration of ${src_ctrl}:${model} aborted as expected")"
+				return 0
+			fi
 			red "Failed: migration of ${src_ctrl}:${model} aborted"
 			${JUJU_36} status -m "${src_ctrl}:${model}" || true
 			echo "=== last migrationmaster log lines"
