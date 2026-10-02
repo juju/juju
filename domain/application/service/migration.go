@@ -261,10 +261,17 @@ func (s *MigrationService) GetApplicationScaleState(ctx context.Context, name st
 // ImportCAASApplication imports the specified CAAS application and units
 // if required, returning an error satisfying
 // [applicationerrors.ApplicationAlreadyExists] if the application already
-// exists.
+// exists, and [applicationerrors.ProvisioningOperationNotValid] if the
+// current provisioning operation of the scale state is not one of the
+// defined operations.
 func (s *MigrationService) ImportCAASApplication(ctx context.Context, name string, args ImportCAASApplicationArgs) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if !args.ScaleState.CurrentOperation.IsValid() {
+		return errors.Errorf("provisioning operation %q is not valid", args.ScaleState.CurrentOperation).
+			Add(applicationerrors.ProvisioningOperationNotValid)
+	}
 
 	charmUUID, err := s.importCAASApplication(ctx, name, args)
 	if err != nil {
@@ -273,9 +280,9 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 
 	// TODO hml 1-May-25
 	// Improve the efficiency of importing caas applications by touching
-	// the application_scale table once, instead of three times. Once in
-	// st.ImportApplication and the following two methods.
-	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.Scaling); err != nil {
+	// the application_provisioning_state table once, instead of three
+	// times. Once in st.ImportApplication and the following two methods.
+	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.CurrentOperation); err != nil {
 		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
 	if err := s.st.SetDesiredApplicationScale(ctx, args.UUID, args.ScaleState.Scale); err != nil {

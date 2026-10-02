@@ -562,6 +562,17 @@ func (s *migrationServiceSuite) TestImportIAASApplication(c *tc.C) {
 	c.Check(receivedUnitArgs, tc.DeepEquals, expectedUnitArgs)
 }
 
+func (s *migrationServiceSuite) TestImportCAASApplicationOperationNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.ImportCAASApplication(c.Context(), "ubuntu", ImportCAASApplicationArgs{
+		ScaleState: application.ScaleState{
+			CurrentOperation: coreapplication.ProvisioningOperation("sclae"),
+		},
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.ProvisioningOperationNotValid)
+}
+
 func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -595,7 +606,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 
 	var receivedUnitArgs []application.ImportCAASUnitArg
 	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
-	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, true).Return(nil)
+	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, coreapplication.ScaleOperation).Return(nil)
 	s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.ImportCAASUnitArg) error {
 		receivedUnitArgs = args
 		return nil
@@ -709,9 +720,9 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 			unitArg,
 		},
 		ScaleState: application.ScaleState{
-			Scale:       1,
-			Scaling:     true,
-			ScaleTarget: 42,
+			Scale:            1,
+			CurrentOperation: coreapplication.ScaleOperation,
+			ScaleTarget:      42,
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)

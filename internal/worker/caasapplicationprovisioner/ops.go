@@ -643,7 +643,7 @@ func reconcileDeadUnitScale(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !ps.Scaling {
+	if ps.CurrentOperation != coreapplication.ScaleOperation {
 		return nil
 	}
 
@@ -697,7 +697,7 @@ func reconcileDeadUnitScale(
 		}
 	}
 
-	return updateProvisioningState(ctx, appName, false, 0, applicationService)
+	return updateProvisioningState(ctx, appName, coreapplication.NoOperation, 0, applicationService)
 }
 
 // ensureScale determines how and when to scale up or down based on
@@ -729,12 +729,12 @@ func ensureScale(
 	}
 
 	logger.Debugf(ctx, "updating application %q scale to %d", appName, desiredScale)
-	if !ps.Scaling || appLife != life.Alive {
-		err := updateProvisioningState(ctx, appName, true, desiredScale, applicationService)
+	if ps.CurrentOperation != coreapplication.ScaleOperation || appLife != life.Alive {
+		err := updateProvisioningState(ctx, appName, coreapplication.ScaleOperation, desiredScale, applicationService)
 		if err != nil {
 			return err
 		}
-		ps.Scaling = true
+		ps.CurrentOperation = coreapplication.ScaleOperation
 		ps.ScaleTarget = desiredScale
 	}
 
@@ -766,7 +766,7 @@ func ensureScale(
 
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
-			return updateProvisioningState(ctx, appName, false, 0, applicationService)
+			return updateProvisioningState(ctx, appName, coreapplication.NoOperation, 0, applicationService)
 		} else if err != nil {
 			return err
 		}
@@ -774,7 +774,7 @@ func ensureScale(
 			// Scaling up must see units created.
 			return tryAgain
 		}
-		err = updateProvisioningState(ctx, appName, false, 0, applicationService)
+		err = updateProvisioningState(ctx, appName, coreapplication.NoOperation, 0, applicationService)
 		if err != nil {
 			return err
 		}
@@ -834,10 +834,10 @@ func setOperatorStatus(
 
 func updateProvisioningState(
 	ctx context.Context,
-	appName string, scaling bool, scaleTarget int,
+	appName string, op coreapplication.ProvisioningOperation, scaleTarget int,
 	applicationService ApplicationService,
 ) error {
-	err := applicationService.SetApplicationScalingState(ctx, appName, scaleTarget, scaling)
+	err := applicationService.SetApplicationScalingState(ctx, appName, scaleTarget, op)
 	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 		return tryAgain
 	} else if err != nil {

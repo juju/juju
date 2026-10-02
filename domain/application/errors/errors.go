@@ -75,6 +75,15 @@ const (
 	// state is inconsistent with the application scale.
 	ScalingStateInconsistent = errors.ConstError("scaling state is inconsistent")
 
+	// OperationInProgress is returned by SetApplicationScalingState when a
+	// different provisioning operation is already in progress for the
+	// application.
+	OperationInProgress = errors.ConstError("provisioning operation in progress")
+
+	// ProvisioningOperationNotValid is returned when the provisioning
+	// operation is not one of the defined operations.
+	ProvisioningOperationNotValid = errors.ConstError("provisioning operation not valid")
+
 	// ScaleChangeInvalid is returned when an attempt is made to set an invalid
 	// application scale value.
 	ScaleChangeInvalid = errors.ConstError("scale change invalid")

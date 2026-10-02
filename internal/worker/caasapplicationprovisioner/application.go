@@ -293,10 +293,10 @@ func (a *appWorker) loop() error {
 			if err != nil && !appRemovedFromState(err) {
 				return errors.Trace(err)
 			}
-			if ps.Scaling {
+			if ps.CurrentOperation == coreapplication.ScaleOperation {
 				if statusOnly {
 					// Clear provisioning state for status only app.
-					err = a.applicationService.SetApplicationScalingState(ctx, name, 0, false)
+					err = a.applicationService.SetApplicationScalingState(ctx, name, 0, coreapplication.NoOperation)
 					if err != nil {
 						return errors.Trace(err)
 					}
@@ -590,13 +590,13 @@ func (a *appWorker) loop() error {
 				reportErrors = append(reportErrors, err.Error())
 			}
 			report := map[string]any{
-				"application-uuid": a.appUUID,
-				"application-name": name,
-				"status-only":      statusOnly,
-				"application-life": a.life,
-				"scale-target":     ps.ScaleTarget,
-				"scaling":          ps.Scaling,
-				"report-error":     reportErrors,
+				"application-uuid":  a.appUUID,
+				"application-name":  name,
+				"status-only":       statusOnly,
+				"application-life":  a.life,
+				"scale-target":      ps.ScaleTarget,
+				"current-operation": ps.CurrentOperation,
+				"report-error":      reportErrors,
 			}
 			select {
 			case reportRequest.result <- report:
