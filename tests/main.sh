@@ -65,6 +65,8 @@ TEST_NAMES="actions \
             hooktools \
             kubeflow \
             machine \
+            migration \
+            migration_k8s \
             model \
             network \
             ovs_maas \
