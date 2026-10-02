@@ -31,6 +31,7 @@ Clients connect to a controller -- the central management service that coordinat
 
 - {ref}`controller`
 - {ref}`database`
+- {ref}`watchers`
 
 ### Agents and charm runtime
 

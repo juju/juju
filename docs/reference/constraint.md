@@ -1,25 +1,45 @@
 ---
 myst:
   html_meta:
-    description: "Juju constraints reference: customize compute resources with specifications for CPU, memory, storage, networking, and instance types."
+    description: "Juju constraints reference: customize compute resources with specifications for CPU, memory, storage, networking, and instance types. The constraint value, where it is stored, and its rules."
 ---
 
 (constraint)=
 # Constraint
 
-In Juju, a **constraint** is a key-value pair that represents a specification that can be passed to certain `juju` commands /command flags to customise the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju.
+In Juju, a **constraint** is a key-value pair that represents a specification for the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju: a minimum on machine clouds, a maximum on system and Kubernetes containers.
 
-If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
+(the-constraint-declaration-rules)=
+## Constraint in the declaration layer
 
-For machine (non-Kubernetes) clouds, constraints can be set directly on individual {ref}`machines <machine>`. However, more commonly they are set at the level of the {ref}`controller <controller>`, {ref}`model <model>`, or {ref}`application <application>`. If you set constraints at multiple levels at once -- that is, with overlap -- the constraint applied at the more specific level takes precedence.
+How clients express compute intent wherever a Juju resource is requested.
 
-The rest of this document describes all the existing constraints.
+- **Setting:** A constraint rides on deploy and add-machine requests, on bundle files, and on the Terraform provider; the model's and an application's defaults are set through the controller API, both verbs gated on model {ref}`write access <user-access-model-write>`.
+  - *Rule:* A constraint key must be one of the known keys, and its value must parse for that key (integers with M/G/T/P suffixes, name lists, booleans).
+  - *Rule:* The `spaces` constraint names {ref}`spaces <space>` that must (or, with the `^` prefix, must not) reach the machine; the `zones` constraint names {ref}`availability zones <zone>`.
+  - *Related errors:* Constraints set directly on a machine are checked when they are set. The errors `invalid machine constraints` and `machine constraint violation` are listed with the machine's constraints (see {ref}`the machine's declaration layer <machine-declaration-rules>`).
+- **Precedence:** When constraints are set at several levels at once, the more specific level wins: an application's over the model's, a machine's over the application's.
 
-```{caution}
-
-Some of these keys -- their availability and their meaning -- vary from one cloud to another. Below this is indicated with a generic note. For specifics see {ref}`list-of-supported-clouds` > `<cloud name>`.
-
+```{ibnote}
+See examples: {ref}`manage-applications` (the application-level
+setting); the Terraform provider takes constraints on its
+{ref}`Terraform Provider for Juju | Manage applications <tfjuju:manage-applications>`
+application resource.
 ```
+
+(the-constraint-persistence-rules)=
+## Constraint in the persistence layer
+
+A constraint is a **value, not an entity**: it has no life, no status, and no watchers of its own; it is a stored key/value whose meaning comes from the entity it constrains. The constraint records live where the constrained entity lives, in the model database beside their owners.
+
+- **Constraint record:** One record holds the compute spec (the architecture, CPU cores, memory and root disk, among others). The multi-valued keys (tags, spaces and zones) are satellite records of their own.
+- **The model's constraints:** The {ref}`model's <model>` defaults for everything it spawns, the same record linked through the model-constraint record.
+- **The application's constraints:** The {ref}`application's <application>` constraints record, nullable: an application may inherit the model's.
+- **The machines' constraints:** What each {ref}`machine <machine>` was provisioned with, through the machine-constraint record.
+
+## Constraint in the execution layer
+
+A constraint has no machinery of its own: it is a stored value the compute provisioner reads at provisioning time; setting it is a rewrite of the owner's record. Whether the cloud can honour it is discovered later, at provisioning time, when the compute provisioner asks the cloud for resources (see {ref}`machine provisioning <the-machines-machinery>`). No watch surface exposes constraint records.
 
 (list-of-constraints)=
 ## List of constraints
