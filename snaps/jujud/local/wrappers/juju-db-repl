@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+runtime_conf="$SNAP_DATA/runtime.conf"
+if [ ! -f "$runtime_conf" ]; then
+  echo "controller not yet initialized (runtime.conf not found); run jujud init first" >&2
+  exit 1
+fi
+
+controller_id=$(pkg-config --variable=controller-id 2>/dev/null || python3 -c "
+import yaml
+with open('$runtime_conf') as f:
+    print(yaml.safe_load(f)['controller-id'])
+" 2>/dev/null || true)
+if [ -z "$controller_id" ]; then
+  controller_id=0
+fi
+exec "$SNAP/bin/jujud" db-repl --data-dir "$SNAP_DATA" --controller-id "$controller_id" "$@"

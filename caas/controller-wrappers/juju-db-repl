@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+runtime_conf="/var/lib/juju/controller/runtime.conf"
+if [ ! -f "$runtime_conf" ]; then
+  echo "controller not yet initialized (runtime.conf not found)" >&2
+  exit 1
+fi
+
+controller_id=$(python3 -c "
+import yaml
+with open('$runtime_conf') as f:
+    print(yaml.safe_load()['controller-id'])
+" 2>/dev/null || true)
+if [ -z "$controller_id" ]; then
+  controller_id=0
+fi
+exec /opt/jujud db-repl --data-dir /var/lib/juju/controller --controller-id "$controller_id" "$@"

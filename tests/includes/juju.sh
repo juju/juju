@@ -324,11 +324,15 @@ pre_bootstrap() {
 	if [[ ${BUILD_AGENT:-} == true ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --build-agent"
 	else
-		# In CI tests, both Build and OfficialBuild are set.
-		# Juju confuses when it needs to decide the operator image tag to use.
-		# So we need to explicitly set the agent version for CI tests.
+    # Only pass an explicit agent version when the test pins one via
+    # JUJU_VERSION; a pinned version can differ from the running client, so
+    # bootstrap must be told which agent to use. Without JUJU_VERSION the flag
+    # would only repeat the client's own version, which snap-based bootstrap
+    # (Juju 4.2+) rejects: the controller snap version is the authoritative
+    # bootstrap version, and the client's own version is already the default.
 		if [[ -n ${JUJU_VERSION:-} ]]; then
 			version=${JUJU_VERSION}
+			export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version}"
 		else
 			version=$(juju_version)
 		fi
@@ -338,7 +342,7 @@ pre_bootstrap() {
 			extra_opts="--config juju-db-snap-channel=4.4/stable"
 		fi
 
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version} ${extra_opts:-}"
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} ${extra_opts:-}"
 	fi
 
 	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then

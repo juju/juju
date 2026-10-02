@@ -366,12 +366,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `dqlite-busy-timeout value "-1s" must be a positive duration`,
 }, {
-	about: "invalid jujud-controller-snap-source value",
-	config: controller.Config{
-		controller.JujudControllerSnapSource: "latest/stable",
-	},
-	expectError: `jujud-controller-snap-source value "latest/stable" must be one of legacy, snapstore, local or local-dangerous.`,
-}, {
 	about: "empty controller name",
 	config: controller.Config{
 		controller.ControllerName: "",

@@ -1,0 +1,148 @@
+name: jujud
+version: 4.2-beta1
+title: Juju Controller
+summary: Juju controller daemon
+description: |
+  The Juju controller daemon manages the API server, database, and workers
+  that form the Juju control plane. It hosts models, coordinates application
+  deployments, and handles lifecycle operations across clouds.
+
+  This snap packages the jujud controller binary with dynamically linked
+  dqlite and its native dependencies bundled inside the snap.
+
+  https://juju.is/
+license: AGPL-3.0
+contact: juju@lists.canonical.com
+issues: https://github.com/juju/juju/issues
+source-code: https://github.com/juju/juju
+website: https://juju.is
+base: core26
+assumes:
+  - snapd2.75
+confinement: strict
+grade: devel
+
+layout:
+  /var/lib/juju/locks:
+    bind: $SNAP_COMMON/locks
+
+apps:
+  jujud:
+    command: wrappers/jujud-controller
+    daemon: simple
+    restart-condition: on-failure
+    restart-delay: 5s
+    install-mode: disable
+    stop-mode: sigterm
+    # stop-timeout must exceed the controller's graceful drain (dqlite
+    # leadership transfer + worker shutdown). If drain exceeds 70s snapd
+    # sends SIGKILL, resulting in an unclean exit. Bump this value if
+    # controllers under load exceed the window.
+    stop-timeout: 70s
+    environment:
+      PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+      JUJU_DATA: "$SNAP_DATA"
+      JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
+    plugs:
+      - network
+      - network-bind
+
+  bootstrap-state:
+    # Wrapper cds to $SNAP_COMMON before exec (see wrappers/jujud-bootstrap-state).
+    command: wrappers/jujud-bootstrap-state
+    environment:
+      JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
+    plugs:
+      - network
+      # dqlite may listen (TLS proxy) and the API address picker probes interfaces.
+      - network-bind
+
+  init:
+    # Wrapper cds to $SNAP_COMMON before exec (see wrappers/jujud-init).
+    command: wrappers/jujud-init
+
+  introspect:
+    command: wrappers/juju-introspect
+    plugs:
+      - network-bind
+
+  metrics:
+    command: wrappers/juju-metrics
+  goroutines:
+    command: wrappers/juju-goroutines
+  engine-report:
+    command: wrappers/juju-engine-report
+  heap-profile:
+    command: wrappers/juju-heap-profile
+  machine-lock:
+    command: wrappers/juju-machine-lock
+  flightrecorder-start:
+    command: wrappers/juju-flightrecorder-start
+  flightrecorder-stop:
+    command: wrappers/juju-flightrecorder-stop
+  flightrecorder-capture:
+    command: wrappers/juju-flightrecorder-capture
+  db-repl:
+    command: wrappers/juju-db-repl
+    plugs:
+      - network
+  safemode:
+    command: wrappers/juju-safemode
+    plugs:
+      - network-bind
+
+hooks:
+  install: {}
+  configure: {}
+
+parts:
+  dqlite:
+    source: https://github.com/canonical/dqlite
+    source-type: git
+    source-commit: 91e3e2f90874e4ec3b45cde965f266342846531b # v1.18.7
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+      - --enable-build-raft
+    stage-packages:
+      - libuv1t64
+      - sqlite3
+    build-packages:
+      - liblz4-dev
+      - libsqlite3-dev
+      - libuv1-dev
+      - xfslibs-dev
+    organize:
+      usr/bin/: bin/
+      usr/lib/: lib/
+    prime:
+      - lib/libdqlite*so*
+      #- lib/*/liblz4.so*  # use liblz4.so from the base snap
+      - lib/*/libsqlite3*so*
+      - lib/*/libuv*
+
+  jujud:
+    after:
+      - dqlite
+    plugin: nil
+    source: .
+    build-snaps:
+      - go/1.27/stable
+    build-packages:
+      - gcc
+      - pkg-config
+    override-build: |
+      set -ex
+
+      export GOTOOLCHAIN=go1.27.0+auto
+      export GOBIN="${CRAFT_PART_INSTALL}/bin"
+      export CGO_ENABLED=1
+      export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
+      export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
+      export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+      export GO_LDFLAGS="-s -w -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
+      go mod download
+      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
+      ln -s jujud "${CRAFT_PART_INSTALL}/bin/juju-introspect"
+      mkdir -p "${CRAFT_PART_INSTALL}/wrappers"
+      cp -a snap/local/wrappers/* "${CRAFT_PART_INSTALL}/wrappers/"

@@ -12,66 +12,11 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/engine"
-	apiagent "github.com/juju/juju/api/agent/agent"
-	"github.com/juju/juju/api/base"
-	coreagent "github.com/juju/juju/core/agent"
 	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
 )
 
 var logger = internallogger.GetLogger("juju.worker.identityfilewriter")
-
-// LegacyManifoldConfig defines the names of the manifolds on which a
-// LegacyManifold will depend.
-//
-// TODO(JUJU-9720): Remove once the controller manifolds are removed from
-// jujuagentd in Stage 4.
-type LegacyManifoldConfig engine.AgentAPIManifoldConfig
-
-// LegacyManifold returns a dependency manifold that runs an identity file
-// writer worker for the jujuagentd transitional path, using the resource
-// names defined in the supplied config.
-//
-// TODO(JUJU-9720): Remove once the controller manifolds are removed from
-// jujuagentd in Stage 4.
-func LegacyManifold(config LegacyManifoldConfig) dependency.Manifold {
-	typedConfig := engine.AgentAPIManifoldConfig(config)
-	return engine.AgentAPIManifold(typedConfig, newLegacyWorker)
-}
-
-// newLegacyWorker wraps NewLegacyWorker for use in a engine.AgentAPIManifold.
-func newLegacyWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
-	cfg := a.CurrentConfig()
-
-	// Grab the tag and ensure that it's for a controller.
-	if !coreagent.IsAllowedControllerTag(cfg.Tag().Kind()) {
-		return nil, errors.New("this manifold may only be used inside a machine or controller agent")
-	}
-
-	isController, err := apiagent.IsController(ctx, apiCaller, cfg.Tag())
-	if err != nil {
-		return nil, err
-	}
-	if !isController {
-		return nil, dependency.ErrMissing
-	}
-
-	return NewLegacyWorker(cfg)
-}
-
-// NewLegacyWorker is the constructor for the jujuagentd transitional SSH
-// identity file writer.
-//
-// TODO(JUJU-9720): Remove once the controller manifolds are removed from
-// jujuagentd in Stage 4.
-var NewLegacyWorker = func(agentConfig agent.Config) (worker.Worker, error) {
-	inner := func(ctx context.Context) error {
-		return agent.WriteSystemIdentityFile(agentConfig)
-	}
-	return jworker.NewSimpleWorker(inner), nil
-}
 
 // SystemIdentityValues are the current system identity values used by the
 // jujud-only worker when the manifold starts.
@@ -119,9 +64,8 @@ func (v SystemIdentityValues) Validate() error {
 }
 
 // Manifold returns a dependency manifold that runs the jujud-only SSH identity
-// file writer. Unlike LegacyManifold, it does not depend on api-caller and
-// does not call apiagent.IsController, because jujud is always the controller
-// application.
+// file writer. It does not depend on api-caller or the API server, because
+// jujud is always the controller application.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},

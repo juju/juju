@@ -75,6 +75,21 @@ AGENT_PACKAGE_PLATFORMS ?= $(GOOS)/$(GOARCH)
 # OS_ARCH.
 OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 
+# Multi-snap layout: source-of-truth under snaps/<name>/, staging at snap/
+SNAPS_DIR := snaps
+SNAP_STAGE_DIR := snap
+SNAP_BUILD_DIR := ${BUILD_DIR}/snap
+JUJUD_SNAP_PATCH_DIR := _jujud-snap-patch
+JUJUD_SNAP_PATCH_UNPACK := ${JUJUD_SNAP_PATCH_DIR}/squashfs-root
+JUJUD_SNAP_PATCH_LOG := ${JUJUD_SNAP_PATCH_DIR}/build.log
+# Map Go arch to snap arch. Must match snapArch in environs/bootstrap/snap_build.go.
+JUJUD_SNAP_ARCH := $(patsubst ppc64le,ppc64el,$(GOARCH))
+JUJUD_SNAP_VERSION = $(shell sed -n 's/^version: *//p' ${SNAPS_DIR}/jujud/snapcraft.yaml | tr -d '"')
+JUJUD_SNAP_NAME = jujud_$(JUJUD_SNAP_VERSION)_$(JUJUD_SNAP_ARCH).snap
+JUJUD_SNAP_PATH = ${SNAP_BUILD_DIR}/${JUJUD_SNAP_NAME}
+JUJU_SNAP_VERSION = $(shell sed -n 's/^version: *//p' ${SNAPS_DIR}/juju/snapcraft.yaml | tr -d '"')
+JUJU_SNAP_NAME = juju_$(JUJU_SNAP_VERSION)_$(JUJUD_SNAP_ARCH).snap
+
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
@@ -120,6 +135,7 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 define BUILD_AGENT_TARGETS
 	$(call tool_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
@@ -127,7 +143,7 @@ endef
 # under the category of Juju agents, that are CGO. These targets are also the
 # ones we are more then likely wanting to cross compile.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
 define BUILD_CGO_BENCH_TARGETS
@@ -168,6 +184,7 @@ endif
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
     INSTALL_TARGETS += jujuagentd
+    INSTALL_TARGETS += jujud
     INSTALL_TARGETS += pebble
 endif
 
@@ -314,9 +331,15 @@ jujuc:
 
 .PHONY: jujuagentd
 jujuagentd: PACKAGE = github.com/juju/juju/cmd/jujuagentd
-jujuagentd: EXTRA_BUILD_TAGS += dqlite libsqlite3
-jujuagentd: musl-install-if-missing dqlite-install-if-missing
+jujuagentd:
 ## jujuagentd: Install jujuagentd without updating dependencies
+	${run_go_install}
+
+.PHONY: jujud
+jujud: PACKAGE = github.com/juju/juju/cmd/jujud
+jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
+jujud: musl-install-if-missing dqlite-install-if-missing
+## jujud: Install jujud controller binary without updating dependencies
 	${run_cgo_install}
 
 .PHONY: dqlite-repl
@@ -366,13 +389,15 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujuagentd: PACKAGE = github.com/juju/juju/cmd/jujuagentd
-${BUILD_DIR}/%/bin/jujuagentd: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/jujuagentd: phony_explicit musl-install-if-missing dqlite-install-if-missing
+${BUILD_DIR}/%/bin/jujuagentd: phony_explicit
 # build for jujuagentd
+	$(run_go_build)
+
+${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
+${BUILD_DIR}/%/bin/jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
+${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-install-if-missing
+# build for jujud controller binary
 	$(run_cgo_build)
-	$(eval OS = $(word 1,$(subst _, ,$*)))
-	$(eval ARCH = $(word 2,$(subst _, ,$*)))
-	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -579,6 +604,113 @@ rebuild-export:
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
 
+# snap_stage copies a named snap definition from snaps/<name>/ into the
+# generated staging directory snap/ that snapcraft expects at the repo root.
+# Usage: $(call snap_stage,<snap-name>)
+define snap_stage
+	@rm -rf ${SNAP_STAGE_DIR}
+	@mkdir -p ${SNAP_STAGE_DIR}
+	@cp -a ${SNAPS_DIR}/${1}/. ${SNAP_STAGE_DIR}/
+endef
+
+.PHONY: juju-snap
+juju-snap:
+## juju-snap: Build the juju snap from snaps/juju/
+	$(call snap_stage,juju)
+	mkdir -p ${SNAP_BUILD_DIR}
+	snapcraft pack --use-lxd
+	mv ${JUJU_SNAP_NAME} ${SNAP_BUILD_DIR}/
+
+.PHONY: jujud-snap
+jujud-snap:
+## jujud-snap: Build the jujud controller snap from snaps/jujud/
+	$(call snap_stage,jujud)
+	mkdir -p ${SNAP_BUILD_DIR}
+	snapcraft pack --use-lxd
+	mv ${JUJUD_SNAP_NAME} ${SNAP_BUILD_DIR}/
+
+.PHONY: jujud-snap-build
+jujud-snap-build:
+## jujud-snap-build: Build the jujud controller snap; fast-patch when possible, else full rebuild.
+# The full-build branch pipes snapcraft output through tee rather than
+# redirecting to a plain file: snapcraft's LXD provider spawns snap-confine,
+# which refuses to run ("elevated permissions ... permission escalation", exit
+# 120) when the build's stdout is a regular file. A pipe keeps stdout valid
+# while still capturing output to the log for display on failure.
+	@set -e; \
+	BASE_SNAP="${JUJUD_SNAP_PATH}"; \
+	if [ -f "$$BASE_SNAP" ] && [ -z "$$(find ${SNAPS_DIR}/jujud -newer "$$BASE_SNAP" -print -quit 2>/dev/null)" ]; then \
+		echo "Patching controller snap..."; \
+		$(MAKE) --no-print-directory jujud-snap-patch; \
+	else \
+		echo "Building controller snap from source. This may take a while..."; \
+		rm -rf ${JUJUD_SNAP_PATCH_DIR}; \
+		mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
+		set +e; \
+		{ $(MAKE) --no-print-directory jujud-snap 2>&1; echo $$? >${JUJUD_SNAP_PATCH_DIR}/.rc; } \
+			| tee ${JUJUD_SNAP_PATCH_LOG} >/dev/null; \
+		set -e; \
+		if [ "$$(cat ${JUJUD_SNAP_PATCH_DIR}/.rc 2>/dev/null)" != 0 ]; then \
+			cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; \
+		fi; \
+		$(MAKE) --no-print-directory jujud >> ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+			|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+		if [ ! -f "$$BASE_SNAP" ]; then \
+			echo "ERROR: expected snap artifact not found at $$BASE_SNAP."; \
+			exit 1; \
+		fi; \
+		sha256sum "${GO_INSTALL_PATH}/jujud" | cut -d' ' -f1 \
+			> ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
+		echo "Built snap: $$BASE_SNAP"; \
+	fi
+
+.PHONY: jujud-snap-patch
+jujud-snap-patch:
+## jujud-snap-patch: Fast-patch the base jujud snap with a freshly built jujud binary.
+	@set -e; \
+	mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
+	$(MAKE) --no-print-directory jujud > ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+		|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+	BASE_SNAP="${JUJUD_SNAP_PATH}"; \
+	if [ ! -f "$$BASE_SNAP" ]; then \
+		echo "ERROR: no base snap found. Run 'make jujud-snap-build' first to create the base snap artifact."; \
+		exit 1; \
+	fi; \
+	JUJUD_BIN="${GO_INSTALL_PATH}/jujud"; \
+	if [ ! -f "$$JUJUD_BIN" ]; then \
+		echo "ERROR: jujud binary not found at $$JUJUD_BIN."; \
+		exit 1; \
+	fi; \
+	JUJUD_SHA="$$(sha256sum "$$JUJUD_BIN" | cut -d' ' -f1)"; \
+	STORED_SHA="$$(cat ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256 2>/dev/null || true)"; \
+	if [ "$$JUJUD_SHA" = "$$STORED_SHA" ]; then \
+		echo "jujud binary unchanged; snap is up to date."; \
+		exit 0; \
+	fi; \
+	CACHE_SNAP="${JUJUD_SNAP_PATCH_DIR}/base.snap"; \
+	if [ ! -f "$$CACHE_SNAP" ]; then \
+		cp "$$BASE_SNAP" "$$CACHE_SNAP"; \
+	fi; \
+	if [ ! -d ${JUJUD_SNAP_PATCH_UNPACK} ]; then \
+		unsquashfs -d ${JUJUD_SNAP_PATCH_UNPACK} "$$CACHE_SNAP" >> ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+			|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+	fi; \
+	cp "$$JUJUD_BIN" ${JUJUD_SNAP_PATCH_UNPACK}/bin/jujud; \
+	test -L ${JUJUD_SNAP_PATCH_UNPACK}/bin/juju-introspect || \
+		ln -sf jujud ${JUJUD_SNAP_PATCH_UNPACK}/bin/juju-introspect; \
+	if [ ! -x ${JUJUD_SNAP_PATCH_UNPACK}/bin/jujud ]; then \
+		echo "ERROR: jujud binary is not executable."; \
+		exit 1; \
+	fi; \
+	if ! file ${JUJUD_SNAP_PATCH_UNPACK}/bin/jujud | grep -q 'ELF'; then \
+		echo "ERROR: jujud is not a valid ELF binary."; \
+		exit 1; \
+	fi; \
+	snap pack ${JUJUD_SNAP_PATCH_UNPACK} --filename="$$BASE_SNAP" >> ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
+		|| { cat ${JUJUD_SNAP_PATCH_LOG}; exit 1; }; \
+	echo "$$JUJUD_SHA" > ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
+	echo "Patched snap: $$BASE_SNAP"
+
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
@@ -597,6 +729,16 @@ ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo
 endif
 endif
 
+# snapcraft packs the locally built controller snap used by bootstrap's
+# --build-snap mode and its fallback for dev clients newer than any
+# published controller snap.
+ifeq ("$(shell snap list snapcraft 2>/dev/null)","")
+	@echo 'Installing snapcraft snap'
+	@sudo snap install snapcraft --classic
+else
+	@echo 'Using installed snapcraft snap'
+endif
+
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 
 .PHONY: install-sqlite3-dependencies
@@ -610,7 +752,12 @@ install-sqlite3-dependencies:
 .PHONY: install-dependencies
 install-dependencies: install-snap-dependencies install-sqlite3-dependencies
 ## install-dependencies: Install all the dependencies
+# squashfs-tools provides the unsquashfs helper that reads the version of
+# a locally built controller snap during bootstrap. The apt lists are
+# already refreshed by install-sqlite3-dependencies.
 	@echo "Installing dependencies"
+	@$(WAIT_FOR_DPKG)
+	@sudo apt-get --yes install squashfs-tools
 
 .PHONY: install-etc
 # Install bash_completion

@@ -256,6 +256,26 @@ type BootstrapConfig struct {
 	// ControllerCharm is a local controller charm to be used.
 	ControllerCharm string
 
+	// ControllerSnapPath is the local path to a controller snap to embed
+	// in cloud-init during bootstrap provisioning. The snap is installed
+	// in dangerous mode (unsigned local snap).
+	ControllerSnapPath string
+
+	// ControllerSnapAssertPath is the local path to the snap assertion file
+	// accompanying ControllerSnapPath. When provided the snap is installed
+	// with an assertion rather than in dangerous mode.
+	ControllerSnapAssertPath string
+
+	// ControllerSnapExpectedVersion is the exact Juju version expected to be
+	// provided by the installed controller snap (store installs only).
+	ControllerSnapExpectedVersion string
+
+	// ControllerSnapRevision is the store revision of the controller snap the
+	// machine must download and install during provisioning. When non-zero the
+	// machine downloads that exact revision from the store; when zero a locally
+	// provided snap (ControllerSnapPath) is uploaded and installed instead.
+	ControllerSnapRevision int
+
 	// Timeout is the amount of time to wait for bootstrap to complete.
 	Timeout time.Duration
 
@@ -429,6 +449,7 @@ type stateInitializationParamsInternal struct {
 	ControllerCloudCredential               *cloud.Credential                 `yaml:"controller-cloud-credential,omitempty"`
 	ControllerCharmPath                     string                            `yaml:"controller-charm-path,omitempty"`
 	ControllerCharmChannel                  charm.Channel                     `yaml:"controller-charm-channel,omitempty"`
+	ControllerSnapExpectedVersion           string                            `yaml:"controller-snap-expected-version,omitempty"`
 	SSHServerHostKey                        string                            `yaml:"ssh-server-host-key,omitempty"`
 }
 
@@ -738,6 +759,36 @@ func (cfg *InstanceConfig) SetControllerCharm(controllerCharmPath string) error 
 	}
 
 	cfg.Bootstrap.ControllerCharm = controllerCharmPath
+
+	return nil
+}
+
+// SetControllerSnap annotates the instance configuration with the locations of
+// a locally provided controller snap (and optionally its assertion file) to
+// upload during the instance's provisioning. If assertPath is empty the snap
+// will be installed in dangerous mode.
+func (cfg *InstanceConfig) SetControllerSnap(snapPath, assertPath string) error {
+	if snapPath == "" && assertPath != "" {
+		return errors.New("assertPath is provided without snapPath") //TODO const err
+	}
+	if snapPath == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(snapPath); err != nil {
+		return errors.Annotatef(err, "unable to set local controller snap (at %s)", snapPath)
+	}
+
+	if assertPath != "" {
+		if _, err := os.Stat(assertPath); err != nil {
+			return errors.Annotatef(err, "unable to set local controller snap assert (at %s)", assertPath)
+		}
+	}
+
+	cfg.Bootstrap.ControllerSnapPath = snapPath
+	cfg.Bootstrap.ControllerSnapAssertPath = assertPath
+
+	logger.Debugf(context.TODO(), "Set local controller snap path to %s and assert path to %s", snapPath, assertPath)
 
 	return nil
 }
