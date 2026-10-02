@@ -631,6 +631,12 @@ run_model_migration_36_cmr_spaces() {
 	migrate_36 "mig36-aws-src-12345" "mig-aws-cons36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	wait_source_reaped_36 "mig36-aws-src-12345" "mig-aws-cons36-12345"
 
+	# wait_for drives the current model of the 4.0 client, and migrate_36
+	# left the shared current controller pointing at the 3.6 source,
+	# which the 4.0 client cannot drive. Switch to the migrated consumer
+	# model on the target before the post-migration waits.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-cons36-12345"
+
 	${JUJU_36} config -m "mig36-aws-src-12345:mig-aws-off36-12345" dummy-source token=post-mig
 	wait_for "post-mig" "$(workload_status "dummy-sink" 0).message"
 
@@ -643,10 +649,26 @@ run_model_migration_36_cmr_spaces() {
 	migrate_36 "mig36-aws-src-12345" "mig-aws-off36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	wait_source_reaped_36 "mig36-aws-src-12345" "mig-aws-off36-12345"
 
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-off36-12345"
+
 	# The model constraint naming the imported space must survive
 	# (juju/juju#23343).
 	constraints_out=$(juju model-constraints -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-off36-12345" 2>&1 || true)
 	check_contains "${constraints_out}" "spaces=mig-space"
+
+	# The space itself must have moved with the model: a migration that
+	# drops the space but keeps the dangling constraint reference would
+	# pass the check above while breaking every future constrained
+	# placement (juju/juju#23343).
+	spaces_out=$(juju spaces -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-off36-12345" 2>&1 || true)
+	check_contains "${spaces_out}" "mig-space"
+
+	# Exercise constrained placement against the imported space: adding
+	# a unit must place with the spaces=mig-space model constraint in
+	# effect (and would fail to place at all if the constraint
+	# referenced a space that no longer exists).
+	juju add-unit dummy-source
+	wait_for "dummy-source" "$(idle_condition "dummy-source" 1)"
 
 	# End-to-end flow after both sides moved.
 	juju config -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-off36-12345" dummy-source token=yeah-boi
