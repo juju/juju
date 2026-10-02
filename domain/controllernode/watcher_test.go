@@ -91,8 +91,12 @@ func (s *watcherSuite) checkAddressWatcher(c *tc.C, table string, watch func(*se
 	// read an empty projection is notified when addresses become available.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
-			APIAddresses: map[string]network.SpaceHostPorts{
-				"0": network.NewSpaceHostPorts(17070, "10.0.0.1"),
+			APIPort: 17070,
+			Addresses: map[string]controllernode.APIAddressSet{
+				"0": {
+					Clients: network.SpaceAddresses{{MachineAddress: network.NewMachineAddress("10.0.0.1")}},
+					Agents:  network.SpaceAddresses{{MachineAddress: network.NewMachineAddress("10.0.0.1")}},
+				},
 			},
 		})
 		c.Assert(err, tc.ErrorIsNil)

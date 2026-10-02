@@ -4,6 +4,8 @@
 package state
 
 import (
+	"database/sql"
+
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
@@ -12,111 +14,196 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func (s *stateSuite) TestSetAPIAddressesProjectionMetadataAndIdentity(c *tc.C) {
+func (s *stateSuite) TestSetAPIAddressesIndependentAudiences(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	// Full reconciliation removes obsolete rows written by the previous shared
+	// endpoint representation.
 	_, err := s.DB().ExecContext(c.Context(), `
-INSERT INTO controller_api_address (controller_id, address, scope)
-VALUES ('0', 'legacy.example.com:17070', 'public');
-INSERT INTO controller_peer_address (uuid, controller_id, address, scope)
-VALUES ('peer', '0', 'peer.example.com:17070', 'local-cloud')`)
+INSERT INTO controller_client_address (uuid, controller_id, address, scope)
+VALUES ('old-client', NULL, 'client.example.com:17070', 'public');
+INSERT INTO controller_agent_address (uuid, controller_id, address, scope)
+VALUES ('old-agent', NULL, 'agent.example.com:17070', 'public')`)
+	c.Assert(err, tc.ErrorIsNil)
+	publications := controllernode.APIAddressPublications{
+		"0": {
+			Clients: controllernode.APIAddresses{{Address: "client.example.com:17070", Scope: network.ScopePublic}},
+			Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070", Scope: network.ScopeCloudLocal}},
+			Peers:   controllernode.APIAddresses{{Address: "10.0.0.3:17070", Scope: network.ScopeCloudLocal}},
+		},
+	}
+	c.Assert(s.setAPIAddresses(c, publications), tc.ErrorIsNil)
+	s.checkAddressProjections(c, publications)
+}
+
+func (s *stateSuite) TestSetAPIAddressesEmptySnapshotClearsAllProjections(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	publication := controllernode.APIAddressPublication{
+		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "10.0.0.2:17070"}},
+		Peers:   controllernode.APIAddresses{{Address: "10.0.0.3:17070"}},
+	}
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": publication}), tc.ErrorIsNil)
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {}}), tc.ErrorIsNil)
+	s.checkAddressProjections(c, controllernode.APIAddressPublications{"0": {}})
+}
+
+func (s *stateSuite) TestSetAPIAddressesCleansOmittedInactiveController(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+	publications := controllernode.APIAddressPublications{
+		"0": {Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070"}}},
+		"1": {Peers: controllernode.APIAddresses{{Address: "10.0.0.2:17070"}}},
+	}
+	c.Assert(s.setAPIAddresses(c, publications), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), "UPDATE controller_node SET life_id = 2 WHERE controller_id = '1'")
 	c.Assert(err, tc.ErrorIsNil)
 
-	addrs := controllernode.APIAddresses{{
-		Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal,
+	want := controllernode.APIAddressPublications{
+		"0": {Clients: publications["0"].Clients},
+	}
+	c.Assert(s.setAPIAddresses(c, want), tc.ErrorIsNil)
+	s.checkAddressProjections(c, want)
+}
+
+func (s *stateSuite) TestSetAPIAddressesRequiresExactActiveMembership(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
+
+	err := s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {}})
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.StaleControllerMembership)
+	err = s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {}, "1": {}, "2": {}})
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.StaleControllerMembership)
+	s.checkAddressProjections(c, nil)
+}
+
+func (s *stateSuite) TestSetAPIAddressesMetadataUpdatePreservesUUID(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	original := controllernode.APIAddressPublications{"0": {
+		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal}},
+		Agents:  controllernode.APIAddresses{{Address: "10.0.0.2:17070", Scope: network.ScopeCloudLocal}},
+		Peers:   controllernode.APIAddresses{{Address: "10.0.0.3:17070", Scope: network.ScopeCloudLocal}},
 	}}
-	s.addControllerAddressProjections(c, "0", addrs)
-	originalUUID := addrs[0].UUID
-	_, err = s.DB().ExecContext(c.Context(), "DELETE FROM change_log")
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.setAPIAddresses(c, original), tc.ErrorIsNil)
+	stored := s.addressUUIDs(c)
 
-	// Services supply fresh UUIDs on each reconciliation. Existing rows keep
-	// their identities, and unchanged projections do not emit notifications.
-	addrs[0].UUID = tc.Must0(c, uuid.NewUUID).String()
-	s.addControllerAddressProjections(c, "0", addrs)
+	updated := controllernode.APIAddressPublications{"0": {
+		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070", Scope: network.ScopePublic, Priority: 3}},
+		Agents:  controllernode.APIAddresses{{Address: "10.0.0.2:17070", Scope: network.ScopePublic, Priority: 2}},
+		Peers:   controllernode.APIAddresses{{Address: "10.0.0.3:17070", Scope: network.ScopePublic, Priority: 1}},
+	}}
+	c.Assert(s.setAPIAddresses(c, updated), tc.ErrorIsNil)
+	c.Check(s.addressUUIDs(c), tc.DeepEquals, stored)
+	s.checkAddressProjections(c, updated)
+}
+
+func (s *stateSuite) TestSetAPIAddressesNoOpMakesNoChanges(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	publications := controllernode.APIAddressPublications{"0": {
+		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "10.0.0.2:17070"}},
+		Peers:   controllernode.APIAddresses{{Address: "10.0.0.3:17070"}},
+	}}
+	c.Assert(s.setAPIAddresses(c, publications), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), "DELETE FROM change_log")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.setAPIAddresses(c, publications), tc.ErrorIsNil)
+
 	var count int
 	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM change_log").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
-
-	addrs[0].Scope = network.ScopePublic
-	addrs[0].Priority = 2
-	s.addControllerAddressProjections(c, "0", addrs)
-	s.checkControllerAddressProjections(c, "0", addrs)
-	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
-		var storedUUID string
-		err := s.DB().QueryRowContext(c.Context(), "SELECT uuid FROM "+table).Scan(&storedUUID)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(storedUUID, tc.Equals, originalUUID)
-		err = s.DB().QueryRowContext(c.Context(), `
-SELECT COUNT(*) FROM change_log AS log
-JOIN change_log_namespace AS namespace ON namespace.id = log.namespace_id
-WHERE namespace.namespace = ? AND log.edit_type_id = 2`, table).Scan(&count)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(count, tc.Equals, 1)
-	}
-
-	// This stage writes neither the legacy projection nor the peer projection.
-	for table, expected := range map[string]string{
-		"controller_api_address":  "legacy.example.com:17070",
-		"controller_peer_address": "peer.example.com:17070",
-	} {
-		var address string
-		err := s.DB().QueryRowContext(c.Context(), "SELECT address FROM "+table).Scan(&address)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(address, tc.Equals, expected)
-	}
 }
 
-func (s *stateSuite) TestSetAPIAddressesProjectionRollback(c *tc.C) {
+func (s *stateSuite) TestSetAPIAddressesRollsBackWhenPeerWriteFails(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
 	_, err := s.DB().ExecContext(c.Context(), `
-CREATE TRIGGER fail_agent_address BEFORE INSERT ON controller_agent_address
+CREATE TRIGGER fail_peer_address BEFORE INSERT ON controller_peer_address
 BEGIN
-    SELECT RAISE(ABORT, 'agent write failed');
+    SELECT RAISE(ABORT, 'peer write failed');
 END`)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.setAPIAddresses(c, map[string]controllernode.APIAddresses{
-		"0": {{Address: "10.0.0.1:17070", IsAgent: true}},
+	err = s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {
+		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "10.0.0.2:17070"}},
+		Peers:   controllernode.APIAddresses{{Address: "10.0.0.3:17070"}},
+	}})
+	c.Assert(err, tc.ErrorMatches, ".*peer write failed.*")
+	s.checkAddressProjections(c, nil)
+}
+
+func (s *stateSuite) TestSetAPIAddressesRejectsEmptyControllerID(c *tc.C) {
+	err := s.setAPIAddresses(c, controllernode.APIAddressPublications{
+		"": {Peers: controllernode.APIAddresses{{Address: "shared.example.com:17070"}}},
 	})
-	c.Assert(err, tc.ErrorMatches, ".*agent write failed.*")
-	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
-		var count int
-		err := s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM "+table).Scan(&count)
+	c.Assert(err, tc.ErrorMatches, "controller ID is empty")
+}
+
+func (s *stateSuite) setAPIAddresses(c *tc.C, publications controllernode.APIAddressPublications) error {
+	for controllerID, publication := range publications {
+		for _, addresses := range []*controllernode.APIAddresses{
+			&publication.Clients, &publication.Agents, &publication.Peers,
+		} {
+			for i := range *addresses {
+				if (*addresses)[i].UUID == "" {
+					(*addresses)[i].UUID = tc.Must0(c, uuid.NewUUID).String()
+				}
+			}
+		}
+		publications[controllerID] = publication
+	}
+	return s.state.SetAPIAddresses(c.Context(), publications)
+}
+
+func (s *stateSuite) checkAddressProjections(c *tc.C, publications controllernode.APIAddressPublications) {
+	tables := map[string]func(controllernode.APIAddressPublication) controllernode.APIAddresses{
+		"controller_client_address": func(publication controllernode.APIAddressPublication) controllernode.APIAddresses {
+			return publication.Clients
+		},
+		"controller_agent_address": func(publication controllernode.APIAddressPublication) controllernode.APIAddresses {
+			return publication.Agents
+		},
+		"controller_peer_address": func(publication controllernode.APIAddressPublication) controllernode.APIAddresses {
+			return publication.Peers
+		},
+	}
+	for table, selectAddresses := range tables {
+		var want []publishedControllerAddress
+		for controllerID, publication := range publications {
+			identity := sql.NullString{String: controllerID, Valid: controllerID != ""}
+			for _, address := range selectAddresses(publication) {
+				want = append(want, publishedControllerAddress{
+					ControllerID: identity,
+					Address:      address.Address,
+					Scope:        string(address.Scope),
+					Priority:     address.Priority,
+				})
+			}
+		}
+
+		rows, err := s.DB().QueryContext(c.Context(), "SELECT uuid, controller_id, address, scope, priority FROM "+table)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(count, tc.Equals, 0)
+		var got []publishedControllerAddress
+		for rows.Next() {
+			var row publishedControllerAddress
+			c.Assert(rows.Scan(&row.UUID, &row.ControllerID, &row.Address, &row.Scope, &row.Priority), tc.ErrorIsNil)
+			c.Check(uuid.IsValidUUIDString(row.UUID), tc.IsTrue)
+			row.UUID = ""
+			got = append(got, row)
+		}
+		c.Assert(rows.Close(), tc.ErrorIsNil)
+		c.Assert(rows.Err(), tc.ErrorIsNil)
+		c.Check(got, tc.SameContents, want, tc.Commentf("table %s", table))
 	}
 }
 
-func (s *stateSuite) TestSetAPIAddressesRejectsDyingAndDeadControllers(c *tc.C) {
-	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
-	addrs := controllernode.APIAddresses{{Address: "10.0.0.1:17070", IsAgent: true}}
-	s.addControllerAddressProjections(c, "0", addrs)
-	for _, life := range []int{1, 2} {
-		_, err := s.DB().ExecContext(c.Context(), "UPDATE controller_node SET life_id = ? WHERE controller_id = '0'", life)
+func (s *stateSuite) addressUUIDs(c *tc.C) map[string]string {
+	result := make(map[string]string)
+	for _, table := range []string{"controller_client_address", "controller_agent_address", "controller_peer_address"} {
+		var id string
+		err := s.DB().QueryRowContext(c.Context(), "SELECT uuid FROM "+table).Scan(&id)
 		c.Assert(err, tc.ErrorIsNil)
-		err = s.setAPIAddresses(c, map[string]controllernode.APIAddresses{
-			"0": {{Address: "10.0.0.2:17070", IsAgent: true}},
-		})
-		c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
-		s.checkControllerAddressProjections(c, "0", addrs)
+		result[table] = id
 	}
-}
-
-func (s *stateSuite) TestSetAPIAddressesDuplicateAudienceSelection(c *tc.C) {
-	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
-	addrs := controllernode.APIAddresses{
-		{Address: "10.0.0.1:17070", IsAgent: true},
-		{Address: "10.0.0.1:17070", IsAgent: false, Scope: network.ScopePublic},
-	}
-	s.addControllerAddressProjections(c, "0", addrs)
-	s.checkControllerAddressProjections(c, "0", addrs[1:])
-}
-
-func (s *stateSuite) TestSetAPIAddressesEmptyInput(c *tc.C) {
-	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
-	addrs := controllernode.APIAddresses{{Address: "10.0.0.1:17070", IsAgent: true}}
-	s.addControllerAddressProjections(c, "0", addrs)
-	c.Assert(s.state.SetAPIAddresses(c.Context(), nil), tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, "0", addrs)
+	return result
 }
