@@ -56,23 +56,28 @@ VALUES ('0', 'legacy.example.com:17070', 'public', true)`)
 
 func (s *stateSuite) TestGetAPIAddressesAfterReplacement(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
-	old := controllernode.APIAddresses{{Address: "10.0.0.1:17070", IsAgent: true}}
-	s.addControllerAddressProjections(c, "0", old)
-	updated := controllernode.APIAddresses{
-		{Address: "10.0.0.2:17070", Scope: network.ScopeCloudLocal, IsAgent: true},
+	old := controllernode.APIAddressPublications{"0": {
+		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
+	}}
+	c.Assert(s.setAPIAddresses(c, old), tc.ErrorIsNil)
+	agentsWant := controllernode.APIAddresses{{Address: "10.0.0.2:17070", Scope: network.ScopeCloudLocal}}
+	clientsWant := controllernode.APIAddresses{
+		agentsWant[0],
 		{Address: "public.example.com:17070", Scope: network.ScopePublic},
 	}
-	s.addControllerAddressProjections(c, "0", updated)
-	// IsAgent is publication input only; readers use the chosen projection.
-	updated[0].IsAgent = false
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {
+		Clients: clientsWant,
+		Agents:  agentsWant,
+	}}), tc.ErrorIsNil)
 	agents, err := s.state.GetAPIAddressesForAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(agents, tc.DeepEquals, map[string]controllernode.APIAddresses{"0": updated[:1]})
+	c.Check(agents, tc.DeepEquals, map[string]controllernode.APIAddresses{"0": agentsWant})
 	clients, err := s.state.GetAPIAddressesForClients(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(clients, tc.DeepEquals, map[string]controllernode.APIAddresses{"0": updated})
+	c.Check(clients, tc.DeepEquals, map[string]controllernode.APIAddresses{"0": clientsWant})
 
-	s.addControllerAddressProjections(c, "0", nil)
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {}}), tc.ErrorIsNil)
 	_, err = s.state.GetAPIAddressesForAgents(c.Context())
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 	_, err = s.state.GetAPIAddressesForClients(c.Context())
