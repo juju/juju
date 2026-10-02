@@ -663,7 +663,9 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	now := s.Clock.Now().UTC()
+	// Login timestamps are stored with second precision. Compare against the
+	// truncated login start time so slow logins do not make this assertion flaky.
+	loginStart := s.Clock.Now().UTC().Truncate(time.Second)
 
 	info := s.ControllerModelApiInfo()
 	info.Tag = names.NewUserTag("bobbrown")
@@ -673,14 +675,15 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
 
-	// The user now has last login updated.
 	user, err := accessService.GetUser(c.Context(), userUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(user.LastLogin, tc.Almost, now)
+	c.Check(user.LastLogin, tc.Not(tc.Before), loginStart)
 
 	when, err := accessService.LastModelLogins(c.Context(), name, []coremodel.UUID{coremodel.UUID(s.ControllerModelUUID())})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(when[coremodel.UUID(s.ControllerModelUUID())], tc.Almost, now)
+	modelLogin, ok := when[coremodel.UUID(s.ControllerModelUUID())]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(modelLogin, tc.Not(tc.Before), loginStart)
 }
 
 func (s *loginSuite) setEveryoneAccess(c *tc.C, accessLevel permission.Access) {
