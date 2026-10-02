@@ -172,8 +172,6 @@ type ModelService interface {
 // network spaces/subnets.
 type NetworkService interface {
 	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
 	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
 	// GetAllSpaces returns all spaces for the model.
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)

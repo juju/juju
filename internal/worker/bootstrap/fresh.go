@@ -162,6 +162,9 @@ func (c *FreshBootstrapConfig) Validate() error {
 	if c.NetworkService == nil {
 		return jujuerrors.NotValidf("nil NetworkService")
 	}
+	if c.ControllerModel.ModelType == coremodel.CAAS && c.ServiceManagerGetter == nil {
+		return jujuerrors.NotValidf("nil ServiceManagerGetter")
+	}
 	if c.BakeryConfigService == nil {
 		return jujuerrors.NotValidf("nil BakeryConfigService")
 	}
@@ -281,8 +284,9 @@ func (b *freshBootstrap) run(ctx context.Context) (func(), error) {
 	// Fresh bootstrap creates controller 0. Restoration supplies its chosen
 	// controller ID when publishing addresses with this helper.
 	if err := InitialiseAPIHostPorts(ctx, b.cfg.ControllerNodeService,
-		b.cfg.NetworkService, agent.BootstrapControllerId, controllerConfig,
-		bootstrapAddresses, b.cfg.APIPort); err != nil {
+		b.cfg.NetworkService, b.cfg.ServiceManagerGetter,
+		agent.BootstrapControllerId, b.cfg.ControllerModel.ModelType,
+		controllerConfig, bootstrapAddresses, b.cfg.APIPort); err != nil {
 		b.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return nil, errors.Capture(err)
 	}

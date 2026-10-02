@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/deployment/charm"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
@@ -60,7 +61,8 @@ func (s *freshBootstrapSuite) SetUpTest(c *tc.C) {
 	s.removeBootstrapSSHKeys = func([]string) error { return nil }
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{
-		UUID: tc.Must0(c, coremodel.NewUUID),
+		UUID:      tc.Must0(c, coremodel.NewUUID),
+		ModelType: coremodel.IAAS,
 	}
 }
 
@@ -397,24 +399,15 @@ func (s *freshBootstrapSuite) expectSeedDefaultStoragePools() {
 
 func (s *freshBootstrapSuite) expectSetAPIHostPorts() {
 	spaceName := network.SpaceName("mgmt-space")
-	mgmtSpace := &network.SpaceInfo{
-		Name: spaceName,
-		Subnets: []network.SubnetInfo{
-			{
-				CIDR: "10.0.0.0/24",
-			},
-		},
-	}
 	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: mgmtSpace,
-		APIAddresses: map[string]network.SpaceHostPorts{
+		APIPort: 42,
+		Addresses: map[string]controllernode.APIAddressSet{
 			"0": {},
 		},
 	}
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(nil, networkerrors.SpaceNotFound)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args)
-
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 }
 
 func (s *freshBootstrapSuite) ensureBootstrapParams(c *tc.C) {

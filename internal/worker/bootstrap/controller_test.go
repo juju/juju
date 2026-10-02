@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/controllernode"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -140,9 +141,9 @@ func (s *controllerSuite) assertAPIHostPorts(c *tc.C, managementSpaceErr, publis
 	addresses[0].CIDR = space.Subnets[0].CIDR
 	addresses[1].CIDR = space.Subnets[1].CIDR
 	providerAddresses := addresses.AsProviderAddresses()
-	expected := network.SpaceHostPorts{
-		{SpaceAddress: network.SpaceAddress{MachineAddress: addresses[0], SpaceID: space.ID}, NetPort: 17070},
-		{SpaceAddress: network.SpaceAddress{MachineAddress: addresses[1], SpaceID: space.ID}, NetPort: 17070},
+	expected := network.SpaceAddresses{
+		{MachineAddress: addresses[0], SpaceID: space.ID},
+		{MachineAddress: addresses[1], SpaceID: space.ID},
 	}
 	managementSpace := &space
 	if managementSpaceErr != nil {
@@ -151,11 +152,19 @@ func (s *controllerSuite) assertAPIHostPorts(c *tc.C, managementSpaceErr, publis
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(network.SpaceInfos{space}, nil)
 	s.networkService.EXPECT().SpaceByName(gomock.Any(), space.Name).Return(managementSpace, managementSpaceErr)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
-		MgmtSpace:    managementSpace,
-		APIAddresses: map[string]network.SpaceHostPorts{"7": expected},
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"7": {
+				Clients: expected,
+				Agents:  expected,
+				Peers:   expected,
+			},
+		},
 	}).Return(publishErr)
-	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService, s.networkService, "7",
-		controller.Config{controller.JujuManagementSpace: "management"}, providerAddresses, 17070)
+	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService, s.networkService,
+		nil, "7", coremodel.IAAS,
+		controller.Config{controller.JujuManagementSpace: "management"},
+		providerAddresses, 17070)
 	if publishErr == nil {
 		c.Assert(err, tc.ErrorIsNil)
 	} else {
@@ -167,9 +176,88 @@ func (s *controllerSuite) TestInitialiseAPIHostPortsSpaceLookupFailure(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 	expected := errors.New("space lookup failed")
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, expected)
-	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService, s.networkService, "7",
-		controller.Config{}, nil, 17070)
+	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService,
+		s.networkService, nil, "7", coremodel.IAAS, controller.Config{}, nil, 17070)
 	c.Check(err, tc.ErrorIs, expected)
+}
+
+func (s *controllerSuite) TestInitialiseAPIHostPortsOrdersByAudience(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	public := network.ProviderAddress{
+		MachineAddress: network.NewMachineAddress("192.0.2.1", network.WithScope(network.ScopePublic)),
+		SpaceName:      "public",
+	}
+	management := network.ProviderAddress{
+		MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		SpaceName:      "management",
+	}
+	spaces := network.SpaceInfos{
+		{ID: "public-id", Name: "public"},
+		{ID: "management-id", Name: "management"},
+	}
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaces, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("management")).Return(&spaces[1], nil)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"7": {
+				Clients: network.SpaceAddresses{
+					{MachineAddress: public.MachineAddress, SpaceID: "public-id"},
+					{MachineAddress: management.MachineAddress, SpaceID: "management-id"},
+				},
+				Agents: network.SpaceAddresses{
+					{MachineAddress: management.MachineAddress, SpaceID: "management-id"},
+				},
+				Peers: network.SpaceAddresses{
+					{MachineAddress: management.MachineAddress, SpaceID: "management-id"},
+				},
+			},
+		},
+	})
+
+	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService,
+		s.networkService, nil, "7", coremodel.IAAS,
+		controller.Config{controller.JujuManagementSpace: "management"},
+		network.ProviderAddresses{management, public}, 17070)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *controllerSuite) TestInitialiseAPIHostPortsCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	public := network.NewMachineAddress(
+		"api.example.com", network.WithScope(network.ScopePublic),
+	).AsProviderAddress()
+	private := network.NewMachineAddress(
+		"10.0.0.1", network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddress()
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	serviceManager := NewMockServiceManager(gomock.NewController(c))
+	serviceManager.EXPECT().ControllerUnitFQDN(7).Return("controller-7.internal")
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"7": {
+				Clients: network.SpaceAddresses{
+					{MachineAddress: public.MachineAddress},
+					{MachineAddress: private.MachineAddress},
+				},
+				Agents: network.SpaceAddresses{
+					{MachineAddress: private.MachineAddress},
+					{MachineAddress: public.MachineAddress},
+				},
+				Peers: network.SpaceAddresses{
+					network.NewSpaceAddress("controller-7.internal", network.WithScope(network.ScopeCloudLocal)),
+				},
+			},
+		},
+	})
+
+	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService,
+		s.networkService, func(context.Context) (ServiceManager, error) {
+			return serviceManager, nil
+		}, "7", coremodel.CAAS, controller.Config{},
+		network.ProviderAddresses{private, public}, 17070)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *controllerSuite) TestFinaliseK8sAgentPasswordBeforeNonceRead(c *tc.C) {
