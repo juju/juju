@@ -811,9 +811,10 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodAddressCapableNoPro
 		containermanager.NetworkingMethodLocal.String(),
 	)
 
-	// There are deliberately no expectations for GetMachineInstanceID or the
-	// provider's AllocateContainerAddresses: unexpected calls fail the test.
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+	// There are deliberately no expectations for the provider's capability,
+	// GetMachineInstanceID or the provider's AllocateContainerAddresses:
+	// unexpected calls fail the test. An explicitly configured local method
+	// never consults the provider.
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -905,8 +906,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeNoSpac
 		containermanager.NetworkingMethodLocal.String(),
 	)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
-
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -946,8 +945,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeNotObs
 		containermanager.NetworkingMethodLocal.String(),
 	)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
-
 	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
 }
@@ -976,7 +973,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodMultipleSpacesSingl
 	// Even when the provider supports container addresses, the device on
 	// the default LXD bridge uses DHCP, since the bridge subnet is not
 	// registered with Juju.
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1019,8 +1015,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodMixedBridges(c *tc.
 	)
 	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "one-space-uuid").
 		Return("10.10.10.0/24", nil)
-
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1066,8 +1060,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpac
 	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, internalnetwork.DefaultLXDBridge, "positive-space-uuid").
 		Return("10.0.0.0/24", nil)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
-
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1104,8 +1096,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodInSpaceBridgeAddres
 	)
 	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
 		Return("10.10.10.0/24", nil)
-
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1152,7 +1142,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpac
 	// Even though the provider supports container addresses, local
 	// networking configures the device for DHCP: the address comes from
 	// the host bridge.
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1191,8 +1180,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpac
 		},
 		containermanager.NetworkingMethodLocal.String(),
 	)
-
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1234,8 +1221,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodNegativeConstraintN
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodLocal.String(), nil)
 
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
-
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1269,8 +1254,6 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodInSpaceBridgeNoDefa
 	)
 	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
 		Return("10.10.10.0/24", nil)
-
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1396,8 +1379,6 @@ func (s *containerSuite) TestNetworkConfigForGuestNoSpaces(c *tc.C) {
 		nil,
 		containermanager.NetworkingMethodLocal.String(),
 	)
-
-	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorIsNil)

@@ -453,6 +453,8 @@ func findParent(parentName string, nics map[string][]network.NetInterface) *netw
 // used as configured, while the unset "auto" value is resolved against
 // the model's provider: local unless it supports allocating container
 // addresses. Explicitly configured values never consult the provider.
+// See containerNetworking for the variant that also reports the provider's
+// capability.
 func (s *ProviderService) isLocalContainerNetworking(ctx context.Context) (bool, error) {
 	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
 	if err != nil {
@@ -472,26 +474,32 @@ func (s *ProviderService) isLocalContainerNetworking(ctx context.Context) (bool,
 // containerNetworking resolves the effective container networking method for
 // the model, reporting whether it is local, and whether the model's provider
 // supports allocating container addresses.
-// The provider capability is consulted exactly once.
+// The provider capability is consulted at most once, and only when it is
+// needed: the unset "auto" value resolves against it, and the "provider"
+// value needs it to decide whether addresses are allocated by the provider.
+// An explicitly configured "local" value does not depend on the provider, so
+// it is never consulted in that case. See isLocalContainerNetworking for the
+// lazy variant used when only the local/provider decision is required.
 func (s *ProviderService) containerNetworking(ctx context.Context) (bool, bool, error) {
 	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
 	if err != nil {
 		return false, false, errors.Capture(err)
 	}
 
-	supportsAddresses, err := s.supportsContainerAddresses(ctx)
-	if err != nil {
-		return false, false, errors.Capture(err)
+	method := modelconfig.ContainerNetworkingMethod(netMethod)
+	var supportsAddresses bool
+	if method != modelconfig.ContainerNetworkingMethodLocal {
+		supportsAddresses, err = s.supportsContainerAddresses(ctx)
+		if err != nil {
+			return false, false, errors.Capture(err)
+		}
 	}
 
-	method, err := containermanager.ResolveNetworkingMethodWithCapability(
-		modelconfig.ContainerNetworkingMethod(netMethod),
-		func() (bool, error) { return supportsAddresses, nil },
-	)
+	resolved, err := containermanager.ResolveNetworkingMethod(method, supportsAddresses)
 	if err != nil {
 		return false, false, errors.Capture(err)
 	}
-	return method == containermanager.NetworkingMethodLocal, supportsAddresses, nil
+	return resolved == containermanager.NetworkingMethodLocal, supportsAddresses, nil
 }
 
 // supportsContainerAddresses reports whether the model's provider
