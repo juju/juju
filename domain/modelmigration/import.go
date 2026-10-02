@@ -99,6 +99,9 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	// Consumer proxy relations are created by the cross model relation
+	// import above; the relation import only imports their data, so it must
+	// run after it.
 	// Relation networks must be imported after relations, as they are
 	// located by relation key which requires the relations to exist.
 	crossmodelrelation.RegisterImportRelationNetworks(coordinator, clock, logger.Child("crossmodelrelation"))
