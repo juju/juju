@@ -23,7 +23,7 @@ import (
 type Deltas interface {
 {{- range .Changed}}
 	// {{.Name}}: struct shape changed in {{$.To}}.
-	{{.Name}}(ctx context.Context, src []{{$.FromToken}}.{{.SrcType}}) ([]{{$.ToToken}}.{{.DstType}}, error)
+	{{.Name}}(ctx context.Context, src []{{$.FromToken}}.{{.SrcType}}, model *{{$.FromToken}}.ModelExport) ([]{{$.ToToken}}.{{.DstType}}, error)
 {{- end}}
 {{- range .New}}
 	// {{.Name}}: new table in {{$.To}}; derive from *{{$.FromToken}}.ModelExport.
@@ -53,7 +53,7 @@ func NewTransform(d Deltas) transformer.TransformationFunc[{{.FromToken}}.ModelE
 		// {{.}}: dropped in {{$.To}}.
 {{end}}
 {{- range .Changed}}
-		if dst.{{.Name}}, err = d.{{.Name}}(ctx, src.{{.Name}}); err != nil {
+		if dst.{{.Name}}, err = d.{{.Name}}(ctx, src.{{.Name}}, &src); err != nil {
 			return {{$.ToToken}}.ModelExport{}, errors.Errorf("{{.Name}} delta: %w", err)
 		}
 {{end}}

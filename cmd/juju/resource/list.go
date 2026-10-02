@@ -151,7 +151,7 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 	if unit == "" {
 		return c.formatApplicationResources(ctx, v)
 	}
-	return c.formatUnitResources(ctx, unit, application, v)
+	return c.formatUnitResources(ctx, unit, v)
 }
 
 const noResources = "No resources to display."
@@ -181,7 +181,7 @@ func (c *ListCommand) formatApplicationResources(ctx *cmd.Context, sr coreresour
 	return c.out.Write(ctx, formatted)
 }
 
-func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application string, sr coreresources.ApplicationResources) error {
+func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit string, sr coreresources.ApplicationResources) error {
 	if len(sr.Resources) == 0 && len(sr.UnitResources) == 0 {
 		ctx.Infof(noResources)
 		return nil
@@ -192,27 +192,31 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application st
 		return c.out.Write(ctx, FormattedUnitDetails(formatted))
 	}
 
-	resources := unitResources(unit, application, sr)
-	res := make([]FormattedAppResource, len(sr.Resources))
-	for i, r := range sr.Resources {
-		if unitResource, ok := resources[r.ID]; ok {
+	resources := unitResources(unit, sr)
+	res := make([]FormattedAppResource, 0, len(sr.Resources)+len(resources))
+	for _, r := range sr.Resources {
+		if unitResource, ok := resources[r.Name]; ok {
 			// Unit has this application resource,
 			// so use unit's version.
 			r = unitResource
+			delete(resources, r.Name)
 		} else {
 			// Unit does not have this application resource.
 			// Have to set it to -1 since revision 0 is still a valid revision.
 			// All other information is inherited from application resource.
 			r.Revision = -1
 		}
-		res[i] = FormatAppResource(r)
+		res = append(res, FormatAppResource(r))
+	}
+	for _, r := range resources {
+		res = append(res, FormatAppResource(r))
 	}
 
 	return c.out.Write(ctx, res)
 
 }
 
-func unitResources(unit, application string, sr coreresources.ApplicationResources) map[string]coreresources.Resource {
+func unitResources(unit string, sr coreresources.ApplicationResources) map[string]coreresources.Resource {
 	var res []coreresources.Resource
 	for _, r := range sr.UnitResources {
 		if r.Name.String() == unit {
@@ -222,9 +226,9 @@ func unitResources(unit, application string, sr coreresources.ApplicationResourc
 	if len(res) == 0 {
 		return nil
 	}
-	unitResourcesById := make(map[string]coreresources.Resource)
+	unitResourcesByName := make(map[string]coreresources.Resource)
 	for _, r := range res {
-		unitResourcesById[r.ID] = r
+		unitResourcesByName[r.Name] = r
 	}
-	return unitResourcesById
+	return unitResourcesByName
 }

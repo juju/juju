@@ -5,6 +5,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"testing"
@@ -21,6 +22,7 @@ import (
 	coreresourcestore "github.com/juju/juju/core/resource/store"
 	storetesting "github.com/juju/juju/core/resource/store/testing"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
+	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -157,6 +159,41 @@ func (s *resourceServiceSuite) TestGetApplicationResourceIDBadName(c *tc.C) {
 		Name:            "",
 	}
 	_, err := s.service.GetApplicationResourceID(c.Context(), args)
+	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
+}
+
+func (s *resourceServiceSuite) TestGetUnitResourceID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	retID := resourcetesting.GenResourceUUID(c)
+	args := resource.GetUnitResourceIDArgs{
+		UnitName: coreunit.Name("application/0"),
+		Name:     "test-resource",
+	}
+	s.state.EXPECT().GetUnitResourceID(
+		gomock.Any(), args.UnitName.String(), args.Name,
+	).Return(retID, nil)
+
+	ret, err := s.service.GetUnitResourceID(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ret, tc.Equals, retID)
+}
+
+func (s *resourceServiceSuite) TestGetUnitResourceIDBadUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitResourceID(c.Context(), resource.GetUnitResourceIDArgs{
+		Name: "test-resource",
+	})
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
+func (s *resourceServiceSuite) TestGetUnitResourceIDBadName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetUnitResourceID(c.Context(), resource.GetUnitResourceIDArgs{
+		UnitName: coreunit.Name("application/0"),
+	})
 	c.Assert(err, tc.ErrorIs, resourceerrors.ResourceNameNotValid)
 }
 
@@ -921,11 +958,12 @@ func (s *resourceServiceSuite) TestOpenResource(c *tc.C) {
 		ID: id.String(),
 	}
 
-	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.state.EXPECT().GetResourceStorageKey(gomock.Any(), id).Return("shared-storage-key", nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
-		id.String(),
+		"shared-storage-key",
 	).Return(reader, size, nil)
 
 	obtainedRes, obtainedReader, err := s.service.OpenResource(c.Context(), id)
@@ -952,8 +990,9 @@ func (s *resourceServiceSuite) TestOpenResourceFileNotFound(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.state.EXPECT().GetResourceStorageKey(gomock.Any(), id).Return(id.String(), nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
 		id.String(),
@@ -981,8 +1020,9 @@ func (s *resourceServiceSuite) TestOpenResourceContainerImageNotFound(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.state.EXPECT().GetResourceStorageKey(gomock.Any(), id).Return(id.String(), nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
 		id.String(),
@@ -1012,8 +1052,9 @@ func (s *resourceServiceSuite) TestOpenResourceUnexpectedSize(c *tc.C) {
 		},
 	}
 
-	s.state.EXPECT().GetResource(gomock.Any(), id).Return(res, nil)
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), id).Return(res, nil)
 	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.state.EXPECT().GetResourceStorageKey(gomock.Any(), id).Return(id.String(), nil)
 	s.resourceStore.EXPECT().Get(
 		gomock.Any(),
 		id.String(),
@@ -1053,7 +1094,14 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *tc.C) {
 		}},
 		LastPolled: time.Now(),
 	}
-	s.state.EXPECT().SetRepositoryResources(gomock.Any(), args).Return(nil)
+	s.state.EXPECT().SetRepositoryResources(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, stateArgs resource.StateSetRepositoryResourcesArgs) error {
+			c.Check(stateArgs.SetRepositoryResourcesArgs, tc.DeepEquals, args)
+			c.Assert(stateArgs.ReplacementUUIDs, tc.HasLen, 1)
+			c.Check(coreresource.UUID(stateArgs.ReplacementUUIDs["my-resource"]).Validate(), tc.ErrorIsNil)
+			return nil
+		},
+	)
 
 	err = s.service.SetRepositoryResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1183,15 +1231,20 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionFile(c *tc.C) {
 
 	resUUID := resourcetesting.GenResourceUUID(c)
 
-	s.state.EXPECT().GetResourceType(gomock.Any(), resUUID).Return(charmresource.TypeFile, nil)
 	expectedArgs := resource.UpdateResourceRevisionArgs{
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
 	expectedUUID := resourcetesting.GenResourceUUID(c)
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return(expectedUUID, nil)
-	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
-	s.resourceStore.EXPECT().Remove(gomock.Any(), resUUID.String()).Return(nil)
+	s.state.EXPECT().UpdateResourceRevision(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args resource.StateUpdateResourceRevisionArgs) error {
+			c.Check(args.ResourceUUID, tc.Equals, expectedArgs.ResourceUUID.String())
+			c.Check(args.Revision, tc.Equals, expectedArgs.Revision)
+			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
+			expectedUUID = coreresource.UUID(args.NewResourceUUID)
+			return nil
+		},
+	)
 
 	args := resource.UpdateResourceRevisionArgs{
 		ResourceUUID: resUUID,
@@ -1209,70 +1262,23 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionImage(c *tc.C) {
 
 	resUUID := resourcetesting.GenResourceUUID(c)
 
-	s.state.EXPECT().GetResourceType(gomock.Any(), resUUID).Return(charmresource.TypeContainerImage, nil)
 	expectedArgs := resource.UpdateResourceRevisionArgs{
 		ResourceUUID: resUUID,
 		Revision:     4,
 	}
 	expectedUUID := resourcetesting.GenResourceUUID(c)
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeContainerImage).Return(expectedUUID, nil)
-	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
-	s.resourceStore.EXPECT().Remove(gomock.Any(), resUUID.String()).Return(nil)
+	s.state.EXPECT().UpdateResourceRevision(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args resource.StateUpdateResourceRevisionArgs) error {
+			c.Check(args.ResourceUUID, tc.Equals, expectedArgs.ResourceUUID.String())
+			c.Check(args.Revision, tc.Equals, expectedArgs.Revision)
+			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
+			expectedUUID = coreresource.UUID(args.NewResourceUUID)
+			return nil
+		},
+	)
 
 	args := resource.UpdateResourceRevisionArgs{
 		ResourceUUID: resUUID,
-		Revision:     4,
-	}
-	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(newUUID, tc.Equals, expectedUUID)
-}
-
-// TestUpdateResourceRevisionNoOldBlobToRemoveContainerImage tests that no error
-// is returned when there is no prior version to delete for container images.
-func (s *resourceServiceSuite) TestUpdateResourceRevisionNoOldBlobToRemoveContainerImage(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	oldUUID := resourcetesting.GenResourceUUID(c)
-
-	s.state.EXPECT().GetResourceType(gomock.Any(), oldUUID).Return(charmresource.TypeContainerImage, nil)
-	expectedArgs := resource.UpdateResourceRevisionArgs{
-		ResourceUUID: oldUUID,
-		Revision:     4,
-	}
-	expectedUUID := resourcetesting.GenResourceUUID(c)
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeContainerImage).Return(expectedUUID, nil)
-	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeContainerImage).Return(s.resourceStore, nil)
-	s.resourceStore.EXPECT().Remove(gomock.Any(), oldUUID.String()).Return(containerimageresourcestoreerrors.ContainerImageMetadataNotFound)
-
-	args := resource.UpdateResourceRevisionArgs{
-		ResourceUUID: oldUUID,
-		Revision:     4,
-	}
-	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(newUUID, tc.Equals, expectedUUID)
-}
-
-// TestUpdateResourceRevisionNoOldBlobToRemoveFile tests that no error
-// is returned when there is no prior version to delete for container images.
-func (s *resourceServiceSuite) TestUpdateResourceRevisionNoOldBlobToRemoveFile(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	oldUUID := resourcetesting.GenResourceUUID(c)
-
-	s.state.EXPECT().GetResourceType(gomock.Any(), oldUUID).Return(charmresource.TypeFile, nil)
-	expectedArgs := resource.UpdateResourceRevisionArgs{
-		ResourceUUID: oldUUID,
-		Revision:     4,
-	}
-	expectedUUID := resourcetesting.GenResourceUUID(c)
-	s.state.EXPECT().UpdateResourceRevisionAndDeletePriorVersion(gomock.Any(), expectedArgs, charmresource.TypeFile).Return(expectedUUID, nil)
-	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), charmresource.TypeFile).Return(s.resourceStore, nil)
-	s.resourceStore.EXPECT().Remove(gomock.Any(), oldUUID.String()).Return(objectstoreerrors.ObjectNotFound)
-
-	args := resource.UpdateResourceRevisionArgs{
-		ResourceUUID: oldUUID,
 		Revision:     4,
 	}
 	newUUID, err := s.service.UpdateResourceRevision(c.Context(), args)
@@ -1311,29 +1317,23 @@ func (s *resourceServiceSuite) TestUpdateResourceRevisionRevisionNotValid(c *tc.
 // TestUpdateResourceRevisionFile tests the happy path for the UpdateUploadResource
 // method for file resource types.
 func (s *resourceServiceSuite) TestUpdateUploadResourceFile(c *tc.C) {
-	s.testUpdateUploadResource(c, charmresource.TypeFile)
+	s.testUpdateUploadResource(c)
 }
 
-// TestUpdateResourceRevisionFile tests the happy path for the UpdateUploadResource
-// method for container image resource types.
-func (s *resourceServiceSuite) TestUpdateUploadResourceImage(c *tc.C) {
-	s.testUpdateUploadResource(c, charmresource.TypeContainerImage)
-}
-
-func (s *resourceServiceSuite) testUpdateUploadResource(c *tc.C, resourceType charmresource.Type) {
+func (s *resourceServiceSuite) testUpdateUploadResource(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	oldResUUID := resourcetesting.GenResourceUUID(c)
 	newResUUID := resourcetesting.GenResourceUUID(c)
 
-	s.state.EXPECT().GetResourceType(gomock.Any(), oldResUUID).Return(resourceType, nil)
-	expectedArgs := resource.StateUpdateUploadResourceArgs{
-		ResourceType: resourceType,
-		ResourceUUID: oldResUUID,
-	}
-	s.state.EXPECT().UpdateUploadResourceAndDeletePriorVersion(gomock.Any(), expectedArgs).Return(newResUUID, nil)
-	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
-	s.resourceStore.EXPECT().Remove(gomock.Any(), oldResUUID.String()).Return(nil)
+	s.state.EXPECT().UpdateUploadResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args resource.StateUpdateUploadResourceArgs) error {
+			c.Check(args.ResourceUUID, tc.Equals, oldResUUID.String())
+			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
+			newResUUID = coreresource.UUID(args.NewResourceUUID)
+			return nil
+		},
+	)
 
 	obtainedResourceUUID, err := s.service.UpdateUploadResource(c.Context(), oldResUUID)
 	c.Assert(err, tc.ErrorIsNil)

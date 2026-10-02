@@ -1730,12 +1730,21 @@ func overrideStorageDirectives(
 	return created, updated
 }
 
-// SetApplicationCharm sets a new charm for the application, validating that aspects such
-// as storage are still viable with the new charm. It reconciles existing application
-// storage directives with the new charm's storage requirements.
+// SetApplicationCharm sets a new charm for the application, validating that
+// aspects such as storage are still viable with the new charm. It reconciles
+// existing resources and storage directives with the new charm's requirements.
 func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	for name, resourceUUID := range params.ResourceIDs {
+		if name == "" {
+			return errors.Errorf("resource name is empty: %w", applicationerrors.InvalidResourceArgs)
+		}
+		if err := resourceUUID.Validate(); err != nil {
+			return errors.Errorf("resource %q UUID: %w", name, err)
+		}
+	}
 
 	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
@@ -1836,8 +1845,28 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	if err := storage.ValidateApplicationStorageDirectives(newCharmStorage, finalStorageDirectives); err != nil {
 		return errors.Errorf("validating final storage directives against charm storage: %w", err)
 	}
-
-	paramsState, err := makeSetCharmStateArg(params, toCreate, toUpdate)
+	newCharmResources, err := s.st.GetCharmMetadataResources(ctx, charmID)
+	if err != nil {
+		return errors.Errorf("getting charm resource metadata: %w", err)
+	}
+	replacementResourceUUIDs := make(map[string]string, len(newCharmResources))
+	repositoryResourceUUIDs := make(map[string]string, len(newCharmResources))
+	for name := range newCharmResources {
+		replacementUUID, err := resource.NewUUID()
+		if err != nil {
+			return errors.Errorf("generating replacement resource UUID: %w", err)
+		}
+		replacementResourceUUIDs[name] = replacementUUID.String()
+		repositoryUUID, err := resource.NewUUID()
+		if err != nil {
+			return errors.Errorf("generating repository resource UUID: %w", err)
+		}
+		repositoryResourceUUIDs[name] = repositoryUUID.String()
+	}
+	paramsState, err := makeSetCharmStateArg(
+		params, toCreate, toUpdate, replacementResourceUUIDs,
+		repositoryResourceUUIDs,
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2108,7 +2137,10 @@ func coerceValue(t charm.OptionType, value string) (any, error) {
 
 func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
 	toCreate []domainstorage.DirectiveArg,
-	toUpdate []domainstorage.DirectiveArg) (application.SetCharmStateParams, error) {
+	toUpdate []domainstorage.DirectiveArg,
+	replacementResourceUUIDs map[string]string,
+	repositoryResourceUUIDs map[string]string,
+) (application.SetCharmStateParams, error) {
 	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
 	if err != nil {
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
@@ -2129,5 +2161,9 @@ func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
 		EndpointBindings:          setCharmParams.EndpointBindings,
 		StorageDirectivesToCreate: toCreate,
 		StorageDirectivesToUpdate: toUpdate,
+		ReplacementResourceUUIDs:  replacementResourceUUIDs,
+		RepositoryResourceUUIDs:   repositoryResourceUUIDs,
+		ResourceIDs: transform.Map(setCharmParams.ResourceIDs,
+			func(k string, v resource.UUID) (string, string) { return k, v.String() }),
 	}, nil
 }

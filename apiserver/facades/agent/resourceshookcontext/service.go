@@ -9,6 +9,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/resource"
 )
 
 // ResourceService provides methods for managing resource data related
@@ -19,6 +20,14 @@ type ResourceService interface {
 	// given application UUID in the specified context.
 	GetResourcesByApplicationUUID(ctx context.Context, applicationID coreapplication.UUID) ([]coreresource.Resource,
 		error)
+
+	// GetUnitResourceID returns the UUID of the resource selected by a unit for
+	// a logical resource name.
+	GetUnitResourceID(ctx context.Context, args resource.GetUnitResourceIDArgs) (coreresource.UUID, error)
+
+	// GetResourceWithoutApplication returns a resource without requiring a
+	// current application link.
+	GetResourceWithoutApplication(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 }
 
 // ApplicationService defines operations to retrieve application UUIDs based

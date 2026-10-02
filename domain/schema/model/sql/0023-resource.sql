@@ -54,6 +54,9 @@ CREATE TABLE resource (
 CREATE INDEX idx_resource_charm_resource
 ON resource (charm_uuid, charm_resource_name);
 
+CREATE UNIQUE INDEX idx_resource_uuid_charm_resource_name
+ON resource (uuid, charm_resource_name);
+
 CREATE INDEX idx_resource_state_id
 ON resource (state_id);
 
@@ -117,15 +120,19 @@ CREATE TABLE resource_retrieved_by (
 CREATE TABLE unit_resource (
     resource_uuid TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
+    charm_resource_name TEXT NOT NULL,
     added_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_resource_uuid
-    FOREIGN KEY (resource_uuid)
-    REFERENCES resource (uuid),
+    FOREIGN KEY (resource_uuid, charm_resource_name)
+    REFERENCES resource (uuid, charm_resource_name),
     CONSTRAINT fk_resource_unit_uuid
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
-    PRIMARY KEY (resource_uuid, unit_uuid)
+    PRIMARY KEY (unit_uuid, charm_resource_name)
 );
+
+CREATE INDEX idx_unit_resource_resource_uuid
+ON unit_resource (resource_uuid);
 
 -- This is the actual store for container image resources. The metadata
 -- necessary to retrieve the OCI Image from a registry.

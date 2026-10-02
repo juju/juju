@@ -12,6 +12,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcestore "github.com/juju/juju/core/resource/store"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
@@ -43,6 +44,12 @@ type GetApplicationResourceIDArgs struct {
 	Name            string
 }
 
+// GetUnitResourceIDArgs holds the arguments for the GetUnitResourceID method.
+type GetUnitResourceIDArgs struct {
+	UnitName coreunit.Name
+	Name     string
+}
+
 // SetRepositoryResourcesArgs holds the arguments for the
 // SetRepositoryResources method.
 type SetRepositoryResourcesArgs struct {
@@ -54,6 +61,13 @@ type SetRepositoryResourcesArgs struct {
 	Info []charmresource.Resource
 	// LastPolled indicates when the resource data was last polled.
 	LastPolled time.Time
+}
+
+// StateSetRepositoryResourcesArgs holds repository resource updates and the
+// replacement UUIDs generated for them by the service.
+type StateSetRepositoryResourcesArgs struct {
+	SetRepositoryResourcesArgs
+	ReplacementUUIDs map[string]string
 }
 
 // StoreResourceArgs holds the arguments for resource storage methods.
@@ -153,10 +167,10 @@ type UpdateUploadResourceArgs struct {
 // StateUpdateUploadResourceArgs holds arguments for the state method to
 // update the resource to expect a new blob to be uploaded.
 type StateUpdateUploadResourceArgs struct {
-	// ResourceType is the type of the resource
-	ResourceType charmresource.Type
-	// ResourceUUID is the unique identifier of the resource.
-	ResourceUUID coreresource.UUID
+	// ResourceUUID is the unique identifier of the resource being replaced.
+	ResourceUUID string
+	// NewResourceUUID is the unique identifier of the replacement resource.
+	NewResourceUUID string
 }
 
 // UpdateResourceRevisionArgs holds arguments to update a resource to have
@@ -165,6 +179,17 @@ type UpdateResourceRevisionArgs struct {
 	// ResourceUUID is the unique identifier of the resource.
 	ResourceUUID coreresource.UUID
 	// Revision is the revision of the resource to use.
+	Revision int
+}
+
+// StateUpdateResourceRevisionArgs holds arguments for replacing a resource
+// with a different revision.
+type StateUpdateResourceRevisionArgs struct {
+	// ResourceUUID is the unique identifier of the resource being replaced.
+	ResourceUUID string
+	// NewResourceUUID is the unique identifier of the replacement resource.
+	NewResourceUUID string
+	// Revision is the revision of the replacement resource.
 	Revision int
 }
 

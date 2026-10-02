@@ -132,9 +132,10 @@ func (rv resourceView) toResource() (coreresource.Resource, error) {
 
 // unitResource represents the mapping of a resource to a unit.
 type unitResource struct {
-	ResourceUUID string    `db:"resource_uuid"`
-	UnitUUID     string    `db:"unit_uuid"`
-	AddedAt      time.Time `db:"added_at"`
+	ResourceUUID      string    `db:"resource_uuid"`
+	UnitUUID          string    `db:"unit_uuid"`
+	CharmResourceName string    `db:"charm_resource_name"`
+	AddedAt           time.Time `db:"added_at"`
 }
 
 type applicationNameAndID struct {
@@ -211,11 +212,6 @@ type addPendingResource struct {
 type linkResourceApplication struct {
 	ResourceUUID    string `db:"resource_uuid"`
 	ApplicationName string `db:"application_name"`
-}
-
-// hash represents the hash value from a stored resource blob.
-type hash struct {
-	Hash string `db:"sha384"`
 }
 
 // setResource is used to set resource rows in the resource table.

@@ -32,12 +32,14 @@ type MockResourceService struct {
 
 // MockResourceServiceMockRecorder is the mock recorder for MockResourceService.
 type MockResourceServiceMockRecorder struct {
-	mock                            *MockResourceService
-	getApplicationResourceIDExpects []*gomock.Call2_2[context.Context, resource0.GetApplicationResourceIDArgs, resource.UUID, error]
-	getResourceExpects              []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
-	openResourceExpects             []*gomock.Call2_3[context.Context, resource.UUID, resource.Resource, io.ReadCloser, error]
-	setUnitResourceExpects          []*gomock.Call3_1[context.Context, resource.UUID, unit.UUID, error]
-	storeResourceExpects            []*gomock.Call2_2[context.Context, resource0.StoreResourceArgs, resource.Resource, error]
+	mock                                 *MockResourceService
+	getApplicationResourceIDExpects      []*gomock.Call2_2[context.Context, resource0.GetApplicationResourceIDArgs, resource.UUID, error]
+	getResourceExpects                   []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
+	getResourceWithoutApplicationExpects []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
+	getUnitResourceIDExpects             []*gomock.Call2_2[context.Context, resource0.GetUnitResourceIDArgs, resource.UUID, error]
+	openResourceExpects                  []*gomock.Call2_3[context.Context, resource.UUID, resource.Resource, io.ReadCloser, error]
+	setUnitResourceExpects               []*gomock.Call3_1[context.Context, resource.UUID, unit.UUID, error]
+	storeResourceExpects                 []*gomock.Call2_2[context.Context, resource0.StoreResourceArgs, resource.Resource, error]
 }
 
 // NewMockResourceService creates a new mock instance.
@@ -87,6 +89,42 @@ func (mr *MockResourceServiceMockRecorder) GetResource(ctx, resourceUUID any) *M
 
 // MockResourceServiceGetResourceCall is the typed call wrapper for GetResource.
 type MockResourceServiceGetResourceCall = gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
+
+// GetResourceWithoutApplication mocks base method.
+func (m *MockResourceService) GetResourceWithoutApplication(ctx context.Context, resourceUUID resource.UUID) (resource.Resource, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getResourceWithoutApplicationExpects, m.ctrl, m, "GetResourceWithoutApplication", ctx, resourceUUID)
+}
+
+// GetResourceWithoutApplication indicates an expected call of GetResourceWithoutApplication.
+func (mr *MockResourceServiceMockRecorder) GetResourceWithoutApplication(ctx, resourceUUID any) *MockResourceServiceGetResourceWithoutApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, resource.UUID, resource.Resource, error](mr.mock.ctrl.T, mr.mock, "GetResourceWithoutApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceUUID))
+	mr.getResourceWithoutApplicationExpects = append(mr.getResourceWithoutApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockResourceServiceGetResourceWithoutApplicationCall is the typed call wrapper for GetResourceWithoutApplication.
+type MockResourceServiceGetResourceWithoutApplicationCall = gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
+
+// GetUnitResourceID mocks base method.
+func (m *MockResourceService) GetUnitResourceID(ctx context.Context, args resource0.GetUnitResourceIDArgs) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitResourceIDExpects, m.ctrl, m, "GetUnitResourceID", ctx, args)
+}
+
+// GetUnitResourceID indicates an expected call of GetUnitResourceID.
+func (mr *MockResourceServiceMockRecorder) GetUnitResourceID(ctx, args any) *MockResourceServiceGetUnitResourceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, resource0.GetUnitResourceIDArgs, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitResourceID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
+	mr.getUnitResourceIDExpects = append(mr.getUnitResourceIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockResourceServiceGetUnitResourceIDCall is the typed call wrapper for GetUnitResourceID.
+type MockResourceServiceGetUnitResourceIDCall = gomock.Call2_2[context.Context, resource0.GetUnitResourceIDArgs, resource.UUID, error]
 
 // OpenResource mocks base method.
 func (m *MockResourceService) OpenResource(ctx context.Context, resourceUUID resource.UUID) (resource.Resource, io.ReadCloser, error) {

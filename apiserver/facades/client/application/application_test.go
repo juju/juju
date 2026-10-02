@@ -984,6 +984,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 
 	s.setupAPI(c)
 	revisionPtr := new(42)
+	resourceUUID := testing.GenResourceUUID(c)
 	s.applicationService.EXPECT().SetApplicationCharm(gomock.Any(), "foo", applicationcharm.CharmLocator{
 		Name:         "foo",
 		Revision:     42,
@@ -1010,6 +1011,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",
 		},
+		ResourceIDs: map[string]resource.UUID{"foo": resourceUUID},
 	}).Return(nil)
 
 	err := s.api.SetCharm(c.Context(), params.ApplicationSetCharmV2{
@@ -1033,6 +1035,7 @@ func (s *applicationSuite) TestSetCharm(c *tc.C) {
 			"binding-1": "endpoint-1",
 			"binding-2": "endpoint-2",
 		},
+		ResourceIDs: map[string]string{"foo": resourceUUID.String()},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

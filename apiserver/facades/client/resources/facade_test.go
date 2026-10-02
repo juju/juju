@@ -370,17 +370,22 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesBeforeApplication(c *tc
 	})
 }
 
-// TestAddPendingResourcesUpdateStoreResource test the happy path of
-// AddPendingResources for a store resource where the code leads to
-// calling UpdateResourceRevision.
-func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *tc.C) {
+// TestAddPendingResourcesStagesStoreResourceForExistingApplication tests that
+// refresh resources remain pending until SetCharm activates them.
+func (s *addPendingResourceSuite) TestAddPendingResourcesStagesStoreResourceForExistingApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resourceRevision := 42
 	s.expectGetApplicationDetails(nil)
 	s.expectResolveResourcesStoreContainer(s.resourceNameTwo, resourceRevision)
-	s.expectGetApplicationResourceIDTwo()
-	newUUIDTwo := s.expectUpdateResourceRevisionTwo(c, resourceRevision)
+	s.resourceService.EXPECT().AddResourcesBeforeApplication(gomock.Any(), domainresource.AddResourcesBeforeApplicationArgs{
+		ApplicationName: s.appTag.Name,
+		CharmLocator:    s.charmLoc,
+		ResourceDetails: []domainresource.AddResourceDetails{{
+			Name: s.resourceNameTwo, Origin: charmresource.OriginStore,
+			Revision: &resourceRevision,
+		}},
+	}).Return([]resource.UUID{s.pendingResourceIDTwo}, nil)
 
 	args := params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{Tag: s.appTag.String()},
@@ -397,23 +402,27 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateStoreResource(c *
 	}
 	expectedResults := params.AddPendingResourcesResult{
 		ErrorResult: params.ErrorResult{},
-		PendingIDs:  []string{newUUIDTwo.String()},
+		PendingIDs:  []string{s.pendingResourceIDTwo.String()},
 	}
 	results, err := s.newFacade(c).AddPendingResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, expectedResults)
 }
 
-// TestAddPendingResourcesUpdateUploadResource test the happy path of
-// AddPendingResources for an upload resource where the code leads to
-// calling UpdateUploadResource.
-func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c *tc.C) {
+// TestAddPendingResourcesStagesUploadResourceForExistingApplication tests that
+// uploaded refresh resources remain pending until SetCharm activates them.
+func (s *addPendingResourceSuite) TestAddPendingResourcesStagesUploadResourceForExistingApplication(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGetApplicationDetails(nil)
 	s.expectResolveResourcesUploadContainer(c)
-	s.expectGetApplicationResourceIDTwo()
-	newUUIDTwo := s.expectUpdateUploadResourceTwo(c)
+	s.resourceService.EXPECT().AddResourcesBeforeApplication(gomock.Any(), domainresource.AddResourcesBeforeApplicationArgs{
+		ApplicationName: s.appTag.Name,
+		CharmLocator:    s.charmLoc,
+		ResourceDetails: []domainresource.AddResourceDetails{{
+			Name: s.resourceNameTwo, Origin: charmresource.OriginUpload,
+		}},
+	}).Return([]resource.UUID{s.pendingResourceIDTwo}, nil)
 
 	args := params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{Tag: s.appTag.String()},
@@ -429,7 +438,7 @@ func (s *addPendingResourceSuite) TestAddPendingResourcesUpdateUploadResource(c 
 	}
 	expectedResults := params.AddPendingResourcesResult{
 		ErrorResult: params.ErrorResult{},
-		PendingIDs:  []string{newUUIDTwo.String()},
+		PendingIDs:  []string{s.pendingResourceIDTwo.String()},
 	}
 	results, err := s.newFacade(c).AddPendingResources(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -506,30 +515,6 @@ func (s *addPendingResourceSuite) expectGetApplicationDetailsSynthetic() {
 			Name:                   "testapp",
 			IsApplicationSynthetic: true,
 		}, nil)
-}
-
-func (s *addPendingResourceSuite) expectGetApplicationResourceIDTwo() {
-	getResIDArgs := domainresource.GetApplicationResourceIDArgs{
-		ApplicationUUID: s.appUUID,
-		Name:            s.resourceNameTwo,
-	}
-	s.resourceService.EXPECT().GetApplicationResourceID(gomock.Any(), getResIDArgs).Return(s.pendingResourceIDTwo, nil)
-}
-
-func (s *addPendingResourceSuite) expectUpdateResourceRevisionTwo(c *tc.C, resourceRevision int) resource.UUID {
-	updateResourceArgs := domainresource.UpdateResourceRevisionArgs{
-		ResourceUUID: s.pendingResourceIDTwo,
-		Revision:     resourceRevision,
-	}
-	newUUID := resourcetesting.GenResourceUUID(c)
-	s.resourceService.EXPECT().UpdateResourceRevision(gomock.Any(), updateResourceArgs).Return(newUUID, nil)
-	return newUUID
-}
-
-func (s *addPendingResourceSuite) expectUpdateUploadResourceTwo(c *tc.C) resource.UUID {
-	newUUID := resourcetesting.GenResourceUUID(c)
-	s.resourceService.EXPECT().UpdateUploadResource(gomock.Any(), s.pendingResourceIDTwo).Return(newUUID, nil)
-	return newUUID
 }
 
 func (s *addPendingResourceSuite) expectResolveResourceForBeforeApplication(resourceRevision int) {

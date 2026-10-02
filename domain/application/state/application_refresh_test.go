@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
+	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -70,6 +71,446 @@ func (s *applicationRefreshSuite) TestSetApplicationCharm(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newCharmUUID, tc.Equals, charmUUID.String())
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmCreatesImmutableResourceForNewCharm(c *tc.C) {
+	const (
+		resourceName = "foo"
+		storeUUID    = "11111111-1111-1111-1111-111111111111"
+	)
+	revision := 7
+	resources := map[string]charm.Resource{
+		resourceName: {
+			Name: resourceName,
+			Type: charm.ResourceTypeFile,
+		},
+	}
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: resources,
+		appResources: []application.AddApplicationResourceArg{{
+			Name: resourceName, Revision: &revision, Origin: charmresource.OriginStore,
+		}},
+	})
+	newCharmUUID := s.createCharm(c, createCharmArgs{name: "foo", resources: resources})
+
+	var oldResourceUUID, oldCharmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT r.uuid, r.charm_uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appID).Scan(&oldResourceUUID, &oldCharmUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)`, storeUUID, "sha256", "sha384", 42); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata_path (path, metadata_uuid)
+VALUES (?, ?)`, oldResourceUUID, storeUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384)
+VALUES (?, ?, ?, ?)`, oldResourceUUID, storeUUID, 42, "sha384")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	replacementResourceUUID := uuid.MustNewUUID().String()
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
+		ReplacementResourceUUIDs: map[string]string{resourceName: replacementResourceUUID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var currentResourceUUID, currentCharmUUID, currentStoreUUID string
+	var currentRevision int
+	var oldRows int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT r.uuid, r.charm_uuid, r.revision, rfs.store_uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   resource_file_store AS rfs ON rfs.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appID).Scan(
+			&currentResourceUUID, &currentCharmUUID, &currentRevision, &currentStoreUUID,
+		); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   resource
+WHERE  uuid = ?
+AND    charm_uuid = ?
+AND    revision = ?`, oldResourceUUID, oldCharmUUID, revision).Scan(&oldRows)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(currentResourceUUID, tc.Equals, replacementResourceUUID)
+	c.Check(currentResourceUUID, tc.Not(tc.Equals), oldResourceUUID)
+	c.Check(currentCharmUUID, tc.Equals, newCharmUUID.String())
+	c.Check(currentRevision, tc.Equals, revision)
+	c.Check(currentStoreUUID, tc.Equals, storeUUID)
+	c.Check(oldRows, tc.Equals, 1)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmCarriesPinnedUpload(c *tc.C) {
+	const resourceName = "foo"
+	resources := map[string]charm.Resource{
+		resourceName: {
+			Name: resourceName,
+			Type: charm.ResourceTypeFile,
+		},
+	}
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: resources,
+		appResources: []application.AddApplicationResourceArg{{
+			Name: resourceName, Origin: charmresource.OriginUpload,
+		}},
+	})
+	newCharmUUID := s.createCharm(c, createCharmArgs{name: "foo", resources: resources})
+
+	const storeUUID = "11111111-1111-1111-1111-111111111111"
+	var oldResourceUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT r.uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appID).Scan(&oldResourceUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata (uuid, sha_256, sha_384, size)
+VALUES (?, ?, ?, ?)`, storeUUID, "sha256", "sha384", 42); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO object_store_metadata_path (path, metadata_uuid)
+VALUES (?, ?)`, oldResourceUUID, storeUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO resource_file_store (resource_uuid, store_uuid, size, sha384)
+VALUES (?, ?, ?, ?)`, oldResourceUUID, storeUUID, 42, "sha384")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	replacementResourceUUID := uuid.MustNewUUID().String()
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
+		ReplacementResourceUUIDs: map[string]string{resourceName: replacementResourceUUID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var currentResourceUUID, currentCharmUUID, origin, currentStoreUUID string
+	var currentRevision sql.NullInt64
+	var oldRows, oldStoreLinks int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT r.uuid, r.charm_uuid, r.revision, rot.name, rfs.store_uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   resource_origin_type AS rot ON rot.id = r.origin_type_id
+JOIN   resource_file_store AS rfs ON rfs.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appID).Scan(
+			&currentResourceUUID, &currentCharmUUID, &currentRevision,
+			&origin, &currentStoreUUID,
+		); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM resource WHERE uuid = ?`, oldResourceUUID).Scan(&oldRows); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   resource_file_store
+WHERE  resource_uuid = ?
+AND    store_uuid = ?`, oldResourceUUID, storeUUID).Scan(&oldStoreLinks)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(currentResourceUUID, tc.Equals, replacementResourceUUID)
+	c.Check(currentResourceUUID, tc.Not(tc.Equals), oldResourceUUID)
+	c.Check(currentCharmUUID, tc.Equals, newCharmUUID.String())
+	c.Check(currentRevision.Valid, tc.IsFalse)
+	c.Check(origin, tc.Equals, charmresource.OriginUpload.String())
+	c.Check(currentStoreUUID, tc.Equals, storeUUID)
+	c.Check(oldRows, tc.Equals, 1)
+	c.Check(oldStoreLinks, tc.Equals, 1)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmDoesNotReuseResourceWithDifferentType(c *tc.C) {
+	const resourceName = "foo"
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: map[string]charm.Resource{
+			resourceName: {Name: resourceName, Type: charm.ResourceTypeFile},
+		},
+		appResources: []application.AddApplicationResourceArg{{
+			Name: resourceName, Origin: charmresource.OriginUpload,
+		}},
+	})
+	newCharmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		resources: map[string]charm.Resource{
+			resourceName: {Name: resourceName, Type: charm.ResourceTypeContainerImage},
+		},
+	})
+
+	var oldCharmUUID, oldResourceUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+JOIN   resource AS r ON r.uuid = ar.resource_uuid
+WHERE  a.uuid = ?
+AND    r.state_id = 0`, appID).Scan(&oldCharmUUID, &oldResourceUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{})
+	c.Assert(err, tc.ErrorMatches, `reconciling application resources: cannot reuse resource "foo" when its type changes`)
+
+	var charmUUID, resourceUUID string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+JOIN   resource AS r ON r.uuid = ar.resource_uuid
+WHERE  a.uuid = ?
+AND    r.state_id = 0`, appID).Scan(&charmUUID, &resourceUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmUUID, tc.Equals, oldCharmUUID)
+	c.Check(resourceUUID, tc.Equals, oldResourceUUID)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmReconcilesDestinationResources(c *tc.C) {
+	oldRevision := 1
+	newRevision := 2
+	addedRevision := 3
+	oldResources := map[string]charm.Resource{
+		"retained": {Name: "retained", Type: charm.ResourceTypeFile},
+		"removed":  {Name: "removed", Type: charm.ResourceTypeFile},
+	}
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: oldResources,
+		appResources: []application.AddApplicationResourceArg{
+			{Name: "retained", Revision: &oldRevision, Origin: charmresource.OriginStore},
+			{Name: "removed", Revision: &oldRevision, Origin: charmresource.OriginStore},
+		},
+	})
+	newCharmUUID := s.createCharm(c, createCharmArgs{
+		name:   "foo",
+		source: charm.CharmHubSource,
+		resources: map[string]charm.Resource{
+			"retained": {Name: "retained", Type: charm.ResourceTypeFile},
+			"added":    {Name: "added", Type: charm.ResourceTypeFile},
+		},
+	})
+	retainedUUID := s.createPendingResource(
+		c, "some-app", newCharmUUID.String(), "retained", &newRevision,
+		charmresource.OriginStore,
+	)
+	addedUUID := s.createPendingResource(
+		c, "some-app", newCharmUUID.String(), "added", &addedRevision,
+		charmresource.OriginStore,
+	)
+	repositoryResourceUUIDs := map[string]string{
+		"retained": uuid.MustNewUUID().String(),
+		"added":    uuid.MustNewUUID().String(),
+	}
+
+	var oldResourceUUIDs []string
+	var oldCharmUUID string
+	oldPotentialUUID := uuid.MustNewUUID().String()
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT charm_uuid FROM application WHERE uuid = ?`, appID).Scan(&oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	oldResourceRows, err := s.DB().QueryContext(c.Context(), `
+SELECT r.uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = oldResourceRows.Close() }()
+	for oldResourceRows.Next() {
+		var resourceUUID string
+		err := oldResourceRows.Scan(&resourceUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		oldResourceUUIDs = append(oldResourceUUIDs, resourceUUID)
+	}
+	c.Assert(oldResourceRows.Err(), tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO resource (
+    uuid, charm_uuid, charm_resource_name, revision, origin_type_id,
+    state_id, created_at
+)
+VALUES (?, ?, 'removed', 9, 1, 1, CURRENT_TIMESTAMP)`,
+		oldPotentialUUID, oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO application_resource (resource_uuid, application_uuid)
+VALUES (?, ?)`, oldPotentialUUID, appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(oldResourceUUIDs, tc.HasLen, 2)
+
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
+		ResourceIDs: map[string]string{
+			"retained": retainedUUID,
+			"added":    addedUUID,
+		},
+		RepositoryResourceUUIDs: repositoryResourceUUIDs,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	type currentResource struct {
+		UUID       string
+		Name       string
+		CharmUUID  string
+		Revision   int
+		OriginType string
+	}
+	var current []currentResource
+	var oldRows, pendingRows, oldPotentialRows int
+	var currentRepositoryResourceUUIDs []string
+	currentRows, err := s.DB().QueryContext(c.Context(), `
+SELECT r.uuid, r.charm_resource_name, r.charm_uuid, r.revision, rot.name
+FROM   resource AS r
+JOIN   resource_origin_type AS rot ON rot.id = r.origin_type_id
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = currentRows.Close() }()
+	for currentRows.Next() {
+		var row currentResource
+		err := currentRows.Scan(&row.UUID, &row.Name, &row.CharmUUID, &row.Revision, &row.OriginType)
+		c.Assert(err, tc.ErrorIsNil)
+		current = append(current, row)
+	}
+	c.Assert(currentRows.Err(), tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM resource WHERE uuid IN (?, ?)`,
+		oldResourceUUIDs[0], oldResourceUUIDs[1]).Scan(&oldRows)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM pending_application_resource WHERE resource_uuid IN (?, ?)`,
+		retainedUUID, addedUUID).Scan(&pendingRows)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM resource WHERE uuid = ?`, oldPotentialUUID).Scan(&oldPotentialRows)
+	c.Assert(err, tc.ErrorIsNil)
+	repositoryRows, err := s.DB().QueryContext(c.Context(), `
+SELECT r.uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 1`, appID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = repositoryRows.Close() }()
+	for repositoryRows.Next() {
+		var resourceUUID string
+		err := repositoryRows.Scan(&resourceUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		currentRepositoryResourceUUIDs = append(currentRepositoryResourceUUIDs, resourceUUID)
+	}
+	c.Assert(repositoryRows.Err(), tc.ErrorIsNil)
+	c.Check(current, tc.SameContents, []currentResource{
+		{UUID: retainedUUID, Name: "retained", CharmUUID: newCharmUUID.String(), Revision: newRevision, OriginType: "store"},
+		{UUID: addedUUID, Name: "added", CharmUUID: newCharmUUID.String(), Revision: addedRevision, OriginType: "store"},
+	})
+	c.Check(oldRows, tc.Equals, 2)
+	c.Check(pendingRows, tc.Equals, 0)
+	c.Check(oldPotentialRows, tc.Equals, 1)
+	c.Check(currentRepositoryResourceUUIDs, tc.SameContents, []string{
+		repositoryResourceUUIDs["retained"],
+		repositoryResourceUUIDs["added"],
+	})
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmResourceReconciliationRollsBack(c *tc.C) {
+	revision := 1
+	resources := map[string]charm.Resource{
+		"foo": {Name: "foo", Type: charm.ResourceTypeFile},
+	}
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: resources,
+		appResources: []application.AddApplicationResourceArg{{
+			Name: "foo", Revision: &revision, Origin: charmresource.OriginStore,
+		}},
+	})
+	newCharmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo", source: charm.CharmHubSource, resources: resources,
+	})
+	newRevision := 2
+	pendingUUID := s.createPendingResource(
+		c, "some-app", newCharmUUID.String(), "foo", &newRevision,
+		charmresource.OriginStore,
+	)
+	repositoryResourceUUID := uuid.MustNewUUID().String()
+
+	var oldCharmUUID, oldResourceUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+JOIN   resource AS r ON r.uuid = ar.resource_uuid
+WHERE  a.uuid = ?
+AND    r.state_id = 0`, appID).Scan(&oldCharmUUID, &oldResourceUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+CREATE TRIGGER fail_application_charm_update
+BEFORE UPDATE OF charm_uuid ON application
+BEGIN
+    SELECT RAISE(ABORT, 'forced charm update failure');
+END`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
+		ResourceIDs:             map[string]string{"foo": pendingUUID},
+		RepositoryResourceUUIDs: map[string]string{"foo": repositoryResourceUUID},
+	})
+	c.Assert(err, tc.ErrorMatches, `.*forced charm update failure.*`)
+
+	var charmUUID, resourceUUID string
+	var pendingRows, repositoryRows int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+JOIN   resource AS r ON r.uuid = ar.resource_uuid
+WHERE  a.uuid = ?
+AND    r.state_id = 0`, appID).Scan(&charmUUID, &resourceUUID); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   pending_application_resource
+WHERE  resource_uuid = ?`, pendingUUID).Scan(&pendingRows); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM resource WHERE uuid = ?`, repositoryResourceUUID).Scan(&repositoryRows)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmUUID, tc.Equals, oldCharmUUID)
+	c.Check(resourceUUID, tc.Equals, oldResourceUUID)
+	c.Check(pendingRows, tc.Equals, 1)
+	c.Check(repositoryRows, tc.Equals, 0)
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c *tc.C) {
@@ -1139,6 +1580,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 			Requires:      args.relationMap(c, charm.RoleRequirer),
 			Peers:         args.relationMap(c, charm.RolePeer),
 			ExtraBindings: args.extraBindings,
+			Resources:     args.resources,
 		},
 		Manifest:      s.minimalManifest(c),
 		Config:        args.charmConfig,
@@ -1158,6 +1600,7 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 				Trust: args.trust,
 			},
 			EndpointBindings: args.endpointBindings,
+			Resources:        args.appResources,
 		},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to create application %q", appName))
@@ -1167,6 +1610,10 @@ func (s *applicationRefreshSuite) createApplication(c *tc.C, args createApplicat
 // createCharm creates a mock Charm instance with provided relation metadata
 // and returns it along with a cleanup function.
 func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) corecharm.ID {
+	source := args.source
+	if source == "" {
+		source = charm.LocalSource
+	}
 	ch := charm.Charm{
 		Metadata: charm.Metadata{
 			Name:          args.name,
@@ -1175,16 +1622,49 @@ func (s *applicationRefreshSuite) createCharm(c *tc.C, args createCharmArgs) cor
 			Peers:         args.relationMap(c, charm.RolePeer),
 			ExtraBindings: args.extraBindings,
 			Storage:       args.storage,
+			Resources:     args.resources,
 		},
 		Manifest:      s.minimalManifest(c),
 		Config:        args.charmConfig,
 		ReferenceName: args.name,
-		Source:        charm.LocalSource,
+		Source:        source,
 		Revision:      43,
 	}
 	charmUUID, _, err := s.state.AddCharm(c.Context(), ch, nil, false)
 	c.Assert(err, tc.ErrorIsNil)
 	return charmUUID
+}
+
+func (s *applicationRefreshSuite) createPendingResource(
+	c *tc.C,
+	appName string,
+	charmUUID string,
+	name string,
+	revision *int,
+	origin charmresource.Origin,
+) string {
+	resourceUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO resource (
+    uuid, charm_uuid, charm_resource_name, revision, origin_type_id,
+    state_id, created_at
+)
+SELECT ?, ?, ?, ?, rot.id, rs.id, ?
+FROM   resource_origin_type AS rot, resource_state AS rs
+WHERE  rot.name = ?
+AND    rs.name = 'available'`,
+			resourceUUID, charmUUID, name, revision, s.state.clock.Now().UTC(), origin.String(),
+		); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO pending_application_resource (resource_uuid, application_name)
+VALUES (?, ?)`, resourceUUID, appName)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return resourceUUID
 }
 
 // establishRelationWith creates a new relation between the current application
@@ -1338,6 +1818,9 @@ type createApplicationArgs struct {
 	// endpointBindings defines the list of endpoint bindings associated with the
 	// application.
 	endpointBindings map[string]network.SpaceName
+
+	resources    map[string]charm.Resource
+	appResources []application.AddApplicationResourceArg
 }
 
 // relationMap processes the relations of a createApplicationArgs instance,
@@ -1377,7 +1860,8 @@ func (caa createApplicationArgs) relationMap(
 
 // createCharmArgs holds the arguments required for creating a charm in tests, including its relations.
 type createCharmArgs struct {
-	name string
+	name   string
+	source charm.CharmSource
 
 	// relations define the list of relations associated with the application.
 	relations []charm.Relation
@@ -1390,6 +1874,8 @@ type createCharmArgs struct {
 
 	// storage defines the storage requirements for the charm
 	storage map[string]charm.Storage
+
+	resources map[string]charm.Resource
 }
 
 // relationMap processes the relations of a createCharmArgs instance,
