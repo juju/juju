@@ -31,16 +31,45 @@ import (
 
 // FirewallerAPI exposes functionality off the firewaller API facade to a worker.
 type FirewallerAPI interface {
+	// WatchModelMachines watches for changes to the life cycles of the
+	// top-level machines in the model.
 	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
+
+	// WatchModelFirewallRules watches for potential changes to the model's
+	// firewall rules.
 	WatchModelFirewallRules(context.Context) (watcher.NotifyWatcher, error)
+
+	// ModelFirewallRules returns the firewall rules configured for the
+	// model.
 	ModelFirewallRules(context.Context) (firewall.IngressRules, error)
+
+	// ControllerFirewallPorts returns the ports that must be open on the
+	// controller machines' instance firewall: the API port, the SSH server
+	// port and, when autocert is configured, the HTTP port.
+	ControllerFirewallPorts(context.Context) ([]network.PortRange, error)
+
+	// ModelConfig returns the model's configuration.
 	ModelConfig(context.Context) (*config.Config, error)
+
+	// Machine returns the machine with the given tag.
 	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
+
+	// Unit returns the unit with the given tag.
 	Unit(ctx context.Context, tag names.UnitTag) (Unit, error)
+	// Relation returns the relation with the given tag.
 	Relation(ctx context.Context, tag names.RelationTag) (*Relation, error)
+
+	// ControllerAPIInfoForModel returns the controller API connection
+	// details for the given model.
 	ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error)
+
+	// SetRelationStatus sets the status of the relation with the given key.
 	SetRelationStatus(ctx context.Context, relationKey string, status relation.Status, message string) error
+
+	// AllSpaceInfos returns all known spaces and their subnets.
 	AllSpaceInfos(ctx context.Context) (network.SpaceInfos, error)
+
+	// WatchSubnets watches for changes to the subnets in the model.
 	WatchSubnets(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
