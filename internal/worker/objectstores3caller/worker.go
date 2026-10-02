@@ -176,7 +176,12 @@ func (w *s3Worker) loop() (err error) {
 	// the watcher.
 	client, err := w.makeNewClient(ctx)
 	if err != nil {
-		return errors.Trace(err)
+		if !errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+			return errors.Trace(err)
+		}
+		// The backend hasn't been seeded yet. Start without a session;
+		// it will be created when the watcher reports the backend.
+		w.config.Logger.Warningf(ctx, "backend not yet seeded, waiting for watcher event")
 	}
 
 	w.mutex.Lock()
