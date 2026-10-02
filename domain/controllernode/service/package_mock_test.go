@@ -39,7 +39,7 @@ type MockStateMockRecorder struct {
 	namespaceForWatchControllerClientAddressesExpects []*gomock.Call0_1[string]
 	namespaceForWatchControllerNodesExpects           []*gomock.Call0_1[string]
 	selectDatabaseNamespaceExpects                    []*gomock.Call2_2[context.Context, string, string, error]
-	setAPIAddressesExpects                            []*gomock.Call2_1[context.Context, controllernode.APIAddressPublications, error]
+	setAPIAddressesExpects                            []*gomock.Call2_1[context.Context, controllernode.APIAddressProjections, error]
 	setRunningAgentBinaryVersionExpects               []*gomock.Call3_1[context.Context, string, agentbinary.Version, error]
 }
 
@@ -236,7 +236,7 @@ func (mr *MockStateMockRecorder) SelectDatabaseNamespace(arg0, arg1 any) *MockSt
 type MockStateSelectDatabaseNamespaceCall = gomock.Call2_2[context.Context, string, string, error]
 
 // SetAPIAddresses mocks base method.
-func (m *MockState) SetAPIAddresses(ctx context.Context, addresses controllernode.APIAddressPublications) error {
+func (m *MockState) SetAPIAddresses(ctx context.Context, addresses controllernode.APIAddressProjections) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_1(&m.recorder.setAPIAddressesExpects, m.ctrl, m, "SetAPIAddresses", ctx, addresses)
 }
@@ -244,14 +244,14 @@ func (m *MockState) SetAPIAddresses(ctx context.Context, addresses controllernod
 // SetAPIAddresses indicates an expected call of SetAPIAddresses.
 func (mr *MockStateMockRecorder) SetAPIAddresses(ctx, addresses any) *MockStateSetAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, controllernode.APIAddressPublications, error](mr.mock.ctrl.T, mr.mock, "SetAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(addresses))
+	call := gomock.NewCall2_1[context.Context, controllernode.APIAddressProjections, error](mr.mock.ctrl.T, mr.mock, "SetAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(addresses))
 	mr.setAPIAddressesExpects = append(mr.setAPIAddressesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateSetAPIAddressesCall is the typed call wrapper for SetAPIAddresses.
-type MockStateSetAPIAddressesCall = gomock.Call2_1[context.Context, controllernode.APIAddressPublications, error]
+type MockStateSetAPIAddressesCall = gomock.Call2_1[context.Context, controllernode.APIAddressProjections, error]
 
 // SetRunningAgentBinaryVersion mocks base method.
 func (m *MockState) SetRunningAgentBinaryVersion(arg0 context.Context, arg1 string, arg2 agentbinary.Version) error {

@@ -55,15 +55,15 @@ func (addrs APIAddresses) Values() []string {
 	return result
 }
 
-// APIAddressPublication contains encoded addresses for each routing audience.
-type APIAddressPublication struct {
+// APIAddressProjection contains encoded addresses for each routing audience.
+type APIAddressProjection struct {
 	Clients APIAddresses
 	Agents  APIAddresses
 	Peers   APIAddresses
 }
 
-// APIAddressPublications is a complete publication keyed by controller ID.
-type APIAddressPublications map[string]APIAddressPublication
+// APIAddressProjections is a complete projection keyed by controller ID.
+type APIAddressProjections map[string]APIAddressProjection
 
 // PrioritizedForScope orders the APIAddresses by best match for the input scope
 // matching function and returns them in string form, e.g. "192.168.0.54:17070".

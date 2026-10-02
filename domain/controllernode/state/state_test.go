@@ -101,7 +101,9 @@ func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 
 	rows, err := db.QueryContext(c.Context(), "SELECT controller_id FROM controller_node")
 	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
+	defer func() {
+		c.Check(rows.Close(), tc.ErrorIsNil)
+	}()
 
 	ids := set.NewStrings()
 	for rows.Next() {
@@ -110,6 +112,7 @@ func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		ids.Add(addr)
 	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 	c.Assert(ids.Values(), tc.HasLen, 3)
 
 	c.Check(ids.Contains(controllerID0), tc.IsTrue)
