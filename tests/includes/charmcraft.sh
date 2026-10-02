@@ -3,10 +3,10 @@
 #
 # The function returns a resolved file path so callers may safely quote the
 # substitution:
-#    juju deploy "$(pack_charm ./testcharms/charms/lxd-profile)"
+#    juju deploy "$(pack_charm ./testcharms/charms/ubuntu-plus)"
 #
 # The unquoted form also works:
-#    juju deploy $(pack_charm ./testcharms/charms/lxd-profile)
+#    juju deploy $(pack_charm ./testcharms/charms/ubuntu-plus)
 #
 # charmcraft >= 4.4.1 may leave the packed charm inside the project
 # directory instead of the current working directory (upstream bug

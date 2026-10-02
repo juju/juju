@@ -234,62 +234,6 @@ var (
 		},
 		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
 	}
-	machine1WithLXDProfile = M{
-		"juju-status": M{
-			"current": "started",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"hostname":     "eldritch-octopii",
-		"dns-name":     "10.0.1.1",
-		"ip-addresses": []string{"10.0.1.1"},
-		"instance-id":  "controller-1",
-		"machine-status": M{
-			"current": "pending",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"modification-status": M{
-			"current": "idle",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"base": M{"name": "ubuntu", "channel": "12.10"},
-		"network-interfaces": M{
-			"eth0": M{
-				"ip-addresses": []string{"10.0.1.1"},
-				"mac-address":  "aa:bb:cc:dd:ee:ff",
-				"is-up":        true,
-			},
-		},
-		"hardware": "arch=amd64 cores=1 mem=1024M root-disk=8192M",
-		"lxd-profiles": M{
-			"juju-controller-deadbe-lxd-profile-1": M{
-				"config": M{
-					"environment.http_proxy": "",
-					"linux.kernel_modules":   "openvswitch,nbd,ip_tables,ip6_tables",
-					"security.nesting":       "true",
-					"security.privileged":    "true",
-				},
-				"description": "lxd profile for testing, will pass validation",
-				"devices": M{
-					"bdisk": M{
-						"source": "/dev/loop0",
-						"type":   "unix-block",
-					},
-					"gpu": M{
-						"type": "gpu",
-					},
-					"sony": M{
-						"productid": "51da",
-						"type":      "usb",
-						"vendorid":  "0fce",
-					},
-					"tun": M{
-						"path": "/dev/net/tun",
-						"type": "unix-char",
-					},
-				},
-			},
-		},
-	}
 	machine2 = M{
 		"juju-status": M{
 			"current": "started",
@@ -2858,77 +2802,6 @@ var statusTests = []testCase{
 		addApplication{name: "wordpress", charm: "wordpress", binding: map[string]string{"db-client": "", "logging-dir": "", "cache": "", "db": "myspace1", "monitoring-port": "", "url": "", "admin-api": "", "foo-bar": ""}},
 		addAliveUnit{"wordpress", "1"},
 	),
-	test( // 24
-		"application with lxd profiles",
-		addMachine{machineId: "0", job: coremodel.JobManageModel},
-		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
-		startAliveMachine{"0", ""},
-		setMachineStatus{"0", status.Started, ""},
-		addMachine{machineId: "1", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
-		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
-		startAliveMachine{"1", ""},
-		setMachineStatus{"1", status.Started, ""},
-		addCharmHubCharm{"lxd-profile"},
-		setCharmProfiles{"1", []string{"juju-controller-deadbe-lxd-profile-1"}},
-		addApplication{name: "lxd-profile", charm: "lxd-profile"},
-		setApplicationExposed{"lxd-profile", true},
-		addAliveUnit{"lxd-profile", "1"},
-		setUnitCharmURL{"lxd-profile/0", "ch:lxd-profile-0"},
-		addLocalCharmWithRevision{addLocalCharm{"lxd-profile"}, "local", 1},
-		setApplicationCharm{"lxd-profile", "local:quantal/lxd-profile-1"},
-		addCharmPlaceholder{"lxd-profile", 23},
-		setUnitStatus{"lxd-profile/0", status.Active, "", nil},
-		expect{
-			what: "applications and units with correct lxd profile charm status",
-			output: M{
-				"model": model,
-				"machines": M{
-					"0": machine0,
-					"1": machine1WithLXDProfile,
-				},
-				"applications": M{
-					"lxd-profile": M{
-						"charm":         "local:quantal/lxd-profile-1",
-						"charm-origin":  "local",
-						"exposed":       true,
-						"charm-name":    "lxd-profile",
-						"charm-rev":     1,
-						"charm-profile": "juju-controller-deadbe-lxd-profile-1",
-						"base":          M{"name": "ubuntu", "channel": "12.10"},
-						"application-status": M{
-							"current": "active",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"units": M{
-							"lxd-profile/0": M{
-								"machine": "1",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"upgrading-from": "ch:lxd-profile-0",
-								"public-address": "10.0.1.1",
-							},
-						},
-						"endpoint-bindings": M{
-							"":        network.AlphaSpaceName,
-							"another": network.AlphaSpaceName,
-							"ubuntu":  network.AlphaSpaceName,
-						},
-					},
-				},
-				"storage": M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-		},
-	),
 	test( // 25
 		"suspended model",
 		setModelSuspended{"invalid credential", "bad password"},
@@ -3455,9 +3328,6 @@ func (as addApplication) step(c *tc.C, ctx *ctx) {
 		Units:            make(map[string]params.UnitStatus),
 		Relations:        make(map[string][]string),
 		EndpointBindings: make(map[string]string),
-	}
-	if as.charm == "lxd-profile" {
-		app.CharmProfile = "juju-controller-deadbe-lxd-profile-1"
 	}
 	if info.charm.Meta().Subordinate {
 		ctx.subordinateApps[as.name] = &app
@@ -4212,27 +4082,6 @@ func (as addSubordinate) step(c *tc.C, ctx *ctx) {
 			ctx.api.result.Applications[prinAappName].Units[unitName] = u
 		}
 	}
-}
-
-type setCharmProfiles struct {
-	machineId string
-	profiles  []string
-}
-
-func (s setCharmProfiles) step(c *tc.C, ctx *ctx) {
-	m, ok := ctx.api.result.Machines[s.machineId]
-	c.Assert(ok, tc.IsTrue)
-
-	for _, p := range s.profiles {
-		info := ctx.charms["lxd-profile"]
-		profile := info.charm.(charm.LXDProfiler).LXDProfile()
-		m.LXDProfiles[p] = params.LXDProfile{
-			Config:      profile.Config,
-			Description: profile.Description,
-			Devices:     profile.Devices,
-		}
-	}
-	ctx.api.result.Machines[s.machineId] = m
 }
 
 type expect struct {
