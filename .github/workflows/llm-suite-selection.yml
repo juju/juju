@@ -1,0 +1,310 @@
+# LLM-driven integration-suite selection (shadow mode).
+#
+# SECURITY MODEL — read before editing:
+# This workflow runs on `pull_request_target`, which executes in the BASE
+# repo context WITH secrets. That is only safe here because:
+#   1. CLA gate: canonical/has-signed-canonical-cla must pass before any
+#      other job runs (same gate as cla.yml).
+#   2. Every emitted suite name is validated against the BASE-branch
+#      tests/suites.manifest.yaml whitelist. A malicious PR head cannot
+#      introduce suite names even if it ships a hostile copy of the
+#      selection tool — the tool's only outputs are a JSONL record, a
+#      markdown comment, and the whitelisted matrix.
+#   3. The runner matrix uses name/provider/cloud from the BASE manifest
+#      only. The matrix job DOES build and execute PR-head code
+#      (make go-install, tests/main.sh) — that is what testing the PR
+#      means, and it is contained by job-level `permissions: contents:
+#      read` (no write token in that job). Runner-infra scripts
+#      (.github/squid.sh, microk8s-launch-config-aws.yaml) are checked
+#      out from the BASE branch, so a PR cannot redefine the proxy or
+#      the k8s launch config that run before its own code is built.
+#   4. Credentials are scoped per job: JEV_API_KEY is only exposed to
+#      the select job (base-branch code); pull-requests:write only to
+#      shadow-comment; llm-selected-tests is read-only. Residual risk:
+#      PR-head code runs on persistent self-hosted runners — the same
+#      exposure the existing pull_request smoke jobs have; ephemeral
+#      runners are the fix if this becomes a concern.
+# Do NOT add steps that build or execute PR-head code to the select job;
+# it must stay a pure read/decide job.
+#
+# CREDENTIALS: JEV_API_KEY is a repo/org Actions secret (Settings →
+# Secrets and variables → Actions → Repository secrets). Unset/invalid key
+# degrades to deterministic-only selection; the job never blocks a PR.
+#
+# PHASE: shadow. llm-selected-tests failures are NOT required checks yet.
+# Flip out of shadow ONLY when BOTH hold:
+#   1. the offline eval (tests/tools/eval_selector.py) shows the picks
+#      meet recall/waste targets across a meaningful shadow history, and
+#   2. the runner fleet is migrated to ephemeral, per-job runners. This
+#      is a hard precondition, not a nice-to-have: PR-head code running
+#      make go-install plus full integration suites on persistent
+#      self-hosted runners is a state-persistence/exfil channel that
+#      per-job permissions cannot contain. No flip on the persistent
+#      fleet.
+name: LLM suite selection
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# Least privilege: workflow-level read-only. Only shadow-comment gets
+# pull-requests: write (job-level); llm-selected-tests runs PR-head code
+# and therefore must NOT carry a write token.
+permissions:
+  contents: read
+
+jobs:
+  cla-check:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if CLA signed
+        uses: canonical/has-signed-canonical-cla@v2
+
+  select-suites:
+    needs: [cla-check]
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read  # read the PR diff/JSON via the REST API
+    outputs:
+      suites: ${{ steps.select.outputs.suites }}
+      has_picks: ${{ steps.select.outputs.has_picks }}
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Install PyYAML
+        run: |
+          python3 -c "import yaml" 2>/dev/null || \
+            python3 -m pip install --quiet pyyaml 2>/dev/null || \
+            python3 -m pip install --quiet --break-system-packages pyyaml
+
+      # The diff is computed via the GitHub API (base...head), so nothing
+      # from the PR head is fetched or executed locally; the tool run
+      # below is the base-branch copy.
+      - name: Diff
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code=$(curl -sS -o pr.diff -w '%{http_code}' \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.v3.diff" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}") \
+            || code=000
+          # Surface API failures: shadow mode never blocks the PR, but a
+          # dead loop (401s, rate limits) must be visible, not silent —
+          # curl without -f exits 0 on HTTP errors, which would leave an
+          # error body in pr.diff and rank nothing, green.
+          if [ "${code}" != 200 ]; then
+            {
+              echo "## :warning: Suite selection degraded: PR diff fetch failed (HTTP ${code})"
+              echo "The selector could not run. See the Diff step log; this job stays non-required."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
+          # Both sides of the diff: +++ b/ misses deleted files
+          # (+++ /dev/null), --- a/ covers them. /dev/null lines match
+          # neither pattern, so no extra filtering is needed.
+          grep -E '^(--- a/|\+\+\+ b/)' pr.diff \
+            | sed -e 's|^--- a/||' -e 's|^+++ b/||' | sort -u > pr.files
+
+      - name: Select
+        id: select
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JEV_API_KEY: ${{ secrets.JEV_API_KEY }}
+          JEV_BASE_URL: ${{ vars.JEV_BASE_URL }}
+          JEV_MODEL: ${{ vars.JEV_MODEL }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          code=$(curl -sS -o pr.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}") \
+            || code=000
+          if [ "${code}" != 200 ]; then
+            {
+              echo "## :warning: Suite selection degraded: PR metadata fetch failed (HTTP ${code})"
+              echo "The selector could not run. See the Select step log; this job stays non-required."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          d = json.load(open('pr.json'))
+          with open('pr.title', 'w') as f:
+              f.write(d.get('title') or '')
+          with open('pr.body', 'w') as f:
+              f.write(d.get('body') or '')
+          PY
+          python3 tests/tools/select_suites.py select \
+            --diff pr.diff --changed-files pr.files \
+            --title "$(cat pr.title)" --body "$(cat pr.body)" \
+            --out "$GITHUB_OUTPUT" --comment comment.md \
+            --json-out selection.jsonl
+
+      - name: Upload selection record
+        if: always()
+        uses: actions/upload-artifact@3519c011dc7b12f86a426c47ebb82874e4537c76 # v4.1.0
+        with:
+          name: selection-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+          path: |
+            selection.jsonl
+            comment.md
+          if-no-files-found: ignore
+
+  shadow-comment:
+    needs: [select-suites]
+    if: always() && needs.select-suites.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write  # post/update the shadow comment
+    steps:
+      - name: Download selection
+        uses: actions/download-artifact@2b534460cc047f4c3f849bd1d8e96854315b1a95 # v4.1.8
+        with:
+          name: selection-${{ github.event.pull_request.number }}-${{ github.run_attempt }}
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fc53ef2017c6 # v3.1.0
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: LLM test-suite selection
+
+      - name: Comment (shadow)
+        run: |
+          body="$(cat comment.md)"
+          body="${body}"$'\n\n<sub>run '${{ github.run_id }}'</sub>'
+          if [ -n "${{ steps.fc.outputs.comment-id }}" ]; then
+            id='${{ steps.fc.outputs.comment-id }}'
+          else
+            id=''
+          fi
+          payload=$(python3 -c 'import json,sys; print(json.dumps({"body": sys.argv[1]}))' "$body")
+          url="https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
+          method="POST"
+          if [ -n "$id" ]; then
+            url="${url}/${id}"
+            method="PATCH"
+          fi
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X "${method}" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "${url}" -d "${payload}") || code=000
+          # POST -> 201, PATCH -> 200. Anything else means the shadow
+          # feedback loop is broken: fail loudly and say why in the
+          # job summary. Shadow mode never blocks the PR; silent death
+          # would defeat it.
+          if [ "${code}" != 200 ] && [ "${code}" != 201 ]; then
+            {
+              echo "## :warning: Shadow comment ${method} failed (HTTP ${code})"
+              echo "Selection ran but no feedback was posted. See the Comment step log."
+            } >> "${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Shadow: this job runs selected suites but is NOT a required check yet.
+  # It executes PR-head code (that is what testing the PR means), so its
+  # token is read-only — the write token stays in shadow-comment only.
+  llm-selected-tests:
+    needs: [select-suites]
+    if: needs.select-suites.outputs.has_picks == 'true'
+    permissions:
+      contents: read
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.select-suites.outputs.suites) }}
+    steps:
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "/snap/bin" >> "$GITHUB_PATH"
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+
+      - name: Checkout PR head
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      # Runner-infra scripts come from the BASE branch, not the PR head:
+      # a PR must not get to redefine the proxy or the k8s launch config
+      # that run before its own code is built. Checked out AFTER the PR
+      # head so the head checkout's clean does not wipe it.
+      - name: Checkout base infra scripts
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .infra-base
+
+      - name: "Squid"
+        if: github.repository_owner != 'juju'
+        run: ./.infra-base/.github/squid.sh
+
+      - name: Setup LXD
+        if: matrix.suite.cloud == 'localhost'
+        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
+
+      - name: Wait for LXD
+        if: matrix.suite.cloud == 'localhost'
+        run: |
+          while ! ip link show lxdbr0; do
+            echo "Waiting for lxdbr0..."
+            sleep 10
+          done
+
+      - name: Setup MicroK8s
+        if: matrix.suite.cloud == 'microk8s'
+        uses: balchua/microk8s-actions@13f73436011eb4925c22526f64fb3ecdd81289a9
+        with:
+          channel: "1.34-strict/stable"
+          addons: '["dns", "hostpath-storage", "rbac"]'
+          launch-configuration: ${{ github.repository_owner == 'juju' && '$GITHUB_WORKSPACE/.infra-base/.github/microk8s-launch-config-aws.yaml' || '' }}
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Install local Juju
+        shell: bash
+        run: make go-install
+
+      - name: Run suite ${{ matrix.suite.name }}
+        shell: bash
+        env:
+          MODEL_ARCH: amd64
+          BOOTSTRAP_ADDITIONAL_ARGS: --model-default enable-os-upgrade=false
+        run: |
+          cd tests
+          if [ "${{ matrix.suite.cloud }}" = "microk8s" ]; then
+            sg snap_microk8s "./main.sh -c microk8s -v ${{ matrix.suite.name }}"
+          else
+            ./main.sh -v "${{ matrix.suite.name }}"
+          fi
+
+      - name: Upload test logs
+        if: failure()
+        uses: actions/upload-artifact@3519c011dc7b12f86a426c47ebb82874e4537c76 # v4.1.0
+        with:
+          name: logs-${{ matrix.suite.name }}-${{ github.run_attempt }}
+          path: tests/tmp*/
