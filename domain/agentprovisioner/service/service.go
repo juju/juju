@@ -139,32 +139,20 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanag
 	}
 
 	method := modelconfig.ContainerNetworkingMethod(cfg[config.ContainerNetworkingMethodKey])
-	switch method {
-	case modelconfig.ContainerNetworkingMethodLocal:
-		return containermanager.NetworkingMethodLocal, nil
-	case modelconfig.ContainerNetworkingMethodProvider:
-		return containermanager.NetworkingMethodProvider, nil
-	case modelconfig.ContainerNetworkingMethodAuto:
-		// Auto-configure container networking method below
-	default:
-		return "", errors.Errorf("unable to deduce container networking method %q from model config", method)
-	}
-
-	provider, err := s.providerGetter(ctx)
-	if errors.Is(err, coreerrors.NotSupported) {
-		// Provider doesn't have the SupportsContainerAddresses method
-		return containermanager.NetworkingMethodLocal, nil
-	} else if err != nil {
-		return "", errors.Errorf(
-			"cannot get networking provider for model: %w",
-			err)
-
-	}
-
-	if provider.SupportsContainerAddresses() {
-		return containermanager.NetworkingMethodProvider, nil
-	}
-	return containermanager.NetworkingMethodLocal, nil
+	return containermanager.ResolveNetworkingMethodWithCapability(method, func() (bool, error) {
+		provider, err := s.providerGetter(ctx)
+		if errors.Is(err, coreerrors.NotSupported) {
+			// The provider does not implement the container address
+			// capability, so auto resolves to local.
+			return false, nil
+		}
+		if err != nil {
+			return false, errors.Errorf(
+				"cannot get networking provider for model: %w",
+				err)
+		}
+		return provider.SupportsContainerAddresses(), nil
+	})
 }
 
 // ContainerConfig returns the container config for the model.

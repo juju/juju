@@ -599,11 +599,10 @@ type MockNetworkService struct {
 
 // MockNetworkServiceMockRecorder is the mock recorder for MockNetworkService.
 type MockNetworkServiceMockRecorder struct {
-	mock                              *MockNetworkService
-	allocateContainerAddressesExpects []*gomock.Call4_2[context.Context, instance.Id, string, network.InterfaceInfos, network.InterfaceInfos, error]
-	devicesForGuestExpects            []*gomock.Call3_2[context.Context, machine.UUID, machine.UUID, []network0.NetInterface, error]
-	devicesToBridgeExpects            []*gomock.Call3_2[context.Context, machine.UUID, machine.UUID, []network0.DeviceToBridge, error]
-	setMachineNetConfigExpects        []*gomock.Call3_1[context.Context, machine.UUID, []network0.NetInterface, error]
+	mock                         *MockNetworkService
+	devicesToBridgeExpects       []*gomock.Call3_2[context.Context, machine.UUID, machine.UUID, []network0.DeviceToBridge, error]
+	networkConfigForGuestExpects []*gomock.Call4_2[context.Context, machine.UUID, machine.UUID, machine.Name, network.InterfaceInfos, error]
+	setMachineNetConfigExpects   []*gomock.Call3_1[context.Context, machine.UUID, []network0.NetInterface, error]
 }
 
 // NewMockNetworkService creates a new mock instance.
@@ -617,42 +616,6 @@ func NewMockNetworkService(ctrl *gomock.Controller) *MockNetworkService {
 func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
-
-// AllocateContainerAddresses mocks base method.
-func (m *MockNetworkService) AllocateContainerAddresses(ctx context.Context, hostInstanceID instance.Id, containerName string, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.allocateContainerAddressesExpects, m.ctrl, m, "AllocateContainerAddresses", ctx, hostInstanceID, containerName, preparedInfo)
-}
-
-// AllocateContainerAddresses indicates an expected call of AllocateContainerAddresses.
-func (mr *MockNetworkServiceMockRecorder) AllocateContainerAddresses(ctx, hostInstanceID, containerName, preparedInfo any) *MockNetworkServiceAllocateContainerAddressesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, instance.Id, string, network.InterfaceInfos, network.InterfaceInfos, error](mr.mock.ctrl.T, mr.mock, "AllocateContainerAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(hostInstanceID), gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(preparedInfo))
-	mr.allocateContainerAddressesExpects = append(mr.allocateContainerAddressesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockNetworkServiceAllocateContainerAddressesCall is the typed call wrapper for AllocateContainerAddresses.
-type MockNetworkServiceAllocateContainerAddressesCall = gomock.Call4_2[context.Context, instance.Id, string, network.InterfaceInfos, network.InterfaceInfos, error]
-
-// DevicesForGuest mocks base method.
-func (m *MockNetworkService) DevicesForGuest(ctx context.Context, hostUUID, guestUUID machine.UUID) ([]network0.NetInterface, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.devicesForGuestExpects, m.ctrl, m, "DevicesForGuest", ctx, hostUUID, guestUUID)
-}
-
-// DevicesForGuest indicates an expected call of DevicesForGuest.
-func (mr *MockNetworkServiceMockRecorder) DevicesForGuest(ctx, hostUUID, guestUUID any) *MockNetworkServiceDevicesForGuestCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, machine.UUID, machine.UUID, []network0.NetInterface, error](mr.mock.ctrl.T, mr.mock, "DevicesForGuest", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(hostUUID), gomock.EnsureMatcher(guestUUID))
-	mr.devicesForGuestExpects = append(mr.devicesForGuestExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockNetworkServiceDevicesForGuestCall is the typed call wrapper for DevicesForGuest.
-type MockNetworkServiceDevicesForGuestCall = gomock.Call3_2[context.Context, machine.UUID, machine.UUID, []network0.NetInterface, error]
 
 // DevicesToBridge mocks base method.
 func (m *MockNetworkService) DevicesToBridge(ctx context.Context, hostUUID, guestUUID machine.UUID) ([]network0.DeviceToBridge, error) {
@@ -671,6 +634,24 @@ func (mr *MockNetworkServiceMockRecorder) DevicesToBridge(ctx, hostUUID, guestUU
 
 // MockNetworkServiceDevicesToBridgeCall is the typed call wrapper for DevicesToBridge.
 type MockNetworkServiceDevicesToBridgeCall = gomock.Call3_2[context.Context, machine.UUID, machine.UUID, []network0.DeviceToBridge, error]
+
+// NetworkConfigForGuest mocks base method.
+func (m *MockNetworkService) NetworkConfigForGuest(ctx context.Context, hostUUID, guestUUID machine.UUID, guestName machine.Name) (network.InterfaceInfos, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.networkConfigForGuestExpects, m.ctrl, m, "NetworkConfigForGuest", ctx, hostUUID, guestUUID, guestName)
+}
+
+// NetworkConfigForGuest indicates an expected call of NetworkConfigForGuest.
+func (mr *MockNetworkServiceMockRecorder) NetworkConfigForGuest(ctx, hostUUID, guestUUID, guestName any) *MockNetworkServiceNetworkConfigForGuestCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[context.Context, machine.UUID, machine.UUID, machine.Name, network.InterfaceInfos, error](mr.mock.ctrl.T, mr.mock, "NetworkConfigForGuest", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(hostUUID), gomock.EnsureMatcher(guestUUID), gomock.EnsureMatcher(guestName))
+	mr.networkConfigForGuestExpects = append(mr.networkConfigForGuestExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockNetworkServiceNetworkConfigForGuestCall is the typed call wrapper for NetworkConfigForGuest.
+type MockNetworkServiceNetworkConfigForGuestCall = gomock.Call4_2[context.Context, machine.UUID, machine.UUID, machine.Name, network.InterfaceInfos, error]
 
 // SetMachineNetConfig mocks base method.
 func (m *MockNetworkService) SetMachineNetConfig(ctx context.Context, mUUID machine.UUID, nics []network0.NetInterface) error {
