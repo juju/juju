@@ -12,18 +12,33 @@ import (
 
 // BackupsCreateArgs holds the args for the API Create method.
 type BackupsCreateArgs struct {
-	Notes      string `json:"notes"`
-	NoDownload bool   `json:"no-download"`
+	Notes string `json:"notes"`
+
+	// NoDownload is kept for compatibility with the shipped facade
+	// wire format only: it is always serialized, but never read. The
+	// controller always streams the archive, so the field is inert;
+	// pre-4.1 clients that set it are rejected earlier by the RPC
+	// and HTTP upgrade errors.
+	NoDownload bool `json:"no-download"`
 }
 
-// BackupsDownloadArgs holds the args for the API Download method.
+// BackupsDownloadArgs holds the args of the pre-4.1 HTTP backups
+// download endpoint, kept for wire compatibility only: the endpoint
+// rejects pre-4.1 clients with an upgrade error and never decodes
+// the id.
 type BackupsDownloadArgs struct {
 	ID string `json:"id"`
 }
 
+// BackupMetadataHeader is the response header the backups HTTP
+// endpoint uses to return the metadata of a freshly created backup
+// alongside the streamed archive.
+const BackupMetadataHeader = "X-Juju-Backup-Metadata"
+
 // BackupsMetadataResult holds the metadata for a backup as returned by
 // an API backups method (such as Create).
 type BackupsMetadataResult struct {
+	// ID identifies the backup.
 	ID string `json:"id"`
 
 	Checksum       string    `json:"checksum"`

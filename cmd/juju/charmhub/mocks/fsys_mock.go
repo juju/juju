@@ -30,6 +30,7 @@ type MockFilesystemMockRecorder struct {
 	openExpects      []*gomock.Call1_2[string, modelcmd.ReadSeekCloser, error]
 	openFileExpects  []*gomock.Call3_2[string, int, os.FileMode, *os.File, error]
 	removeAllExpects []*gomock.Call1_1[string, error]
+	renameExpects    []*gomock.Call2_1[string, string, error]
 	statExpects      []*gomock.Call1_2[string, os.FileInfo, error]
 }
 
@@ -116,6 +117,24 @@ func (mr *MockFilesystemMockRecorder) RemoveAll(path any) *MockFilesystemRemoveA
 
 // MockFilesystemRemoveAllCall is the typed call wrapper for RemoveAll.
 type MockFilesystemRemoveAllCall = gomock.Call1_1[string, error]
+
+// Rename mocks base method.
+func (m *MockFilesystem) Rename(oldpath, newpath string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.renameExpects, m.ctrl, m, "Rename", oldpath, newpath)
+}
+
+// Rename indicates an expected call of Rename.
+func (mr *MockFilesystemMockRecorder) Rename(oldpath, newpath any) *MockFilesystemRenameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "Rename", gomock.EnsureMatcher(oldpath), gomock.EnsureMatcher(newpath))
+	mr.renameExpects = append(mr.renameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockFilesystemRenameCall is the typed call wrapper for Rename.
+type MockFilesystemRenameCall = gomock.Call2_1[string, string, error]
 
 // Stat mocks base method.
 func (m *MockFilesystem) Stat(name string) (os.FileInfo, error) {

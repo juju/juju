@@ -68,7 +68,7 @@ func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 		Doer: httpRequestDoer{
 			c: c,
 		},
-		UnmarshalError: unmarshalHTTPErrorResponse,
+		UnmarshalError: UnmarshalHTTPErrorResponse,
 	}, nil
 }
 
@@ -147,7 +147,7 @@ func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 				_ = resp.Body.Close()
 			}
 		}()
-		return bakeryError(unmarshalHTTPErrorResponse(resp))
+		return bakeryError(UnmarshalHTTPErrorResponse(resp))
 	})
 }
 
@@ -176,14 +176,14 @@ func isJSONMediaType(header http.Header) bool {
 	return header.Get("Content-Type") == "application/json"
 }
 
-// unmarshalHTTPErrorResponse unmarshals an error response from
+// UnmarshalHTTPErrorResponse unmarshals an error response from
 // an HTTP endpoint. For historical reasons, these endpoints
 // return several different incompatible error response formats.
 // We cope with this by accepting all of the possible formats
 // and unmarshaling accordingly.
 //
 // It always returns a non-nil error.
-func unmarshalHTTPErrorResponse(resp *http.Response) error {
+func UnmarshalHTTPErrorResponse(resp *http.Response) error {
 	if !isJSONMediaType(resp.Header) {
 		// Response body is not JSON. This is probably a response
 		// from the underlying webserver
