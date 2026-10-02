@@ -334,6 +334,40 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsS
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+// A failure to write the application settings surfaces, so the endpoint
+// data is never dropped silently.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsSetSettingsError(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	boom := errors.New("boom")
+
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     ep[0].ApplicationName,
+			EndpointName:        ep[0].EndpointName,
+			ApplicationSettings: map[string]any{"password": "keep-me"},
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, ep)
+	appID := s.expectGetApplicationUUIDByName(c, ep[0].ApplicationName)
+	appSettings, err := settingsMap(func(string) {}, args[0].Endpoints[0].ApplicationSettings)
+	c.Assert(err, tc.ErrorIsNil)
+	s.state.EXPECT().SetRelationApplicationSettings(gomock.Any(), relUUID, appID, appSettings).
+		Return(boom)
+
+	// Act
+	err = s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
 // An application that does not exist is reported rather than silently
 // dropping the endpoint data.
 func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsApplicationNotFound(c *tc.C) {

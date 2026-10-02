@@ -190,6 +190,29 @@ func (s *relationRemoteEntitiesSuite) TestRelationKeysEqualTooManyEndpoints(c *t
 	c.Check(RelationKeysEqual(key, key), tc.IsFalse)
 }
 
+// The comparison ignores the roles of the endpoints, not only their order:
+// legacy positional exports get their roles assigned when the key is
+// parsed, so a description key and the key of the relation found in the
+// state can legitimately disagree on roles while referring to the same
+// relation.
+func (s *relationRemoteEntitiesSuite) TestRelationKeysEqualIgnoresRole(c *tc.C) {
+	key := relation.Key{
+		{ApplicationName: "dummy-source", EndpointName: "sink", Role: deploymentcharm.RoleRequirer},
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "source", Role: deploymentcharm.RoleProvider},
+	}
+	rolesSwapped := relation.Key{
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "source", Role: deploymentcharm.RoleRequirer},
+		{ApplicationName: "dummy-source", EndpointName: "sink", Role: deploymentcharm.RoleProvider},
+	}
+	rolesZeroed := relation.Key{
+		{ApplicationName: "dummy-source", EndpointName: "sink"},
+		{ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d", EndpointName: "source"},
+	}
+
+	c.Check(RelationKeysEqual(key, rolesSwapped), tc.IsTrue)
+	c.Check(RelationKeysEqual(key, rolesZeroed), tc.IsTrue)
+}
+
 // Remote entities that record the same relation key with divergent tokens
 // are resolved first-match-wins.
 func (s *relationRemoteEntitiesSuite) TestFindRelationUUIDDuplicateKeys(c *tc.C) {

@@ -307,9 +307,13 @@ type relationData struct {
 func readRelationData(c *tc.C, runner database.TxnRunner, relationUUID string) relationData {
 	var data relationData
 	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		data.appSettings = make(map[string]string)
-		data.unitSettings = make(map[string]string)
-		data.units = nil
+		// Assign the whole struct rather than mutating its fields: the
+		// transaction may be retried, and the accumulated state must not
+		// carry over between attempts.
+		data = relationData{
+			appSettings:  make(map[string]string),
+			unitSettings: make(map[string]string),
+		}
 
 		rows, err := tx.QueryContext(ctx, `
 SELECT a.name, s.key, s.value

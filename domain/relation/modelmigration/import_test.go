@@ -415,6 +415,76 @@ func (s *importSuite) TestImportConsumerRemoteRelationOtherEndpoint(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
+// The consumer proxy branch is checked first: a relation that has both a
+// consumer proxy and a remote offerer among its endpoints was created by the
+// cross model relation import, so only its data is imported, and it is never
+// imported again as a relation.
+func (s *importSuite) TestImportConsumerProxyAndOffererRemoteRelation(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	key := relationtesting.GenNewKey(c, "foo:sink dummy-sink:source")
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  32,
+		Key: key.String(),
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+		Name:            "sink",
+		Interface:       "dummy-token",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-sink",
+		Name:            "source",
+		Interface:       "dummy-token",
+	})
+
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "dummy-sink",
+		IsConsumerProxy: true,
+	})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name: "foo",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-foo.sink#dummy-sink.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	s.service.EXPECT().ImportConsumerProxyRelationSettingsAndUnits(gomock.Any(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     "foo",
+			EndpointName:        "sink",
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}, {
+			ApplicationName:     "dummy-sink",
+			EndpointName:        "source",
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}},
+	}}).Return(nil)
+	s.service.EXPECT().ImportRelations(gomock.Any(), gomock.Any()).Times(0)
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	// Act
+	err := importOp.Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+}
+
 func (s *importSuite) TestImportOffererRemoteRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

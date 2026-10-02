@@ -71,10 +71,13 @@ func FindRelationUUID(remoteEntities []RelationRemoteEntity, key relation.Key) (
 	return "", false
 }
 
-// RelationKeysEqual compares two relation keys for equality, ignoring order.
-// Both keys must have exactly two endpoints: cross model relations are
-// regular relations, so keys with any other number of endpoints are never
-// equal.
+// RelationKeysEqual compares two relation keys for equality, ignoring
+// endpoint order, role and scope. Legacy positional exports get their roles
+// assigned when the key is parsed, and cross model relations are imported
+// without scopes, so those differences do not separate two keys that refer
+// to the same relation. Both keys must have exactly two endpoints: cross
+// model relations are regular relations, so keys with any other number of
+// endpoints are never equal.
 func RelationKeysEqual(a, b relation.Key) bool {
 	if len(a) != 2 || len(b) != 2 {
 		return false
