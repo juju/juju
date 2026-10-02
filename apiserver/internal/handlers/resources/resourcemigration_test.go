@@ -41,7 +41,7 @@ type resourcesUploadSuite struct {
 	modelServiceGetter *MockModelServiceGetter
 	modelService       *MockModelService
 
-	downloader *MockDownloader
+	downloader *MockBlobValidator
 
 	content        string
 	origin         charmresource.Origin
@@ -95,7 +95,7 @@ func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *tc.C) {
 	handler := NewResourceMigrationUploadHandler(
 		nil, // application service getter (unused for non-POST)
 		nil, // resource service getter (unused for non-POST)
-		nil, // downloader (unused for non-POST)
+		nil, // blob validator (unused for non-POST)
 		loggertesting.WrapCheckLog(c),
 	)
 	unsupportedMethods := []string{
@@ -1031,7 +1031,7 @@ func (s *resourcesUploadSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.resourceService = NewMockResourceService(ctrl)
 	s.modelServiceGetter = NewMockModelServiceGetter(ctrl)
 	s.modelService = NewMockModelService(ctrl)
-	s.downloader = NewMockDownloader(ctrl)
+	s.downloader = NewMockBlobValidator(ctrl)
 
 	return ctrl
 }
