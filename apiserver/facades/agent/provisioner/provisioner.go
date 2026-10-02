@@ -857,7 +857,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 			)
 			continue
 		} else if err != nil {
-			err := errors.Errorf("getting machin %q uuid: %w", gTag.Id(), err)
+			err := errors.Errorf("getting machine %q uuid: %w", guestName, err)
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

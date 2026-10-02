@@ -145,7 +145,8 @@ func (s *Service) ContainerNetworkingMethod(ctx context.Context) (containermanag
 			// The provider does not implement the container address
 			// capability, so auto resolves to local.
 			return false, nil
-		} else if err != nil {
+		}
+		if err != nil {
 			return false, errors.Errorf(
 				"cannot get networking provider for model: %w",
 				err)
