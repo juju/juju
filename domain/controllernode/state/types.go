@@ -3,6 +3,8 @@
 
 package state
 
+import "database/sql"
+
 // dbControllerNode is the database representation of a controller node.
 type dbControllerNode struct {
 	// ControllerID is the nodes controller ID.
@@ -49,6 +51,16 @@ type controllerAddress struct {
 	Address      string `db:"address"`
 	Scope        string `db:"scope"`
 	Priority     int    `db:"priority"`
+}
+
+// publishedControllerAddress is a projection row. A NULL controller ID
+// identifies a shared endpoint.
+type publishedControllerAddress struct {
+	UUID         string         `db:"uuid"`
+	ControllerID sql.NullString `db:"controller_id"`
+	Address      string         `db:"address"`
+	Scope        string         `db:"scope"`
+	Priority     int            `db:"priority"`
 }
 
 // countResult is the database representation of a count result.

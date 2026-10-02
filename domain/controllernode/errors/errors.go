@@ -21,4 +21,8 @@ const (
 	// EmptyAPIAddresses describes an error that occurs when no API addresses
 	// are found.
 	EmptyAPIAddresses = errors.ConstError("no API addresses found")
+
+	// StaleControllerMembership indicates that address selection used a
+	// non-dead controller membership that is no longer current.
+	StaleControllerMembership = errors.ConstError("stale controller membership")
 )

@@ -3,4 +3,4 @@
 
 package apiaddresssetter
 
-//go:generate go run github.com/canonical/gomock/mockgen -package apiaddresssetter -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiaddresssetter ControllerConfigService,ApplicationService,ControllerNodeService,NetworkService,ModelService,DomainServices,ControllerDomainServices
+//go:generate go run github.com/canonical/gomock/mockgen -package apiaddresssetter -destination package_mocks_test.go github.com/juju/juju/internal/worker/apiaddresssetter ControllerConfigService,ControllerNodeService,NetworkService,ModelService,DomainServices,ControllerDomainServices

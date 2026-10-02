@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 
 	"github.com/canonical/sqlair"
@@ -322,139 +323,225 @@ func (st *State) NamespaceForWatchControllerClientAddresses() string {
 	return "controller_client_address"
 }
 
-// SetAPIAddresses replaces the client and agent address projections for the
-// supplied controllers. All addresses are published for clients; addresses
-// marked IsAgent are also published for agents. Both projections are updated
-// in one transaction, preserving UUIDs for addresses that already exist.
-// This method publishes controller-associated addresses only; shared endpoints
-// require a separate reconciliation path.
+// SetAPIAddresses atomically replaces all client, agent and peer address
+// projections. Empty projections are authoritative. The named projection
+// keys must exactly match the alive or dying controller membership.
 //
 // The following errors can be expected:
-// - [controllernodeerrors.NotFound] if a controller node is missing or not alive.
-func (st *State) SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error {
-	if len(addresses) == 0 {
-		return nil
-	}
+// - [controllernodeerrors.StaleControllerMembership] if the named projection
+// keys do not exactly match the alive or dying controller nodes.
+func (st *State) SetAPIAddresses(ctx context.Context, projections controllernode.APIAddressProjections) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	checkControllerExistsStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
+	controllerIDsStmt, err := st.Prepare(`
+SELECT node.controller_id AS &controllerID.controller_id
 FROM controller_node AS node
-WHERE node.controller_id IN ($controllerIDs[:])
-AND node.life_id = 0
-`, countResult{}, controllerIDs{})
+WHERE node.life_id < 2
+`, controllerID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	clients, agents, controllers := encodeAPIAddresses(addresses)
+	clients, agents, peers := encodeAPIAddressProjections(projections)
+	expected := make(map[string]struct{}, len(projections))
+	for controllerID := range projections {
+		expected[controllerID] = struct{}{}
+	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var count countResult
-		if err := tx.Query(ctx, checkControllerExistsStmt, controllers).Get(&count); err != nil {
-			return errors.Errorf("checking controller nodes exist: %w", err)
+		var controllers []controllerID
+		if err := tx.Query(ctx, controllerIDsStmt).GetAll(&controllers); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("reading controller membership: %w", err)
 		}
-		if count.Count != len(controllers) {
-			return errors.Errorf("controller nodes do not exist").Add(controllernodeerrors.NotFound)
+		if len(controllers) != len(expected) {
+			return errors.Errorf("controller membership changed: %w", controllernodeerrors.StaleControllerMembership)
 		}
-		if err := st.setAddressProjection(ctx, tx, "controller_client_address", controllers, clients); err != nil {
+		for _, controller := range controllers {
+			if _, ok := expected[controller.ID]; !ok {
+				return errors.Errorf("controller membership changed: %w", controllernodeerrors.StaleControllerMembership)
+			}
+		}
+		if err := st.setClientAddressProjection(ctx, tx, clients); err != nil {
 			return errors.Capture(err)
 		}
-		return st.setAddressProjection(ctx, tx, "controller_agent_address", controllers, agents)
+		if err := st.setAgentAddressProjection(ctx, tx, agents); err != nil {
+			return errors.Capture(err)
+		}
+		return st.setPeerAddressProjection(ctx, tx, peers)
 	}))
 }
 
-// setAddressProjection reconciles addresses only for the supplied controllers.
-// table must be one of the fixed projection table names used above.
-func (st *State) setAddressProjection(ctx context.Context, tx *sqlair.TX, table string, controllers controllerIDs, addresses []controllerAddress) error {
-	queries, ok := map[string]struct {
-		getExisting string
-		delete      string
-		upsert      string
-	}{
-		"controller_client_address": {
-			getExisting: `
-SELECT address.* AS &controllerAddress.*
+func (st *State) setClientAddressProjection(ctx context.Context, tx *sqlair.TX, desired []publishedControllerAddress) error {
+	readStmt, err := st.Prepare(`
+SELECT address.* AS &publishedControllerAddress.*
 FROM controller_client_address AS address
-WHERE address.controller_id IN ($controllerIDs[:])
-`,
-			delete: `
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	removeStmt, err := st.Prepare(`
 DELETE FROM controller_client_address AS address
-WHERE address.uuid = $controllerAddress.uuid
-`,
-			upsert: `
+WHERE address.uuid = $publishedControllerAddress.uuid
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	updateStmt, err := st.Prepare(`
+UPDATE controller_client_address AS address
+SET scope = $publishedControllerAddress.scope,
+    priority = $publishedControllerAddress.priority
+WHERE address.uuid = $publishedControllerAddress.uuid
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertStmt, err := st.Prepare(`
 INSERT INTO controller_client_address AS address (uuid, controller_id, address, scope, priority)
-VALUES ($controllerAddress.*)
-ON CONFLICT (controller_id, address) DO UPDATE
-SET scope = excluded.scope, priority = excluded.priority
-WHERE address.scope != excluded.scope OR address.priority != excluded.priority
-`,
-		},
-		"controller_agent_address": {
-			getExisting: `
-SELECT address.* AS &controllerAddress.*
-FROM controller_agent_address AS address
-WHERE address.controller_id IN ($controllerIDs[:])
-`,
-			delete: `
-DELETE FROM controller_agent_address AS address
-WHERE address.uuid = $controllerAddress.uuid
-`,
-			upsert: `
-INSERT INTO controller_agent_address AS address (uuid, controller_id, address, scope, priority)
-VALUES ($controllerAddress.*)
-ON CONFLICT (controller_id, address) DO UPDATE
-SET scope = excluded.scope, priority = excluded.priority
-WHERE address.scope != excluded.scope OR address.priority != excluded.priority
-`,
-		},
-	}[table]
-	if !ok {
-		return errors.Errorf("unsupported controller address projection %q", table)
-	}
-	getExistingStmt, err := st.Prepare(queries.getExisting, controllerAddress{}, controllers)
+VALUES ($publishedControllerAddress.*)
+`, publishedControllerAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	deleteStmt, err := st.Prepare(queries.delete, controllerAddress{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	upsertStmt, err := st.Prepare(queries.upsert, controllerAddress{})
-	if err != nil {
-		return errors.Capture(err)
-	}
+	return reconcileAddressProjection(ctx, tx, "controller_client_address", desired, readStmt, removeStmt, updateStmt, insertStmt)
+}
 
-	var existing []controllerAddress
-	if err := tx.Query(ctx, getExistingStmt, controllers).GetAll(&existing); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("reading %s: %w", table, err)
+func (st *State) setAgentAddressProjection(ctx context.Context, tx *sqlair.TX, desired []publishedControllerAddress) error {
+	readStmt, err := st.Prepare(`
+SELECT address.* AS &publishedControllerAddress.*
+FROM controller_agent_address AS address
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
 	}
-	// Comparing controller ID and address preserves independently published
-	// rows when multiple controllers report the same address.
+	removeStmt, err := st.Prepare(`
+DELETE FROM controller_agent_address AS address
+WHERE address.uuid = $publishedControllerAddress.uuid
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	updateStmt, err := st.Prepare(`
+UPDATE controller_agent_address AS address
+SET scope = $publishedControllerAddress.scope,
+    priority = $publishedControllerAddress.priority
+WHERE address.uuid = $publishedControllerAddress.uuid
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO controller_agent_address AS address (uuid, controller_id, address, scope, priority)
+VALUES ($publishedControllerAddress.*)
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return reconcileAddressProjection(ctx, tx, "controller_agent_address", desired, readStmt, removeStmt, updateStmt, insertStmt)
+}
+
+func (st *State) setPeerAddressProjection(ctx context.Context, tx *sqlair.TX, desired []publishedControllerAddress) error {
+	readStmt, err := st.Prepare(`
+SELECT address.* AS &publishedControllerAddress.*
+FROM controller_peer_address AS address
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	removeStmt, err := st.Prepare(`
+DELETE FROM controller_peer_address AS address
+WHERE address.uuid = $publishedControllerAddress.uuid
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	updateStmt, err := st.Prepare(`
+UPDATE controller_peer_address AS address
+SET scope = $publishedControllerAddress.scope,
+    priority = $publishedControllerAddress.priority
+WHERE address.uuid = $publishedControllerAddress.uuid
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO controller_peer_address AS address (uuid, controller_id, address, scope, priority)
+VALUES ($publishedControllerAddress.*)
+`, publishedControllerAddress{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return reconcileAddressProjection(ctx, tx, "controller_peer_address", desired, readStmt, removeStmt, updateStmt, insertStmt)
+}
+
+func reconcileAddressProjection(
+	ctx context.Context,
+	tx *sqlair.TX,
+	projection string,
+	desired []publishedControllerAddress,
+	readStmt, removeStmt, updateStmt, insertStmt *sqlair.Statement,
+) error {
+	var existing []publishedControllerAddress
+	if err := tx.Query(ctx, readStmt).GetAll(&existing); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("reading %s: %w", projection, err)
+	}
 	type addressKey struct {
 		controllerID string
 		address      string
 	}
-	current := make(map[addressKey]struct{}, len(addresses))
-	for _, address := range addresses {
-		current[addressKey{address.ControllerID, address.Address}] = struct{}{}
+	desiredByKey := make(map[addressKey]publishedControllerAddress, len(desired))
+	for _, address := range desired {
+		desiredByKey[addressKey{controllerID: address.ControllerID.String, address: address.Address}] = address
 	}
 	for _, address := range existing {
-		if _, ok := current[addressKey{address.ControllerID, address.Address}]; ok {
+		key := addressKey{controllerID: address.ControllerID.String, address: address.Address}
+		want, ok := desiredByKey[key]
+		if !ok {
+			if err := tx.Query(ctx, removeStmt, address).Run(); err != nil {
+				return errors.Errorf("deleting from %s: %w", projection, err)
+			}
 			continue
 		}
-		if err := tx.Query(ctx, deleteStmt, address).Run(); err != nil {
-			return errors.Errorf("deleting from %s: %w", table, err)
+		delete(desiredByKey, key)
+		if address.Scope == want.Scope && address.Priority == want.Priority {
+			continue
+		}
+		want.UUID = address.UUID
+		if err := tx.Query(ctx, updateStmt, want).Run(); err != nil {
+			return errors.Errorf("updating %s: %w", projection, err)
 		}
 	}
-	if len(addresses) > 0 {
-		if err := tx.Query(ctx, upsertStmt, addresses).Run(); err != nil {
-			return errors.Errorf("writing %s: %w", table, err)
+	for _, address := range desiredByKey {
+		if err := tx.Query(ctx, insertStmt, address).Run(); err != nil {
+			return errors.Errorf("writing %s: %w", projection, err)
 		}
 	}
 	return nil
+}
+
+func encodeAPIAddressProjections(projections controllernode.APIAddressProjections) (clients, agents, peers []publishedControllerAddress) {
+	for controllerID, projection := range projections {
+		identity := sql.NullString{String: controllerID, Valid: controllerID != ""}
+		clients = append(clients, encodePublishedAddresses(identity, projection.Clients)...)
+		agents = append(agents, encodePublishedAddresses(identity, projection.Agents)...)
+		peers = append(peers, encodePublishedAddresses(identity, projection.Peers)...)
+	}
+	return clients, agents, peers
+}
+
+func encodePublishedAddresses(controllerID sql.NullString, addresses controllernode.APIAddresses) []publishedControllerAddress {
+	result := make([]publishedControllerAddress, len(addresses))
+	for i, address := range addresses {
+		result[i] = publishedControllerAddress{
+			UUID:         address.UUID,
+			ControllerID: controllerID,
+			Address:      address.Address,
+			Scope:        string(address.Scope),
+			Priority:     address.Priority,
+		}
+	}
+	return result
 }
 
 // GetAPIAddressesForAgents returns the agent projection, grouped by controller
@@ -566,7 +653,7 @@ func (st *State) GetControllerIDs(ctx context.Context) ([]string, error) {
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &controllerID.* 
+SELECT &controllerID.*
 FROM controller_node
 WHERE life_id < 2
 `, controllerID{})
@@ -616,31 +703,4 @@ func decodeAPIAddresses(addrs []controllerAddress) map[string]controllernode.API
 	}
 
 	return result
-}
-
-func encodeAPIAddresses(controllerAddrs map[string]controllernode.APIAddresses) (clients, agents []controllerAddress, controllers controllerIDs) {
-	controllers = make(controllerIDs, 0, len(controllerAddrs))
-	for controllerID, addrs := range controllerAddrs {
-		controllers = append(controllers, controllerID)
-		// As with the legacy projection, the last entry for an address wins.
-		// Resolve duplicates before splitting the two audiences.
-		byAddress := make(map[string]controllernode.APIAddress, len(addrs))
-		for _, addr := range addrs {
-			byAddress[addr.Address] = addr
-		}
-		for _, addr := range byAddress {
-			row := controllerAddress{
-				UUID:         addr.UUID,
-				ControllerID: controllerID,
-				Address:      addr.Address,
-				Scope:        string(addr.Scope),
-				Priority:     addr.Priority,
-			}
-			clients = append(clients, row)
-			if addr.IsAgent {
-				agents = append(agents, row)
-			}
-		}
-	}
-	return clients, agents, controllers
 }

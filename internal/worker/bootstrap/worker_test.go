@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/deployment/charm"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
@@ -60,7 +61,8 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.removeBootstrapSSHKeys = func([]string) error { return nil }
 	s.adminUserID = usertesting.GenUserUUID(c)
 	s.controllerModel = coremodel.Model{
-		UUID: tc.Must0(c, coremodel.NewUUID),
+		UUID:      tc.Must0(c, coremodel.NewUUID),
+		ModelType: coremodel.IAAS,
 	}
 }
 
@@ -258,6 +260,97 @@ func (s *workerSuite) TestSetControllerApplicationPassword(c *tc.C) {
 	c.Assert(w.setControllerApplicationPassword(c.Context()), tc.ErrorIsNil)
 }
 
+func (s *workerSuite) TestInitAPIAddressesIAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	public := network.ProviderAddress{
+		MachineAddress: network.NewMachineAddress("192.0.2.1", network.WithScope(network.ScopePublic)),
+		SpaceName:      "public",
+	}
+	management := network.ProviderAddress{
+		MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		SpaceName:      "management",
+	}
+	spaces := network.SpaceInfos{
+		{ID: "public-id", Name: "public"},
+		{ID: "management-id", Name: "management"},
+	}
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaces, nil).Times(2)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("management")).Return(&spaces[1], nil).Times(2)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {
+				Clients: network.SpaceAddresses{
+					{MachineAddress: public.MachineAddress, SpaceID: "public-id"},
+					{MachineAddress: management.MachineAddress, SpaceID: "management-id"},
+				},
+				Agents: network.SpaceAddresses{
+					{MachineAddress: management.MachineAddress, SpaceID: "management-id"},
+				},
+				Peers: network.SpaceAddresses{
+					{MachineAddress: management.MachineAddress, SpaceID: "management-id"},
+				},
+			},
+		},
+	}).Times(2)
+
+	w := &bootstrapWorker{cfg: WorkerConfig{
+		APIPort:               17070,
+		ControllerModel:       coremodel.Model{ModelType: coremodel.IAAS},
+		NetworkService:        s.networkService,
+		ControllerNodeService: s.controllerNodeService,
+	}}
+	for range 2 {
+		err := w.initAPIAddresses(c.Context(), controller.Config{
+			controller.JujuManagementSpace: "management",
+		}, network.ProviderAddresses{management, public})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
+func (s *workerSuite) TestInitAPIAddressesCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	public := network.NewMachineAddress(
+		"api.example.com", network.WithScope(network.ScopePublic),
+	).AsProviderAddress()
+	private := network.NewMachineAddress(
+		"10.0.0.1", network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddress()
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	serviceManager := NewMockServiceManager(gomock.NewController(c))
+	serviceManager.EXPECT().ControllerUnitFQDN(0).Return("controller-0.internal")
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {
+				Clients: network.SpaceAddresses{
+					{MachineAddress: public.MachineAddress},
+					{MachineAddress: private.MachineAddress},
+				},
+				Agents: network.SpaceAddresses{
+					{MachineAddress: private.MachineAddress},
+					{MachineAddress: public.MachineAddress},
+				},
+				Peers: network.SpaceAddresses{
+					network.NewSpaceAddress("controller-0.internal", network.WithScope(network.ScopeCloudLocal)),
+				},
+			},
+		},
+	})
+
+	w := &bootstrapWorker{cfg: WorkerConfig{
+		APIPort:               17070,
+		ControllerModel:       coremodel.Model{ModelType: coremodel.CAAS},
+		NetworkService:        s.networkService,
+		ControllerNodeService: s.controllerNodeService,
+		ServiceManagerGetter: func(context.Context) (ServiceManager, error) {
+			return serviceManager, nil
+		},
+	}}
+	err := w.initAPIAddresses(c.Context(), controller.Config{}, network.ProviderAddresses{private, public})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	return s.newWorkerWithFunc(c,
 		func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
@@ -394,24 +487,15 @@ func (s *workerSuite) expectSeedDefaultStoragePools() {
 
 func (s *workerSuite) expectSetAPIHostPorts() {
 	spaceName := network.SpaceName("mgmt-space")
-	mgmtSpace := &network.SpaceInfo{
-		Name: spaceName,
-		Subnets: []network.SubnetInfo{
-			{
-				CIDR: "10.0.0.0/24",
-			},
-		},
-	}
 	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: mgmtSpace,
-		APIAddresses: map[string]network.SpaceHostPorts{
+		APIPort: 42,
+		Addresses: map[string]controllernode.APIAddressSet{
 			"0": {},
 		},
 	}
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(nil, networkerrors.SpaceNotFound)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args)
-
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
 }
 
 func (s *workerSuite) ensureBootstrapParams(c *tc.C) {

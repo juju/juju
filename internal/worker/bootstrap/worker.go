@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -160,6 +161,9 @@ func (c *WorkerConfig) Validate() error {
 	if c.NetworkService == nil {
 		return errors.NotValidf("nil NetworkService")
 	}
+	if c.ControllerModel.ModelType == coremodel.CAAS && c.ServiceManagerGetter == nil {
+		return errors.NotValidf("nil ServiceManagerGetter")
+	}
 	if c.BakeryConfigService == nil {
 		return errors.NotValidf("nil BakeryConfigService")
 	}
@@ -310,7 +314,7 @@ func (w *bootstrapWorker) loop() error {
 
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, w.cfg.APIPort); err != nil {
+	if err := w.initAPIAddresses(ctx, controllerConfig, bootstrapAddresses); err != nil {
 		w.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return errors.Trace(err)
 	}
@@ -494,32 +498,82 @@ func (w *bootstrapWorker) reportInternalState(state string) {
 	}
 }
 
-// initAPIHostPorts sets the initial API host/port addresses in state.
-func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig controller.Config, pAddrs network.ProviderAddresses, apiPort int) error {
-	allSpaces, err := w.cfg.NetworkService.GetAllSpaces(ctx)
+// initAPIAddresses publishes the first snapshot using the same source policy
+// as the runtime address setter.
+func (w *bootstrapWorker) initAPIAddresses(
+	ctx context.Context,
+	controllerConfig controller.Config,
+	providerAddresses network.ProviderAddresses,
+) error {
+	spaces, err := w.cfg.NetworkService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	addrs, err := pAddrs.ToSpaceAddresses(allSpaces)
+	addresses, err := providerAddresses.ToSpaceAddresses(spaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	hostPorts := network.SpaceAddressesWithPort(addrs, apiPort)
 
-	mgmtSpaceCfg := controllerConfig.JujuManagementSpace()
-	mgmtSpace, err := w.cfg.NetworkService.SpaceByName(ctx, mgmtSpaceCfg)
-	if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
-		return errors.Trace(err)
+	clients := orderBootstrapAddresses(addresses, network.ScopePublic)
+	agents := orderBootstrapAddresses(addresses, network.ScopeCloudLocal)
+	peers := agents
+
+	switch w.cfg.ControllerModel.ModelType {
+	case coremodel.IAAS:
+		managementSpaceName := controllerConfig.JujuManagementSpace()
+		managementSpace, err := w.cfg.NetworkService.SpaceByName(ctx, managementSpaceName)
+		if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
+			return errors.Trace(err)
+		}
+		if managementSpace != nil {
+			agents, _ = addresses.InSpaces(*managementSpace)
+			agents = orderBootstrapAddresses(agents, network.ScopeCloudLocal)
+			peers = agents
+		}
+	case coremodel.CAAS:
+		serviceManager, err := w.cfg.ServiceManagerGetter(ctx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		peerFQDN := serviceManager.ControllerUnitFQDN(0)
+		if peerFQDN == "" {
+			return errors.New("controller peer FQDN is empty")
+		}
+		peers = network.SpaceAddresses{
+			network.NewSpaceAddress(peerFQDN, network.WithScope(network.ScopeCloudLocal)),
+		}
+	default:
+		return errors.Errorf("unsupported controller model type %q", w.cfg.ControllerModel.ModelType)
 	}
 
-	// During bootstrap, the controller node will always be "0".
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: mgmtSpace,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"0": hostPorts,
+	return w.cfg.ControllerNodeService.SetAPIAddresses(ctx, controllernode.SetAPIAddressArgs{
+		APIPort: w.cfg.APIPort,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {
+				Clients: clients,
+				Agents:  agents,
+				Peers:   peers,
+			},
 		},
-	}
-	return w.cfg.ControllerNodeService.SetAPIAddresses(ctx, args)
+	})
+}
+
+func orderBootstrapAddresses(addresses network.SpaceAddresses, preferredScope network.Scope) network.SpaceAddresses {
+	result := append(network.SpaceAddresses(nil), addresses...)
+	sort.SliceStable(result, func(i, j int) bool {
+		a, b := result[i], result[j]
+		if a.Scope != b.Scope {
+			if a.Scope == preferredScope || b.Scope == preferredScope {
+				return a.Scope == preferredScope
+			}
+			return a.Scope < b.Scope
+		}
+		if a.Value != b.Value {
+			return a.Value < b.Value
+		}
+		return a.SpaceID < b.SpaceID
+	})
+	return result
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.

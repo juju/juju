@@ -56,13 +56,12 @@ type State interface {
 	// watching controller client addresses.
 	NamespaceForWatchControllerClientAddresses() string
 
-	// SetAPIAddresses replaces the client and agent address projections for
-	// the supplied controllers. All addresses are published for clients;
-	// addresses marked IsAgent are also published for agents.
+	// SetAPIAddresses atomically replaces all client, agent and peer address
+	// projections.
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]
 	// if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, addresses map[string]controllernode.APIAddresses) error
+	SetAPIAddresses(ctx context.Context, addresses controllernode.APIAddressProjections) error
 
 	// GetControllerIDs returns the list of controller IDs from the controller
 	// node records.
@@ -172,56 +171,68 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 	return nil
 }
 
-// SetAPIAddresses publishes client and agent addresses for the supplied
-// controller IDs, selecting agent addresses using the management space.
+// SetAPIAddresses encodes and publishes addresses already selected for each
+// routing audience.
 //
 // The following errors can be expected:
-// - [controllernodeerrors.NotFound] if the controller node does not exist.
+// - [coreerrors.NotValid] if the API port is invalid or no controller address
+// sets are supplied.
+// - [controllernodeerrors.ControllerAddressNotValid] if an address is empty.
+// - [controllernodeerrors.StaleControllerMembership] if controller membership
+// changed after address selection.
 func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error {
-	addresses := make(map[string]controllernode.APIAddresses, 0)
-	for controllerID, addrs := range args.APIAddresses {
-		encoded, err := s.encodeAPIAddresses(ctx, args.MgmtSpace, addrs)
-		if err != nil {
-			return errors.Errorf("encoding addresses for controller %q: %w", controllerID, err)
-		}
-		addresses[controllerID] = encoded
+	if args.APIPort <= 0 {
+		return errors.Errorf("non-positive API port: %w", coreerrors.NotValid)
 	}
-	return s.st.SetAPIAddresses(ctx, addresses)
+	if len(args.Addresses) == 0 {
+		return errors.Errorf("API addresses are empty: %w", coreerrors.NotValid)
+	}
+
+	projections := make(controllernode.APIAddressProjections, len(args.Addresses))
+	for controllerID, selected := range args.Addresses {
+		clients, err := encodeAPIAddresses(selected.Clients, args.APIPort)
+		if err != nil {
+			return errors.Errorf("encoding client addresses for controller %q: %w", controllerID, err)
+		}
+		agents, err := encodeAPIAddresses(selected.Agents, args.APIPort)
+		if err != nil {
+			return errors.Errorf("encoding agent addresses for controller %q: %w", controllerID, err)
+		}
+		peers, err := encodeAPIAddresses(selected.Peers, args.APIPort)
+		if err != nil {
+			return errors.Errorf("encoding peer addresses for controller %q: %w", controllerID, err)
+		}
+		projections[controllerID] = controllernode.APIAddressProjection{
+			Clients: clients,
+			Agents:  agents,
+			Peers:   peers,
+		}
+	}
+	return s.st.SetAPIAddresses(ctx, projections)
 }
 
-func (s *Service) encodeAPIAddresses(ctx context.Context, mgmtSpace *network.SpaceInfo, addrs network.SpaceHostPorts) (controllernode.APIAddresses, error) {
-	// We map the SpaceHostPorts addresses to controller api addresses by
-	// checking if the address is available for agents (this is the case if the
-	// space ID of the address matches the management space ID), and also by
-	// joining the address host and port to a string "host:port".
+func encodeAPIAddresses(addrs network.SpaceAddresses, apiPort int) (controllernode.APIAddresses, error) {
 	addresses := make(controllernode.APIAddresses, 0, len(addrs))
-	emptyAgentAddresses := true
-	for priority, spHostPort := range addrs {
+	seen := make(map[string]struct{}, len(addrs))
+	for _, spaceAddress := range addrs {
+		if spaceAddress.Value == "" {
+			return nil, errors.Errorf("address is empty: %w", controllernodeerrors.ControllerAddressNotValid)
+		}
+		address := net.JoinHostPort(spaceAddress.Value, strconv.Itoa(apiPort))
+		if _, ok := seen[address]; ok {
+			continue
+		}
+		seen[address] = struct{}{}
 		addressUUID, err := uuid.NewUUID()
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		// Check if the address is available for agents. If no management space
-		// is set, all addresses are available for agents.
-		isAvailableForAgents := mgmtSpace == nil || spHostPort.SpaceID == mgmtSpace.ID
-		// Join the address host and port to a string "host:port".
-		address := net.JoinHostPort(spHostPort.Host(), strconv.Itoa(spHostPort.Port()))
 		addresses = append(addresses, controllernode.APIAddress{
 			UUID:     addressUUID.String(),
 			Address:  address,
-			IsAgent:  isAvailableForAgents,
-			Scope:    spHostPort.Scope,
-			Priority: priority,
+			Scope:    spaceAddress.Scope,
+			Priority: len(addresses),
 		})
-		emptyAgentAddresses = emptyAgentAddresses && !isAvailableForAgents
-	}
-	// If we have filtered out all addresses, set all to agents to ensure that
-	// the API is always reachable for agents.
-	if emptyAgentAddresses {
-		for i := range addresses {
-			addresses[i].IsAgent = true
-		}
-		s.logger.Warningf(ctx, "all provided API addresses were filtered out with regards to the management space, forcing all addresses to be agents to ensure API connectivity")
 	}
 	return addresses, nil
 }
@@ -294,15 +305,14 @@ func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (m
 		if controllerID == "" {
 			continue
 		}
-		result[controllerID] = addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
+		result[controllerID] = addrs.Values()
 	}
 
 	return result, nil
 }
 
 // GetAPIHostPortsForControllerIDForAgents returns the agent-reachable API
-// host ports for the given controller node ID, ordered to prefer cloud-local
-// addresses.
+// host ports for the given controller node ID in published priority order.
 //
 // The following errors may be returned:
 // - [controllernodeerrors.EmptyAPIAddresses] when no API addresses are found
@@ -320,21 +330,19 @@ func (s *Service) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, c
 		).Add(controllernodeerrors.EmptyAPIAddresses)
 	}
 
-	ordered := addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
-	result := make(network.HostPorts, 0, len(ordered))
-	for _, addr := range ordered {
-		hostPort, err := network.ParseMachineHostPort(addr)
+	result := make(network.HostPorts, 0, len(addrs))
+	for _, addr := range addrs {
+		hostPort, err := network.ParseMachineHostPort(addr.Address)
 		if err != nil {
-			return nil, errors.Errorf("parsing controller node address %q: %w", addr, err)
+			return nil, errors.Errorf("parsing controller node address %q: %w", addr.Address, err)
 		}
 		result = append(result, *hostPort)
 	}
 	return result, nil
 }
 
-// GetAllAPIAddressesForAgents returns a string slice of api
-// addresses available for agents ordered to prefer local-cloud scoped
-// addresses and IPv4 over IPv6 for each machine.
+// GetAllAPIAddressesForAgents returns agent addresses in published priority
+// order within each endpoint group.
 func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error) {
 	agentAddrs, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
@@ -348,7 +356,7 @@ func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, er
 		if len(addrs) == 0 {
 			continue
 		}
-		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)...)
+		orderedAddrs = append(orderedAddrs, addrs.Values()...)
 	}
 	return orderedAddrs, nil
 }
@@ -375,9 +383,8 @@ func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (strin
 	return orderedAddrs.ToNoProxyString(), nil
 }
 
-// GetAllAPIAddressesForClients returns a string slice of api
-// addresses available for clients ordered to prefer public scoped
-// addresses and IPv4 over IPv6 for each machine.
+// GetAllAPIAddressesForClients returns client addresses in published priority
+// order within each endpoint group.
 func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
 	clientAddrs, err := s.st.GetAPIAddressesForClients(ctx)
 	if err != nil {
@@ -392,7 +399,7 @@ func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, e
 		if len(addrs) == 0 {
 			continue
 		}
-		orderedAddrs = append(orderedAddrs, addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...)
+		orderedAddrs = append(orderedAddrs, addrs.Values()...)
 	}
 	return orderedAddrs, nil
 }
@@ -412,7 +419,7 @@ func (s *Service) GetAPIAddressesByControllerIDForClients(ctx context.Context) (
 		if controllerID == "" {
 			continue
 		}
-		result[controllerID] = addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal)
+		result[controllerID] = addrs.Values()
 	}
 
 	return result, nil

@@ -15,15 +15,12 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/domain/schema"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -104,7 +101,9 @@ func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 
 	rows, err := db.QueryContext(c.Context(), "SELECT controller_id FROM controller_node")
 	c.Assert(err, tc.ErrorIsNil)
-	defer rows.Close()
+	defer func() {
+		c.Check(rows.Close(), tc.ErrorIsNil)
+	}()
 
 	ids := set.NewStrings()
 	for rows.Next() {
@@ -113,6 +112,7 @@ func (s *stateSuite) TestAddDqliteNode(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		ids.Add(addr)
 	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 	c.Assert(ids.Values(), tc.HasLen, 3)
 
 	c.Check(ids.Contains(controllerID0), tc.IsTrue)
@@ -312,251 +312,6 @@ func (s *stateSuite) TestSetRunningAgentBinaryVersionArchNotSupported(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *stateSuite) TestSetAPIAddressesToAddOnly(c *tc.C) {
-	nodeID := uint64(15237855465837235027)
-	controllerID := "1"
-	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
-	}
-
-	err = s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: addrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID, addrs)
-}
-
-func (s *stateSuite) TestSetAPIAddressesToDeleteOnly(c *tc.C) {
-	nodeID := uint64(15237855465837235027)
-	controllerID := "1"
-	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Insert 3 addresses.
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.3:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-	}
-	s.addControllerAddressProjections(c, controllerID, addrs)
-
-	// Set API addresses that delete two nodes.
-	newAddrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-	}
-	err = s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: newAddrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID, newAddrs)
-}
-
-func (s *stateSuite) TestSetAPIAddressesAddsDeletes(c *tc.C) {
-	nodeID := uint64(15237855465837235027)
-	controllerID := "1"
-	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Insert 3 addresses.
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.3:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-	}
-	s.addControllerAddressProjections(c, controllerID, addrs)
-
-	// Set API addresses that delete two nodes and insert one new.
-	newAddrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
-	}
-	err = s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: newAddrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID, newAddrs)
-}
-
-func (s *stateSuite) TestSetAPIAddressesNoDelta(c *tc.C) {
-	nodeID := uint64(15237855465837235027)
-	controllerID := "1"
-	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Insert 3 addresses.
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
-		{Address: "10.0.0.3:17070", IsAgent: true, Scope: network.ScopeMachineLocal},
-	}
-	s.addControllerAddressProjections(c, controllerID, addrs)
-
-	// Set API but with the same addresses already present in the db.
-	err = s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: addrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID, addrs)
-}
-
-func (s *stateSuite) TestSetAPIAddressesUpdateIsAgentTrueToFalse(c *tc.C) {
-	nodeID := uint64(15237855465837235027)
-	controllerID := "1"
-	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Insert addresses with IsAgent=true.
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-	}
-	s.addControllerAddressProjections(c, controllerID, addrs)
-
-	// Update: flip IsAgent from true to false.
-	updatedAddrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: false, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: false, Scope: network.ScopeCloudLocal},
-	}
-	err = s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: updatedAddrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID, updatedAddrs)
-}
-
-func (s *stateSuite) TestSetAPIAddressesUpdateIsAgentFalseToTrue(c *tc.C) {
-	nodeID := uint64(15237855465837235027)
-	controllerID := "1"
-	err := s.state.AddDqliteNode(c.Context(), controllerID, nodeID, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Insert addresses with IsAgent=false.
-	addrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: false, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: false, Scope: network.ScopeCloudLocal},
-	}
-	s.addControllerAddressProjections(c, controllerID, addrs)
-
-	// Update: flip IsAgent from false to true.
-	updatedAddrs := []controllernode.APIAddress{
-		{Address: "10.0.0.1:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-	}
-	err = s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: updatedAddrs,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID, updatedAddrs)
-}
-
-func (s *stateSuite) TestSetAPIAddressesSharedAddress(c *tc.C) {
-	controllerID0 := "0"
-	err := s.state.AddDqliteNode(c.Context(), controllerID0, 1, "10.0.0.1")
-	c.Assert(err, tc.ErrorIsNil)
-
-	controllerID1 := "1"
-	err = s.state.AddDqliteNode(c.Context(), controllerID1, 2, "10.0.0.2")
-	c.Assert(err, tc.ErrorIsNil)
-
-	sharedAddress := "10.0.0.100:17070"
-	controller0Addrs := controllernode.APIAddresses{{
-		Address: sharedAddress,
-		IsAgent: true,
-		Scope:   network.ScopeCloudLocal,
-	}}
-	controller1Addrs := controllernode.APIAddresses{{
-		Address: sharedAddress,
-		IsAgent: true,
-		Scope:   network.ScopeCloudLocal,
-	}}
-
-	err = s.setAPIAddresses(c, map[string]controllernode.APIAddresses{
-		controllerID0: controller0Addrs,
-		controllerID1: controller1Addrs,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID0, controller0Addrs)
-	s.checkControllerAddressProjections(c, controllerID1, controller1Addrs)
-
-	controller1Addrs[0].IsAgent = false
-	err = s.setAPIAddresses(c, map[string]controllernode.APIAddresses{
-		controllerID0: controller0Addrs,
-		controllerID1: controller1Addrs,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID0, controller0Addrs)
-	s.checkControllerAddressProjections(c, controllerID1, controller1Addrs)
-
-	err = s.setAPIAddresses(c, map[string]controllernode.APIAddresses{
-		controllerID0: controller0Addrs,
-		controllerID1: {},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkControllerAddressProjections(c, controllerID0, controller0Addrs)
-	s.checkControllerAddressProjections(c, controllerID1, nil)
-}
-
-func (s *stateSuite) TestSetAPIAddressControllerNodeNotFound(c *tc.C) {
-	err := s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			"unknown-controller-id": []controllernode.APIAddress{},
-		},
-	)
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
-}
-
-func (s *stateSuite) TestSetAPIAddressesOneControllerNodeNotFound(c *tc.C) {
-	const controllerID = "0"
-	c.Assert(s.state.AddDqliteNode(c.Context(), controllerID, 1, "10.0.0.1"), tc.ErrorIsNil)
-
-	err := s.setAPIAddresses(
-		c,
-		map[string]controllernode.APIAddresses{
-			controllerID: {{
-				Address: "10.0.0.1:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			}},
-			"removed-controller": {{
-				Address: "10.0.0.2:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			}},
-		},
-	)
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.NotFound)
-
-	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
-		var count int
-		err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM "+table).Scan(&count)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(count, tc.Equals, 0)
-	}
-}
-
 func (s *stateSuite) TestGetControllerIDs(c *tc.C) {
 	for i := range 3 {
 		controllerID := strconv.Itoa(i)
@@ -576,50 +331,4 @@ func (s *stateSuite) TestGetControllerIDsEmpty(c *tc.C) {
 	controllerIDs, err := s.state.GetControllerIDs(c.Context())
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyControllerIDs)
 	c.Check(controllerIDs, tc.HasLen, 0)
-}
-
-func (s *stateSuite) setAPIAddresses(c *tc.C, addresses map[string]controllernode.APIAddresses) error {
-	for _, addrs := range addresses {
-		for i := range addrs {
-			if addrs[i].UUID == "" {
-				addrs[i].UUID = tc.Must0(c, uuid.NewUUID).String()
-			}
-		}
-	}
-	return s.state.SetAPIAddresses(c.Context(), addresses)
-}
-
-func (s *stateSuite) addControllerAddressProjections(c *tc.C, controllerID string, addrs controllernode.APIAddresses) {
-	c.Assert(s.setAPIAddresses(c, map[string]controllernode.APIAddresses{controllerID: addrs}), tc.ErrorIsNil)
-}
-
-func (s *stateSuite) checkControllerAddressProjections(c *tc.C, controllerID string, expected controllernode.APIAddresses) {
-	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
-		var wanted []controllerAddress
-		for _, addr := range expected {
-			if table == "controller_agent_address" && !addr.IsAgent {
-				continue
-			}
-			wanted = append(wanted, controllerAddress{
-				ControllerID: controllerID,
-				Address:      addr.Address,
-				Scope:        string(addr.Scope),
-				Priority:     addr.Priority,
-			})
-		}
-		rows, err := s.DB().QueryContext(c.Context(),
-			"SELECT uuid, controller_id, address, scope, priority FROM "+table+" WHERE controller_id = ?", controllerID)
-		c.Assert(err, tc.ErrorIsNil)
-		defer rows.Close()
-		var actual []controllerAddress
-		for rows.Next() {
-			var row controllerAddress
-			c.Assert(rows.Scan(&row.UUID, &row.ControllerID, &row.Address, &row.Scope, &row.Priority), tc.ErrorIsNil)
-			c.Check(uuid.IsValidUUIDString(row.UUID), tc.IsTrue)
-			row.UUID = ""
-			actual = append(actual, row)
-		}
-		c.Assert(rows.Err(), tc.ErrorIsNil)
-		c.Check(actual, tc.SameContents, wanted, tc.Commentf("table %s", table))
-	}
 }
