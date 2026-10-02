@@ -198,7 +198,7 @@ func controllerAddressCandidates(addresses domainnetwork.ControllerAPIAddresses,
 
 func orderControllerAddresses(addresses network.SpaceAddresses, preferredScope network.Scope) network.SpaceAddresses {
 	// Stable ordering prevents unchanged facts from causing connection churn.
-	sort.Slice(addresses, func(i, j int) bool {
+	sort.SliceStable(addresses, func(i, j int) bool {
 		a, b := addresses[i], addresses[j]
 		if a.Scope != b.Scope {
 			if a.Scope == preferredScope || b.Scope == preferredScope {
