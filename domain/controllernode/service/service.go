@@ -61,7 +61,7 @@ type State interface {
 	//
 	// The following errors can be expected: - [controllernodeerrors.NotFound]
 	// if the controller node does not exist.
-	SetAPIAddresses(ctx context.Context, addresses controllernode.APIAddressPublications) error
+	SetAPIAddresses(ctx context.Context, addresses controllernode.APIAddressProjections) error
 
 	// GetControllerIDs returns the list of controller IDs from the controller
 	// node records.
@@ -188,7 +188,7 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 		return errors.Errorf("API addresses are empty: %w", coreerrors.NotValid)
 	}
 
-	publications := make(controllernode.APIAddressPublications, len(args.Addresses))
+	projections := make(controllernode.APIAddressProjections, len(args.Addresses))
 	for controllerID, selected := range args.Addresses {
 		clients, err := encodeAPIAddresses(selected.Clients, args.APIPort)
 		if err != nil {
@@ -202,13 +202,13 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 		if err != nil {
 			return errors.Errorf("encoding peer addresses for controller %q: %w", controllerID, err)
 		}
-		publications[controllerID] = controllernode.APIAddressPublication{
+		projections[controllerID] = controllernode.APIAddressProjection{
 			Clients: clients,
 			Agents:  agents,
 			Peers:   peers,
 		}
 	}
-	return s.st.SetAPIAddresses(ctx, publications)
+	return s.st.SetAPIAddresses(ctx, projections)
 }
 
 func encodeAPIAddresses(addrs network.SpaceAddresses, apiPort int) (controllernode.APIAddresses, error) {

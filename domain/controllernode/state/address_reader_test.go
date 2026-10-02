@@ -56,7 +56,7 @@ VALUES ('0', 'legacy.example.com:17070', 'public', true)`)
 
 func (s *stateSuite) TestGetAPIAddressesAfterReplacement(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
-	old := controllernode.APIAddressPublications{"0": {
+	old := controllernode.APIAddressProjections{"0": {
 		Clients: controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
 		Agents:  controllernode.APIAddresses{{Address: "10.0.0.1:17070"}},
 	}}
@@ -66,7 +66,7 @@ func (s *stateSuite) TestGetAPIAddressesAfterReplacement(c *tc.C) {
 		agentsWant[0],
 		{Address: "public.example.com:17070", Scope: network.ScopePublic},
 	}
-	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressProjections{"0": {
 		Clients: clientsWant,
 		Agents:  agentsWant,
 	}}), tc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *stateSuite) TestGetAPIAddressesAfterReplacement(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(clients, tc.DeepEquals, map[string]controllernode.APIAddresses{"0": clientsWant})
 
-	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressPublications{"0": {}}), tc.ErrorIsNil)
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressProjections{"0": {}}), tc.ErrorIsNil)
 	_, err = s.state.GetAPIAddressesForAgents(c.Context())
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 	_, err = s.state.GetAPIAddressesForClients(c.Context())

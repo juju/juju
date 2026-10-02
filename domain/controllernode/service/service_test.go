@@ -186,11 +186,11 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
 	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, publications controllernode.APIAddressPublications) error {
+		func(_ context.Context, projections controllernode.APIAddressProjections) error {
 			ids := make(map[string]bool)
-			for controllerID, publication := range publications {
+			for controllerID, projection := range projections {
 				for _, addrs := range []controllernode.APIAddresses{
-					publication.Clients, publication.Agents, publication.Peers,
+					projection.Clients, projection.Agents, projection.Peers,
 				} {
 					for priority := range addrs {
 						c.Check(uuid.IsValidUUIDString(addrs[priority].UUID), tc.IsTrue)
@@ -200,9 +200,9 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 						addrs[priority].UUID = ""
 					}
 				}
-				publications[controllerID] = publication
+				projections[controllerID] = projection
 			}
-			c.Check(publications, tc.DeepEquals, controllernode.APIAddressPublications{
+			c.Check(projections, tc.DeepEquals, controllernode.APIAddressProjections{
 				"0": {
 					Clients: controllernode.APIAddresses{
 						{Address: "controller.example.com:17070", Scope: network.ScopePublic},

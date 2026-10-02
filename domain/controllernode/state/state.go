@@ -324,16 +324,13 @@ func (st *State) NamespaceForWatchControllerClientAddresses() string {
 }
 
 // SetAPIAddresses atomically replaces all client, agent and peer address
-// projections. Empty publications are authoritative. The named publication
+// projections. Empty projections are authoritative. The named projection
 // keys must exactly match the alive or dying controller membership.
 //
 // The following errors can be expected:
-// - [controllernodeerrors.StaleControllerMembership] if the named publication
+// - [controllernodeerrors.StaleControllerMembership] if the named projection
 // keys do not exactly match the alive or dying controller nodes.
-func (st *State) SetAPIAddresses(ctx context.Context, publications controllernode.APIAddressPublications) error {
-	if _, ok := publications[""]; ok {
-		return errors.Errorf("controller ID is empty")
-	}
+func (st *State) SetAPIAddresses(ctx context.Context, projections controllernode.APIAddressProjections) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -348,9 +345,9 @@ WHERE node.life_id < 2
 		return errors.Capture(err)
 	}
 
-	clients, agents, peers := encodeAPIAddressPublications(publications)
-	expected := make(map[string]struct{}, len(publications))
-	for controllerID := range publications {
+	clients, agents, peers := encodeAPIAddressProjections(projections)
+	expected := make(map[string]struct{}, len(projections))
+	for controllerID := range projections {
 		expected[controllerID] = struct{}{}
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -523,12 +520,12 @@ func reconcileAddressProjection(
 	return nil
 }
 
-func encodeAPIAddressPublications(publications controllernode.APIAddressPublications) (clients, agents, peers []publishedControllerAddress) {
-	for controllerID, publication := range publications {
+func encodeAPIAddressProjections(projections controllernode.APIAddressProjections) (clients, agents, peers []publishedControllerAddress) {
+	for controllerID, projection := range projections {
 		identity := sql.NullString{String: controllerID, Valid: controllerID != ""}
-		clients = append(clients, encodePublishedAddresses(identity, publication.Clients)...)
-		agents = append(agents, encodePublishedAddresses(identity, publication.Agents)...)
-		peers = append(peers, encodePublishedAddresses(identity, publication.Peers)...)
+		clients = append(clients, encodePublishedAddresses(identity, projection.Clients)...)
+		agents = append(agents, encodePublishedAddresses(identity, projection.Agents)...)
+		peers = append(peers, encodePublishedAddresses(identity, projection.Peers)...)
 	}
 	return clients, agents, peers
 }
