@@ -485,15 +485,11 @@ func (st *State) IsUserControllerOrModelAdmin(
 		return false, errors.Capture(err)
 	}
 
-	type adminCheck struct {
-		Check string `db:"check"`
-	}
-
 	user := name{Name: userName.Name()}
 	model := modelUUID{ModelUUID: modelUUIDStr.String()}
 
 	adminStmt, err := st.Prepare(`
-SELECT 'x' AS &adminCheck.check
+SELECT COUNT(*) AS &countResult.count
 FROM   v_user_auth u
 JOIN   v_permission p ON u.uuid = p.grant_to
 WHERE  u.name = $name.name
@@ -504,22 +500,17 @@ AND    (
            OR
            (p.object_type = 'model' AND p.grant_on = $modelUUID.model_uuid AND p.access_type IN ('admin', 'superuser'))
        )
-LIMIT 1
-`, adminCheck{}, name{}, modelUUID{})
+`, countResult{}, name{}, modelUUID{})
 	if err != nil {
 		return false, errors.Errorf("preparing admin check: %w", err)
 	}
 
-	var check adminCheck
+	var result countResult
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, adminStmt, user, model).Get(&check)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return err
+		return tx.Query(ctx, adminStmt, user, model).Get(&result)
 	})
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	return check.Check == "x", nil
+	return result.Count > 0, nil
 }

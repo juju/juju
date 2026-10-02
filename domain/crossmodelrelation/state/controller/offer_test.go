@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
@@ -309,6 +310,22 @@ func (s *controllerOfferSuite) addOfferPermission(c *tc.C, userUUID, offerUUID s
 	return permissionUUID
 }
 
+// addPermission inserts a permission row for the given user with the
+// provided access and object type ids. The grant_on value is the target
+// the permission is granted on, e.g. a controller or model UUID.
+func (s *controllerOfferSuite) addPermission(c *tc.C, userUUID, grantOn string, accessTypeID, objectTypeTypeID int) string {
+	permissionUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
+			VALUES (?, ?, ?, ?, ?)
+		`, permissionUUID, accessTypeID, objectTypeTypeID, userUUID, grantOn)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return permissionUUID
+}
+
 func (s *controllerOfferSuite) readPermissions(c *tc.C) []permission {
 	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM v_permission`)
 	c.Assert(err, tc.IsNil)
@@ -556,4 +573,98 @@ func (s *controllerOfferSuite) TestUpdateOfferPermissionUserNotFound(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `looking up user "ghost": "ghost": user not found`)
+}
+
+func (s *controllerOfferSuite) TestIsUserControllerOrModelAdmin(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	// An admin user is required as the creator of all other users.
+	ownerUUID := uuid.MustNewUUID()
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	otherModelUUID := tc.Must(c, coremodel.NewUUID)
+
+	// Access and object type ids from the controller schema:
+	// access types 3 (admin) and 6 (superuser),
+	// object types 1 (controller) and 2 (model).
+	const (
+		adminAccessID     = 3
+		superuserAccessID = 6
+		controllerTypeID  = 1
+		modelTypeID       = 2
+	)
+
+	newUser := func(c *tc.C, name string, removed, disabled bool) (coreuser.Name, string) {
+		userUUID := uuid.MustNewUUID().String()
+		s.ensureUser(c, userUUID, name, ownerUUID.String(), false, removed, disabled)
+		return usertesting.GenNewName(c, name), userUUID
+	}
+
+	tests := []struct {
+		summary string
+		seed    func(c *tc.C) coreuser.Name
+		isAdmin bool
+	}{{
+		summary: "user with no permissions",
+		seed: func(c *tc.C) coreuser.Name {
+			name, _ := newUser(c, "fred", false, false)
+			return name
+		},
+	}, {
+		summary: "controller superuser",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "super", false, false)
+			s.addPermission(c, userUUID, s.controllerUUID, superuserAccessID, controllerTypeID)
+			return name
+		},
+		isAdmin: true,
+	}, {
+		summary: "model admin",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "modeladmin", false, false)
+			s.addPermission(c, userUUID, modelUUID.String(), adminAccessID, modelTypeID)
+			return name
+		},
+		isAdmin: true,
+	}, {
+		summary: "admin on a different model",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "otheradmin", false, false)
+			s.addPermission(c, userUUID, otherModelUUID.String(), adminAccessID, modelTypeID)
+			return name
+		},
+	}, {
+		summary: "disabled model admin",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "disabledadmin", false, true)
+			s.addPermission(c, userUUID, modelUUID.String(), adminAccessID, modelTypeID)
+			return name
+		},
+	}, {
+		summary: "removed superuser",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "removedsuper", true, false)
+			s.addPermission(c, userUUID, s.controllerUUID, superuserAccessID, controllerTypeID)
+			return name
+		},
+	}, {
+		summary: "unknown user",
+		seed: func(c *tc.C) coreuser.Name {
+			return usertesting.GenNewName(c, "ghost")
+		},
+	}}
+
+	for _, test := range tests {
+		c.Logf("Test case: %s", test.summary)
+		userName := test.seed(c)
+
+		// Act
+		isAdmin, err := st.IsUserControllerOrModelAdmin(c.Context(), userName, modelUUID)
+
+		// Assert
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isAdmin, tc.Equals, test.isAdmin)
+	}
 }

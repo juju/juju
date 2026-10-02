@@ -59,3 +59,8 @@ type permInOut struct {
 type modelUUID struct {
 	ModelUUID string `db:"model_uuid"`
 }
+
+// countResult is an agnostic container for a `count` column.
+type countResult struct {
+	Count int `db:"count"`
+}
