@@ -38,6 +38,7 @@ type MockMigrationStateMockRecorder struct {
 	enterScopeExpects                     []*gomock.Call4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error]
 	exportRelationsExpects                []*gomock.Call1_2[context.Context, []relation0.ExportRelation, error]
 	getApplicationUUIDByNameExpects       []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	getRelationEndpointsExpects           []*gomock.Call2_2[context.Context, string, []relation0.Endpoint, error]
 	importPeerRelationExpects             []*gomock.Call5_1[context.Context, string, relation.EndpointIdentifier, uint64, charm.RelationScope, error]
 	importRelationExpects                 []*gomock.Call6_1[context.Context, string, relation.EndpointIdentifier, relation.EndpointIdentifier, uint64, charm.RelationScope, error]
 	setRelationApplicationSettingsExpects []*gomock.Call4_1[context.Context, relation.UUID, application.UUID, map[string]string, error]
@@ -108,6 +109,24 @@ func (mr *MockMigrationStateMockRecorder) GetApplicationUUIDByName(ctx, appName 
 
 // MockMigrationStateGetApplicationUUIDByNameCall is the typed call wrapper for GetApplicationUUIDByName.
 type MockMigrationStateGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
+
+// GetRelationEndpoints mocks base method.
+func (m *MockMigrationState) GetRelationEndpoints(ctx context.Context, relationUUID string) ([]relation0.Endpoint, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getRelationEndpointsExpects, m.ctrl, m, "GetRelationEndpoints", ctx, relationUUID)
+}
+
+// GetRelationEndpoints indicates an expected call of GetRelationEndpoints.
+func (mr *MockMigrationStateMockRecorder) GetRelationEndpoints(ctx, relationUUID any) *MockMigrationStateGetRelationEndpointsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []relation0.Endpoint, error](mr.mock.ctrl.T, mr.mock, "GetRelationEndpoints", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID))
+	mr.getRelationEndpointsExpects = append(mr.getRelationEndpointsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockMigrationStateGetRelationEndpointsCall is the typed call wrapper for GetRelationEndpoints.
+type MockMigrationStateGetRelationEndpointsCall = gomock.Call2_2[context.Context, string, []relation0.Endpoint, error]
 
 // ImportPeerRelation mocks base method.
 func (m *MockMigrationState) ImportPeerRelation(ctx context.Context, uuid string, ep relation.EndpointIdentifier, id uint64, scope charm.RelationScope) error {
