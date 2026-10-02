@@ -789,38 +789,29 @@ func setControllerWantsVoteOp(st *State, id string, wantsVote bool) txn.Op {
 	}
 }
 
-type controllerReference interface {
-	Id() string
-	Refresh() error
-	WantsVote() bool
-	HasVote() bool
-}
-
 // RemoveControllerReference will unregister Controller from being part of the set of Controllers.
 // It must not have or want to vote, and it must not be the last controller.
-func (st *State) RemoveControllerReference(c controllerReference) error {
-	logger.Infof("removing controller machine %q", c.Id())
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt != 0 {
-			// Something changed, make sure we're still up to date
-			if err := c.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
+func (st *State) RemoveControllerReference(controllerID string) error {
+	logger.Infof("removing controller machine %q", controllerID)
+	buildTxn := func(_ int) ([]txn.Op, error) {
+		node, err := st.ControllerNode(controllerID)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		if c.WantsVote() {
-			return nil, errors.Errorf("controller %s cannot be removed as it still wants to vote", c.Id())
+		if node.WantsVote() {
+			return nil, errors.Errorf("controller %s cannot be removed as it still wants to vote", controllerID)
 		}
-		if c.HasVote() {
-			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", c.Id())
+		if node.HasVote() {
+			return nil, errors.Errorf("controller %s cannot be removed as it still has a vote", controllerID)
 		}
 		controllerIds, err := st.ControllerIds()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		if len(controllerIds) <= 1 {
-			return nil, errors.Errorf("controller %s cannot be removed as it is the last controller", c.Id())
+			return nil, errors.Errorf("controller %s cannot be removed as it is the last controller", controllerID)
 		}
-		return st.removeControllerReferenceOps(c.Id(), controllerIds), nil
+		return st.removeControllerReferenceOps(controllerID, controllerIds), nil
 	}
 	if err := st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)

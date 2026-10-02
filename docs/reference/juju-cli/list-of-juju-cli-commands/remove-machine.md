@@ -13,7 +13,7 @@ Removes one or more machines from a model.
 | --- | --- | --- |
 | `-B`, `--no-browser-login` | false | Do not use web browser for authentication |
 | `--dry-run` | false | Print what this command would be removed without removing |
-| `--force` | false | Completely remove a machine and all its dependencies |
+| `--force` | false | Force removal despite errors accessing cloud resources |
 | `--keep-instance` | false | Do not stop the running cloud instance |
 | `-m`, `--model` |  | Model to operate in. Accepts [&lt;controller name&gt;:]&lt;model name&gt;&#x7c;&lt;model UUID&gt; |
 | `--no-prompt` | false | Do not ask for confirmation. Overrides `mode` model config setting |
@@ -37,11 +37,13 @@ the corresponding cloud instance by using the `--keep-instance` option.
 
 Machines responsible for the model cannot be removed.
 
-Machines running units or containers can be removed using the `--force`
-option; this will also remove those units and containers without giving
-them an opportunity to shut down cleanly.
+When `requires-prompts` is present in the model's `mode`
+configuration, removing machines that host units or containers requires
+confirmation. Use `--no-prompt` to skip this confirmation.
 
 Machine removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
-However, when using `--force`, users can also specify `--no-wait`
-to progress through steps without delay waiting for each step to complete.
+Use `--force` to continue removal despite errors accessing cloud
+resources. This does not bypass any required confirmation. When using
+`--force`, users can also specify `--no-wait` to progress
+through steps without waiting for each step to complete.
