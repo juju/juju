@@ -128,27 +128,31 @@ func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitR
 
 	for i, name := range args.ResourceNames {
 		res, ok := lookUpResource(name, foundResources)
-		if !ok && uf.unitName != "" {
-			res, err = uf.getUnitResource(ctx, name)
-			if err == nil {
-				ok = true
-			} else if errors.Is(err, applicationerrors.UnitNotFound) {
-				r.Error = apiservererrors.ServerError(
-					jujuerrors.NotFoundf("unit %q", uf.unitName),
-				)
-				return r, nil
-			} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
-				r.Error = apiservererrors.ServerError(
-					jujuerrors.NotFoundf("application %q", uf.applicationName),
-				)
-				return r, nil
-			} else if !errors.Is(err, resourceerrors.ResourceNotFound) {
-				r.Resources[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
+		if ok {
+			r.Resources[i].Resource = resources.Resource2API(res)
+			continue
 		}
-		if !ok {
+		if uf.unitName == "" {
 			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
+			continue
+		}
+
+		res, err = uf.getUnitResource(ctx, name)
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			r.Error = apiservererrors.ServerError(
+				jujuerrors.NotFoundf("unit %q", uf.unitName),
+			)
+			return r, nil
+		} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			r.Error = apiservererrors.ServerError(
+				jujuerrors.NotFoundf("application %q", uf.applicationName),
+			)
+			return r, nil
+		} else if errors.Is(err, resourceerrors.ResourceNotFound) {
+			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
+			continue
+		} else if err != nil {
+			r.Resources[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 

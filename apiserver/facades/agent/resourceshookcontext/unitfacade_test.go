@@ -424,3 +424,37 @@ func (s *unitFacadeSuite) TestGetResourceInfoFallbackUnitNotFound(c *tc.C) {
 	c.Assert(result.Error, tc.NotNil)
 	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
 }
+
+func (s *unitFacadeSuite) TestGetResourceInfoFallbackError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("a-application/0")
+	expectedError := errors.New("expected error")
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(coreapplication.UUID("application-uuid"), nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(
+		gomock.Any(), coreapplication.UUID("application-uuid"),
+	).Return(nil, nil)
+	s.resourceService.EXPECT().GetUnitResourceID(
+		gomock.Any(), domainresource.GetUnitResourceIDArgs{
+			UnitName: unitName,
+			Name:     "removed-resource",
+		},
+	).Return(coreresource.UUID(""), expectedError)
+
+	facade, err := NewUnitFacade(
+		names.NewUnitTag(unitName.String()),
+		s.applicationService,
+		s.resourceService,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{
+		ResourceNames: []string{"removed-resource"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Resources, tc.HasLen, 1)
+	c.Check(result.Resources[0].Error, tc.ErrorMatches, "expected error")
+}
