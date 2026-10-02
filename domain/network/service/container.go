@@ -569,8 +569,8 @@ func (s *ProviderService) guestDevices(
 		deviceIndex  int
 	)
 
-	// A single device parented to the default LXD bridge suffices for all
-	// spaces without an in-space bridge.
+	// lxdBridgeUsed indicates that a guest device has already been created
+	// with the default LXD bridge as its parent.
 	lxdBridgeUsed := false
 	lxdBridge := defaultLXDBridge(nics)
 
@@ -606,13 +606,7 @@ func (s *ProviderService) guestDevices(
 					spaceUUID, mUUID, internalNetwork.DefaultLXDBridge,
 				).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 			}
-			if lxdBridgeUsed {
-				// The device parented to the default LXD bridge satisfies
-				// the requirements of this space too.
-				continue
-			}
 			bridgeToUse = lxdBridge
-			lxdBridgeUsed = true
 			fromLocalBridge = true
 		}
 
@@ -620,6 +614,20 @@ func (s *ProviderService) guestDevices(
 			return nil, errors.Errorf(
 				"no bridge found in space %q for machine %q", spaceUUID, mUUID,
 			).Add(domainerrors.SpaceRequirementsUnsatisfiable)
+		}
+
+		// With local networking, a single device parented to the default
+		// LXD bridge suffices for all spaces that would select it, whether
+		// the bridge is observed in those spaces or used as the fallback.
+		if isLocal && bridgeToUse.Name == internalNetwork.DefaultLXDBridge {
+			if lxdBridgeUsed {
+				// The device parented to the default LXD bridge satisfies
+				// the requirements of this space too.
+				s.logger.Debugf(ctx, "space %q for machine %q satisfied by the existing device on default LXD bridge %q",
+					spaceUUID, mUUID, bridgeToUse.Name)
+				continue
+			}
+			lxdBridgeUsed = true
 		}
 
 		if fromLocalBridge {

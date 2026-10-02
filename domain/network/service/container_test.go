@@ -1121,6 +1121,93 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodInSpaceBridgeAddres
 	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 }
 
+// TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpaceNotDuplicated covers the
+// default LXD bridge registered in one of two requested spaces. The single
+// device parented to it satisfies the requirements of both spaces: the space
+// without an in-space bridge does not get a second NIC on the same bridge.
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpaceNotDuplicated(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// The spaces are given in reverse name order, to verify that
+	// requirements are satisfied in sorted space name order: the space in
+	// which the default LXD bridge is registered is processed first.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{
+			{UUID: "beta-space-uuid", Name: "beta-space"},
+			{UUID: "alpha-space-uuid", Name: "alpha-space"},
+		},
+		map[string][]network.NetInterface{
+			"alpha-space-uuid": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, internalnetwork.DefaultLXDBridge, "alpha-space-uuid").
+		Return("10.0.0.0/24", nil)
+
+	// Even though the provider supports container addresses, local
+	// networking configures the device for DHCP: the address comes from
+	// the host bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "10.0.0.0/24")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
+// TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpaceFallbackFirst covers the
+// default LXD bridge registered in the space that sorts after one with no
+// observed devices. The fallback device created for the first space also
+// satisfies the space in which the bridge is registered, so only a single
+// device is created, and no CIDR is looked up for it.
+func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeInSpaceFallbackFirst(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{
+			{UUID: "alpha-space-uuid", Name: "alpha-space"},
+			{UUID: "beta-space-uuid", Name: "beta-space"},
+		},
+		map[string][]network.NetInterface{
+			"beta-space-uuid": {{
+				Name: internalnetwork.DefaultLXDBridge,
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodLocal.String(),
+	)
+
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(true)
+
+	nics, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(nics, tc.HasLen, 1)
+	nic := nics[0]
+
+	c.Check(nic.InterfaceName, tc.Equals, "eth0")
+	c.Check(nic.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
+	c.Assert(nic.Addresses, tc.HasLen, 1)
+	c.Check(nic.Addresses[0].CIDR, tc.Equals, "")
+	c.Check(nic.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+	c.Check(nic.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
+}
+
 func (s *containerSuite) TestNetworkConfigForGuestLocalMethodNegativeConstraintNotEnforced(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
