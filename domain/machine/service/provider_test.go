@@ -709,7 +709,10 @@ func (s *providerServiceSuite) TestReprovisionMachineModelScopedStorageAddedAfte
 	}, nil)
 	s.state.EXPECT().DetachLostMachineCloudInstance(
 		gomock.Any(), "0", instanceID.String(), reprovisioningStatusMessage,
-		[]byte(`{"old-instance-id":"i-1234"}`), gomock.Any(),
+		[]byte(`{"old-instance-id":"i-1234"}`), gomock.Any(), domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  2,
+			InstanceStatusID: 1,
+		},
 	).Return(machineerrors.ModelScopedStorageAttached)
 
 	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
@@ -780,7 +783,10 @@ func (s *providerServiceSuite) TestReprovisionMachineDetachError(c *tc.C) {
 	statusData := []byte(`{"old-instance-id":"i-1234"}`)
 	s.state.EXPECT().DetachLostMachineCloudInstance(
 		gomock.Any(), "0", instanceID.String(), reprovisioningStatusMessage,
-		statusData, gomock.Any(),
+		statusData, gomock.Any(), domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  2,
+			InstanceStatusID: 1,
+		},
 	).Return(errors.New("detach failed"))
 
 	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
@@ -804,7 +810,10 @@ func (s *providerServiceSuite) TestDetachLostMachineCloudInstanceStatusData(c *t
 	}
 	s.state.EXPECT().DetachLostMachineCloudInstance(
 		gomock.Any(), "0", "i-1234",
-		reprovisioningStatusMessage, encodedStatusData, now,
+		reprovisioningStatusMessage, encodedStatusData, now, domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  2,
+			InstanceStatusID: 1,
+		},
 	).Return(nil)
 	s.statusHistory.EXPECT().RecordStatus(
 		gomock.Any(), domainstatus.MachineNamespace.WithID("0"), statusInfo,
@@ -824,7 +833,10 @@ func (s *providerServiceSuite) TestDetachLostMachineCloudInstanceStatusHistoryEr
 
 	s.state.EXPECT().DetachLostMachineCloudInstance(
 		gomock.Any(), "0", "i-1234", reprovisioningStatusMessage,
-		[]byte(`{"old-instance-id":"i-1234"}`), gomock.Any(),
+		[]byte(`{"old-instance-id":"i-1234"}`), gomock.Any(), domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  2,
+			InstanceStatusID: 1,
+		},
 	).Return(nil)
 	s.statusHistory.EXPECT().RecordStatus(
 		gomock.Any(), domainstatus.MachineNamespace.WithID("0"), gomock.Any(),
@@ -893,7 +905,10 @@ func (s *providerServiceSuite) expectMachineDetached() {
 	statusData := []byte(`{"old-instance-id":"i-1234"}`)
 	s.state.EXPECT().DetachLostMachineCloudInstance(
 		gomock.Any(), "0", "i-1234",
-		reprovisioningStatusMessage, statusData, gomock.Any(),
+		reprovisioningStatusMessage, statusData, gomock.Any(), domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  2,
+			InstanceStatusID: 1,
+		},
 	).Return(nil)
 	s.statusHistory.EXPECT().RecordStatus(
 		gomock.Any(), domainstatus.MachineNamespace.WithID("0"), gomock.Any(),

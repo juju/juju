@@ -35,6 +35,8 @@ type Deltas interface {
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineVirtualSshHostKey(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error)
+	// RelationUnitDeparture: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	RelationUnitDeparture(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitDeparture, error)
 	// SshConnectionRequest: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	SshConnectionRequest(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequest, error)
 	// SshKeyAlgorithmType: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1272,6 +1274,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.MachineVirtualSshHostKey, err = d.MachineVirtualSshHostKey(ctx, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("MachineVirtualSshHostKey delta: %w", err)
+		}
+
+		if dst.RelationUnitDeparture, err = d.RelationUnitDeparture(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitDeparture delta: %w", err)
 		}
 
 		if dst.SshConnectionRequest, err = d.SshConnectionRequest(ctx, &src); err != nil {

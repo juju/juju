@@ -130,9 +130,21 @@ func (s *ProviderService) detachLostMachineCloudInstance(
 	}
 
 	now := s.clock.Now().UTC()
+	machineStatusID, err := domainstatus.EncodeMachineStatus(domainstatus.MachineStatusPending)
+	if err != nil {
+		return errors.Errorf("encoding reprovisioning machine status: %w", err)
+	}
+	instanceStatusID, err := domainstatus.EncodeCloudInstanceStatus(domainstatus.InstanceStatusPending)
+	if err != nil {
+		return errors.Errorf("encoding reprovisioning instance status: %w", err)
+	}
+
 	if err := s.st.DetachLostMachineCloudInstance(
 		ctx, machineName.String(), expectedInstanceID.String(), reprovisioningStatusMessage,
-		encodedStatusData, now,
+		encodedStatusData, now, domainmachine.ReprovisionStatusIDs{
+			MachineStatusID:  machineStatusID,
+			InstanceStatusID: instanceStatusID,
+		},
 	); err != nil {
 		return errors.Errorf("detaching lost cloud instance for machine %q: %w", machineName, err)
 	}

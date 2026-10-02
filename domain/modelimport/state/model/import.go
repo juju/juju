@@ -650,6 +650,10 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing RelationUnit insert statement: %w", err)
 	}
+	stmtRelationUnitDeparture, err := sqlair.Prepare(`INSERT INTO "relation_unit_departure" (*) VALUES ($RelationUnitDeparture.*)`, v4_1_0.RelationUnitDeparture{})
+	if err != nil {
+		return errors.Errorf("preparing RelationUnitDeparture insert statement: %w", err)
+	}
 	stmtRelationUnitSetting, err := sqlair.Prepare(`INSERT INTO "relation_unit_setting" (*) VALUES ($RelationUnitSetting.*)`, v4_1_0.RelationUnitSetting{})
 	if err != nil {
 		return errors.Errorf("preparing RelationUnitSetting insert statement: %w", err)
@@ -1745,6 +1749,11 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.RelationUnit) > 0 {
 			if err := tx.Query(ctx, stmtRelationUnit, p.RelationUnit).Run(); err != nil {
 				return errors.Errorf("inserting RelationUnit (table relation_unit): %w", err)
+			}
+		}
+		if len(p.RelationUnitDeparture) > 0 {
+			if err := tx.Query(ctx, stmtRelationUnitDeparture, p.RelationUnitDeparture).Run(); err != nil {
+				return errors.Errorf("inserting RelationUnitDeparture (table relation_unit_departure): %w", err)
 			}
 		}
 		if len(p.RelationUnitSetting) > 0 {

@@ -593,3 +593,29 @@ type machineReprovision struct {
 	MachineName string    `db:"machine_name"`
 	RequestedAt time.Time `db:"requested_at"`
 }
+
+type reprovisionUnit struct {
+	UUID            string `db:"uuid"`
+	Name            string `db:"name"`
+	ApplicationName string `db:"application_name"`
+	ApplicationUUID string `db:"application_uuid"`
+	NetNodeUUID     string `db:"net_node_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	PrincipalUUID   string `db:"principal_uuid"`
+}
+
+type reprovisionUnitReplacement struct {
+	OldUUID          string     `db:"old_uuid"`
+	NewUUID          string     `db:"new_uuid"`
+	RemovalUUID      string     `db:"removal_uuid"`
+	PrincipalOldUUID string     `db:"principal_old_uuid"`
+	Name             string     `db:"name"`
+	ApplicationUUID  string     `db:"application_uuid"`
+	NetNodeUUID      string     `db:"net_node_uuid"`
+	CharmUUID        string     `db:"charm_uuid"`
+	DeadLifeID       int        `db:"dead_life_id"`
+	AgentStatusID    int        `db:"agent_status_id"`
+	WorkloadStatusID int        `db:"workload_status_id"`
+	WorkloadMessage  string     `db:"workload_message"`
+	UpdatedAt        *time.Time `db:"updated_at"`
+}

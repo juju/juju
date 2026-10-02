@@ -295,6 +295,11 @@ WHERE  relation_endpoint_uuid IN (
 	if err != nil {
 		return errors.Errorf("preparing relation unit settings archive deletion: %w", err)
 	}
+	departureStmt, err := st.Prepare(
+		"DELETE FROM relation_unit_departure WHERE relation_uuid = $entityUUID.uuid ", relationUUID)
+	if err != nil {
+		return errors.Errorf("preparing relation unit departure deletion: %w", err)
+	}
 
 	statusStmt, err := st.Prepare("DELETE FROM relation_status WHERE relation_uuid = $entityUUID.uuid ", relationUUID)
 	if err != nil {
@@ -358,6 +363,11 @@ WHERE "key" IN (
 	err = tx.Query(ctx, archiveStmt, relationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running relation unit settings archive deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, departureStmt, relationUUID).Run()
+	if err != nil {
+		return errors.Errorf("running relation unit departure deletion: %w", err)
 	}
 
 	err = tx.Query(ctx, statusStmt, relationUUID).Run()
