@@ -30,12 +30,10 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Downloader downloads and validates resource blobs.
-type Downloader interface {
-	// Download takes a request body ReadCloser containing a resource blob and
-	// checks that the size and hash match the expected values. It downloads the
-	// blob to a temporary file and returns a ReadCloser that deletes the
-	// temporary file on closure.
+// BlobValidator validates and stages resource blobs.
+type BlobValidator interface {
+	// Download consumes a request body, verifies its size and fingerprint, and
+	// stages it in a temporary file returned as a ReadCloser.
 	Download(
 		ctx context.Context,
 		reader io.ReadCloser,
@@ -51,7 +49,7 @@ type ResourceHandler struct {
 	changeAllowedFunc        func(context.Context) error
 	resourceServiceGetter    ResourceServiceGetter
 	applicationServiceGetter ApplicationServiceGetter
-	downloader               Downloader
+	downloader               BlobValidator
 	logger                   logger.Logger
 }
 
@@ -61,7 +59,7 @@ func NewResourceHandler(
 	changeAllowedFunc func(context.Context) error,
 	resourceServiceGetter ResourceServiceGetter,
 	applicationServiceGetter ApplicationServiceGetter,
-	downloader Downloader,
+	downloader BlobValidator,
 	logger logger.Logger,
 ) *ResourceHandler {
 	return &ResourceHandler{

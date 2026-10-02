@@ -55,7 +55,7 @@ type ResourcesHandlerSuite struct {
 	resourceServiceGetter    *MockResourceServiceGetter
 	applicationService       *MockApplicationService
 	applicationServiceGetter *MockApplicationServiceGetter
-	downloader               *MockDownloader
+	downloader               *MockBlobValidator
 }
 
 func TestResourcesHandlerSuite(t *testing.T) {
@@ -104,7 +104,7 @@ func (s *ResourcesHandlerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.resourceServiceGetter = NewMockResourceServiceGetter(ctrl)
 	s.applicationService = NewMockApplicationService(ctrl)
 	s.applicationServiceGetter = NewMockApplicationServiceGetter(ctrl)
-	s.downloader = NewMockDownloader(ctrl)
+	s.downloader = NewMockBlobValidator(ctrl)
 
 	s.handler = NewResourceHandler(
 		s.authFunc,

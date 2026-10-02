@@ -5,6 +5,7 @@ package service
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -439,6 +440,113 @@ func (s *resourceServiceSuite) TestStoreResourceRemovedOnRecordError(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIs, expectedErr)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceContainerImageClaimMismatchIsLogged(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Rebuild the service with a logger that records the info message.
+	var entries []string
+	s.service = NewService(s.state, s.resourceStoreGetter, loggertesting.WrapCheckLog(
+		loggertesting.RecordLog(func(msg string, a ...any) {
+			// RecordLog.Logf passes args as one []any element; unpack before
+			// formatting (see internal/logger/testing/record.go).
+			if len(a) == 1 {
+				if inner, ok := a[0].([]any); ok {
+					a = inner
+				}
+			}
+			entries = append(entries, fmt.Sprintf(msg, a...))
+		})))
+
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeContainerImage
+
+	reader := bytes.NewBufferString("spamspamspam")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, tc.ErrorIsNil)
+	storeFP := coreresourcestore.NewFingerprint(fp.Fingerprint)
+	size := int64(42)
+
+	// The store re-serializes parsed container image metadata, which can differ
+	// from the claims supplied by Charmhub or older controllers.
+	derivedSize := int64(7)
+	derivedCharmFP, err := charmresource.NewFingerprint(bytes.Repeat([]byte("0"), 48))
+	c.Assert(err, tc.ErrorIsNil)
+	derivedFP := coreresourcestore.NewFingerprint(derivedCharmFP.Fingerprint)
+
+	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"resource-name", resourceType.String(), nil,
+	)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(),
+		resourceUUID.String(),
+		reader,
+		size,
+		storeFP,
+	).Return(storageID, derivedSize, derivedFP, nil)
+	s.state.EXPECT().RecordStoredResource(gomock.Any(), resource.RecordStoredResourceArgs{
+		ResourceUUID:                  resourceUUID,
+		StorageID:                     storageID,
+		ResourceType:                  resourceType,
+		IncrementCharmModifiedVersion: false,
+		Size:                          derivedSize,
+		SHA384:                        derivedFP.String(),
+	})
+	s.state.EXPECT().GetResourceWithoutApplication(gomock.Any(), resourceUUID).Return(coreresource.Resource{}, nil)
+
+	_, err = s.service.StoreResource(
+		c.Context(),
+		resource.StoreResourceArgs{
+			ResourceUUID: resourceUUID,
+			Reader:       reader,
+			Size:         size,
+			Fingerprint:  fp,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert:
+	c.Assert(entries, tc.HasLen, 1)
+	c.Check(entries[0], tc.Matches,
+		`.*INFO.*stored container image resource "resource-name" with derived size 7 and fingerprint .*; claimed size 42 and fingerprint .*`)
+}
+
+func (s *resourceServiceSuite) TestStoreResourceFileClaimMismatchIsRejected(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resourceUUID := resourcetesting.GenResourceUUID(c)
+	resourceType := charmresource.TypeFile
+	reader := bytes.NewBufferString("spamspamspam")
+	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, tc.ErrorIsNil)
+	storeFP := coreresourcestore.NewFingerprint(fp.Fingerprint)
+	size := int64(42)
+	derivedSize := int64(7)
+	derivedCharmFP, err := charmresource.NewFingerprint(bytes.Repeat([]byte("0"), 48))
+	c.Assert(err, tc.ErrorIsNil)
+	derivedFP := coreresourcestore.NewFingerprint(derivedCharmFP.Fingerprint)
+	storageID := storetesting.GenFileResourceStoreID(c, objectstoretesting.GenObjectStoreUUID(c))
+
+	s.state.EXPECT().GetResourceNameAndType(gomock.Any(), resourceUUID).Return(
+		"resource-name", resourceType.String(), nil,
+	)
+	s.resourceStoreGetter.EXPECT().GetResourceStore(gomock.Any(), resourceType).Return(s.resourceStore, nil)
+	s.resourceStore.EXPECT().Put(
+		gomock.Any(), resourceUUID.String(), reader, size, storeFP,
+	).Return(storageID, derivedSize, derivedFP, nil)
+	s.resourceStore.EXPECT().Remove(gomock.Any(), resourceUUID.String()).Return(nil)
+
+	_, err = s.service.StoreResource(c.Context(), resource.StoreResourceArgs{
+		ResourceUUID: resourceUUID,
+		Reader:       reader,
+		Size:         size,
+		Fingerprint:  fp,
+	})
+	c.Assert(err, tc.ErrorMatches,
+		`stored resource "resource-name" has size 7 and fingerprint .* expected size 42 and fingerprint .*`)
 }
 
 func (s *resourceServiceSuite) TestStoreResourceDoesNotStoreIdenticalBlobContainer(c *tc.C) {
