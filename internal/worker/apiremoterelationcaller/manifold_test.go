@@ -146,6 +146,7 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectError(c *tc.C) {
 		Addrs:          []string{"7.7.7.7:1234"},
 		CACert:         "test-ca-cert",
 		ControllerUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		ModelUUIDs:     []string{"test-model-uuid"},
 	})
 
 	var called uint64
@@ -225,6 +226,7 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorFailsUpdate(
 		Addrs:          []string{"7.7.7.7:1234"},
 		CACert:         "test-ca-cert",
 		ControllerUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		ModelUUIDs:     []string{"test-model-uuid"},
 	}).Return(errors.NotFound)
 
 	var called uint64
@@ -241,6 +243,43 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorFailsUpdate(
 				ControllerTag:   names.NewControllerTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 				ControllerAlias: "test-controller-alias",
 				CACert:          "test-ca-cert",
+			}
+		}
+
+		// Ensure we followed the redirect and created a new connection.
+		c.Assert(apiInfo.Addrs, tc.DeepEquals, []string{"7.7.7.7:1234"})
+
+		return s.connection, nil
+	})
+	conn, err := getter.GetConnectionForModel(c.Context(), modelUUID, api.Info{
+		Tag: names.NewUserTag("test-tag"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn == s.connection, tc.IsTrue)
+}
+
+func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorInvalidControllerTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID("test-model-uuid")
+
+	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
+	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
+
+	var called uint64
+	getter := s.newConnectionGetter(c, func(apiInfo *api.Info) (api.Connection, error) {
+		defer func() { called++ }()
+
+		c.Assert(apiInfo.Tag, tc.Equals, connectionTag)
+
+		if called == 0 {
+			// A redirect without a controller tag cannot be persisted;
+			// UpdateExternalController must not be called.
+			return nil, &api.RedirectError{
+				Servers: []network.MachineHostPorts{
+					network.NewMachineHostPorts(1234, "7.7.7.7"),
+				},
+				CACert: "test-ca-cert",
 			}
 		}
 

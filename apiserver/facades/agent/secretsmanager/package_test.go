@@ -23,6 +23,8 @@ import (
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/secretsriggerwatcher.go github.com/juju/juju/core/watcher SecretTriggerWatcher
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/secretswatcher.go github.com/juju/juju/core/watcher StringsWatcher
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/controllerconfig.go github.com/juju/juju/apiserver/facades/agent/secretsmanager ControllerAPIInfoGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/externalcontroller.go github.com/juju/juju/internal/crossmodel ExternalControllerUpdater
 
 func NewTestAPI(
 	c *tc.C,
