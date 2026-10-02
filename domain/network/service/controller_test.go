@@ -31,17 +31,17 @@ func (*controllerNetworkSuite) TestPeerManagementSpaceAndClientEligibility(c *tc
 	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(3)
 	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("management")).Return(&network.SpaceInfo{ID: "management"}, nil)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
-	peers, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "management")
+	peers, err := svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "management")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(peers, tc.DeepEquals, network.SpaceAddresses{management.SpaceAddress})
+	c.Check(peers.ByUnit["controller/0"], tc.DeepEquals, network.SpaceAddresses{management.SpaceAddress})
 	// Management-space configuration must not add otherwise unselected VETH
 	// addresses to the client selection.
 	clients, err := svc.GetControllerClientAddresses(c.Context(), []unit.Name{"controller/0"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(clients.ByUnit["controller/0"], tc.DeepEquals, network.SpaceAddresses{public.SpaceAddress})
-	peers, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	peers, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(peers, tc.DeepEquals, network.SpaceAddresses{public.SpaceAddress})
+	c.Check(peers.ByUnit["controller/0"], tc.DeepEquals, network.SpaceAddresses{public.SpaceAddress})
 }
 
 func (*controllerNetworkSuite) TestClientAddressesRetainEligibleManagementAddresses(c *tc.C) {
@@ -62,9 +62,9 @@ func (*controllerNetworkSuite) TestManagementSpaceFallback(c *tc.C) {
 	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{address}, nil)
 	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("management")).Return(&network.SpaceInfo{ID: "management"}, nil)
-	addresses, err := NewService(st, loggertesting.WrapCheckLog(c)).GetControllerPeerAddresses(c.Context(), "controller/0", "management")
+	addresses, err := NewService(st, loggertesting.WrapCheckLog(c)).GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "management")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.DeepEquals, network.SpaceAddresses{address.SpaceAddress})
+	c.Check(addresses.ByUnit["controller/0"], tc.DeepEquals, network.SpaceAddresses{address.SpaceAddress})
 }
 
 func (*controllerNetworkSuite) TestPodIPAndDNSIgnoreManagementSpace(c *tc.C) {
@@ -75,10 +75,10 @@ func (*controllerNetworkSuite) TestPodIPAndDNSIgnoreManagementSpace(c *tc.C) {
 	st.EXPECT().GetModelType(gomock.Any()).Return(model.CAAS, nil).Times(2)
 	st.EXPECT().GetSpaceByName(gomock.Any(), gomock.Any()).Times(0)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
-	addresses, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	addresses, err := svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.DeepEquals, network.SpaceAddresses{dns.SpaceAddress, ip.SpaceAddress})
-	withManagementSpace, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "management")
+	c.Check(addresses.ByUnit["controller/0"], tc.DeepEquals, network.SpaceAddresses{dns.SpaceAddress, ip.SpaceAddress})
+	withManagementSpace, err := svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "management")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(withManagementSpace, tc.DeepEquals, addresses)
 }
@@ -92,38 +92,35 @@ func (*controllerNetworkSuite) TestUnsuitableAddresses(c *tc.C) {
 	candidates = append(candidates, controllerCandidate("10.0.0.1", network.ScopeMachineLocal, network.AlphaSpaceId, domainnetwork.DeviceTypeEthernet))
 	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(candidates, nil)
 	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
-	addresses, err := NewService(st, loggertesting.WrapCheckLog(c)).GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	addresses, err := NewService(st, loggertesting.WrapCheckLog(c)).GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.HasLen, 0)
+	c.Check(addresses.ByUnit["controller/0"], tc.HasLen, 0)
 }
 
 func (*controllerNetworkSuite) TestErrorsAreNotEmptySnapshots(c *tc.C) {
 	st := NewMockState(gomock.NewController(c))
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
-	_, err := svc.GetControllerPeerAddresses(c.Context(), "postgresql/0", "")
+	_, err := svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"postgresql/0"}, "")
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotFound)
-	_, err = svc.GetControllerPeerAddresses(c.Context(), unit.Name("invalid"), "")
+	_, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{unit.Name("invalid")}, "")
 	c.Check(err, tc.ErrorIs, unit.InvalidUnitName)
+	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(2)
 	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(nil, applicationerrors.UnitIsDead)
-	_, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	_, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
-	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(nil, nil)
-	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil)
 	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("missing")).Return(nil, networkerrors.SpaceNotFound)
-	_, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "missing")
+	_, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "missing")
 	c.Check(err, tc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (*controllerNetworkSuite) TestModelTypeReadFailure(c *tc.C) {
 	st := NewMockState(gomock.NewController(c))
-	address := controllerCandidate("192.0.2.1", network.ScopePublic, network.AlphaSpaceId, domainnetwork.DeviceTypeEthernet)
-	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{address}, nil)
 	failure := errors.New("model type unavailable")
 	st.EXPECT().GetModelType(gomock.Any()).Return(model.ModelType(""), failure).Times(3)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
-	addresses, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	addresses, err := svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Check(err, tc.ErrorIs, failure)
-	c.Check(addresses, tc.IsNil)
+	c.Check(addresses, tc.DeepEquals, domainnetwork.ControllerAddressSelection{})
 	selection, err := svc.GetControllerClientAddresses(c.Context(), []unit.Name{"controller/0"})
 	c.Check(err, tc.ErrorIs, failure)
 	c.Check(selection, tc.DeepEquals, domainnetwork.ControllerAddressSelection{})
@@ -137,16 +134,23 @@ func (*controllerNetworkSuite) TestDiscoveryKeepsControllerIdentityAndManagement
 	public := controllerCandidate("192.0.2.1", network.ScopePublic, "public", domainnetwork.DeviceTypeEthernet)
 	management := controllerCandidate("10.0.0.1", network.ScopeCloudLocal, "management", domainnetwork.DeviceTypeVeth)
 	fallback := controllerCandidate("192.0.2.2", network.ScopePublic, "public", domainnetwork.DeviceTypeVeth)
-	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(2)
-	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{public, management}, nil).Times(2)
-	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/1").Return(domainnetwork.ControllerAPIAddresses{fallback}, nil).Times(2)
-	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("management")).Return(&network.SpaceInfo{ID: "management"}, nil)
+	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(3)
+	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{public, management}, nil).Times(3)
+	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/1").Return(domainnetwork.ControllerAPIAddresses{fallback}, nil).Times(3)
+	st.EXPECT().GetSpaceByName(gomock.Any(), network.SpaceName("management")).Return(&network.SpaceInfo{ID: "management"}, nil).Times(2)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
 	names := []unit.Name{"controller/0", "controller/1"}
 	agents, err := svc.GetControllerAgentAddresses(c.Context(), names, "management")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agents.Shared, tc.HasLen, 0)
 	c.Check(agents.ByUnit, tc.DeepEquals, map[unit.Name]network.SpaceAddresses{
+		"controller/0": {management.SpaceAddress},
+		"controller/1": {fallback.SpaceAddress},
+	})
+	peers, err := svc.GetControllerPeerAddresses(c.Context(), names, "management")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(peers.Shared, tc.HasLen, 0)
+	c.Check(peers.ByUnit, tc.DeepEquals, map[unit.Name]network.SpaceAddresses{
 		"controller/0": {management.SpaceAddress},
 		"controller/1": {fallback.SpaceAddress},
 	})
@@ -209,11 +213,11 @@ func (*controllerNetworkSuite) TestServiceDiscoveryExcludesUnsuitableAddresses(c
 
 func (*controllerNetworkSuite) TestDiscoveryReadFailureDiscardsPartialSelection(c *tc.C) {
 	st := NewMockState(gomock.NewController(c))
-	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(2)
+	st.EXPECT().GetModelType(gomock.Any()).Return(model.IAAS, nil).Times(3)
 	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/0").Return(domainnetwork.ControllerAPIAddresses{
 		controllerCandidate("10.0.0.1", network.ScopeCloudLocal, network.AlphaSpaceId, domainnetwork.DeviceTypeEthernet),
-	}, nil).Times(2)
-	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/1").Return(nil, applicationerrors.UnitIsDead).Times(2)
+	}, nil).Times(3)
+	st.EXPECT().GetControllerUnitNetwork(gomock.Any(), "controller/1").Return(nil, applicationerrors.UnitIsDead).Times(3)
 	svc := NewService(st, loggertesting.WrapCheckLog(c))
 	names := []unit.Name{"controller/0", "controller/1"}
 	clients, err := svc.GetControllerClientAddresses(c.Context(), names)
@@ -222,6 +226,9 @@ func (*controllerNetworkSuite) TestDiscoveryReadFailureDiscardsPartialSelection(
 	agents, err := svc.GetControllerAgentAddresses(c.Context(), names, "")
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 	c.Check(agents, tc.DeepEquals, domainnetwork.ControllerAddressSelection{})
+	peers, err := svc.GetControllerPeerAddresses(c.Context(), names, "")
+	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
+	c.Check(peers, tc.DeepEquals, domainnetwork.ControllerAddressSelection{})
 }
 
 func (*controllerNetworkSuite) TestServiceReadFailureIsNotEmptySelection(c *tc.C) {
@@ -251,6 +258,8 @@ func (*controllerNetworkSuite) TestDiscoveryValidatesMembership(c *tc.C) {
 		_, err := svc.GetControllerClientAddresses(c.Context(), []unit.Name{test.name})
 		c.Check(err, tc.ErrorIs, test.err)
 		_, err = svc.GetControllerAgentAddresses(c.Context(), []unit.Name{test.name}, "")
+		c.Check(err, tc.ErrorIs, test.err)
+		_, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{test.name}, "")
 		c.Check(err, tc.ErrorIs, test.err)
 	}
 }
