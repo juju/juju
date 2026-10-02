@@ -1,7 +1,7 @@
-// Copyright 2025 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apicaller_test
+package crossmodel_test
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/core/crossmodel"
+	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/crossmodel"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/apicaller"
 )
 
 var (
@@ -41,15 +41,15 @@ type stubConnection struct {
 	api.Connection
 }
 
-// recordingUpdater implements apicaller.ExternalControllerUpdater, recording
+// recordingUpdater implements crossmodel.ExternalControllerUpdater, recording
 // the controller info it was passed.
 type recordingUpdater struct {
 	updated   bool
-	info      crossmodel.ControllerInfo
+	info      corecrossmodel.ControllerInfo
 	returnErr error
 }
 
-func (u *recordingUpdater) UpdateExternalController(_ context.Context, info crossmodel.ControllerInfo) error {
+func (u *recordingUpdater) UpdateExternalController(_ context.Context, info corecrossmodel.ControllerInfo) error {
 	u.updated = true
 	u.info = info
 	return u.returnErr
@@ -75,7 +75,7 @@ func (s *redirectSuite) TestNoRedirect(c *tc.C) {
 	}
 
 	apiInfo := &api.Info{Addrs: []string{srcAddr}, CACert: "src-ca-cert"}
-	conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(c.Context(), apiInfo, open)
+	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), apiInfo, open)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn == expectConn, tc.IsTrue)
 	c.Check(redirect, tc.IsNil)
@@ -101,7 +101,7 @@ func (s *redirectSuite) TestFollowsRedirect(c *tc.C) {
 	}
 
 	apiInfo := &api.Info{Addrs: []string{srcAddr}, CACert: "src-ca-cert"}
-	conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(c.Context(), apiInfo, open)
+	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), apiInfo, open)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn == expectConn, tc.IsTrue)
 	c.Check(redirect == redirectErr, tc.IsTrue)
@@ -121,7 +121,7 @@ func (s *redirectSuite) TestRedirectSecondOpenFails(c *tc.C) {
 		return nil, errBoom
 	}
 
-	conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(c.Context(), &api.Info{}, open)
+	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), &api.Info{}, open)
 	c.Assert(err, tc.ErrorIs, errBoom)
 	c.Check(conn, tc.IsNil)
 	c.Check(redirect, tc.IsNil)
@@ -135,7 +135,7 @@ func (s *redirectSuite) TestNonRedirectError(c *tc.C) {
 		return nil, errBoom
 	}
 
-	conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(c.Context(), &api.Info{}, open)
+	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), &api.Info{}, open)
 	c.Assert(err, tc.ErrorIs, errBoom)
 	c.Check(conn, tc.IsNil)
 	c.Check(redirect, tc.IsNil)
@@ -146,10 +146,10 @@ func (s *redirectSuite) TestSaveMigratedModelController(c *tc.C) {
 	updater := &recordingUpdater{}
 	apiInfo := &api.Info{Addrs: []string{dstAddr}, CACert: "redirected-ca-cert"}
 
-	err := apicaller.SaveMigratedModelController(c.Context(), updater, newRedirectError(), apiInfo, modelUUID)
+	err := crossmodel.SaveMigratedModelController(c.Context(), updater, newRedirectError(), apiInfo, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(updater.updated, tc.IsTrue)
-	c.Check(updater.info, tc.DeepEquals, crossmodel.ControllerInfo{
+	c.Check(updater.info, tc.DeepEquals, corecrossmodel.ControllerInfo{
 		ControllerUUID: redirectURI,
 		Alias:          "redirected-alias",
 		Addrs:          []string{dstAddr},
@@ -168,7 +168,7 @@ func (s *redirectSuite) TestSaveMigratedModelControllerInvalidControllerTag(c *t
 	}
 	apiInfo := &api.Info{Addrs: []string{dstAddr}, CACert: "redirected-ca-cert"}
 
-	err := apicaller.SaveMigratedModelController(c.Context(), updater, redirectErr, apiInfo, modelUUID)
+	err := crossmodel.SaveMigratedModelController(c.Context(), updater, redirectErr, apiInfo, modelUUID)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(updater.updated, tc.IsFalse)
 }
@@ -177,7 +177,7 @@ func (s *redirectSuite) TestSaveMigratedModelControllerUpdaterError(c *tc.C) {
 	updater := &recordingUpdater{returnErr: errBoom}
 	apiInfo := &api.Info{Addrs: []string{dstAddr}, CACert: "redirected-ca-cert"}
 
-	err := apicaller.SaveMigratedModelController(c.Context(), updater, newRedirectError(), apiInfo, modelUUID)
+	err := crossmodel.SaveMigratedModelController(c.Context(), updater, newRedirectError(), apiInfo, modelUUID)
 	c.Assert(err, tc.ErrorIs, errBoom)
 	c.Check(updater.updated, tc.IsTrue)
 }

@@ -14,11 +14,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/crossmodel"
+	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/crossmodel"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apicaller"
 )
@@ -71,9 +72,9 @@ type DomainServices interface {
 type ExternalControllerService interface {
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
-	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+	ControllerForModel(ctx context.Context, modelUUID string) (*corecrossmodel.ControllerInfo, error)
 	// UpdateExternalController updates the external controller information.
-	UpdateExternalController(context.Context, crossmodel.ControllerInfo) error
+	UpdateExternalController(context.Context, corecrossmodel.ControllerInfo) error
 }
 
 // ModelService is an interface that provides methods to interact with the model
@@ -267,7 +268,7 @@ func NewConnectionGetter(getter DomainServicesGetter, logger logger.Logger) Conn
 func (c connectionGetter) GetConnectionForModel(ctx context.Context, modelUUID model.UUID, apiInfo api.Info) (api.Connection, error) {
 	info := &apiInfo
 	info.Tag = connectionTag
-	conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(ctx, info, c.newConnection)
+	conn, redirect, err := crossmodel.ConnectWithRedirect(ctx, info, c.newConnection)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -286,7 +287,7 @@ func (c connectionGetter) GetConnectionForModel(ctx context.Context, modelUUID m
 		return conn, nil
 	}
 
-	if err := apicaller.SaveMigratedModelController(ctx, services.ExternalController(), redirect, info, modelUUID.String()); err != nil {
+	if err := crossmodel.SaveMigratedModelController(ctx, services.ExternalController(), redirect, info, modelUUID.String()); err != nil {
 		c.logger.Infof(ctx, "failed to update external controller for model %s: %v", modelUUID, err)
 	}
 	return conn, nil
@@ -374,7 +375,7 @@ func (a *apiInfoGetter) getAPIInfoForExternalController(ctx context.Context, mod
 	}
 
 	a.logger.Debugf(ctx, "found migrated model on another controller, saving the information")
-	err = externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+	err = externalControllerService.UpdateExternalController(ctx, corecrossmodel.ControllerInfo{
 		ControllerUUID: modelRedirection.ControllerUUID,
 		Alias:          modelRedirection.ControllerAlias,
 		Addrs:          modelRedirection.Addresses,

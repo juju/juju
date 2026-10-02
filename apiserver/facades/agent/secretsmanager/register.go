@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/crossmodel"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
 )
@@ -90,7 +91,7 @@ var _ ControllerAPIInfoGetter = (*common.ControllerConfigAPI)(nil)
 // effort) so subsequent connections go directly to the new controller.
 func newRemoteSecretsClientGetter(
 	controllerAPI ControllerAPIInfoGetter,
-	externalControllers apicaller.ExternalControllerUpdater,
+	externalControllers crossmodel.ExternalControllerUpdater,
 	openConnection apicaller.NewExternalControllerConnectionFunc,
 	logger corelogger.Logger,
 ) func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error) {
@@ -113,7 +114,7 @@ func newRemoteSecretsClientGetter(
 			ModelTag: names.NewModelTag(uri.SourceUUID),
 		}
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
-		conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(stdCtx, &apiInfo, openConnection)
+		conn, redirect, err := crossmodel.ConnectWithRedirect(stdCtx, &apiInfo, openConnection)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -121,7 +122,7 @@ func newRemoteSecretsClientGetter(
 			// The source model was migrated to another controller; persist
 			// its new location so future secret accesses connect directly.
 			// Best effort: the connection is valid either way.
-			if err := apicaller.SaveMigratedModelController(
+			if err := crossmodel.SaveMigratedModelController(
 				stdCtx, externalControllers, redirect, &apiInfo, uri.SourceUUID,
 			); err != nil {
 				logger.Infof(stdCtx, "failed to update external controller for model %s: %v", uri.SourceUUID, err)
