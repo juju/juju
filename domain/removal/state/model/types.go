@@ -32,6 +32,22 @@ type removalJob struct {
 	Arg sql.NullString `db:"arg"`
 }
 
+// machineRemovalJob represents a machine removal job scheduled for
+// immediate execution. The scheduled_for time is omitted so that the
+// removal table's default applies, scheduling the job for the current
+// time.
+type machineRemovalJob struct {
+	// UUID uniquely identifies this removal job.
+	UUID string `db:"uuid"`
+	// RemovalTypeID indicates the type of entity that this removal job is for.
+	RemovalTypeID uint64 `db:"removal_type_id"`
+	// EntityUUID uniquely identifies the domain entity being removed.
+	EntityUUID string `db:"entity_uuid"`
+	// Force indicates whether this removal was qualified with the --force
+	// flag.
+	Force bool `db:"force"`
+}
+
 // objectStoreUUID holds the UUID of an object store item.
 type objectStoreUUID struct {
 	UUID sql.Null[string] `db:"uuid"`
@@ -44,6 +60,11 @@ type uuids []string
 type entityUUID struct {
 	// UUID uniquely identifies a domain entity.
 	UUID string `db:"uuid"`
+}
+
+// removalTypeIDParam is used to reference a removal job type by id.
+type removalTypeIDParam struct {
+	ID uint64 `db:"id"`
 }
 
 // entityUUIDs is a slice of entityUUID, used to hold multiple UUIDs.

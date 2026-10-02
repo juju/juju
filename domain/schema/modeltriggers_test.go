@@ -1631,3 +1631,107 @@ WHERE  uuid = ?`, suspended, relationUUID)
 	})
 	c.Assert(err, tc.IsNil)
 }
+
+// TestMachineParentDeleteTrigger ensures deleting a machine_parent row
+// emits a delete change event for the parent machine UUID, so a parent
+// machine is notified when its relationship to a child machine is
+// removed.
+func (s *modelSuite) TestMachineParentDeleteTrigger(c *tc.C) {
+	parentUUID := s.newMachine(c)
+	childUUID := s.newMachine(c)
+	s.insertMachineParent(c, parentUUID, childUUID)
+
+	// The machine and machine_parent inserts emit insert events for the
+	// parent machine; drain them so only the delete event is asserted.
+	s.drainMachineLifecycleEvents(c, parentUUID)
+
+	s.deleteMachineParent(c, childUUID)
+
+	s.assertChangeEvent(
+		c, "custom_machine_uuid_lifecycle_with_dependants", parentUUID,
+	)
+}
+
+// TestMachineDeleteDoesNotNotifyParent ensures deleting a child machine
+// row does not emit a change event for the parent machine: only the
+// machine_parent delete carries the notification.
+func (s *modelSuite) TestMachineDeleteDoesNotNotifyParent(c *tc.C) {
+	parentUUID := s.newMachine(c)
+	childUUID := s.newMachine(c)
+	s.insertMachineParent(c, parentUUID, childUUID)
+
+	// Remove the parent relationship and drain its delete event.
+	s.deleteMachineParent(c, childUUID)
+	s.drainMachineLifecycleEvents(c, parentUUID)
+
+	// Deleting the child machine row emits an event for the child machine
+	// only, never for the parent machine.
+	_, err := s.DB().Exec(`DELETE FROM machine WHERE uuid = ?`, childUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.assertNoChangeEvent(
+		c, "custom_machine_uuid_lifecycle_with_dependants", parentUUID,
+	)
+}
+
+// newMachine creates a net node and a machine in the model, returning
+// the machine UUID.
+func (s *modelSuite) newMachine(c *tc.C) string {
+	nodeUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`
+INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
+		machineUUID.String(), "mfoo-"+machineUUID.String(), nodeUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID.String()
+}
+
+// insertMachineParent records the parent machine of the child machine.
+func (s *modelSuite) insertMachineParent(c *tc.C, parentUUID, childUUID string) {
+	_, err := s.DB().Exec(`
+INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)`,
+		childUUID, parentUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// deleteMachineParent removes the parent relationship of the child
+// machine, as the machine removal job does.
+func (s *modelSuite) deleteMachineParent(c *tc.C, childUUID string) {
+	_, err := s.DB().Exec(`
+DELETE FROM machine_parent WHERE machine_uuid = ?`, childUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// assertNoChangeEvent asserts that no change event exists for the
+// provided namespace and changed value.
+func (s *modelSuite) assertNoChangeEvent(c *tc.C, namespace, changed string) {
+	nsID := s.getNamespaceID(c, namespace)
+
+	row := s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   change_log
+WHERE  namespace_id = ?
+AND    changed = ?`, nsID, changed)
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(count, tc.Equals, 0)
+}
+
+// drainMachineLifecycleEvents removes any existing machine lifecycle
+// change events for the machine UUID, so that subsequent assertions only
+// observe new events.
+func (s *modelSuite) drainMachineLifecycleEvents(c *tc.C, machineUUID string) {
+	s.clearChangeEvents(
+		c,
+		s.getNamespaceID(c, "custom_machine_uuid_lifecycle_with_dependants"),
+		machineUUID,
+	)
+}

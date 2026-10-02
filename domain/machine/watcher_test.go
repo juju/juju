@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	corestorage "github.com/juju/juju/core/storage"
@@ -477,8 +478,9 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependants(c *tc.C) {
 	})
 
 	// Add a container and make sure a change is seen.
+	var containerName *coremachine.Name
 	harness.AddTest(c, func(c *tc.C) {
-		_, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		container, err := s.svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 			Platform: deployment.Platform{
 				Channel: "24.04",
 				OSType:  deployment.Ubuntu,
@@ -488,6 +490,27 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependants(c *tc.C) {
 				Container: deployment.ContainerTypeLXD,
 				Directive: m.MachineName.String(),
 			},
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		containerName = container.ChildMachineName
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Remove the container's machine_parent relationship, as the machine
+	// removal job does, and make sure a change is seen: the parent machine
+	// is notified when its last child machine is removed, so its agent can
+	// reattempt EnsureDead.
+	harness.AddTest(c, func(c *tc.C) {
+		containerUUID, err := s.svc.GetMachineUUID(c.Context(), *containerName)
+		c.Assert(err, tc.ErrorIsNil)
+
+		err = s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx,
+				"DELETE FROM machine_parent WHERE machine_uuid = ?",
+				containerUUID.String(),
+			)
+			return err
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {

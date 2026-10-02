@@ -412,6 +412,11 @@ AND     lld.mac_address IS NOT NULL;`, entityUUID{UUID: machineUUID}, linkLayerD
 }
 
 // MarkMachineAsDead marks the machine with the input UUID as dead.
+// A machine removal job is scheduled in the same transaction, unless one
+// has been scheduled already, so scheduling is idempotent and duplicate
+// jobs are never created. An already-dead machine is also paired with a
+// job if it has none, repairing machines that reached the dead life
+// without one.
 // The following errors are returned:
 // - [machineerrors.MachineNotFound] if the machine does not exist.
 // - [removalerrors.EntityStillAlive] if the machine is alive.
@@ -437,7 +442,11 @@ AND    life_id = 1`, machineUUID)
 		if l, err := st.getMachineLife(ctx, tx, mUUID); err != nil {
 			return errors.Errorf("getting machine life: %w", err)
 		} else if l == life.Dead {
-			return nil
+			// The machine is already dead. Ensure it is paired with a
+			// removal job: this repairs machines that reached the dead
+			// life without one, whose rows would otherwise never be
+			// deleted.
+			return errors.Capture(st.ensureMachineRemovalScheduled(ctx, tx, mUUID))
 		} else if l == life.Alive {
 			return removalerrors.EntityStillAlive
 		}
@@ -451,8 +460,75 @@ AND    life_id = 1`, machineUUID)
 			return errors.Errorf("marking machine as dead: %w", err)
 		}
 
+		// A machine that is dead is always paired with a removal job,
+		// in the same transaction that advances its life: a machine row
+		// is only ever deleted by one. Whatever path a machine takes to
+		// the dead life, its removal is thereby scheduled.
+		if err := st.ensureMachineRemovalScheduled(ctx, tx, mUUID); err != nil {
+			return errors.Capture(err)
+		}
+
 		return nil
 	}))
+}
+
+// ensureMachineRemovalScheduled ensures that a machine removal job is
+// scheduled for the machine with the input UUID. If a machine removal job
+// has already been scheduled for the machine, this does nothing:
+// scheduling is idempotent and duplicate jobs are never created here.
+// Jobs scheduled by this method are never qualified with force and are
+// actioned immediately. There is no risk of the machine row being deleted
+// prematurely: the job gates its deletion on the machine not being alive
+// and, unless forced, on its cloud instance being dead.
+// This must be called from within a transaction.
+func (st *State) ensureMachineRemovalScheduled(
+	ctx context.Context, tx *sqlair.TX, mUUID string,
+) error {
+	selectStmt, err := st.Prepare(`
+SELECT &entityUUID.*
+FROM   removal
+WHERE  removal_type_id = $removalTypeIDParam.id
+AND    entity_uuid = $entityUUID.uuid`, entityUUID{}, removalTypeIDParam{})
+	if err != nil {
+		return errors.Errorf("preparing machine removal job query: %w", err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, force)
+VALUES ($machineRemovalJob.*)`, machineRemovalJob{})
+	if err != nil {
+		return errors.Errorf("preparing machine removal job insert: %w", err)
+	}
+
+	var existing entityUUID
+	err = tx.Query(
+		ctx, selectStmt, removalTypeIDParam{ID: uint64(removal.MachineJob)}, entityUUID{UUID: mUUID},
+	).Get(&existing)
+	switch {
+	case errors.Is(err, sqlair.ErrNoRows):
+		// No removal job has been scheduled for the machine yet.
+	case err != nil:
+		return errors.Errorf("checking for existing machine removal job: %w", err)
+	default:
+		// A removal job is already scheduled for the machine.
+		return nil
+	}
+
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	job := machineRemovalJob{
+		UUID:          jobUUID.String(),
+		RemovalTypeID: uint64(removal.MachineJob),
+		EntityUUID:    mUUID,
+	}
+	if err := tx.Query(ctx, insertStmt, job).Run(); err != nil {
+		return errors.Errorf("scheduling machine removal: %w", err)
+	}
+
+	return nil
 }
 
 // MarkInstanceAsDead marks the machine cloud instance with the input UUID as
@@ -499,7 +575,8 @@ AND    life_id = 1`, machineUUID)
 	}))
 }
 
-// DeleteMachine deletes the specified machine and any dependent child records.
+// DeleteMachine deletes the specified machine and any dependent child
+// records.
 func (st *State) DeleteMachine(ctx context.Context, mUUID string, force bool) error {
 	db, err := st.DB(ctx)
 	if err != nil {
