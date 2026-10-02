@@ -729,6 +729,16 @@ ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo
 endif
 endif
 
+# snapcraft packs the locally built controller snap used by bootstrap's
+# --build-snap mode and its fallback for dev clients newer than any
+# published controller snap.
+ifeq ("$(shell snap list snapcraft 2>/dev/null)","")
+	@echo 'Installing snapcraft snap'
+	@sudo snap install snapcraft --classic
+else
+	@echo 'Using installed snapcraft snap'
+endif
+
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 
 .PHONY: install-sqlite3-dependencies
@@ -742,7 +752,12 @@ install-sqlite3-dependencies:
 .PHONY: install-dependencies
 install-dependencies: install-snap-dependencies install-sqlite3-dependencies
 ## install-dependencies: Install all the dependencies
+# squashfs-tools provides the unsquashfs helper that reads the version of
+# a locally built controller snap during bootstrap. The apt lists are
+# already refreshed by install-sqlite3-dependencies.
 	@echo "Installing dependencies"
+	@$(WAIT_FOR_DPKG)
+	@sudo apt-get --yes install squashfs-tools
 
 .PHONY: install-etc
 # Install bash_completion

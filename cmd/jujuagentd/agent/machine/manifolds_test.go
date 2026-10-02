@@ -182,7 +182,7 @@ func (*ManifoldsSuite) TestFinalGraphRegistrationCounts(c *tc.C) {
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})
-	caas := machine.CAASManifolds(machine.ManifoldsConfig{
+	caas := machine.K8sManifolds(machine.ManifoldsConfig{
 		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
 	})

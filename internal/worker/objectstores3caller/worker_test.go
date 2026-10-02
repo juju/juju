@@ -397,7 +397,9 @@ func (s *workerSuite) TestNewWorkerStartsWithBackendNotFound(c *tc.C) {
 func (s *workerSuite) TestNewWorkerBackendNotFoundThenS3Seeded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
 		Return(objectstoreservice.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
@@ -443,7 +445,9 @@ func (s *workerSuite) TestNewWorkerBackendNotFoundThenS3Seeded(c *tc.C) {
 func (s *workerSuite) TestNewWorkerBackendNotFoundThenFileSeeded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
 		Return(objectstoreservice.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
@@ -489,7 +493,9 @@ func (s *workerSuite) TestNewWorkerBackendNotFoundThenFileSeeded(c *tc.C) {
 func (s *workerSuite) TestLoopBackendNotFoundThenSeeded(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
 	s.expectGetActiveBackendS3(c)
 	s.expectWatchObjectStoreBackendWithChanges(changes)
@@ -547,17 +553,23 @@ func (s *workerSuite) TestLoopBackendNotFoundThenSeeded(c *tc.C) {
 func (s *workerSuite) TestNewWorkerNonNotFoundErrorStillFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectWatchObjectStoreBackend(c)
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
 		Return(objectstoreservice.BackendInfo{}, errors.Errorf("some other error"))
 
-	_, err := newWorker(s.getConfig(), s.states)
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	err := workertest.CheckKilled(c, worker)
 	c.Assert(err, tc.ErrorMatches, `some other error`)
 }
 
 func (s *workerSuite) TestLoopNonNotFoundErrorKills(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	changes := make(chan []string)
+	changes := make(chan []string, 1)
+	// Seed the initial event for the readiness barrier.
+	changes <- []string{}
 
 	s.expectGetActiveBackendS3(c)
 	s.expectWatchObjectStoreBackendWithChanges(changes)
@@ -576,7 +588,7 @@ func (s *workerSuite) TestLoopNonNotFoundErrorKills(c *tc.C) {
 		c.Fatalf("timed out sending change")
 	}
 
-	err := workertest.CheckKill(c, worker)
+	err := workertest.CheckKilled(c, worker)
 	c.Assert(err, tc.ErrorMatches, `fatal error`)
 }
 

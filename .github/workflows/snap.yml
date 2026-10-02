@@ -73,53 +73,9 @@ jobs:
           sudo snap connect juju:ssh-keys
           snap connections juju
 
-      - name: Test bootstrap
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p ~/.ssh
-          juju bootstrap --model-default enable-os-upgrade=false localhost --debug
-
-  jujud-snap:
-    name: Build jujud snap
-    runs-on:
-      - self-hosted
-      - linux
-      - arm64
-      - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
-      - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
-
-    steps:
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo snap install snapcraft --classic
-          echo "/snap/bin" >> $GITHUB_PATH
-
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: "Squid"
-        if: github.repository_owner != 'juju'
-        run: ./.github/squid.sh
-
-      - name: Setup LXD
-        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
-
-      - name: Wait for LXD
-        run: |
-          timeout=600
-          start=$SECONDS
-          while ! ip link show lxdbr0; do
-            if (( SECONDS - start > timeout )); then
-              echo "Timed out waiting for lxdbr0 after ${timeout}s"
-              exit 1
-            fi
-            echo "Waiting for lxdbr0..."
-            sleep 10
-          done
-
+      # The client snap must be built and installed before the controller
+      # snap: this step wipes _build/snap, which is safe once the client
+      # snap is installed system-wide.
       - name: Build jujud snap
         shell: bash
         run: |
@@ -129,11 +85,18 @@ jobs:
           cp -a snaps/jujud/. snap/
           snapcraft --use-lxd --output _build/snap
 
-      - name: Verify snap artifact
+      # The freshly built client snap is newer than any published controller
+      # snap, so the controller snap is supplied explicitly and the machine
+      # agent is copied from the client snap's bundled binaries. No Go or
+      # other host build tools are needed: the client snap ships the
+      # unsquashfs used to inspect the controller snap's version. The juju
+      # snap is strictly confined and cannot read the workspace checkout,
+      # so the controller snap is staged in the auto-connected home
+      # directory before bootstrapping.
+      - name: Test bootstrap
         shell: bash
         run: |
           set -euxo pipefail
-          ls -la _build/snap/jujud_*.snap
-          sudo snap install _build/snap/jujud_*.snap --dangerous
-          snap services jujud
-          sudo snap remove jujud
+          mkdir -p ~/.ssh
+          cp _build/snap/jujud_*.snap "$HOME"/
+          juju bootstrap --controller-snap-path "$HOME"/jujud_*.snap localhost --debug

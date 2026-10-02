@@ -38,8 +38,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	corecharm "github.com/juju/juju/core/charm"
 	corearch "github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
@@ -209,7 +209,6 @@ func findControllerNamespace(
 			}.String(),
 		},
 	)
-
 	if err != nil {
 		return nil, errors.Annotate(err, "finding controller namespace with non legacy labels")
 	}
@@ -229,7 +228,6 @@ func findControllerNamespace(
 			}.String(),
 		},
 	)
-
 	if err != nil {
 		return nil, errors.Annotate(err, "finding controller namespace with legacy labels")
 	}
