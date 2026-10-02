@@ -879,6 +879,32 @@ func (s *containerSuite) TestNetworkConfigForGuestNoBridgeFoundError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
 }
 
+func (s *containerSuite) TestNetworkConfigForGuestSubnetCIDRLookupError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// Provider networking with an in-space bridge: the CIDR lookup for the
+	// bridge fails and the error is propagated. No addresses are allocated.
+	s.expectContainerNetworking(c,
+		[]internal.SpaceName{{UUID: "positive-space-uuid", Name: "positive-space"}},
+		map[string][]network.NetInterface{
+			"positive-space-uuid": {{
+				Name: "br-eth0",
+				Type: corenetwork.BridgeDevice,
+			}},
+		},
+		containermanager.NetworkingMethodProvider.String(),
+	)
+	s.st.EXPECT().GetSubnetCIDRForDevice(c.Context(), s.nodeUUID, "br-eth0", "positive-space-uuid").
+		Return("", internalerrors.Errorf("lookup failed"))
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
+
+	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Assert(err, tc.ErrorMatches,
+		`retrieving CIDR for device "br-eth0" in space "positive-space-uuid" on machine ".*": lookup failed`)
+}
+
 func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeNoSpace(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1025,12 +1051,14 @@ func (s *containerSuite) TestNetworkConfigForGuestLocalMethodMixedBridges(c *tc.
 	c.Assert(nics, tc.HasLen, 2)
 	bridgedDev, localDev := nics[0], nics[1]
 
+	c.Check(bridgedDev.InterfaceName, tc.Equals, "eth0")
 	c.Check(bridgedDev.ParentInterfaceName, tc.Equals, "br-eth0")
 	c.Assert(bridgedDev.Addresses, tc.HasLen, 1)
 	c.Check(bridgedDev.Addresses[0].CIDR, tc.Equals, "10.10.10.0/24")
 	c.Check(bridgedDev.ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 	c.Check(bridgedDev.Addresses[0].ConfigType, tc.Equals, corenetwork.ConfigDHCP)
 
+	c.Check(localDev.InterfaceName, tc.Equals, "eth1")
 	c.Check(localDev.ParentInterfaceName, tc.Equals, internalnetwork.DefaultLXDBridge)
 	c.Assert(localDev.Addresses, tc.HasLen, 1)
 	c.Check(localDev.Addresses[0].CIDR, tc.Equals, "")

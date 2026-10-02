@@ -30,6 +30,7 @@ func TestContainerSuite(t *testing.T) {
 }
 
 func (s *containerSuite) TestGetMachineInstanceID(c *tc.C) {
+	// The machine has a cloud instance with an identifier: it is returned.
 	nUUID := s.addNetNode(c)
 	mUUID := s.addMachine(c, "0", nUUID)
 	s.query(c, "INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id) VALUES (?, ?, ?)",
@@ -41,6 +42,7 @@ func (s *containerSuite) TestGetMachineInstanceID(c *tc.C) {
 }
 
 func (s *containerSuite) TestGetMachineInstanceIDNoInstance(c *tc.C) {
+	// The machine has no cloud instance record: it is not provisioned.
 	nUUID := s.addNetNode(c)
 	mUUID := s.addMachine(c, "0", nUUID)
 
@@ -54,6 +56,18 @@ func (s *containerSuite) TestGetMachineInstanceIDNullInstanceID(c *tc.C) {
 	mUUID := s.addMachine(c, "0", nUUID)
 	s.query(c, "INSERT INTO machine_cloud_instance (machine_uuid, life_id) VALUES (?, ?)",
 		mUUID.String(), 0)
+
+	_, err := s.state.GetMachineInstanceID(c.Context(), mUUID.String())
+	c.Check(err, tc.ErrorIs, errors.HostNotProvisioned)
+}
+
+func (s *containerSuite) TestGetMachineInstanceIDEmptyInstanceID(c *tc.C) {
+	// The instance record exists with an empty instance ID, which is
+	// treated the same as an instance that has not been created.
+	nUUID := s.addNetNode(c)
+	mUUID := s.addMachine(c, "0", nUUID)
+	s.query(c, "INSERT INTO machine_cloud_instance (machine_uuid, life_id, instance_id) VALUES (?, ?, ?)",
+		mUUID.String(), 0, "")
 
 	_, err := s.state.GetMachineInstanceID(c.Context(), mUUID.String())
 	c.Check(err, tc.ErrorIs, errors.HostNotProvisioned)
