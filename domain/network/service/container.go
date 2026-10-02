@@ -234,6 +234,11 @@ func toInterfaceInfos(netInterfaces []network.NetInterface) corenetwork.Interfac
 	return res
 }
 
+// spacesAndDevicesForMachine returns the net node UUID of the host machine,
+// the guest's positive space requirement UUIDs in sorted name order, and the
+// host's devices indexed by space. The ordering of the returned space UUIDs
+// is relied upon by guestDevices for deterministic device naming and
+// default-bridge deduplication.
 func (s *Service) spacesAndDevicesForMachine(
 	ctx context.Context, guestUUID, hostUUID machine.UUID,
 ) (string, []string, map[string][]network.NetInterface, error) {
@@ -273,7 +278,9 @@ func (s *Service) spacesAndDevicesForMachine(
 }
 
 // spaceRequirementsForMachine returns UUID-to-name for the *positive*
-// space requirements of the machine with the input UUID.
+// space requirements of the machine with the input UUID, sorted by name.
+// Callers rely on this order for deterministic guest device naming and
+// default-bridge deduplication.
 // If the positive and negative space constraints are in conflict,
 // an error is returned.
 func (s *Service) spaceRequirementsForMachine(

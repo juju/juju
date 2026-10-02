@@ -70,8 +70,7 @@ func ResolveNetworkingMethod(
 // container addresses.
 // Explicitly configured methods are used as configured and the provider
 // capability is never consulted; the unset "auto" value is resolved by
-// lazily calling supportsContainerAddresses, which returns false for
-// providers that do not implement the networking capability at all.
+// lazily calling supportsContainerAddresses.
 func ResolveNetworkingMethodWithCapability(
 	method modelconfig.ContainerNetworkingMethod,
 	supportsContainerAddresses func() (bool, error),

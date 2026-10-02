@@ -21,6 +21,12 @@ import (
 // If the machine has no cloud instance, or the instance has not yet been
 // created, an error satisfying
 // [networkerrors.HostNotProvisioned] is returned.
+// This mirrors (*domain/machine/state.State).getInstanceID against the same
+// table, with two deliberate divergences: the ID is scanned as a
+// sql.NullString with an explicit empty-string check, because the column is
+// NULL until the cloud instance exists, and the sentinel is this domain's
+// HostNotProvisioned rather than machineerrors.NotProvisioned, which the
+// provisioner facade translates to params.CodeNotProvisioned.
 func (st *State) GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
