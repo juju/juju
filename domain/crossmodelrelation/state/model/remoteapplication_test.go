@@ -979,10 +979,66 @@ func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTok
 
 func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenWithApplication(c *tc.C) {
 	_, relUUID, _, synthApplicationUUID, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
-	// Retrieve application UUID by offer UUID and remote relation UUID - should return the correct UUID
+	// A legacy consumer only identifies the consuming application, so the
+	// synthetic application is resolved by the relation UUID.
 	uuid, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), consumeAppUUID, relUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(uuid, tc.Equals, synthApplicationUUID)
+}
+
+// TestGetSyntheticApplicationUUIDByRemoteTokenMultipleOfferConnections
+// checks that the synthetic application is resolved by the relation when a
+// consuming application holds several offer connections, as migrated from
+// a 3.6 consumer proxy relating to several offered applications. The
+// consuming application token is shared by every connection, so it cannot
+// identify the synthetic application on its own.
+func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenMultipleOfferConnections(c *tc.C) {
+	_, relUUID1, offererAppUUID, synthApplicationUUID1, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
+
+	// Add a second offer connection of the same consuming application, with
+	// its own offer, synthetic application and relation.
+	offerUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	synthApplicationUUID2 := tc.Must(c, coreapplication.NewUUID)
+	charmUUID2 := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID2)
+	s.createCharm(c, charmUUID2)
+	s.createApplication(c, synthApplicationUUID2, charmUUID2, offerUUID2)
+	relUUID2 := s.addRelation(c).String()
+
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'bob')`, synthApplicationUUID2, offerUUID2, relUUID2)
+
+	s.query(c, `
+INSERT INTO application_remote_consumer (
+    offer_connection_uuid,
+    offerer_application_uuid,
+    consumer_application_uuid,
+    consumer_model_uuid,
+    life_id)
+VALUES (?, ?, ?, ?, 0)`,
+		synthApplicationUUID2,
+		offererAppUUID,
+		consumeAppUUID,
+		tc.Must(c, coremodel.NewUUID),
+	)
+
+	// A legacy consumer identifies only the consuming application, which is
+	// shared by both connections; each relation must resolve to its own
+	// synthetic application.
+	uuid, err := s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), consumeAppUUID, relUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, synthApplicationUUID1)
+
+	uuid, err = s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), consumeAppUUID, relUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, synthApplicationUUID2.String())
+
+	// A newer consumer identifies the offer; the primary lookup is
+	// unchanged.
+	uuid, err = s.state.GetSyntheticApplicationUUIDByRemoteToken(c.Context(), offerUUID2, relUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uuid, tc.Equals, synthApplicationUUID2.String())
 }
 
 func (s *modelRemoteApplicationSuite) TestGetSyntheticApplicationUUIDByRemoteTokenNotFound(c *tc.C) {
