@@ -41,10 +41,8 @@ func NewProviderService(
 	logger logger.Logger,
 ) *ProviderService {
 	return &ProviderService{
-		Service: Service{
-			st:     st,
-			logger: logger,
-		},
+		st:                     st,
+		logger:                 logger,
 		providerWithNetworking: providerWithNetworking,
 		providerWithZones:      providerWithZones,
 	}

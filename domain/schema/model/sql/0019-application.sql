@@ -30,7 +30,7 @@ ON application (space_uuid);
 CREATE INDEX idx_application_life
 ON application (life_id);
 
--- This table is only used to track whether a application is a controller or
+-- This table is only used to track whether an application is a controller or
 -- not. It should be sparse and only contain a single row for the controller
 -- application.
 CREATE TABLE application_controller (
