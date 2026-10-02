@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/services"
@@ -268,55 +267,28 @@ func NewConnectionGetter(getter DomainServicesGetter, logger logger.Logger) Conn
 func (c connectionGetter) GetConnectionForModel(ctx context.Context, modelUUID model.UUID, apiInfo api.Info) (api.Connection, error) {
 	info := &apiInfo
 	info.Tag = connectionTag
-	conn, err := c.newConnection(ctx, info)
-	if err == nil {
-		return conn, nil
-	}
-
-	var redirectErr *api.RedirectError
-
-	// This is isn't a redirect error, so we return the error as is.
-	if !errors.As(errors.Cause(err), &redirectErr) {
-		return nil, errors.Trace(err)
-	}
-
-	// If we got a redirect error, we need to create a new connection with the
-	// redirected API info.
-	redirectedInfo := &apiInfo
-	redirectedInfo.Tag = connectionTag
-	redirectedInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
-	redirectedInfo.CACert = redirectErr.CACert
-
-	conn, err = c.newConnection(ctx, redirectedInfo)
+	conn, redirect, err := apicaller.NewExternalControllerConnectionWithRedirect(ctx, info, c.newConnection)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	if redirect == nil {
+		return conn, nil
+	}
 
-	// We got a new connection from the redirect, update the local
-	// external controller information, so we don't have to perform the
-	// redirect again in the future. If there is a failure to update the
-	// external controller, we log it but do not return an error, as the
-	// connection is still valid. We will just retry any time we reopen the
-	// connection.
+	// We followed a redirect to the controller now hosting the model;
+	// persist the model's new location so future connections and model
+	// controller lookups (e.g. cross-model secret clients) go directly
+	// to the new controller. Failures are logged, not fatal: the
+	// connection is valid and we retry on the next reconnect.
 	services, err := c.domainServicesGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		c.logger.Infof(ctx, "failed to get domain services for model %s: %v", modelUUID, err)
 		return conn, nil
 	}
 
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerUUID: redirectErr.ControllerTag.Id(),
-		Alias:          redirectErr.ControllerAlias,
-		Addrs:          redirectedInfo.Addrs,
-		CACert:         redirectedInfo.CACert,
-	}
-
-	externalControllerServices := services.ExternalController()
-	if err := externalControllerServices.UpdateExternalController(ctx, controllerInfo); err != nil {
+	if err := apicaller.SaveMigratedModelController(ctx, services.ExternalController(), redirect, info, modelUUID.String()); err != nil {
 		c.logger.Infof(ctx, "failed to update external controller for model %s: %v", modelUUID, err)
-		return conn, nil
 	}
-
 	return conn, nil
 }
 

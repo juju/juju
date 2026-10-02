@@ -16,7 +16,9 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
@@ -314,4 +316,74 @@ func NewExternalControllerConnection(ctx context.Context, apiInfo *api.Info) (ap
 		Timeout:    2 * time.Second,
 		RetryDelay: 500 * time.Millisecond,
 	})
+}
+
+// ExternalControllerUpdater persists the location of models hosted by an
+// external controller. It is implemented by the external controller
+// domain service.
+type ExternalControllerUpdater interface {
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
+// NewExternalControllerConnectionWithRedirect opens an API connection to
+// the controller in apiInfo, following at most one redirect if the target
+// model has been migrated to another controller.
+//
+// apiInfo is updated in place with the redirected controller addresses and
+// CA certificate, so the caller can persist the new location. The returned
+// redirect is non-nil if and only if a redirect was followed; it carries
+// the target controller details for persistence by the caller (see
+// SaveMigratedModelController). open is the connection factory to use
+// (e.g. NewExternalControllerConnection); it is required.
+func NewExternalControllerConnectionWithRedirect(
+	ctx context.Context,
+	apiInfo *api.Info,
+	open NewExternalControllerConnectionFunc,
+) (api.Connection, *api.RedirectError, error) {
+	conn, err := open(ctx, apiInfo)
+	if err == nil {
+		return conn, nil, nil
+	}
+
+	var redirectErr *api.RedirectError
+	if !errors.As(err, &redirectErr) {
+		return nil, nil, errors.Trace(err)
+	}
+
+	// The model was migrated to another controller; retry against the
+	// redirected addresses, updating apiInfo in place so the caller can
+	// persist the new controller location.
+	apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
+	apiInfo.CACert = redirectErr.CACert
+
+	conn, err = open(ctx, apiInfo)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return conn, redirectErr, nil
+}
+
+// SaveMigratedModelController persists the new location of a model that
+// was redirected (migrated) to another controller, so future connections
+// and controller lookups for the model go directly to the new controller.
+// The redirect must carry a valid controller tag and addresses; nothing
+// is saved and an error is returned otherwise.
+func SaveMigratedModelController(
+	ctx context.Context,
+	updater ExternalControllerUpdater,
+	redirect *api.RedirectError,
+	apiInfo *api.Info,
+	modelUUID string,
+) error {
+	controllerInfo := crossmodel.ControllerInfo{
+		ControllerUUID: redirect.ControllerTag.Id(),
+		Alias:          redirect.ControllerAlias,
+		Addrs:          apiInfo.Addrs,
+		CACert:         apiInfo.CACert,
+		ModelUUIDs:     []string{modelUUID},
+	}
+	if err := controllerInfo.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(updater.UpdateExternalController(ctx, controllerInfo))
 }
