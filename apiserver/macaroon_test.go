@@ -6,8 +6,6 @@ package apiserver_test
 import (
 	"net/http"
 	"net/url"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -76,23 +74,19 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *tc.C) {
 
 func (s *macaroonLoginSuite) setAPIAddresses(c *tc.C, info *api.Info) {
 	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
-	addrs := make(network.SpaceHostPorts, len(info.Addrs))
+	addrs := make(network.SpaceAddresses, len(info.Addrs))
+	var apiPort int
 	for i, addr := range info.Addrs {
-		parts := strings.Split(addr, ":")
-		port, _ := strconv.Atoi(parts[1])
-		addrs[i] = network.SpaceHostPort{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: parts[0],
-				},
-			},
-			NetPort: network.NetPort(port),
-		}
+		hostPort, err := network.ParseMachineHostPort(addr)
+		c.Assert(err, tc.ErrorIsNil)
+		apiPort = int(hostPort.NetPort)
+		addrs[i] = network.SpaceAddress{MachineAddress: hostPort.MachineAddress}
 	}
 
 	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"0": addrs,
+		APIPort: apiPort,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: addrs, Agents: addrs, Peers: addrs},
 		},
 	})
 	c.Assert(err, tc.IsNil)
