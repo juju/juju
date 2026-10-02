@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	access "github.com/juju/juju/domain/access/modelmigration"
 	agentpassword "github.com/juju/juju/domain/agentpassword/modelmigration"
+	annotation "github.com/juju/juju/domain/annotation/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockcommand "github.com/juju/juju/domain/blockcommand/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
@@ -98,6 +99,9 @@ func ImportOperations(
 	agentpassword.RegisterImport(coordinator)
 	crossmodelrelation.RegisterImport(coordinator, clock, logger.Child("crossmodelrelation"))
 	relation.RegisterImport(coordinator, clock, logger.Child("relation"))
+	// Consumer proxy relations are created by the cross model relation
+	// import above; the relation import only imports their data, so it must
+	// run after it.
 	// Relation networks must be imported after relations, as they are
 	// located by relation key which requires the relations to exist.
 	crossmodelrelation.RegisterImportRelationNetworks(coordinator, clock, logger.Child("crossmodelrelation"))
@@ -118,6 +122,11 @@ func ImportOperations(
 	// any block commands from being executed before all the other operations
 	// have been completed.
 	blockcommand.RegisterImport(coordinator, logger.Child("blockcommand"))
+
+	// Annotations are registered after all other operations: they reference
+	// machines, applications, units, storages and no other operation references
+	// annotations.
+	annotation.RegisterImport(coordinator)
 
 	// Finally, we need to activate the model after all other operations
 	// have been completed.
