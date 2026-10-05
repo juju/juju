@@ -11,7 +11,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -85,9 +84,7 @@ func address(value string) network.SpaceAddresses {
 
 func (s *workerSuite) expectEmptyReconcile(published chan<- controllernode.SetAPIAddressArgs) {
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.APIPort: 17070,
-	}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
 	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), []unit.Name(nil)).
 		Return(domainnetwork.ControllerAddressSelection{}, nil)
 	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), []unit.Name(nil), network.SpaceName("")).
@@ -139,10 +136,7 @@ func (s *workerSuite) TestPublishesAllIAASAudiences(c *tc.C) {
 	agents1, agents2 := address("agent-1"), address("agent-2")
 	peers1, peers2 := address("peer-1"), address("peer-2")
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"2", "1"}, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.APIPort:             17071,
-		controller.JujuManagementSpace: "management",
-	}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName("management"), 17071, nil)
 	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), gomock.InAnyOrder(names)).Return(domainnetwork.ControllerAddressSelection{
 		ByUnit: map[unit.Name]network.SpaceAddresses{controller1: clients1, controller2: clients2},
 	}, nil)
@@ -184,7 +178,7 @@ func (s *workerSuite) TestPublishesCAASSharedEndpoints(c *tc.C) {
 	peer := address("pod-address")
 	controller0 := unit.Name("controller/0")
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{controller.APIPort: 17070}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
 	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), []unit.Name{controller0}).Return(domainnetwork.ControllerAddressSelection{Shared: sharedClients}, nil)
 	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), []unit.Name{controller0}, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{Shared: sharedAgents}, nil)
 	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), []unit.Name{controller0}, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
@@ -221,7 +215,7 @@ func (s *workerSuite) TestPreservesSuccessfulEmptySharedSelection(c *tc.C) {
 	s.expectWatchers(initialNotify(), initialConfig(), initialNotify())
 
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{controller.APIPort: 17070}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
 	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), []unit.Name(nil)).Return(domainnetwork.ControllerAddressSelection{
 		Shared: network.SpaceAddresses{},
 	}, nil)
@@ -274,7 +268,7 @@ func (s *workerSuite) TestMissingPeerAddressesPublishesAuthoritativeEmptySet(c *
 	agents0, agents1 := address("agent-0"), address("agent-1")
 	peers1 := address("peer-1")
 	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0", "1"}, nil)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{controller.APIPort: 17070}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
 	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), gomock.InAnyOrder(names)).Return(domainnetwork.ControllerAddressSelection{
 		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients0, controller1: clients1},
 	}, nil)

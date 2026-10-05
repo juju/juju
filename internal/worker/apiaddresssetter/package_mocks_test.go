@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"
@@ -31,9 +30,9 @@ type MockControllerConfigService struct {
 
 // MockControllerConfigServiceMockRecorder is the mock recorder for MockControllerConfigService.
 type MockControllerConfigServiceMockRecorder struct {
-	mock                         *MockControllerConfigService
-	controllerConfigExpects      []*gomock.Call1_2[context.Context, controller.Config, error]
-	watchControllerConfigExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                                *MockControllerConfigService
+	getManagementSpaceAndAPIPortExpects []*gomock.Call1_3[context.Context, network.SpaceName, int, error]
+	watchControllerConfigExpects        []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockControllerConfigService creates a new mock instance.
@@ -48,23 +47,23 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
-// ControllerConfig mocks base method.
-func (m *MockControllerConfigService) ControllerConfig(ctx context.Context) (controller.Config, error) {
+// GetManagementSpaceAndAPIPort mocks base method.
+func (m *MockControllerConfigService) GetManagementSpaceAndAPIPort(ctx context.Context) (network.SpaceName, int, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.controllerConfigExpects, m.ctrl, m, "ControllerConfig", ctx)
+	return gomock.Dispatch1_3(&m.recorder.getManagementSpaceAndAPIPortExpects, m.ctrl, m, "GetManagementSpaceAndAPIPort", ctx)
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockControllerConfigServiceMockRecorder) ControllerConfig(ctx any) *MockControllerConfigServiceControllerConfigCall {
+// GetManagementSpaceAndAPIPort indicates an expected call of GetManagementSpaceAndAPIPort.
+func (mr *MockControllerConfigServiceMockRecorder) GetManagementSpaceAndAPIPort(ctx any) *MockControllerConfigServiceGetManagementSpaceAndAPIPortCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, controller.Config, error](mr.mock.ctrl.T, mr.mock, "ControllerConfig", gomock.EnsureMatcher(ctx))
-	mr.controllerConfigExpects = append(mr.controllerConfigExpects, call)
+	call := gomock.NewCall1_3[context.Context, network.SpaceName, int, error](mr.mock.ctrl.T, mr.mock, "GetManagementSpaceAndAPIPort", gomock.EnsureMatcher(ctx))
+	mr.getManagementSpaceAndAPIPortExpects = append(mr.getManagementSpaceAndAPIPortExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerConfigServiceControllerConfigCall is the typed call wrapper for ControllerConfig.
-type MockControllerConfigServiceControllerConfigCall = gomock.Call1_2[context.Context, controller.Config, error]
+// MockControllerConfigServiceGetManagementSpaceAndAPIPortCall is the typed call wrapper for GetManagementSpaceAndAPIPort.
+type MockControllerConfigServiceGetManagementSpaceAndAPIPortCall = gomock.Call1_3[context.Context, network.SpaceName, int, error]
 
 // WatchControllerConfig mocks base method.
 func (m *MockControllerConfigService) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {

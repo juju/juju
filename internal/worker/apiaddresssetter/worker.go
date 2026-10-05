@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -27,8 +26,8 @@ import (
 
 // ControllerConfigService is an interface for getting the controller config.
 type ControllerConfigService interface {
-	// ControllerConfig returns the config values for the controller.
-	ControllerConfig(ctx context.Context) (controller.Config, error)
+	// GetManagementSpaceAndAPIPort returns the management space and API port.
+	GetManagementSpaceAndAPIPort(ctx context.Context) (network.SpaceName, int, error)
 
 	// WatchControllerConfig returns a watcher that returns keys for any changes
 	// to controller config.
@@ -247,11 +246,10 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	// Collect the unit names in a slice for use with the network service.
 	names := slices.Collect(maps.Values(controllerUnitNames))
 
-	cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
+	managementSpace, apiPort, err := w.config.ControllerConfigService.GetManagementSpaceAndAPIPort(ctx)
 	if err != nil {
-		return errors.Errorf("getting controller config: %w", err)
+		return errors.Errorf("getting management space and API port: %w", err)
 	}
-	managementSpace := cfg.JujuManagementSpace()
 
 	// Get the client addresses, which are used for ordinary client discovery.
 	// The management space is used for IAAS selection, but ignored for CAAS
@@ -295,7 +293,7 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	}
 
 	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllernode.SetAPIAddressArgs{
-		APIPort:   cfg.APIPort(),
+		APIPort:   apiPort,
 		Addresses: addresses,
 		SharedAddresses: controllernode.SharedAPIAddressSet{
 			Clients: slices.Clone(clients.Shared),
