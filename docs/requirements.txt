@@ -17,7 +17,7 @@ sphinx-contributor-listing>=0.1.0
 sphinx-filtered-toctree>=0.1.0
 sphinx-llm
 sphinx-related-links>=0.1.2
-sphinx-roles>=0.1.0
+sphinx-roles>=1.0.0
 sphinx-terminal>=1.1.0
 sphinx-ubuntu-images>=0.1.0
 sphinx-youtube-links>=0.1.0
