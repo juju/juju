@@ -242,22 +242,13 @@ To view the Juju log files in a Juju machine:
 
 1. Open a shell into the machine:
 
-(1a) If Juju can connect to the machine (i.e., the output contains `Connected to <IP address>`) and the machine is fully provisioned, use `juju ssh`. For example, to connect to machine 0:
+(1a) If the machine is fully provisioned, use `juju ssh`. For example, to connect to machine 0:
 
 ```text
 juju ssh 0
 ```
 
-(1b)  If Juju can connect to the machine (i.e., the output contains `Connected to <IP address>`) but the machine is not fully provisioned (e.g., command hangs at `Running machine configuration script...`), use the `ssh` command followed by the address of the machine and the path to the place where Juju stores your SSH keys (including the ones it generates automatically for you):
-
-```text
-ssh ubuntu@<ip-address> -i <juju-data-dir>/ssh/juju_id_rsa
-
-```
-
-Here, `<juju-data-dir>` defaults to `~/.local/share/juju`, but if you’ve set the `JUJU_DATA` environment variable, it will be equal to that instead.
-
-(1c) If Juju *cannot* connect to the machine (i.e., the command never reaches `Connected to <IP address>`), use cloud-specific tools. For example, for the LXD cloud:
+(1b) If Juju *cannot* connect to the machine (i.e., the command never reaches `Connected to <IP address>`), use cloud-specific tools. For example, for the LXD cloud:
 
 ```text
 lxc exec <container name> bash

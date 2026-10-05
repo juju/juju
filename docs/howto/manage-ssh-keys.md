@@ -71,13 +71,13 @@ See more: {ref}`command-juju-ssh-keys`
 (use-an-ssh-key)=
 ## Use an SSH key
 
-To SSH into a machine using a specific private key, pass OpenSSH's `-i`
-flag between the target and a possible remote command. Because `juju ssh`
-passes any options placed after the target to the underlying OpenSSH client,
-other OpenSSH flags can be used in the same way:
+To SSH into a machine using a specific private key, use the `--ssh-key`
+flag. Note that because `juju ssh` passes any options placed after the target to
+the underlying OpenSSH client, one can also the OpenSSH flag `-i <path-to-key>` 
+but this does not limit the client to only the specified.
 
 ```text
-juju ssh ubuntu/0 -i ~/.ssh/my_private_key
+juju ssh --ssh-key ~/.ssh/my_private_key ubuntu/0
 ```
 
 The key's public counterpart must be added to the model first (see
@@ -97,7 +97,7 @@ the private key with the `-i` option:
 ```text
 ssh-keygen -t ed25519-sk -f ~/.ssh/id_ed25519_sk
 juju add-ssh-key "$(cat ~/.ssh/id_ed25519_sk.pub)"
-juju ssh ubuntu/0 -i ~/.ssh/id_ed25519_sk
+juju ssh --ssh-key ~/.ssh/id_ed25519_sk ubuntu/0
 ```
 
 When using the Juju snap, the `u2f-devices` interface must be connected
