@@ -151,6 +151,11 @@ type Relation interface {
 	// application units for a given application.
 	AllRemoteUnits(appName string) ([]RelationUnit, error)
 
+	// RemoteApplication returns the remote application if this relation
+	// is a cross model relation, and a bool indicating if it is cross
+	// model or not.
+	RemoteApplication() (RemoteApplication, bool, error)
+
 	// Endpoints returns the endpoints that constitute the relation.
 	Endpoints() []state.Endpoint
 
