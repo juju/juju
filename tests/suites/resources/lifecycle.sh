@@ -86,7 +86,8 @@ run_resource_charm_transition_same_store_resource() {
 	ensure "test-${name}" "${file}"
 
 	# Revision 31 and the destination revision 26 both use resource revision 2.
-	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 -n 2
+	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 \
+		--base ubuntu@20.04 -n 2
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
@@ -132,7 +133,8 @@ run_resource_charm_transition_pinned_upload() {
 	ensure "test-${name}" "${file}"
 
 	# Keep the pinned upload while switching between the same charm revisions.
-	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 -n 2 \
+	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 \
+		--base ubuntu@20.04 -n 2 \
 		--resource foo-file="./tests/suites/resources/foo-file.txt"
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	juju config juju-qa-test foo-file=true
