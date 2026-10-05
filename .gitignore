@@ -1,5 +1,8 @@
 _build/
 _build
+# _deps is no longer produced on this branch (the static musl/dqlite
+# machinery is gone); kept ignored so checkouts of older branches that
+# still create it don't show it as untracked files.
 _deps*/
 _deps
 _jujud-snap-patch/
