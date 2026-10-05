@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"net"
-	"net/netip"
 	"sort"
 	"strconv"
 
@@ -182,19 +181,14 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 // routing audience.
 //
 // The following errors can be expected:
-// - [coreerrors.NotValid] if the API port is invalid, no address sets are
-// supplied, or a named address set has no controller ID.
+// - [coreerrors.NotValid] if the API port is invalid or a named address set has
+// no controller ID.
 // - [controllernodeerrors.ControllerAddressNotValid] if an address is empty.
 // - [controllernodeerrors.StaleControllerMembership] if controller membership
 // changed after address selection.
 func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error {
 	if args.APIPort <= 0 {
 		return errors.Errorf("non-positive API port: %w", coreerrors.NotValid)
-	}
-	if len(args.Addresses) == 0 &&
-		len(args.SharedAddresses.Clients) == 0 &&
-		len(args.SharedAddresses.Agents) == 0 {
-		return errors.Errorf("API addresses are empty: %w", coreerrors.NotValid)
 	}
 
 	projections := make(controllernode.APIAddressProjections, len(args.Addresses)+1)
@@ -311,7 +305,7 @@ func transformToOrderedHostPorts(input map[string]controllernode.APIAddresses) (
 			continue
 		}
 
-		address, err := addr.ToHostPortsNoMachineLocal()
+		address, err := addr.ToHostPorts()
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -360,15 +354,7 @@ func (s *Service) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, c
 		).Add(controllernodeerrors.EmptyAPIAddresses)
 	}
 
-	result := make(network.HostPorts, 0, len(addrs))
-	for _, addr := range addrs {
-		hostPort, err := network.ParseMachineHostPort(addr.Address)
-		if err != nil {
-			return nil, errors.Errorf("parsing controller node address %q: %w", addr.Address, err)
-		}
-		result = append(result, *hostPort)
-	}
-	return result, nil
+	return addrs.ToHostPorts()
 }
 
 // GetAllAPIAddressesForAgents returns all agent addresses, including shared
@@ -467,15 +453,17 @@ func (s *Service) GetAPIAddressesByControllerIDForPeers(ctx context.Context) (ma
 
 	result := make(map[string][]string, len(addresses))
 	for controllerID, addrs := range addresses {
+		if controllerID == "" {
+			continue
+		}
 		result[controllerID] = addrs.Values()
 	}
 	return result, nil
 }
 
-// GetAllCloudLocalAPIAddresses returns cloud-local client IP addresses,
-// including shared endpoints. It strips the API ports stored in state,
-// returning bare IPv4/IPv6 addresses for consumers such as certificate
-// maintenance.
+// GetAllCloudLocalAPIAddresses returns cloud-local client addresses, including
+// shared endpoints. It strips the API ports stored in state, returning bare IP
+// addresses or hostnames for consumers such as certificate maintenance.
 func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
 	addrs, err := s.st.GetAllCloudLocalAPIAddresses(ctx)
 	if err != nil {
@@ -483,11 +471,11 @@ func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, e
 	}
 	returnAddrs := make([]string, len(addrs))
 	for i, addr := range addrs {
-		ip, err := netip.ParseAddrPort(addr)
+		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		returnAddrs[i] = ip.Addr().String()
+		returnAddrs[i] = host
 	}
 	return returnAddrs, nil
 }

@@ -45,6 +45,21 @@ func (s *serviceSuite) TestSharedAgentAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 }
 
+func (s *serviceSuite) TestSharedAgentAddressesAreNotNamedFallback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	addresses := map[string]controllernode.APIAddresses{
+		"": {{Address: "shared.example.com:17070", Scope: network.ScopeCloudLocal}},
+	}
+	s.state.EXPECT().GetAPIAddressesForAgents(gomock.Any()).Return(addresses, nil).Times(2)
+
+	byController, err := svc.GetAPIAddressesByControllerIDForAgents(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(byController, tc.DeepEquals, map[string][]string{})
+	_, err = svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "0")
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
+}
+
 func (s *serviceSuite) TestSharedClientAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
@@ -67,4 +82,17 @@ func (s *serviceSuite) TestSharedClientAddresses(c *tc.C) {
 	byController, err := svc.GetAPIAddressesByControllerIDForClients(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(byController, tc.DeepEquals, map[string][]string{"0": {"controller.example.com:17070"}})
+}
+
+func (s *serviceSuite) TestSharedClientAddressesAreNotNamedFallback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	addresses := map[string]controllernode.APIAddresses{
+		"": {{Address: "shared.example.com:17070", Scope: network.ScopePublic}},
+	}
+	s.state.EXPECT().GetAPIAddressesForClients(gomock.Any()).Return(addresses, nil)
+
+	byController, err := svc.GetAPIAddressesByControllerIDForClients(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(byController, tc.DeepEquals, map[string][]string{})
 }

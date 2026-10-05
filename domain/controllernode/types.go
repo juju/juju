@@ -19,7 +19,8 @@ import (
 
 // SetAPIAddressArgs contains the selected addresses to publish. Addresses are
 // keyed by controller ID, while SharedAddresses contains endpoints that can
-// reach any controller.
+// reach any controller. Empty named and shared sets form an authoritative empty
+// snapshot.
 type SetAPIAddressArgs struct {
 	APIPort         int
 	Addresses       map[string]APIAddressSet
@@ -85,14 +86,11 @@ func (addrs APIAddresses) PrioritizedForScope(getMatcher ScopeMatchFunc) []strin
 	return out
 }
 
-// ToHostPortsNoMachineLocal transforms APIAddresses into network HostPorts,
-// not including machine local scoped.
-func (addrs APIAddresses) ToHostPortsNoMachineLocal() (network.HostPorts, error) {
+// ToHostPorts transforms APIAddresses into network HostPorts, retaining the
+// published scope and order.
+func (addrs APIAddresses) ToHostPorts() (network.HostPorts, error) {
 	result := make(network.HostPorts, 0, len(addrs))
 	for _, addr := range addrs {
-		if addr.Scope == network.ScopeMachineLocal {
-			continue
-		}
 		host, portString, err := net.SplitHostPort(addr.Address)
 		if err != nil {
 			return nil, errors.Errorf("parsing %q: %w", addr.Address, err)
