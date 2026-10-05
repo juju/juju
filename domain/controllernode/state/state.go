@@ -323,6 +323,12 @@ func (st *State) NamespaceForWatchControllerClientAddresses() string {
 	return "controller_client_address"
 }
 
+// NamespaceForWatchControllerPeerAddresses returns the namespace for watching
+// controller peer addresses.
+func (st *State) NamespaceForWatchControllerPeerAddresses() string {
+	return "controller_peer_address"
+}
+
 // SetAPIAddresses atomically replaces all client, agent and peer address
 // projections. Empty projections are authoritative. The named projection keys
 // must exactly match the alive or dying controller membership. The empty key
@@ -562,6 +568,12 @@ func (st *State) GetAPIAddressesForClients(ctx context.Context) (map[string]cont
 	return st.getAPIAddresses(ctx, "controller_client_address")
 }
 
+// GetAPIAddressesForPeers returns the peer projection, grouped by controller
+// ID. Peer addresses always have a controller identity.
+func (st *State) GetAPIAddressesForPeers(ctx context.Context) (map[string]controllernode.APIAddresses, error) {
+	return st.getAPIAddresses(ctx, "controller_peer_address")
+}
+
 // getAPIAddresses reads one projection in priority order within each group.
 // table must be one of the fixed projection table names used above.
 func (st *State) getAPIAddresses(ctx context.Context, table string) (map[string]controllernode.APIAddresses, error) {
@@ -588,6 +600,15 @@ SELECT address.uuid AS &controllerAddress.uuid,
 FROM controller_client_address AS address
 ORDER BY address.controller_id, address.priority, address.address
 `,
+		"controller_peer_address": `
+SELECT address.uuid AS &controllerAddress.uuid,
+       address.controller_id AS &controllerAddress.controller_id,
+       address.address AS &controllerAddress.address,
+       address.scope AS &controllerAddress.scope,
+       address.priority AS &controllerAddress.priority
+FROM controller_peer_address AS address
+ORDER BY address.controller_id, address.priority, address.address
+`,
 	}[table]
 	if !ok {
 		return nil, errors.Errorf("unsupported controller address projection %q", table)
@@ -611,9 +632,8 @@ ORDER BY address.controller_id, address.priority, address.address
 	return decodeAPIAddresses(addresses), nil
 }
 
-// GetAllCloudLocalAPIAddresses returns a string slice of api
-// addresses available for clients. The list only contains cloud
-// local addresses, including port numbers.
+// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
+// scope, including shared endpoints. Addresses include port numbers.
 func (st *State) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

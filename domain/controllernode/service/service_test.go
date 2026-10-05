@@ -721,6 +721,37 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClientsError(c *tc.C)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *serviceSuite) TestGetAPIAddressesByControllerIDForPeers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	addresses := map[string]controllernode.APIAddresses{
+		"1": {
+			{Address: "controller-1.example.com:17070", Scope: network.ScopeMachineLocal},
+			{Address: "[2001:db8::1]:17070", Scope: network.ScopeCloudLocal},
+		},
+		"2": {{Address: "10.0.0.2:17070", Scope: network.ScopeCloudLocal}},
+	}
+	s.state.EXPECT().GetAPIAddressesForPeers(gomock.Any()).Return(addresses, nil)
+
+	apiAddrs, err := svc.GetAPIAddressesByControllerIDForPeers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiAddrs, tc.DeepEquals, map[string][]string{
+		"1": {"controller-1.example.com:17070", "[2001:db8::1]:17070"},
+		"2": {"10.0.0.2:17070"},
+	})
+}
+
+func (s *serviceSuite) TestGetAPIAddressesByControllerIDForPeersError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAPIAddressesForPeers(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAPIAddressesByControllerIDForPeers(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *serviceSuite) TestGetAPIHostPortsForAgents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))

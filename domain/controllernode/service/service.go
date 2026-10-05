@@ -56,6 +56,10 @@ type State interface {
 	// watching controller client addresses.
 	NamespaceForWatchControllerClientAddresses() string
 
+	// NamespaceForWatchControllerPeerAddresses returns the namespace for
+	// watching controller peer addresses.
+	NamespaceForWatchControllerPeerAddresses() string
+
 	// SetAPIAddresses atomically replaces all client, agent and peer address
 	// projections.
 	//
@@ -77,9 +81,12 @@ type State interface {
 	// controller ID.
 	GetAPIAddressesForClients(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
-	// GetAllCloudLocalAPIAddresses returns a string slice of api
-	// addresses available for clients. The list only contains cloud
-	// local addresses, including port numbers.
+	// GetAPIAddressesForPeers returns peer API addresses divided by controller
+	// node. Peer addresses always have a controller identity.
+	GetAPIAddressesForPeers(ctx context.Context) (map[string]controllernode.APIAddresses, error)
+
+	// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
+	// scope, including shared endpoints. Addresses include port numbers.
 	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
 }
 
@@ -364,8 +371,8 @@ func (s *Service) GetAPIHostPortsForControllerIDForAgents(ctx context.Context, c
 	return result, nil
 }
 
-// GetAllAPIAddressesForAgents returns agent addresses in published priority
-// order within each endpoint group.
+// GetAllAPIAddressesForAgents returns all agent addresses, including shared
+// endpoints, in published priority order within each endpoint group.
 func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error) {
 	agentAddrs, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
@@ -385,7 +392,8 @@ func (s *Service) GetAllAPIAddressesForAgents(ctx context.Context) ([]string, er
 }
 
 // GetAllNoProxyAPIAddressesForAgents returns a sorted, comma separated string
-// of agent API addresses suitable for no proxy settings.
+// of all agent API addresses, including shared endpoints, suitable for no proxy
+// settings.
 func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (string, error) {
 	agentAddrs, err := s.st.GetAPIAddressesForAgents(ctx)
 	if err != nil {
@@ -406,8 +414,8 @@ func (s *Service) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (strin
 	return orderedAddrs.ToNoProxyString(), nil
 }
 
-// GetAllAPIAddressesForClients returns client addresses in published priority
-// order within each endpoint group.
+// GetAllAPIAddressesForClients returns all client addresses, including shared
+// endpoints, in published priority order within each endpoint group.
 func (s *Service) GetAllAPIAddressesForClients(ctx context.Context) ([]string, error) {
 	clientAddrs, err := s.st.GetAPIAddressesForClients(ctx)
 	if err != nil {
@@ -448,9 +456,26 @@ func (s *Service) GetAPIAddressesByControllerIDForClients(ctx context.Context) (
 	return result, nil
 }
 
-// GetAllCloudLocalAPIAddresses returns cloud-local client IP addresses.
-// It strips the API ports stored in state, returning bare IPv4/IPv6 addresses
-// for consumers such as certificate maintenance.
+// GetAPIAddressesByControllerIDForPeers returns peer API addresses grouped by
+// the controller ID they reach. Publication has already selected and ordered
+// these addresses.
+func (s *Service) GetAPIAddressesByControllerIDForPeers(ctx context.Context) (map[string][]string, error) {
+	addresses, err := s.st.GetAPIAddressesForPeers(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string][]string, len(addresses))
+	for controllerID, addrs := range addresses {
+		result[controllerID] = addrs.Values()
+	}
+	return result, nil
+}
+
+// GetAllCloudLocalAPIAddresses returns cloud-local client IP addresses,
+// including shared endpoints. It strips the API ports stored in state,
+// returning bare IPv4/IPv6 addresses for consumers such as certificate
+// maintenance.
 func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
 	addrs, err := s.st.GetAllCloudLocalAPIAddresses(ctx)
 	if err != nil {
@@ -539,6 +564,19 @@ func (s *WatchableService) WatchControllerClientAddresses(ctx context.Context) (
 		ctx,
 		"controller client addresses watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerClientAddresses(), changestream.All),
+	)
+}
+
+// WatchControllerPeerAddresses returns a watcher that observes changes to the
+// controller peer addresses.
+func (s *WatchableService) WatchControllerPeerAddresses(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"controller peer addresses watcher",
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerPeerAddresses(), changestream.All),
 	)
 }
 
