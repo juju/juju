@@ -155,7 +155,7 @@ UPDATE controller_node SET life_id = 2 WHERE controller_id = '1'`)
 
 	var (
 		lifeID int
-		nodeID sql.NullString
+		nodeID sql.Null[string]
 	)
 	err = s.DB().QueryRowContext(c.Context(), `
 SELECT life_id, dqlite_node_id

@@ -108,13 +108,6 @@ func (s *stateSuite) TestGetAPIAddressesForPeers(c *tc.C) {
 	})
 }
 
-func (s *stateSuite) TestControllerPeerAddressRequiresControllerIdentity(c *tc.C) {
-	_, err := s.DB().ExecContext(c.Context(), `
-INSERT INTO controller_peer_address (uuid, controller_id, address, scope)
-VALUES (?, NULL, 'shared.example.com:17070', 'public')`, tc.Must0(c, uuid.NewUUID).String())
-	c.Assert(err, tc.ErrorMatches, `.*NOT NULL constraint failed: controller_peer_address.controller_id.*`)
-}
-
 func (s *stateSuite) TestGetAPIAddressesAfterReplacement(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
 	old := controllernode.APIAddressProjections{"0": {

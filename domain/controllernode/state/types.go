@@ -44,7 +44,7 @@ type controllerNodeAgentVersion struct {
 	ArchitectureID int    `db:"architecture_id"`
 }
 
-// controllerAddress is a row in a client or agent address projection.
+// controllerAddress is a row in an API address projection returned to callers.
 type controllerAddress struct {
 	UUID         string `db:"uuid"`
 	ControllerID string `db:"controller_id"`
@@ -56,11 +56,11 @@ type controllerAddress struct {
 // publishedControllerAddress is a projection row. A NULL controller ID
 // identifies a shared endpoint.
 type publishedControllerAddress struct {
-	UUID         string         `db:"uuid"`
-	ControllerID sql.NullString `db:"controller_id"`
-	Address      string         `db:"address"`
-	Scope        string         `db:"scope"`
-	Priority     int            `db:"priority"`
+	UUID         string           `db:"uuid"`
+	ControllerID sql.Null[string] `db:"controller_id"`
+	Address      string           `db:"address"`
+	Scope        string           `db:"scope"`
+	Priority     int              `db:"priority"`
 }
 
 // countResult is the database representation of a count result.

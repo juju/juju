@@ -47,6 +47,16 @@ func (s *stateSuite) TestSetAPIAddressesEmptySnapshotClearsAllProjections(c *tc.
 	s.checkAddressProjections(c, controllernode.APIAddressProjections{"0": {}})
 }
 
+func (s *stateSuite) TestSetAPIAddressesEmptySnapshotClearsSharedProjections(c *tc.C) {
+	projections := controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070"}},
+	}}
+	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+	c.Assert(s.setAPIAddresses(c, nil), tc.ErrorIsNil)
+	s.checkAddressProjections(c, nil)
+}
+
 func (s *stateSuite) TestSetAPIAddressesCleansOmittedInactiveController(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "1"), tc.ErrorIsNil)
@@ -76,6 +86,22 @@ func (s *stateSuite) TestSetAPIAddressesRequiresExactActiveMembership(c *tc.C) {
 	s.checkAddressProjections(c, nil)
 }
 
+func (s *stateSuite) TestSetAPIAddressesRequiresDyingControllerMembership(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), "UPDATE controller_node SET life_id = 1 WHERE controller_id = '0'")
+	c.Assert(err, tc.ErrorIsNil)
+
+	projections := controllernode.APIAddressProjections{
+		"0": {Peers: controllernode.APIAddresses{{Address: "controller-0.example.com:17070"}}},
+	}
+	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+	s.checkAddressProjections(c, projections)
+
+	err = s.setAPIAddresses(c, nil)
+	c.Assert(err, tc.ErrorIs, controllernodeerrors.StaleControllerMembership)
+	s.checkAddressProjections(c, projections)
+}
+
 func (s *stateSuite) TestSetAPIAddressesSharedEndpointsDoNotAffectMembership(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
 	projections := controllernode.APIAddressProjections{
@@ -102,7 +128,7 @@ func (s *stateSuite) TestSetAPIAddressesSharedEndpointsWithoutControllers(c *tc.
 	s.checkAddressProjections(c, projections)
 
 	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
-		var controllerID sql.NullString
+		var controllerID sql.Null[string]
 		err := s.DB().QueryRowContext(
 			c.Context(), "SELECT controller_id FROM "+table,
 		).Scan(&controllerID)
@@ -131,6 +157,46 @@ func (s *stateSuite) TestSetAPIAddressesMetadataUpdatePreservesUUID(c *tc.C) {
 	s.checkAddressProjections(c, updated)
 }
 
+func (s *stateSuite) TestSetAPIAddressesSharedMetadataUpdatePreservesUUID(c *tc.C) {
+	original := controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070", Scope: network.ScopeCloudLocal}},
+		Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070", Scope: network.ScopeCloudLocal}},
+	}}
+	c.Assert(s.setAPIAddresses(c, original), tc.ErrorIsNil)
+	clientUUID := s.addressUUID(c, "controller_client_address", "client.example.com:17070")
+	agentUUID := s.addressUUID(c, "controller_agent_address", "agent.example.com:17070")
+
+	updated := controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070", Scope: network.ScopePublic, Priority: 2}},
+		Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070", Scope: network.ScopePublic, Priority: 1}},
+	}}
+	c.Assert(s.setAPIAddresses(c, updated), tc.ErrorIsNil)
+	c.Check(s.addressUUID(c, "controller_client_address", "client.example.com:17070"), tc.Equals, clientUUID)
+	c.Check(s.addressUUID(c, "controller_agent_address", "agent.example.com:17070"), tc.Equals, agentUUID)
+	s.checkAddressProjections(c, updated)
+}
+
+func (s *stateSuite) TestSetAPIAddressesDistinguishesNullAndEmptyControllerID(c *tc.C) {
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO controller_node (controller_id, life_id) VALUES ('', 2);
+INSERT INTO controller_client_address (uuid, controller_id, address, scope)
+VALUES ('old-client', '', 'client.example.com:17070', 'public')`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	projections := controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070", Scope: network.ScopePublic}},
+	}}
+	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+
+	var controllerID sql.Null[string]
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT controller_id
+FROM controller_client_address
+WHERE address = 'client.example.com:17070'`).Scan(&controllerID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(controllerID.Valid, tc.IsFalse)
+}
+
 func (s *stateSuite) TestSetAPIAddressesNoOpMakesNoChanges(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
 	projections := controllernode.APIAddressProjections{"0": {
@@ -142,6 +208,25 @@ func (s *stateSuite) TestSetAPIAddressesNoOpMakesNoChanges(c *tc.C) {
 	_, err := s.DB().ExecContext(c.Context(), "DELETE FROM change_log")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM change_log").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *stateSuite) TestSetAPIAddressesSharedNoOpMakesNoChanges(c *tc.C) {
+	projections := controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070"}},
+	}}
+	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+	_, err := s.DB().ExecContext(c.Context(), "DELETE FROM change_log")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.setAPIAddresses(c, controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070"}},
+	}}), tc.ErrorIsNil)
 
 	var count int
 	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM change_log").Scan(&count)
@@ -165,6 +250,42 @@ END`)
 	}})
 	c.Assert(err, tc.ErrorMatches, ".*peer write failed.*")
 	s.checkAddressProjections(c, nil)
+}
+
+func (s *stateSuite) TestSetAPIAddressesSharedPeerRollsBack(c *tc.C) {
+	err := s.setAPIAddresses(c, controllernode.APIAddressProjections{"": {
+		Clients: controllernode.APIAddresses{{Address: "client.example.com:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070"}},
+		Peers:   controllernode.APIAddresses{{Address: "peer.example.com:17070"}},
+	}})
+	c.Assert(err, tc.ErrorMatches, `.*NOT NULL constraint failed: controller_peer_address.controller_id.*`)
+	s.checkAddressProjections(c, nil)
+}
+
+func (s *stateSuite) TestSetAPIAddressesFailedReplacementRestoresPreviousSnapshot(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	original := controllernode.APIAddressProjections{"0": {
+		Clients: controllernode.APIAddresses{{Address: "old-client.example.com:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "old-agent.example.com:17070"}},
+		Peers:   controllernode.APIAddresses{{Address: "old-peer.example.com:17070"}},
+	}}
+	c.Assert(s.setAPIAddresses(c, original), tc.ErrorIsNil)
+
+	_, err := s.DB().ExecContext(c.Context(), `
+CREATE TRIGGER fail_peer_address BEFORE INSERT ON controller_peer_address
+WHEN NEW.address = 'new-peer.example.com:17070'
+BEGIN
+    SELECT RAISE(ABORT, 'peer write failed');
+END`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.setAPIAddresses(c, controllernode.APIAddressProjections{"0": {
+		Clients: controllernode.APIAddresses{{Address: "new-client.example.com:17070"}},
+		Agents:  controllernode.APIAddresses{{Address: "new-agent.example.com:17070"}},
+		Peers:   controllernode.APIAddresses{{Address: "new-peer.example.com:17070"}},
+	}})
+	c.Assert(err, tc.ErrorMatches, ".*peer write failed.*")
+	s.checkAddressProjections(c, original)
 }
 
 func (s *stateSuite) setAPIAddresses(c *tc.C, projections controllernode.APIAddressProjections) error {
@@ -199,7 +320,7 @@ func (s *stateSuite) checkAddressProjections(c *tc.C, projections controllernode
 		func() {
 			var want []publishedControllerAddress
 			for controllerID, projection := range projections {
-				identity := sql.NullString{String: controllerID, Valid: controllerID != ""}
+				identity := sql.Null[string]{V: controllerID, Valid: controllerID != ""}
 				for _, address := range selectAddresses(projection) {
 					want = append(want, publishedControllerAddress{
 						ControllerID: identity,
@@ -238,4 +359,13 @@ func (s *stateSuite) addressUUIDs(c *tc.C) map[string]string {
 		result[table] = id
 	}
 	return result
+}
+
+func (s *stateSuite) addressUUID(c *tc.C, table, address string) string {
+	var id string
+	err := s.DB().QueryRowContext(
+		c.Context(), "SELECT uuid FROM "+table+" WHERE address = ?", address,
+	).Scan(&id)
+	c.Assert(err, tc.ErrorIsNil)
+	return id
 }

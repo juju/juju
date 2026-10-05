@@ -499,15 +499,15 @@ func reconcileAddressProjection(
 		return errors.Errorf("reading %s: %w", projection, err)
 	}
 	type addressKey struct {
-		controllerID string
+		controllerID sql.Null[string]
 		address      string
 	}
 	desiredByKey := make(map[addressKey]publishedControllerAddress, len(desired))
 	for _, address := range desired {
-		desiredByKey[addressKey{controllerID: address.ControllerID.String, address: address.Address}] = address
+		desiredByKey[addressKey{controllerID: address.ControllerID, address: address.Address}] = address
 	}
 	for _, address := range existing {
-		key := addressKey{controllerID: address.ControllerID.String, address: address.Address}
+		key := addressKey{controllerID: address.ControllerID, address: address.Address}
 		want, ok := desiredByKey[key]
 		if !ok {
 			if err := tx.Query(ctx, removeStmt, address).Run(); err != nil {
@@ -534,7 +534,7 @@ func reconcileAddressProjection(
 
 func encodeAPIAddressProjections(projections controllernode.APIAddressProjections) (clients, agents, peers []publishedControllerAddress) {
 	for controllerID, projection := range projections {
-		identity := sql.NullString{String: controllerID, Valid: controllerID != ""}
+		identity := sql.Null[string]{V: controllerID, Valid: controllerID != ""}
 		clients = append(clients, encodePublishedAddresses(identity, projection.Clients)...)
 		agents = append(agents, encodePublishedAddresses(identity, projection.Agents)...)
 		peers = append(peers, encodePublishedAddresses(identity, projection.Peers)...)
@@ -542,7 +542,7 @@ func encodeAPIAddressProjections(projections controllernode.APIAddressProjection
 	return clients, agents, peers
 }
 
-func encodePublishedAddresses(controllerID sql.NullString, addresses controllernode.APIAddresses) []publishedControllerAddress {
+func encodePublishedAddresses(controllerID sql.Null[string], addresses controllernode.APIAddresses) []publishedControllerAddress {
 	result := make([]publishedControllerAddress, len(addresses))
 	for i, address := range addresses {
 		result[i] = publishedControllerAddress{
