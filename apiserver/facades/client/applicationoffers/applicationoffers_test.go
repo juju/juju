@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
@@ -334,24 +333,67 @@ func (s *offerSuite) TestModifyOfferAccess(c *tc.C) {
 	offerUUID := tc.Must(c, offer.NewUUID)
 	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
 	userTag := names.NewUserTag("simon")
-	updateArgs := access.UpdatePermissionArgs{
-		AccessSpec: permission.AccessSpec{
-			Target: permission.ID{
-				ObjectType: permission.Offer,
-				Key:        offerUUID.String(),
-			},
-			Access: permission.ConsumeAccess,
-		},
-		Change:  permission.Grant,
-		Subject: user.NameFromTag(userTag),
+	updateArgs := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  user.NameFromTag(userTag),
+		OfferUUID: offerUUID.String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
 	}
-	s.accessService.EXPECT().UpdatePermission(gomock.Any(), updateArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().UpdateOfferPermission(gomock.Any(), updateArgs).Return(nil)
 
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{
 			{
 				UserTag:  userTag.String(),
 				Action:   params.GrantOfferAccess,
+				Access:   params.OfferConsumeAccess,
+				OfferURL: offerURL.String(),
+			},
+		},
+	}
+
+	// Act
+	results, err := s.offerAPI(c).ModifyOfferAccess(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
+}
+
+// TestModifyOfferAccessRevoke tests a call to ModifyOfferAccess revoking
+// consume access, which is expected to delegate to the cross model
+// relation service.
+func (s *offerSuite) TestModifyOfferAccessRevoke(c *tc.C) {
+	s.setupMocks(c).Finish()
+
+	// Arrange
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, gomock.Any()).Return(nil)
+
+	authUserTag := names.NewUserTag("admin")
+	s.authorizer.EXPECT().GetAuthTag().Return(authUserTag)
+	modelInfo := model.Model{
+		UUID: tc.Must0(c, model.NewUUID),
+	}
+	qualifier := model.Qualifier(authUserTag.Id())
+	s.modelService.EXPECT().GetModelByNameAndQualifier(gomock.Any(), "model", qualifier).Return(modelInfo, nil)
+
+	offerURL, _ := corecrossmodel.ParseOfferURL("admin/model.application:db")
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.crossModelRelationService.EXPECT().GetOfferUUID(gomock.Any(), offerURL).Return(offerUUID, nil)
+	userTag := names.NewUserTag("simon")
+	updateArgs := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  user.NameFromTag(userTag),
+		OfferUUID: offerUUID.String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Revoke,
+	}
+	s.crossModelRelationService.EXPECT().UpdateOfferPermission(gomock.Any(), updateArgs).Return(nil)
+
+	args := params.ModifyOfferAccessRequest{
+		Changes: []params.ModifyOfferAccess{
+			{
+				UserTag:  userTag.String(),
+				Action:   params.RevokeOfferAccess,
 				Access:   params.OfferConsumeAccess,
 				OfferURL: offerURL.String(),
 			},
@@ -395,18 +437,13 @@ func (s *offerSuite) TestModifyOfferAccessOfferOwner(c *tc.C) {
 
 	// Grant jack consumer permissions on the offer.
 	userTag := names.NewUserTag("jack")
-	updateArgs := access.UpdatePermissionArgs{
-		AccessSpec: permission.AccessSpec{
-			Target: permission.ID{
-				ObjectType: permission.Offer,
-				Key:        offerUUID.String(),
-			},
-			Access: permission.ConsumeAccess,
-		},
-		Change:  permission.Grant,
-		Subject: user.NameFromTag(userTag),
+	updateArgs := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  user.NameFromTag(userTag),
+		OfferUUID: offerUUID.String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
 	}
-	s.accessService.EXPECT().UpdatePermission(gomock.Any(), updateArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().UpdateOfferPermission(gomock.Any(), updateArgs).Return(nil)
 
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{
@@ -448,18 +485,13 @@ func (s *offerSuite) TestModifyOfferAccessModelAdmin(c *tc.C) {
 
 	// Grant jack consumer permissions on the offer.
 	userTag := names.NewUserTag("jack")
-	updateArgs := access.UpdatePermissionArgs{
-		AccessSpec: permission.AccessSpec{
-			Target: permission.ID{
-				ObjectType: permission.Offer,
-				Key:        offerUUID.String(),
-			},
-			Access: permission.ConsumeAccess,
-		},
-		Change:  permission.Grant,
-		Subject: user.NameFromTag(userTag),
+	updateArgs := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  user.NameFromTag(userTag),
+		OfferUUID: offerUUID.String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
 	}
-	s.accessService.EXPECT().UpdatePermission(gomock.Any(), updateArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().UpdateOfferPermission(gomock.Any(), updateArgs).Return(nil)
 
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{
@@ -508,18 +540,13 @@ func (s *offerSuite) TestModifyOfferAccessPermissionDenied(c *tc.C) {
 
 	// Grant jack consumer permissions on the offer.
 	userTag := names.NewUserTag("jack")
-	updateArgs := access.UpdatePermissionArgs{
-		AccessSpec: permission.AccessSpec{
-			Target: permission.ID{
-				ObjectType: permission.Offer,
-				Key:        offerUUID.String(),
-			},
-			Access: permission.ConsumeAccess,
-		},
-		Change:  permission.Grant,
-		Subject: user.NameFromTag(userTag),
+	updateArgs := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  user.NameFromTag(userTag),
+		OfferUUID: offerUUID.String(),
+		Access:    permission.ConsumeAccess,
+		Change:    permission.Grant,
 	}
-	s.accessService.EXPECT().UpdatePermission(gomock.Any(), updateArgs).Return(nil)
+	s.crossModelRelationService.EXPECT().UpdateOfferPermission(gomock.Any(), updateArgs).Return(nil)
 
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{

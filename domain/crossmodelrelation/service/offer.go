@@ -11,7 +11,9 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/crossmodel"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
+	"github.com/juju/juju/core/permission"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/application/charm"
@@ -75,6 +77,14 @@ type ModelOfferState interface {
 	// ValidateApplicationAndEndpointsForOffer checks that the application
 	// exists and is not dead, and that the endpoints are valid.
 	ValidateApplicationAndEndpointsForOffer(ctx context.Context, applicationName string, endpoints []string) (string, error)
+
+	// SuspendOfferConnectionsForUser sets suspended=true on all cross-model
+	// relations that the given username has against the specified offer,
+	// skipping those already suspended.
+	SuspendOfferConnectionsForUser(ctx context.Context, offerUUID string, username string, reason string) error
+
+	// ModelUUID returns the UUID of the model this state represents.
+	ModelUUID() coremodel.UUID
 }
 
 // GetOfferUUID returns the uuid for the provided offer URL.
@@ -400,4 +410,89 @@ func encodeOfferFilterEndpoints(in EndpointFilterTerm) crossmodelrelation.Endpoi
 		Interface: in.Interface,
 		Role:      in.Role,
 	}
+}
+
+// UpdateOfferPermission updates the access permission for the specified
+// user on the given offer. When revoking access that results in
+// below-Consume level, all cross-model relations that the user has
+// against the offer are suspended first, ensuring safety ordering
+// (suspension before permission downgrade).
+//
+// Transactional boundary note: the relation suspension (model DB) and
+// the permission update (controller DB) run in separate transactions
+// with no coordination. If the suspension succeeds but the controller
+// write fails, the user's relations remain suspended while the user
+// retains consume access. The suspend-first ordering is the fail-safe
+// direction, but recovery from this state requires the admin to retry
+// the revoke operation.
+func (s *Service) UpdateOfferPermission(
+	ctx context.Context,
+	args crossmodelrelation.UpdateOfferPermissionArgs,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := args.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if args.Change == permission.Revoke {
+		// When revoking access that would drop below Consume level, suspend all
+		// the user's relations against the offer first.
+		err := s.suspendRelation(ctx, args)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	// The permission UUID is only persisted when the grant creates a new
+	// permission for a user without one on the offer.
+	permissionUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := s.controllerState.UpdateOfferPermission(ctx, permissionUUID.String(), args); err != nil {
+		return errors.Errorf("updating offer permission for %q on %q: %w", args.Username, args.OfferUUID, err)
+	}
+	return nil
+}
+
+// suspendRelation suspends all cross-model relations that the given user has
+// against the specified offer, if the permission change would drop their
+// access below Consume level. Controller and model admins are exempt from
+// suspension because they retain consume access through their implicit admin
+// permissions.
+func (s *Service) suspendRelation(ctx context.Context, args crossmodelrelation.UpdateOfferPermissionArgs) error {
+	spec := permission.AccessSpec{
+		Target: permission.ID{ObjectType: permission.Offer, Key: args.OfferUUID},
+		Access: args.Access,
+	}
+	if spec.RevokeAccess().EqualOrGreaterOfferAccessThan(permission.ConsumeAccess) {
+		return nil
+	}
+
+	isAdmin, err := s.controllerState.IsUserControllerOrModelAdmin(ctx, args.Username, s.modelState.ModelUUID())
+	if err != nil {
+		return errors.Errorf("checking admin status for %q: %w", args.Username, err)
+	}
+	if isAdmin {
+		s.logger.Debugf(ctx,
+			"user %q is a controller or model admin, skipping relation suspension for offer %q",
+			args.Username, args.OfferUUID)
+		return nil
+	}
+
+	// The resulting access drops below Consume, so the user can no longer
+	// consume the offer; suspend their relations against it before the
+	// permission is downgraded.
+	s.logger.Debugf(ctx,
+		"revoking %q access for user %q on offer %q drops below consume, suspending their relations",
+		args.Access, args.Username, args.OfferUUID)
+	if err := s.modelState.SuspendOfferConnectionsForUser(
+		ctx, args.OfferUUID, args.Username.Name(), "offer access revoked",
+	); err != nil {
+		return errors.Errorf("suspending relations for user %q on offer %q: %w", args.Username, args.OfferUUID, err)
+	}
+	return nil
 }
