@@ -561,7 +561,18 @@ func (s *Service) EnterScope(
 // The subordinate unit's storage arguments are made via the IAAS unit
 // storage arguments factory, using the subordinate application and the
 // machine net node of the principal unit that will host the subordinate
-// unit.
+// unit. The factory is optional: services wired without one, such as the
+// migration import service, may enter scope of relations that do not
+// create subordinate units, but return an error if entering scope would
+// create one.
+//
+// The pre-read races with state changes in the reverse direction too: if
+// it returns false but the authoritative in-transaction checks create a
+// subordinate unit anyway, that unit is created with zero-value storage
+// arguments and no storage is provisioned — the behaviour before
+// subordinate storage was supported. This direction is accepted; guarding
+// it would require making the storage arguments inside the relation
+// transaction, nesting transactions.
 func (s *Service) makeSubordinateStorageArgs(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
@@ -574,6 +585,10 @@ func (s *Service) makeSubordinateStorageArgs(
 	}
 	if !createSubordinate {
 		return internal.SubordinateUnitStorageArgs{}, nil
+	}
+	if s.iaasUnitStorageArgs == nil {
+		return internal.SubordinateUnitStorageArgs{}, errors.New(
+			"subordinate unit storage args factory not configured")
 	}
 
 	unitStorageArgs, iaasUnitStorageArgs, err := s.iaasUnitStorageArgs.MakeIAASSubordinateUnitStorageArgs(

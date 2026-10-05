@@ -948,7 +948,7 @@ func (s *Service) MakeIAASSubordinateUnitStorageArgs(
 	if err != nil {
 		return domainstorage.CreateUnitStorageArg{},
 			domainstorage.CreateIAASUnitStorageArg{},
-			errors.Errorf("making IAAS storage arguments for subordinate unit: %w", err)
+			errors.Errorf("making machine storage ownership arguments for subordinate unit: %w", err)
 	}
 
 	return unitStorageArgs, iaasUnitStorageArgs, nil

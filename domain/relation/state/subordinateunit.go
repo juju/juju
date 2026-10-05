@@ -61,25 +61,16 @@ func (st *State) addSubordinateUnit(
 		return empty, nil
 	}
 
-	// The entering unit is the principal unit of the new subordinate unit,
-	// unless the entering unit is itself a subordinate unit. This happens
-	// when two subordinate applications are related to each other in a
-	// container scoped relation. In that case, the new subordinate unit must
-	// be keyed to the principal of the entering unit. Keying it to the
-	// entering unit instead would make the relation-joined hook of the newly
-	// created unit spawn another unit of the other application, and so on
-	// without ever terminating.
-	principalUnitUUID := enteringUnitUUID
-	if principalUUID, found, err := st.getUnitPrincipalUUID(ctx, tx, enteringUnitUUID); err != nil {
-		return empty, errors.Errorf("getting principal unit of entering unit: %w", err)
-	} else if found {
-		principalUnitUUID = principalUUID
-	}
-
-	// Check if there is already a subordinate unit.
-	if exists, err := st.subordinateUnitExists(ctx, tx, subAppUUID, principalUnitUUID); err != nil {
-		return empty, errors.Errorf("checking if subordinate already exists: %w", err)
-	} else if exists {
+	// Resolve the principal unit that will host the new subordinate unit,
+	// the machine it is placed on, and whether a subordinate unit will be
+	// created at all. No subordinate unit is created if one already exists
+	// for the resolved principal.
+	principalUnitUUID, machineIdentifiers, createSubordinate, err := st.subordinateCreationTarget(
+		ctx, tx, subAppUUID, enteringUnitUUID,
+	)
+	if err != nil {
+		return empty, errors.Capture(err)
+	} else if !createSubordinate {
 		return empty, nil
 	}
 
@@ -99,14 +90,6 @@ func (st *State) addSubordinateUnit(
 			"getting subordinate application %q charm uuid: %w",
 			subAppUUID, err,
 		)
-	}
-
-	// Place the subordinate on the same machine as the principal unit.
-	machineIdentifiers, err := st.getUnitMachineIdentifier(
-		ctx, tx, principalUnitUUID,
-	)
-	if err != nil {
-		return empty, errors.Errorf("getting principal unit machine information: %w", err)
 	}
 
 	unitStatus := st.makeIAASUnitStatusArgs()
@@ -166,11 +149,12 @@ func (st *State) makeIAASUnitStatusArgs() application.UnitStatusArg {
 // of the given relation with the given unit would create one. If no
 // subordinate unit would be created, false is returned.
 //
-// The checks mirror those of [State.addSubordinateUnit], the authoritative
-// in-transaction implementation, so that the storage arguments for a new
-// subordinate unit can be made before the unit enters scope. The
-// in-transaction checks win: the storage arguments are only consumed when a
-// subordinate unit is actually created.
+// The checks are shared with [State.addSubordinateUnit], the authoritative
+// in-transaction implementation, via [State.subordinateCreationTarget], so
+// that the storage arguments for a new subordinate unit can be made before
+// the unit enters scope and the two implementations cannot drift apart.
+// The in-transaction checks win: the storage arguments are only consumed
+// when a subordinate unit is actually created.
 //
 // The following errors may be expected:
 //   - [relationerrors.RelationNotFound] if the relation does not exist.
@@ -178,6 +162,10 @@ func (st *State) makeIAASUnitStatusArgs() application.UnitStatusArg {
 //     unit already exists, but is not alive.
 //   - [applicationerrors.UnitNotFound] if the unit entering scope does not
 //     exist.
+//   - [applicationerrors.ApplicationIsDead] if the related subordinate
+//     application is dead.
+//   - [applicationerrors.ApplicationNotAlive] if the related subordinate
+//     application is dying.
 //   - [applicationerrors.UnitMachineNotAssigned] if the principal unit is
 //     not assigned to a machine.
 func (st *State) GetSubordinateUnitCreationInfo(
@@ -237,30 +225,18 @@ WHERE  name = $getUnit.name
 			return nil
 		}
 
-		// The entering unit is the principal unit of the new subordinate
-		// unit, unless the entering unit is itself a subordinate unit.
-		principalUnitUUID := unitArgs.UUID.String()
-		if principalUUID, found, err := st.getUnitPrincipalUUID(ctx, tx, unitArgs.UUID.String()); err != nil {
-			return errors.Errorf("getting principal unit of entering unit: %w", err)
-		} else if found {
-			principalUnitUUID = principalUUID
-		}
-
-		// Check if there is already a subordinate unit for the principal
-		// unit. If there is, no new subordinate unit will be created.
-		if exists, err := st.subordinateUnitExists(ctx, tx, subAppUUID, principalUnitUUID); err != nil {
-			return errors.Errorf("checking if subordinate already exists: %w", err)
-		} else if exists {
-			return nil
-		}
-
-		// The subordinate unit is placed on the same machine as the principal
-		// unit, and its storage is attached to the machine's net node.
-		machineIdentifiers, err := st.getUnitMachineIdentifier(
-			ctx, tx, principalUnitUUID,
+		// Resolve the principal unit that would host a new subordinate
+		// unit, the machine it would be placed on, and whether one would
+		// be created at all. The checks are shared with
+		// [State.addSubordinateUnit] so the pre-read cannot drift from the
+		// in-transaction implementation.
+		_, machineIdentifiers, wouldCreateSubordinate, err := st.subordinateCreationTarget(
+			ctx, tx, subAppUUID, unitArgs.UUID.String(),
 		)
 		if err != nil {
-			return errors.Errorf("getting principal unit machine information: %w", err)
+			return errors.Capture(err)
+		} else if !wouldCreateSubordinate {
+			return nil
 		}
 
 		info = internal.SubordinateUnitCreationInfo{
@@ -274,6 +250,65 @@ WHERE  name = $getUnit.name
 		return internal.SubordinateUnitCreationInfo{}, false, errors.Capture(err)
 	}
 	return info, createSubordinate, nil
+}
+
+// subordinateCreationTarget returns the UUID of the principal unit that a
+// new subordinate unit of the given application would be attached to, the
+// identifiers of the machine it would be placed on, and true, if entering
+// scope with the given unit would create the subordinate unit. False is
+// returned if a subordinate unit of the application already exists for the
+// resolved principal, in which case no new subordinate unit is created.
+//
+// The entering unit is the principal unit of the new subordinate unit,
+// unless the entering unit is itself a subordinate unit. This happens
+// when two subordinate applications are related to each other in a
+// container scoped relation. In that case, the new subordinate unit must
+// be keyed to the principal of the entering unit. Keying it to the
+// entering unit instead would make the relation-joined hook of the newly
+// created unit spawn another unit of the other application, and so on
+// without ever terminating.
+//
+// The subordinate unit is placed on the same machine as the principal
+// unit, and its storage is attached to the machine's net node.
+//
+// This check sequence is shared by [State.addSubordinateUnit], the
+// authoritative in-transaction implementation, and
+// [State.GetSubordinateUnitCreationInfo], the pre-read used to make the
+// storage arguments before entering scope, so the two cannot drift apart.
+//
+// The following errors may be expected:
+//   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate
+//     unit already exists, but is not alive.
+//   - [applicationerrors.UnitMachineNotAssigned] if the principal unit is
+//     not assigned to a machine.
+func (st *State) subordinateCreationTarget(
+	ctx context.Context,
+	tx *sqlair.TX,
+	subAppUUID, enteringUnitUUID string,
+) (string, machineIdentifier, bool, error) {
+	principalUnitUUID := enteringUnitUUID
+	if principalUUID, found, err := st.getUnitPrincipalUUID(ctx, tx, enteringUnitUUID); err != nil {
+		return "", machineIdentifier{}, false, errors.Errorf("getting principal unit of entering unit: %w", err)
+	} else if found {
+		principalUnitUUID = principalUUID
+	}
+
+	// Check if there is already a subordinate unit for the principal unit.
+	// If there is, no new subordinate unit will be created.
+	if exists, err := st.subordinateUnitExists(ctx, tx, subAppUUID, principalUnitUUID); err != nil {
+		return "", machineIdentifier{}, false, errors.Errorf("checking if subordinate already exists: %w", err)
+	} else if exists {
+		return "", machineIdentifier{}, false, nil
+	}
+
+	machineIdentifiers, err := st.getUnitMachineIdentifier(
+		ctx, tx, principalUnitUUID,
+	)
+	if err != nil {
+		return "", machineIdentifier{}, false, errors.Errorf("getting principal unit machine information: %w", err)
+	}
+
+	return principalUnitUUID, machineIdentifiers, true, nil
 }
 
 // getUnitMachineIdentifier gets the identifiers of the machine that a unit is

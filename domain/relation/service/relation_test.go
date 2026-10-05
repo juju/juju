@@ -895,6 +895,41 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateStorageArgsError
 	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
+// TestEnterScopeCreatingSubordinateNilStorageArgsFactory tests that a
+// service wired without an IAAS unit storage args factory returns a
+// descriptive error when entering scope would create a subordinate unit,
+// instead of panicking with a nil interface dereference. Services wired
+// without a factory may still enter scope of relations that do not create
+// subordinate units.
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNilStorageArgsFactory(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange. A service wired without a storage args factory.
+	svc := NewService(s.state, nil, s.statusHistory, loggertesting.WrapCheckLog(c))
+
+	relationUUID := corerelationtesting.GenRelationUUID(c)
+	unitName := coreunittesting.GenNewName(c, "app1/0")
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	creationInfo := internal.SubordinateUnitCreationInfo{
+		SubordinateApplicationUUID: appUUID,
+		MachineNetNodeUUID:         machineNetNodeUUID,
+	}
+	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
+		Return(creationInfo, true, nil)
+
+	// Act.
+	err := svc.EnterScope(
+		c.Context(),
+		relationUUID,
+		unitName,
+		map[string]string{},
+	)
+
+	// Assert.
+	c.Assert(err, tc.ErrorMatches, "subordinate unit storage args factory not configured")
+}
+
 // TestEnterScopeCreatingSubordinateCreationInfoError tests that an error
 // getting the subordinate unit creation info is returned when entering
 // scope.

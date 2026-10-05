@@ -277,17 +277,7 @@ func (s *ModelServices) BlockDevice() *blockdeviceservice.WatchableService {
 // Application returns the model's application service.
 func (s *ModelServices) Application() *applicationservice.WatchableService {
 	logger := s.logger.Child("application")
-	state := applicationstate.NewState(
-		changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, logger,
-	)
-
-	storageSvc := applicationstorageservice.NewService(
-		state,
-		applicationstorageservice.NewStoragePoolProvider(
-			s.storageRegistry, state,
-		),
-		logger,
-	)
+	state, storageSvc := s.applicationStateAndStorageService(logger)
 
 	return applicationservice.NewWatchableService(
 		state,
@@ -582,12 +572,7 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 	// application domain when a unit enters scope of a container scoped
 	// relation. The storage service is used to make the storage arguments
 	// for the new subordinate unit.
-	appState := applicationstate.NewState(factory, s.modelUUID, s.clock, log)
-	storageSvc := applicationstorageservice.NewService(
-		appState,
-		applicationstorageservice.NewStoragePoolProvider(s.storageRegistry, appState),
-		log,
-	)
+	_, storageSvc := s.applicationStateAndStorageService(log)
 
 	return relationservice.NewWatchableService(
 		relationstate.NewState(factory, s.clock, log, unitState),
@@ -597,6 +582,26 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 		domain.NewStatusHistory(log, s.clock),
 		log,
 	)
+}
+
+// applicationStateAndStorageService returns the application state and the
+// application storage service for the current model. Both the application
+// domain, which provisions storage for its own units, and the relation
+// domain, which makes the storage arguments for the subordinate units it
+// creates on behalf of the application domain, share this construction so
+// the two wirings cannot drift apart.
+func (s *ModelServices) applicationStateAndStorageService(
+	logger logger.Logger,
+) (*applicationstate.State, *applicationstorageservice.Service) {
+	state := applicationstate.NewState(
+		changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, logger,
+	)
+	storageSvc := applicationstorageservice.NewService(
+		state,
+		applicationstorageservice.NewStoragePoolProvider(s.storageRegistry, state),
+		logger,
+	)
+	return state, storageSvc
 }
 
 // Removal returns the service for working
