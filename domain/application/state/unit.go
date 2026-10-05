@@ -1318,8 +1318,9 @@ SELECT &storageDirective.* FROM (
 }
 
 // UpdateUnitCharm updates the currently running charm marker for the given
-// unit, creates new storage instances required, and deletes unit storage
-// directives for the old charm.
+// unit, removes resources that do not belong to the new charm, creates new
+// storage instances required, and deletes unit storage directives for the old
+// charm.
 // The following errors may be returned:
 // - [applicationerrors.UnitNotFound] if the unit does not exist.
 // - [applicationerrors.UnitIsDead] if the unit is dead.
@@ -1348,6 +1349,20 @@ WHERE  u.uuid = $unitUUID.uuid
 UPDATE unit
 SET    charm_uuid = $charmUUID.charm_uuid
 WHERE  uuid = $unitUUID.uuid
+`, unitUUID, targetCharmUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteOldCharmUnitResourcesStmt, err := st.Prepare(`
+DELETE FROM unit_resource
+WHERE unit_resource.unit_uuid = $unitUUID.uuid
+AND NOT EXISTS (
+    SELECT 1
+    FROM   resource AS r
+    WHERE  r.uuid = unit_resource.resource_uuid
+    AND    r.charm_uuid = $charmUUID.charm_uuid
+)
 `, unitUUID, targetCharmUUID)
 	if err != nil {
 		return errors.Capture(err)
@@ -1392,6 +1407,16 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			return errors.Errorf(
 				"updating unit %q charm to %q: %w",
 				arg.UUID, arg.CharmUUID, err,
+			)
+		}
+
+		// Remove resources which do not belong to the unit's new charm.
+		err = tx.Query(
+			ctx, deleteOldCharmUnitResourcesStmt, unitUUID, targetCharmUUID,
+		).Run()
+		if err != nil {
+			return errors.Errorf(
+				"deleting removed resources for unit %q: %w", arg.UUID, err,
 			)
 		}
 

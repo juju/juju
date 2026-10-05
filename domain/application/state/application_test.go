@@ -611,7 +611,7 @@ WHERE charm_uuid=?`, charmUUID)
 			}
 			foundCharmResources = append(foundCharmResources, res)
 		}
-		return nil
+		return rows.Err()
 	})
 	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
 		foundAppAvailableResources = nil
@@ -636,7 +636,7 @@ AND state = 'available'`, appUUID)
 			}
 			foundAppAvailableResources = append(foundAppAvailableResources, res)
 		}
-		return nil
+		return rows.Err()
 	})
 
 	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
@@ -662,7 +662,7 @@ AND state = 'potential'`, appUUID)
 			}
 			foundAppPotentialResources = append(foundAppPotentialResources, res)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Check(foundCharmResources, tc.SameContents, slices.Collect(maps.Values(charmResources)),
 		tc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
@@ -763,7 +763,7 @@ WHERE charm_uuid=?`, charmUUID)
 			}
 			foundCharmResources = append(foundCharmResources, res)
 		}
-		return nil
+		return rows.Err()
 	})
 	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
 		foundAppAvailableResources = nil
@@ -785,7 +785,7 @@ AND state = 'available'`, appUUID)
 			}
 			foundAppAvailableResources = append(foundAppAvailableResources, res)
 		}
-		return nil
+		return rows.Err()
 	})
 
 	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
@@ -807,7 +807,7 @@ AND state = 'potential'`, appUUID)
 			}
 			foundAppPotentialResources = append(foundAppPotentialResources, res)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Check(foundCharmResources, tc.SameContents, slices.Collect(maps.Values(charmResources)),
 		tc.Commentf("(Assert) mismatch between charm resources and inserted resources"))
@@ -1618,9 +1618,9 @@ func (s *applicationStateSuite) TestGetApplicationUUIDByUnitName(c *tc.C) {
 	c.Check(obtainedAppUUID, tc.Equals, expectedAppUUID)
 }
 
-func (s *applicationStateSuite) TestGetApplicationUUIDByUnitNameUnitUnitNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationUUIDByUnitName(c.Context(), "failme")
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+func (s *applicationStateSuite) TestGetApplicationUUIDByUnitNameUnitNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationUUIDByUnitName(c.Context(), "foo/99")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {
@@ -3587,6 +3587,9 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 			}
 			constraintZones = append(constraintZones, zone)
 		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
 
 		row := tx.QueryRowContext(ctx, "SELECT arch, cpu_cores, cpu_power, mem, root_disk, root_disk_source, instance_role, instance_type, container_type_id, virt_type, allocate_public_ip, image_id FROM \"constraint\" WHERE uuid=?", constraintUUID)
 		err = row.Err()
@@ -4524,7 +4527,7 @@ ORDER BY r.relation_id
 			row.status = deptr(statusName)
 			peerRelations = append(peerRelations, row)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
 

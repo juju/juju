@@ -1440,3 +1440,29 @@ type unitLifeWithCharm struct {
 	LifeID    int    `db:"life_id"`
 	CharmUUID string `db:"charm_uuid"`
 }
+
+type resourceReconciliation struct {
+	ApplicationUUID string `db:"application_uuid"`
+	ResourceUUID    string `db:"resource_uuid"`
+	OldResourceUUID string `db:"old_resource_uuid"`
+	CharmUUID       string `db:"charm_uuid"`
+	Name            string `db:"charm_resource_name"`
+	KindID          int    `db:"kind_id"`
+}
+
+type charmResourceIdentity struct {
+	CharmUUID string `db:"charm_uuid"`
+	Name      string `db:"name"`
+	KindID    int    `db:"kind_id"`
+}
+
+type replacement struct {
+	ApplicationUUID string    `db:"application_uuid"`
+	OldUUID         string    `db:"old_uuid"`
+	NewUUID         string    `db:"new_uuid"`
+	CharmUUID       string    `db:"charm_uuid"`
+	Name            string    `db:"charm_resource_name"`
+	OldKindID       int       `db:"old_kind_id"`
+	NewKindID       int       `db:"new_kind_id"`
+	CreatedAt       time.Time `db:"created_at"`
+}

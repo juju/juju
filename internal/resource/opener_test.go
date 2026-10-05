@@ -195,6 +195,106 @@ func (s *OpenerSuite) TestOpenUnitResource(c *tc.C) {
 	})
 }
 
+func (s *OpenerSuite) TestOpenUnitResourceFallsBackToSelectedUnitResource(c *tc.C) {
+	defer s.setupMocks(c, false).Finish()
+
+	resourceUUID := tc.Must(c, coreresource.NewUUID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitName := tc.Must1(c, coreunit.NewName, "postgresql/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	res := coreresource.Resource{
+		ID: resourceUUID.String(),
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{Name: "removed-resource"},
+		},
+	}
+
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(appUUID, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(
+		gomock.Any(), unitName.Application(),
+	).Return(charm.Origin{Source: charm.CharmHub}, nil)
+	s.resourceService.EXPECT().GetApplicationResourceID(
+		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
+			ApplicationUUID: appUUID,
+			Name:            "removed-resource",
+		},
+	).Return(coreresource.UUID(""), resourceerrors.ResourceNotFound)
+	s.resourceService.EXPECT().GetUnitResourceID(
+		gomock.Any(), domainresource.GetUnitResourceIDArgs{
+			UnitName: unitName,
+			Name:     "removed-resource",
+		},
+	).Return(resourceUUID, nil)
+	s.resourceService.EXPECT().OpenResource(
+		gomock.Any(), resourceUUID,
+	).Return(res, io.NopCloser(bytes.NewBufferString("resource data")), nil)
+
+	opener, err := NewResourceOpenerForUnit(
+		c.Context(),
+		ResourceOpenerArgs{
+			ResourceService:      s.resourceService,
+			ApplicationService:   s.applicationService,
+			CharmhubClientGetter: s.resourceClientGetter,
+		},
+		func() ResourceDownloadLock { return noopDownloadResourceLocker{} },
+		unitName,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	opened, err := opener.OpenResource(c.Context(), "removed-resource")
+	c.Assert(err, tc.ErrorIsNil)
+	defer opened.Close()
+	c.Check(opened.ID, tc.Equals, resourceUUID.String())
+}
+
+func (s *OpenerSuite) TestOpenUnitResourceFallbackErrorNamesUnit(c *tc.C) {
+	defer s.setupMocks(c, false).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitName := tc.Must1(c, coreunit.NewName, "postgresql/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	expectedErr := errors.New("boom")
+
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(appUUID, nil)
+	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.applicationService.EXPECT().GetApplicationCharmOrigin(
+		gomock.Any(), unitName.Application(),
+	).Return(charm.Origin{Source: charm.CharmHub}, nil)
+	s.resourceService.EXPECT().GetApplicationResourceID(
+		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
+			ApplicationUUID: appUUID,
+			Name:            "removed-resource",
+		},
+	).Return(coreresource.UUID(""), resourceerrors.ResourceNotFound)
+	s.resourceService.EXPECT().GetUnitResourceID(
+		gomock.Any(), domainresource.GetUnitResourceIDArgs{
+			UnitName: unitName,
+			Name:     "removed-resource",
+		},
+	).Return(coreresource.UUID(""), expectedErr)
+
+	opener, err := NewResourceOpenerForUnit(
+		c.Context(),
+		ResourceOpenerArgs{
+			ResourceService:      s.resourceService,
+			ApplicationService:   s.applicationService,
+			CharmhubClientGetter: s.resourceClientGetter,
+		},
+		func() ResourceDownloadLock { return noopDownloadResourceLocker{} },
+		unitName,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = opener.OpenResource(c.Context(), "removed-resource")
+	c.Check(err, tc.ErrorMatches, `getting UUID of resource removed-resource for unit postgresql/0: boom`)
+	c.Assert(err, tc.ErrorIs, expectedErr)
+}
+
 // TestOpenUnitResourceCacheMiss tests that when a unit requests a resource and
 // it is not available from the local controller cache (cache miss) it is
 // downloaded from charmhub.

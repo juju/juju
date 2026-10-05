@@ -1575,9 +1575,10 @@ type UnitResolved struct {
 }
 
 type UnitResource struct {
-	ResourceUUID string    `db:"resource_uuid" json:"resource_uuid" yaml:"resource_uuid"`
-	UnitUUID     string    `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
-	AddedAt      time.Time `db:"added_at" json:"added_at" yaml:"added_at"`
+	ResourceUUID      string    `db:"resource_uuid" json:"resource_uuid" yaml:"resource_uuid"`
+	UnitUUID          string    `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
+	CharmResourceName string    `db:"charm_resource_name" json:"charm_resource_name" yaml:"charm_resource_name"`
+	AddedAt           time.Time `db:"added_at" json:"added_at" yaml:"added_at"`
 }
 
 type UnitState struct {

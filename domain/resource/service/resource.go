@@ -54,6 +54,10 @@ type State interface {
 	// specified by natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
+	// GetUnitResourceID returns the ID of the resource selected by a unit for a
+	// logical resource name.
+	GetUnitResourceID(ctx context.Context, unitName, resourceName string) (coreresource.UUID, error)
+
 	// GetResourceUUIDByApplicationAndResourceName returns the UUID of the
 	// application resource specified by natural key of application and resource
 	// name.
@@ -111,12 +115,13 @@ type State interface {
 		applicationID coreapplication.UUID,
 	) ([]coreresource.Resource, error)
 
-	// GetResourceType finds the type of the given resource from the resource table.
+	// GetResourceStorageKey returns the key used to retrieve the resource's
+	// content from its resource store.
 	//
 	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
-	//     found.
-	GetResourceType(ctx context.Context, resourceUUID coreresource.UUID) (charmresource.Type, error)
+	//   - [resourceerrors.StoredResourceNotFound] if the resource has no stored
+	//     content.
+	GetResourceStorageKey(ctx context.Context, resourceUUID coreresource.UUID) (string, error)
 
 	// RecordStoredResource records a stored resource along with who retrieved
 	// it.
@@ -138,30 +143,17 @@ type State interface {
 	SetUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitUUID coreunit.UUID) error
 
 	// SetRepositoryResources sets the "polled" resource for the
-	// application to the provided values. The current data for this
-	// application/resource combination will be overwritten.
-	SetRepositoryResources(ctx context.Context, config resource.SetRepositoryResourcesArgs) error
+	// application to the provided values. A changed revision or charm creates
+	// an immutable replacement; only last-polled time is updated in place.
+	SetRepositoryResources(ctx context.Context, config resource.StateSetRepositoryResourcesArgs) error
 
-	// UpdateResourceRevisionAndDeletePriorVersion deletes a reference to the
-	// old stored blob. It adds a new row in the resource table with a Store
-	// origin and new revision which indicates the resource will be updated.
-	// Next, it sets it on the application_resource table, removing the old
-	// resource for this charm resource. Lastly the charm modified version is
-	// updated to enable the resource upgrade.
-	UpdateResourceRevisionAndDeletePriorVersion(
-		ctx context.Context,
-		arg resource.UpdateResourceRevisionArgs,
-		resType charmresource.Type,
-	) (coreresource.UUID, error)
-
-	// UpdateUploadResourceAndDeletePriorVersion deletes a reference to the old
-	// stored blob. Adds a new row in the resource table which indicates the
-	// resource will be updated. Next, it sets it on the application_resource
-	// table, removing the old resource for this charm resource.
-	UpdateUploadResourceAndDeletePriorVersion(
+	// UpdateUploadResource creates and selects an immutable replacement for an
+	// uploaded resource. The previous resource and its stored content are
+	// retained.
+	UpdateUploadResource(
 		ctx context.Context,
 		arg resource.StateUpdateUploadResourceArgs,
-	) (coreresource.UUID, error)
+	) error
 
 	// ImportResources sets resources imported in migration. It first builds all the
 	// resources to insert from the arguments, then inserts them at the end so as to
@@ -270,6 +262,28 @@ func (s *Service) GetApplicationResourceID(
 		return "", resourceerrors.ResourceNameNotValid
 	}
 	return s.st.GetApplicationResourceID(ctx, args)
+}
+
+// GetUnitResourceID returns the ID of the resource selected by a unit for a
+// logical resource name.
+//
+// The following error types can be expected to be returned:
+//   - [resourceerrors.ResourceNameNotValid] if no resource name is provided.
+//   - [coreunit.InvalidUnitName] if the unit name is not valid.
+//   - [applicationerrors.UnitNotFound] if the unit does not exist.
+//   - [resourceerrors.ResourceNotFound] if the unit has no resource with the
+//     supplied name.
+func (s *Service) GetUnitResourceID(
+	ctx context.Context,
+	args resource.GetUnitResourceIDArgs,
+) (coreresource.UUID, error) {
+	if err := args.UnitName.Validate(); err != nil {
+		return "", errors.Errorf("unit name: %w", err)
+	}
+	if args.Name == "" {
+		return "", resourceerrors.ResourceNameNotValid
+	}
+	return s.st.GetUnitResourceID(ctx, args.UnitName.String(), args.Name)
 }
 
 // GetResourceUUIDByApplicationAndResourceName returns the ID of the application
@@ -548,7 +562,7 @@ func (s *Service) OpenResource(
 		return coreresource.Resource{}, nil, errors.Errorf("resource id: %w", err)
 	}
 
-	res, err := s.st.GetResource(ctx, resourceUUID)
+	res, err := s.st.GetResourceWithoutApplication(ctx, resourceUUID)
 	if err != nil {
 		return coreresource.Resource{}, nil, err
 	}
@@ -558,10 +572,12 @@ func (s *Service) OpenResource(
 		return coreresource.Resource{}, nil, errors.Errorf("getting resource store for %s: %w", res.Type.String(), err)
 	}
 
-	// TODO(aflynn): ideally this would be finding the resource via the
-	// resources storageID, however the object store does not currently have a
-	// method for this.
-	reader, size, err := store.Get(ctx, resourceUUID.String())
+	storageKey, err := s.st.GetResourceStorageKey(ctx, resourceUUID)
+	if err != nil {
+		return coreresource.Resource{}, nil, errors.Capture(err)
+	}
+
+	reader, size, err := store.Get(ctx, storageKey)
 	if errors.Is(err, objectstoreerrors.ObjectNotFound) ||
 		errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
 		return coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound
@@ -605,6 +621,7 @@ func (s *Service) SetUnitResource(
 
 // SetRepositoryResources updates the last available revision of resources
 // from charm repository for a specific application.
+// Updates are last-write-wins; callers must submit them in polling order.
 //
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationUUIDNotValid] is returned if the
@@ -636,13 +653,24 @@ func (s *Service) SetRepositoryResources(
 	if args.LastPolled.IsZero() {
 		return errors.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
 	}
-	return s.st.SetRepositoryResources(ctx, args)
+	replacementUUIDs := make(map[string]string, len(args.Info))
+	for _, info := range args.Info {
+		replacementUUID, err := coreresource.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		replacementUUIDs[info.Name] = replacementUUID.String()
+	}
+	return s.st.SetRepositoryResources(ctx, resource.StateSetRepositoryResourcesArgs{
+		SetRepositoryResourcesArgs: args,
+		ReplacementUUIDs:           replacementUUIDs,
+	})
 }
 
-// AddResourcesBeforeApplication adds the details of which resource
-// revision to use before the application exists in the model. The
-// charm and resource metadata must exist. These resources are resolved
-// when the application is created using the returned Resource UUIDs.
+// AddResourcesBeforeApplication stages the resource revisions to use before an
+// application is created or its charm is changed. The charm and resource
+// metadata must exist. The resources are activated by the application
+// operation using the returned UUIDs.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ArgumentNotValid] is returned if the origin is store and
@@ -676,53 +704,10 @@ func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resourc
 	return resourceUUIDs, nil
 }
 
-// UpdateResourceRevision updates the revision of a store resource to a new
-// version. Increments charm modified version for the application to
-// trigger use of the new resource revision by the application. To allow for
-// a resource upgrade, the current resource blob is removed.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is
-//     not valid.
-//   - [resourceerrors.ArgumentNotValid] is returned if the Revision is less
-//     than 0.
-func (s *Service) UpdateResourceRevision(
-	ctx context.Context,
-	arg resource.UpdateResourceRevisionArgs,
-) (coreresource.UUID, error) {
-	if err := arg.ResourceUUID.Validate(); err != nil {
-		return "", errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
-	}
-
-	if arg.Revision < 0 {
-		return "", errors.Errorf("revision less than 0: %w", resourceerrors.ArgumentNotValid)
-	}
-
-	resType, err := s.st.GetResourceType(ctx, arg.ResourceUUID)
-	if err != nil {
-		return "", err
-	}
-
-	newUUID, err := s.st.UpdateResourceRevisionAndDeletePriorVersion(
-		ctx,
-		resource.UpdateResourceRevisionArgs{
-			ResourceUUID: arg.ResourceUUID,
-			Revision:     arg.Revision,
-		},
-		resType,
-	)
-	if err != nil {
-		return "", err
-	}
-	if err = s.removeDroppedResourceFromStore(ctx, arg.ResourceUUID, resType); err != nil {
-		return "", err
-	}
-	return newUUID, err
-}
-
 // UpdateUploadResource adds a new entry for an uploaded blob in the resource
-// table with the desired parameters and sets it on the application. Any previous
-// resource blob is removed. The new resource UUID is returned.
+// table with the desired parameters and sets it on the application. The prior
+// immutable resource and its stored content are retained. The new resource UUID
+// is returned.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is not valid.
@@ -734,45 +719,20 @@ func (s *Service) UpdateUploadResource(
 		return "", errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
 	}
 
-	resType, err := s.st.GetResourceType(ctx, resourceToUpdate)
+	newResourceUUID, err := coreresource.NewUUID()
 	if err != nil {
-		return "", err
+		return "", errors.Capture(err)
 	}
 
 	stateArgs := resource.StateUpdateUploadResourceArgs{
-		ResourceType: resType,
-		ResourceUUID: resourceToUpdate,
+		ResourceUUID:    resourceToUpdate.String(),
+		NewResourceUUID: newResourceUUID.String(),
 	}
-	newResourceUUID, err := s.st.UpdateUploadResourceAndDeletePriorVersion(ctx, stateArgs)
+	err = s.st.UpdateUploadResource(ctx, stateArgs)
 	if err != nil {
 		return "", err
 	}
-
-	if err = s.removeDroppedResourceFromStore(ctx, resourceToUpdate, resType); err != nil {
-		return "", err
-	}
-	return newResourceUUID, err
-}
-
-// removeDroppedResourceFromStore removes the resource blob from its resource
-// store. If the blob does not exist then this is a no-op.
-func (s *Service) removeDroppedResourceFromStore(
-	ctx context.Context,
-	resourceUUID coreresource.UUID,
-	resType charmresource.Type,
-) error {
-	store, err := s.resourceStoreGetter.GetResourceStore(ctx, resType)
-	if err != nil {
-		return errors.Errorf("getting resource store for %s: %w", resType.String(), err)
-	}
-
-	err = store.Remove(ctx, resourceUUID.String())
-	if err != nil &&
-		!errors.Is(err, objectstoreerrors.ObjectNotFound) &&
-		!errors.Is(err, containerimageresourcestoreerrors.ContainerImageMetadataNotFound) {
-		s.logger.Errorf(ctx, "failed to remove resource with ID %s from the store", resourceUUID)
-	}
-	return nil
+	return newResourceUUID, nil
 }
 
 // DeleteResourcesAddedBeforeApplication removes all resources for the

@@ -258,7 +258,7 @@ WHERE charm_uuid=?`, charmUUID)
 			}
 			foundCharmStorage = append(foundCharmStorage, stor)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -280,7 +280,7 @@ WHERE application_uuid = ? AND charm_uuid = ?`, appUUID, charmUUID)
 			}
 			foundAppStorage = append(foundAppStorage, stor)
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(foundCharmStorage, tc.SameContents, chStorage)
