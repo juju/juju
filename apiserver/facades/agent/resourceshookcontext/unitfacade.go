@@ -105,8 +105,7 @@ func (uf *UnitFacade) listResources(ctx context.Context) ([]resource.Resource, e
 // GetResourceInfo returns the resource info for each of the given
 // resource names (for the implicit application). If any one is missing then
 // the corresponding result is set with errors.NotFound.
-func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.
-	UnitResourcesResult, error) {
+func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.UnitResourcesResult, error) {
 	var r params.UnitResourcesResult
 	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 
@@ -117,10 +116,13 @@ func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitR
 
 	foundResources, err := uf.listResources(ctx)
 	if err != nil {
-		if errors.Is(err, applicationerrors.UnitNotFound) {
+		switch {
+		case errors.Is(err, applicationerrors.UnitNotFound):
 			err = jujuerrors.NotFoundf("unit %q", uf.unitName)
-		} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		case errors.Is(err, applicationerrors.ApplicationNotFound):
 			err = jujuerrors.NotFoundf("application %q", uf.applicationName)
+		default:
+			err = errors.Errorf("cannot list resources: %w", err)
 		}
 		r.Error = apiservererrors.ServerError(err)
 		return r, nil
@@ -138,22 +140,19 @@ func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitR
 		}
 
 		res, err = uf.getUnitResource(ctx, name)
-		if errors.Is(err, applicationerrors.UnitNotFound) {
+		switch {
+		case errors.Is(err, applicationerrors.UnitNotFound):
 			r.Error = apiservererrors.ServerError(
 				jujuerrors.NotFoundf("unit %q", uf.unitName),
 			)
-			return r, nil
-		} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		case errors.Is(err, applicationerrors.ApplicationNotFound):
 			r.Error = apiservererrors.ServerError(
 				jujuerrors.NotFoundf("application %q", uf.applicationName),
 			)
-			return r, nil
-		} else if errors.Is(err, resourceerrors.ResourceNotFound) {
+		case errors.Is(err, resourceerrors.ResourceNotFound):
 			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
-			continue
-		} else if err != nil {
+		default:
 			r.Resources[i].Error = apiservererrors.ServerError(err)
-			continue
 		}
 
 		r.Resources[i].Resource = resources.Resource2API(res)

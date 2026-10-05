@@ -50,6 +50,10 @@ func (st *State) createApplicationResources(
 	return st.insertResources(ctx, tx, args)
 }
 
+// reconcileApplicationResourcesForCharm reconciles the resources for an
+// application when the charm is changed. It ensures that the resources are
+// updated, added, or removed as necessary to match the new charm's resource
+// definitions.
 func (st *State) reconcileApplicationResourcesForCharm(
 	ctx context.Context,
 	tx *sqlair.TX,

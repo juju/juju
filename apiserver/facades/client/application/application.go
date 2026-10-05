@@ -705,7 +705,7 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 		for name, id := range args.ResourceIDs {
 			resourceUUID, err := coreresource.ParseUUID(id)
 			if err != nil {
-				return errors.Annotatef(err, "invalid resource ID for %q", name)
+				return errors.Annotatef(err, "invalid resource ID for %q: %s", name, id)
 			}
 			resourceIDs[name] = resourceUUID
 		}

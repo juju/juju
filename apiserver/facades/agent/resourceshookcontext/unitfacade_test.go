@@ -157,7 +157,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoGetApplicationUUIDError(c *tc.C) {
 	}
 
 	// Act
-	result, err := facade.GetResourceInfo(nil, params.ListUnitResourcesArgs{ResourceNames: []string{"a-resource"}})
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{ResourceNames: []string{"a-resource"}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -245,7 +245,7 @@ func (s *unitFacadeSuite) TestGetResourceInfoEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) unexpected error: %v", err))
 
 	// Act
-	result, err := facade.GetResourceInfo(nil, params.ListUnitResourcesArgs{})
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -266,10 +266,10 @@ func (s *unitFacadeSuite) TestGetResourceInfoListResourceError(c *tc.C) {
 	facade, err := NewUnitFacade(tag,
 		s.applicationService,
 		s.resourceService)
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrang) unexpected error: %v", err))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) unexpected error: %v", err))
 
 	// Act
-	result, err := facade.GetResourceInfo(nil, params.ListUnitResourcesArgs{ResourceNames: []string{"a-resource"}})
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{ResourceNames: []string{"a-resource"}})
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) unexpected error: %v", err))
@@ -309,7 +309,7 @@ func (s *unitFacadeSuite) TestGetResourceInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrang) unexpected error: %v", err))
 
 	// Act
-	result, err := facade.GetResourceInfo(nil,
+	result, err := facade.GetResourceInfo(c.Context(),
 		params.ListUnitResourcesArgs{ResourceNames: []string{
 			"not-found-resource",
 			"fetched-resource-2",
