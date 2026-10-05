@@ -85,12 +85,12 @@ func (s *ProviderService) DevicesToBridge(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, spaceUUIDs, nics, err := s.spacesAndDevicesForMachine(ctx, guestUUID, hostUUID)
+	_, spaces, nics, err := s.spacesAndDevicesForMachine(ctx, guestUUID, hostUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	return s.devicesToBridge(ctx, hostUUID, spaceUUIDs, nics)
+	return s.devicesToBridge(ctx, hostUUID, spaces, nics)
 }
 
 // NetworkConfigForGuest returns the network configuration to apply to the
@@ -118,7 +118,7 @@ func (s *ProviderService) NetworkConfigForGuest(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	nodeUUID, spaceUUIDs, nics, err := s.spacesAndDevicesForMachine(ctx, guestUUID, hostUUID)
+	nodeUUID, spaces, nics, err := s.spacesAndDevicesForMachine(ctx, guestUUID, hostUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -137,7 +137,7 @@ func (s *ProviderService) NetworkConfigForGuest(
 		configMethod = corenetwork.ConfigStatic
 	}
 
-	devices, err := s.guestDevices(ctx, hostUUID, nodeUUID, spaceUUIDs, nics, isLocal, configMethod)
+	devices, err := s.guestDevices(ctx, hostUUID, nodeUUID, spaces, nics, isLocal, configMethod)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -235,13 +235,13 @@ func toInterfaceInfos(netInterfaces []network.NetInterface) corenetwork.Interfac
 }
 
 // spacesAndDevicesForMachine returns the net node UUID of the host machine,
-// the guest's positive space requirement UUIDs in sorted name order, and the
-// host's devices indexed by space. The ordering of the returned space UUIDs
+// the guest's positive space requirements in sorted name order, and the
+// host's devices indexed by space UUID. The ordering of the returned spaces
 // is relied upon by guestDevices for deterministic device naming and
 // default-bridge deduplication.
 func (s *Service) spacesAndDevicesForMachine(
 	ctx context.Context, guestUUID, hostUUID machine.UUID,
-) (string, []string, map[string][]network.NetInterface, error) {
+) (string, []internal.SpaceName, map[string][]network.NetInterface, error) {
 	if err := hostUUID.Validate(); err != nil {
 		return "", nil, nil, errors.Errorf("invalid host machine UUID: %w", err)
 	}
@@ -254,10 +254,8 @@ func (s *Service) spacesAndDevicesForMachine(
 		return "", nil, nil, errors.Capture(err)
 	}
 
-	spaceUUIDs := make([]string, len(spaces))
 	spaceNames := make([]string, len(spaces))
 	for i, space := range spaces {
-		spaceUUIDs[i] = space.UUID
 		spaceNames[i] = space.Name
 	}
 
@@ -274,7 +272,7 @@ func (s *Service) spacesAndDevicesForMachine(
 	}
 
 	s.logger.Debugf(ctx, "devices by space for host machine %q: %#v", hostUUID, nics)
-	return hostNodeUUID, spaceUUIDs, nics, nil
+	return hostNodeUUID, spaces, nics, nil
 }
 
 // spaceRequirementsForMachine returns UUID-to-name for the *positive*
@@ -328,9 +326,9 @@ func (s *Service) spaceRequirementsForMachine(
 
 func (s *ProviderService) devicesToBridge(
 	ctx context.Context, mUUID machine.UUID,
-	spaceUUIDs []string, nics map[string][]network.NetInterface,
+	spaces []internal.SpaceName, nics map[string][]network.NetInterface,
 ) ([]network.DeviceToBridge, error) {
-	isLocal, err := s.isLocalContainerNetworking(ctx)
+	isLocal, _, err := s.containerNetworking(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -344,15 +342,18 @@ func (s *ProviderService) devicesToBridge(
 		}
 	}
 
-	spacesLeftToSatisfy := set.NewStrings(spaceUUIDs...)
+	spacesLeftToSatisfy := set.NewStrings()
+	for _, space := range spaces {
+		spacesLeftToSatisfy.Add(space.Name)
+	}
 	var toBridge []network.DeviceToBridge
 
 	// Iterate the required spaces in sorted order, so that the selected
 	// devices to bridge are reported deterministically.
-	for _, spaceUUID := range spaceUUIDs {
-		spaceNics := nics[spaceUUID]
+	for _, space := range spaces {
+		spaceNics := nics[space.UUID]
 
-		s.logger.Debugf(ctx, "looking for devices in space %q", spaceUUID)
+		s.logger.Debugf(ctx, "looking for devices in space %q", space.Name)
 
 		// Check all bridges first.
 		// If any of these satisfy the space requirement, no action is required.
@@ -366,7 +367,7 @@ func (s *ProviderService) devicesToBridge(
 			}
 			return nic.Name != internalNetwork.DefaultLXDBridge
 		}) {
-			spacesLeftToSatisfy.Remove(spaceUUID)
+			spacesLeftToSatisfy.Remove(space.Name)
 			continue
 		}
 
@@ -393,7 +394,7 @@ func (s *ProviderService) devicesToBridge(
 					MACAddress: *nic.MACAddress,
 				})
 
-				spacesLeftToSatisfy.Remove(spaceUUID)
+				spacesLeftToSatisfy.Remove(space.Name)
 				break
 			}
 		}
@@ -454,38 +455,17 @@ func findParent(parentName string, nics map[string][]network.NetInterface) *netw
 	return nil
 }
 
-// isLocalContainerNetworking reports whether the effective container
-// networking method for the model is local. "local" and "provider" are
-// used as configured, while the unset "auto" value is resolved against
-// the model's provider: local unless it supports allocating container
-// addresses. Explicitly configured values never consult the provider.
-// See containerNetworking for the variant that also reports the provider's
-// capability.
-func (s *ProviderService) isLocalContainerNetworking(ctx context.Context) (bool, error) {
-	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	method, err := containermanager.ResolveNetworkingMethodWithCapability(
-		modelconfig.ContainerNetworkingMethod(netMethod),
-		func() (bool, error) { return s.supportsContainerAddresses(ctx) },
-	)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	return method == containermanager.NetworkingMethodLocal, nil
-}
-
 // containerNetworking resolves the effective container networking method for
 // the model, reporting whether it is local, and whether the model's provider
 // supports allocating container addresses.
+// The configured value is validated before the provider is consulted, so a
+// value other than "local", "provider" or "auto" is reported as NotValid
+// regardless of provider availability.
 // The provider capability is consulted at most once, and only when it is
-// needed: the unset "auto" value resolves against it, and the "provider"
-// value needs it to decide whether addresses are allocated by the provider.
-// An explicitly configured "local" value does not depend on the provider, so
-// it is never consulted in that case. See isLocalContainerNetworking for the
-// lazy variant used when only the local/provider decision is required.
+// needed: the unset "auto" value resolves against it, and the explicitly
+// configured "provider" value needs it to decide whether addresses are
+// allocated by the provider. An explicitly configured "local" value does not
+// depend on the provider, so it is never consulted in that case.
 func (s *ProviderService) containerNetworking(ctx context.Context) (bool, bool, error) {
 	netMethod, err := s.st.GetContainerNetworkingMethod(ctx)
 	if err != nil {
@@ -493,19 +473,30 @@ func (s *ProviderService) containerNetworking(ctx context.Context) (bool, bool, 
 	}
 
 	method := modelconfig.ContainerNetworkingMethod(netMethod)
+	resolved, err := containermanager.ResolveNetworkingMethodWithCapability(
+		method,
+		func() (bool, error) { return s.supportsContainerAddresses(ctx) },
+	)
+	if err != nil {
+		return false, false, errors.Capture(err)
+	}
+	isLocal := resolved == containermanager.NetworkingMethodLocal
+
 	var supportsAddresses bool
-	if method != modelconfig.ContainerNetworkingMethodLocal {
+	switch {
+	case method == modelconfig.ContainerNetworkingMethodProvider:
+		// The capability decides whether the provider allocates addresses.
 		supportsAddresses, err = s.supportsContainerAddresses(ctx)
 		if err != nil {
 			return false, false, errors.Capture(err)
 		}
+	case method == modelconfig.ContainerNetworkingMethodAuto && !isLocal:
+		// "auto" only resolves to provider networking when the provider
+		// supports allocating addresses, which has already been determined.
+		supportsAddresses = true
 	}
 
-	resolved, err := containermanager.ResolveNetworkingMethod(method, supportsAddresses)
-	if err != nil {
-		return false, false, errors.Capture(err)
-	}
-	return resolved == containermanager.NetworkingMethodLocal, supportsAddresses, nil
+	return isLocal, supportsAddresses, nil
 }
 
 // supportsContainerAddresses reports whether the model's provider
@@ -574,7 +565,7 @@ func (s *ProviderService) guestDevices(
 	ctx context.Context,
 	mUUID machine.UUID,
 	nodeUUID string,
-	spaceUUIDs []string,
+	spaces []internal.SpaceName,
 	nics map[string][]network.NetInterface,
 	isLocal bool,
 	configMethod corenetwork.AddressConfigType,
@@ -601,8 +592,8 @@ func (s *ProviderService) guestDevices(
 	// deterministic order, and so that spaces without observed devices can
 	// still be satisfied by the default LXD bridge when using local
 	// networking.
-	for _, spaceUUID := range spaceUUIDs {
-		spaceNics := nics[spaceUUID]
+	for _, space := range spaces {
+		spaceNics := nics[space.UUID]
 		if len(spaceNics) == 0 && !isLocal {
 			// Without local networking, spaces for which the host has no
 			// observed devices are not considered. With local networking,
@@ -611,7 +602,7 @@ func (s *ProviderService) guestDevices(
 			continue
 		}
 
-		s.logger.Debugf(ctx, "looking for bridges in space %q", spaceUUID)
+		s.logger.Debugf(ctx, "looking for bridges in space %q", space.Name)
 
 		var bridgeToUse *network.NetInterface
 		fromLocalBridge := false
@@ -626,7 +617,7 @@ func (s *ProviderService) guestDevices(
 			if !lxdBridgeObserved {
 				return nil, errors.Errorf(
 					"no bridge found in space %q for machine %q; the default LXD bridge %q has not been observed",
-					spaceUUID, mUUID, internalNetwork.DefaultLXDBridge,
+					space.Name, mUUID, internalNetwork.DefaultLXDBridge,
 				).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 			}
 			bridgeToUse = &lxdBridge
@@ -635,7 +626,7 @@ func (s *ProviderService) guestDevices(
 
 		if bridgeToUse == nil {
 			return nil, errors.Errorf(
-				"no bridge found in space %q for machine %q", spaceUUID, mUUID,
+				"no bridge found in space %q for machine %q", space.Name, mUUID,
 			).Add(domainerrors.SpaceRequirementsUnsatisfiable)
 		}
 
@@ -647,7 +638,7 @@ func (s *ProviderService) guestDevices(
 				// The device parented to the default LXD bridge satisfies
 				// the requirements of this space too.
 				s.logger.Debugf(ctx, "space %q for machine %q satisfied by the existing device on default LXD bridge %q",
-					spaceUUID, mUUID, bridgeToUse.Name)
+					space.Name, mUUID, bridgeToUse.Name)
 				continue
 			}
 			lxdBridgeUsed = true
@@ -657,10 +648,10 @@ func (s *ProviderService) guestDevices(
 			// The fallback was used, so no bridge was observed in the
 			// space itself: "found" would be misleading here.
 			s.logger.Debugf(ctx, "using default LXD bridge %q for space %q for machine %q; no in-space bridge observed",
-				bridgeToUse.Name, spaceUUID, mUUID)
+				bridgeToUse.Name, space.Name, mUUID)
 		} else {
 			s.logger.Debugf(ctx, "found bridge %q in space %q for machine %q",
-				bridgeToUse.Name, spaceUUID, mUUID)
+				bridgeToUse.Name, space.Name, mUUID)
 		}
 
 		newDev := network.NetInterface{
@@ -690,10 +681,10 @@ func (s *ProviderService) guestDevices(
 				ConfigType: corenetwork.ConfigDHCP,
 			}}
 		} else {
-			cidr, err := s.st.GetSubnetCIDRForDevice(ctx, nodeUUID, bridgeToUse.Name, spaceUUID)
+			cidr, err := s.st.GetSubnetCIDRForDevice(ctx, nodeUUID, bridgeToUse.Name, space.UUID)
 			if err != nil {
 				return nil, errors.Errorf(
-					"retrieving CIDR for device %q in space %q on machine %q: %w", bridgeToUse.Name, spaceUUID, mUUID, err)
+					"retrieving CIDR for device %q in space %q on machine %q: %w", bridgeToUse.Name, space.Name, mUUID, err)
 			}
 
 			newDev.Addrs = []network.NetAddr{{

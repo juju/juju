@@ -91,6 +91,11 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfiedByBridge(c *tc.C) 
 		}},
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+	// DevicesToBridge resolves the method via the single containerNetworking
+	// entry point, which consults the provider capability for the explicitly
+	// configured "provider" value, although the result is not needed to
+	// determine the devices to bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -121,6 +126,11 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsSatisfiedByOVS(c *tc.C) {
 		}},
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+	// DevicesToBridge resolves the method via the single containerNetworking
+	// entry point, which consults the provider capability for the explicitly
+	// configured "provider" value, although the result is not needed to
+	// determine the devices to bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -146,6 +156,11 @@ func (s *containerSuite) TestDevicesToBridgeSpaceReqsUnsatisfiable(c *tc.C) {
 	// accommodate the guest space requirements.
 	exp.NICsInSpaces(c.Context(), s.nodeUUID).Return(nil, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+	// DevicesToBridge resolves the method via the single containerNetworking
+	// entry point, which consults the provider capability for the explicitly
+	// configured "provider" value, although the result is not needed to
+	// determine the devices to bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
@@ -189,6 +204,11 @@ func (s *containerSuite) TestDevicesToBridgeDeviceSatisfiesSpaces(c *tc.C) {
 		},
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+	// DevicesToBridge resolves the method via the single containerNetworking
+	// entry point, which consults the provider capability for the explicitly
+	// configured "provider" value, although the result is not needed to
+	// determine the devices to bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -241,6 +261,11 @@ func (s *containerSuite) TestDevicesToBridgeMultipleReqsMultipleDevsSatisfySpace
 		}},
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+	// DevicesToBridge resolves the method via the single containerNetworking
+	// entry point, which consults the provider capability for the explicitly
+	// configured "provider" value, although the result is not needed to
+	// determine the devices to bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	nics, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -277,6 +302,11 @@ func (s *containerSuite) TestDevicesToBridgeLocalBridgeReqsUnsatisfiable(c *tc.C
 		}},
 	}, nil)
 	exp.GetContainerNetworkingMethod(c.Context()).Return(containermanager.NetworkingMethodProvider.String(), nil)
+	// DevicesToBridge resolves the method via the single containerNetworking
+	// entry point, which consults the provider capability for the explicitly
+	// configured "provider" value, although the result is not needed to
+	// determine the devices to bridge.
+	s.providerWithNetworking.EXPECT().SupportsContainerAddresses().Return(false)
 
 	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
@@ -410,8 +440,9 @@ func (s *containerSuite) TestDevicesToBridgeLocalMethodMixedInSpaceAndUnsatisfia
 
 	_, err := s.svc.DevicesToBridge(c.Context(), s.hostUUID, s.guestUUID)
 	c.Assert(err, tc.ErrorIs, errors.SpaceRequirementsUnsatisfiable)
-	c.Check(err, tc.ErrorMatches, ".*space\\(s\\) \\[beta-space-uuid\\]")
-	c.Check(err, tc.Not(tc.ErrorMatches), ".*alpha-space-uuid.*")
+	c.Check(err, tc.ErrorMatches, ".*space\\(s\\) \\[beta-space\\]")
+	// Space requirements are named, not referred to by UUID.
+	c.Check(err, tc.Not(tc.ErrorMatches), ".*space-uuid.*")
 }
 
 func (s *containerSuite) TestDevicesToBridgeLocalMethodNegativeConstraintNotEnforced(c *tc.C) {
@@ -902,7 +933,7 @@ func (s *containerSuite) TestNetworkConfigForGuestSubnetCIDRLookupError(c *tc.C)
 
 	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Assert(err, tc.ErrorMatches,
-		`retrieving CIDR for device "br-eth0" in space "positive-space-uuid" on machine ".*": lookup failed`)
+		`retrieving CIDR for device "br-eth0" in space "positive-space" on machine ".*": lookup failed`)
 }
 
 func (s *containerSuite) TestNetworkConfigForGuestLocalMethodDefaultBridgeNoSpace(c *tc.C) {
@@ -1310,6 +1341,24 @@ func (s *containerSuite) TestNetworkConfigForGuestNetworkingMethodError(c *tc.C)
 
 	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
 	c.Check(err, tc.ErrorIs, methodErr)
+}
+
+// TestNetworkConfigForGuestNetworkingMethodNotValid ensures an unknown raw
+// model config value is rejected as NotValid before the provider is
+// consulted, so a bogus value is reported as such even when the provider
+// is unavailable.
+func (s *containerSuite) TestNetworkConfigForGuestNetworkingMethodNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.setupServiceAndMachines(c)
+
+	// There are deliberately no expectations for the provider's capability:
+	// unexpected calls fail the test. The configured value is validated
+	// before the provider is consulted.
+	s.expectContainerNetworking(c, nil, nil, "bogus")
+
+	_, err := s.svc.NetworkConfigForGuest(c.Context(), s.hostUUID, s.guestUUID, s.guestName)
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 // TestNetworkConfigForGuestAutoMethodNoContainerAddressSupport covers the
