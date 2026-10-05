@@ -164,9 +164,10 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 	// CodeHasAssignedUnits or CodeMachineHasAttachedStorage respectively.
 	// Once units or storage are removed, the watcher will trigger again
 	// and we'll reattempt.  If the machine has containers, EnsureDead will
-	// fail with CodeMachineHasContainers.  The watcher triggers again once
-	// the last child machine is removed, but fail and let the machiner
-	// restart and retry anyway, so progress does not depend on it.
+	// fail with CodeMachineHasContainers.  The watcher triggers again
+	// once the last child machine is removed, but we return the error
+	// and let the machiner restart and retry anyway, so progress does
+	// not depend on the watcher alone.
 	if err := mr.machine.EnsureDead(ctx); err != nil {
 		if params.IsCodeHasAssignedUnits(err) {
 			logger.Tracef(ctx, "machine still has units")

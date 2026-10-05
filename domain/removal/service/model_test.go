@@ -36,7 +36,8 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	destroyStorage := true
 
 	when := time.Now()
-	s.clock.EXPECT().Now().Return(when)
+	// One call schedules the model job, one the machine job.
+	s.clock.EXPECT().Now().Return(when).Times(2)
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -53,11 +54,14 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
-	// We don't want to create all the machine, unit, relation and application
+	// Machines are scheduled directly, without an existence check: the
+	// removal job executor handles machines that no longer exist.
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil)
+
+	// We don't want to create all the unit, relation and application
 	// expectations here, so we'll assume that the
-	// machine/unit/relation/application no longer exists, to prevent this test
-	// from depending on the machine/unit/relation/application removal logic.
-	mExp.MachineExists(gomock.Any(), "some-machine-id").Return(false, nil)
+	// unit/relation/application no longer exists, to prevent this test
+	// from depending on the unit/relation/application removal logic.
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(false, nil)
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(false, nil)
@@ -101,8 +105,6 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil).Times(2)
 
-	mExp.MachineExists(gomock.Any(), "some-machine-id").Return(true, nil).Times(2)
-	mExp.EnsureMachineNotAliveCascade(gomock.Any(), "some-machine-id", false).Return(removalinternal.CascadedMachineLives{}, nil).Times(2)
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil).Times(2)
 
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(true, nil).Times(2)
@@ -158,9 +160,6 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", true, when.UTC()).Return(nil)
 
-	mExp.MachineExists(gomock.Any(), "some-machine-id").Return(true, nil).Times(2)
-	mExp.EnsureMachineNotAliveCascade(gomock.Any(), "some-machine-id", false).Return(removalinternal.CascadedMachineLives{}, nil)
-	mExp.EnsureMachineNotAliveCascade(gomock.Any(), "some-machine-id", true).Return(removalinternal.CascadedMachineLives{}, nil)
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil)
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", true, when.UTC()).Return(nil)
 
@@ -201,7 +200,8 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	destroyStorage := true
 
 	when := time.Now()
-	s.clock.EXPECT().Now().Return(when)
+	// One call schedules the model job, one the machine job.
+	s.clock.EXPECT().Now().Return(when).Times(2)
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -218,11 +218,14 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC()).Return(nil)
 
-	// We don't want to create all the machine, unit, relation and application
+	// Machines are scheduled directly, without an existence check: the
+	// removal job executor handles machines that no longer exist.
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", true, when.UTC()).Return(nil)
+
+	// We don't want to create all the unit, relation and application
 	// expectations here, so we'll assume that the
-	// machine/unit/relation/application no longer exists, to prevent this test
-	// from depending on the machine/unit/relation/application removal logic.
-	mExp.MachineExists(gomock.Any(), "some-machine-id").Return(false, nil)
+	// unit/relation/application no longer exists, to prevent this test
+	// from depending on the unit/relation/application removal logic.
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(false, nil)
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(false, nil)
@@ -279,6 +282,93 @@ func (s *modelSuite) TestRemoveModelForceWaitSuccess(c *tc.C) {
 
 	// The forced removal scheduled after the wait duration.
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, time.Minute, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+// TestRemoveModelSchedulesMachineJobsForOccupiedHosts is a regression
+// test for models hosting containers: the machines returned by the
+// model removal cascade include occupied container hosts, which
+// [Service.RemoveMachine] refuses without force
+// (MachineHasContainers / MachineHasUnits). Routing the cascade
+// machines through RemoveMachine dropped those failures without a
+// retry, leaving the hosts with no removal job forever and stalling
+// the model removal, since a machine row is only ever deleted by a
+// machine removal job. The machines of the model cascade must
+// therefore be scheduled directly: no EnsureMachineNotAliveCascade
+// call is expected here, an unexpected call would fail this test.
+func (s *modelSuite) TestRemoveModelSchedulesMachineJobsForOccupiedHosts(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
+
+	when := time.Now()
+	// One call schedules the model job, one the host job and one the
+	// container job.
+	s.clock.EXPECT().Now().Return(when).Times(3)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
+		// The host machine is occupied: it hosts the container machine.
+		// Its job reconciles the host's dependents, and the jobs of
+		// those dependents delete them first.
+		MachineUUIDs: []string{"host-machine-id", "container-machine-id"},
+	}, nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+
+	// A job is scheduled for every machine of the model, the occupied
+	// container host included.
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "host-machine-id", false, when.UTC()).Return(nil)
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "container-machine-id", false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+// TestRemoveModelForceWaitSchedulesMachineJobsImmediatelyAndAfterWait
+// ensures that a forced model removal with a wait duration schedules
+// every machine twice: a normal removal job scheduled immediately, and
+// a forced one scheduled after the wait duration, mirroring the
+// qualification that [Service.RemoveMachine] applies.
+func (s *modelSuite) TestRemoveModelForceWaitSchedulesMachineJobsImmediatelyAndAfterWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
+
+	when := time.Now()
+	// The model job is scheduled twice, and so is the machine job.
+	s.clock.EXPECT().Now().Return(when).Times(4)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), true).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
+		MachineUUIDs: []string{"some-machine-id"},
+	}, nil)
+
+	// The first normal removal scheduled immediately.
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	// The forced removal scheduled after the wait duration.
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// The machine jobs follow the same pattern.
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil)
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", true, when.UTC().Add(time.Minute)).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, time.Minute, &destroyStorage)
 	c.Assert(err, tc.ErrorIsNil)

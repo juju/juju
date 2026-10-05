@@ -114,6 +114,49 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 	s.checkApplicationLife(c, artifacts.ApplicationUUIDs[0], life.Dying)
 }
 
+// TestEnsureModelNotAliveCascadeContainerHosts ensures that the model
+// removal cascade advances the life of every machine of the model,
+// container hosts included, and returns them all as artifacts. Unlike
+// [State.EnsureMachineNotAliveCascade], which refuses occupied hosts
+// without force, the model cascade owns every entity underneath it:
+// every machine returned here is scheduled for removal by the service
+// layer, and the machine removal jobs reconcile the machines'
+// dependents themselves.
+func (s *modelSuite) TestEnsureModelNotAliveCascadeContainerHosts(c *tc.C) {
+	s.createMachine(c, machine.Name("0"))
+	s.createMachine(c, machine.Name("0/lxd/0"))
+
+	machineUUIDFromName := func(name machine.Name) string {
+		var mUUID string
+		err := s.DB().QueryRowContext(
+			c.Context(), "SELECT uuid FROM machine WHERE name = ?", name,
+		).Scan(&mUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		return mUUID
+	}
+	hostUUID := machineUUIDFromName("0")
+	containerUUID := machineUUIDFromName("0/lxd/0")
+
+	_, err := s.DB().Exec(`
+INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
+	`, containerUUID, hostUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	modelUUID := s.getModelUUID(c)
+	destroyStorage := true
+
+	artifacts, err := st.EnsureModelNotAliveCascade(c.Context(), modelUUID, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(artifacts.MachineUUIDs, tc.SameContents, []string{hostUUID, containerUUID})
+
+	// Both the container host and the container advance to dying, so
+	// that every machine can be scheduled for removal.
+	s.checkMachineLife(c, hostUUID, life.Dying)
+	s.checkMachineLife(c, containerUUID, life.Dying)
+}
+
 func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
 	svc := s.setupApplicationService(c)
 
