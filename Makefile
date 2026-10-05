@@ -3,10 +3,7 @@ help:
 	@echo "Usage: \n"
 	@sed -n 's/^## //p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
-# Export this first, incase we want to change it in the included makefiles.
 export CGO_ENABLED=0
-
-include scripts/dqlite/Makefile
 
 #
 # Makefile for juju-core.
@@ -221,12 +218,10 @@ endif
 ifdef DEBUG_JUJU
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
     LINK_FLAGS = $(COVER_LINK_FLAGS) "$(link_flags_version)"
-    CGO_LINK_FLAGS = $(COVER_CGO_LINK_FLAGS) "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
     DYNAMIC_CGO_LINK_FLAGS = $(COVER_CGO_LINK_FLAGS) "$(link_flags_version)"
 else
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
     LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
-    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
     DYNAMIC_CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w $(link_flags_version)"
 endif
 
@@ -259,58 +254,14 @@ define run_go_build
 			-v ${PACKAGE}
 endef
 
-define run_cgo_build
-	$(eval OS = $(word 1,$(subst _, ,$*)))
-	$(eval ARCH = $(word 2,$(subst _, ,$*)))
-	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
-	@@mkdir -p ${BBIN_DIR}
-	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
-		CGO_ENABLED=1 \
-		GOOS=${OS} \
-		GOARCH=${BUILD_ARCH} \
-		go build \
-			-mod=$(JUJU_GOMOD_MODE) \
-			-tags=$(FINAL_BUILD_TAGS) \
-			-o ${BBIN_DIR} \
-			${COMPILE_FLAGS} \
-			-ldflags ${CGO_LINK_FLAGS} \
-			-v ${PACKAGE}
-endef
-
 define run_go_install
 	@echo "Installing ${PACKAGE}"
 	@env CGO_ENABLED=0 \
 		go install \
-		-mod=$(JUJU_GOMOD_MODE) \
-		-tags=$(FINAL_BUILD_TAGS) \
-		$(COMPILE_FLAGS) \
-		-ldflags $(LINK_FLAGS) \
-		-v ${PACKAGE}
-endef
-
-define run_cgo_install
-	@echo "Installing ${PACKAGE}"
-	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
-		CGO_ENABLED=1 \
-		GOOS=${GOOS} \
-		GOARCH=${GOARCH} \
-		go install \
 			-mod=$(JUJU_GOMOD_MODE) \
 			-tags=$(FINAL_BUILD_TAGS) \
-			${COMPILE_FLAGS} \
-			-ldflags ${CGO_LINK_FLAGS} \
+			$(COMPILE_FLAGS) \
+			-ldflags $(LINK_FLAGS) \
 			-v ${PACKAGE}
 endef
 
@@ -387,12 +338,11 @@ jujud:
 	${run_dynamic_cgo_install}
 
 .PHONY: dqlite-repl
-dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite/cmd
+dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite-repl
 dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
 dqlite-repl:
 ## dqlite-repl: Install the dqlite-repl developer tool (requires install-dqlite-dependencies)
 	${run_dynamic_cgo_install}
-		mv $(GO_INSTALL_PATH)/cmd $(GO_INSTALL_PATH)/dqlite-repl
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent

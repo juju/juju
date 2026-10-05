@@ -64,7 +64,7 @@ jobs:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/build.yml'
-              - 'scripts/dqlite/**'
+              - 'scripts/dqlite-repl/**'
               - 'Makefile'
               - 'make_functions.sh'
             check-client:
@@ -77,7 +77,7 @@ jobs:
               - '.github/workflows/build.yml'
               - '.github/workflows/unit-tests.yml'
               - '.github/workflows/context-tests.yml'
-              - 'scripts/dqlite/**'
+              - 'scripts/dqlite-repl/**'
               - 'Makefile'
               - 'make_functions.sh'
             check-migrate:
@@ -85,7 +85,7 @@ jobs:
               - 'go.mod'
               - 'snaps/**'
               - '.github/workflows/migrate.yml'
-              - 'scripts/dqlite/**'
+              - 'scripts/dqlite-repl/**'
               - 'Makefile'
               - 'make_functions.sh'
             check-upgrade:
@@ -94,7 +94,7 @@ jobs:
               - 'snaps/**'
               - '.github/workflows/upgrade.yml'
               - '.github/setup-lxd/**'
-              - 'scripts/dqlite/**'
+              - 'scripts/dqlite-repl/**'
               - 'Makefile'
               - 'make_functions.sh'
             check-snap:
@@ -102,7 +102,7 @@ jobs:
               - 'go.mod'
               - 'snaps/**'
               - '.github/workflows/snap.yml'
-              - 'scripts/dqlite/**'
+              - 'scripts/dqlite-repl/**'
               - 'Makefile'
               - 'make_functions.sh'
             check-terraform:
