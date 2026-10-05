@@ -11,6 +11,7 @@ package migrationtarget_test
 
 import (
 	context "context"
+	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
 	cloud "github.com/juju/juju/cloud"
@@ -287,11 +288,12 @@ type MockModelMigrationService struct {
 
 // MockModelMigrationServiceMockRecorder is the mock recorder for MockModelMigrationService.
 type MockModelMigrationServiceMockRecorder struct {
-	mock                      *MockModelMigrationService
-	activateImportExpects     []*gomock.Call1_1[context.Context, error]
-	adoptResourcesExpects     []*gomock.Call2_1[context.Context, semversion.Number, error]
-	checkMachinesExpects      []*gomock.Call1_2[context.Context, []modelmigration.MigrationMachineDiscrepancy, error]
-	modelMigrationModeExpects []*gomock.Call1_2[context.Context, modelmigration.MigrationMode, error]
+	mock                       *MockModelMigrationService
+	activateImportExpects      []*gomock.Call1_1[context.Context, error]
+	adoptResourcesExpects      []*gomock.Call2_1[context.Context, semversion.Number, error]
+	checkMachinesExpects       []*gomock.Call1_2[context.Context, []modelmigration.MigrationMachineDiscrepancy, error]
+	lastLogTransferTimeExpects []*gomock.Call1_2[context.Context, time.Time, error]
+	modelMigrationModeExpects  []*gomock.Call1_2[context.Context, modelmigration.MigrationMode, error]
 }
 
 // NewMockModelMigrationService creates a new mock instance.
@@ -359,6 +361,24 @@ func (mr *MockModelMigrationServiceMockRecorder) CheckMachines(arg0 any) *MockMo
 
 // MockModelMigrationServiceCheckMachinesCall is the typed call wrapper for CheckMachines.
 type MockModelMigrationServiceCheckMachinesCall = gomock.Call1_2[context.Context, []modelmigration.MigrationMachineDiscrepancy, error]
+
+// LastLogTransferTime mocks base method.
+func (m *MockModelMigrationService) LastLogTransferTime(ctx context.Context) (time.Time, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.lastLogTransferTimeExpects, m.ctrl, m, "LastLogTransferTime", ctx)
+}
+
+// LastLogTransferTime indicates an expected call of LastLogTransferTime.
+func (mr *MockModelMigrationServiceMockRecorder) LastLogTransferTime(ctx any) *MockModelMigrationServiceLastLogTransferTimeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, time.Time, error](mr.mock.ctrl.T, mr.mock, "LastLogTransferTime", gomock.EnsureMatcher(ctx))
+	mr.lastLogTransferTimeExpects = append(mr.lastLogTransferTimeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelMigrationServiceLastLogTransferTimeCall is the typed call wrapper for LastLogTransferTime.
+type MockModelMigrationServiceLastLogTransferTimeCall = gomock.Call1_2[context.Context, time.Time, error]
 
 // ModelMigrationMode mocks base method.
 func (m *MockModelMigrationService) ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error) {

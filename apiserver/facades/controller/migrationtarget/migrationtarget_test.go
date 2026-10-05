@@ -95,7 +95,7 @@ func (s *Suite) importModel(c *tc.C, api *migrationtarget.API) names.ModelTag {
 func (s *Suite) TestCACert(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	r, err := api.CACert(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(r.Result), tc.Equals, jujutesting.CACert)
@@ -106,7 +106,7 @@ func (s *Suite) TestPrechecks(c *tc.C) {
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
@@ -123,7 +123,7 @@ func (s *Suite) TestPrechecksIsUpgrading(c *tc.C) {
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
@@ -144,7 +144,7 @@ func (s *Suite) TestPrechecksFail(c *tc.C) {
 	modelVersion := controllerVersion
 	modelVersion.Minor++
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
 		AgentVersion: modelVersion,
 	}
@@ -197,7 +197,7 @@ func (s *Suite) TestImport(c *tc.C) {
 
 	s.expectImportModel(c)
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	_ = s.importModel(c, api)
 	// Check the model was imported.
 	//model, ph, err := s.StatePool.GetModel(tag.Id())
@@ -215,7 +215,7 @@ func (s *Suite) TestAbort(c *tc.C) {
 	s.expectImportModel(c)
 	s.removalService.EXPECT().RemoveMigratingModel(gomock.Any(), gomock.Any()).Return(nil)
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
 	err := api.Abort(c.Context(), params.ModelArgs{ModelTag: tag.String()})
@@ -225,7 +225,7 @@ func (s *Suite) TestAbort(c *tc.C) {
 func (s *Suite) TestAbortNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	err := api.Abort(c.Context(), params.ModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
@@ -233,7 +233,7 @@ func (s *Suite) TestAbortNotATag(c *tc.C) {
 func (s *Suite) TestAbortMissingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	newUUID := uuid.MustNewUUID().String()
 	err := api.Abort(c.Context(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
@@ -245,7 +245,7 @@ func (s *Suite) TestActivate(c *tc.C) {
 	s.expectImportModel(c)
 	s.modelMigrationService.EXPECT().ActivateImport(gomock.Any()).Return(nil)
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
 	expectedCI := crossmodel.ControllerInfo{
@@ -272,7 +272,7 @@ func (s *Suite) TestActivate(c *tc.C) {
 func (s *Suite) TestActivateNotATag(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	err := api.Activate(c.Context(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, tc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
@@ -280,7 +280,7 @@ func (s *Suite) TestActivateNotATag(c *tc.C) {
 func (s *Suite) TestActivateMissingModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c, c.MkDir())
+	api := s.mustNewAPI(c)
 	newUUID := uuid.MustNewUUID().String()
 	err := api.Activate(c.Context(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, tc.ErrorMatches, `model "`+newUUID+`" not found`)
@@ -295,48 +295,9 @@ func (s *Suite) TestActivateNotImportingModel(c *tc.C) {
 	//model, err := st.Model()
 	//c.Assert(err, tc.ErrorIsNil)
 
-	//api := s.mustNewAPI(c, c.MkDir())
+	//api := s.mustNewAPI(c)
 	//err = api.Activate(c.Context(), params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
 	//c.Assert(err, tc.ErrorMatches, `migration mode for the model is not importing`)
-}
-
-func (s *Suite) TestLatestLogTime(c *tc.C) {
-	c.Skip("re-implment testing import when model migration is implemented on dqlite")
-	defer s.setupMocks(c).Finish()
-
-	//st := s.Factory.MakeModel(c, nil)
-	//defer st.Close()
-	//model, err := st.Model()
-	//c.Assert(err, tc.ErrorIsNil)
-
-	//logDir := c.MkDir()
-	//t := time.Date(2024, 02, 18, 06, 23, 24, 0, time.UTC)
-	//logFile := filepath.Join(logDir, "logsink.log")
-	//err = os.MkdirAll(filepath.Dir(logFile), 0755)
-	//c.Assert(err, tc.ErrorIsNil)
-	// {"timestamp":"2024-02-20T06:01:19.101184262Z","model-uuid":"05756e0f-e5b8-47d3-8093-bf7d53d92589","entity":"machine-0","level":2,"module":"juju.worker.dependency","location":"engine.go:598","message":"\"charmhub-http-client\" manifold worker started at 2024-02-20 06:01:19.10118362 +0000 UTC","labels":null}
-	//err = os.WriteFile(logFile, []byte("machine-0 2024-02-18 05:00:00 INFO juju.worker worker.go:200 test first\nmachine-0 2024-02-18 06:23:24 INFO juju.worker worker.go:518 test\n bad line"), 0755)
-	//c.Assert(err, tc.ErrorIsNil)
-
-	//api := s.mustNewAPI(c, logDir)
-	//latest, err := api.LatestLogTime(c.Context(), params.ModelArgs{ModelTag: model.ModelTag().String()})
-	//c.Assert(err, tc.ErrorIsNil)
-	//c.Assert(latest, tc.Equals, t)
-}
-
-func (s *Suite) TestLatestLogTimeNeverSet(c *tc.C) {
-	c.Skip("re-implment testing import when model migration is implemented on dqlite")
-	defer s.setupMocks(c).Finish()
-
-	//st := s.Factory.MakeModel(c, nil)
-	//defer st.Close()
-	//model, err := st.Model()
-	//c.Assert(err, tc.ErrorIsNil)
-
-	//api := s.mustNewAPI(c, c.MkDir())
-	//latest, err := api.LatestLogTime(c.Context(), params.ModelArgs{ModelTag: model.ModelTag().String()})
-	//c.Assert(err, tc.ErrorIsNil)
-	//c.Assert(latest, tc.Equals, time.Time{})
 }
 
 func (s *Suite) TestAdoptIAASResources(c *tc.C) {
@@ -451,7 +412,7 @@ func (s *Suite) removalServiceGetter(context.Context, model.UUID) (migrationtarg
 	return s.removalService, nil
 }
 
-func (s *Suite) newAPI(c *tc.C, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
+func (s *Suite) newAPI(c *tc.C, versions facades.FacadeVersions) (*migrationtarget.API, error) {
 	return migrationtarget.NewAPI(
 		&s.facadeContext,
 		s.authorizer,
@@ -466,24 +427,23 @@ func (s *Suite) newAPI(c *tc.C, versions facades.FacadeVersions, logDir string) 
 		s.migrationServiceGetter,
 		s.removalServiceGetter,
 		versions,
-		logDir,
 		loggertesting.WrapCheckLog(c),
 	)
 }
 
-func (s *Suite) mustNewAPI(c *tc.C, logDir string) *migrationtarget.API {
-	api, err := s.newAPI(c, facades.FacadeVersions{}, logDir)
+func (s *Suite) mustNewAPI(c *tc.C) *migrationtarget.API {
+	api, err := s.newAPI(c, facades.FacadeVersions{})
 	c.Assert(err, tc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) newAPIWithFacadeVersions(c *tc.C, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
-	api, err := s.newAPI(c, versions, logDir)
+func (s *Suite) newAPIWithFacadeVersions(c *tc.C, versions facades.FacadeVersions) (*migrationtarget.API, error) {
+	api, err := s.newAPI(c, versions)
 	return api, err
 }
 
 func (s *Suite) mustNewAPIWithFacadeVersions(c *tc.C, versions facades.FacadeVersions) *migrationtarget.API {
-	api, err := s.newAPIWithFacadeVersions(c, versions, c.MkDir())
+	api, err := s.newAPIWithFacadeVersions(c, versions)
 	c.Assert(err, tc.ErrorIsNil)
 	return api
 }

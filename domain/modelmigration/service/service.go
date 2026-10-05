@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
@@ -290,6 +291,12 @@ type ModelState interface {
 	// completed or been aborted.
 	DeleteModelImportingStatus(ctx context.Context) error
 
+	// GetLastLogTransferTime returns the latest transferred log timestamp.
+	GetLastLogTransferTime(ctx context.Context) (time.Time, error)
+
+	// SetLastLogTransferTime advances the latest transferred log timestamp.
+	SetLastLogTransferTime(ctx context.Context, lastTime time.Time) error
+
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
 	GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error)
@@ -471,6 +478,32 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 		return modelmigration.MigrationModeNone, errors.Capture(err)
 	}
 	return mode, nil
+}
+
+// LastLogTransferTime returns the latest transferred log timestamp for this
+// model.
+func (s *Service) LastLogTransferTime(ctx context.Context) (time.Time, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	lastTime, err := s.modelState.GetLastLogTransferTime(ctx)
+	if err != nil {
+		return time.Time{}, errors.Capture(err)
+	}
+	return lastTime, nil
+}
+
+// SetLastLogTransferTime advances the latest transferred log timestamp for
+// this model. The checkpoint row is keyed by the model uuid and holds a
+// single value per model database.
+func (s *Service) SetLastLogTransferTime(ctx context.Context, lastTime time.Time) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.modelState.SetLastLogTransferTime(ctx, lastTime); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // Migration returns status about migration of this model. If the model is not

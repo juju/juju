@@ -95,7 +95,7 @@ func generate(ctx context.Context, runner *txnRunner) error {
 	imports := make(map[string]struct{})
 
 	for _, tableName := range tableNames {
-		if tableName == "sqlite_sequence" {
+		if isExcludedModelExportTable(tableName) {
 			continue
 		}
 
@@ -130,6 +130,16 @@ func generate(ctx context.Context, runner *txnRunner) error {
 	}
 
 	return writeServiceModelVersionFile(versionToken, semanticVersion)
+}
+
+// isExcludedModelExportTable reports whether the table is excluded from
+// the generated model export. Operational tables that only hold
+// controller-local bookkeeping must not travel with model data.
+func isExcludedModelExportTable(tableName string) bool {
+	return slices.Contains([]string{
+		"log_transfer_progress",
+		"sqlite_sequence",
+	}, tableName)
 }
 
 type nullableColumn struct {

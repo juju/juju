@@ -5,6 +5,7 @@ package model
 
 import (
 	"context"
+	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -359,4 +360,69 @@ func (s *State) getModelTargetAgentVersion(
 	}
 
 	return dbVal.TargetVersion, err
+}
+
+// SetLastLogTransferTime monotonically advances the latest transferred log
+// timestamp. The checkpoint row is keyed by the model uuid, so the table
+// holds at most one row.
+func (s *State) SetLastLogTransferTime(ctx context.Context, lastTime time.Time) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	input := logTransferTime{
+		UUID:     s.modelUUID.String(),
+		LastTime: lastTime,
+	}
+	stmt, err := s.Prepare(`
+INSERT INTO log_transfer_progress (uuid, last_time)
+VALUES ($logTransferTime.*)
+ON CONFLICT (uuid) DO UPDATE SET
+last_time = MAX(last_time, excluded.last_time)
+`, input)
+	if err != nil {
+		return errors.Errorf("preparing set last log transfer time statement: %w", err)
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, input).Run(); err != nil {
+			return errors.Errorf("setting last log transfer time: %w", err)
+		}
+		return nil
+	})
+}
+
+// GetLastLogTransferTime returns the latest transferred log timestamp. It
+// returns the zero time when no checkpoint exists.
+func (s *State) GetLastLogTransferTime(ctx context.Context) (time.Time, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return time.Time{}, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(
+		"SELECT &logTransferTime.* FROM log_transfer_progress AS ltp",
+		logTransferTime{},
+	)
+	if err != nil {
+		return time.Time{}, errors.Errorf("preparing get last log transfer time statement: %w", err)
+	}
+
+	var result logTransferTime
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = logTransferTime{}
+
+		err := tx.Query(ctx, stmt).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("getting last log transfer time: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return time.Time{}, errors.Capture(err)
+	}
+
+	return result.LastTime, nil
 }

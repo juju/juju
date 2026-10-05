@@ -4,7 +4,9 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -18,17 +20,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+const logTransferTrackingPeriod = 2 * time.Minute
+
 type migrationLoggingStrategy struct {
 	modelLogger corelogger.ModelLogger
 
 	recordLogWriter corelogger.LogWriter
 
-	modelUUID coremodel.UUID
+	setLastLogTransferTime func(context.Context, time.Time) error
+
+	modelUUID      coremodel.UUID
+	requestContext context.Context
+	trackedTime    time.Time
 }
 
-// newMigrationLogWriteFunc returns a function that will create a
-// logsink.LoggingStrategy given an *http.Request, that writes log
-// messages to the state database and tracks their migration.
+// newMigrationLogWriteFunc returns a writer for migrated log records.
 func newMigrationLogWriteFunc(ctxt httpContext, modelLogger corelogger.ModelLogger) logsink.NewLogWriteFunc {
 	return func(req *http.Request) (logsink.LogWriter, error) {
 		strategy := &migrationLoggingStrategy{modelLogger: modelLogger}
@@ -40,11 +46,12 @@ func newMigrationLogWriteFunc(ctxt httpContext, modelLogger corelogger.ModelLogg
 }
 
 func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
-	domainServices, err := ctxt.domainServicesForRequest(req)
+	domainServices, err := ctxt.domainServicesDuringMigrationForRequest(req)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	migrationMode, err := domainServices.ModelMigration().ModelMigrationMode(req.Context())
+	migrationService := domainServices.ModelMigration()
+	migrationMode, err := migrationService.ModelMigrationMode(req.Context())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -54,6 +61,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.BadRequestf(
 			"model migration mode is %q instead of None", migrationMode)
 	}
+	s.setLastLogTransferTime = migrationService.SetLastLogTransferTime
 
 	// Here the log messages are expected to be coming from another
 	// Juju controller, so the version number provided should be the
@@ -66,7 +74,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	modelUUID, valid := httpcontext.RequestModelUUID(req.Context())
+	modelUUID, valid := httpcontext.MigrationRequestModelUUID(req)
 	if !valid {
 		return errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -75,13 +83,15 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	if s.recordLogWriter, err = s.modelLogger.GetLogWriter(req.Context(), s.modelUUID); err != nil {
 		return errors.Trace(err)
 	}
+
+	s.requestContext = req.Context()
 	return nil
 }
 
-// WriteLog is part of the logsink.LogWriteCloser interface.
+// WriteLog implements logsink.LogWriter.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 	level, _ := corelogger.ParseLevelFromString(m.Level)
-	return s.recordLogWriter.Log([]corelogger.LogRecord{{
+	if err := s.recordLogWriter.Log([]corelogger.LogRecord{{
 		Time:      m.Time,
 		Entity:    m.Entity,
 		Module:    m.Module,
@@ -90,5 +100,23 @@ func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Message:   m.Message,
 		Labels:    m.Labels,
 		ModelUUID: s.modelUUID.String(),
-	}})
+	}}); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Annotate(s.trackLogTransferTime(m.Time), "tracking transferred log")
+}
+
+// trackLogTransferTime limits database checkpoint writes while logs are
+// transferred. Persisting a checkpoint for every log record would slow the
+// transfer. Records since the last checkpoint may be replayed after an
+// interruption; these duplicates are tolerated because no logs are missed.
+func (s *migrationLoggingStrategy) trackLogTransferTime(t time.Time) error {
+	if t.IsZero() || t.Sub(s.trackedTime) < logTransferTrackingPeriod {
+		return nil
+	}
+	if err := s.setLastLogTransferTime(s.requestContext, t); err != nil {
+		return errors.Trace(err)
+	}
+	s.trackedTime = t
+	return nil
 }
