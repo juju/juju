@@ -1,5 +1,5 @@
 run_copyright() {
-	OUT=$(find . -name '*.go' | grep -v -E "(./vendor|./provider/azure/internal|./cloudconfig|./core/output/progress|./_deps|./generate/schemagen/jsonschema-gen)" | sort | xargs grep -L -E '// (Copyright|Code generated)' || true)
+	OUT=$(find . -name '*.go' | grep -v -E "(./vendor|./provider/azure/internal|./cloudconfig|./core/output/progress|./generate/schemagen/jsonschema-gen)" | sort | xargs grep -L -E '// (Copyright|Code generated)' || true)
 	LINES=$(echo "${OUT}" | wc -w | tr -d '[:space:]')
 	if [ "$LINES" -ne 0 ]; then
 		echo ""
