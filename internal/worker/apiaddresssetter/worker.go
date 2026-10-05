@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/controllernode"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 )
@@ -218,12 +219,19 @@ func (w *apiAddressSetterWorker) consumeInitialStrings(ch <-chan []string, name 
 
 func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	controllerIDs, err := w.config.ControllerNodeService.GetControllerIDs(ctx)
-	if err != nil {
+	if errors.Is(err, controllernodeerrors.EmptyControllerIDs) {
+		// No controller nodes are alive or dying, so clear the published
+		// addresses. Also, it's possible to have shared addresses, and we must
+		// be able to set those addresses without any controller nodes.
+		controllerIDs = nil
+	} else if err != nil {
 		return errors.Errorf("getting controller IDs: %w", err)
 	}
 
 	controllerUnitNames := make(map[string]unit.Name, len(controllerIDs))
 
+	// Convert controller IDs to unit names, which are used to look up network
+	// selections.
 	for _, controllerID := range controllerIDs {
 		unitNumber, err := strconv.Atoi(controllerID)
 		if err != nil {
@@ -236,6 +244,7 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 		controllerUnitNames[controllerID] = name
 	}
 
+	// Collect the unit names in a slice for use with the network service.
 	names := slices.Collect(maps.Values(controllerUnitNames))
 
 	cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
@@ -243,19 +252,34 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 		return errors.Errorf("getting controller config: %w", err)
 	}
 	managementSpace := cfg.JujuManagementSpace()
+
+	// Get the client addresses, which are used for ordinary client discovery.
+	// The management space is used for IAAS selection, but ignored for CAAS
+	// selection.
 	clients, err := w.config.NetworkService.GetControllerClientAddresses(ctx, names)
 	if err != nil {
 		return errors.Errorf("getting controller client addresses: %w", err)
 	}
+
+	// Get the agent addresses, which are used for ordinary agent discovery. The
+	// management space is used for IAAS selection, but ignored for CAAS
+	// selection.
 	agents, err := w.config.NetworkService.GetControllerAgentAddresses(ctx, names, managementSpace)
 	if err != nil {
 		return errors.Errorf("getting controller agent addresses: %w", err)
 	}
+
+	// Get the peer addresses, which are used for controller-to-controller
+	// communication. The management space is used for IAAS selection, but
+	// ignored for CAAS selection.
 	peers, err := w.config.NetworkService.GetControllerPeerAddresses(ctx, names, managementSpace)
 	if err != nil {
 		return errors.Errorf("getting controller peer addresses: %w", err)
 	}
 
+	// Build the API address set for each controller node, which includes the
+	// client, agent and peer addresses. The client and agent addresses are
+	// shared for CAAS selection, but not for IAAS selection.
 	addresses := make(map[string]controllernode.APIAddressSet, len(controllerIDs))
 	for _, controllerID := range controllerIDs {
 		controllerUnitName, ok := controllerUnitNames[controllerID]

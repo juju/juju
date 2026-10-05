@@ -231,6 +231,9 @@ func (s *workerSuite) TestPreservesSuccessfulEmptySharedSelection(c *tc.C) {
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
 		APIPort:   17070,
 		Addresses: map[string]controllernode.APIAddressSet{},
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: network.SpaceAddresses{},
+		},
 	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
 		close(published)
 		return nil
