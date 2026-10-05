@@ -279,17 +279,28 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	// client, agent and peer addresses. The client and agent addresses are
 	// shared for CAAS selection, but not for IAAS selection.
 	addresses := make(map[string]controllernode.APIAddressSet, len(controllerIDs))
+	hasClientAddresses := len(clients.Shared) > 0
+	hasAgentAddresses := len(agents.Shared) > 0
 	for _, controllerID := range controllerIDs {
 		controllerUnitName, ok := controllerUnitNames[controllerID]
 		if !ok {
 			return errors.Errorf("controller ID %q has no unit name", controllerID)
 		}
 		name := controllerUnitName
+		hasClientAddresses = hasClientAddresses || len(clients.ByUnit[name]) > 0
+		hasAgentAddresses = hasAgentAddresses || len(agents.ByUnit[name]) > 0
 		addresses[controllerID] = controllernode.APIAddressSet{
 			Clients: slices.Clone(clients.ByUnit[name]),
 			Agents:  slices.Clone(agents.ByUnit[name]),
 			Peers:   slices.Clone(peers.ByUnit[name]),
 		}
+	}
+	if len(controllerIDs) > 0 && (!hasClientAddresses || !hasAgentAddresses) {
+		// Bootstrap publishes provider addresses before machine network facts
+		// exist. Keep that usable snapshot until runtime discovery can replace
+		// both client and agent endpoints.
+		w.config.Logger.Warningf(ctx, "not publishing incomplete controller API address discovery")
+		return nil
 	}
 
 	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllernode.SetAPIAddressArgs{

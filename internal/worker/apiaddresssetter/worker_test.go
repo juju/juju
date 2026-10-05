@@ -301,6 +301,35 @@ func (s *workerSuite) TestMissingPeerAddressesPublishesAuthoritativeEmptySet(c *
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestEmptyDiscoveryAddressesPreserveBootstrapAddresses(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(), initialConfig(), initialNotify())
+
+	controller0 := unit.Name("controller/0")
+	names := []unit.Name{controller0}
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), names).Return(domainnetwork.ControllerAddressSelection{}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), names, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{}, nil)
+	reconciled := make(chan struct{})
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), names, network.SpaceName("")).DoAndReturn(
+		func(context.Context, []unit.Name, network.SpaceName) (domainnetwork.ControllerAddressSelection, error) {
+			close(reconciled)
+			return domainnetwork.ControllerAddressSelection{}, nil
+		},
+	)
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-reconciled:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for empty discovery reconciliation: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) TestWatcherClosureStopsWorker(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	networkCh := initialNotify()
