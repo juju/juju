@@ -117,18 +117,6 @@ type StatusService interface {
 // setting machine network configuration, and determining container devices
 // and addresses.
 type NetworkService interface {
-	// AllocateContainerAddresses allocates a static address for each of the
-	// container NICs in preparedInfo, hosted by the hostInstanceID, if the
-	// provider supports it. Returns the network config including all allocated
-	// addresses on success.
-	// Returns [networkerrors.ContainerAddressesNotSupported] if the provider
-	// does not support container addressing.
-	AllocateContainerAddresses(ctx context.Context,
-		hostInstanceID instance.Id,
-		containerName string,
-		preparedInfo network.InterfaceInfos,
-	) (network.InterfaceInfos, error)
-
 	// SetMachineNetConfig updates the detected network configuration for
 	// the machine with the input UUID.
 	SetMachineNetConfig(ctx context.Context, mUUID coremachine.UUID, nics []domainnetwork.NetInterface) error
@@ -142,10 +130,16 @@ type NetworkService interface {
 	// that already exist.
 	DevicesToBridge(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.DeviceToBridge, error)
 
-	// DevicesForGuest returns the network devices that should be configured
-	// in the guest machine with the input UUID, based on the host machine's
-	// bridges.
-	DevicesForGuest(ctx context.Context, hostUUID, guestUUID coremachine.UUID) ([]domainnetwork.NetInterface, error)
+	// NetworkConfigForGuest returns the network configuration to apply to
+	// the guest machine with the input UUID and name, hosted by the host
+	// machine with the input UUID, including any addresses allocated by the
+	// provider.
+	// If provider address allocation is required, but the host machine has
+	// not been provisioned, an error satisfying
+	// [networkerrors.HostNotProvisioned] is returned.
+	NetworkConfigForGuest(
+		ctx context.Context, hostUUID, guestUUID coremachine.UUID, guestName coremachine.Name,
+	) (network.InterfaceInfos, error)
 }
 
 // KeyUpdaterService provides access to authorised keys in a model.

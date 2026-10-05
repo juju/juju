@@ -45,6 +45,7 @@ type MockStateMockRecorder struct {
 	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, string, network0.ControllerAPIAddresses, error]
 	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
+	getMachineInstanceIDExpects                 []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineNetNodeUUIDExpects                []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineSpaceConstraintsExpects           []*gomock.Call2_3[context.Context, string, []internal.SpaceName, []internal.SpaceName, error]
 	getModelCloudTypeExpects                    []*gomock.Call1_2[context.Context, string, error]
@@ -323,6 +324,24 @@ func (mr *MockStateMockRecorder) GetMachineAppBindings(ctx, machineUUID any) *Mo
 
 // MockStateGetMachineAppBindingsCall is the typed call wrapper for GetMachineAppBindings.
 type MockStateGetMachineAppBindingsCall = gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
+
+// GetMachineInstanceID mocks base method.
+func (m *MockState) GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getMachineInstanceIDExpects, m.ctrl, m, "GetMachineInstanceID", ctx, machineUUID)
+}
+
+// GetMachineInstanceID indicates an expected call of GetMachineInstanceID.
+func (mr *MockStateMockRecorder) GetMachineInstanceID(ctx, machineUUID any) *MockStateGetMachineInstanceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetMachineInstanceID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineUUID))
+	mr.getMachineInstanceIDExpects = append(mr.getMachineInstanceIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetMachineInstanceIDCall is the typed call wrapper for GetMachineInstanceID.
+type MockStateGetMachineInstanceIDCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetMachineNetNodeUUID mocks base method.
 func (m *MockState) GetMachineNetNodeUUID(ctx context.Context, machineUUID string) (string, error) {
