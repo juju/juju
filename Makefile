@@ -789,9 +789,10 @@ DQLITE_CROSS_ARCHES ?=
 DQLITE_CROSS_DEB_ARCHES = $(subst ppc64le,ppc64el,$(DQLITE_CROSS_ARCHES))
 
 .PHONY: install-dqlite-dependencies
-install-dqlite-dependencies:
+install-dqlite-dependencies: install-sqlite3-dependencies
 ## install-dqlite-dependencies: Install libdqlite-dev from ppa:dqlite/dev (required to build jujud)
 	@echo Installing Dqlite development packages from ppa:dqlite/dev
+	@sudo apt-get --yes install software-properties-common
 	@sudo add-apt-repository -y ppa:dqlite/dev
 	@$(WAIT_FOR_DPKG)
 	@$(APT_UPDATE)
@@ -838,7 +839,7 @@ ifneq ($(DQLITE_CROSS_DEB_ARCHES),)
 endif
 
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-sqlite3-dependencies install-dqlite-dependencies
+install-dependencies: install-snap-dependencies install-dqlite-dependencies
 ## install-dependencies: Install all the dependencies
 # squashfs-tools provides the unsquashfs helper that reads the version of
 # a locally built controller snap during bootstrap. The apt lists are

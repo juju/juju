@@ -39,7 +39,9 @@ signal: aborted (core dumped)
 
 ## Retrieve the core dump backtrace
 
-1. Open juju/Makefile and, in [the line with `CGO_LINK_FLAGS`](https://github.com/juju/juju/blob/528c205d9995d3fb85ac041ad79495dff8ee4eda/Makefile#L225), remove the `-s` flag. This will ensure that the `jujud-controller` binary contains the debug symbols.
+1. Open `juju/Makefile` and remove the `-s` flag from
+   `DYNAMIC_CGO_LINK_FLAGS`. This ensures that the `jujud` controller binary
+   contains debug symbols.
 
 2. Bootstrap a controller with the modified binary. Once the controller is running, SSH into the controller machine (usually machine 0) and install the `gdb` package:
 
