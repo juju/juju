@@ -1355,17 +1355,13 @@ WHERE  uuid = $unitUUID.uuid
 	}
 
 	deleteOldCharmUnitResourcesStmt, err := st.Prepare(`
-WITH target_charm_resource AS (
-    SELECT r.uuid AS uuid
-    FROM   resource AS r
-    WHERE  r.charm_uuid = $charmUUID.charm_uuid
-)
 DELETE FROM unit_resource
 WHERE unit_resource.unit_uuid = $unitUUID.uuid
 AND NOT EXISTS (
     SELECT 1
-    FROM   target_charm_resource AS tcr
-    WHERE  tcr.uuid = unit_resource.resource_uuid
+    FROM   resource AS r
+    WHERE  r.uuid = unit_resource.resource_uuid
+    AND    r.charm_uuid = $charmUUID.charm_uuid
 )
 `, unitUUID, targetCharmUUID)
 	if err != nil {
