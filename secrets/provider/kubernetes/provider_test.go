@@ -126,7 +126,27 @@ func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string
 
 }
 
-func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, isControllerCloud, sameController bool) {
+// loopbackEndpoints are recorded cloud endpoints that must be patched to
+// the in-cluster address even for a cross-controller consumer, because
+// loopback is never reachable from a remote consumer.
+var loopbackEndpoints = []string{
+	"https://127.0.0.1:16443",
+	"https://localhost:16443",
+	"https://LOCALHOST:16443",
+	"https://127.0.0.2:16443",
+	"https://127.1.2.3:16443",
+	"https://[::1]:16443",
+}
+
+// notLoopbackEndpoints look loopback-adjacent but are routable addresses
+// and must be handed to cross-controller consumers unchanged.
+var notLoopbackEndpoints = []string{
+	"https://192.168.1.15:16443",
+	"https://128.0.0.1:16443",
+	"https://localhost.example.com:16443",
+}
+
+func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, isControllerCloud, sameController bool, endpoint string) {
 	defer s.setupK8s(c)()
 	ctx := context.Background()
 
@@ -165,6 +185,9 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, is
 	if isControllerCloud {
 		cfg.Config["prefer-incluster-address"] = true
 	}
+	if endpoint != "" {
+		cfg.Config["endpoint"] = endpoint
+	}
 	adminCfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
 		ModelUUID:      coretesting.ModelTag.Id(),
@@ -181,17 +204,25 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, is
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.tokens, gc.HasLen, 1)
+	wantEndpoint := cfg.Config["endpoint"]
+	isLoopback := false
+	for _, e := range loopbackEndpoints {
+		if wantEndpoint == e {
+			isLoopback = true
+			break
+		}
+	}
+	if isControllerCloud && (sameController || isLoopback) {
+		wantEndpoint = "https://8.6.8.6:8888"
+	}
 	expected := &provider.BackendConfig{
 		BackendType: kubernetes.BackendType,
 		Config: map[string]any{
 			"ca-certs":  []string{"cert-data"},
-			"endpoint":  "http://nowhere",
+			"endpoint":  wantEndpoint,
 			"namespace": s.namespace,
 			"token":     s.tokens[0],
 		},
-	}
-	if isControllerCloud && sameController {
-		expected.Config["endpoint"] = "https://8.6.8.6:8888"
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 
@@ -278,19 +309,50 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, tag names.Tag, is
 }
 
 func (s *providerSuite) TestRestrictedConfigWithUnitTag(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), false, false)
+	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), false, false, "")
 }
 
 func (s *providerSuite) TestRestrictedConfigWithModelTag(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, coretesting.ModelTag, false, false)
+	s.assertRestrictedConfigWithTag(c, coretesting.ModelTag, false, false, "")
 }
 
 func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloud(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, true)
+	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, true, "")
 }
 
 func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentController(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false)
+	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false, "")
+}
+
+// TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackEndpoint
+// checks that a loopback endpoint recorded for the controller cloud (e.g. the
+// built-in microk8s cloud records https://127.0.0.1:16443) is patched to the
+// in-cluster address even when the secret consumer is on a different
+// controller, because loopback is never reachable from a remote consumer.
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackEndpoint(c *gc.C) {
+	s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false, "https://127.0.0.1:16443")
+}
+
+// TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackVariants
+// checks that every form of loopback endpoint (any address in 127.0.0.0/8,
+// ::1, or "localhost" in any case) recorded for the controller cloud is
+// patched to the in-cluster address for a cross-controller consumer.
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackVariants(c *gc.C) {
+	for _, endpoint := range loopbackEndpoints {
+		c.Logf("testing endpoint %q", endpoint)
+		s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false, endpoint)
+	}
+}
+
+// TestRestrictedConfigWithTagWithControllerCloudDifferentControllerNotLoopbackVariants
+// checks that routable endpoints that merely look loopback-adjacent (an
+// address just outside 127.0.0.0/8 or a hostname with a localhost prefix)
+// are handed to cross-controller consumers unchanged.
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentControllerNotLoopbackVariants(c *gc.C) {
+	for _, endpoint := range notLoopbackEndpoints {
+		c.Logf("testing endpoint %q", endpoint)
+		s.assertRestrictedConfigWithTag(c, names.NewUnitTag("gitlab/0"), true, false, endpoint)
+	}
 }
 
 func (s *providerSuite) TestCleanupModel(c *gc.C) {
