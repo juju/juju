@@ -389,9 +389,9 @@ jujud:
 .PHONY: dqlite-repl
 dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite/cmd
 dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
-dqlite-repl: musl-install-if-missing dqlite-install-if-missing
-## jujuagentd: Install jujuagentd without updating dependencies
-	${run_cgo_install}
+dqlite-repl:
+## dqlite-repl: Install the dqlite-repl developer tool (requires install-dqlite-dependencies)
+	${run_dynamic_cgo_install}
 		mv $(GO_INSTALL_PATH)/cmd $(GO_INSTALL_PATH)/dqlite-repl
 
 .PHONY: containeragent
@@ -418,9 +418,9 @@ phony_explicit:
 
 ${BUILD_DIR}/%/bin/dqlite-bench: PACKAGE = github.com/juju/juju/scripts/dqlite-bench
 ${BUILD_DIR}/%/bin/dqlite-bench: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit musl-install-if-missing dqlite-install-if-missing
-# build for dqlite-bench
-	$(run_cgo_build)
+${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit
+# build for dqlite-bench (dynamic, host Dqlite libraries)
+	$(run_dynamic_cgo_build)
 
 ${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
 ${BUILD_DIR}/%/bin/juju: phony_explicit
@@ -458,7 +458,7 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}
 	@cp $(PROJECT_DIR)/environs/tools/jujud-shim.sh $(call bin_platform_paths,$(subst -,/,$*))/jujud
@@ -531,7 +531,7 @@ cover-test:
 
 .PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
-run-tests: musl-install-if-missing dqlite-install-if-missing
+run-tests:
 ## run-tests: Run the unit tests
 	$(eval OS = $(shell go env GOOS))
 	$(eval ARCH = $(shell go env GOARCH))
@@ -549,14 +549,9 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval TEST_PACKAGES := $(shell make -s test-packages))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
-		PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${DYNAMIC_CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
 .PHONY: test-packages
@@ -575,7 +570,7 @@ test-packages:
 
 .PHONY: run-go-tests
 run-go-tests: EXTRA_BUILD_TAGS += dqlite libsqlite3
-run-go-tests: musl-install-if-missing dqlite-install-if-missing
+run-go-tests:
 ## run-go-tests: Run the unit tests
 	$(eval OS = $(shell go env GOOS))
 	$(eval ARCH = $(shell go env GOARCH))
@@ -583,27 +578,17 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
-	@PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+	@CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${DYNAMIC_CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 .PHONY: go-test-alias
 go-test-alias: EXTRA_BUILD_TAGS += dqlite libsqlite3
-go-test-alias: musl-install-if-missing dqlite-install-if-missing
+go-test-alias:
 ## go-test-alias: Prints out an alias command for easy running of tests.
-	@echo alias jt=\'PATH=\"${MUSL_BIN_PATH}:\$$PATH\" \
-		CC=\"musl-gcc\" \
-		CGO_CFLAGS=\"-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include\" \
-		CGO_LDFLAGS=\"$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576\" \
+	@echo alias jt=\'CGO_ENABLED=\"1\" \
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
-		LD_LIBRARY_PATH=\"${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}\" \
-		CGO_ENABLED=\"1\" \
-		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
+		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${DYNAMIC_CGO_LINK_FLAGS}\"\'
 
 .PHONY: install
 install: rebuild-schema go-install
@@ -806,13 +791,15 @@ else
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
+APT_UPDATE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; apt_update' apt_update
+WRITE_DQLITE_CROSS_APT_SOURCES=bash -c '. "${PROJECT_DIR}/make_functions.sh"; write_dqlite_cross_apt_sources "$$@"' write_dqlite_cross_apt_sources
 
 .PHONY: install-sqlite3-dependencies
 install-sqlite3-dependencies:
 ## install-sqlite3-dependencies: Install libsqlite3-dev
 	@echo Installing libsqlite3-dev
 	@$(WAIT_FOR_DPKG)
-	@sudo apt-get update
+	@$(APT_UPDATE)
 	@sudo apt-get --yes install libsqlite3-dev
 
 # install-dqlite-dependencies provisions the native Dqlite development
@@ -821,14 +808,84 @@ install-sqlite3-dependencies:
 # snap use, so the packages come from the Dqlite team's PPA, the same
 # provenance as the GitHub static-analysis workflow and the snap's dqlite
 # pin.
+#
+# DQLITE_CROSS_ARCHES is a space separated list of Debian architecture
+# names (e.g. "arm64 s390x ppc64el"; the Go spelling ppc64le is accepted)
+# to provision for cross-building the dynamic jujud, in addition to the
+# host architecture. Each architecture is registered with dpkg and given
+# its own arch-restricted apt source (Ubuntu serves amd64/i386 from the
+# primary archive and every other architecture from ports.ubuntu.com),
+# and its arch-qualified Dqlite/SQLite packages and cross compiler are
+# installed. The Dqlite dev package is the series-suffixed real package
+# (libdqlite1.18-dev today, derived from the installed libdqlite-dev
+# meta's dependency), NOT the meta name itself: the PPA's libdqlite-dev
+# is an arch:all meta already installed natively, so requesting it for
+# a foreign arch resolves to the distro's older real dev package, whose
+# headers then conflict with the native PPA ones. A leftover distro
+# libdqlite0/libdqlite-dev for a cross architecture (same plain-soname
+# files, 1.16 versions) is removed automatically by the shared apt
+# update helper (see make_functions.sh check_dqlite_cross_stale), since
+# while it exists every apt operation on the host fails inside dpkg.
+# The real series package
+# exists only in the PPA, and its Multi-Arch: same packages share the
+# plain /usr/include/dqlite.h (byte-identical at equal versions) and put
+# libraries under /usr/lib/<triplet>/ where the cross compiler finds
+# them without any CGO flag overrides. Build each target architecture
+# in its own invocation with its matching CC; an ambient CC must never
+# be shared by heterogeneous target builds:
+#   make install-dqlite-dependencies DQLITE_CROSS_ARCHES="arm64"
+#   CC=aarch64-linux-gnu-gcc AGENT_PACKAGE_PLATFORMS="linux/arm64" make go-agent-build
+DQLITE_CROSS_ARCHES ?=
+DQLITE_CROSS_DEB_ARCHES = $(subst ppc64le,ppc64el,$(DQLITE_CROSS_ARCHES))
+
 .PHONY: install-dqlite-dependencies
 install-dqlite-dependencies:
 ## install-dqlite-dependencies: Install libdqlite-dev from ppa:dqlite/dev (required to build jujud)
 	@echo Installing Dqlite development packages from ppa:dqlite/dev
 	@sudo add-apt-repository -y ppa:dqlite/dev
 	@$(WAIT_FOR_DPKG)
-	@sudo apt-get update
+	@$(APT_UPDATE)
 	@sudo apt-get --yes install gcc libdqlite-dev libuv1-dev liblz4-dev
+ifneq ($(DQLITE_CROSS_DEB_ARCHES),)
+	@for arch in $(DQLITE_CROSS_DEB_ARCHES); do dpkg --print-foreign-architectures | grep -qx $$arch || sudo dpkg --add-architecture $$arch; done
+	@$(WRITE_DQLITE_CROSS_APT_SOURCES) "$(DQLITE_CROSS_DEB_ARCHES)"
+	@$(APT_UPDATE)
+	@dqlite_dev_pkg=$$(dpkg-query -W -f='$${Depends}' libdqlite-dev 2>/dev/null | grep -oE 'libdqlite[0-9][0-9.]*-dev' | head -n1); \
+	if [ -z "$$dqlite_dev_pkg" ]; then \
+		echo "cannot determine the installed Dqlite dev series from the libdqlite-dev meta package" >&2; \
+		echo "the native provisioning above must have installed it; re-run make install-dqlite-dependencies" >&2; \
+		exit 1; \
+	fi; \
+	dqlite_dev_ver=$$(dpkg-query -W -f='$${Version}' "$$dqlite_dev_pkg:$$(dpkg --print-architecture)"); \
+	echo "Cross-building against $$dqlite_dev_pkg $$dqlite_dev_ver (matching the native PPA install)"; \
+	for arch in $(DQLITE_CROSS_DEB_ARCHES); do \
+		case $$arch in \
+			arm64) cross_gcc=gcc-aarch64-linux-gnu ;; \
+			s390x) cross_gcc=gcc-s390x-linux-gnu ;; \
+			ppc64el) cross_gcc=gcc-powerpc64le-linux-gnu ;; \
+			riscv64) cross_gcc=gcc-riscv64-linux-gnu ;; \
+			*) echo "unsupported DQLITE_CROSS_ARCHES entry: $$arch (supported: arm64, s390x, ppc64el, riscv64)" >&2; exit 1 ;; \
+		esac; \
+		cand=$$(apt-cache policy "$$dqlite_dev_pkg:$$arch" 2>/dev/null | sed -n 's/^  Candidate: //p'); \
+		if [ "$$cand" != "$$dqlite_dev_ver" ]; then \
+			echo "candidate for $$dqlite_dev_pkg:$$arch is '$${cand:-none}' but the native install is $$dqlite_dev_ver" >&2; \
+			echo "(the PPA $$arch index did not load, or the PPA moved; check /etc/apt/sources.list.d/juju-dqlite-cross-arch.list" >&2; \
+			echo "and the apt-get update output above, then re-run make install-dqlite-dependencies)" >&2; \
+			exit 1; \
+		fi; \
+		echo "Installing Dqlite cross-build packages for $$arch ($$cross_gcc)"; \
+		sudo apt-get --yes install $$cross_gcc \
+			"$$dqlite_dev_pkg:$$arch" \
+			libsqlite3-dev:$$arch \
+			libuv1t64:$$arch \
+			liblz4-1:$$arch \
+			libsqlite3-0:$$arch; \
+	done
+	@echo ""
+	@echo "Note: while the cross architectures remain registered with dpkg, repositories"
+	@echo "that do not serve them report 404s during 'apt-get update' (apt continues with"
+	@echo "the fetched indexes); silence them with an 'arch=' option on those entries."
+endif
 
 .PHONY: install-dependencies
 install-dependencies: install-snap-dependencies install-sqlite3-dependencies install-dqlite-dependencies
@@ -990,7 +1047,7 @@ local-operator-update: check-k8s-model operator-image
 STATIC_ANALYSIS_JOB ?=
 
 .PHONY: static-analysis
-static-analysis: dqlite-install-if-missing
+static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
