@@ -3380,24 +3380,6 @@ WHERE  ar.resource_uuid = ?`, resID).Scan(&charmModifiedVersion)
 	return 0
 }
 
-func (s *resourceSuite) checkResourceOriginAndRevision(c *tc.C, resID, expectedOrigin string, expectedRevision int) {
-	// Assert: Check that the origin and revision have been set.
-	var (
-		obtainedOrigin   string
-		obtainedRevision int
-	)
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRow(`
-SELECT rot.name, r.revision
-FROM   resource r
-JOIN   resource_origin_type rot ON r.origin_type_id = rot.id
-WHERE  r.uuid = ?`, resID).Scan(&obtainedOrigin, &obtainedRevision)
-	})
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) origin and revision in resource table not updated: %v", errors.ErrorStack(err)))
-	c.Check(obtainedOrigin, tc.Equals, expectedOrigin)
-	c.Check(obtainedRevision, tc.Equals, expectedRevision)
-}
-
 func (s *resourceSuite) checkPendingApplicationDeleted(c *tc.C, resID string) {
 	var foundAppName string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

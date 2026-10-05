@@ -51,12 +51,6 @@ type applicationResource struct {
 	ApplicationUUID string `db:"application_uuid"`
 }
 
-// resourceKind is the kind of the resource, e.g. file or oci-image.
-type resourceKind struct {
-	Name string `db:"kind_name"`
-	UUID string `db:"uuid"`
-}
-
 // resourceView represents the view model for a resource entity. It contains
 // all fields from v_application_resource
 type resourceView struct {
