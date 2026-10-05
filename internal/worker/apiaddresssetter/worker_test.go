@@ -263,26 +263,48 @@ func (s *workerSuite) TestSourceFailureStopsWorker(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "getting controller IDs: boom")
 }
 
-func (s *workerSuite) TestMissingPeerAddressesDoesNotReplaceBootstrapAddresses(c *tc.C) {
+func (s *workerSuite) TestMissingPeerAddressesPublishesAuthoritativeEmptySet(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 	s.expectWatchers(initialNotify(), initialConfig(), initialNotify())
 
 	controller0 := unit.Name("controller/0")
-	names := []unit.Name{controller0}
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
+	controller1 := unit.Name("controller/1")
+	names := []unit.Name{controller0, controller1}
+	clients0, clients1 := address("client-0"), address("client-1")
+	agents0, agents1 := address("agent-0"), address("agent-1")
+	peers1 := address("peer-1")
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0", "1"}, nil)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{controller.APIPort: 17070}, nil)
-	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), names).Return(domainnetwork.ControllerAddressSelection{}, nil)
-	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), names, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{}, nil)
-	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), names, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
-		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: nil},
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), gomock.InAnyOrder(names)).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients0, controller1: clients1},
 	}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), gomock.InAnyOrder(names), network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: agents0, controller1: agents1},
+	}, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), gomock.InAnyOrder(names), network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller1: peers1},
+	}, nil)
+	published := make(chan struct{})
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: clients0, Agents: agents0},
+			"1": {Clients: clients1, Agents: agents1, Peers: peers1},
+		},
+	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		close(published)
+		return nil
+	})
 
 	w, err := New(s.config(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
-
-	err = workertest.CheckKilled(c, w)
-	c.Check(err, tc.ErrorMatches, `controller "0" has no peer addresses`)
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for publication with empty peer addresses: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWatcherClosureStopsWorker(c *tc.C) {

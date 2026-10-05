@@ -287,17 +287,10 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 			return errors.Errorf("controller ID %q has no unit name", controllerID)
 		}
 		name := controllerUnitName
-		peerAddresses := peers.ByUnit[name]
-		if len(peerAddresses) == 0 {
-			// Preserve bootstrap publication until the machine agent reports its
-			// network. Clearing it here would prevent that agent from logging in.
-			return errors.Errorf("controller %q has no peer addresses", controllerID)
-		}
-
 		addresses[controllerID] = controllernode.APIAddressSet{
 			Clients: slices.Clone(clients.ByUnit[name]),
 			Agents:  slices.Clone(agents.ByUnit[name]),
-			Peers:   slices.Clone(peerAddresses),
+			Peers:   slices.Clone(peers.ByUnit[name]),
 		}
 	}
 
