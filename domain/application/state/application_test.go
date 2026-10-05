@@ -1618,9 +1618,9 @@ func (s *applicationStateSuite) TestGetApplicationUUIDByUnitName(c *tc.C) {
 	c.Check(obtainedAppUUID, tc.Equals, expectedAppUUID)
 }
 
-func (s *applicationStateSuite) TestGetApplicationUUIDByUnitNameUnitUnitNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationUUIDByUnitName(c.Context(), "failme")
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+func (s *applicationStateSuite) TestGetApplicationUUIDByUnitNameUnitNotFound(c *tc.C) {
+	_, err := s.state.GetApplicationUUIDByUnitName(c.Context(), "foo/99")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *applicationStateSuite) TestGetApplicationUUIDAndNameByUnitName(c *tc.C) {

@@ -58,7 +58,6 @@ func NewUnitFacade(
 
 	return &UnitFacade{
 		resourceService:           resourceService,
-		applicationService:        applicationService,
 		getApplicationUUIDFromAPI: applicationUUIDGetter,
 		applicationName:           applicationName,
 		unitName:                  unitName,
@@ -68,7 +67,6 @@ func NewUnitFacade(
 // UnitFacade is the resources portion of the uniter's API facade.
 type UnitFacade struct {
 	resourceService           ResourceService
-	applicationService        ApplicationService
 	getApplicationUUIDFromAPI applicationUUIDGetter
 	applicationID             coreapplication.UUID
 	applicationName           string
@@ -117,8 +115,6 @@ func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitR
 	foundResources, err := uf.listResources(ctx)
 	if err != nil {
 		switch {
-		case errors.Is(err, applicationerrors.UnitNotFound):
-			err = jujuerrors.NotFoundf("unit %q", uf.unitName)
 		case errors.Is(err, applicationerrors.ApplicationNotFound):
 			err = jujuerrors.NotFoundf("application %q", uf.applicationName)
 		default:
@@ -144,10 +140,6 @@ func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitR
 		case errors.Is(err, applicationerrors.UnitNotFound):
 			r.Error = apiservererrors.ServerError(
 				jujuerrors.NotFoundf("unit %q", uf.unitName),
-			)
-		case errors.Is(err, applicationerrors.ApplicationNotFound):
-			r.Error = apiservererrors.ServerError(
-				jujuerrors.NotFoundf("application %q", uf.applicationName),
 			)
 		case errors.Is(err, resourceerrors.ResourceNotFound):
 			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))

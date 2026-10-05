@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -319,6 +320,14 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 					},
 					{
 						Resource: charmresource.Resource{
+							Meta:     charmresource.Meta{Name: "a-removed"},
+							Origin:   charmresource.OriginStore,
+							Revision: 8,
+						},
+						ID: "unit-removed-a",
+					},
+					{
+						Resource: charmresource.Resource{
 							Meta:     charmresource.Meta{Name: "z-removed"},
 							Origin:   charmresource.OriginStore,
 							Revision: 7,
@@ -338,12 +347,24 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 
 	c.Check(stdout, tc.Equals, `
 Resource   Revision
+a-removed  8
 rsc1234    15
 website2   2012-12-12T12:12
 z-removed  7
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+
+	cmd = resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
+	code, stdout, stderr = runCmd(c, cmd, "--format", "json", "svc/0")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(stderr, tc.Equals, "")
+	aIndex := strings.Index(stdout, "a-removed")
+	zIndex := strings.Index(stdout, "z-removed")
+	c.Assert(aIndex, tc.Not(tc.Equals), -1)
+	c.Assert(zIndex, tc.Not(tc.Equals), -1)
+	c.Check(aIndex < zIndex, tc.IsTrue)
+	s.stubDeps.stub.CheckCall(c, 4, "ListResources", []string{"svc"})
 }
 
 func (s *ShowApplicationSuite) TestRunDetails(c *tc.C) {

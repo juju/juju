@@ -275,7 +275,8 @@ AND    r.state_id = 0`, appID).Scan(&oldCharmUUID, &oldResourceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{})
-	c.Assert(err, tc.ErrorMatches, `reconciling application resources: cannot reuse resource "foo" when its type changes`)
+	c.Check(err, tc.ErrorMatches, `reconciling application resources: cannot reuse resource "foo" when its type changes: invalid resource args`)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
 
 	var charmUUID, resourceUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -287,6 +288,96 @@ JOIN   resource AS r ON r.uuid = ar.resource_uuid
 WHERE  a.uuid = ?
 AND    r.state_id = 0`, appID).Scan(&charmUUID, &resourceUUID)
 	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmUUID, tc.Equals, oldCharmUUID)
+	c.Check(resourceUUID, tc.Equals, oldResourceUUID)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmRejectsCandidateFromDifferentCharm(c *tc.C) {
+	const resourceName = "foo"
+	resources := map[string]charm.Resource{
+		resourceName: {Name: resourceName, Type: charm.ResourceTypeFile},
+	}
+	revision := 1
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: resources,
+		appResources: []application.AddApplicationResourceArg{{
+			Name: resourceName, Revision: &revision, Origin: charmresource.OriginStore,
+		}},
+	})
+
+	var oldCharmUUID, oldResourceUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+WHERE  a.uuid = ?`, appID).Scan(&oldCharmUUID, &oldResourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	pendingUUID := s.createPendingResource(
+		c, "some-app", oldCharmUUID, resourceName, &revision,
+		charmresource.OriginStore,
+	)
+	newCharmUUID := s.createCharm(c, createCharmArgs{name: "foo", resources: resources})
+
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
+		ResourceIDs: map[string]string{resourceName: pendingUUID},
+	})
+	c.Check(err, tc.ErrorMatches, `reconciling application resources: resource "foo" does not match the destination charm: invalid resource args`)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
+
+	var charmUUID, resourceUUID string
+	var pendingRows int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+WHERE  a.uuid = ?`, appID).Scan(&charmUUID, &resourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM pending_application_resource WHERE resource_uuid = ?`, pendingUUID).Scan(&pendingRows)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(charmUUID, tc.Equals, oldCharmUUID)
+	c.Check(resourceUUID, tc.Equals, oldResourceUUID)
+	c.Check(pendingRows, tc.Equals, 1)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmRejectsUnresolvedDestinationResource(c *tc.C) {
+	revision := 1
+	appID := s.createApplication(c, createApplicationArgs{
+		resources: map[string]charm.Resource{
+			"retained": {Name: "retained", Type: charm.ResourceTypeFile},
+		},
+		appResources: []application.AddApplicationResourceArg{{
+			Name: "retained", Revision: &revision, Origin: charmresource.OriginStore,
+		}},
+	})
+	newCharmUUID := s.createCharm(c, createCharmArgs{
+		name: "foo",
+		resources: map[string]charm.Resource{
+			"retained": {Name: "retained", Type: charm.ResourceTypeFile},
+			"added":    {Name: "added", Type: charm.ResourceTypeFile},
+		},
+	})
+
+	var oldCharmUUID, oldResourceUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+WHERE  a.uuid = ?`, appID).Scan(&oldCharmUUID, &oldResourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{})
+	c.Check(err, tc.ErrorMatches, `reconciling application resources: resource "added" is not resolved for the destination charm: invalid resource args`)
+	c.Assert(err, tc.ErrorIs, applicationerrors.InvalidResourceArgs)
+
+	var charmUUID, resourceUUID string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT a.charm_uuid, ar.resource_uuid
+FROM   application AS a
+JOIN   application_resource AS ar ON ar.application_uuid = a.uuid
+WHERE  a.uuid = ?`, appID).Scan(&charmUUID, &resourceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmUUID, tc.Equals, oldCharmUUID)
 	c.Check(resourceUUID, tc.Equals, oldResourceUUID)

@@ -1356,7 +1356,7 @@ WHERE  uuid = $unitUUID.uuid
 
 	deleteOldCharmUnitResourcesStmt, err := st.Prepare(`
 WITH target_charm_resource AS (
-    SELECT r.uuid
+    SELECT r.uuid AS uuid
     FROM   resource AS r
     WHERE  r.charm_uuid = $charmUUID.charm_uuid
 )

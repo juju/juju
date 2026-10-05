@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -18,21 +17,6 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
-
-type resourceReconciliation struct {
-	ApplicationUUID string `db:"application_uuid"`
-	ResourceUUID    string `db:"resource_uuid"`
-	OldResourceUUID string `db:"old_resource_uuid"`
-	CharmUUID       string `db:"charm_uuid"`
-	Name            string `db:"charm_resource_name"`
-	KindID          int    `db:"kind_id"`
-}
-
-type charmResourceIdentity struct {
-	CharmUUID string `db:"charm_uuid"`
-	Name      string `db:"name"`
-	KindID    int    `db:"kind_id"`
-}
 
 // createApplicationResources handles resources when creating an application
 // by updating resources added before the application via UUID, or by
@@ -50,10 +34,11 @@ func (st *State) createApplicationResources(
 	return st.insertResources(ctx, tx, args)
 }
 
-// reconcileApplicationResourcesForCharm reconciles the resources for an
-// application when the charm is changed. It ensures that the resources are
-// updated, added, or removed as necessary to match the new charm's resource
-// definitions.
+// reconcileApplicationResourcesForCharm reconciles resources when an
+// application's charm changes. Each destination resource must have either a
+// matching staged candidate or a current resource with the same name.
+// Candidates must match the destination charm and kind, and current resources
+// absent from the destination charm are detached.
 func (st *State) reconcileApplicationResourcesForCharm(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -239,6 +224,8 @@ WHERE resource_uuid = $resourceReconciliation.resource_uuid
 	)
 }
 
+// reconcileRepositoryResourcesForCharm removes stale potential resources and
+// creates missing placeholders for resources in a CharmHub charm.
 func (st *State) reconcileRepositoryResourcesForCharm(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -373,17 +360,6 @@ func (st *State) replaceApplicationResourcesForCharm(
 	charmUUID string,
 	replacementUUIDs map[string]string,
 ) error {
-	type replacement struct {
-		ApplicationUUID string    `db:"application_uuid"`
-		OldUUID         string    `db:"old_uuid"`
-		NewUUID         string    `db:"new_uuid"`
-		CharmUUID       string    `db:"charm_uuid"`
-		Name            string    `db:"charm_resource_name"`
-		OldKindID       int       `db:"old_kind_id"`
-		NewKindID       int       `db:"new_kind_id"`
-		CreatedAt       time.Time `db:"created_at"`
-	}
-
 	input := replacement{
 		ApplicationUUID: appUUID,
 		CharmUUID:       charmUUID,
@@ -484,7 +460,8 @@ AND    resource_uuid = $replacement.old_uuid
 	for i := range replacements {
 		if replacements[i].OldKindID != replacements[i].NewKindID {
 			return errors.Errorf(
-				"cannot reuse resource %q when its type changes", replacements[i].Name,
+				"cannot reuse resource %q when its type changes: %w",
+				replacements[i].Name, applicationerrors.InvalidResourceArgs,
 			)
 		}
 		newUUID, ok := replacementUUIDs[replacements[i].Name]

@@ -148,6 +148,7 @@ func (d deltas) ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationS
 // UnitResource adds the resource name used by the new logical unit-resource
 // key. Legacy payloads can contain duplicate names for a unit, so prefer the
 // resource belonging to the unit's charm and then the most recently added row.
+// Equal timestamps are resolved by resource UUID for deterministic output.
 func (d deltas) UnitResource(
 	_ context.Context,
 	src []v4_0_12.UnitResource,
@@ -201,9 +202,6 @@ func (d deltas) UnitResource(
 			name:     charmResourceName,
 		}
 
-		// If the unit already has a resource with the same name, prefer the one
-		// that belongs to the unit's charm, and then the most recently added
-		// one.
 		index, exists := indexes[key]
 		if !exists {
 			indexes[key] = len(result)
@@ -221,11 +219,11 @@ func (d deltas) UnitResource(
 
 		// If the candidate resource matches the unit's charm and the current
 		// one does not, replace it. If both match or both do not match, prefer
-		// the most recently added one.
+		// the most recently added one. Equal timestamps are resolved by UUID.
 		replace := candidateMatchesCharm && !currentMatchesCharm
 		if candidateMatchesCharm == currentMatchesCharm {
 			replace = candidate.AddedAt.After(current.AddedAt) ||
-				candidate.AddedAt.Equal(current.AddedAt) && candidate.ResourceUUID > current.ResourceUUID
+				(candidate.AddedAt.Equal(current.AddedAt) && candidate.ResourceUUID > current.ResourceUUID)
 		}
 		if replace {
 			result[index] = candidate

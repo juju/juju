@@ -173,6 +173,8 @@ type StateUpdateUploadResourceArgs struct {
 	NewResourceUUID string
 }
 
+// TODO: Remove these legacy revision-update arguments when resource revision
+// updates are fully consolidated into SetRepositoryResources.
 // UpdateResourceRevisionArgs holds arguments to update a resource to have
 // a new revision.
 type UpdateResourceRevisionArgs struct {

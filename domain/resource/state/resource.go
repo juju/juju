@@ -260,6 +260,11 @@ AND    state = 'available'
 
 // GetUnitResourceID returns the ID of the resource selected by a unit for a
 // logical resource name.
+//
+// The following error types can be expected to be returned:
+//   - [applicationerrors.UnitNotFound] if the unit does not exist.
+//   - [resourceerrors.ResourceNotFound] if the unit has no selected resource
+//     with the supplied name.
 func (st *State) GetUnitResourceID(
 	ctx context.Context,
 	unitName, resourceName string,
@@ -771,6 +776,8 @@ func (st *State) RecordStoredResource(
 	return nil
 }
 
+// TODO: Remove this legacy entry point once all resource metadata lookups use
+// GetResourceNameAndType.
 // GetResourceType finds the type of the given resource from the resource table.
 //
 // The following error types can be expected to be returned:
@@ -818,6 +825,8 @@ func (st *State) GetResourceStorageKey(
 		Value        string `db:"storage_key"`
 	}
 	input := storageKey{ResourceUUID: resourceUUID.String()}
+	// Object-store blobs may have multiple path aliases. Prefer the stable path
+	// owned by this resource when it is present.
 	stmt, err := st.Prepare(`
 WITH storage_keys AS (
     SELECT osmp.path AS storage_key
@@ -1257,6 +1266,11 @@ ON CONFLICT(unit_uuid, charm_resource_name) DO UPDATE SET
 // charm repository. A changed revision or charm creates a replacement resource;
 // only last-polled time is updated in place. If the resource doesn't exist, a
 // log is generated.
+// Updates are last-write-wins and must be supplied in polling order.
+//
+// Immutable replacements leave historical resource rows behind. The resource
+// pruner must remove rows with no application, pending-application, or unit
+// link, together with blob links referenced only by those rows.
 //
 // "Potential" resources should be created at the creation of the application
 // for repository charm, with undefined `revision` and `last_polled` fields.
@@ -1733,6 +1747,8 @@ WHERE  resource_uuid = $update.old_uuid
 	return nil
 }
 
+// TODO: Remove this legacy entry point when resource revision updates are fully
+// consolidated into SetRepositoryResources.
 // UpdateResourceRevision creates and selects an immutable replacement resource
 // with the requested store revision. The previous resource and its stored
 // content are retained for units which may still be using them. Lastly the

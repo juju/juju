@@ -20,6 +20,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainresource "github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -423,6 +424,40 @@ func (s *unitFacadeSuite) TestGetResourceInfoFallbackUnitNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
 	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
+}
+
+func (s *unitFacadeSuite) TestGetResourceInfoFallbackResourceNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("a-application/0")
+	s.applicationService.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(coreapplication.UUID("application-uuid"), nil)
+	s.resourceService.EXPECT().GetResourcesByApplicationUUID(
+		gomock.Any(), coreapplication.UUID("application-uuid"),
+	).Return(nil, nil)
+	s.resourceService.EXPECT().GetUnitResourceID(
+		gomock.Any(), domainresource.GetUnitResourceIDArgs{
+			UnitName: unitName,
+			Name:     "removed-resource",
+		},
+	).Return(coreresource.UUID(""), resourceerrors.ResourceNotFound)
+
+	facade, err := NewUnitFacade(
+		names.NewUnitTag(unitName.String()),
+		s.applicationService,
+		s.resourceService,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := facade.GetResourceInfo(c.Context(), params.ListUnitResourcesArgs{
+		ResourceNames: []string{"removed-resource"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+	c.Assert(result.Resources, tc.HasLen, 1)
+	c.Assert(result.Resources[0].Error, tc.NotNil)
+	c.Check(result.Resources[0].Error.Code, tc.Equals, params.CodeNotFound)
 }
 
 func (s *unitFacadeSuite) TestGetResourceInfoFallbackError(c *tc.C) {

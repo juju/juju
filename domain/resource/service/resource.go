@@ -115,6 +115,8 @@ type State interface {
 		applicationID coreapplication.UUID,
 	) ([]coreresource.Resource, error)
 
+	// TODO: Remove this legacy entry point once all resource metadata lookups use
+	// GetResourceNameAndType.
 	// GetResourceType finds the type of the given resource from the resource table.
 	//
 	// The following error types can be expected to be returned:
@@ -150,10 +152,12 @@ type State interface {
 	SetUnitResource(ctx context.Context, resourceUUID coreresource.UUID, unitUUID coreunit.UUID) error
 
 	// SetRepositoryResources sets the "polled" resource for the
-	// application to the provided values. The current data for this
-	// application/resource combination will be overwritten.
+	// application to the provided values. A changed revision or charm creates
+	// an immutable replacement; only last-polled time is updated in place.
 	SetRepositoryResources(ctx context.Context, config resource.StateSetRepositoryResourcesArgs) error
 
+	// TODO: Remove this legacy entry point when resource revision updates are
+	// fully consolidated into SetRepositoryResources.
 	// UpdateResourceRevision creates and selects an immutable replacement for
 	// the resource. The previous resource and its stored content are retained.
 	UpdateResourceRevision(
@@ -635,6 +639,7 @@ func (s *Service) SetUnitResource(
 
 // SetRepositoryResources updates the last available revision of resources
 // from charm repository for a specific application.
+// Updates are last-write-wins; callers must submit them in polling order.
 //
 // The following error types can be expected to be returned:
 //   - [applicationerrors.ApplicationUUIDNotValid] is returned if the
@@ -717,6 +722,8 @@ func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resourc
 	return resourceUUIDs, nil
 }
 
+// TODO: Remove this legacy entry point when resource revision updates are fully
+// consolidated into SetRepositoryResources.
 // UpdateResourceRevision updates the revision of a store resource to a new
 // version. Increments charm modified version for the application to
 // trigger use of the new resource revision by the application. The prior

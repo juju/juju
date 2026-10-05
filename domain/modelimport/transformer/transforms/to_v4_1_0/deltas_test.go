@@ -140,3 +140,33 @@ func (s *deltasSuite) TestUnitResourceAddsNameAndReconcilesDuplicates(c *tc.C) {
 		},
 	})
 }
+
+func (s *deltasSuite) TestUnitResourceBreaksEqualTimestampTieByUUID(c *tc.C) {
+	addedAt := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	model := &v4_0_12.ModelExport{
+		Resource: []v4_0_12.Resource{
+			{UUID: "resource-a", CharmUUID: "charm-a", CharmResourceName: "foo"},
+			{UUID: "resource-b", CharmUUID: "charm-a", CharmResourceName: "foo"},
+		},
+		Unit: []v4_0_12.Unit{{UUID: "unit-0", CharmUUID: "charm-a"}},
+	}
+
+	for _, src := range [][]v4_0_12.UnitResource{
+		{
+			{ResourceUUID: "resource-a", UnitUUID: "unit-0", AddedAt: addedAt},
+			{ResourceUUID: "resource-b", UnitUUID: "unit-0", AddedAt: addedAt},
+		}, {
+			{ResourceUUID: "resource-b", UnitUUID: "unit-0", AddedAt: addedAt},
+			{ResourceUUID: "resource-a", UnitUUID: "unit-0", AddedAt: addedAt},
+		},
+	} {
+		got, err := deltas{}.UnitResource(c.Context(), src, model)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(got, tc.DeepEquals, []v4_1_0.UnitResource{{
+			ResourceUUID:      "resource-b",
+			UnitUUID:          "unit-0",
+			CharmResourceName: "foo",
+			AddedAt:           addedAt,
+		}})
+	}
+}

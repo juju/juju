@@ -217,6 +217,18 @@ func (s *applicationServiceSuite) TestGetApplicationUUIDByUnitName(c *tc.C) {
 	c.Check(obtainedAppID, tc.DeepEquals, expectedAppID)
 }
 
+func (s *applicationServiceSuite) TestGetApplicationUUIDByUnitNameNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("foo/99")
+	s.state.EXPECT().GetApplicationUUIDByUnitName(
+		gomock.Any(), unitName,
+	).Return(coreapplication.UUID(""), applicationerrors.UnitNotFound)
+
+	_, err := s.service.GetApplicationUUIDByUnitName(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationServiceSuite) TestGetCharmModifiedVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

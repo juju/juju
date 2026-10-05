@@ -208,8 +208,13 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit string, sr core
 		}
 		res = append(res, FormatAppResource(r))
 	}
-	for _, r := range resources {
-		res = append(res, FormatAppResource(r))
+	resourceNames := make([]string, 0, len(resources))
+	for name := range resources {
+		resourceNames = append(resourceNames, name)
+	}
+	sort.Strings(resourceNames)
+	for _, name := range resourceNames {
+		res = append(res, FormatAppResource(resources[name]))
 	}
 
 	return c.out.Write(ctx, res)

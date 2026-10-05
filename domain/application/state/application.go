@@ -1775,7 +1775,7 @@ WHERE  name = $unitName.name;
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.ApplicationNotFound
+			return applicationerrors.UnitNotFound
 		}
 		return err
 	})
