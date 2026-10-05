@@ -76,6 +76,41 @@ func (s *stateSuite) TestSetAPIAddressesRequiresExactActiveMembership(c *tc.C) {
 	s.checkAddressProjections(c, nil)
 }
 
+func (s *stateSuite) TestSetAPIAddressesSharedEndpointsDoNotAffectMembership(c *tc.C) {
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	projections := controllernode.APIAddressProjections{
+		"": {
+			Clients: controllernode.APIAddresses{{Address: "client.example.com:17070"}},
+			Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070"}},
+		},
+		"0": {
+			Peers: controllernode.APIAddresses{{Address: "controller-0.example.com:17070"}},
+		},
+	}
+	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+	s.checkAddressProjections(c, projections)
+}
+
+func (s *stateSuite) TestSetAPIAddressesSharedEndpointsWithoutControllers(c *tc.C) {
+	projections := controllernode.APIAddressProjections{
+		"": {
+			Clients: controllernode.APIAddresses{{Address: "client.example.com:17070"}},
+			Agents:  controllernode.APIAddresses{{Address: "agent.example.com:17070"}},
+		},
+	}
+	c.Assert(s.setAPIAddresses(c, projections), tc.ErrorIsNil)
+	s.checkAddressProjections(c, projections)
+
+	for _, table := range []string{"controller_client_address", "controller_agent_address"} {
+		var controllerID sql.NullString
+		err := s.DB().QueryRowContext(
+			c.Context(), "SELECT controller_id FROM "+table,
+		).Scan(&controllerID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(controllerID.Valid, tc.IsFalse, tc.Commentf("table %s", table))
+	}
+}
+
 func (s *stateSuite) TestSetAPIAddressesMetadataUpdatePreservesUUID(c *tc.C) {
 	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
 	original := controllernode.APIAddressProjections{"0": {
@@ -130,13 +165,6 @@ END`)
 	}})
 	c.Assert(err, tc.ErrorMatches, ".*peer write failed.*")
 	s.checkAddressProjections(c, nil)
-}
-
-func (s *stateSuite) TestSetAPIAddressesRejectsEmptyControllerID(c *tc.C) {
-	err := s.setAPIAddresses(c, controllernode.APIAddressProjections{
-		"": {Peers: controllernode.APIAddresses{{Address: "shared.example.com:17070"}}},
-	})
-	c.Assert(err, tc.ErrorMatches, "controller ID is empty")
 }
 
 func (s *stateSuite) setAPIAddresses(c *tc.C, projections controllernode.APIAddressProjections) error {

@@ -235,16 +235,18 @@ func (s *controllerSuite) TestInitialiseAPIHostPortsCAAS(c *tc.C) {
 	serviceManager.EXPECT().ControllerUnitFQDN(7).Return("controller-7.internal")
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
 		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: network.SpaceAddresses{
+				{MachineAddress: public.MachineAddress},
+				{MachineAddress: private.MachineAddress},
+			},
+			Agents: network.SpaceAddresses{
+				{MachineAddress: private.MachineAddress},
+				{MachineAddress: public.MachineAddress},
+			},
+		},
 		Addresses: map[string]controllernode.APIAddressSet{
 			"7": {
-				Clients: network.SpaceAddresses{
-					{MachineAddress: public.MachineAddress},
-					{MachineAddress: private.MachineAddress},
-				},
-				Agents: network.SpaceAddresses{
-					{MachineAddress: private.MachineAddress},
-					{MachineAddress: public.MachineAddress},
-				},
 				Peers: network.SpaceAddresses{
 					network.NewSpaceAddress("controller-7.internal", network.WithScope(network.ScopeCloudLocal)),
 				},

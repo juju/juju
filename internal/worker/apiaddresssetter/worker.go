@@ -271,8 +271,8 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 		}
 
 		addresses[controllerID] = controllernode.APIAddressSet{
-			Clients: mergeAddresses(clients.ByUnit[name], clients.Shared),
-			Agents:  mergeAddresses(agents.ByUnit[name], agents.Shared),
+			Clients: slices.Clone(clients.ByUnit[name]),
+			Agents:  slices.Clone(agents.ByUnit[name]),
 			Peers:   slices.Clone(peerAddresses),
 		}
 	}
@@ -280,26 +280,12 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllernode.SetAPIAddressArgs{
 		APIPort:   cfg.APIPort(),
 		Addresses: addresses,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: slices.Clone(clients.Shared),
+			Agents:  slices.Clone(agents.Shared),
+		},
 	}); err != nil {
 		return errors.Errorf("publishing API addresses: %w", err)
 	}
 	return nil
-}
-
-func mergeAddresses(first, second network.SpaceAddresses) network.SpaceAddresses {
-	if len(first) == 0 && len(second) == 0 {
-		return nil
-	}
-	result := make(network.SpaceAddresses, 0, len(first)+len(second))
-	seen := make(map[string]struct{}, len(first)+len(second))
-	for _, addresses := range []network.SpaceAddresses{first, second} {
-		for _, address := range addresses {
-			if _, ok := seen[address.Value]; ok {
-				continue
-			}
-			seen[address.Value] = struct{}{}
-			result = append(result, address)
-		}
-	}
-	return result
 }

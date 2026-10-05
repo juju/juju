@@ -324,8 +324,11 @@ func (st *State) NamespaceForWatchControllerClientAddresses() string {
 }
 
 // SetAPIAddresses atomically replaces all client, agent and peer address
-// projections. Empty projections are authoritative. The named projection
-// keys must exactly match the alive or dying controller membership.
+// projections. Empty projections are authoritative. The named projection keys
+// must exactly match the alive or dying controller membership. The empty key
+// represents shared client and agent addresses and is excluded from membership.
+// Callers must not supply peer addresses under the empty key because peer
+// addresses require a controller identity.
 //
 // The following errors can be expected:
 // - [controllernodeerrors.StaleControllerMembership] if the named projection
@@ -348,6 +351,9 @@ WHERE node.life_id < 2
 	clients, agents, peers := encodeAPIAddressProjections(projections)
 	expected := make(map[string]struct{}, len(projections))
 	for controllerID := range projections {
+		if controllerID == "" {
+			continue
+		}
 		expected[controllerID] = struct{}{}
 	}
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {

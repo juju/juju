@@ -175,8 +175,8 @@ func (s *Service) SetControllerNodeReportedAgentVersion(ctx context.Context, con
 // routing audience.
 //
 // The following errors can be expected:
-// - [coreerrors.NotValid] if the API port is invalid or no controller address
-// sets are supplied.
+// - [coreerrors.NotValid] if the API port is invalid, no address sets are
+// supplied, or a named address set has no controller ID.
 // - [controllernodeerrors.ControllerAddressNotValid] if an address is empty.
 // - [controllernodeerrors.StaleControllerMembership] if controller membership
 // changed after address selection.
@@ -184,12 +184,17 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 	if args.APIPort <= 0 {
 		return errors.Errorf("non-positive API port: %w", coreerrors.NotValid)
 	}
-	if len(args.Addresses) == 0 {
+	if len(args.Addresses) == 0 &&
+		len(args.SharedAddresses.Clients) == 0 &&
+		len(args.SharedAddresses.Agents) == 0 {
 		return errors.Errorf("API addresses are empty: %w", coreerrors.NotValid)
 	}
 
-	projections := make(controllernode.APIAddressProjections, len(args.Addresses))
+	projections := make(controllernode.APIAddressProjections, len(args.Addresses)+1)
 	for controllerID, selected := range args.Addresses {
+		if controllerID == "" {
+			return errors.Errorf("controller ID is empty: %w", coreerrors.NotValid)
+		}
 		clients, err := encodeAPIAddresses(selected.Clients, args.APIPort)
 		if err != nil {
 			return errors.Errorf("encoding client addresses for controller %q: %w", controllerID, err)
@@ -208,10 +213,28 @@ func (s *Service) SetAPIAddresses(ctx context.Context, args controllernode.SetAP
 			Peers:   peers,
 		}
 	}
+	if len(args.SharedAddresses.Clients) != 0 || len(args.SharedAddresses.Agents) != 0 {
+		clients, err := encodeAPIAddresses(args.SharedAddresses.Clients, args.APIPort)
+		if err != nil {
+			return errors.Errorf("encoding shared client addresses: %w", err)
+		}
+		agents, err := encodeAPIAddresses(args.SharedAddresses.Agents, args.APIPort)
+		if err != nil {
+			return errors.Errorf("encoding shared agent addresses: %w", err)
+		}
+		projections[""] = controllernode.APIAddressProjection{
+			Clients: clients,
+			Agents:  agents,
+		}
+	}
 	return s.st.SetAPIAddresses(ctx, projections)
 }
 
 func encodeAPIAddresses(addrs network.SpaceAddresses, apiPort int) (controllernode.APIAddresses, error) {
+	if len(addrs) == 0 {
+		return nil, nil
+	}
+
 	addresses := make(controllernode.APIAddresses, 0, len(addrs))
 	seen := make(map[string]struct{}, len(addrs))
 	for _, spaceAddress := range addrs {

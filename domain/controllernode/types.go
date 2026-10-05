@@ -17,11 +17,13 @@ import (
 	"github.com/juju/juju/internal/logger"
 )
 
-// SetAPIAddressArgs contains the selected addresses to publish, keyed by
-// controller ID.
+// SetAPIAddressArgs contains the selected addresses to publish. Addresses are
+// keyed by controller ID, while SharedAddresses contains endpoints that can
+// reach any controller.
 type SetAPIAddressArgs struct {
-	APIPort   int
-	Addresses map[string]APIAddressSet
+	APIPort         int
+	Addresses       map[string]APIAddressSet
+	SharedAddresses SharedAPIAddressSet
 }
 
 // APIAddressSet contains addresses selected for each routing audience.
@@ -29,6 +31,12 @@ type APIAddressSet struct {
 	Clients network.SpaceAddresses
 	Agents  network.SpaceAddresses
 	Peers   network.SpaceAddresses
+}
+
+// SharedAPIAddressSet contains controller-agnostic discovery addresses.
+type SharedAPIAddressSet struct {
+	Clients network.SpaceAddresses
+	Agents  network.SpaceAddresses
 }
 
 // APIAddress represents a published API address.

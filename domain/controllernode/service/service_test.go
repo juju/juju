@@ -203,6 +203,14 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 				projections[controllerID] = projection
 			}
 			c.Check(projections, tc.DeepEquals, controllernode.APIAddressProjections{
+				"": {
+					Clients: controllernode.APIAddresses{
+						{Address: "shared-client.example.com:17070", Scope: network.ScopePublic},
+					},
+					Agents: controllernode.APIAddresses{
+						{Address: "shared-agent.example.com:17070", Scope: network.ScopeCloudLocal},
+					},
+				},
 				"0": {
 					Clients: controllernode.APIAddresses{
 						{Address: "controller.example.com:17070", Scope: network.ScopePublic},
@@ -233,6 +241,14 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 
 	args := controllernode.SetAPIAddressArgs{
 		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: network.SpaceAddresses{
+				network.NewSpaceAddress("shared-client.example.com", network.WithScope(network.ScopePublic)),
+			},
+			Agents: network.SpaceAddresses{
+				network.NewSpaceAddress("shared-agent.example.com", network.WithScope(network.ScopeCloudLocal)),
+			},
+		},
 		Addresses: map[string]controllernode.APIAddressSet{
 			"0": {
 				Clients: network.SpaceAddresses{
@@ -265,6 +281,53 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestSetAPIAddressesSharedClientsOnly(c *tc.C) {
+	s.testSetAPIAddressesShared(c, controllernode.SharedAPIAddressSet{
+		Clients: network.NewSpaceAddresses("client.example.com"),
+	}, "client.example.com:17070", "")
+}
+
+func (s *serviceSuite) TestSetAPIAddressesSharedAgentsOnly(c *tc.C) {
+	s.testSetAPIAddressesShared(c, controllernode.SharedAPIAddressSet{
+		Agents: network.NewSpaceAddresses("agent.example.com"),
+	}, "", "agent.example.com:17070")
+}
+
+func (s *serviceSuite) testSetAPIAddressesShared(
+	c *tc.C,
+	shared controllernode.SharedAPIAddressSet,
+	wantClient, wantAgent string,
+) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, projections controllernode.APIAddressProjections) error {
+			c.Assert(projections, tc.HasLen, 1)
+			projection, ok := projections[""]
+			c.Assert(ok, tc.IsTrue)
+			if wantClient == "" {
+				c.Check(projection.Clients, tc.HasLen, 0)
+			} else {
+				c.Assert(projection.Clients, tc.HasLen, 1)
+				c.Check(projection.Clients[0].Address, tc.Equals, wantClient)
+			}
+			if wantAgent == "" {
+				c.Check(projection.Agents, tc.HasLen, 0)
+			} else {
+				c.Assert(projection.Agents, tc.HasLen, 1)
+				c.Check(projection.Agents[0].Address, tc.Equals, wantAgent)
+			}
+			return nil
+		})
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort:         17070,
+		SharedAddresses: shared,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestSetAPIAddressesRejectsEmptyAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
@@ -280,6 +343,20 @@ func (s *serviceSuite) TestSetAPIAddressesRejectsEmptyAddress(c *tc.C) {
 		})
 		c.Check(err, tc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
 	}
+}
+
+func (s *serviceSuite) TestSetAPIAddressesRejectsEmptyNamedControllerID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"": {Clients: network.NewSpaceAddresses("client.example.com")},
+		},
+	})
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "controller ID is empty: not valid")
 }
 
 func (s *serviceSuite) TestSetAPIAddressesRejectsNonPositivePort(c *tc.C) {

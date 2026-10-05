@@ -144,7 +144,7 @@ func InitialiseAPIHostPorts(
 		return errors.Errorf("unsupported controller model type %q", modelType)
 	}
 
-	return errors.Capture(controllerNodeService.SetAPIAddresses(ctx, controllernode.SetAPIAddressArgs{
+	args := controllernode.SetAPIAddressArgs{
 		APIPort: apiPort,
 		Addresses: map[string]controllernode.APIAddressSet{
 			controllerID: {
@@ -153,7 +153,15 @@ func InitialiseAPIHostPorts(
 				Peers:   peers,
 			},
 		},
-	}))
+	}
+	if modelType == coremodel.CAAS {
+		args.Addresses[controllerID] = controllernode.APIAddressSet{Peers: peers}
+		args.SharedAddresses = controllernode.SharedAPIAddressSet{
+			Clients: clients,
+			Agents:  agents,
+		}
+	}
+	return errors.Capture(controllerNodeService.SetAPIAddresses(ctx, args))
 }
 
 func orderBootstrapAddresses(addresses network.SpaceAddresses, preferredScope network.Scope) network.SpaceAddresses {

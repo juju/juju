@@ -193,8 +193,12 @@ func (s *workerSuite) TestPublishesCAASSharedEndpoints(c *tc.C) {
 	published := make(chan struct{})
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
 		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: sharedClients,
+			Agents:  sharedAgents,
+		},
 		Addresses: map[string]controllernode.APIAddressSet{
-			"0": {Clients: sharedClients, Agents: sharedAgents, Peers: peer},
+			"0": {Peers: peer},
 		},
 	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
 		close(published)
