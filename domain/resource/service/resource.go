@@ -115,15 +115,6 @@ type State interface {
 		applicationID coreapplication.UUID,
 	) ([]coreresource.Resource, error)
 
-	// TODO: Remove this legacy entry point once all resource metadata lookups use
-	// GetResourceNameAndType.
-	// GetResourceType finds the type of the given resource from the resource table.
-	//
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
-	//     found.
-	GetResourceType(ctx context.Context, resourceUUID coreresource.UUID) (charmresource.Type, error)
-
 	// GetResourceStorageKey returns the key used to retrieve the resource's
 	// content from its resource store.
 	//
@@ -155,15 +146,6 @@ type State interface {
 	// application to the provided values. A changed revision or charm creates
 	// an immutable replacement; only last-polled time is updated in place.
 	SetRepositoryResources(ctx context.Context, config resource.StateSetRepositoryResourcesArgs) error
-
-	// TODO: Remove this legacy entry point when resource revision updates are
-	// fully consolidated into SetRepositoryResources.
-	// UpdateResourceRevision creates and selects an immutable replacement for
-	// the resource. The previous resource and its stored content are retained.
-	UpdateResourceRevision(
-		ctx context.Context,
-		arg resource.StateUpdateResourceRevisionArgs,
-	) error
 
 	// UpdateUploadResource creates and selects an immutable replacement for an
 	// uploaded resource. The previous resource and its stored content are
@@ -720,46 +702,6 @@ func (s *Service) AddResourcesBeforeApplication(ctx context.Context, arg resourc
 		return nil, errors.Errorf("failed to add resources: %w", err)
 	}
 	return resourceUUIDs, nil
-}
-
-// TODO: Remove this legacy entry point when resource revision updates are fully
-// consolidated into SetRepositoryResources.
-// UpdateResourceRevision updates the revision of a store resource to a new
-// version. Increments charm modified version for the application to
-// trigger use of the new resource revision by the application. The prior
-// immutable resource and its stored content are retained for lagging units.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceUUIDNotValid] is returned if the Resource ID is
-//     not valid.
-//   - [resourceerrors.ArgumentNotValid] is returned if the Revision is less
-//     than 0.
-func (s *Service) UpdateResourceRevision(
-	ctx context.Context,
-	arg resource.UpdateResourceRevisionArgs,
-) (coreresource.UUID, error) {
-	if err := arg.ResourceUUID.Validate(); err != nil {
-		return "", errors.Errorf("%w: %w", resourceerrors.ResourceUUIDNotValid, err)
-	}
-
-	if arg.Revision < 0 {
-		return "", errors.Errorf("revision less than 0: %w", resourceerrors.ArgumentNotValid)
-	}
-
-	newUUID, err := coreresource.NewUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = s.st.UpdateResourceRevision(ctx, resource.StateUpdateResourceRevisionArgs{
-		ResourceUUID:    arg.ResourceUUID.String(),
-		NewResourceUUID: newUUID.String(),
-		Revision:        arg.Revision,
-	})
-	if err != nil {
-		return "", err
-	}
-	return newUUID, nil
 }
 
 // UpdateUploadResource adds a new entry for an uploaded blob in the resource

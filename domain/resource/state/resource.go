@@ -776,35 +776,6 @@ func (st *State) RecordStoredResource(
 	return nil
 }
 
-// TODO: Remove this legacy entry point once all resource metadata lookups use
-// GetResourceNameAndType.
-// GetResourceType finds the type of the given resource from the resource table.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
-//     found.
-func (st *State) GetResourceType(
-	ctx context.Context,
-	resourceUUID coreresource.UUID,
-) (charmresource.Type, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	var resKind charmresource.Type
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var errQuery error
-		resKind, errQuery = st.getResourceType(ctx, tx, resourceUUID)
-		return errors.Capture(errQuery)
-	})
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	return resKind, nil
-}
-
 // GetResourceStorageKey returns the key used to retrieve the resource's
 // content from its resource store.
 //
@@ -860,40 +831,6 @@ LIMIT  1
 		return "", errors.Capture(err)
 	}
 	return result.Value, nil
-}
-
-func (st *State) getResourceType(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resourceUUID coreresource.UUID,
-) (charmresource.Type, error) {
-	resKind := resourceKind{
-		UUID: resourceUUID.String(),
-	}
-	getResourceType, err := st.Prepare(`
-SELECT crk.name AS &resourceKind.kind_name
-FROM   resource AS r
-JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
-JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
-WHERE  r.uuid = $resourceKind.uuid
-`, resKind)
-
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, getResourceType, resKind).Get(&resKind)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return 0, resourceerrors.ResourceNotFound
-	} else if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	kind, err := charmresource.ParseType(resKind.Name)
-	if err != nil {
-		return 0, errors.Errorf("parsing resource kind: %w", err)
-	}
-	return kind, nil
 }
 
 // recordStoredFileResource checks that the storage ID corresponds to stored
@@ -1745,61 +1682,6 @@ WHERE  resource_uuid = $update.old_uuid
 	}
 
 	return nil
-}
-
-// TODO: Remove this legacy entry point when resource revision updates are fully
-// consolidated into SetRepositoryResources.
-// UpdateResourceRevision creates and selects an immutable replacement resource
-// with the requested store revision. The previous resource and its stored
-// content are retained for units which may still be using them. Lastly the
-// charm modified version is updated to enable the resource upgrade.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] is returned if the resource cannot be
-//     found.
-func (st *State) UpdateResourceRevision(
-	ctx context.Context,
-	args resource.StateUpdateResourceRevisionArgs,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		resourceToUpdate, err := st.getResourceCharmDataForUpdate(ctx, tx, args.ResourceUUID)
-		if err != nil {
-			return errors.Errorf("getting resource with uuid: %w", err)
-		}
-
-		res := addResource{
-			UUID:      args.NewResourceUUID,
-			CharmUUID: resourceToUpdate.CharmUUID,
-			Name:      resourceToUpdate.Name,
-			Revision:  &args.Revision,
-			Origin:    charmresource.OriginStore.String(),
-			State:     resource.StateAvailable.String(),
-			CreatedAt: st.clock.Now().UTC(),
-		}
-		err = st.addResource(ctx, tx, res)
-		if err != nil {
-			return errors.Errorf("inserting new resource record: %w", err)
-		}
-
-		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, args.NewResourceUUID)
-		if err != nil {
-			return errors.Errorf("updating application resource: %w", err)
-		}
-
-		err = st.incrementCharmModifiedVersion(ctx, tx, args.NewResourceUUID)
-		if err != nil {
-			return errors.Errorf(
-				"incrementing charm modified version for application of resource %s: %w",
-				args.ResourceUUID, err)
-		}
-		return nil
-	})
-	return errors.Capture(err)
 }
 
 // DeleteResourcesAddedBeforeApplication removes all resources for the

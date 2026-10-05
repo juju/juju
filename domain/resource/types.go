@@ -173,28 +173,6 @@ type StateUpdateUploadResourceArgs struct {
 	NewResourceUUID string
 }
 
-// TODO: Remove these legacy revision-update arguments when resource revision
-// updates are fully consolidated into SetRepositoryResources.
-// UpdateResourceRevisionArgs holds arguments to update a resource to have
-// a new revision.
-type UpdateResourceRevisionArgs struct {
-	// ResourceUUID is the unique identifier of the resource.
-	ResourceUUID coreresource.UUID
-	// Revision is the revision of the resource to use.
-	Revision int
-}
-
-// StateUpdateResourceRevisionArgs holds arguments for replacing a resource
-// with a different revision.
-type StateUpdateResourceRevisionArgs struct {
-	// ResourceUUID is the unique identifier of the resource being replaced.
-	ResourceUUID string
-	// NewResourceUUID is the unique identifier of the replacement resource.
-	NewResourceUUID string
-	// Revision is the revision of the replacement resource.
-	Revision int
-}
-
 // ImportResourcesArgs are the arguments for SetResource.
 type ImportResourcesArgs []ImportResourcesArg
 
