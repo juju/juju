@@ -1241,7 +1241,7 @@ ORDER BY s.name`, s.appID)
 				spaceName:         nilEmpty(name),
 			})
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) Failed to fetch endpoints: %v", err))
 	return endpoints
@@ -1279,7 +1279,7 @@ ORDER BY s.name`, appID)
 				spaceName:    nilEmpty(spaceName),
 			})
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) Failed to fetch endpoints: %v", err))
 	return endpoints
@@ -1312,7 +1312,7 @@ ORDER BY s.name`, appID)
 				spaceName:    nilEmpty(spaceName),
 			})
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) Failed to fetch endpoints: %v", err))
 	return endpoints
