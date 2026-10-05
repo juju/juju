@@ -247,8 +247,8 @@ VALUES (?, ?, ?)`, "reprovision-charm", "resource", 0)
 INSERT INTO resource (uuid, charm_uuid, charm_resource_name, origin_type_id, state_id, created_at)
 VALUES (?, ?, ?, ?, ?, ?)`, "reprovision-resource", "reprovision-charm", "resource", 0, 0, time.Now())
 	s.runQuery(c, `
-INSERT INTO unit_resource (resource_uuid, unit_uuid, added_at)
-VALUES (?, ?, ?)`, "reprovision-resource", "reprovision-unit", time.Now())
+INSERT INTO unit_resource (resource_uuid, unit_uuid, charm_resource_name, added_at)
+VALUES (?, ?, ?, ?)`, "reprovision-resource", "reprovision-unit", "resource", time.Now())
 	s.runQuery(c, `
 INSERT INTO operation (uuid, operation_id, enqueued_at)
 VALUES (?, ?, ?)`, "reprovision-operation", 1, time.Now())
