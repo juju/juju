@@ -225,8 +225,8 @@ run_offer_find_external_user() {
 	echo "Identity provider running at ${IDP_URL}"
 
 	# Bootstrap a dedicated controller that uses the test identity provider.
-	# BOOTSTRAP_ADDITIONAL_ARGS is extended here; pre_bootstrap will append
-	# --agent-version etc., and post_bootstrap will unset it afterwards.
+	# BOOTSTRAP_ADDITIONAL_ARGS is extended here; post_bootstrap will unset
+	# it afterwards.
 	export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} \
 		--config identity-url=${IDP_URL} \
 		--config identity-public-key=${IDP_PUBKEY} \
