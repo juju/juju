@@ -19,8 +19,8 @@ type RetryStrategy struct {
 
 // RetryStrategyResult holds a RetryStrategy or an error.
 type RetryStrategyResult struct {
-	Error  *Error         `json:"error,omitempty"`
-	Result *RetryStrategy `json:"result,omitempty"`
+	Error  *Error         `json:"error,omitzero"`
+	Result *RetryStrategy `json:"result,omitzero"`
 }
 
 // RetryStrategyResults holds the bulk operation result of an API call

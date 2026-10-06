@@ -5,7 +5,9 @@ package jsoncodec
 
 import (
 	"context"
-	"encoding/json"
+	jsonv1 "encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -18,6 +20,34 @@ import (
 )
 
 var logger = internallogger.GetLogger("juju.rpc.jsoncodec")
+
+// options holds the encoding/json/v2 options used for every message that
+// passes through this codec. The RPC wire format predates json/v2 and the
+// parameter types that travel over it were written against encoding/json
+// semantics, so a small number of v1 behaviours are retained to keep the
+// wire format stable:
+//
+//   - nil slices and maps are encoded as JSON null rather than [] and {};
+//   - time.Duration is encoded as nanoseconds;
+//   - `omitempty` keeps the v1 definition of empty, which also omits false,
+//     0 and nil pointers;
+//   - invalid UTF-8 is replaced with U+FFFD rather than rejected.
+//
+// Everything else uses the stricter v2 defaults, including case-sensitive
+// field matching and rejection of duplicate object names.
+var options = json.JoinOptions(
+	json.FormatNilSliceAsNull(true),
+	json.FormatNilMapAsNull(true),
+	jsonv1.FormatDurationAsNano(true),
+	jsonv1.OmitEmptyWithLegacySemantics(true),
+	jsontext.AllowInvalidUTF8(true),
+)
+
+// Options returns the encoding/json/v2 options used by the codec to marshal
+// and unmarshal messages.
+func Options() json.Options {
+	return options
+}
 
 // JSONConn sends and receives messages to an underlying connection
 // in JSON format.
@@ -49,38 +79,38 @@ func New(conn JSONConn) *Codec {
 
 // inMsg holds an incoming message.  We don't know the type of the
 // parameters or response yet, so we delay parsing by storing them
-// in a RawMessage.
+// in a jsontext.Value.
 
 type inMsgV1 struct {
-	RequestId  uint64          `json:"request-id"`
-	Type       string          `json:"type"`
-	Version    int             `json:"version"`
-	Id         string          `json:"id"`
-	Request    string          `json:"request"`
-	Params     json.RawMessage `json:"params"`
-	Error      string          `json:"error"`
-	ErrorCode  string          `json:"error-code"`
-	ErrorInfo  map[string]any  `json:"error-info"`
-	Response   json.RawMessage `json:"response"`
-	TraceID    string          `json:"trace-id"`
-	SpanID     string          `json:"span-id"`
-	TraceFlags int             `json:"trace-flags"`
+	RequestId  uint64         `json:"request-id"`
+	Type       string         `json:"type"`
+	Version    int            `json:"version"`
+	Id         string         `json:"id"`
+	Request    string         `json:"request"`
+	Params     jsontext.Value `json:"params"`
+	Error      string         `json:"error"`
+	ErrorCode  string         `json:"error-code"`
+	ErrorInfo  map[string]any `json:"error-info"`
+	Response   jsontext.Value `json:"response"`
+	TraceID    string         `json:"trace-id"`
+	SpanID     string         `json:"span-id"`
+	TraceFlags int            `json:"trace-flags"`
 }
 
 type outMsgV1 struct {
-	RequestId  uint64         `json:"request-id,omitempty"`
-	Type       string         `json:"type,omitempty"`
-	Version    int            `json:"version,omitempty"`
-	Id         string         `json:"id,omitempty"`
-	Request    string         `json:"request,omitempty"`
-	Params     any            `json:"params,omitempty"`
-	Error      string         `json:"error,omitempty"`
-	ErrorCode  string         `json:"error-code,omitempty"`
+	RequestId  uint64         `json:"request-id,omitzero"`
+	Type       string         `json:"type,omitzero"`
+	Version    int            `json:"version,omitzero"`
+	Id         string         `json:"id,omitzero"`
+	Request    string         `json:"request,omitzero"`
+	Params     any            `json:"params,omitzero"`
+	Error      string         `json:"error,omitzero"`
+	ErrorCode  string         `json:"error-code,omitzero"`
 	ErrorInfo  map[string]any `json:"error-info,omitempty"`
-	Response   any            `json:"response,omitempty"`
-	TraceID    string         `json:"trace-id,omitempty"`
-	SpanID     string         `json:"span-id,omitempty"`
-	TraceFlags int            `json:"trace-flags,omitempty"`
+	Response   any            `json:"response,omitzero"`
+	TraceID    string         `json:"trace-id,omitzero"`
+	SpanID     string         `json:"span-id,omitzero"`
+	TraceFlags int            `json:"trace-flags,omitzero"`
 }
 
 // Close closes the underlying connection and sets the codec to
@@ -96,7 +126,7 @@ func (c *Codec) isClosing() bool {
 
 // ReadHeader reads the header from the connection.
 func (c *Codec) ReadHeader(hdr *rpc.Header) error {
-	var m json.RawMessage
+	var m jsontext.Value
 	if err := c.conn.Receive(&m); err != nil {
 		if logger.IsLevelEnabled(corelogger.TRACE) {
 			logger.Tracef(context.TODO(), "<- error: %v (closing %v)", err, c.isClosing())
@@ -141,7 +171,7 @@ func (c *Codec) ReadBody(body any, isRequest bool) error {
 	if body == nil {
 		return nil
 	}
-	var rawBody json.RawMessage
+	var rawBody jsontext.Value
 	if isRequest {
 		rawBody = c.msg.Params
 	} else {
@@ -152,7 +182,7 @@ func (c *Codec) ReadBody(body any, isRequest bool) error {
 		// equivalent to an empty object.
 		return nil
 	}
-	return json.Unmarshal(rawBody, body)
+	return json.Unmarshal(rawBody, body, options)
 }
 
 // WriteMessage writes a message with the given header and body.
@@ -162,7 +192,7 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body any) error {
 		return errors.Errorf("writing message: %w", err)
 	}
 	if logger.IsLevelEnabled(corelogger.TRACE) {
-		data, err := json.Marshal(msg)
+		data, err := json.Marshal(msg, options)
 		if err != nil {
 			logger.Tracef(context.TODO(), "-> marshal error: %v", err)
 			return err
@@ -182,16 +212,18 @@ func DumpRequest(hdr *rpc.Header, body any) []byte {
 	if err != nil {
 		return fmt.Appendf(nil, "%q", err.Error())
 	}
-	data, err := json.Marshal(msg)
+	// Map keys are sorted so that the dumped output is stable
+	// for logging and comparison.
+	data, err := json.Marshal(msg, options, json.Deterministic(true))
 	if err != nil {
 		return fmt.Appendf(nil, "%q", "marshal error: "+err.Error())
 	}
 	return data
 }
 
-func readMessage(m json.RawMessage) (inMsgV1, error) {
+func readMessage(m jsontext.Value) (inMsgV1, error) {
 	var msg inMsgV1
-	if err := json.Unmarshal(m, &msg); err != nil {
+	if err := json.Unmarshal(m, &msg, options); err != nil {
 		return msg, errors.Errorf("unmarshalling message: %w", err)
 	}
 	if msg.RequestId == 0 {

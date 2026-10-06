@@ -52,7 +52,7 @@ type BlockSwitchParams struct {
 // for a block.
 type BlockResult struct {
 	Result Block  `json:"result"`
-	Error  *Error `json:"error,omitempty"`
+	Error  *Error `json:"error,omitzero"`
 }
 
 // BlockResults holds the result of an API call to list blocks.

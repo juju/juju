@@ -17,7 +17,7 @@ import (
 // StatusParams holds parameters for the Status call.
 type StatusParams struct {
 	Patterns       []string `json:"patterns"`
-	IncludeStorage bool     `json:"include-storage,omitempty"`
+	IncludeStorage bool     `json:"include-storage,omitzero"`
 }
 
 // FullStatus holds information about the status of a juju model.
@@ -121,7 +121,7 @@ type MachineStatus struct {
 	Jobs        []model.MachineJob `json:"jobs"`
 	HasVote     bool               `json:"has-vote"`
 	WantsVote   bool               `json:"wants-vote"`
-	ClusterRole *string            `json:"cluster-role,omitempty"`
+	ClusterRole *string            `json:"cluster-role,omitzero"`
 
 	// LXDProfiles holds all the machines current LXD profiles that have
 	// been applied to the machine
@@ -130,7 +130,7 @@ type MachineStatus struct {
 	// PrimaryControllerMachine indicates whether this machine has a primary
 	// instance and, thus, can be considered a primary controller machine in HA
 	// setup.
-	PrimaryControllerMachine *bool `json:"primary-controller-machine,omitempty"`
+	PrimaryControllerMachine *bool `json:"primary-controller-machine,omitzero"`
 }
 
 // LXDProfile holds status info about a LXDProfile
@@ -142,12 +142,12 @@ type LXDProfile struct {
 
 // ApplicationStatus holds status info about an application.
 type ApplicationStatus struct {
-	Err              *Error                     `json:"err,omitempty"`
+	Err              *Error                     `json:"err,omitzero"`
 	Charm            string                     `json:"charm"`
 	CharmVersion     string                     `json:"charm-version"`
 	CharmProfile     string                     `json:"charm-profile"`
 	CharmChannel     string                     `json:"charm-channel,omitempty"`
-	CharmRev         int                        `json:"charm-rev,omitempty"`
+	CharmRev         int                        `json:"charm-rev,omitzero"`
 	Base             Base                       `json:"base"`
 	Exposed          bool                       `json:"exposed"`
 	ExposedEndpoints map[string]ExposedEndpoint `json:"exposed-endpoints,omitempty"`
@@ -161,14 +161,14 @@ type ApplicationStatus struct {
 	EndpointBindings map[string]string          `json:"endpoint-bindings"`
 
 	// The following are for CAAS models.
-	Scale         int    `json:"int,omitempty"`
+	Scale         int    `json:"int,omitzero"`
 	ProviderId    string `json:"provider-id,omitempty"`
 	PublicAddress string `json:"public-address"`
 }
 
 // RemoteApplicationStatus holds status info about a remote application.
 type RemoteApplicationStatus struct {
-	Err       *Error              `json:"err,omitempty"`
+	Err       *Error              `json:"err,omitzero"`
 	OfferURL  string              `json:"offer-url"`
 	OfferName string              `json:"offer-name"`
 	Endpoints []RemoteEndpoint    `json:"endpoints"`
@@ -179,7 +179,7 @@ type RemoteApplicationStatus struct {
 
 // ApplicationOfferStatus holds status info about an application offer.
 type ApplicationOfferStatus struct {
-	Err                  *Error                    `json:"err,omitempty"`
+	Err                  *Error                    `json:"err,omitzero"`
 	OfferName            string                    `json:"offer-name"`
 	ApplicationName      string                    `json:"application-name"`
 	CharmURL             string                    `json:"charm"`
@@ -202,7 +202,7 @@ type UnitStatus struct {
 	PublicAddress string                `json:"public-address"`
 	Charm         string                `json:"charm"`
 	Subordinates  map[string]UnitStatus `json:"subordinates"`
-	Leader        bool                  `json:"leader,omitempty"`
+	Leader        bool                  `json:"leader,omitzero"`
 
 	// The following are for CAAS models.
 	ProviderId string `json:"provider-id,omitempty"`
@@ -242,13 +242,13 @@ type DetailedStatus struct {
 	Kind    string         `json:"kind"`
 	Version string         `json:"version"`
 	Life    life.Value     `json:"life"`
-	Err     *Error         `json:"err,omitempty"`
+	Err     *Error         `json:"err,omitzero"`
 }
 
 // History holds many DetailedStatus.
 type History struct {
 	Statuses []DetailedStatus `json:"statuses"`
-	Error    *Error           `json:"error,omitempty"`
+	Error    *Error           `json:"error,omitzero"`
 }
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
@@ -275,7 +275,7 @@ type StatusHistoryRequests struct {
 // StatusHistoryResult holds a slice of statuses.
 type StatusHistoryResult struct {
 	History History `json:"history"`
-	Error   *Error  `json:"error,omitempty"`
+	Error   *Error  `json:"error,omitzero"`
 }
 
 // StatusHistoryResults holds a slice of StatusHistoryResult.
@@ -286,7 +286,7 @@ type StatusHistoryResults struct {
 // StatusResult holds an entity status, extra information, or an
 // error.
 type StatusResult struct {
-	Error  *Error         `json:"error,omitempty"`
+	Error  *Error         `json:"error,omitzero"`
 	Id     string         `json:"id"`
 	Life   life.Value     `json:"life"`
 	Status string         `json:"status"`
@@ -304,7 +304,7 @@ type StatusResults struct {
 type ApplicationStatusResult struct {
 	Application StatusResult            `json:"application"`
 	Units       map[string]StatusResult `json:"units"`
-	Error       *Error                  `json:"error,omitempty"`
+	Error       *Error                  `json:"error,omitzero"`
 }
 
 // ApplicationStatusResults holds multiple StatusResult.

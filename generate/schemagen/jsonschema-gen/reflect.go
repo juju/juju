@@ -212,8 +212,14 @@ func reflectFieldName(f reflect.StructField) (string, bool, bool) {
 		name = parts[0]
 	}
 
-	if len(parts) > 1 && parts[1] == "omitempty" {
-		required = false
+	// A field that may be omitted from the encoded output is not
+	// required. "omitzero" is the encoding/json/v2 spelling that
+	// omits a field holding its zero value.
+	for _, opt := range parts[1:] {
+		if opt == "omitempty" || opt == "omitzero" {
+			required = false
+			break
+		}
 	}
 	embedded := len(parts) == 1 && parts[0] == "" && f.Type.Kind() == reflect.Struct && f.Name == f.Type.Name() && f.Anonymous
 	return name, required, embedded

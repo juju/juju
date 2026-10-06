@@ -59,5 +59,5 @@ type PayloadResult struct {
 	NotFound bool `json:"not-found"`
 
 	// Error is the error (if any) for the call referring to ID.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }

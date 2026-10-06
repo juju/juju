@@ -32,8 +32,8 @@ type HostedModelConfig struct {
 	// Qualifier is the model owner identifier used to disambiguate Name.
 	Qualifier string         `json:"qualifier"`
 	Config    map[string]any `json:"config,omitempty"`
-	CloudSpec *CloudSpec     `json:"cloud-spec,omitempty"`
-	Error     *Error         `json:"error,omitempty"`
+	CloudSpec *CloudSpec     `json:"cloud-spec,omitzero"`
+	Error     *Error         `json:"error,omitzero"`
 }
 
 // HostedModelConfigsResults contains an entry for each hosted model
@@ -52,7 +52,7 @@ type ModelDefaultsResults struct {
 // model default values.
 type ModelDefaultsResult struct {
 	Config map[string]ModelDefaults `json:"config"`
-	Error  *Error                   `json:"error,omitempty"`
+	Error  *Error                   `json:"error,omitzero"`
 }
 
 // ModelSequencesResult holds the map of sequence names to next value.
@@ -63,8 +63,8 @@ type ModelSequencesResult struct {
 // ModelDefaults holds the settings for a given ModelDefaultsResult config
 // attribute.
 type ModelDefaults struct {
-	Default    any              `json:"default,omitempty"`
-	Controller any              `json:"controller,omitempty"`
+	Default    any              `json:"default,omitzero"`
+	Controller any              `json:"controller,omitzero"`
 	Regions    []RegionDefaults `json:"regions,omitempty"`
 }
 
@@ -119,7 +119,7 @@ type UnsetModelDefaults struct {
 type SetModelAgentVersion struct {
 	Version             semversion.Number `json:"version"`
 	AgentStream         string            `json:"agent-stream,omitempty"`
-	IgnoreAgentVersions bool              `json:"force,omitempty"`
+	IgnoreAgentVersions bool              `json:"force,omitzero"`
 }
 
 // ModelMigrationStatus holds information about the progress of a (possibly
@@ -127,7 +127,7 @@ type SetModelAgentVersion struct {
 type ModelMigrationStatus struct {
 	Status string     `json:"status"`
 	Start  *time.Time `json:"start"`
-	End    *time.Time `json:"end,omitempty"`
+	End    *time.Time `json:"end,omitzero"`
 }
 
 // ModelInfo holds information about the Juju model.
@@ -143,7 +143,7 @@ type ModelInfo struct {
 	CloudCredentialTag string `json:"cloud-credential-tag,omitempty"`
 
 	// CloudCredentialValidity contains if model credential is valid, if known.
-	CloudCredentialValidity *bool `json:"cloud-credential-validity,omitempty"`
+	CloudCredentialValidity *bool `json:"cloud-credential-validity,omitzero"`
 
 	// Qualifier is the model owner identifier used to disambiguate Name.
 	// It uses user-id form (for example "admin" or "alice@external"),
@@ -172,7 +172,7 @@ type ModelInfo struct {
 
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.
-	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+	Migration *ModelMigrationStatus `json:"migration,omitzero"`
 
 	// AgentVersion is the agent version for this model.
 	AgentVersion *semversion.Number `json:"agent-version"`
@@ -231,7 +231,7 @@ type ModelSummary struct {
 
 	// Migration contains information about the latest failed or
 	// currently-running migration. It'll be nil if there isn't one.
-	Migration *ModelMigrationStatus `json:"migration,omitempty"`
+	Migration *ModelMigrationStatus `json:"migration,omitzero"`
 
 	// AgentVersion is the agent version for this model.
 	AgentVersion *semversion.Number `json:"agent-version"`
@@ -255,8 +255,8 @@ const (
 
 // ModelSummaryResult holds the result of a ListModelsWithInfo call.
 type ModelSummaryResult struct {
-	Result *ModelSummary `json:"result,omitempty"`
-	Error  *Error        `json:"error,omitempty"`
+	Result *ModelSummary `json:"result,omitzero"`
+	Error  *Error        `json:"error,omitzero"`
 }
 
 // ModelSummaryResults holds the result of a bulk ListModelsWithInfo call.
@@ -267,13 +267,13 @@ type ModelSummaryResults struct {
 // ModelSummariesRequest encapsulates how we request a list of model summaries.
 type ModelSummariesRequest struct {
 	UserTag string `json:"user-tag"`
-	All     bool   `json:"all,omitempty"`
+	All     bool   `json:"all,omitzero"`
 }
 
 // ModelInfoResult holds the result of a ModelInfo call.
 type ModelInfoResult struct {
-	Result *ModelInfo `json:"result,omitempty"`
-	Error  *Error     `json:"error,omitempty"`
+	Result *ModelInfo `json:"result,omitzero"`
+	Error  *Error     `json:"error,omitzero"`
 }
 
 // ModelInfoResults holds the result of a bulk ModelInfo call.
@@ -289,8 +289,8 @@ type ModelInfoList struct {
 // ModelInfoListResult holds the result of a call that returns a list
 // of ModelInfo structures.
 type ModelInfoListResult struct {
-	Result *ModelInfoList `json:"result,omitempty"`
-	Error  *Error         `json:"error,omitempty"`
+	Result *ModelInfoList `json:"result,omitzero"`
+	Error  *Error         `json:"error,omitzero"`
 }
 
 // ModelInfoListResults holds the result of a bulk call that returns
@@ -302,7 +302,7 @@ type ModelInfoListResults struct {
 // ModelMachineInfo holds information about a machine in a model.
 type ModelMachineInfo struct {
 	Id          string           `json:"id"`
-	Hardware    *MachineHardware `json:"hardware,omitempty"`
+	Hardware    *MachineHardware `json:"hardware,omitzero"`
 	InstanceId  string           `json:"instance-id,omitempty"`
 	DisplayName string           `json:"display-name,omitempty"`
 	Status      string           `json:"status,omitempty"`
@@ -316,14 +316,14 @@ type ModelApplicationInfo struct {
 
 // MachineHardware holds information about a machine's hardware characteristics.
 type MachineHardware struct {
-	Arch             *string   `json:"arch,omitempty"`
-	Mem              *uint64   `json:"mem,omitempty"`
-	RootDisk         *uint64   `json:"root-disk,omitempty"`
-	Cores            *uint64   `json:"cores,omitempty"`
-	CpuPower         *uint64   `json:"cpu-power,omitempty"`
-	Tags             *[]string `json:"tags,omitempty"`
-	AvailabilityZone *string   `json:"availability-zone,omitempty"`
-	VirtType         *string   `json:"virt-type,omitempty"`
+	Arch             *string   `json:"arch,omitzero"`
+	Mem              *uint64   `json:"mem,omitzero"`
+	RootDisk         *uint64   `json:"root-disk,omitzero"`
+	Cores            *uint64   `json:"cores,omitzero"`
+	CpuPower         *uint64   `json:"cpu-power,omitzero"`
+	Tags             *[]string `json:"tags,omitzero"`
+	AvailabilityZone *string   `json:"availability-zone,omitzero"`
+	VirtType         *string   `json:"virt-type,omitzero"`
 }
 
 // ModelVolumeInfo holds information about a volume in a model.
@@ -332,7 +332,7 @@ type ModelVolumeInfo struct {
 	ProviderId string `json:"provider-id,omitempty"`
 	Status     string `json:"status,omitempty"`
 	Message    string `json:"message,omitempty"`
-	Detachable bool   `json:"detachable,omitempty"`
+	Detachable bool   `json:"detachable,omitzero"`
 }
 
 // ModelFilesystemInfo holds information about a filesystem in a model.
@@ -341,7 +341,7 @@ type ModelFilesystemInfo struct {
 	ProviderId string `json:"provider-id,omitempty"`
 	Status     string `json:"status,omitempty"`
 	Message    string `json:"message,omitempty"`
-	Detachable bool   `json:"detachable,omitempty"`
+	Detachable bool   `json:"detachable,omitzero"`
 }
 
 // ModelUserInfo holds information on a user who has access to a
@@ -357,8 +357,8 @@ type ModelUserInfo struct {
 
 // ModelUserInfoResult holds the result of an ModelUserInfo call.
 type ModelUserInfoResult struct {
-	Result *ModelUserInfo `json:"result,omitempty"`
-	Error  *Error         `json:"error,omitempty"`
+	Result *ModelUserInfo `json:"result,omitzero"`
+	Error  *Error         `json:"error,omitzero"`
 }
 
 // ModelUserInfoResults holds the result of a bulk ModelUserInfo API call.
@@ -413,20 +413,20 @@ type DestroyModelParams struct {
 	// This is ternary: nil, false, or true. If nil and there is persistent
 	// storage in the model, an error with the code
 	// params.CodeHasPersistentStorage will be returned.
-	DestroyStorage *bool `json:"destroy-storage,omitempty"`
+	DestroyStorage *bool `json:"destroy-storage,omitzero"`
 
 	// Force specifies whether model destruction will be forced, i.e.
 	// keep going despite operational errors.
-	Force *bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in model destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 
 	// Timeout specifies how long to wait for the entire destroy process before
 	// timing out.
-	Timeout *time.Duration `json:"timeout,omitempty"`
+	Timeout *time.Duration `json:"timeout,omitzero"`
 }
 
 // ModelCredential stores information about cloud credential that a model uses:
@@ -438,7 +438,7 @@ type ModelCredential struct {
 	// Exists indicates whether credential was set on the model.
 	// It is valid for model not to have a credential if it is on the
 	// cloud that does not require auth.
-	Exists bool `json:"exists,omitempty"`
+	Exists bool `json:"exists,omitzero"`
 
 	// CloudCredential is the tag for the cloud credential that the model uses.
 	CloudCredential string `json:"credential-tag"`
@@ -446,7 +446,7 @@ type ModelCredential struct {
 	// Valid stores whether this credential is valid, for example, not expired,
 	// and whether this credential works for this model, i.e. all model
 	// machines can be accessed with this credential.
-	Valid bool `json:"valid,omitempty"`
+	Valid bool `json:"valid,omitzero"`
 }
 
 // ChangeModelCredentialParams holds the argument to replace cloud credential
@@ -482,12 +482,12 @@ type UpgradeModelParams struct {
 	ModelTag            string            `json:"model-tag"`
 	TargetVersion       semversion.Number `json:"target-version"`
 	AgentStream         string            `json:"agent-stream,omitempty"`
-	IgnoreAgentVersions bool              `json:"ignore-agent-versions,omitempty"`
-	DryRun              bool              `json:"dry-run,omitempty"`
+	IgnoreAgentVersions bool              `json:"ignore-agent-versions,omitzero"`
+	DryRun              bool              `json:"dry-run,omitzero"`
 }
 
 // UpgradeModelResult holds the result of a UpgradeModel API call.
 type UpgradeModelResult struct {
 	ChosenVersion semversion.Number `json:"chosen-version"`
-	Error         *Error            `json:"error,omitempty"`
+	Error         *Error            `json:"error,omitzero"`
 }
