@@ -37,6 +37,11 @@ type objectStoreUUID struct {
 	UUID sql.Null[string] `db:"uuid"`
 }
 
+// containerImageStorageKey holds a container image metadata storage key.
+type containerImageStorageKey struct {
+	StorageKey string `db:"storage_key"`
+}
+
 // uuids is a slice of identifiers, used to hold multiple UUIDs.
 type uuids []string
 
