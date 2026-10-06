@@ -1124,8 +1124,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	if err := validateApplicationScale(scaleState.Scale); err != nil {
 		return -1, err
 	}
-	if scaleChange < -scaleState.Scale ||
-		scaleChange > math.MaxInt32-scaleState.Scale {
+	if scaleChange > math.MaxInt32-scaleState.Scale {
 		return -1, errors.Errorf(
 			"application scale change %d not valid", scaleChange,
 		).Add(applicationerrors.ScaleChangeInvalid)
@@ -1141,6 +1140,11 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 				return -1, errors.Errorf("cannot scale controller application to 0 units")
 			}
 		}
+	}
+	if scaleChange < -scaleState.Scale {
+		return -1, errors.Errorf(
+			"application scale change %d not valid", scaleChange,
+		).Add(applicationerrors.ScaleChangeInvalid)
 	}
 
 	newScale, err := s.st.UpdateApplicationScale(ctx, appUUID, scaleState.Scale, scaleChange)
