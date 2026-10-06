@@ -1611,6 +1611,26 @@ func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, max
 					return errors.Trace(err)
 				}
 			}
+			buildTxn := func(int) ([]txn.Op, error) {
+				if _, err := st.Machine(containerId); err == nil {
+					return nil, jujutxn.ErrNoOperations
+				} else if !errors.IsNotFound(err) {
+					return nil, err
+				}
+				return []txn.Op{{
+					C:      machinesC,
+					Id:     st.docID(containerId),
+					Assert: txn.DocMissing,
+				}, {
+					C:      containerRefsC,
+					Id:     machine.doc.DocID,
+					Assert: txn.DocExists,
+					Update: bson.D{{"$pull", bson.D{{"children", containerId}}}},
+				}}, nil
+			}
+			if err := st.db().Run(buildTxn); err != nil {
+				return err
+			}
 			continue
 		} else if err != nil {
 			return err
