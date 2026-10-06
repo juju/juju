@@ -138,6 +138,7 @@ jobs:
               - 'domain/modelimport/**'
               - 'generate/export/**'
               - '.github/workflows/export-version.yml'
+              - '.github/check-export-version-frozen.sh'
             check-smoke:
               - '**.go'
               - 'go.mod'
