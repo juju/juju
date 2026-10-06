@@ -14,8 +14,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/logger"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jv "github.com/juju/juju/core/version"
 	internaldependency "github.com/juju/juju/internal/dependency"
@@ -59,6 +61,7 @@ func (s *UnitAgentSuite) SetUpTest(c *tc.C) {
 			)
 		},
 		UnitManifolds: s.workers.Manifolds,
+		AgentVersion:  jv.Current,
 	}
 }
 
@@ -118,6 +121,13 @@ func (s *UnitAgentSuite) TestConfigMissingUnitManifolds(c *tc.C) {
 	c.Assert(err.Error(), tc.Equals, "missing UnitManifolds not valid")
 }
 
+func (s *UnitAgentSuite) TestConfigMissingAgentVersion(c *tc.C) {
+	s.config.AgentVersion = semversion.Number{}
+	err := s.config.Validate()
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing AgentVersion not valid")
+}
+
 func (s *UnitAgentSuite) writeAgentConf(c *tc.C) {
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -153,7 +163,27 @@ func (s *UnitAgentSuite) TestNewAgentSetsUpgradedToVersion(c *tc.C) {
 	s.writeAgentConf(c)
 	agent := s.newUnitAgent(c)
 	config := agent.CurrentConfig()
-	c.Assert(config.UpgradedToVersion(), tc.Equals, jv.Current)
+	c.Assert(config.UpgradedToVersion(), tc.Equals, s.config.AgentVersion)
+}
+
+func (s *UnitAgentSuite) TestNewAgentFollowsAnchoredToolsVersion(c *tc.C) {
+	// Machines are anchored to the controller snap version, which can
+	// differ from the running binary's version when CI stamps a build
+	// number into the binary. The unit tools symlink must target the
+	// machine's installed tools directory, so only that directory is
+	// initialised here; resolving the binary's own version would fail.
+	anchored := semversion.MustParse("9.9.9")
+	s.config.AgentVersion = anchored
+	s.writeAgentConf(c)
+
+	s.InitializeToolsDir(c, s.config.DataDir, semversion.MustParseBinary(
+		"9.9.9-"+coreos.HostOSTypeName()+"-"+arch.HostArch(),
+	))
+
+	unit, err := deployer.NewUnitAgent(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	config := unit.CurrentConfig()
+	c.Assert(config.UpgradedToVersion(), tc.Equals, anchored)
 }
 
 func (s *UnitAgentSuite) TestChangeConfigWritesChanges(c *tc.C) {

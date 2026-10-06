@@ -31,7 +31,6 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
-	jujuversion "github.com/juju/juju/core/version"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/introspection"
@@ -72,6 +71,13 @@ type UnitAgentConfig struct {
 	UnitEngineConfig func() dependency.EngineConfig
 	UnitManifolds    func(UnitManifoldsConfig) dependency.Manifolds
 	SetupLogging     func(logger.LoggerContext, agent.Config)
+
+	// AgentVersion is the version of the agent tools installed on the host
+	// machine, inherited from the machine agent config. It is anchored to the
+	// controller snap version and deliberately differs from the running binary's
+	// version when CI build numbers stamp the binary. The unit's tools symlink
+	// targets the installed tools directory, so it is derived from this version.
+	AgentVersion semversion.Number
 }
 
 // Validate ensures all the required values are set.
@@ -81,6 +87,9 @@ func (u *UnitAgentConfig) Validate() error {
 	}
 	if u.DataDir == "" {
 		return errors.NotValidf("missing DataDir")
+	}
+	if u.AgentVersion.IsZero() {
+		return errors.NotValidf("missing AgentVersion")
 	}
 	if u.FlightRecorder == nil {
 		return errors.NotValidf("missing FlightRecorder")
@@ -121,9 +130,14 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 	// Create a symlink for the unit "agent" binaries.
 	// This is used because the uniter is still using the tools directory
 	// for the unit agent for creating the jujuc symlinks.
+	//
+	// The symlink targets the machine's installed tools directory, whose version
+	// is the machine agent config version (anchored to the controller snap
+	// version), not the running binary's version: CI builds stamp a build number
+	// into the binary that the installed tools version does not carry.
 	config.Logger.Tracef(context.Background(), "creating symlink for %q to tools directory for jujuc", config.Name)
 	current := semversion.Binary{
-		Number:  jujuversion.Current,
+		Number:  config.AgentVersion,
 		Arch:    arch.HostArch(),
 		Release: coreos.HostOSTypeName(),
 	}
@@ -162,10 +176,10 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 		flightRecorder:     config.FlightRecorder,
 	}
 	// Update the 'upgradedToVersion' in the agent.conf file if it is
-	// different to the current version.
-	if conf.UpgradedToVersion() != jujuversion.Current {
+	// different to the agent version.
+	if conf.UpgradedToVersion() != config.AgentVersion {
 		if err := unit.ChangeConfig(func(setter agent.ConfigSetter) error {
-			setter.SetUpgradedToVersion(jujuversion.Current)
+			setter.SetUpgradedToVersion(config.AgentVersion)
 			return nil
 		}); err != nil {
 			return nil, errors.Trace(err)

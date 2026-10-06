@@ -143,6 +143,11 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			UnitEngineConfig: config.UnitEngineConfig,
 			UnitManifolds:    config.UnitManifolds,
 			SetupLogging:     config.SetupLogging,
+			// The machine's installed agent version, anchored to the
+			// controller snap version, flows to the unit agents: their
+			// tools symlinks must target the machine's installed tools
+			// directory, not the running binary's version.
+			AgentVersion: agentConfig.UpgradedToVersion(),
 		},
 
 		units:                    make(map[string]*UnitAgent),
