@@ -255,7 +255,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
 				ControllerNodeService:      controllerDomainServices.ControllerNode(),
-				CloudService:               controllerDomainServices.Cloud(),
 				UserService:                controllerDomainServices.Access(),
 				StorageService:             controllerModelDomainServices.Storage(),
 				AgentPasswordService:       controllerModelDomainServices.AgentPassword(),

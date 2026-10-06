@@ -91,7 +91,6 @@ type FreshBootstrapConfig struct {
 	ControllerAgentBinaryStore AgentBinaryStore
 	ControllerConfigService    ControllerConfigService
 	ControllerNodeService      ControllerNodeService
-	CloudService               CloudService
 	UserService                UserService
 	StorageService             StorageService
 	AgentPasswordService       AgentPasswordService
@@ -129,9 +128,6 @@ func (c *FreshBootstrapConfig) Validate() error {
 	}
 	if c.ControllerNodeService == nil {
 		return jujuerrors.NotValidf("nil ControllerNodeService")
-	}
-	if c.CloudService == nil {
-		return jujuerrors.NotValidf("nil CloudService")
 	}
 	if c.UserService == nil {
 		return jujuerrors.NotValidf("nil UserService")

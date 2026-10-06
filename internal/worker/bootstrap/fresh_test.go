@@ -280,7 +280,6 @@ func (s *freshBootstrapSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployer
 		KeyManagerService:          s.keyManagerService,
 		ControllerConfigService:    s.controllerConfigService,
 		StorageService:             s.storageService,
-		CloudService:               s.cloudService,
 		NetworkService:             s.networkService,
 		BakeryConfigService:        s.bakeryConfigService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
