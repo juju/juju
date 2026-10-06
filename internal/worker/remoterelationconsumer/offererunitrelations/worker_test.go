@@ -188,8 +188,76 @@ func (s *offererUnitRelationsWorker) TestChangeEvent(c *tc.C) {
 			4,
 		},
 		Life:            "alive",
-		Suspended:       true,
+		Suspended:       new(true),
 		SuspendedReason: "because",
+	})
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *offererUnitRelationsWorker) TestChangeEventWithoutSuspendedState(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan params.RemoteRelationChangeEvent)
+
+	sync := make(chan struct{})
+	s.client.EXPECT().WatchRelationChanges(gomock.Any(),
+		s.consumerRelationUUID.String(), macaroon.Slice{s.macaroon}).
+		DoAndReturn(func(_ context.Context, _ string, _ macaroon.Slice) (watcher.RemoteRelationWatcher, error) {
+			defer close(sync)
+			return watchertest.NewMockWatcher(ch), nil
+		})
+
+	w := s.newWorker(c, s.newConfig(c))
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchRelationUnits to be called")
+	}
+
+	// Subsequent events from the remote relation units watcher do not
+	// carry the suspended state; only the initial event does.
+	select {
+	case ch <- params.RemoteRelationChangeEvent{
+		RelationToken: s.consumerRelationUUID.String(),
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]any{
+				"foo": "baz",
+			},
+		}},
+		DepartedUnits: []int{
+			4,
+		},
+		Life: "alive",
+	}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send change event")
+	}
+
+	var change RelationUnitChange
+	select {
+	case change = <-s.changes:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for changes to be sent")
+	}
+
+	c.Assert(change, tc.DeepEquals, RelationUnitChange{
+		ConsumerRelationUUID:   s.consumerRelationUUID,
+		OffererApplicationUUID: s.offererApplicationUUID,
+		ChangedUnits: []UnitChange{{
+			UnitID: 0,
+			Settings: map[string]string{
+				"foo": "baz",
+			},
+		}},
+		DeprecatedDepartedUnits: []int{
+			4,
+		},
+		Life:      "alive",
+		Suspended: nil,
 	})
 
 	workertest.CleanKill(c, w)
@@ -262,6 +330,7 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		"departed-units":           []int(nil),
 		"life":                     life.Value(""),
 		"suspended":                false,
+		"suspended-known":          false,
 		"suspended-reason":         "",
 	})
 
@@ -306,6 +375,7 @@ func (s *offererUnitRelationsWorker) TestReport(c *tc.C) {
 		},
 		"life":             life.Alive,
 		"suspended":        true,
+		"suspended-known":  true,
 		"suspended-reason": "because",
 	})
 

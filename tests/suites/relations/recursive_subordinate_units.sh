@@ -63,7 +63,7 @@ run_recursive_subordinate_units() {
 	# Deploy the same subordinate charm twice: both applications attach to
 	# the principal via juju-info and relate to each other through the
 	# container scoped subordinate-link endpoints.
-	juju deploy "$(pack_charm "${CURRENT_DIR}"/../testcharms/charms/lxd-profile)" principal
+	juju deploy "$(pack_charm "${CURRENT_DIR}"/../testcharms/charms/ubuntu-plus)" principal
 	juju deploy "$(pack_charm "${CURRENT_DIR}"/../testcharms/charms/subordinate-link)" subordinate-one
 	juju deploy "$(pack_charm "${CURRENT_DIR}"/../testcharms/charms/subordinate-link)" subordinate-two
 	juju integrate subordinate-one principal
