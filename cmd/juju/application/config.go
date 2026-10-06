@@ -348,6 +348,11 @@ func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) er
 		return err
 	}
 
+	// Trailing whitespace in option descriptions prevents the YAML encoder
+	// from using the readable block style, so strip it before formatting.
+	trimDescriptionWhitespace(results.CharmConfig)
+	trimDescriptionWhitespace(results.ApplicationConfig)
+
 	resultsMap := map[string]interface{}{
 		"application": results.Application,
 		"charm":       results.Charm,
@@ -367,6 +372,39 @@ func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) er
 		}
 	}
 	return errors.Trace(err)
+}
+
+// trimDescriptionWhitespace strips trailing whitespace from every line of the
+// "description" of each setting in the supplied config map. The map is
+// modified in place. Entries that don't have the expected shape are left
+// untouched.
+//
+// The yaml encoder can't emit a string as a literal block (|) if any line
+// ends in whitespace; it falls back to a double-quoted string full of "\n"
+// escapes, which is hard to read. Descriptions are display-only text, so
+// normalising them here loses nothing.
+func trimDescriptionWhitespace(settings map[string]interface{}) {
+	for _, v := range settings {
+		info, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		description, ok := info["description"].(string)
+		if !ok {
+			continue
+		}
+		info["description"] = trimLineTrailingWhitespace(description)
+	}
+}
+
+// trimLineTrailingWhitespace removes trailing spaces, tabs and carriage
+// returns from each line of s, preserving the line breaks themselves.
+func trimLineTrailingWhitespace(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t\r")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // validateValues reads the values provided as args and validates that they are
