@@ -62,8 +62,9 @@ type State interface {
 	// SetAPIAddresses atomically replaces all client, agent and peer address
 	// projections.
 	//
-	// The following errors can be expected: - [controllernodeerrors.NotFound]
-	// if the controller node does not exist.
+	// The following errors can be expected:
+	// - [controllernodeerrors.StaleControllerMembership] if the projection keys
+	// do not exactly match the alive or dying controller nodes.
 	SetAPIAddresses(ctx context.Context, addresses controllernode.APIAddressProjections) error
 
 	// GetControllerIDs returns the list of controller IDs from the controller

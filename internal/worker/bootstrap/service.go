@@ -114,7 +114,8 @@ type ControllerNodeService interface {
 	// controller IDs.
 	//
 	// The following errors can be expected:
-	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	// - [controllernodeerrors.StaleControllerMembership] if controller membership
+	// changed before the addresses were published.
 	SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error
 }
 

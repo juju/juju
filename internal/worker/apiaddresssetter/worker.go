@@ -252,6 +252,10 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 		return errors.Errorf("getting management space and API port: %w", err)
 	}
 
+	// These selections could be fetched in one network service call, but doing
+	// so would significantly complicate the distinct selection paths for each
+	// audience.
+
 	// Get the client addresses, which are used for ordinary client discovery.
 	// Machine addresses are grouped by controller unit; Kubernetes Service
 	// addresses are shared.
@@ -312,6 +316,12 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 			Agents:  slices.Clone(agents.Shared),
 		},
 	}); err != nil {
+		// Do not retry here. The state transaction already handles retries, and
+		// returning this error restarts the worker so it reconciles with fresh
+		// controller membership.
+		if errors.Is(err, controllernodeerrors.StaleControllerMembership) {
+			w.config.Logger.Infof(ctx, "controller membership changed while publishing API addresses: %v", err)
+		}
 		return errors.Errorf("publishing API addresses: %w", err)
 	}
 	return nil
