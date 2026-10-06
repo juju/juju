@@ -73,8 +73,10 @@ check_application_and_unit_resources() {
 }
 
 run_resource_refresh_no_new_charm_rev_supply_res_rev() {
+	local charm_revision
+
 	# refresh the resource revision without changing the
-	# charm url
+	# charm URL
 	echo
 	name="resource-refresh-no-new-charm-rev-supply-res-rev"
 
@@ -94,6 +96,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 1).message"
 	check_application_and_unit_resources juju-qa-test foo-file 2
+	charm_revision=$(juju status --format json | yq -r '.applications."juju-qa-test"."charm-rev"')
 	juju config juju-qa-test foo-file=false
 
 	juju refresh juju-qa-test --resource foo-file=3
@@ -102,6 +105,8 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 1).message"
 	check_application_and_unit_resources juju-qa-test foo-file 3
+	test "$(juju status --format json | yq -r '.applications."juju-qa-test"."charm-rev"')" = \
+		"${charm_revision}"
 
 	destroy_model "test-${name}"
 }

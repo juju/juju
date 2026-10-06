@@ -115,6 +115,7 @@ run_resource_charm_transition_same_store_resource() {
 	test "${new_app_id}" != "${old_app_id}"
 	test "${new_fingerprint}" = "${old_fingerprint}"
 	test "${new_revision}" = "${old_revision}"
+	test "$(resource_value juju-qa-test foo-file origin)" = "store"
 	wait_for_resource_id juju-qa-test/0 foo-file "${new_app_id}"
 	wait_for_resource_id juju-qa-test/1 foo-file "${new_app_id}"
 	test "$(resource_value juju-qa-test/0 foo-file resourceid)" = "${new_app_id}"
@@ -230,6 +231,8 @@ run_resource_charm_transition_resource_names() {
 	test "$(resource_value resource-lifecycle/0 retained resourceid)" = "${final_retained_id}"
 	test "$(resource_value resource-lifecycle/1 retained resourceid)" = "${final_retained_id}"
 	check_resource_names resource-lifecycle "added,retained"
+	check_resource_names resource-lifecycle/0 "added,retained"
+	check_resource_names resource-lifecycle/1 "added,retained"
 
 	destroy_model "test-${name}"
 }
@@ -279,6 +282,8 @@ run_resource_charm_transition_failed_staging() {
 		--resource retained="${retained_file}" \
 		--resource added="${added_file}"
 	wait_for "resource-lifecycle" "$(idle_condition "resource-lifecycle")"
+	wait_for "retained=${retained_digest} added=${added_digest}" \
+		"$(workload_status resource-lifecycle 0).message"
 	check_resource_names resource-lifecycle "added,retained"
 	test "$(resource_value resource-lifecycle retained resourceid)" != "${old_retained_id}"
 
