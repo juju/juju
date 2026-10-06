@@ -351,6 +351,15 @@ pre_bootstrap() {
     export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} ${agent_version_opts:-} ${extra_opts:-}"
   fi
 
+  # Snap based controllers (all providers except k8s) bootstrap from a
+  # controller snap. CI exports CONTROLLER_SNAP_PATH pointing at the snap
+  # shipped in the build payload; test runners have no toolchain to build
+  # one. Leave it unset locally so bootstrap builds the snap from source
+  # itself when the client is newer than the published store snap.
+  if [[ ${BOOTSTRAP_PROVIDER:-} != "k8s" && -n ${CONTROLLER_SNAP_PATH:-} ]]; then
+    export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=${CONTROLLER_SNAP_PATH}"
+  fi
+
   if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then
     export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-metadata-url=https://ci-run-streams.s3.amazonaws.com/builds/build-${SHORT_GIT_COMMIT}/"
     export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=testing"
