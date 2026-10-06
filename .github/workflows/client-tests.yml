@@ -22,16 +22,7 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - name: "Test client (Ubuntu)"
-      if: (matrix.os == 'ubuntu-latest')
-      shell: bash
-      run: |
-        # Jenkins can perform the full jujud testing.
-        TEST_PACKAGES=./cmd/juju/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
-        TEST_PACKAGES=./cmd/plugins/... COVERAGE_CHECK=1 TEST_TIMEOUT="15m" make run-go-tests
-
     - name: "Test client (macOS)"
-      if: (matrix.os == 'macOS-latest')
       shell: bash
       run: |
         go test -race ./cmd/juju/... -coverprofile=coverage.txt -covermode=atomic -timeout=15m

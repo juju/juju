@@ -74,7 +74,6 @@ jobs:
       # snap from the checkout. That fallback needs snapcraft to pack the
       # snap and unsquashfs to inspect the built snap's version.
       - name: Install controller snap prerequisites
-        if: matrix.cloud == 'localhost'
         run: make install-dependencies
 
       - name: Install local Juju
