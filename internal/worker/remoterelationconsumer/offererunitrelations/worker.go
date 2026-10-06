@@ -51,7 +51,10 @@ type RelationUnitChange struct {
 	Life corelife.Value
 
 	// Suspended indicates whether the relation is currently suspended.
-	Suspended bool
+	// It is nil if the change event did not include suspension state,
+	// which is the case for all but the initial event emitted by the
+	// remote relation units watcher.
+	Suspended *bool
 
 	// SuspendedReason provides additional context if the relation is suspended.
 	SuspendedReason string
@@ -281,7 +284,7 @@ func (w *remoteWorker) loop() error {
 				DeprecatedDepartedUnits: change.DepartedUnits,
 				ApplicationSettings:     appSettings,
 				Life:                    change.Life,
-				Suspended:               unptr(change.Suspended, false),
+				Suspended:               change.Suspended,
 				SuspendedReason:         change.SuspendedReason,
 			}
 
@@ -325,7 +328,8 @@ func (w *remoteWorker) Report(ctx context.Context) map[string]any {
 		})
 		result["settings"] = event.ApplicationSettings
 		result["life"] = event.Life
-		result["suspended"] = event.Suspended
+		result["suspended"] = unptr(event.Suspended, false)
+		result["suspended-known"] = event.Suspended != nil
 		result["suspended-reason"] = event.SuspendedReason
 		result["departed-units"] = event.DeprecatedDepartedUnits
 	}

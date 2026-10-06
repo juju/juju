@@ -250,45 +250,6 @@ run_deploy_trusted_bundle() {
 	destroy_model "test-trusted-bundles-deploy"
 }
 
-# run_deploy_lxd_profile_bundle is to deploy multiple units of the
-# same charm which has an lxdprofile in a bundle.  The scenario
-# created by the bundle was found to produce failure cases during
-# development of the lxd profile feature.
-run_deploy_lxd_profile_bundle() {
-	echo
-
-	model_name="test-deploy-lxd-profile-bundle"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	bundle=./tests/suites/deploy/bundles/lxd-profile-bundle.yaml
-	juju deploy "${bundle}"
-
-	# 8 units of lxd-profile
-	for i in 0 1 2 3 4 5 6 7; do
-		wait_for "lxd-profile" "$(idle_condition "lxd-profile" "${i}")"
-	done
-	# 4 units of ubuntu
-	for i in 0 1 2 3; do
-		wait_for "ubuntu" "$(idle_condition "ubuntu" "${i}")"
-	done
-
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
-	lxd_profile_name="juju-${model_name}-${short_uuid}-lxd-profile"
-
-	for i in 0 1 2 3; do
-		machine_n_lxd0="$(machine_container_path "${i}" "${i}"/lxd/0)"
-		juju status --format=json | yq "${machine_n_lxd0}" | check "${lxd_profile_name}"
-		machine_n_lxd1="$(machine_container_path "${i}" "${i}"/lxd/1)"
-		juju status --format=json | yq "${machine_n_lxd1}" | check "${lxd_profile_name}"
-	done
-
-	destroy_model "${model_name}"
-}
-
 # run_deploy_multi_app_single_charm_bundle:
 # LP 1999060 found an issue in async charm download when a bundle
 # uses the same charm for multiple applications. This is common in
@@ -336,19 +297,6 @@ test_deploy_bundles() {
 		run "run_deploy_trusted_bundle"
 		run "run_deploy_multi_app_single_charm_bundle"
 		run "run_deploy_cmr_bundle"
-
-		# LXD specific profile tests.
-		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd")
-			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
-			;;
-		*)
-			# Skip these tests for now, as they rely on lxd profiles, which
-			# have not been re-implemented yet
-			#
-			# run "run_deploy_lxd_profile_bundle"
-			;;
-		esac
 
 		# AWS specific image id tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in

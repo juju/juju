@@ -1127,8 +1127,12 @@ func (w *localConsumerWorker) handleOffererRelationUnitChange(ctx context.Contex
 	case isNotAlive(change.Life):
 		return w.handleOffererRelationRemoved(ctx, change.ConsumerRelationUUID)
 
-	case change.Suspended != details.Suspended:
-		return w.handleOffererRelationSuspendedState(ctx, change.Suspended, change.SuspendedReason, details)
+	// Only react to the suspended state if the change actually carries it.
+	// All but the initial units change event leave it unset, and treating
+	// those as an explicit "not suspended" would revert a relation that
+	// was suspended via the relation status watcher.
+	case change.Suspended != nil && *change.Suspended != details.Suspended:
+		return w.handleOffererRelationSuspendedState(ctx, *change.Suspended, change.SuspendedReason, details)
 	}
 
 	unitSettings, err := w.handleUnitSettings(ctx, change.ChangedUnits)
@@ -1172,7 +1176,11 @@ func (w *localConsumerWorker) handleOffererRelationRemoved(ctx context.Context, 
 }
 
 func (w *localConsumerWorker) handleOffererRelationSuspendedState(ctx context.Context, suspended bool, reason string, details relation.RelationDetails) error {
-	w.logger.Debugf(ctx, "offerer relation %q is suspended, suspending local consumer relation", details.UUID)
+	if suspended {
+		w.logger.Debugf(ctx, "offerer relation %q is suspended, suspending local consumer relation", details.UUID)
+	} else {
+		w.logger.Debugf(ctx, "offerer relation %q is no longer suspended, resuming local consumer relation", details.UUID)
+	}
 
 	return w.crossModelService.SetRemoteRelationSuspendedState(ctx, details.UUID, suspended, reason)
 }

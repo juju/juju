@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
-	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -719,13 +718,14 @@ func (api *OffersAPI) modifyOneOfferAccess(
 		}
 	}
 
-	return api.changeOfferAccess(ctx, offerUUID.String(), arg.UserTag, arg.Action, permission.Access(arg.Access))
+	return api.changeOfferAccess(ctx, crossModelRelationService, offerUUID.String(), arg.UserTag, arg.Action, permission.Access(arg.Access))
 }
 
 // changeOfferAccess performs the requested access grant or revoke action for the
 // specified user on the specified application offer.
 func (api *OffersAPI) changeOfferAccess(
 	ctx context.Context,
+	crossModelRelationService CrossModelRelationService,
 	offerUUID string,
 	targetUser string,
 	action params.OfferAction,
@@ -747,21 +747,13 @@ func (api *OffersAPI) changeOfferAccess(
 		return errors.Errorf("unknown action %q", action)
 	}
 
-	err = api.accessService.UpdatePermission(ctx, access.UpdatePermissionArgs{
-		AccessSpec: permission.AccessSpec{
-			Target: permission.ID{
-				ObjectType: permission.Offer,
-				Key:        offerUUID,
-			},
-			Access: accessLevel,
-		},
-		Change:  change,
-		Subject: targetUserName,
-	})
-	if err != nil {
-		return errors.Errorf("could not %s offer access for %q: %w", change, targetUserName, err)
-	}
-	return nil
+	return crossModelRelationService.UpdateOfferPermission(ctx,
+		crossmodelrelation.UpdateOfferPermissionArgs{
+			Username:  targetUserName,
+			OfferUUID: offerUUID,
+			Access:    accessLevel,
+			Change:    change,
+		})
 }
 
 type offerModel struct {

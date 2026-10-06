@@ -262,21 +262,6 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedBaseHaveNoOverlap(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `the charm defined bases ".*" not supported`)
 }
 
-func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *tc.C) {
-	// TODO remove this patch once we removed all the old bases from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuBases, func() []corebase.Base {
-		return transform.Slice([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.MustParseBaseFromString)
-	})
-
-	charmDir := testcharms.RepoWithSeries("quantal").CharmArchive(c.MkDir(), "lxd-profile-fail")
-	curl := charm.MustParseURL("local:lxd-profile-fail-0")
-	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
-	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@12.10"), charmDir.Meta(), true, 1, nil, nil)
-
-	err := s.runDeploy(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *DeploySuite) TestCharmDeployAlias(c *tc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(c.MkDir(), "multi-series")
 	charmURL := charm.MustParseURL("local:multi-series-1")
@@ -400,16 +385,6 @@ func (s *DeploySuite) TestResources(c *tc.C) {
 		"foo": foopath,
 		"bar": barpath,
 	})
-}
-
-func (s *DeploySuite) TestLXDProfileLocalCharm(c *tc.C) {
-	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(c.MkDir(), "lxd-profile")
-	curl := charm.MustParseURL("local:lxd-profile-0")
-	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@24.04"), charmDir.Meta(), false, 1, nil, nil)
-
-	err := s.runDeploy(c, charmDir.Path)
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *DeploySuite) TestStorage(c *tc.C) {

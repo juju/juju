@@ -37,6 +37,11 @@ func NewState(factory database.TxnRunnerFactory, modelUUID model.UUID, clock clo
 	}
 }
 
+// ModelUUID returns the UUID of the model this state represents.
+func (st *State) ModelUUID() model.UUID {
+	return model.UUID(st.modelUUID)
+}
+
 func (st *State) checkApplicationNotDead(ctx context.Context, tx *sqlair.TX, appUUID string) error {
 	stmt, err := st.Prepare(`
 SELECT &lifeID.*
