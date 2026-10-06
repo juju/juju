@@ -136,6 +136,8 @@ var loopbackEndpoints = []string{
 	"https://127.0.0.2:16443",
 	"https://127.1.2.3:16443",
 	"https://[::1]:16443",
+	"localhost:16443",
+	"127.0.0.1:16443",
 }
 
 // notLoopbackEndpoints look loopback-adjacent but are routable addresses

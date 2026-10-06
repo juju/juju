@@ -295,16 +295,12 @@ func (p k8sProvider) CleanupIssuedTokens(
 	return issuedTokenUUIDs, nil
 }
 
-// isLoopbackEndpoint reports whether the endpoint host is a loopback
-// address (127.0.0.0/8, ::1) or "localhost". Such an endpoint is only
-// valid on the host itself and is never reachable from a pod or a
+// isLoopbackEndpoint reports whether the host of the given endpoint URL is
+// a loopback address (127.0.0.0/8, ::1) or "localhost". Such an endpoint
+// is only valid on the host itself and is never reachable from a pod or a
 // different machine.
 func isLoopbackEndpoint(endpoint string) bool {
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return false
-	}
-	host := u.Hostname()
+	host := endpointHost(endpoint)
 	if strings.EqualFold(host, "localhost") {
 		return true
 	}
@@ -312,6 +308,24 @@ func isLoopbackEndpoint(endpoint string) bool {
 		return ip.IsLoopback()
 	}
 	return false
+}
+
+// endpointHost returns the host of the given endpoint. The endpoint is
+// expected to be a full URL with a scheme, as recorded for cloud
+// endpoints (e.g. "https://127.0.0.1:16443"). For robustness, a
+// scheme-less hostport (e.g. "localhost:16443" or "127.0.0.1:16443") is
+// also accepted: as client-go's rest.DefaultServerURL does for server
+// URLs, the https scheme is prepended before parsing when the URL fails
+// to parse or has no host.
+func endpointHost(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Hostname() == "" {
+		u, err = url.Parse("https://" + endpoint)
+		if err != nil {
+			return ""
+		}
+	}
+	return u.Hostname()
 }
 
 // RestrictedConfig returns the config needed to create a
