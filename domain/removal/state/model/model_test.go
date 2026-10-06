@@ -122,9 +122,15 @@ func (s *modelSuite) TestEnsureModelNotAliveCascade(c *tc.C) {
 // every machine returned here is scheduled for removal by the service
 // layer, and the machine removal jobs reconcile the machines'
 // dependents themselves.
+//
+// A machine already in the dead life is excluded from the artifacts,
+// consistent with how the cascade treats dead units and applications:
+// it is not scheduled for removal again, and its row is left in place,
+// where it still counts towards MarkModelAsDead's machine gate.
 func (s *modelSuite) TestEnsureModelNotAliveCascadeContainerHosts(c *tc.C) {
 	s.createMachine(c, machine.Name("0"))
 	s.createMachine(c, machine.Name("0/lxd/0"))
+	s.createMachine(c, machine.Name("1"))
 
 	machineUUIDFromName := func(name machine.Name) string {
 		var mUUID string
@@ -136,10 +142,14 @@ func (s *modelSuite) TestEnsureModelNotAliveCascadeContainerHosts(c *tc.C) {
 	}
 	hostUUID := machineUUIDFromName("0")
 	containerUUID := machineUUIDFromName("0/lxd/0")
+	deadUUID := machineUUIDFromName("1")
 
 	_, err := s.DB().Exec(`
 INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
 	`, containerUUID, hostUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().Exec(`UPDATE machine SET life_id = 2 WHERE uuid = ?`, deadUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -155,6 +165,10 @@ INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES (?, ?)
 	// that every machine can be scheduled for removal.
 	s.checkMachineLife(c, hostUUID, life.Dying)
 	s.checkMachineLife(c, containerUUID, life.Dying)
+
+	// The machine that was already dead is excluded from the cascade:
+	// it stays dead and receives no removal job.
+	s.checkMachineLife(c, deadUUID, life.Dead)
 }
 
 func (s *modelSuite) TestEnsureModelNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
