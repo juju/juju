@@ -389,22 +389,6 @@ VALUES (?, ?, ?, 0, 0)
 	return attachmentUUID.String()
 }
 
-// newNetNode creates a new net node in the model for referencing to storage
-// entity attachments. The net node is not associated with any machine or units.
-func (s *modelStorageSuite) newNetNode(c *tc.C) string {
-	nodeUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().ExecContext(
-		c.Context(),
-		"INSERT INTO net_node VALUES (?)",
-		nodeUUID.String(),
-	)
-	c.Assert(err, tc.ErrorIsNil)
-
-	return nodeUUID.String()
-}
-
 func (s *modelStorageSuite) newApplication(c *tc.C, name string) (string, string) {
 	appUUID, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
@@ -619,21 +603,6 @@ func (s *modelStorageSuite) deleteBlockDeviceLinkDevice(
 DELETE FROM block_device_link_device
 WHERE block_device_uuid = ?`, blockDeviceUUID)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *modelStorageSuite) newMachine(
-	c *tc.C,
-	nodeUUID string,
-) string {
-	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	name := "mfoo-" + machineUUID.String()
-
-	_, err = s.DB().Exec(`
-INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
-		machineUUID.String(), name, nodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	return machineUUID.String()
 }
 
 // TestStorageProvisionScopeIDMachine tests that the assumed value of 1
@@ -1637,8 +1606,8 @@ WHERE  uuid = ?`, suspended, relationUUID)
 // machine is notified when its relationship to a child machine is
 // removed.
 func (s *modelSuite) TestMachineParentDeleteTrigger(c *tc.C) {
-	parentUUID := s.newMachine(c)
-	childUUID := s.newMachine(c)
+	parentUUID := s.newMachine(c, s.newNetNode(c))
+	childUUID := s.newMachine(c, s.newNetNode(c))
 	s.insertMachineParent(c, parentUUID, childUUID)
 
 	// The machine and machine_parent inserts emit insert events for the
@@ -1656,8 +1625,8 @@ func (s *modelSuite) TestMachineParentDeleteTrigger(c *tc.C) {
 // row does not emit a change event for the parent machine: only the
 // machine_parent delete carries the notification.
 func (s *modelSuite) TestMachineDeleteDoesNotNotifyParent(c *tc.C) {
-	parentUUID := s.newMachine(c)
-	childUUID := s.newMachine(c)
+	parentUUID := s.newMachine(c, s.newNetNode(c))
+	childUUID := s.newMachine(c, s.newNetNode(c))
 	s.insertMachineParent(c, parentUUID, childUUID)
 
 	// Remove the parent relationship and drain its delete event.
@@ -1672,25 +1641,6 @@ func (s *modelSuite) TestMachineDeleteDoesNotNotifyParent(c *tc.C) {
 	s.assertNoChangeEvent(
 		c, "custom_machine_uuid_lifecycle_with_dependants", parentUUID,
 	)
-}
-
-// newMachine creates a net node and a machine in the model, returning
-// the machine UUID.
-func (s *modelSuite) newMachine(c *tc.C) string {
-	nodeUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().Exec(`INSERT INTO net_node (uuid) VALUES (?)`, nodeUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
-	machineUUID, err := uuid.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.DB().Exec(`
-INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
-		machineUUID.String(), "mfoo-"+machineUUID.String(), nodeUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	return machineUUID.String()
 }
 
 // insertMachineParent records the parent machine of the child machine.
