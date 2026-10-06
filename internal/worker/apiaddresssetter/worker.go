@@ -50,18 +50,19 @@ type ControllerNodeService interface {
 // NetworkService provides controller network address selections.
 type NetworkService interface {
 	// GetControllerClientAddresses returns addresses selected for ordinary
-	// client discovery. IAAS addresses are associated with controller units;
-	// CAAS Service addresses are returned as shared endpoints.
+	// client discovery. Machine addresses are associated with controller units;
+	// Kubernetes Service addresses are returned as shared endpoints.
 	GetControllerClientAddresses(ctx context.Context, names []unit.Name) (domainnetwork.ControllerAddressSelection, error)
 
 	// GetControllerAgentAddresses returns addresses selected for ordinary
-	// agent discovery. IAAS selection honours the management space, while CAAS
-	// returns shared Service endpoints and ignores management-space policy.
+	// agent discovery. Machine address selection honours the management space,
+	// while Kubernetes returns shared Service endpoints and ignores
+	// management-space policy.
 	GetControllerAgentAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName) (domainnetwork.ControllerAddressSelection, error)
 
 	// GetControllerPeerAddresses returns addresses grouped by controller unit.
-	// Peer addresses are never shared. IAAS selection honours the management
-	// space; CAAS selection uses controller pod addresses.
+	// Peer addresses are never shared. Machine address selection honours the
+	// management space; Kubernetes selection uses controller pod addresses.
 	GetControllerPeerAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName) (domainnetwork.ControllerAddressSelection, error)
 
 	// WatchControllerNetwork watches all controller-model network facts that
@@ -252,24 +253,24 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	}
 
 	// Get the client addresses, which are used for ordinary client discovery.
-	// The management space is used for IAAS selection, but ignored for CAAS
-	// selection.
+	// Machine addresses are grouped by controller unit; Kubernetes Service
+	// addresses are shared.
 	clients, err := w.config.NetworkService.GetControllerClientAddresses(ctx, names)
 	if err != nil {
 		return errors.Errorf("getting controller client addresses: %w", err)
 	}
 
 	// Get the agent addresses, which are used for ordinary agent discovery. The
-	// management space is used for IAAS selection, but ignored for CAAS
-	// selection.
+	// management space is used for machine address selection, but ignored for
+	// Kubernetes Service selection.
 	agents, err := w.config.NetworkService.GetControllerAgentAddresses(ctx, names, managementSpace)
 	if err != nil {
 		return errors.Errorf("getting controller agent addresses: %w", err)
 	}
 
 	// Get the peer addresses, which are used for controller-to-controller
-	// communication. The management space is used for IAAS selection, but
-	// ignored for CAAS selection.
+	// communication. The management space is used for machine address selection,
+	// but ignored for Kubernetes pod address selection.
 	peers, err := w.config.NetworkService.GetControllerPeerAddresses(ctx, names, managementSpace)
 	if err != nil {
 		return errors.Errorf("getting controller peer addresses: %w", err)
@@ -277,7 +278,7 @@ func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 
 	// Build the API address set for each controller node, which includes the
 	// client, agent and peer addresses. The client and agent addresses are
-	// shared for CAAS selection, but not for IAAS selection.
+	// shared for Kubernetes selection, but not for machine selection.
 	addresses := make(map[string]controllernode.APIAddressSet, len(controllerIDs))
 	hasClientAddresses := len(clients.Shared) > 0
 	hasAgentAddresses := len(agents.Shared) > 0
