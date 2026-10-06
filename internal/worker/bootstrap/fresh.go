@@ -11,7 +11,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/utils/v4/ssh"
 
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -20,9 +20,7 @@ import (
 	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
-	"github.com/juju/juju/domain/controllernode"
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
-	networkerrors "github.com/juju/juju/domain/network/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
@@ -31,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
@@ -55,7 +54,35 @@ func DeleteBootstrapSSHKeys(keys []string) error {
 	return ssh.DeleteKeysFromFile(bootstrapSSHUser, "authorized_keys", fingerprints)
 }
 
-// FreshBootstrapConfig contains the dependencies for seeding a fresh controller.
+// IAASAgentFinalizer selects the machine identity and nonce for fresh
+// bootstrap.
+// A restoration operation can call FinaliseIAASAgent with its chosen identity.
+func IAASAgentFinalizer(
+	ctx context.Context,
+	agentPasswordService AgentPasswordService,
+	machineService MachineService,
+	bootstrapParams instancecfg.StateInitializationParams,
+	agentPassword string,
+) error {
+	return FinaliseIAASAgent(ctx, agentPasswordService, machineService,
+		agent.BootstrapControllerId, agent.BootstrapNonce, bootstrapParams, agentPassword)
+}
+
+// K8sAgentFinalizer selects the controller identity and nonce file for fresh
+// bootstrap. A restoration operation supplies its own identity to
+// FinaliseK8sAgent.
+func K8sAgentFinalizer(
+	ctx context.Context,
+	agentPasswordService AgentPasswordService,
+	_ MachineService,
+	_ instancecfg.StateInitializationParams,
+	agentPassword string,
+) error {
+	return FinaliseK8sAgent(ctx, agentPasswordService, agent.BootstrapControllerId,
+		agentPassword, k8sconstants.ControllerNonceFilePath)
+}
+
+// FreshBootstrapConfig contains the dependencies for a fresh controller.
 type FreshBootstrapConfig struct {
 	// RemoveBootstrapSSHKeys removes the bootstrap-only SSH keys from the
 	// machine.
@@ -178,7 +205,7 @@ type freshBootstrap struct {
 }
 
 // NewFreshBootstrap constructs the operation that seeds a fresh controller.
-// Construction validates dependencies; the returned operation performs the work.
+// Construction validates dependencies; the operation performs the work.
 func NewFreshBootstrap(cfg FreshBootstrapConfig) (Operation, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Capture(err)
@@ -255,9 +282,11 @@ func (b *freshBootstrap) run(ctx context.Context) (func(), error) {
 		return nil, errors.Errorf("finalising agent: %w", err)
 	}
 
-	// Convert the provider addresses that we got from the bootstrap instance
-	// to space ID decorated addresses.
-	if err := b.initialiseAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, b.cfg.APIPort); err != nil {
+	// Fresh bootstrap creates controller 0. Restoration supplies its chosen
+	// controller ID when publishing addresses with this helper.
+	if err := InitialiseAPIHostPorts(ctx, b.cfg.ControllerNodeService,
+		b.cfg.NetworkService, agent.BootstrapControllerId, controllerConfig,
+		bootstrapAddresses, b.cfg.APIPort); err != nil {
 		b.logger.Errorf(ctx, "unable to set API host ports %v:%w", bootstrapAddresses, err)
 		return nil, errors.Capture(err)
 	}
@@ -408,34 +437,6 @@ func (b *freshBootstrap) seedStoragePools(
 		}
 	}
 	return nil
-}
-
-// initialiseAPIHostPorts sets the initial API host/port addresses in state.
-func (b *freshBootstrap) initialiseAPIHostPorts(ctx context.Context, controllerConfig controller.Config, pAddrs network.ProviderAddresses, apiPort int) error {
-	allSpaces, err := b.cfg.NetworkService.GetAllSpaces(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	addrs, err := pAddrs.ToSpaceAddresses(allSpaces)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	hostPorts := network.SpaceAddressesWithPort(addrs, apiPort)
-
-	mgmtSpaceCfg := controllerConfig.JujuManagementSpace()
-	mgmtSpace, err := b.cfg.NetworkService.SpaceByName(ctx, mgmtSpaceCfg)
-	if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
-		return errors.Capture(err)
-	}
-
-	// During bootstrap, the controller node will always be "0".
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: mgmtSpace,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"0": hostPorts,
-		},
-	}
-	return errors.Capture(b.cfg.ControllerNodeService.SetAPIAddresses(ctx, args))
 }
 
 func (b *freshBootstrap) seedAgentBinary(ctx context.Context, dataDir string) (func(), error) {

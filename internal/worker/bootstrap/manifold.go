@@ -6,14 +6,12 @@ package bootstrap
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/flags"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/errors"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/worker/gate"
@@ -252,8 +249,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			applicationService := controllerModelDomainServices.Application()
 
-			// Select the complete operation for fresh bootstrap or restoration here.
-			// Keep that choice out of the worker's completion and gate handling.
+			// Select the operation for fresh bootstrap or restoration here.
+			// Keep this choice out of the worker's completion and gate handling.
 			operation, err := NewFreshBootstrap(FreshBootstrapConfig{
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
@@ -314,70 +311,4 @@ func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, erro
 		return false, errors.Capture(err)
 	}
 	return !bootstrapped, nil
-}
-
-// IAASAgentFinalizer is the function that is used to finalise the
-// IAAS agent during bootstrap.
-func IAASAgentFinalizer(
-	ctx context.Context,
-	agentPasswordService AgentPasswordService,
-	machineService MachineService,
-	bootstrapParams instancecfg.StateInitializationParams,
-	agentPassword string,
-) error {
-	// Set machine cloud instance data for the bootstrap machine.
-	bootstrapMachineUUID, err := machineService.GetMachineUUID(ctx, agent.BootstrapControllerId)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Set the machine password for the bootstrap controller.
-	if err := agentPasswordService.SetMachinePassword(ctx, agent.BootstrapControllerId, agentPassword); err != nil {
-		return errors.Capture(err)
-	}
-
-	// If this data exists, we consider the machine as provisioned.
-	if err := machineService.SetMachineCloudInstance(
-		ctx,
-		bootstrapMachineUUID,
-		bootstrapParams.BootstrapMachineInstanceId,
-		bootstrapParams.BootstrapMachineDisplayName,
-		agent.BootstrapNonce,
-		bootstrapParams.BootstrapMachineHardwareCharacteristics,
-	); err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
-}
-
-// K8sAgentFinalizer is the function that is used to finalise the
-// K8s agent during bootstrap.
-func K8sAgentFinalizer(
-	ctx context.Context,
-	agentPasswordService AgentPasswordService,
-	machineService MachineService,
-	bootstrapParams instancecfg.StateInitializationParams,
-	agentPassword string,
-) error {
-	// Set the controller node password.
-	if err := agentPasswordService.SetControllerNodePassword(ctx, agent.BootstrapControllerId, agentPassword); err != nil {
-		return errors.Capture(err)
-	}
-
-	// Read the introduction nonce from disk. It is written by the
-	// controller-config-seed init container from the ConfigMap.
-	// If the nonce file is missing (e.g. non-k8s bootstrap or older
-	// charm), skip silently. The UnitIntroduction facade will reject
-	// missing nonces for controller applications.
-	nonceBytes, err := os.ReadFile(k8sconstants.ControllerNonceFilePath)
-	if err != nil {
-		return nil
-	}
-	nonce := string(nonceBytes)
-	if _, err := agentPasswordService.EnsureControllerNodeNonce(ctx, agent.BootstrapControllerId, nonce); err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
 }
