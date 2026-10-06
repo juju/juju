@@ -1016,6 +1016,14 @@ func (s *cleanupInternalSuite) TestCleanupContainersWaitsForDyingContainerWithou
 }
 
 func (s *cleanupInternalSuite) TestCleanupContainersContinuesAfterMissingContainerWithoutForce(c *gc.C) {
+	s.testCleanupContainersContinuesAfterMissingContainer(c, false)
+}
+
+func (s *cleanupInternalSuite) TestCleanupContainersContinuesAfterMissingContainerWithForce(c *gc.C) {
+	s.testCleanupContainersContinuesAfterMissingContainer(c, true)
+}
+
+func (s *cleanupInternalSuite) testCleanupContainersContinuesAfterMissingContainer(c *gc.C, force bool) {
 	st := s.newState(c)
 	parent, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1034,18 +1042,29 @@ func (s *cleanupInternalSuite) TestCleanupContainersContinuesAfterMissingContain
 	defer closer()
 	c.Assert(machines.Writeable().RemoveId(missingChild.Id()), jc.ErrorIsNil)
 	c.Assert(dyingChild.Destroy(), jc.ErrorIsNil)
-	c.Assert(parent.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+	c.Assert(parent.DestroyWithParams(force, true, 0), jc.ErrorIsNil)
 
-	err = st.cleanupEvacuateMachineInternal(parent.Id(), false, false, 0)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		"waiting for container %s to be removed from %s",
-		dyingChild.Id(), parent.Id(),
-	))
+	if !force {
+		err = st.cleanupEvacuateMachineInternal(parent.Id(), false, false, 0)
+		c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+			"waiting for container %s to be removed from %s",
+			dyingChild.Id(), parent.Id(),
+		))
+	}
 	c.Assert(missingChild.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Assert(dyingChild.Refresh(), jc.ErrorIsNil)
 	c.Check(dyingChild.Life(), gc.Equals, Dying)
 	c.Assert(parent.Refresh(), jc.ErrorIsNil)
 	c.Check(parent.Life(), gc.Equals, Dying)
+
+	c.Assert(dyingChild.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(st.cleanupEvacuateMachineInternal(parent.Id(), force, force, 0), jc.ErrorIsNil)
+	c.Assert(dyingChild.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Dead)
+	children, err := parent.Containers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(children, gc.HasLen, 0)
 }
 
 type internalStatePolicy struct{}

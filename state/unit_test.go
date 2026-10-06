@@ -1034,7 +1034,7 @@ func (s *UnitSuite) TestForceRemoveUnitSchedulesEvacuateMachine(c *gc.C) {
 
 	unit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToMachine(host), gc.IsNil)
+	c.Assert(unit.AssignToMachine(host), jc.ErrorIsNil)
 	c.Assert(unit.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
 
 	const maxWait = time.Minute
