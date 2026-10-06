@@ -222,6 +222,50 @@ func (s *controllerSuite) TestInitialiseAPIHostPortsOrdersByAudience(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *controllerSuite) TestInitialiseAPIHostPortsManagementSpaceFallback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	public := network.ProviderAddress{
+		MachineAddress: network.NewMachineAddress("192.0.2.1", network.WithScope(network.ScopePublic)),
+		SpaceName:      "public",
+	}
+	private := network.ProviderAddress{
+		MachineAddress: network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		SpaceName:      "private",
+	}
+	spaces := network.SpaceInfos{
+		{ID: "public-id", Name: "public"},
+		{ID: "private-id", Name: "private"},
+		{ID: "management-id", Name: "management"},
+	}
+	s.networkService.EXPECT().GetAllSpaces(gomock.Any()).Return(spaces, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("management")).Return(&spaces[2], nil)
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"7": {
+				Clients: network.SpaceAddresses{
+					{MachineAddress: public.MachineAddress, SpaceID: "public-id"},
+					{MachineAddress: private.MachineAddress, SpaceID: "private-id"},
+				},
+				Agents: network.SpaceAddresses{
+					{MachineAddress: private.MachineAddress, SpaceID: "private-id"},
+					{MachineAddress: public.MachineAddress, SpaceID: "public-id"},
+				},
+				Peers: network.SpaceAddresses{
+					{MachineAddress: private.MachineAddress, SpaceID: "private-id"},
+					{MachineAddress: public.MachineAddress, SpaceID: "public-id"},
+				},
+			},
+		},
+	})
+
+	err := InitialiseAPIHostPorts(c.Context(), s.controllerNodeService,
+		s.networkService, nil, "7", coremodel.IAAS,
+		controller.Config{controller.JujuManagementSpace: "management"},
+		network.ProviderAddresses{private, public}, 17070)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *controllerSuite) TestInitialiseAPIHostPortsCAAS(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	public := network.NewMachineAddress(
