@@ -218,11 +218,11 @@ endif
 ifdef DEBUG_JUJU
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
     LINK_FLAGS = $(COVER_LINK_FLAGS) "$(link_flags_version)"
-    DYNAMIC_CGO_LINK_FLAGS = $(COVER_CGO_LINK_FLAGS) "$(link_flags_version)"
+    CGO_LINK_FLAGS = $(COVER_CGO_LINK_FLAGS) "$(link_flags_version)"
 else
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
     LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
-    DYNAMIC_CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w $(link_flags_version)"
 endif
 
 # run_go_build is a canned command sequence for the steps required to build a
@@ -265,13 +265,13 @@ define run_go_install
 			-v ${PACKAGE}
 endef
 
-# run_dynamic_cgo_build builds a CGO package using the default system C
-# compiler and the Dqlite/SQLite shared libraries installed on the host
-# (see install-dqlite-dependencies). It applies no musl toolchain, no static
-# Dqlite archive paths, and no static external link mode: the resulting
-# binary links dynamically against the host's glibc and libdqlite. The
-# ambient CC is respected so cross builds can select a cross compiler.
-define run_dynamic_cgo_build
+# run_cgo_build builds a CGO package using the default system C compiler and
+# the Dqlite/SQLite shared libraries installed on the host (see
+# install-dqlite-dependencies). It applies no musl toolchain, no static Dqlite
+# archive paths, and no static external link mode: the resulting binary links
+# dynamically against the host's glibc and libdqlite. The ambient CC is
+# respected so cross builds can select a cross compiler.
+define run_cgo_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
@@ -287,13 +287,13 @@ define run_dynamic_cgo_build
 			-tags=$(FINAL_BUILD_TAGS) \
 			-o ${BBIN_DIR} \
 			${COMPILE_FLAGS} \
-			-ldflags ${DYNAMIC_CGO_LINK_FLAGS} \
+			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
 endef
 
-# run_dynamic_cgo_install is the install-target form of
-# run_dynamic_cgo_build, for the host OS and architecture.
-define run_dynamic_cgo_install
+# run_cgo_install is the install-target form of run_cgo_build, for the host OS
+# and architecture.
+define run_cgo_install
 	@echo "Installing ${PACKAGE}"
 	@env CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
@@ -303,7 +303,7 @@ define run_dynamic_cgo_install
 			-mod=$(JUJU_GOMOD_MODE) \
 			-tags=$(FINAL_BUILD_TAGS) \
 			${COMPILE_FLAGS} \
-			-ldflags ${DYNAMIC_CGO_LINK_FLAGS} \
+			-ldflags ${CGO_LINK_FLAGS} \
 			-v ${PACKAGE}
 endef
 
@@ -335,14 +335,14 @@ jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
 jujud:
 ## jujud: Install jujud controller binary (dynamically linked against host Dqlite libraries; requires make install-dqlite-dependencies)
-	${run_dynamic_cgo_install}
+	${run_cgo_install}
 
 .PHONY: dqlite-repl
 dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite-repl
 dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
 dqlite-repl:
 ## dqlite-repl: Install the dqlite-repl developer tool (requires install-dqlite-dependencies)
-	${run_dynamic_cgo_install}
+	${run_cgo_install}
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -370,7 +370,7 @@ ${BUILD_DIR}/%/bin/dqlite-bench: PACKAGE = github.com/juju/juju/scripts/dqlite-b
 ${BUILD_DIR}/%/bin/dqlite-bench: EXTRA_BUILD_TAGS += dqlite libsqlite3
 ${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit
 # build for dqlite-bench (dynamic, host Dqlite libraries)
-	$(run_dynamic_cgo_build)
+	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
 ${BUILD_DIR}/%/bin/juju: phony_explicit
@@ -391,7 +391,7 @@ ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
 ${BUILD_DIR}/%/bin/jujud: phony_explicit
 # build for jujud controller binary (dynamic, host Dqlite libraries)
-	$(run_dynamic_cgo_build)
+	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -501,7 +501,8 @@ run-tests:
 	@TMPDIR=$(TMP) \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${DYNAMIC_CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) \
+		  -ldflags ${CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
 .PHONY: test-packages
@@ -530,7 +531,9 @@ run-go-tests:
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
 	@CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${DYNAMIC_CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) \
+		  -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} \
+			-test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 .PHONY: go-test-alias
 go-test-alias: EXTRA_BUILD_TAGS += dqlite libsqlite3
@@ -538,7 +541,7 @@ go-test-alias:
 ## go-test-alias: Prints out an alias command for easy running of tests.
 	@echo alias jt=\'CGO_ENABLED=\"1\" \
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
-		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${DYNAMIC_CGO_LINK_FLAGS}\"\'
+		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
 
 .PHONY: install
 install: rebuild-schema go-install
@@ -617,13 +620,14 @@ jujud-snap-build:
 # 120) when the build's stdout is a regular file. A pipe keeps stdout valid
 # while still capturing output to the log for display on failure.
 #
-# JUJUD_SNAP_FORCE_BUILD=1 (or the jujud-snap-force-build target) bypasses
-# the fast-patch branch and forces the full snapcraft build. Use it when the
-# snap's bundled libraries change: rerunning the smart target alone only
-# patches bin/jujud into an existing base snap.
+# The smart target fast-patches whenever the base snap exists and no file under
+# snaps/jujud/ is newer, so rerunning it alone only patches bin/jujud into the
+# existing base snap. When the snap's bundled libraries must change, run 'make
+# jujud-snap-clean' first to remove the base snap and force the full snapcraft
+# build.
 	@set -e; \
 	BASE_SNAP="${JUJUD_SNAP_PATH}"; \
-	if [ -z "$${JUJUD_SNAP_FORCE_BUILD}" ] && [ -f "$$BASE_SNAP" ] && [ -z "$$(find ${SNAPS_DIR}/jujud -newer "$$BASE_SNAP" -print -quit 2>/dev/null)" ]; then \
+	if [ -f "$$BASE_SNAP" ] && [ -z "$$(find ${SNAPS_DIR}/jujud -newer "$$BASE_SNAP" -print -quit 2>/dev/null)" ]; then \
 		echo "Patching controller snap..."; \
 		$(MAKE) --no-print-directory jujud-snap-patch; \
 	else \
@@ -650,19 +654,19 @@ jujud-snap-build:
 
 .PHONY: jujud-snap-patch
 jujud-snap-patch:
-## jujud-snap-patch: Fast-patch the base jujud snap with a freshly built dynamic jujud; the host link-time Dqlite (ppa:dqlite/dev) and the snap's bundled Dqlite must stay on the same upstream release line and be raised together; if the snap's libraries change, use jujud-snap-force-build
-# Library-pairing rule: the freshly built jujud links against the host's
-# Dqlite development libraries (installed from ppa:dqlite/dev), while the
-# patched snap resolves its native libraries from the snap payload, where
+## jujud-snap-patch: Fast-patch the base jujud snap with a freshly built dynamic jujud; the host link-time Dqlite (ppa:dqlite/dev) and the snap's bundled Dqlite must stay on the same upstream release line and be raised together; if the snap's libraries change, run make jujud-snap-clean first
+#
+# Library-pairing rule: the freshly built jujud links against the host's Dqlite
+# development libraries (installed from ppa:dqlite/dev), while the patched snap
+# resolves its native libraries from the snap payload, where
 # snaps/jujud/snapcraft.yaml builds and stages its own dqlite. The two must
-# stay on the same upstream Dqlite release line and be raised together.
-# A violation surfaces as a loader or symbol error when the patched snap's
-# jujud service starts (verify with a manual --build-snap bootstrap and
-# `snap logs jujud`). When the snap's bundled libraries change, a plain
-# rerun of jujud-snap-build is not a recovery mechanism: the smart target
-# patches the existing base snap unless snaps/jujud/ changed. Use
-# `make jujud-snap-force-build` (or JUJUD_SNAP_FORCE_BUILD=1) to force the
-# full rebuild.
+# stay on the same upstream Dqlite release line and be raised together. A
+# violation surfaces as a loader or symbol error when the patched snap's jujud
+# service starts (verify with a manual --build-snap bootstrap and `snap logs
+# jujud`). When the snap's bundled libraries change, a plain rerun of
+# jujud-snap-build is not a recovery mechanism: the smart target patches the
+# existing base snap unless snaps/jujud/ changed. Run `make jujud-snap-clean`
+# first to remove the base snap and force the full rebuild.
 	@set -e; \
 	mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
 	$(MAKE) --no-print-directory jujud > ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
@@ -707,10 +711,10 @@ jujud-snap-patch:
 	echo "$$JUJUD_SHA" > ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
 	echo "Patched snap: $$BASE_SNAP"
 
-.PHONY: jujud-snap-force-build
-jujud-snap-force-build:
-## jujud-snap-force-build: Force a full controller snap build, bypassing fast-patch (required when the snap's bundled libraries change)
-	JUJUD_SNAP_FORCE_BUILD=1 $(MAKE) --no-print-directory jujud-snap-build
+.PHONY: jujud-snap-clean
+jujud-snap-clean:
+## jujud-snap-clean: Remove the built controller snap and fast-patch cache so the next jujud-snap-build runs a full snapcraft build (required when the snap's bundled libraries change)
+	@rm -rf ${JUJUD_SNAP_PATCH_DIR} ${SNAP_BUILD_DIR}/jujud_*.snap
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
@@ -755,34 +759,14 @@ install-sqlite3-dependencies:
 # install-dqlite-dependencies provisions the native Dqlite development
 # libraries the dynamic jujud build contract links against. The distro
 # archive's libdqlite-dev is older than the versions Juju and the jujud
-# snap use, so the packages come from the Dqlite team's PPA, the same
-# provenance as the GitHub static-analysis workflow and the snap's dqlite
-# pin.
+# snap use, so the packages come from the Dqlite team's PPA.
 #
-# DQLITE_CROSS_ARCHES is a space separated list of Debian architecture
-# names (e.g. "arm64 s390x ppc64el"; the Go spelling ppc64le is accepted)
-# to provision for cross-building the dynamic jujud, in addition to the
-# host architecture. Each architecture is registered with dpkg and given
-# its own arch-restricted apt source (Ubuntu serves amd64/i386 from the
-# primary archive and every other architecture from ports.ubuntu.com),
-# and its arch-qualified Dqlite/SQLite packages and cross compiler are
-# installed. The Dqlite dev package is the series-suffixed real package
-# (libdqlite1.18-dev today, derived from the installed libdqlite-dev
-# meta's dependency), NOT the meta name itself: the PPA's libdqlite-dev
-# is an arch:all meta already installed natively, so requesting it for
-# a foreign arch resolves to the distro's older real dev package, whose
-# headers then conflict with the native PPA ones. A leftover distro
-# libdqlite0/libdqlite-dev for a cross architecture (same plain-soname
-# files, 1.16 versions) is removed automatically by the shared apt
-# update helper (see make_functions.sh check_dqlite_cross_stale), since
-# while it exists every apt operation on the host fails inside dpkg.
-# The real series package
-# exists only in the PPA, and its Multi-Arch: same packages share the
-# plain /usr/include/dqlite.h (byte-identical at equal versions) and put
-# libraries under /usr/lib/<triplet>/ where the cross compiler finds
-# them without any CGO flag overrides. Build each target architecture
-# in its own invocation with its matching CC; an ambient CC must never
-# be shared by heterogeneous target builds:
+# DQLITE_CROSS_ARCHES is a space separated list of Debian architecture names
+# (e.g. "arm64 s390x ppc64el"; the Go spelling ppc64le is accepted) to
+# provision for cross-building the dynamic jujud, in addition to the host
+# architecture. Build each target architecture in its own invocation with its
+# matching CC; an ambient CC must never be shared by heterogeneous target
+# builds:
 #   make install-dqlite-dependencies DQLITE_CROSS_ARCHES="arm64"
 #   CC=aarch64-linux-gnu-gcc AGENT_PACKAGE_PLATFORMS="linux/arm64" make go-agent-build
 DQLITE_CROSS_ARCHES ?=

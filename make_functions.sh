@@ -382,18 +382,17 @@ wait_for_dpkg() {
     done
 }
 
-# check_dqlite_cross_stale clears leftover distro (1.16-line) Dqlite
-# packages for cross-build architectures. An early revision of the
-# DQLITE_CROSS_ARCHES provisioning resolved the arch-qualified
-# libdqlite-dev meta name to the distro's older real dev package; its
-# half-completed transactions left libdqlite0:<arch> installed and a
-# stuck want-install selection for libdqlite-dev:<arch>. The leftover
-# owns the same plain sonames as the PPA series package the flow
-# installs, so every later apt operation on the host fails deep inside
-# dpkg (file overwrite or unmet dependencies) instead of at the
-# provisioning step that caused it. The removal is loud and scoped to
-# distro Dqlite packages for foreign architectures only; PPA series
-# packages and native packages are never touched.
+# check_dqlite_cross_stale clears leftover distro (1.16-line) Dqlite packages
+# for cross-build architectures. An early revision of the DQLITE_CROSS_ARCHES
+# provisioning resolved the arch-qualified libdqlite-dev meta name to the
+# distro's older real dev package; its half-completed transactions left
+# libdqlite0:<arch> installed and a stuck want-install selection for
+# libdqlite-dev:<arch>. The leftover owns the same plain sonames as the PPA
+# series package the flow installs, so every later apt operation on the host
+# fails deep inside dpkg (file overwrite or unmet dependencies) instead of at
+# the provisioning step that caused it. The removal is loud and scoped to
+# distro Dqlite packages for foreign architectures only; PPA series packages
+# and native packages are never touched.
 check_dqlite_cross_stale() {
     for arch in $(dpkg --print-foreign-architectures); do
         for name in libdqlite-dev libdqlite0; do
