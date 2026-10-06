@@ -5,12 +5,11 @@ package bootstrap
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
@@ -18,11 +17,11 @@ import (
 	"github.com/juju/juju/core/flags"
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/errors"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/statushistory"
@@ -48,7 +47,7 @@ type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharm
 // bootstrap address finder.
 type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderFactory, namespace string) BootstrapAddressFinderFunc
 
-// AgentFinalizerFunc is the function that is used to finalize the agent
+// AgentFinalizerFunc is the function that is used to finalise the agent
 // during bootstrap.
 type AgentFinalizerFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, string) error
 
@@ -82,19 +81,19 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
-// ManifoldConfig defines the configuration for the trace manifold.
+// ManifoldConfig defines the configuration for the bootstrap manifold.
 type ManifoldConfig struct {
 	BootstrapGateName   string
 	DomainServicesName  string
 	HTTPClientName      string
 	ProviderFactoryName string
 	// DataDir is the local agent data directory used to read bootstrap params
-	// and seed artifacts during bootstrap.
+	// and seed artefacts during bootstrap.
 	DataDir string
 	// APIPort is the controller API port written into the initial API host-port
 	// records once bootstrap completes.
 	APIPort int
-	// AgentPassword is the bootstrap agent password used by the finalizer to
+	// AgentPassword is the bootstrap agent password used by the finaliser to
 	// seed the initial machine or controller-node password in state.
 	AgentPassword string
 
@@ -116,67 +115,67 @@ type ManifoldConfig struct {
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.BootstrapGateName == "" {
-		return errors.NotValidf("empty BootstrapGateName")
+		return jujuerrors.NotValidf("empty BootstrapGateName")
 	}
 	if cfg.DomainServicesName == "" {
-		return errors.NotValidf("empty DomainServicesName")
+		return jujuerrors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.HTTPClientName == "" {
-		return errors.NotValidf("empty HTTPClientName")
+		return jujuerrors.NotValidf("empty HTTPClientName")
 	}
 	if cfg.ProviderFactoryName == "" {
-		return errors.NotValidf("empty ProviderFactoryName")
+		return jujuerrors.NotValidf("empty ProviderFactoryName")
 	}
 	if cfg.DataDir == "" {
-		return errors.NotValidf("empty DataDir")
+		return jujuerrors.NotValidf("empty DataDir")
 	}
 	if cfg.APIPort == 0 {
-		return errors.NotValidf("missing APIPort")
+		return jujuerrors.NotValidf("missing APIPort")
 	}
 	if cfg.AgentPassword == "" {
-		return errors.NotValidf("missing AgentPassword")
+		return jujuerrors.NotValidf("missing AgentPassword")
 	}
 
 	if cfg.AgentBinaryUploader == nil {
-		return errors.NotValidf("nil AgentBinaryUploader")
+		return jujuerrors.NotValidf("nil AgentBinaryUploader")
 	}
 	if cfg.ControllerCharmDeployer == nil {
-		return errors.NotValidf("nil ControllerCharmDeployer")
+		return jujuerrors.NotValidf("nil ControllerCharmDeployer")
 	}
 	if cfg.ControllerApplicationPassword == nil {
-		return errors.NotValidf("nil ControllerApplicationPassword")
+		return jujuerrors.NotValidf("nil ControllerApplicationPassword")
 	}
 	if cfg.ControllerUnitPassword == nil {
-		return errors.NotValidf("nil ControllerUnitPassword")
+		return jujuerrors.NotValidf("nil ControllerUnitPassword")
 	}
 	if cfg.RequiresBootstrap == nil {
-		return errors.NotValidf("nil RequiresBootstrap")
+		return jujuerrors.NotValidf("nil RequiresBootstrap")
 	}
 	if cfg.PopulateControllerCharm == nil {
-		return errors.NotValidf("nil PopulateControllerCharm")
+		return jujuerrors.NotValidf("nil PopulateControllerCharm")
 	}
 	if cfg.BootstrapAddressFinderGetter == nil {
-		return errors.NotValidf("nil BootstrapAddressFinderGetter")
+		return jujuerrors.NotValidf("nil BootstrapAddressFinderGetter")
 	}
 	if cfg.AgentFinalizer == nil {
-		return errors.NotValidf("nil AgentFinalizer")
+		return jujuerrors.NotValidf("nil AgentFinalizer")
 	}
 	if cfg.RemoveBootstrapSSHKeys == nil {
-		return errors.NotValidf("nil RemoveBootstrapSSHKeys")
+		return jujuerrors.NotValidf("nil RemoveBootstrapSSHKeys")
 	}
 	if cfg.StatusHistory == nil {
-		return errors.NotValidf("nil StatusHistory")
+		return jujuerrors.NotValidf("nil StatusHistory")
 	}
 	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
+		return jujuerrors.NotValidf("nil Logger")
 	}
 	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
+		return jujuerrors.NotValidf("nil Clock")
 	}
 	return nil
 }
 
-// Manifold returns a dependency manifold that runs the trace worker.
+// Manifold returns a dependency manifold that runs the bootstrap worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -187,25 +186,25 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			var bootstrapUnlocker gate.Unlocker
 			if err := getter.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			var controllerDomainServices services.ControllerDomainServices
 			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
-			// If the controller application exists, then we don't need to
+			// If bootstrap has completed, then we don't need to
 			// bootstrap. Uninstall the worker, as we don't need it running
 			// anymore.
 			flagService := controllerDomainServices.Flag()
 			if ok, err := config.RequiresBootstrap(ctx, flagService); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			} else if !ok {
 				bootstrapUnlocker.Unlock()
 				return nil, dependency.ErrUninstall
@@ -217,12 +216,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var providerFactory providertracker.ProviderFactory
 			if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			controllerModel, err := controllerDomainServices.Model().ControllerModel(ctx)
 			if err != nil {
-				return nil, fmt.Errorf(
+				return nil, errors.Errorf(
 					"cannot get controller model when making bootstrap worker: %w",
 					err,
 				)
@@ -234,26 +233,28 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var httpClientGetter corehttp.HTTPClientGetter
 			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			charmhubHTTPClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.CharmhubPurpose)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			var domainServicesGetter services.DomainServicesGetter
 			if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 			controllerModelDomainServices, err := domainServicesGetter.ServicesForModel(ctx, controllerModel.UUID)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
 			}
 
 			applicationService := controllerModelDomainServices.Application()
 
-			w, err := NewWorker(WorkerConfig{
+			// Select the complete operation for fresh bootstrap or restoration here.
+			// Keep that choice out of the worker's completion and gate handling.
+			operation, err := NewFreshBootstrap(FreshBootstrapConfig{
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
 				ControllerNodeService:      controllerDomainServices.ControllerNode(),
@@ -267,10 +268,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelInfoService:           controllerModelDomainServices.ModelInfo(),
 				MachineService:             controllerModelDomainServices.Machine(),
 				KeyManagerService:          controllerModelDomainServices.KeyManager(),
-				FlagService:                flagService,
 				NetworkService:             controllerModelDomainServices.Network(),
 				BakeryConfigService:        controllerDomainServices.Macaroon(),
-				BootstrapUnlocker:          bootstrapUnlocker,
 				DataDir:                    config.DataDir,
 				APIPort:                    config.APIPort,
 				AgentBinaryUploader:        config.AgentBinaryUploader,
@@ -284,12 +283,23 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitPassword:               unitPassword,
 				ServiceManagerGetter:       serviceManagerGetter,
 				BootstrapAddressFinder:     config.BootstrapAddressFinderGetter(providerFactory, controllerModel.UUID.String()),
-				StatusHistory:              config.StatusHistory,
 				Logger:                     config.Logger,
 				Clock:                      config.Clock,
 			})
 			if err != nil {
-				return nil, errors.Trace(err)
+				return nil, errors.Capture(err)
+			}
+			w, err := NewWorker(WorkerConfig{
+				Operation:           operation,
+				FlagService:         flagService,
+				BootstrapUnlocker:   bootstrapUnlocker,
+				ControllerModelUUID: controllerModel.UUID,
+				StatusHistory:       config.StatusHistory,
+				Logger:              config.Logger,
+				Clock:               config.Clock,
+			})
+			if err != nil {
+				return nil, errors.Capture(err)
 			}
 			return w, nil
 		},
@@ -301,12 +311,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, error) {
 	bootstrapped, err := flagService.GetFlag(ctx, flags.BootstrapFlag)
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Capture(err)
 	}
 	return !bootstrapped, nil
 }
 
-// IAASAgentFinalizer is the function that is used to finalize the
+// IAASAgentFinalizer is the function that is used to finalise the
 // IAAS agent during bootstrap.
 func IAASAgentFinalizer(
 	ctx context.Context,
@@ -316,14 +326,14 @@ func IAASAgentFinalizer(
 	agentPassword string,
 ) error {
 	// Set machine cloud instance data for the bootstrap machine.
-	bootstrapMachineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
+	bootstrapMachineUUID, err := machineService.GetMachineUUID(ctx, agent.BootstrapControllerId)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Set the machine password for the bootstrap controller.
-	if err := agentPasswordService.SetMachinePassword(ctx, machine.Name(agent.BootstrapControllerId), agentPassword); err != nil {
-		return errors.Trace(err)
+	if err := agentPasswordService.SetMachinePassword(ctx, agent.BootstrapControllerId, agentPassword); err != nil {
+		return errors.Capture(err)
 	}
 
 	// If this data exists, we consider the machine as provisioned.
@@ -335,13 +345,13 @@ func IAASAgentFinalizer(
 		agent.BootstrapNonce,
 		bootstrapParams.BootstrapMachineHardwareCharacteristics,
 	); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return nil
 }
 
-// K8sAgentFinalizer is the function that is used to finalize the
+// K8sAgentFinalizer is the function that is used to finalise the
 // K8s agent during bootstrap.
 func K8sAgentFinalizer(
 	ctx context.Context,
@@ -352,7 +362,7 @@ func K8sAgentFinalizer(
 ) error {
 	// Set the controller node password.
 	if err := agentPasswordService.SetControllerNodePassword(ctx, agent.BootstrapControllerId, agentPassword); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	// Read the introduction nonce from disk. It is written by the
@@ -366,7 +376,7 @@ func K8sAgentFinalizer(
 	}
 	nonce := string(nonceBytes)
 	if _, err := agentPasswordService.EnsureControllerNodeNonce(ctx, agent.BootstrapControllerId, nonce); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	return nil
