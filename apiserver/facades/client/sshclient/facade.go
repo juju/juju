@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/unit"
@@ -35,6 +36,7 @@ type Facade struct {
 	modelProviderService ModelProviderService
 	modelSSHService      ModelSSHService
 	modelTag             names.ModelTag
+	modelType            model.ModelType
 	controllerTag        names.ControllerTag
 }
 
@@ -60,6 +62,7 @@ type FacadeV4 struct {
 func internalFacade(
 	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
+	modelType model.ModelType,
 	applicationService ApplicationService,
 	machineService MachineService,
 	networkService NetworkService,
@@ -81,6 +84,7 @@ func internalFacade(
 		modelSSHService:      modelSSHService,
 		controllerTag:        controllerTag,
 		modelTag:             modelTag,
+		modelType:            modelType,
 		authorizer:           auth,
 	}, nil
 }
@@ -110,7 +114,7 @@ func (facade *Facade) VirtualHostname(ctx context.Context, arg params.VirtualHos
 		return params.SSHAddressResult{}, errors.Trace(err)
 	}
 	modelUUID := facade.modelTag.Id()
-	virtualHostname, err := getVirtualHostnameForEntity(modelUUID, arg.Tag, arg.Container)
+	virtualHostname, err := getVirtualHostnameForEntity(modelUUID, facade.modelType, arg.Tag, arg.Container)
 	if err != nil {
 		return params.SSHAddressResult{
 			Error: apiservererrors.ServerError(err),
@@ -367,7 +371,12 @@ func (facade *Facade) getMachineForEntity(ctx context.Context, tagString string)
 // getVirtualHostnameForEntity returns the virtual hostname for the given entity. It parses the tag string to
 // evaluate if the entity is a machine or a unit. If the entity is a unit, it also takes an optional container
 // name which is used to construct the virtual hostname.
-func getVirtualHostnameForEntity(modelUUID string, tagString string, container *string) (string, error) {
+func getVirtualHostnameForEntity(
+	modelUUID string,
+	modelType model.ModelType,
+	tagString string,
+	container *string,
+) (string, error) {
 	tag, err := names.ParseTag(tagString)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -376,6 +385,11 @@ func getVirtualHostnameForEntity(modelUUID string, tagString string, container *
 	switch tag.Kind() {
 	case names.MachineTagKind:
 		tag := tag.(names.MachineTag)
+		if modelType == model.CAAS {
+			return "", errors.Errorf(
+				"cannot SSH to machine %q in a Kubernetes model; specify a unit name, such as <app>/0", tag.Id(),
+			)
+		}
 		info, err = virtualhostname.NewInfoMachineTarget(modelUUID, tag.Id())
 		if err != nil {
 			return "", errors.Trace(err)
