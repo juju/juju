@@ -72,6 +72,7 @@ func (s *deltasSuite) TestApplicationScale(c *tc.C) {
 		ScaleTarget:     &target,
 		Scaling:         &scaling,
 		StartOrdinal:    0,
+		EndOrdinal:      0,
 	}})
 }
 

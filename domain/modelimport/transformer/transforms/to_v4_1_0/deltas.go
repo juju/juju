@@ -140,6 +140,7 @@ func (d deltas) ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationS
 			ScaleTarget:     s.ScaleTarget,
 			Scaling:         s.Scaling,
 			StartOrdinal:    0,
+			EndOrdinal:      0,
 		})
 	}
 	return scales, nil
