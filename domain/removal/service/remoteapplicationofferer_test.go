@@ -123,6 +123,32 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForc
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveRemoteApplicationOffererNoForceIgnoresWaitForCascadedJobs
+// ensures that a non-forced remote application offerer removal ignores
+// the wait duration for the whole cascade: the cascaded relations are
+// scheduled immediately, not at now+wait.
+func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForceIgnoresWaitForCascadedJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	exp := s.modelState.EXPECT()
+	exp.RemoteApplicationOffererExists(gomock.Any(), remoteAppUUID.String()).Return(true, nil)
+	exp.EnsureRemoteApplicationOffererNotAliveCascade(gomock.Any(), remoteAppUUID.String()).Return(internal.CascadedRemoteApplicationOffererLives{
+		RelationUUIDs: []string{"relation-1"},
+	}, nil)
+	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
+
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, false, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *remoteApplicationOffererSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
 	var invalidJobType removal.JobType = 500
 

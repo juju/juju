@@ -335,6 +335,41 @@ func (s *modelSuite) TestRemoveModelSchedulesMachineJobsForOccupiedHosts(c *tc.C
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveModelNoForceIgnoresWaitForCascadedJobs ensures that a
+// non-forced model removal ignores the wait duration for the whole
+// cascade: the storage filesystems of the model artifacts are scheduled
+// immediately, not at now+wait.
+func (s *modelSuite) TestRemoveModelNoForceIgnoresWaitForCascadedJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
+
+	when := time.Now()
+	// One call schedules the model job, one the filesystem job.
+	s.clock.EXPECT().Now().Return(when).Times(2)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
+		StorageFilesystemUUIDs: []string{"some-filesystem-id"},
+	}, nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+
+	// The cascaded filesystem job is scheduled immediately: the wait
+	// duration is ignored for non-forced removals.
+	mExp.FilesystemScheduleRemoval(gomock.Any(), gomock.Any(), "some-filesystem-id", false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, time.Minute, &destroyStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 // TestRemoveModelForceWaitSchedulesMachineJobsImmediatelyAndAfterWait
 // ensures that a forced model removal with a wait duration schedules
 // every machine twice: a normal removal job scheduled immediately, and

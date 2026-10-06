@@ -91,6 +91,35 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSuccess(c *tc.C) {
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveApplicationNoForceIgnoresWaitForCascadedJobs ensures that a
+// non-forced application removal ignores the wait duration for the whole
+// cascade: the cascaded relations, units and machines are scheduled
+// immediately, not at now+wait.
+func (s *applicationSuite) TestRemoveApplicationNoForceIgnoresWaitForCascadedJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
+		RelationUUIDs: []string{"relation-1"},
+		UnitUUIDs:     []string{"unit-1"},
+		MachineUUIDs:  []string{"machine-1"},
+	}, nil)
+	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

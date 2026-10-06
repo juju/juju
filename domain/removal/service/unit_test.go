@@ -62,6 +62,32 @@ func (s *unitSuite) TestRemoveUnitNoForceMachineAndStorageSuccess(c *tc.C) {
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveUnitNoForceIgnoresWaitForCascadedJobs ensures that a
+// non-forced unit removal ignores the wait duration for the whole
+// cascade: the machine the unit was the last one on is scheduled
+// immediately, not at now+wait.
+func (s *unitSuite) TestRemoveUnitNoForceIgnoresWaitForCascadedJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+	mUUID := "some-machine-uuid"
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	exp := s.modelState.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
+	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
+		MachineUUID: &mUUID,
+	}, nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID, false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, false, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

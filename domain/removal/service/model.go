@@ -198,24 +198,10 @@ func (s *Service) removeModel(
 	// From here on, we can assume that the model and any associated model
 	// artifacts (machines, applications, units, etc) are not alive.
 
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the unit if the normal destruction
-			// workflows complete within the the wait duration.
-			if _, err := s.modelScheduleRemoval(ctx, modelUUID, false, 0); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
-			wait = 0
-		}
-	}
-
-	modelJobUUID, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
+	// Normalize the wait here so the cascaded scheduling below cannot
+	// see a non-forced wait.
+	wait = s.normalizeWait(ctx, modelUUID, force, wait)
+	modelJobUUID, err := s.scheduleWithForceWait(ctx, modelUUID, force, wait, s.modelScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if artifacts.Empty() {
@@ -481,24 +467,17 @@ func (s *Service) removeUnits(ctx context.Context, uuids []string, destroyStorag
 //
 // The jobs themselves reconcile the machines' dependents: while a
 // machine is not dead, or still hosts units or child machines, its job
-// reports [removalerrors.RemovalJobIncomplete] and is retried by the
-// removal worker; once the dependents' own jobs have deleted them, the
-// host's job deletes the host.
+// reports [removalerrors.EntityNotDead] or
+// [removalerrors.RemovalJobIncomplete] and is retried by the removal
+// worker; once the dependents' own jobs have deleted them, the host's
+// job deletes the host.
 func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, machineUUID := range uuids {
-		if force && wait > 0 {
-			// If we have been supplied with the force flag *and* a wait
-			// time, schedule a normal removal job immediately. This will
-			// cause the earliest removal of the machine if the normal
-			// destruction workflows complete within the wait duration.
-			if _, err := s.machineScheduleRemoval(ctx, machine.UUID(machineUUID), false, 0); err != nil {
-				s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
-			}
-		}
-		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(machineUUID), force, wait); err != nil {
-			// If the machine fails to be scheduled for removal, we log
-			// out the error. The machines are already transitioned to
-			// dying and there is no way to transition them back to alive.
+		// If a machine fails to be scheduled for removal, we log out the
+		// error. The machines are already transitioned to dying and there
+		// is no way to transition them back to alive.
+		_, err := s.scheduleWithForceWait(ctx, machine.UUID(machineUUID), force, wait, s.machineScheduleRemoval)
+		if err != nil {
 			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
 		}
 	}
