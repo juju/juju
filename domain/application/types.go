@@ -576,6 +576,10 @@ type SetCharmStateParams struct {
 	// RepositoryResourceUUIDs contains pre-generated UUIDs keyed by resource
 	// name for destination-charm repository resource placeholders.
 	RepositoryResourceUUIDs map[string]string
+
+	// ResourceRemovalJobUUIDs contains pre-generated removal job UUIDs keyed by
+	// the resource UUID that may be displaced by the charm change.
+	ResourceRemovalJobUUIDs map[string]string
 }
 
 // ApplicationDetails contains details about an application.

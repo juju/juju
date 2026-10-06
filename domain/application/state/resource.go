@@ -8,15 +8,51 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetApplicationResourceUUIDs returns all resources currently linked to an
+// application.
+func (st *State) GetApplicationResourceUUIDs(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+) ([]coreresource.UUID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := resourceReconciliation{ApplicationUUID: appUUID.String()}
+	stmt, err := st.Prepare(`
+SELECT resource_uuid AS &resourceReconciliation.resource_uuid
+FROM   application_resource
+WHERE  application_uuid = $resourceReconciliation.application_uuid
+`, input)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var resources []resourceReconciliation
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, input).GetAll(&resources)
+	})
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+	return transform.Slice(resources, func(resource resourceReconciliation) coreresource.UUID {
+		return coreresource.UUID(resource.ResourceUUID)
+	}), nil
+}
 
 // createApplicationResources handles resources when creating an application
 // by updating resources added before the application via UUID, or by
@@ -195,6 +231,11 @@ WHERE resource_uuid = $resourceReconciliation.resource_uuid
 			if err := tx.Query(ctx, updateLinkStmt, candidate).Run(); err != nil {
 				return errors.Errorf("activating replacement resource %q: %w", name, err)
 			}
+			if err := st.scheduleResourceRemoval(
+				ctx, tx, params.ResourceRemovalJobUUIDs, current.ResourceUUID,
+			); err != nil {
+				return errors.Errorf("scheduling removal of replaced resource %q: %w", name, err)
+			}
 		} else if err := tx.Query(ctx, insertLinkStmt, candidate).Run(); err != nil {
 			return errors.Errorf("activating added resource %q: %w", name, err)
 		}
@@ -211,16 +252,23 @@ WHERE resource_uuid = $resourceReconciliation.resource_uuid
 		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
 			return errors.Errorf("detaching removed resource %q: %w", name, err)
 		}
+		if err := st.scheduleResourceRemoval(
+			ctx, tx, params.ResourceRemovalJobUUIDs, current.ResourceUUID,
+		); err != nil {
+			return errors.Errorf("scheduling removal of detached resource %q: %w", name, err)
+		}
 	}
 
 	if err := st.replaceApplicationResourcesForCharm(
-		ctx, tx, appUUID, charmUUID, params.ReplacementResourceUUIDs,
+		ctx, tx, appUUID, charmUUID,
+		params.ReplacementResourceUUIDs, params.ResourceRemovalJobUUIDs,
 	); err != nil {
 		return errors.Capture(err)
 	}
 
 	return st.reconcileRepositoryResourcesForCharm(
-		ctx, tx, appUUID, charmUUID, targetByName, params.RepositoryResourceUUIDs,
+		ctx, tx, appUUID, charmUUID, targetByName,
+		params.RepositoryResourceUUIDs, params.ResourceRemovalJobUUIDs,
 	)
 }
 
@@ -233,6 +281,7 @@ func (st *State) reconcileRepositoryResourcesForCharm(
 	charmUUID string,
 	targetResources map[string]charmResourceIdentity,
 	replacementUUIDs map[string]string,
+	removalJobUUIDs map[string]string,
 ) error {
 	input := resourceReconciliation{
 		ApplicationUUID: appUUID,
@@ -299,6 +348,9 @@ WHERE  c.uuid = $charmSource.uuid
 		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
 			return errors.Errorf("detaching repository resource %q: %w", current.Name, err)
 		}
+		if err := st.scheduleResourceRemoval(ctx, tx, removalJobUUIDs, current.ResourceUUID); err != nil {
+			return errors.Errorf("scheduling removal of repository resource %q: %w", current.Name, err)
+		}
 	}
 	for name, current := range currentByName {
 		if _, retained := targetResources[name]; retained {
@@ -307,6 +359,9 @@ WHERE  c.uuid = $charmSource.uuid
 		current.ApplicationUUID = appUUID
 		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
 			return errors.Errorf("detaching removed repository resource %q: %w", name, err)
+		}
+		if err := st.scheduleResourceRemoval(ctx, tx, removalJobUUIDs, current.ResourceUUID); err != nil {
+			return errors.Errorf("scheduling removal of repository resource %q: %w", name, err)
 		}
 		delete(currentByName, name)
 	}
@@ -359,6 +414,7 @@ func (st *State) replaceApplicationResourcesForCharm(
 	appUUID string,
 	charmUUID string,
 	replacementUUIDs map[string]string,
+	removalJobUUIDs map[string]string,
 ) error {
 	input := replacement{
 		ApplicationUUID: appUUID,
@@ -490,9 +546,43 @@ AND    resource_uuid = $replacement.old_uuid
 		if err := tx.Query(ctx, replaceApplicationResourceStmt, replacements[i]).Run(); err != nil {
 			return errors.Errorf("selecting replacement resource: %w", err)
 		}
+		if err := st.scheduleResourceRemoval(
+			ctx, tx, removalJobUUIDs, replacements[i].OldUUID,
+		); err != nil {
+			return errors.Errorf("scheduling removal of replaced resource %q: %w", replacements[i].Name, err)
+		}
 	}
 
 	return nil
+}
+
+func (st *State) scheduleResourceRemoval(
+	ctx context.Context,
+	tx *sqlair.TX,
+	removalJobUUIDs map[string]string,
+	resourceUUID string,
+) error {
+	jobUUID, ok := removalJobUUIDs[resourceUUID]
+	if !ok || jobUUID == "" {
+		return errors.Errorf("removal job UUID not supplied for resource %q", resourceUUID)
+	}
+	job := resourceRemovalJob{
+		UUID:          jobUUID,
+		ResourceUUID:  resourceUUID,
+		ScheduledFor:  st.clock.Now().UTC(),
+		RemovalTypeID: uint64(removal.ResourceJob),
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, scheduled_for)
+VALUES ($resourceRemovalJob.uuid,
+        $resourceRemovalJob.removal_type_id,
+        $resourceRemovalJob.resource_uuid,
+        $resourceRemovalJob.scheduled_for)
+`, job)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, stmt, job).Run())
 }
 
 // buildResourceInserts creates resources to add based on provided app and charm
