@@ -878,6 +878,14 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		k8sPodParams.AddressOrigin = &origin
 	}
 	k8sPod := makeK8sPodArg(k8sPodParams)
+	unitNamesStmt, err := st.Prepare(`
+SELECT &unitName.*
+FROM   unit AS u
+WHERE  u.application_uuid = $entityUUID.uuid
+`, unitName{}, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
 
 	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
@@ -917,10 +925,29 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			if err != nil {
 				return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
 			}
-
 			if appScale.Scaling {
-				// While scaling, we use the scaling target.
-				if arg.OrderedId < appScale.StartOrdinal || arg.OrderedId >= appScale.StartOrdinal+appScale.ScaleTarget {
+				var rows []unitName
+				err := tx.Query(ctx, unitNamesStmt, entityUUID{UUID: appUUID}).GetAll(&rows)
+				if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+					return errors.Errorf("getting units for app %q: %w", appUUID, err)
+				}
+
+				unitsInWindow := 0
+				for _, row := range rows {
+					ordinal := coreunit.Name(row.Name).Number()
+					if ordinal >= appScale.StartOrdinal && ordinal < appScale.EndOrdinal {
+						unitsInWindow++
+					}
+				}
+				targetEnd := appScale.EndOrdinal
+				if missing := appScale.ScaleTarget - unitsInWindow; missing > 0 {
+					targetEnd += missing
+				}
+
+				// Existing holes in the committed window are retired. Only the
+				// append range reserved by the current scale operation can create
+				// new unit identities.
+				if arg.OrderedId < appScale.EndOrdinal || arg.OrderedId >= targetEnd {
 					return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
 				}
 			} else {
