@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -281,6 +282,39 @@ func (p k8sProvider) CleanupIssuedTokens(
 	return issuedTokenUUIDs, nil
 }
 
+// isLoopbackEndpoint reports whether the host of the given endpoint URL is
+// a loopback address (127.0.0.0/8, ::1) or "localhost". Such an endpoint
+// is only valid on the host itself and is never reachable from a pod or a
+// different machine.
+func isLoopbackEndpoint(endpoint string) bool {
+	host := endpointHost(endpoint)
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
+// endpointHost returns the host of the given endpoint. The endpoint is
+// expected to be a full URL with a scheme, as recorded for cloud
+// endpoints (e.g. "https://127.0.0.1:16443"). For robustness, a
+// scheme-less hostport (e.g. "localhost:16443" or "127.0.0.1:16443") is
+// also accepted: as client-go's rest.DefaultServerURL does for server
+// URLs, the https scheme is prepended before parsing when the URL fails
+// to parse or has no host.
+func endpointHost(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Hostname() == "" {
+		u, err = url.Parse("https://" + endpoint)
+		if err != nil {
+			return ""
+		}
+	}
+	return u.Hostname()
+}
+
 // RestrictedConfig returns the config needed to create a
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
@@ -343,11 +377,16 @@ func (p k8sProvider) RestrictedConfig(
 	}
 
 	endpoint := cfg.endpoint()
-	if sameController && cfg.preferInClusterAddress() {
-		// The cloudspec used for controller has a fake endpoint (address and port)
-		// because we ignore the endpoint and load the in-cluster credential instead.
-		// So we have to clean up the endpoint here for uniter to use.
-
+	// The cloudspec used for the controller has a fake endpoint (address
+	// and port) because we ignore the endpoint and load the in-cluster
+	// credential instead. So we have to clean up the endpoint here for
+	// the uniter to use. The same applies to cross-controller consumers
+	// when the recorded endpoint is a loopback address (the built-in
+	// microk8s cloud records https://127.0.0.1:16443, valid only on the
+	// host): loopback is never reachable from a remote consumer, while
+	// the in-cluster address works whenever the consumer runs in the
+	// same cluster.
+	if cfg.preferInClusterAddress() && (sameController || isLoopbackEndpoint(endpoint)) {
 		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
 		if len(host) != 0 && len(port) != 0 {
 			endpoint = "https://" + net.JoinHostPort(host, port)

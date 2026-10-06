@@ -6,6 +6,8 @@ package kubernetes_test
 import (
 	"context"
 	"crypto/rand"
+	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -417,6 +419,133 @@ func (s *providerSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *tc.C
 	}
 	c.Assert(backendCfg, tc.DeepEquals, expected)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// loopbackEndpoints are recorded cloud endpoints that must be patched to
+// the in-cluster address even for a cross-controller consumer, because
+// loopback is never reachable from a remote consumer.
+var loopbackEndpoints = []string{
+	"https://127.0.0.1:16443",
+	"https://localhost:16443",
+	"https://LOCALHOST:16443",
+	"https://127.0.0.2:16443",
+	"https://127.1.2.3:16443",
+	"https://[::1]:16443",
+	"localhost:16443",
+	"127.0.0.1:16443",
+}
+
+// notLoopbackEndpoints look loopback-adjacent but are routable addresses
+// and must be handed to cross-controller consumers unchanged.
+var notLoopbackEndpoints = []string{
+	"https://192.168.1.15:16443",
+	"https://128.0.0.1:16443",
+	"https://localhost.example.com:16443",
+}
+
+// stubInClusterConfig patches the exported InClusterConfig var before
+// setting the in-cluster env vars. With those env vars set, the real
+// rest.InClusterConfig() tries to read the service account files and
+// fails with a non-ErrNotInCluster error, so the var must be stubbed.
+func (s *providerSuite) stubInClusterConfig(c *tc.C) {
+	old := kubernetes.InClusterConfig
+	c.Cleanup(func() { kubernetes.InClusterConfig = old })
+	kubernetes.InClusterConfig = func() (*rest.Config, error) {
+		host, port := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
+		if len(host) == 0 || len(port) == 0 {
+			return nil, rest.ErrNotInCluster
+		}
+		return &rest.Config{Host: "https://" + net.JoinHostPort(host, port)}, nil
+	}
+	c.Setenv("KUBERNETES_SERVICE_HOST", "8.6.8.6")
+	c.Setenv("KUBERNETES_SERVICE_PORT", "8888")
+}
+
+// assertRestrictedConfigWithEndpoint calls RestrictedConfig as a
+// cross-controller consumer (sameController=false) on a controller-cloud
+// backend config recording the given endpoint, and asserts the full
+// returned backend config with wantEndpoint.
+func (s *providerSuite) assertRestrictedConfigWithEndpoint(c *tc.C, endpoint, wantEndpoint string) {
+	defer s.setupK8s(c)()
+	s.stubInClusterConfig(c)
+
+	ownedURI := secrets.NewURI()
+	readURI := secrets.NewURI()
+
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, tc.ErrorIsNil)
+	cfg := s.backendConfig()
+	cfg.Config["endpoint"] = endpoint
+	cfg.Config["prefer-incluster-address"] = true
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  cfg,
+	}
+
+	backendCfg, err := p.RestrictedConfig(
+		c.Context(),
+		adminCfg, false, false,
+		"some-uuid",
+		secrets.Accessor{
+			Kind: secrets.UnitAccessor,
+			ID:   "gitlab/0",
+		},
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.tokens, tc.HasLen, 1)
+	expected := &provider.BackendConfig{
+		BackendType: kubernetes.BackendType,
+		Config: map[string]any{
+			"ca-certs":  []string{"cert-data"},
+			"endpoint":  wantEndpoint,
+			"namespace": s.namespace,
+			"token":     s.tokens[0],
+		},
+	}
+	c.Assert(backendCfg, tc.DeepEquals, expected)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestRestrictedConfigDifferentControllerLoopbackEndpoint verifies that
+// RestrictedConfig patches a loopback endpoint to the in-cluster address
+// for a cross-controller consumer. The built-in microk8s cloud records
+// https://127.0.0.1:16443, which is only valid on the host and never
+// reachable from a remote consumer, while the in-cluster address works
+// whenever the consumer runs in the same cluster.
+func (s *providerSuite) TestRestrictedConfigDifferentControllerLoopbackEndpoint(c *tc.C) {
+	s.assertRestrictedConfigWithEndpoint(c, "https://127.0.0.1:16443", "https://8.6.8.6:8888")
+}
+
+// TestRestrictedConfigDifferentControllerLoopbackEndpoints checks that every
+// form of loopback endpoint (any address in 127.0.0.0/8, ::1, or
+// "localhost" in any case) recorded for the controller cloud is patched to
+// the in-cluster address for a cross-controller consumer.
+func (s *providerSuite) TestRestrictedConfigDifferentControllerLoopbackEndpoints(c *tc.C) {
+	for _, endpoint := range loopbackEndpoints {
+		s.assertRestrictedConfigWithEndpoint(c, endpoint, "https://8.6.8.6:8888")
+	}
+}
+
+// TestRestrictedConfigDifferentControllerRoutableEndpoint guards that
+// RestrictedConfig does not clobber a routable recorded endpoint for a
+// cross-controller consumer: only loopback endpoints are patched.
+func (s *providerSuite) TestRestrictedConfigDifferentControllerRoutableEndpoint(c *tc.C) {
+	s.assertRestrictedConfigWithEndpoint(c, "https://192.168.1.15:16443", "https://192.168.1.15:16443")
+}
+
+// TestRestrictedConfigDifferentControllerNotLoopbackEndpoints checks that
+// routable endpoints that merely look loopback-adjacent (an address just
+// outside 127.0.0.0/8 or a hostname with a localhost prefix) are handed to
+// cross-controller consumers unchanged.
+func (s *providerSuite) TestRestrictedConfigDifferentControllerNotLoopbackEndpoints(c *tc.C) {
+	for _, endpoint := range notLoopbackEndpoints {
+		s.assertRestrictedConfigWithEndpoint(c, endpoint, endpoint)
+	}
 }
 
 // TestDrainRoleCanCreateSecrets verifies that the role created for a drain
