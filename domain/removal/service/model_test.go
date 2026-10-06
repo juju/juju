@@ -335,6 +335,47 @@ func (s *modelSuite) TestRemoveModelSchedulesMachineJobsForOccupiedHosts(c *tc.C
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveModelMachineScheduleErrorsAreLoggedNotReturned pins the
+// scheduling failure contract of the model cascade: a machine whose
+// removal job cannot be scheduled is logged and dropped. The machines
+// are already dying, and RemoveModel is re-entrant, so a re-run of
+// destroy-model re-runs the cascade and reschedules the missing jobs.
+func (s *modelSuite) TestRemoveModelMachineScheduleErrorsAreLoggedNotReturned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := tc.Must0(c, coremodel.NewUUID)
+	destroyStorage := true
+
+	when := time.Now()
+	// One call schedules the model job, one each machine job.
+	s.clock.EXPECT().Now().Return(when).Times(3)
+
+	cExp := s.controllerState.EXPECT()
+	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	cExp.EnsureModelNotAlive(gomock.Any(), mUUID.String(), false).Return(nil)
+
+	mExp := s.modelState.EXPECT()
+	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
+	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
+		MachineUUIDs: []string{"machine-1", "machine-2"},
+	}, nil)
+	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+
+	// The first machine's removal job cannot be scheduled; the failure
+	// is logged and dropped.
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).
+		Return(errors.New("scheduling failed"))
+	// The remaining machines are still scheduled.
+	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-2", false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
+	// The scheduling error is dropped, not returned: recovery is a
+	// re-run of destroy-model, which re-runs the cascade.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 // TestRemoveModelNoForceIgnoresWaitForCascadedJobs ensures that a
 // non-forced model removal ignores the wait duration for the whole
 // cascade: the storage filesystems of the model artifacts are scheduled

@@ -471,6 +471,11 @@ func (s *Service) removeUnits(ctx context.Context, uuids []string, destroyStorag
 // [removalerrors.RemovalJobIncomplete] and is retried by the removal
 // worker; once the dependents' own jobs have deleted them, the host's
 // job deletes the host.
+//
+// Scheduling failures are logged and dropped, like for every other
+// entity the cascade schedules: the machines are already dying, and
+// [Service.RemoveModel] is re-entrant, so a re-run of destroy-model
+// re-runs the cascade and reschedules the missing jobs.
 func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, machineUUID := range uuids {
 		// If a machine fails to be scheduled for removal, we log out the
