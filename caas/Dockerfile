@@ -32,6 +32,6 @@ RUN ln -s jujud /opt/juju-introspect
 
 # juju-dynamic-image-layout: resolve the jujud native runtime closure from
 # the image-owned /opt/lib (the Ubuntu base does not carry libdqlite).
-ENV LD_LIBRARY_PATH=/opt/lib
-
-ENTRYPOINT ["sh", "-c"]
+# LD_LIBRARY_PATH is scoped to the launched jujud and its children so it
+# does not affect other processes in the operator image.
+ENTRYPOINT ["sh", "-c", "export LD_LIBRARY_PATH=/opt/lib; exec \"$@\"", "--"]
