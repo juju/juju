@@ -128,6 +128,7 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnits(
 				}, {
 					ApplicationName:     ep[1].ApplicationName,
 					EndpointName:        ep[1].EndpointName,
+					ConsumerProxy:       true,
 					ApplicationSettings: map[string]any{"database": "keep-me-too"},
 					UnitSettings: map[string]map[string]any{
 						"remote-13ea/0": {"request": "keep-unit-data"},
@@ -229,6 +230,163 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsK
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, `relation ".*" has key "mysql:db mediawiki:db", not "wordpress:db remote-13ea:db"`)
+}
+
+// An additional offer connection of a legacy consumer proxy is represented
+// in the model by a freshly named synthetic application. The consumer proxy
+// endpoint is matched with the endpoint of the relation by endpoint name, so
+// its application settings are written against the synthetic application,
+// and the settings of its units are re-keyed onto the synthetic units of
+// that application.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsRenamedProxy(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	renamedEp := corerelationtesting.GenNewKey(c, "wordpress:db remote-f00d:db").EndpointIdentifiers()
+
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     ep[0].ApplicationName,
+			EndpointName:        ep[0].EndpointName,
+			ApplicationSettings: map[string]any{"password": "keep-me"},
+		}, {
+			ApplicationName:     ep[1].ApplicationName,
+			EndpointName:        ep[1].EndpointName,
+			ConsumerProxy:       true,
+			ApplicationSettings: map[string]any{"database": "keep-me-too"},
+			UnitSettings: map[string]map[string]any{
+				"remote-13ea/0": {"request": "keep-unit-data"},
+			},
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, renamedEp)
+	app1ID := s.expectGetApplicationUUIDByName(c, "wordpress")
+	app2ID := s.expectGetApplicationUUIDByName(c, "remote-f00d")
+	s.expectSetRelationApplicationSettings(relUUID, app1ID, args[0].Endpoints[0].ApplicationSettings)
+	s.expectSetRelationApplicationSettings(relUUID, app2ID, args[0].Endpoints[1].ApplicationSettings)
+	s.expectEnterScope(relUUID, coreunittesting.GenNewName(c, "remote-f00d/0"),
+		args[0].Endpoints[1].UnitSettings["remote-13ea/0"])
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// A consumer proxy endpoint whose name matches no endpoint of the relation
+// fails the import: the relation found by UUID is not the relation the data
+// was exported for.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsProxyEndpointNotFound(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	otherEp := corerelationtesting.GenNewKey(c, "wordpress:db remote-f00d:db2").EndpointIdentifiers()
+
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: ep[0].ApplicationName,
+			EndpointName:    ep[0].EndpointName,
+		}, {
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
+			ConsumerProxy:   true,
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, otherEp)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches,
+		`relation ".*" has key "wordpress:db remote-f00d:db2", not "wordpress:db remote-13ea:db"`)
+}
+
+// An endpoint that is not a consumer proxy must match an endpoint of the
+// relation exactly: the relation keeps the identity of the source model for
+// every application but the renamed synthetic one, so a different
+// application means the relation found by UUID is not the relation the data
+// was exported for.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsOffererMismatch(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	otherEp := corerelationtesting.GenNewKey(c, "postgresql:db remote-13ea:db").EndpointIdentifiers()
+
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: ep[0].ApplicationName,
+			EndpointName:    ep[0].EndpointName,
+		}, {
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
+			ConsumerProxy:   true,
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, otherEp)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches,
+		`relation ".*" has key "postgresql:db remote-13ea:db", not "wordpress:db remote-13ea:db"`)
+}
+
+// With no endpoint matching exactly, the relation is not anchored by any
+// application both the argument and the relation agree on, and the import
+// fails rather than attaching the data to a relation it was not exported
+// for.
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsNoExactMatch(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "remote-13ea:db remote-cafe:db2")
+	ep := key.EndpointIdentifiers()
+	relUUID := tc.Must(c, corerelation.NewUUID)
+
+	otherEp := corerelationtesting.GenNewKey(c, "remote-f00d:db remote-beef:db2").EndpointIdentifiers()
+
+	args := relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: ep[0].ApplicationName,
+			EndpointName:    ep[0].EndpointName,
+			ConsumerProxy:   true,
+		}, {
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
+			ConsumerProxy:   true,
+		}},
+	}}
+
+	s.expectGetRelationEndpoints(relUUID, otherEp)
+
+	// Act
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches,
+		`relation ".*" has key "remote-f00d:db remote-beef:db2", not "remote-13ea:db remote-cafe:db2"`)
 }
 
 // Any error other than RelationNotFound from the relation lookup surfaces

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
+	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -320,17 +321,24 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 			// This is an additional offer connection of a consuming
 			// application whose synthetic application is already being
 			// imported, so represent this connection with a fresh
-			// synthetic application. The synthetic units belong to the
-			// first application, which keeps the legacy proxy name.
-			// rApp is a copy of the slice element, so clearing its units
-			// only affects the argument passed to the state import below.
+			// synthetic application. The synthetic units of the legacy
+			// proxy are re-created for the fresh application, renamed
+			// with the shared RewriteUnitName rule, so the relation
+			// import can re-key the unit settings of this connection's
+			// relation onto units that exist. rApp is a copy of the
+			// slice element, so replacing its units only affects the
+			// argument passed to the state import below.
 			synthAppUUID, err := application.NewUUID()
 			if err != nil {
 				return internalerrors.Errorf("creating application UUID: %w", err)
 			}
 			syntheticAppName = application.RemoteApplicationNameFromUUID(synthAppUUID)
 			syntheticApplicationUUID = synthAppUUID.String()
-			rApp.Units = nil
+			rApp.Units, err = rewriteUnitNames(rApp.Units, rApp.Name, syntheticAppName)
+			if err != nil {
+				return internalerrors.Errorf("rewriting synthetic unit names onto %q: %w",
+					syntheticAppName, err)
+			}
 		}
 		importedConsumers[rApp.ConsumerApplicationUUID] = struct{}{}
 
@@ -346,6 +354,28 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 	}
 
 	return nil
+}
+
+// rewriteUnitNames renames the units belonging to the old application
+// name onto the new one, with the shared
+// domain/modelmigration/modelmigration.RewriteUnitName rule: the relation
+// domain import re-keys the unit settings of the relation of an
+// additional offer connection with the same rule, so the two stay in
+// lockstep.
+func rewriteUnitNames(
+	unitNames []string,
+	oldApplicationName, newApplicationName string,
+) ([]string, error) {
+	out := make([]string, len(unitNames))
+	for i, unitName := range unitNames {
+		rewritten, err := domainmodelmigration.RewriteUnitName(
+			unitName, oldApplicationName, newApplicationName)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = rewritten
+	}
+	return out, nil
 }
 
 // ImportRelationNetworks adds the relation networks being migrated to the

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/logger"
@@ -113,7 +114,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// cross model relation import, which runs first. Only their data is
 		// imported here.
 		if domainmodelmigration.ContainsRelationEndpointApplicationName(rel, consumerRemoteApplications) {
-			arg, err := i.createConsumerProxyImportArg(rel, relationRemoteEntities)
+			arg, err := i.createConsumerProxyImportArg(rel, relationRemoteEntities, consumerRemoteApplications)
 			if err != nil {
 				return errors.Errorf("setting up remote consumer relation data for import %d: %w", rel.Id(), err)
 			}
@@ -334,6 +335,7 @@ func renameUnitSettings(
 func (i *importOperation) createConsumerProxyImportArg(
 	rel description.Relation,
 	remoteEntities []domainmodelmigration.RelationRemoteEntity,
+	consumerRemoteApplications set.Strings,
 ) (relation.ImportRelationSettingsAndUnitsArg, error) {
 	key, err := corerelation.NewKeyFromString(rel.Key())
 	if err != nil {
@@ -357,6 +359,7 @@ func (i *importOperation) createConsumerProxyImportArg(
 		arg.Endpoints = append(arg.Endpoints, relation.ImportEndpoint{
 			ApplicationName:     v.ApplicationName(),
 			EndpointName:        v.Name(),
+			ConsumerProxy:       consumerRemoteApplications.Contains(v.ApplicationName()),
 			ApplicationSettings: v.ApplicationSettings(),
 			UnitSettings:        v.AllSettings(),
 		})
