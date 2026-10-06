@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -71,7 +72,7 @@ func (s *importSuite) TestImportRelationsWithContainerScope(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *importSuite) TestImportSkipsConsumerRemoteRelations(c *tc.C) {
+func (s *importSuite) TestImportConsumerRemoteRelationData(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -100,6 +101,29 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelations(c *tc.C) {
 		Name:            "ubuntu",
 		IsConsumerProxy: true,
 	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-ubuntu.juju-info#ntp.juju-info",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	// The relation itself is imported by the cross model relation domain, so
+	// only the relation data is imported here.
+	s.service.EXPECT().ImportConsumerProxyRelationSettingsAndUnits(gomock.Any(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     eps[0].ApplicationName,
+			EndpointName:        eps[0].EndpointName,
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}, {
+			ApplicationName:     eps[1].ApplicationName,
+			EndpointName:        eps[1].EndpointName,
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}},
+	}}).Return(nil)
+	s.service.EXPECT().ImportRelations(gomock.Any(), gomock.Any()).Times(0)
 
 	importOp := importOperation{
 		service: s.service,
@@ -113,7 +137,50 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelations(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
-func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c *tc.C) {
+func (s *importSuite) TestImportConsumerRemoteRelationDataNoRelationToken(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	key := relationtesting.GenNewKey(c, "ubuntu:juju-info ntp:juju-info")
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  1,
+		Key: key.String(),
+	})
+	for _, ep := range key.EndpointIdentifiers() {
+		rel.AddEndpoint(description.EndpointArgs{
+			ApplicationName: ep.ApplicationName,
+			Name:            ep.EndpointName,
+			Role:            string(ep.Role),
+			Scope:           string(charm.ScopeGlobal),
+		})
+	}
+
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "ubuntu",
+		IsConsumerProxy: true,
+	})
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	// Act
+	err := importOp.Execute(c.Context(), model)
+
+	// Assert
+	// A remote consumer relation without a relation token means the
+	// description is inconsistent; the relation data cannot be located, so
+	// the import fails instead of silently dropping the data.
+	c.Assert(err, tc.ErrorMatches, ".*no relation UUID found for relation with key.*")
+}
+
+func (s *importSuite) TestImportConsumerRemoteRelationDataWithOtherRelations(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
 
@@ -128,7 +195,8 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 		Id:  1,
 		Key: key0.String(),
 	})
-	for _, ep := range key0.EndpointIdentifiers() {
+	eps0 := key0.EndpointIdentifiers()
+	for _, ep := range eps0 {
 		rel0.AddEndpoint(description.EndpointArgs{
 			ApplicationName: ep.ApplicationName,
 			Name:            ep.EndpointName,
@@ -139,6 +207,10 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 	model.AddRemoteApplication(description.RemoteApplicationArgs{
 		Name:            "ubuntu",
 		IsConsumerProxy: true,
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-ubuntu.juju-info#ntp.juju-info",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
 	})
 
 	rel1 := model.AddRelation(description.RelationArgs{
@@ -177,6 +249,22 @@ func (s *importSuite) TestImportSkipsConsumerRemoteRelationsWithOtherRelations(c
 		}},
 		Scope: charm.ScopeGlobal,
 	}})).Return(nil)
+
+	s.service.EXPECT().ImportConsumerProxyRelationSettingsAndUnits(gomock.Any(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		Key:  key0,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     eps0[0].ApplicationName,
+			EndpointName:        eps0[0].EndpointName,
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}, {
+			ApplicationName:     eps0[1].ApplicationName,
+			EndpointName:        eps0[1].EndpointName,
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}},
+	}}).Return(nil)
 
 	importOp := importOperation{
 		service: s.service,
@@ -234,9 +322,9 @@ func (s *importSuite) TestImportBadKey(c *tc.C) {
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
-// Ignore consumer proxies when matching remote applications for a relation, as
-// these are not imported as part of the relation domain, but rather as part of
-// the crossmodelrelation domain.
+// Consumer proxies are not imported as part of the relation domain, but
+// rather as part of the crossmodelrelation domain; only the relation data
+// is imported here.
 func (s *importSuite) TestImportConsumerRemoteRelation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -263,6 +351,13 @@ func (s *importSuite) TestImportConsumerRemoteRelation(c *tc.C) {
 		Name:            "foo",
 		IsConsumerProxy: true,
 	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-foo.sink#dummy-sink.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	s.service.EXPECT().ImportConsumerProxyRelationSettingsAndUnits(gomock.Any(), gomock.Any()).Return(nil)
+	s.service.EXPECT().ImportRelations(gomock.Any(), gomock.Any()).Times(0)
 
 	importOp := importOperation{
 		service: s.service,
@@ -273,10 +368,10 @@ func (s *importSuite) TestImportConsumerRemoteRelation(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 }
 
-// Ignore consumer proxies when matching remote applications for a relation for
-// any endpoint application name. We can't guarantee the order of relation
-// endpoints, so we need to check all endpoints for a relation for any consumer
-// proxy remote application, and ignore the relation.
+// Consumer proxies are matched against any endpoint application name of a
+// relation, as we can't guarantee the order of relation endpoints; the
+// relation data is imported regardless of which endpoint the consumer proxy
+// is on.
 func (s *importSuite) TestImportConsumerRemoteRelationOtherEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -303,6 +398,13 @@ func (s *importSuite) TestImportConsumerRemoteRelationOtherEndpoint(c *tc.C) {
 		Name:            "dummy-sink",
 		IsConsumerProxy: true,
 	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-foo.sink#dummy-sink.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	s.service.EXPECT().ImportConsumerProxyRelationSettingsAndUnits(gomock.Any(), gomock.Any()).Return(nil)
+	s.service.EXPECT().ImportRelations(gomock.Any(), gomock.Any()).Times(0)
 
 	importOp := importOperation{
 		service: s.service,
@@ -310,6 +412,76 @@ func (s *importSuite) TestImportConsumerRemoteRelationOtherEndpoint(c *tc.C) {
 	}
 
 	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.IsNil)
+}
+
+// The consumer proxy branch is checked first: a relation that has both a
+// consumer proxy and a remote offerer among its endpoints was created by the
+// cross model relation import, so only its data is imported, and it is never
+// imported again as a relation.
+func (s *importSuite) TestImportConsumerProxyAndOffererRemoteRelation(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+
+	key := relationtesting.GenNewKey(c, "foo:sink dummy-sink:source")
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  32,
+		Key: key.String(),
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+		Name:            "sink",
+		Interface:       "dummy-token",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-sink",
+		Name:            "source",
+		Interface:       "dummy-token",
+	})
+
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "dummy-sink",
+		IsConsumerProxy: true,
+	})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name: "foo",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-foo.sink#dummy-sink.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	s.service.EXPECT().ImportConsumerProxyRelationSettingsAndUnits(gomock.Any(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName:     "foo",
+			EndpointName:        "sink",
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}, {
+			ApplicationName:     "dummy-sink",
+			EndpointName:        "source",
+			ApplicationSettings: map[string]any{},
+			UnitSettings:        map[string]map[string]any{},
+		}},
+	}}).Return(nil)
+	s.service.EXPECT().ImportRelations(gomock.Any(), gomock.Any()).Times(0)
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	// Act
+	err := importOp.Execute(c.Context(), model)
+
+	// Assert
 	c.Assert(err, tc.IsNil)
 }
 
@@ -363,6 +535,141 @@ func (s *importSuite) TestImportOffererRemoteRelation(c *tc.C) {
 			Scope: charm.ScopeGlobal,
 		},
 	})).Return(nil)
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.IsNil)
+}
+
+// The relation token recorded for a remote offerer relation is reused as
+// the UUID of the imported relation: it is the identity both models agreed
+// on.
+func (s *importSuite) TestImportOffererRemoteRelationReusesRelationToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  32,
+		Key: "foo:sink dummy-sink:source",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+		Name:            "sink",
+		Interface:       "dummy-token",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-sink",
+		Name:            "source",
+		Interface:       "dummy-token",
+	})
+
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name: "foo",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-foo.sink#dummy-sink.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	s.service.EXPECT().ImportRelations(gomock.Any(), relation.ImportRelationsArgs{
+		{
+			UUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			ID:   32,
+			Key:  relationtesting.GenNewKey(c, "foo:sink dummy-sink:source"),
+			Endpoints: []relation.ImportEndpoint{
+				{
+					ApplicationName:     "foo",
+					EndpointName:        "sink",
+					ApplicationSettings: map[string]any{},
+					UnitSettings:        map[string]map[string]any{},
+				},
+				{
+					ApplicationName:     "dummy-sink",
+					EndpointName:        "source",
+					ApplicationSettings: map[string]any{},
+					UnitSettings:        map[string]map[string]any{},
+				},
+			},
+			Scope: charm.ScopeGlobal,
+		},
+	}).Return(nil)
+
+	importOp := importOperation{
+		service: s.service,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.IsNil)
+}
+
+// De-duplication of remote applications rewrites the relation key before
+// the relation is imported, but the relation token is resolved from the
+// original key, as exported by the source model, before the rewrite: the
+// imported relation keeps the identity it had in the source model.
+func (s *importSuite) TestImportOffererRemoteRelationKeepsTokenAcrossKeyRewrite(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.IAAS.String(),
+	})
+
+	rel := model.AddRelation(description.RelationArgs{
+		Id:  32,
+		Key: "foo:sink dummy-sink:source",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "foo",
+		Name:            "sink",
+		Interface:       "dummy-token",
+	})
+	rel.AddEndpoint(description.EndpointArgs{
+		ApplicationName: "dummy-sink",
+		Name:            "source",
+		Interface:       "dummy-token",
+	})
+
+	// The remote application "bar" is the primary name of the de-duplicated
+	// offerer, so the relation key is rewritten to use it. The token is
+	// recorded under the original, pre-rewrite key, and is resolved from it.
+	remoteApp0 := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "bar",
+		OfferUUID:       "b9424bc3-1053-43a8-8386-c2faf56c4e9a",
+		SourceModelUUID: "7e2421b5-4605-42d8-8636-bfcf7c35129f",
+	})
+	remoteApp0.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Interface: "dummy-token",
+		Role:      "requirer",
+	})
+	remoteApp1 := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "foo",
+		OfferUUID:       "b9424bc3-1053-43a8-8386-c2faf56c4e9a",
+		SourceModelUUID: "7e2421b5-4605-42d8-8636-bfcf7c35129f",
+	})
+	remoteApp1.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Interface: "dummy-token",
+		Role:      "requirer",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-foo.sink#dummy-sink.source",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	const relationToken = "6049aa01-76c9-462d-8440-964a6e26aac2"
+	s.service.EXPECT().ImportRelations(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args relation.ImportRelationsArgs) error {
+			c.Check(args[0].UUID, tc.Equals, corerelation.UUID(relationToken))
+			return nil
+		})
 
 	importOp := importOperation{
 		service: s.service,

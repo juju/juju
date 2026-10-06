@@ -1792,10 +1792,12 @@ WHERE  name = $getUnit.name
 
 	var subUnitStatusHistory internal.SubordinateUnitStatusHistoryData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// If the unit is already in scope, return nil to be idempotent.
-		// Settings will not be changed. Even when the unit or relation is
-		// dying, EnterScope must succeed if already entered. This allows
-		// for the relation tear down hook flow to happen.
+		// If the unit is already in scope, report
+		// relationerrors.RelationUnitAlreadyExists. Its settings are not
+		// changed: they are written only when the unit first enters scope.
+		// The check runs before the life checks, so a unit already in scope
+		// is still reported as such when the unit or relation is dying,
+		// which the relation tear down hook flow relies on.
 		var count rows
 		exists := nameAndUUID{
 			Name: unitName.String(),

@@ -77,7 +77,7 @@ func (s *importSuite) TestImportLegacyAliasPreservesRelationIdentityAndUnitSetti
 	c.Assert(err, tc.ErrorIsNil)
 	const token = "6049aa01-76c9-462d-8440-964a6e26aac2"
 	arg, err := (&importOperation{}).createRemoteImportArg(r, offerer,
-		[]relationRemoteEntity{{RelationKey: key, RelationUUID: token}},
+		[]domainmodelmigration.RelationRemoteEntity{{RelationKey: key, RelationUUID: token}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(arg.ID, tc.Equals, 42)
@@ -113,7 +113,7 @@ func (s *importSuite) TestImportLegacyAliasResolvesOwnTokenPerRelation(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	keyAlias, err := corerelation.NewKeyFromString(relAlias.Key())
 	c.Assert(err, tc.ErrorIsNil)
-	remoteEntities := []relationRemoteEntity{
+	remoteEntities := []domainmodelmigration.RelationRemoteEntity{
 		{RelationKey: keyPrimary, RelationUUID: tokenPrimary},
 		{RelationKey: keyAlias, RelationUUID: tokenAlias},
 	}
@@ -174,7 +174,7 @@ func (s *importSuite) TestImportLegacyAliasRemapsOnlyAliasUnitSettings(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 	const token = "6049aa01-76c9-462d-8440-964a6e26aac2"
 	arg, err := (&importOperation{}).createRemoteImportArg(r, offerer,
-		[]relationRemoteEntity{{RelationKey: key, RelationUUID: token}},
+		[]domainmodelmigration.RelationRemoteEntity{{RelationKey: key, RelationUUID: token}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(arg.Endpoints, tc.HasLen, 2)
@@ -314,7 +314,7 @@ func (s *importSuite) TestImportLegacyAliasInvalidRemoteEntityToken(c *tc.C) {
 	key, err := corerelation.NewKeyFromString(r.Key())
 	c.Assert(err, tc.ErrorIsNil)
 	arg, err := (&importOperation{}).createRemoteImportArg(r, offerer,
-		[]relationRemoteEntity{{RelationKey: key, RelationUUID: "not-a-uuid"}},
+		[]domainmodelmigration.RelationRemoteEntity{{RelationKey: key, RelationUUID: "not-a-uuid"}},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(arg.UUID.String(), tc.Equals, "not-a-uuid")
