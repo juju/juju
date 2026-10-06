@@ -63,11 +63,6 @@ type publishedControllerAddress struct {
 	Priority     int              `db:"priority"`
 }
 
-// countResult is the database representation of a count result.
-type countResult struct {
-	Count int `db:"count"`
-}
-
 // controllerID is the database representation of a controller node id.
 type controllerID struct {
 	ID string `db:"controller_id"`
@@ -79,5 +74,3 @@ type controllerAPIAddressStr struct {
 	// Address is the address of the controller node.
 	Address string `db:"address"`
 }
-
-type controllerIDs []string
