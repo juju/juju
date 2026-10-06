@@ -1116,7 +1116,9 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(gotChannel, tc.Equals, channel)
-	c.Assert(gotArch, tc.Equals, "amd64")
+	// With no arch constraint, the bootstrap arch falls back to the
+	// client's host arch, so the resolver is called with it.
+	c.Assert(gotArch, tc.Equals, arch.HostArch())
 	c.Assert(gotRevision, tc.Equals, 0)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapRevision, tc.Equals, 1234)
