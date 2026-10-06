@@ -7,12 +7,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,12 +29,16 @@ import (
 type backupSuite struct {
 	backupDir string
 	handler   *backupHandler
+	// shutdown scripts the apiserver shutting down.
+	shutdown context.CancelFunc
 
-	// createArchiveStub scripts the archive creation; cleanupRan
-	// records that the returned cleanup ran.
+	// createArchive scripts the archive creation; cleanupRan records
+	// that the returned cleanup ran.
 	createErr   error
 	cleanupRan  bool
 	archiveData string
+	archiveSize int64
+	cleaned     chan struct{}
 }
 
 func TestBackupSuite(t *testing.T) {
@@ -40,11 +47,17 @@ func TestBackupSuite(t *testing.T) {
 
 func (s *backupSuite) SetUpTest(c *tc.C) {
 	s.backupDir = c.MkDir()
+	shutdownCtx, shutdown := context.WithCancel(context.Background())
+	s.shutdown = shutdown
+	c.Cleanup(shutdown)
 	s.cleanupRan = false
 	s.createErr = nil
 	s.archiveData = "archive data"
+	s.archiveSize = 0
+	s.cleaned = nil
 	s.handler = &backupHandler{
 		createArchive: s.createArchive,
+		shutdownCtx:   shutdownCtx,
 		logger:        loggertesting.WrapCheckLog(c),
 	}
 }
@@ -64,11 +77,19 @@ func (s *backupSuite) createArchive(ctx context.Context, notes string) (*corebac
 	if err := os.WriteFile(archivePath, []byte(s.archiveData), 0600); err != nil {
 		return nil, "", nil, err
 	}
+	if s.archiveSize > 0 {
+		if err := os.Truncate(archivePath, s.archiveSize); err != nil {
+			return nil, "", nil, err
+		}
+	}
 	meta := corebackups.NewMetadata(time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC))
 	meta.Notes = notes
 	cleanup := func() {
 		s.cleanupRan = true
 		_ = os.RemoveAll(tmpDir)
+		if s.cleaned != nil {
+			close(s.cleaned)
+		}
 	}
 	return meta, archivePath, cleanup, nil
 }
@@ -196,4 +217,166 @@ func (s *backupSuite) TestInterruptedTransferRemovesArchive(c *tc.C) {
 	entries, err := os.ReadDir(s.backupDir)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(entries, tc.HasLen, 0)
+}
+
+// A stalled client leaves a large backup unread. Shutting down must
+// interrupt the real HTTP response writer and remove the archive.
+func (s *backupSuite) TestShutdownStopsStalledHTTP1Transfer(c *tc.C) {
+	s.testShutdownStopsStalledTransfer(c, false)
+}
+
+func (s *backupSuite) TestShutdownStopsStalledHTTP2Transfer(c *tc.C) {
+	s.testShutdownStopsStalledTransfer(c, true)
+}
+
+func (s *backupSuite) testShutdownStopsStalledTransfer(c *tc.C, http2 bool) {
+	s.archiveSize = 1 << 30 // Sparse file: no gigabyte is written to disk.
+	s.cleaned = make(chan struct{})
+	served := make(chan struct{})
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.handler.ServeHTTP(w, r)
+		close(served)
+	})
+
+	var server *httptest.Server
+	if http2 {
+		server = httptest.NewUnstartedServer(handler)
+		server.EnableHTTP2 = true
+		server.StartTLS()
+	} else {
+		server = httptest.NewServer(handler)
+	}
+	defer server.Close()
+
+	resp, err := server.Client().Post(server.URL+"/backup", params.ContentTypeJSON, strings.NewReader("{}"))
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = resp.Body.Close() }()
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+	if http2 {
+		c.Assert(resp.ProtoMajor, tc.Equals, 2)
+	} else {
+		c.Assert(resp.ProtoMajor, tc.Equals, 1)
+	}
+
+	// Leave the body unread. The transfer cannot finish by itself.
+	s.shutdown()
+	select {
+	case <-s.cleaned:
+	case <-c.Context().Done():
+		c.Fatalf("backup transfer blocked shutdown: %v", c.Context().Err())
+	}
+	select {
+	case <-served:
+	case <-c.Context().Done():
+		c.Fatalf("backup handler did not finish on shutdown: %v", c.Context().Err())
+	}
+	c.Check(s.cleanupRan, tc.IsTrue)
+	entries, err := os.ReadDir(s.backupDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+func (s *backupSuite) TestShutdownCancelsArchiveCreation(c *tc.C) {
+	started := make(chan struct{})
+	served := make(chan struct{})
+	s.handler.createArchive = func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
+		close(started)
+		<-ctx.Done()
+		return nil, "", nil, ctx.Err()
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.handler.ServeHTTP(w, r)
+		close(served)
+	}))
+	defer server.Close()
+
+	req, err := http.NewRequestWithContext(c.Context(), http.MethodPost, server.URL+"/backup", strings.NewReader("{}"))
+	c.Assert(err, tc.ErrorIsNil)
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		resp, _ := server.Client().Do(req)
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+	}()
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatalf("archive creation did not start: %v", c.Context().Err())
+	}
+
+	s.shutdown()
+	select {
+	case <-served:
+	case <-c.Context().Done():
+		c.Fatalf("archive creation blocked shutdown: %v", c.Context().Err())
+	}
+	select {
+	case <-finished:
+	case <-c.Context().Done():
+		c.Fatalf("client remained blocked after shutdown: %v", c.Context().Err())
+	}
+}
+
+func (s *backupSuite) TestCreateAfterShutdownDoesNotBlock(c *tc.C) {
+	s.shutdown()
+	served := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.handler.ServeHTTP(w, r)
+		close(served)
+	}))
+	defer server.Close()
+
+	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = conn.Close() }()
+	_, err = io.WriteString(conn, "POST /backup HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1024\r\n\r\n{")
+	c.Assert(err, tc.ErrorIsNil)
+	select {
+	case <-served:
+	case <-c.Context().Done():
+		c.Fatalf("request blocked shutdown after transfers stopped: %v", c.Context().Err())
+	}
+	c.Check(s.cleanupRan, tc.IsFalse)
+}
+
+type signalingBody struct {
+	io.ReadCloser
+	once    sync.Once
+	started chan struct{}
+}
+
+func (b *signalingBody) Read(p []byte) (int, error) {
+	b.once.Do(func() { close(b.started) })
+	return b.ReadCloser.Read(p)
+}
+
+func (s *backupSuite) TestShutdownUnblocksStalledRequestBody(c *tc.C) {
+	started := make(chan struct{})
+	served := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = &signalingBody{ReadCloser: r.Body, started: started}
+		s.handler.ServeHTTP(w, r)
+		close(served)
+	}))
+	defer server.Close()
+
+	conn, err := net.Dial("tcp", server.Listener.Addr().String())
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = conn.Close() }()
+	_, err = io.WriteString(conn, "POST /backup HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1024\r\n\r\n{")
+	c.Assert(err, tc.ErrorIsNil)
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatalf("request body was not read: %v", c.Context().Err())
+	}
+
+	s.shutdown()
+	select {
+	case <-served:
+	case <-c.Context().Done():
+		c.Fatalf("request body blocked shutdown: %v", c.Context().Err())
+	}
 }

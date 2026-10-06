@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -46,7 +47,12 @@ type backupHandler struct {
 	// createArchive builds a fresh backup archive and returns its
 	// metadata, its path, and a cleanup that removes it.
 	createArchive func(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error)
-	logger        corelogger.Logger
+	// shutdownCtx is canceled when the apiserver starts shutting down.
+	// Creation requests are tracked, so shutdownCtx waits for them: the
+	// handler then cancels archive creation and expires the request's
+	// deadlines, so a stalled client cannot hold shutdownCtx up.
+	shutdownCtx context.Context
+	logger      corelogger.Logger
 }
 
 // ServeHTTP implements [http.Handler].
@@ -58,6 +64,9 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Method {
 	case http.MethodPost:
+		ctx, stop := h.cancelOnShutdown(ctx, w)
+		defer stop()
+
 		var args params.BackupsCreateArgs
 		if err := json.NewDecoder(req.Body).Decode(&args); err != nil {
 			h.sendError(ctx, w, errors.BadRequestf("reading request body: %v", err))
@@ -115,10 +124,41 @@ func (h *backupHandler) createAndServe(ctx context.Context, w http.ResponseWrite
 	w.WriteHeader(http.StatusOK)
 
 	if _, err := io.Copy(w, file); err != nil {
-		// The transfer failed part way. The archive is removed by the
-		// deferred cleanup regardless; the client must create the
-		// backup again.
+		// The transfer failed part way, or shutdown interrupted it.
+		// The archive is removed by the deferred cleanup regardless;
+		// the client must create the backup again.
 		h.logger.Warningf(ctx, "streaming backup to client: %v", err)
+	}
+}
+
+// cancelOnShutdown returns a context that is canceled when the
+// apiserver shuts down. Shutdown also expires the request's read and
+// write deadlines: blocked reads and writes cannot observe a context,
+// and a client that stops reading would otherwise hold the tracked
+// request open forever. The returned stop must be called before the
+// handler returns.
+func (h *backupHandler) cancelOnShutdown(ctx context.Context, w http.ResponseWriter) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(ctx)
+	interrupted := make(chan struct{})
+	stopInterrupt := context.AfterFunc(h.shutdownCtx, func() {
+		defer close(interrupted)
+		cancel()
+		rc := http.NewResponseController(w)
+		past := time.Unix(1, 0)
+		if err := rc.SetReadDeadline(past); err != nil {
+			h.logger.Errorf(ctx, "interrupting backup request read: %v", err)
+		}
+		if err := rc.SetWriteDeadline(past); err != nil {
+			h.logger.Errorf(ctx, "interrupting backup request write: %v", err)
+		}
+	})
+	return ctx, func() {
+		if !stopInterrupt() {
+			// The interrupt has started: wait for it, so the response
+			// writer is not used after the handler returns.
+			<-interrupted
+		}
+		cancel()
 	}
 }
 
