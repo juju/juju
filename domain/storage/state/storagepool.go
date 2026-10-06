@@ -301,27 +301,44 @@ func (st State) DeleteStoragePool(ctx context.Context, poolName string) error {
 	usage := storagePoolUsage{}
 	inputName := name{Name: poolName}
 	usageStmt, err := st.Prepare(`
-WITH used_pool AS (
-    SELECT msp.storage_pool_uuid AS uuid FROM model_storage_pool AS msp
-    UNION
-    SELECT asd.storage_pool_uuid AS uuid FROM application_storage_directive AS asd
-    UNION
-    SELECT usd.storage_pool_uuid AS uuid FROM unit_storage_directive AS usd
-    UNION
-    SELECT si.storage_pool_uuid AS uuid FROM storage_instance AS si
-    UNION
-    SELECT sp.uuid AS uuid
-    FROM storage_pool AS sp
-    JOIN model_config AS mc ON mc.value = sp.name AND mc.key = 'operator-storage'
-    JOIN model AS m ON m.type = 'caas'
-    CROSS JOIN application AS a
-)
-SELECT sp.uuid AS &storagePoolUsage.uuid,
-       COUNT(up.uuid) > 0 AS &storagePoolUsage.in_use
+WITH pool_usage AS (
+SELECT sp.uuid AS uuid,
+    (
+        EXISTS (
+            SELECT 1 FROM model_storage_pool AS msp
+            WHERE msp.storage_pool_uuid = sp.uuid
+        )
+        OR EXISTS (
+            SELECT 1 FROM application_storage_directive AS asd
+            WHERE asd.storage_pool_uuid = sp.uuid
+        )
+        OR EXISTS (
+            SELECT 1 FROM unit_storage_directive AS usd
+            WHERE usd.storage_pool_uuid = sp.uuid
+        )
+        OR EXISTS (
+            SELECT 1 FROM storage_instance AS si
+            WHERE si.storage_pool_uuid = sp.uuid
+        )
+        OR (
+            EXISTS (
+                SELECT 1 FROM model AS m WHERE m.type = 'caas'
+            )
+            AND EXISTS (
+                SELECT 1 FROM model_config AS mc
+                WHERE mc.key = 'operator-storage' AND mc.value = sp.name
+            )
+            AND EXISTS (
+                SELECT 1 FROM application AS a
+            )
+        )
+    ) AS in_use
 FROM storage_pool AS sp
-LEFT JOIN used_pool AS up ON up.uuid = sp.uuid
 WHERE sp.name = $name.name
-GROUP BY sp.uuid
+)
+SELECT pu.uuid AS &storagePoolUsage.uuid,
+       pu.in_use AS &storagePoolUsage.in_use
+FROM pool_usage AS pu
 `, inputName, usage)
 	if err != nil {
 		return errors.Capture(err)
