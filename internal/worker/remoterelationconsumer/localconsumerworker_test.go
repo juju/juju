@@ -2169,7 +2169,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDyingRelat
 		}, {
 			UnitID: 2,
 		}},
-		Suspended: false,
 	}
 
 	select {
@@ -2227,7 +2226,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeDeadRelati
 		}, {
 			UnitID: 2,
 		}},
-		Suspended: false,
 	}
 
 	select {
@@ -2288,7 +2286,7 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeSuspendedR
 		}, {
 			UnitID: 2,
 		}},
-		Suspended:       true,
+		Suspended:       new(true),
 		SuspendedReason: "front fell off",
 	}
 
@@ -2361,8 +2359,91 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeSuspendedR
 		}, {
 			UnitID: 2,
 		}},
-		Suspended:       true,
+		Suspended:       new(true),
 		SuspendedReason: "front fell off",
+	}
+
+	select {
+	case <-sync:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for ProcessRelationChange to be called")
+	}
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestHandleOffererRelationUnitChangeNoSuspendedState ensures a units change
+// that does not carry the suspended state (all but the initial event from the
+// remote relation units watcher) does not revert a locally suspended
+// relation back to unsuspended.
+func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeNoSuspendedState(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := tc.Must(c, relation.NewUUID)
+	unitNames := []unit.Name{"foo/0", "foo/1", "foo/2"}
+	unitSettings := map[unit.Name]map[string]string{
+		"foo/0": {
+			"foo": "bar",
+		},
+		"foo/1": map[string]string(nil),
+		"foo/2": map[string]string(nil),
+	}
+	applicationSettings := map[string]string{
+		"foo": "bar",
+	}
+
+	done := s.expectWorkerStartup()
+
+	sync := make(chan struct{})
+	// The local relation is already suspended.
+	s.crossModelService.EXPECT().
+		GetRelationDetails(gomock.Any(), relationUUID).
+		Return(domainrelation.RelationDetails{
+			UUID:      relationUUID,
+			Suspended: true,
+		}, nil)
+	// The unit settings must still be processed. Note there is
+	// deliberately no expectation for SetRemoteRelationSuspendedState:
+	// an unexpected call would fail the test, which is exactly what
+	// we are guarding against.
+	s.crossModelService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), s.applicationUUID, unitNames).
+		Return(nil)
+	s.crossModelService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(gomock.Any(), s.applicationUUID, relationUUID, applicationSettings, unitSettings).
+		DoAndReturn(func(context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string) error {
+			close(sync)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	// The change does not carry the suspended state, for example when
+	// units leave scope as a consequence of the relation being suspended
+	// on the offering side.
+	w.offererRelationUnitChanges <- offererunitrelations.RelationUnitChange{
+		ConsumerRelationUUID:   relationUUID,
+		OffererApplicationUUID: s.applicationUUID,
+		Life:                   life.Alive,
+		ApplicationSettings:    applicationSettings,
+		ChangedUnits: []offererunitrelations.UnitChange{{
+			UnitID: 0,
+			Settings: map[string]string{
+				"foo": "bar",
+			},
+		}, {
+			UnitID: 1,
+		}, {
+			UnitID: 2,
+		}},
 	}
 
 	select {
@@ -2435,7 +2516,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChange(c *tc.C) 
 		}, {
 			UnitID: 2,
 		}},
-		Suspended: false,
 	}
 
 	select {
@@ -2507,7 +2587,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeMissingLif
 		}, {
 			UnitID: 2,
 		}},
-		Suspended: false,
 	}
 
 	select {
@@ -2564,7 +2643,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeNoUnits(c 
 		OffererApplicationUUID: s.applicationUUID,
 		Life:                   life.Alive,
 		ApplicationSettings:    applicationSettings,
-		Suspended:              false,
 	}
 
 	select {
@@ -2645,7 +2723,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeLeaveScope
 			UnitID: 2,
 		}},
 		DeprecatedDepartedUnits: []int{3},
-		Suspended:               false,
 	}
 
 	select {
@@ -2694,7 +2771,6 @@ func (s *localConsumerWorkerSuite) TestHandleOffererRelationUnitChangeInvalidUni
 				"foo": "bar",
 			},
 		}},
-		Suspended: false,
 	})
 	c.Assert(err, tc.ErrorMatches, `.*parsing unit names.*`)
 

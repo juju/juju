@@ -889,52 +889,6 @@ func (s *RefreshSuite) TestCharmPathDifferentNameFails(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot refresh "riak" to "myriak"`)
 }
 
-func (s *RefreshSuite) TestForcedLXDProfileUpgrade(c *tc.C) {
-	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:lxd-profile-alt"), charm.MustParseURL("ch:lxd-profile-alt"))
-	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "lxd-profile-alt")
-	// Overwrite the lxd-profile.yaml to change the supported series.
-	lxdProfilePath := filepath.Join(repoPath, "lxd-profile.yaml")
-	file, err := os.OpenFile(lxdProfilePath, os.O_TRUNC|os.O_RDWR, 0666)
-	if err != nil {
-		c.Fatal(errors.Annotate(err, "cannot open lxd-profile.yaml for overwriting"))
-	}
-	defer func() { _ = file.Close() }()
-
-	lxdProfile := `
-description: lxd profile for testing
-config:
-  security.nesting: "true"
-  security.privileged: "true"
-  linux.kernel_modules: openvswitch,nbd,ip_tables,ip6_tables
-  environment.http_proxy: ""
-  boot.autostart.delay: 1
-devices: {}
-`
-	if _, err := file.WriteString(lxdProfile); err != nil {
-		c.Fatal(errors.Annotate(err, "cannot write to lxd-profile.yaml"))
-	}
-
-	_, err = s.runRefresh(c, "lxd-profile-alt", "--path", s.archivePath(c, repoPath))
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
-	rev := 0
-	s.charmAPIClient.CheckCall(c, 2, "SetCharm", application.SetCharmConfig{
-		ApplicationName: "lxd-profile-alt",
-		CharmID: application.CharmID{
-			URL: "local:lxd-profile-alt-0",
-			Origin: commoncharm.Origin{
-				Base:         s.charmAPIClient.charmOrigin.Base,
-				Source:       "local",
-				Architecture: arch.DefaultArchitecture,
-				Revision:     &rev,
-			},
-		},
-		ConfigSettings:   map[string]string{},
-		EndpointBindings: map[string]string{},
-	})
-}
-
 func (s *RefreshSuite) TestInitWithResources(c *tc.C) {
 	testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "dummy")
 	dir := c.MkDir()

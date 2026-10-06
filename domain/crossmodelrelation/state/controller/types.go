@@ -46,3 +46,21 @@ type offerUser struct {
 	DisplayName string `db:"display_name"`
 	Access      string `db:"access_type"`
 }
+
+// permInOut is used to read, update and delete permission rows
+// for offer targets.
+type permInOut struct {
+	Name    string `db:"name"`
+	GrantOn string `db:"grant_on"`
+	Access  string `db:"access_type"`
+}
+
+// modelUUID represents a model UUID used for admin checks.
+type modelUUID struct {
+	ModelUUID string `db:"model_uuid"`
+}
+
+// countResult is an agnostic container for a `count` column.
+type countResult struct {
+	Count int `db:"count"`
+}
