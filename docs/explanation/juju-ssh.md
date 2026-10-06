@@ -4,7 +4,7 @@ myst:
     description: "How Juju's SSH proxy works: architecture, Kubernetes vs machines, authentication, and availability."
 ---
 
-(explanation-juju-ssh)=
+(juju-ssh)=
 # Juju SSH proxy
 
 

@@ -19,4 +19,4 @@ Each Juju machine provides a user account named 'ubuntu' and this account is use
 
 To use an SSH key to run commands inside a machine using the `juju ssh` command, the user's public SSH key needs to be added to the containing model and the user needs to have `admin` access to the model.
 
-See {ref}`explanation-juju-ssh` for a deeper dive into how SSH connections are established through the Juju controller.
+See {ref}`juju-ssh` for a deeper dive into how SSH connections are established through the Juju controller.

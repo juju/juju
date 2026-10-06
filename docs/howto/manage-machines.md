@@ -311,7 +311,7 @@ ssh -o "ProxyCommand=ssh -W %h:%p -p 17022 admin@10.123.10.2" ubuntu@0.b7bfa07e-
 ```
 
 The underlying command performs the same operation as `juju ssh`. It connects to the controller's SSH server, which by default, runs on
-port 17022 and sends the virtual hostname `0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local` before establishing a second SSH connection for the final host. See {ref}`explanation-juju-ssh` for a full explanation on how `juju ssh` works.
+port 17022 and sends the virtual hostname `0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local` before establishing a second SSH connection for the final host. See {ref}`juju-ssh` for a full explanation on how `juju ssh` works.
 
 ```{ibnote}
 See more: [OpenSSH](https://www.openssh.com/)
