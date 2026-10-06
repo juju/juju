@@ -153,7 +153,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	s.logger.Criticalf(ctx, "Executing removal job %v %v", job.RemovalType.String(), job.EntityUUID)
+	s.logger.Debugf(ctx, "Executing removal job for %q: entity UUID: %v", job.RemovalType.String(), job.EntityUUID)
 
 	var err error
 	switch job.RemovalType {
