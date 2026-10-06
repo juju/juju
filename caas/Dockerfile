@@ -2,11 +2,6 @@ FROM public.ecr.aws/ubuntu/ubuntu:24.04
 ARG TARGETOS
 ARG TARGETARCH
 
-# juju-dynamic-image-layout: the jujud controller binary is dynamically linked.
-# The build stages its native runtime library closure at
-# ${TARGETOS}_${TARGETARCH}/lib/ and the image owns it under /opt/lib. The
-# marker line above is stable: release tooling gates on it, do not remove.
-
 # Add the syslog user for audit logging and juju rootless controller.
 # 170 uid/gid must be updated here and in internal/provider/kubernetes/constants/constants.go
 RUN useradd --system --no-create-home --shell /usr/sbin/nologin syslog \
