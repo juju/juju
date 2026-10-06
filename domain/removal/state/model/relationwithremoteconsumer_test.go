@@ -83,6 +83,7 @@ func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliv
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(lifeID, tc.Equals, int(life.Dead))
 	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 
 	// Check the returned synth rel units
 	synthRelUnitUUIDs := artifacts.SyntheticRelationUnitUUIDs
