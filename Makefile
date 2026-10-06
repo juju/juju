@@ -745,7 +745,7 @@ else
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-APT_UPDATE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; apt_update' apt_update
+APT_UPDATE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; apt_update "$$@"' apt_update
 WRITE_DQLITE_CROSS_APT_SOURCES=bash -c '. "${PROJECT_DIR}/make_functions.sh"; write_dqlite_cross_apt_sources "$$@"' write_dqlite_cross_apt_sources
 
 .PHONY: install-sqlite3-dependencies
@@ -753,7 +753,7 @@ install-sqlite3-dependencies:
 ## install-sqlite3-dependencies: Install libsqlite3-dev
 	@echo Installing libsqlite3-dev
 	@$(WAIT_FOR_DPKG)
-	@$(APT_UPDATE)
+	@$(APT_UPDATE) $(DQLITE_CROSS_DEB_ARCHES)
 	@sudo apt-get --yes install libsqlite3-dev
 
 # install-dqlite-dependencies provisions the native Dqlite development
@@ -779,12 +779,15 @@ install-dqlite-dependencies: install-sqlite3-dependencies
 	@sudo apt-get --yes install software-properties-common
 	@sudo add-apt-repository -y ppa:dqlite/dev
 	@$(WAIT_FOR_DPKG)
-	@$(APT_UPDATE)
+	@$(APT_UPDATE) $(DQLITE_CROSS_DEB_ARCHES)
 	@sudo apt-get --yes install gcc libdqlite-dev libuv1-dev liblz4-dev
+	@dqlite_native_pkg=$$(dpkg-query -W -f='$${Depends}' libdqlite-dev 2>/dev/null | grep -oE 'libdqlite[0-9][0-9.]*-dev' | head -n1); \
+	dqlite_native_ver=$$(dpkg-query -W -f='$${Version}' "$$dqlite_native_pkg:$$(dpkg --print-architecture)" 2>/dev/null); \
+	echo "Native Dqlite: $$dqlite_native_pkg $$dqlite_native_ver (ppa:dqlite/dev)"
 ifneq ($(DQLITE_CROSS_DEB_ARCHES),)
 	@for arch in $(DQLITE_CROSS_DEB_ARCHES); do dpkg --print-foreign-architectures | grep -qx $$arch || sudo dpkg --add-architecture $$arch; done
 	@$(WRITE_DQLITE_CROSS_APT_SOURCES) "$(DQLITE_CROSS_DEB_ARCHES)"
-	@$(APT_UPDATE)
+	@$(APT_UPDATE) $(DQLITE_CROSS_DEB_ARCHES)
 	@dqlite_dev_pkg=$$(dpkg-query -W -f='$${Depends}' libdqlite-dev 2>/dev/null | grep -oE 'libdqlite[0-9][0-9.]*-dev' | head -n1); \
 	if [ -z "$$dqlite_dev_pkg" ]; then \
 		echo "cannot determine the installed Dqlite dev series from the libdqlite-dev meta package" >&2; \

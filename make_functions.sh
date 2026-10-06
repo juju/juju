@@ -101,6 +101,11 @@ multiarch_lib_dirs() {
     echo "/usr/lib/${triplet} /lib/${triplet}"
 }
 
+# Sonames provided by the Ubuntu base image (libc6 and the loader) are
+# never staged: /opt/lib is on the image LD_LIBRARY_PATH and must not
+# shadow the base runtime. Everything else in the closure is required.
+base_libs='^(ld-linux|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so)'
+
 # stage_foreign_operator_image_libs stages the runtime shared-library
 # closure of a cross-built jujud whose target architecture is foreign to
 # the build host. Host ldd cannot resolve a foreign ELF, so the closure is
@@ -122,11 +127,6 @@ stage_foreign_operator_image_libs() {
     if ! lib_dirs=$(multiarch_lib_dirs "${arch}"); then
         exit 1
     fi
-
-    # Sonames provided by the Ubuntu base image (libc6 and the loader) are
-    # never staged: /opt/lib is on the image LD_LIBRARY_PATH and must not
-    # shadow the base runtime. Everything else in the closure is required.
-    base_libs='^(ld-linux|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so)'
 
     # Walk the NEEDED closure transitively, starting with jujud's own
     # entries: every non-base library the binary and its staged
@@ -221,10 +221,6 @@ stage_operator_image_libs() {
 
     rm -rf "${lib_dir}"
     mkdir -p "${lib_dir}"
-    # Sonames provided by the Ubuntu base image (libc6 and the loader) are
-    # never staged: /opt/lib is on the image LD_LIBRARY_PATH and must not
-    # shadow the base runtime. Everything else in the closure is required.
-    base_libs='^(ld-linux|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so)'
     staged=0
     for lib_path in $(echo "${closure}" | awk '/=>/ {print $3}'); do
         lib_soname=$(basename "${lib_path}")
@@ -253,10 +249,37 @@ stage_operator_image_libs() {
 # from or overwritten with host libraries here.
 require_operator_image_libs() {
     platform="${1:-}"
+    os=$(echo "$platform" | cut -d/ -f1)
+    arch=$(echo "$platform" | cut -d/ -f2)
+    platform_dir="${BUILD_DIR}/${os}_${arch}"
+    jujud_bin="${platform_dir}/bin/jujud"
     lib_dir=$(operator_image_lib_dir "$platform")
     if [ ! -d "${lib_dir}" ]; then
         echo "operator image build: missing pre-staged jujud library closure at ${lib_dir};" >&2
         echo "provide it as part of the build payload (source-build closure or snap extraction)" >&2
+        exit 1
+    fi
+    if [ ! -f "${jujud_bin}" ]; then
+        echo "operator image build: missing jujud binary at ${jujud_bin}" >&2
+        exit 1
+    fi
+    if ! command -v readelf >/dev/null 2>&1; then
+        echo "operator image build: readelf (binutils) is required to verify the pre-staged jujud closure" >&2
+        exit 1
+    fi
+    missing=""
+    for soname in $(readelf -d "${jujud_bin}" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p'); do
+        if echo "${soname}" | grep -Eq "${base_libs}"; then
+            continue
+        fi
+        if [ ! -e "${lib_dir}/${soname}" ]; then
+            missing="${missing} ${soname}"
+        fi
+    done
+    if [ -n "${missing}" ]; then
+        echo "operator image build: the pre-staged jujud library closure at ${lib_dir} is incomplete;" >&2
+        echo "missing libraries:${missing}" >&2
+        echo "provide a complete closure as part of the build payload" >&2
         exit 1
     fi
 }
@@ -394,7 +417,8 @@ wait_for_dpkg() {
 # distro Dqlite packages for foreign architectures only; PPA series packages
 # and native packages are never touched.
 check_dqlite_cross_stale() {
-    for arch in $(dpkg --print-foreign-architectures); do
+    arches="${1:-$(dpkg --print-foreign-architectures)}"
+    for arch in ${arches}; do
         for name in libdqlite-dev libdqlite0; do
             st=$(dpkg-query -W -f='${db:Status-Abbrev}' "$name:$arch" 2>/dev/null | tr -d ' ') || st=""
             case "$st" in
@@ -425,7 +449,8 @@ check_dqlite_cross_stale() {
 # tolerated with a note. Without foreign architectures registered the
 # update stays strict.
 apt_update() {
-    check_dqlite_cross_stale
+    arches="$*"
+    check_dqlite_cross_stale "${arches}"
     if [ -z "$(dpkg --print-foreign-architectures)" ]; then
         sudo apt-get update
         return
