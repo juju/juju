@@ -160,6 +160,7 @@ type UpdateCAASUnitParams struct {
 // the scaling state of a CAAS application.
 type ScalingState struct {
 	StartOrdinal int
+	EndOrdinal   int
 	ScaleTarget  int
 	Scaling      bool
 }

@@ -90,6 +90,9 @@ type AddCAASApplicationArg struct {
 	Scale int
 	// StartOrdinal is the first ordinal in the application's StatefulSet range.
 	StartOrdinal int
+	// EndOrdinal is one past the last ordinal in the application's StatefulSet
+	// range.
+	EndOrdinal int
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to
@@ -114,6 +117,7 @@ type CharmOrigin struct {
 // ScaleState describes the scale status of a k8s application.
 type ScaleState struct {
 	StartOrdinal int
+	EndOrdinal   int
 	Scaling      bool
 	Scale        int
 	ScaleTarget  int
@@ -483,6 +487,9 @@ type InsertApplicationArgs struct {
 	Scale int
 	// StartOrdinal is the first ordinal in the application's StatefulSet range.
 	StartOrdinal int
+	// EndOrdinal is one past the last ordinal in the application's StatefulSet
+	// range.
+	EndOrdinal int
 	// StoragePoolKind holds a mapping of the kind of storage supported
 	// by the named storage pool / provider type.
 	StoragePoolKind map[string]internalstorage.StorageKind

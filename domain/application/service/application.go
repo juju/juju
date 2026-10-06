@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"maps"
+	"math"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -149,13 +150,9 @@ type ApplicationState interface {
 	// application Scale is optional and is only set if not nil.
 	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
 
-	// SetApplicationScalingStateWithStart sets the scaling details for the
-	// given CAAS application including the start ordinal for the StatefulSet.
-	// The startOrdinal defines the lowest ordinal index that the StatefulSet
-	// should use. This shifts upward when a lower-indexed unit is removed to
-	// prevent stale ordinals from being reused (e.g. after removing unit 0
-	// from {0,1,2}, the start ordinal becomes 1 so the range is {1,2,3}).
-	SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error
+	// SetApplicationScalingStateWithRange sets the scaling details and the
+	// committed half-open ordinal window for a CAAS application.
+	SetApplicationScalingStateWithRange(ctx context.Context, appName string, targetScale, startOrdinal, endOrdinal int, scaling bool) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
@@ -1044,8 +1041,8 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if scale < 0 {
-		return errors.Errorf("application scale %d not valid", scale).Add(applicationerrors.ScaleChangeInvalid)
+	if err := validateApplicationScale(scale); err != nil {
+		return err
 	}
 	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
@@ -1120,10 +1117,18 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
-
 	scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
 	if err != nil {
 		return -1, errors.Capture(err)
+	}
+	if err := validateApplicationScale(scaleState.Scale); err != nil {
+		return -1, err
+	}
+	if scaleChange < -scaleState.Scale ||
+		scaleChange > math.MaxInt32-scaleState.Scale {
+		return -1, errors.Errorf(
+			"application scale change %d not valid", scaleChange,
+		).Add(applicationerrors.ScaleChangeInvalid)
 	}
 	if scaleChange < 0 {
 		newScale := scaleState.Scale + scaleChange
@@ -1152,20 +1157,68 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if err := validateScaleTarget(scaleTarget); err != nil {
+		return err
+	}
 	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
 		return errors.Errorf("updating scaling state for %q: %w", appName, err)
 	}
 	return nil
 }
 
-// SetApplicationScalingStateWithStart updates the scale state and desired
-// StatefulSet start ordinal of a CAAS application.
-func (s *Service) SetApplicationScalingStateWithStart(ctx context.Context, appName string, scaleTarget, startOrdinal int, scaling bool) error {
+// SetApplicationScalingStateWithRange updates the scale state and committed
+// StatefulSet ordinal window of a CAAS application.
+func (s *Service) SetApplicationScalingStateWithRange(
+	ctx context.Context, appName string, scaleTarget, startOrdinal, endOrdinal int,
+	scaling bool,
+) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := s.st.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling); err != nil {
+	if err := validateScaleTargetAndOrdinalWindow(
+		scaleTarget, startOrdinal, endOrdinal, scaling,
+	); err != nil {
+		return err
+	}
+	if err := s.st.SetApplicationScalingStateWithRange(
+		ctx, appName, scaleTarget, startOrdinal, endOrdinal, scaling,
+	); err != nil {
 		return errors.Errorf("updating scaling state for %q: %w", appName, err)
+	}
+	return nil
+}
+
+func validateApplicationScale(scale int) error {
+	if scale < 0 || scale > math.MaxInt32 {
+		return errors.Errorf(
+			"application scale %d not valid", scale,
+		).Add(applicationerrors.ScaleChangeInvalid)
+	}
+	return nil
+}
+
+func validateScaleTarget(target int) error {
+	if target < 0 || target > math.MaxInt32 {
+		return errors.Errorf("scale target %d not valid", target)
+	}
+	return nil
+}
+
+func validateScaleTargetAndOrdinalWindow(
+	target, startOrdinal, endOrdinal int, scaling bool,
+) error {
+	if err := validateScaleTarget(target); err != nil {
+		return err
+	}
+	if startOrdinal < 0 || endOrdinal < startOrdinal ||
+		startOrdinal > math.MaxInt32 || endOrdinal > math.MaxInt32 {
+		return errors.Errorf(
+			"ordinal window [%d,%d) not valid", startOrdinal, endOrdinal)
+	}
+	if scaling && target == 0 && startOrdinal != endOrdinal {
+		return errors.Errorf(
+			"ordinal window [%d,%d) not valid for zero scale target",
+			startOrdinal, endOrdinal)
 	}
 	return nil
 }
@@ -1187,6 +1240,7 @@ func (s *Service) GetApplicationScalingState(ctx context.Context, appName string
 	}
 	return ScalingState{
 		StartOrdinal: scaleState.StartOrdinal,
+		EndOrdinal:   scaleState.EndOrdinal,
 		ScaleTarget:  scaleState.ScaleTarget,
 		Scaling:      scaleState.Scaling,
 	}, nil

@@ -464,7 +464,8 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
+	if unitNum < scaleInfo.StartOrdinal ||
+		unitNum >= scaleInfo.StartOrdinal+appState.DesiredReplicas {
 		restart = false
 	}
 	return restart, nil
@@ -509,6 +510,11 @@ func (s *ProviderService) RegisterCAASUnit(
 	ord, err := strconv.Atoi(splitPodName[len(splitPodName)-1])
 	if err != nil {
 		return "", "", errors.Errorf("parsing unit number from pod name %q: %w", params.ProviderID, err)
+	}
+	if ord < 0 || ord > math.MaxInt32 {
+		return "", "", errors.Errorf(
+			"unit ordinal %d from pod name %q is not valid",
+			ord, params.ProviderID)
 	}
 	unitName, err := coreunit.NewNameFromParts(appName, ord)
 	if err != nil {
