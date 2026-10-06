@@ -10,7 +10,7 @@ myst:
 
 Juju 4.1 introduced changes in how you access a debug shell on a machine or Kubernetes unit. 
 
-Previously Juju intended for users to connect directly to machines or the Kubernetes API server by placing user's SSH keys directly on machines or issuing users with a scoped Kubernetes access token.
+Previously Juju intended for users to connect directly to machines or the Kubernetes API server by placing users' SSH keys directly on machines or issuing users with a scoped Kubernetes access token.
 
 Juju 4.1 includes an SSH server in the controller that, by default, runs on port 17022. Clients can use the existing `juju ssh` and `juju scp` commands to connect and have their connection proxied to the final destination.
 
@@ -42,7 +42,7 @@ The goal of proxying SSH connections through the controller is two-fold:
 :alt: The client connects to the SSH tunnel server inside the Juju controller. A downward arrow leads to the target SSH server below it, which proxies the session to a machine or unit.
 ```
 
-In the above view, we can better see the operations ocurring inside the Juju SSH server where the controller terminates two SSH connections.
+In the above view, we can better see the operations occurring inside the Juju SSH server where the controller terminates two SSH connections.
 
 The initial SSH connection is terminated by Juju's SSH server running on port 17022 and exists to authenticate the user and receive details for the user's intended target, using SSH direct TCP forwarding. The initial connection then serves as a tunnel for another SSH connection that is also terminated at the Juju controller. With this setup, Juju can serve a unique host key for each destination and still inspect the SSH traffic before forwarding it.
 
@@ -64,7 +64,7 @@ For Kubernetes units, the Juju controller establishes a direct connection to the
 ```{ggarch}
 :file: ../juju.ggarch
 :view: SSH proxy Kubernetes
-:caption: The controller translates the SSH session into an stream through the Kubernetes API server.
+:caption: The controller translates the SSH session into a stream through the Kubernetes API server.
 :alt: The controller opens an exec stream to the Kubernetes API server, which runs commands in the target container inside a unit pod.
 ```
 
@@ -79,7 +79,7 @@ For machines, the Juju controller uses a "reverse-tunnel" approach where the mac
 :alt: Two columns show the Juju controller and the machine. The controller's target SSH server stores a request in the model database below it. The machine agent watches for requests via the API and opens a reverse tunnel to the controller API server. Across the top, the target SSH server connects to the machine SSH server over that tunnel.
 ```
 
-This benefit of this approach is that the machine does not need to expose its SSH server and the controller does not need new security group/firewall rules for machine agents.
+The benefit of this approach is that the machine does not need to expose its SSH server and the controller does not need new security group/firewall rules for machine agents.
 
 (juju-ssh-proxy-authentication)=
 ## Authentication and authorization
@@ -95,7 +95,7 @@ See more: {ref}`manage-ssh-keys`, {ref}`command-juju-add-ssh-key`
 (juju-ssh-proxy-availability)=
 ## Availability and limitations
 
-SSH access to a machines/units now requires the Juju controller to be running and accessible. For machines, it also requires that the Juju agent service is running. If the agent service cannot start, `juju ssh` will not be able to connect to the machine and some alternatives below should be explored:
+SSH access to machines/units now requires the Juju controller to be running and accessible. For machines, it also requires that the Juju agent service is running. If the agent service cannot start, `juju ssh` will not be able to connect to the machine and alternatives should be explored:
 1. Use provider specific access e.g. use AWS EC2, use `lxc shell`, or other provider specific tooling to connect to the machine.
 2. Use cloud-init config to add an administrator public key to machines that can be used to SSH directly in special cases.
 

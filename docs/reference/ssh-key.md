@@ -13,7 +13,7 @@ See also: {ref}`manage-ssh-keys`
 
 An **SSH key** is an access  key in the [SSH](https://www.ssh.com/academy/ssh-keys) protocol. In Juju it refers to a way of accessing a machine provisioned by Juju individually.
 
-Juju maintains a per-model cache of public SSH keys which it copies to each machine (including machines already deployed). You can add keys via `juju add-ssh-key` or `juju import-ssh-key`. Keys are used to authenticate users when they connect to the controller's SSH server.
+Juju maintains a per-model cache of public SSH keys. You can add keys via `juju add-ssh-key` or `juju import-ssh-key`. Keys are used to authenticate users when they connect to the controller's SSH server.
 
 Each Juju machine provides a user account named 'ubuntu' and this account is used when establishing SSH sessions. Because this user is effectively the 'root' user (passwordless sudo privileges), the granting of SSH access must be done with due consideration.
 

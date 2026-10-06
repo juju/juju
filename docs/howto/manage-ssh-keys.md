@@ -72,9 +72,7 @@ See more: {ref}`command-juju-ssh-keys`
 ## Use an SSH key
 
 To SSH into a machine using a specific private key, use the `--ssh-key`
-flag. Note that because `juju ssh` passes any options placed after the target to
-the underlying OpenSSH client, one can also the OpenSSH flag `-i <path-to-key>` 
-but this does not limit the client to only the specified.
+flag.
 
 ```text
 juju ssh --ssh-key ~/.ssh/my_private_key ubuntu/0
