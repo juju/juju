@@ -46,7 +46,7 @@ func (s *freshControllerSuite) TestFreshIAASController(c *tc.C) {
 	s.assertFreshController(c, false, nil)
 }
 
-func (s *freshControllerSuite) TestFreshCAASController(c *tc.C) {
+func (s *freshControllerSuite) TestFreshK8sController(c *tc.C) {
 	s.assertFreshController(c, true, nil)
 }
 
@@ -54,12 +54,12 @@ func (s *freshControllerSuite) TestDatabaseFailureDoesNotPersistNewPassword(c *t
 	s.assertFreshController(c, false, errors.New("database failed"))
 }
 
-func (s *freshControllerSuite) assertFreshController(c *tc.C, isCAAS bool, databaseErr error) {
+func (s *freshControllerSuite) assertFreshController(c *tc.C, isK8s bool, databaseErr error) {
 	dataDir := c.MkDir()
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	cloudType := "dummy"
 	tag := names.Tag(names.NewMachineTag(agent.BootstrapControllerId))
-	if isCAAS {
+	if isK8s {
 		cloudType = cloud.CloudTypeKubernetes
 		tag = names.NewControllerAgentTag(agent.BootstrapControllerId)
 	}
@@ -90,7 +90,7 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isCAAS bool, datab
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	cfg.SetPassword("agent-before")
-	if isCAAS {
+	if isK8s {
 		// The fresh Kubernetes workflow must create agent.conf from its template.
 		template := filepath.Join(agent.Dir(dataDir, tag), k8sconstants.TemplateFileNameAgentConf)
 		err = os.MkdirAll(filepath.Dir(template), 0700)
@@ -108,21 +108,21 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isCAAS bool, datab
 		c.Check(args.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
 	}
 	s.PatchValue(&environsNewIAAS, func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (environs.Environ, error) {
-		c.Check(isCAAS, tc.IsFalse)
+		c.Check(isK8s, tc.IsFalse)
 		checkOpen(args)
 		return &freshBootstrapEnviron{cfg: modelConfig, addresses: addresses}, nil
 	})
 	s.PatchValue(&environsNewK8s, func(_ context.Context, args environs.OpenParams, _ environs.CredentialInvalidator) (caas.Broker, error) {
-		c.Check(isCAAS, tc.IsTrue)
+		c.Check(isK8s, tc.IsTrue)
 		checkOpen(args)
 		return &freshBootstrapBroker{cfg: modelConfig, addresses: addresses}, nil
 	})
 	s.PatchValue(&sshGenerateKey, func(string) (string, string, error) {
-		c.Check(isCAAS, tc.IsFalse)
+		c.Check(isK8s, tc.IsFalse)
 		return "fresh-system-identity", "fresh-public-key", nil
 	})
 	expectedIdentity := "fresh-system-identity"
-	if isCAAS {
+	if isK8s {
 		expectedIdentity = "provided-system-identity"
 	}
 
@@ -134,7 +134,7 @@ func (s *freshControllerSuite) assertFreshController(c *tc.C, isCAAS bool, datab
 		return agentbootstrap.NewAgentBootstrap(args)
 	}
 	databaseCalled := false
-	command.DqliteInitializer = func(_ context.Context, _ database.BootstrapNodeManager, _ network.ProviderAddresses, gotModelUUID coremodel.UUID, _ corelogger.Logger, _ ...database.BootstrapOpt) error {
+	command.DqliteInitialiser = func(_ context.Context, _ database.BootstrapNodeManager, _ network.ProviderAddresses, gotModelUUID coremodel.UUID, _ corelogger.Logger, _ ...database.BootstrapOpt) error {
 		databaseCalled = true
 		c.Check(gotModelUUID, tc.Equals, modelUUID)
 		// Identity is persisted before database work; the new password is not.

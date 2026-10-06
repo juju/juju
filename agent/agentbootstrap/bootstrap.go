@@ -31,7 +31,7 @@ import (
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudimagemetadatabootstrap "github.com/juju/juju/domain/cloudimagemetadata/bootstrap"
 	controllerbootstrap "github.com/juju/juju/domain/controller/bootstrap"
-	controllerconifgbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// DqliteInitialiserFunc is a function that initialises the dqlite database
+// DqliteInitialiserFunc is a function that initialises the Dqlite database
 // for the controller.
 type DqliteInitialiserFunc func(
 	ctx context.Context,
@@ -142,7 +142,7 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 func (b *AgentBootstrap) Initialise(ctx context.Context) error {
 	agentConfig := b.agentConfig
 	if agentConfig.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(agentConfig.Tag().Kind()) {
-		return errors.Errorf("InitializeState not called with bootstrap controller's configuration")
+		return errors.Errorf("Initialise not called with bootstrap controller's configuration")
 	}
 	controllerAgentInfo, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
@@ -259,7 +259,7 @@ func (b *AgentBootstrap) prepareFreshState(
 	databaseBootstrapOptions := []database.BootstrapOpt{
 		// The controller config needs to be inserted before the admin users
 		// because the admin users permissions require the controller UUID.
-		controllerconifgbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
+		controllerconfigbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
 		controllerbootstrap.InsertInitialController(controllerAgentInfo.Cert, controllerAgentInfo.PrivateKey, controllerAgentInfo.CAPrivateKey, controllerAgentInfo.SystemIdentity),
 		sshbootstrap.InsertInitialSSHServerHostKey(stateParams.SSHServerHostKey),
 		// The admin user needs to be added before everything else that

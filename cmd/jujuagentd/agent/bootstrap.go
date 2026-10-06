@@ -61,7 +61,7 @@ type BootstrapCommand struct {
 	agentconf.AgentConf
 	Timeout           time.Duration
 	BootstrapAgent    BootstrapAgentFunc
-	DqliteInitializer agentbootstrap.DqliteInitialiserFunc
+	DqliteInitialiser agentbootstrap.DqliteInitialiserFunc
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialised.
@@ -70,7 +70,7 @@ func NewBootstrapCommand() *BootstrapCommand {
 		AgentConf: agentconf.NewAgentConf(""),
 
 		BootstrapAgent:    agentbootstrap.NewAgentBootstrap,
-		DqliteInitializer: database.BootstrapDqlite,
+		DqliteInitialiser: database.BootstrapDqlite,
 	}
 }
 
@@ -125,7 +125,7 @@ func copyFileFromTemplate(to, from string) (err error) {
 	return nil
 }
 
-func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
+func (c *BootstrapCommand) ensureConfigFilesForK8s() error {
 	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
 	for _, v := range []struct {
 		to, from string
@@ -188,7 +188,7 @@ func (c *BootstrapCommand) initialiseFreshController(ctx *cmd.Context, args inst
 	isK8s := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
 
 	if isK8s {
-		if err := c.ensureConfigFilesForCaas(); err != nil {
+		if err := c.ensureConfigFilesForK8s(); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -230,7 +230,7 @@ func (c *BootstrapCommand) initialiseFreshController(ctx *cmd.Context, args inst
 			currentVersion := jujuversion.Current
 			currentVersion.Build = 0
 			if desiredVersion != currentVersion {
-				// For CAAS, the agent-version in controller config should
+				// For K8s, the agent-version in controller config should
 				// always equals to current juju version.
 				return jujuerrors.NotSupportedf(
 					"desired juju version %q, current version %q for k8s controllers",
@@ -330,7 +330,7 @@ func (c *BootstrapCommand) initialiseFreshController(ctx *cmd.Context, args inst
 			AdminUser:                 adminTag,
 			StateInitialisationParams: args,
 			BootstrapMachineAddresses: addrs,
-			BootstrapDqlite:           c.DqliteInitializer,
+			BootstrapDqlite:           c.DqliteInitialiser,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})
 		if err != nil {

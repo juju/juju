@@ -66,7 +66,7 @@ func (s *freshStateSuite) TestFreshIAASState(c *tc.C) {
 	s.assertFreshState(c, "lxd", coremodel.IAAS)
 }
 
-func (s *freshStateSuite) TestFreshCAASState(c *tc.C) {
+func (s *freshStateSuite) TestFreshK8sState(c *tc.C) {
 	s.assertFreshState(c, cloud.CloudTypeKubernetes, coremodel.CAAS)
 }
 
