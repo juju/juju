@@ -95,7 +95,7 @@ func makeStatus(apps, unitsPerApp, machines int) params.FullStatus {
 		Applications:        make(map[string]params.ApplicationStatus, apps),
 		ControllerTimestamp: &since,
 	}
-	for i := 0; i < machines; i++ {
+	for i := range machines {
 		id := fmt.Sprint(i)
 		fs.Machines[id] = params.MachineStatus{
 			AgentStatus:    detailed("started", ""),
@@ -111,10 +111,10 @@ func makeStatus(apps, unitsPerApp, machines int) params.FullStatus {
 			Jobs:           []model.MachineJob{"JobHostUnits"},
 		}
 	}
-	for i := 0; i < apps; i++ {
+	for i := range apps {
 		name := fmt.Sprintf("app-%d", i)
 		units := make(map[string]params.UnitStatus, unitsPerApp)
-		for j := 0; j < unitsPerApp; j++ {
+		for j := range unitsPerApp {
 			units[fmt.Sprintf("%s/%d", name, j)] = params.UnitStatus{
 				AgentStatus:     detailed("idle", ""),
 				WorkloadStatus:  detailed("active", "ready"),
@@ -308,7 +308,10 @@ func newBenchWebsocketClientServer(b *testing.B) (*rpc.Conn, func()) {
 		<-server.Dead()
 		_ = server.Close()
 	}))
-	ws, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	ws, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http"), nil)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
 	if err != nil {
 		b.Fatal(err)
 	}
