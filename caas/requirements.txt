@@ -1,4 +1,4 @@
 charmhelpers>=0.20.15,<1.0.0
 charms.reactive>=0.1.0,<2.0.0
 kubernetes==10.0.*
-google_auth>=2.58.1,<2.59.0
+google_auth>=2.59.1,<2.60.0
