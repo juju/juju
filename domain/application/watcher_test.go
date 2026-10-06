@@ -1139,12 +1139,21 @@ func (s *watcherSuite) TestWatchUnitAddRemoveOnMachine(c *tc.C) {
 		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
 	})
 
+	// The unit is marked as dead, which fires the watcher.
 	harness.AddTest(c, func(c *tc.C) {
 		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
 		c.Assert(err, tc.ErrorIsNil)
 		_, err = removalSt.EnsureUnitNotAliveCascade(ctx, unitUUID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.MarkUnitAsDead(ctx, unitUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{"foo/0"}))
+	})
+
+	// Deleting the unit fires the watcher again.
+	harness.AddTest(c, func(c *tc.C) {
+		unitUUID, err := st.GetUnitUUIDByName(c.Context(), "foo/0")
 		c.Assert(err, tc.ErrorIsNil)
 		err = removalSt.DeleteUnit(ctx, unitUUID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
@@ -1233,12 +1242,25 @@ WHERE uuid=?
 		w.Check(watchertest.SliceAssert([]string{appID.String()}))
 	})
 
+	// The application starts dying, which fires the watcher.
 	harness.AddTest(c, func(c *tc.C) {
 		_, err := removalSt.EnsureApplicationNotAliveCascade(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.MarkApplicationAsDead(c.Context(), appID.String())
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	// The application is marked as dead, which fires the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		err := removalSt.MarkApplicationAsDead(c.Context(), appID.String())
 		c.Assert(err, tc.ErrorIsNil)
-		err = removalSt.DeleteApplication(c.Context(), appID.String(), false)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.SliceAssert([]string{appID.String()}))
+	})
+
+	// Deleting the application fires the watcher again.
+	harness.AddTest(c, func(c *tc.C) {
+		err := removalSt.DeleteApplication(c.Context(), appID.String(), false)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(watchertest.SliceAssert([]string{appID.String()}))
