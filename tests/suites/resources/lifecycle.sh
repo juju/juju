@@ -31,51 +31,6 @@ check_resource_names() {
 	test "${actual}" = "${expected}"
 }
 
-wait_for_resource_id() {
-	local entity=$1
-	local resource_name=$2
-	local expected=$3
-	local attempt=0
-	local actual
-
-	while [ "${attempt}" -lt 120 ]; do
-		actual=$(resource_value "${entity}" "${resource_name}" resourceid 2>/dev/null || true)
-		if [ "${actual}" = "${expected}" ]; then
-			return
-		fi
-		echo "waiting for ${entity} resource ${resource_name}: expected ${expected}, got ${actual}"
-		sleep "${SHORT_TIMEOUT}"
-		attempt=$((attempt + 1))
-	done
-	return 1
-}
-
-pack_resource_charm() {
-	local source_dir
-	local output_dir=$2
-	local arch=${MODEL_ARCH:-${BUILD_ARCH:-amd64}}
-	local build_dir
-	local packed
-
-	source_dir=$(realpath "$1")
-	rm -rf "${output_dir}"
-	mkdir -p "${output_dir}/source"
-	output_dir=$(realpath "${output_dir}")
-	build_dir="${output_dir}/source"
-	cp -a "${source_dir}/." "${build_dir}"
-	(
-		cd "${build_dir}" || exit
-		charmcraft pack --quiet --platform "${arch}"
-	)
-	for packed in "${build_dir}"/*_"${arch}".charm; do
-		if [ -f "${packed}" ]; then
-			echo "${packed}"
-			return
-		fi
-	done
-	return 1
-}
-
 run_resource_charm_transition_same_store_resource() {
 	echo
 	local name="resource-charm-transition-same-store-resource"
@@ -120,6 +75,45 @@ run_resource_charm_transition_same_store_resource() {
 	wait_for_resource_id juju-qa-test/1 foo-file "${new_app_id}"
 	test "$(resource_value juju-qa-test/0 foo-file resourceid)" = "${new_app_id}"
 	test "$(resource_value juju-qa-test/1 foo-file resourceid)" = "${new_app_id}"
+
+	destroy_model "test-${name}"
+}
+
+run_resource_charm_transition_store_resource_revision() {
+	echo
+	local name="resource-charm-transition-store-resource-revision"
+	local file="${TEST_DIR}/test-${name}.log"
+	local old_app_id old_charm_revision new_app_id new_charm_revision
+
+	ensure "test-${name}" "${file}"
+
+	juju deploy juju-qa-test --channel 2.0/candidate --revision 31 \
+		--base ubuntu@20.04 -n 2
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+	juju config juju-qa-test foo-file=true
+	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 0).message"
+	wait_for "resource line one: testing two." "$(workload_status juju-qa-test 1).message"
+
+	old_app_id=$(resource_value juju-qa-test foo-file resourceid)
+	old_charm_revision=$(juju status --format json | yq -r '.applications."juju-qa-test"."charm-rev"')
+
+	juju config juju-qa-test foo-file=false
+	juju refresh juju-qa-test --channel latest/stable --revision 26 --resource foo-file=3
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "latest/stable")"
+	juju config juju-qa-test foo-file=true
+	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
+	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 1).message"
+
+	new_app_id=$(resource_value juju-qa-test foo-file resourceid)
+	new_charm_revision=$(juju status --format json | yq -r '.applications."juju-qa-test"."charm-rev"')
+	test "${new_charm_revision}" != "${old_charm_revision}"
+	test "${new_app_id}" != "${old_app_id}"
+	test "$(resource_value juju-qa-test foo-file revision)" = "3"
+	test "$(resource_value juju-qa-test foo-file origin)" = "store"
+	wait_for_resource_id juju-qa-test/0 foo-file "${new_app_id}"
+	wait_for_resource_id juju-qa-test/1 foo-file "${new_app_id}"
+	test "$(resource_value juju-qa-test/0 foo-file revision)" = "3"
+	test "$(resource_value juju-qa-test/1 foo-file revision)" = "3"
 
 	destroy_model "test-${name}"
 }
@@ -245,7 +239,7 @@ run_resource_charm_transition_failed_staging() {
 	local retained_file="${TEST_DIR}/${name}-retained"
 	local removed_file="${TEST_DIR}/${name}-removed"
 	local added_file="${TEST_DIR}/${name}-added"
-	local retained_digest refresh_output
+	local retained_digest added_digest refresh_output
 
 	ensure "test-${name}" "${file}"
 	charm_v1=$(pack_resource_charm ./tests/suites/resources/charms/resource-lifecycle-v1 "${TEST_DIR}/${name}-v1")
@@ -255,6 +249,7 @@ run_resource_charm_transition_failed_staging() {
 	printf 'removed content\n' >"${removed_file}"
 	printf 'added content\n' >"${added_file}"
 	retained_digest=$(sha256sum "${retained_file}" | awk '{print $1}')
+	added_digest=$(sha256sum "${added_file}" | awk '{print $1}')
 
 	juju deploy "${charm_v1}" resource-lifecycle \
 		--resource retained="${retained_file}" \
@@ -272,6 +267,18 @@ run_resource_charm_transition_failed_staging() {
 	fi
 	check_contains "${refresh_output}" 'cannot reuse resource "retained" when its type changes'
 
+	test "$(juju status --format json | yq -r '.applications."resource-lifecycle"."charm-rev"')" = \
+		"${old_charm_revision}"
+	test "$(resource_value resource-lifecycle retained resourceid)" = "${old_retained_id}"
+	check_resource_names resource-lifecycle "removed,retained"
+	wait_for "retained=${retained_digest}" "$(workload_status resource-lifecycle 0).message"
+
+	if refresh_output=$(juju refresh resource-lifecycle --path "${charm_v2}" \
+		--resource retained="${retained_file}" 2>&1); then
+		echo "refresh without the new resource unexpectedly succeeded"
+		return 1
+	fi
+	check_contains "${refresh_output}" 'new resource "added" was missing'
 	test "$(juju status --format json | yq -r '.applications."resource-lifecycle"."charm-rev"')" = \
 		"${old_charm_revision}"
 	test "$(resource_value resource-lifecycle retained resourceid)" = "${old_retained_id}"
@@ -337,6 +344,7 @@ test_resource_lifecycle() {
 		cd .. || exit
 
 		run "run_resource_charm_transition_same_store_resource"
+		run "run_resource_charm_transition_store_resource_revision"
 		run "run_resource_charm_transition_pinned_upload"
 		run "run_resource_charm_transition_resource_names"
 		run "run_resource_charm_transition_failed_staging"

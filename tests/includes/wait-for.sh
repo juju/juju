@@ -139,6 +139,39 @@ wait_for() {
 	fi
 }
 
+wait_for_resource_id() {
+	local entity resource_name expected attempt actual
+
+	entity=$1
+	resource_name=$2
+	expected=$3
+	attempt=0
+
+	while [ "${attempt}" -lt 120 ]; do
+		if [[ "${entity}" == */* ]]; then
+			actual=$(juju resources "${entity}" --format json 2>/dev/null |
+				yq -r '.[] | select(.name == "'"${resource_name}"'") | .resourceid' || true)
+		else
+			actual=$(juju resources "${entity}" --format json 2>/dev/null |
+				yq -r '.resources[] | select(.name == "'"${resource_name}"'") | .resourceid' || true)
+		fi
+		if [ "${actual}" = "${expected}" ]; then
+			return
+		fi
+		echo "waiting for ${entity} resource ${resource_name}: expected ${expected}, got ${actual}"
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+
+	echo "[-] $(red 'timed out waiting for resource') $(red "${resource_name}") on ${entity}"
+	juju resources "${entity}" 2>&1 | sed 's/^/    | /g'
+	echo "    (controller) juju debug-log output"
+	juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
+	echo "    (model) juju debug-log output"
+	juju debug-log --replay --no-tail 2>&1 | sed 's/^/    | /g'
+	exit 1
+}
+
 idle_condition() {
 	local name unit_index
 
