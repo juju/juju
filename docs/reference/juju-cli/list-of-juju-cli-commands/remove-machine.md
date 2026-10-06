@@ -41,6 +41,9 @@ When `requires-prompts` is present in the model's `mode`
 configuration, removing machines that host units or containers requires
 confirmation. Use `--no-prompt` to skip this confirmation.
 
+On older controllers, removing machines that host units or containers still
+requires `--force`, even with `--no-prompt`.
+
 Machine removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
 Use `--force` to continue removal despite errors accessing cloud
