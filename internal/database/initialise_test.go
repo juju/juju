@@ -42,41 +42,40 @@ func (s *initialisationSuite) TestOpenDatabasesWithoutBootstrapData(c *tc.C) {
 		controller, err := session.OpenDatabase(ctx, coredatabase.ControllerNS, schema.ControllerDDL())
 		c.Assert(err, tc.ErrorIsNil)
 		runners = append(runners, controller)
+		var controllerNodeCount, foreignKeys int
 		err = controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			var count int
-			err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM controller_node").Scan(&count)
-			c.Assert(err, tc.ErrorIsNil)
-			c.Check(count, tc.Equals, 0)
-			err = tx.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&count)
-			c.Assert(err, tc.ErrorIsNil)
-			c.Check(count, tc.Equals, 1)
-			return nil
+			if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM controller_node").Scan(&controllerNodeCount); err != nil {
+				return err
+			}
+			return tx.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&foreignKeys)
 		})
 		c.Assert(err, tc.ErrorIsNil)
+		c.Check(controllerNodeCount, tc.Equals, 0)
+		c.Check(foreignKeys, tc.Equals, 1)
 
 		// Schema setup can open multiple independent model namespaces.
 		for range 2 {
 			runner, err := session.OpenDatabase(ctx, tc.Must0(c, model.NewUUID).String(), schema.ModelDDL())
 			c.Assert(err, tc.ErrorIsNil)
 			runners = append(runners, runner)
+			var count int
 			err = runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-				var count int
-				err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM model").Scan(&count)
-				c.Assert(err, tc.ErrorIsNil)
-				c.Check(count, tc.Equals, 0)
+				if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM model").Scan(&count); err != nil {
+					return err
+				}
 				// The same key can be inserted in each separate namespace.
-				_, err = tx.ExecContext(ctx, `INSERT INTO model_config (key, value) VALUES ('name', 'controller')`)
+				_, err := tx.ExecContext(ctx, `INSERT INTO model_config (key, value) VALUES ('name', 'controller')`)
 				return err
 			})
 			c.Assert(err, tc.ErrorIsNil)
+			c.Check(count, tc.Equals, 0)
 		}
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	for _, runner := range runners {
 		err := runner.StdTxn(c.Context(), func(context.Context, *sql.Tx) error {
-			c.Fatal("database remained usable after the session returned")
-			return nil
+			return errors.New("database remained usable after the session returned")
 		})
 		c.Check(err, tc.ErrorMatches, ".*database is closed.*")
 	}

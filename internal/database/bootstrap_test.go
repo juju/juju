@@ -121,14 +121,12 @@ func (s *bootstrapSuite) TestBootstrapOperationsStopOnFailure(c *tc.C) {
 		})
 	}
 	fail := func(ctx context.Context, controller, model database.TxnRunner) error {
+		var name string
 		err := model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			var name string
-			err := tx.QueryRowContext(ctx, `SELECT value FROM model_config WHERE key = 'name'`).Scan(&name)
-			c.Assert(err, tc.ErrorIsNil)
-			c.Check(name, tc.Equals, "controller")
-			return nil
+			return tx.QueryRowContext(ctx, `SELECT value FROM model_config WHERE key = 'name'`).Scan(&name)
 		})
 		c.Assert(err, tc.ErrorIsNil)
+		c.Check(name, tc.Equals, "controller")
 		return expected
 	}
 	notRun := func(context.Context, database.TxnRunner, database.TxnRunner) error {
@@ -144,8 +142,7 @@ func (s *bootstrapSuite) TestBootstrapOperationsStopOnFailure(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "running bootstrap operation at index 1: seed failed")
 	c.Assert(modelRunner, tc.NotNil)
 	err = modelRunner.StdTxn(c.Context(), func(context.Context, *sql.Tx) error {
-		c.Fatal("model database remained usable after bootstrap failed")
-		return nil
+		return errors.New("model database remained usable after bootstrap failed")
 	})
 	c.Check(err, tc.ErrorMatches, ".*database is closed.*")
 }

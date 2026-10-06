@@ -85,19 +85,19 @@ func (s *freshStateSuite) assertFreshState(c *tc.C, cloudType string, modelType 
 				return err
 			}
 		}
-		return modelDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			var gotModelUUID, gotControllerUUID, gotType string
-			var isController bool
-			err := tx.QueryRowContext(ctx, "SELECT uuid, controller_uuid, type, is_controller_model FROM model").Scan(
+		var gotModelUUID, gotControllerUUID, gotType string
+		var isController bool
+		err := modelDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, "SELECT uuid, controller_uuid, type, is_controller_model FROM model").Scan(
 				&gotModelUUID, &gotControllerUUID, &gotType, &isController,
 			)
-			c.Assert(err, tc.ErrorIsNil)
-			c.Check(gotModelUUID, tc.Equals, modelUUID.String())
-			c.Check(gotControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
-			c.Check(gotType, tc.Equals, modelType.String())
-			c.Check(isController, tc.IsTrue)
-			return nil
 		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(gotModelUUID, tc.Equals, modelUUID.String())
+		c.Check(gotControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
+		c.Check(gotType, tc.Equals, modelType.String())
+		c.Check(isController, tc.IsTrue)
+		return nil
 	}
 
 	err := b.Initialise(c.Context())
