@@ -18,9 +18,18 @@ import (
 // initialisationApp describes the application owned by an initialisation
 // session.
 type initialisationApp interface {
+	// Ready waits for the node's startup tasks to complete or the context to be
+	// cancelled.
 	Ready(context.Context) error
+
+	// Open opens the named database. The caller owns the returned handle and
+	// must close it before closing the application.
 	Open(context.Context, string) (*sql.DB, error)
+
+	// ID returns the physical Dqlite node ID of the application.
 	ID() uint64
+
+	// Close stops the application and releases its resources.
 	Close() error
 }
 
