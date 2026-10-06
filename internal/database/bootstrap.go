@@ -96,10 +96,6 @@ func InsertControllerNodeID(
 	ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64, bindAddress string,
 ) error {
 	q := `
--- TODO (manadart 2023-06-06): At the time of writing, 
--- we have not yet modelled machines. 
--- Accordingly, the controller ID remains the ID of the machine, 
--- but it should probably become a UUID once machines have one.
 INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
 VALUES ('0', ?, ?);`
 	return runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
