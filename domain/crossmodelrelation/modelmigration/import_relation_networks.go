@@ -75,7 +75,18 @@ func (i *importRelationNetworksOperation) Execute(ctx context.Context, model des
 		return errors.Errorf("extracting remote offer applications: %w", err)
 	}
 
-	networks, err := extractRelationNetworks(model, rewrites)
+	// The relation networks reference the relations by their keys in the
+	// source model, so their relation tokens are resolved there: the
+	// relation of an additional offer connection of a legacy consumer
+	// proxy is imported under a freshly named synthetic application, so it
+	// cannot be located by its legacy key, only by the token both models
+	// agreed on, which is the UUID the relation was imported under.
+	relationRemoteEntities, err := domainmodelmigration.ExtractRelationUUIDFromRemoteEntities(model)
+	if err != nil {
+		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
+	}
+
+	networks, err := extractRelationNetworks(model, rewrites, relationRemoteEntities)
 	if err != nil {
 		return errors.Errorf("extracting relation networks: %w", err)
 	}
@@ -112,8 +123,14 @@ func remoteOfferApplicationRewrites(remoteApps []description.RemoteApplication) 
 // and the original default networks of a relation, in which case only the
 // override is effective, so it is the one imported. The relation keys are
 // rewritten from the de-duplicated remote offer application names to the
-// primary ones, matching the keys of the imported relations.
-func extractRelationNetworks(model description.Model, rewrites map[string]string) ([]crossmodelrelation.RelationNetworkImport, error) {
+// primary ones, matching the keys of the imported relations. The relation
+// tokens are resolved from the keys of the source model, before the
+// rewrite.
+func extractRelationNetworks(
+	model description.Model,
+	rewrites map[string]string,
+	relationRemoteEntities []domainmodelmigration.RelationRemoteEntity,
+) ([]crossmodelrelation.RelationNetworkImport, error) {
 	type networkKey struct {
 		RelationKey string
 		Direction   crossmodelrelation.RelationNetworkDirection
@@ -153,6 +170,7 @@ func extractRelationNetworks(model description.Model, rewrites map[string]string
 		if err != nil {
 			return nil, errors.Errorf("parsing relation key %q: %w", key.RelationKey, err)
 		}
+		relationUUID, _ := domainmodelmigration.FindRelationUUID(relationRemoteEntities, relationKey)
 		for i, endpoint := range relationKey {
 			if primary, ok := rewrites[endpoint.ApplicationName]; ok {
 				endpoint.ApplicationName = primary
@@ -160,9 +178,10 @@ func extractRelationNetworks(model description.Model, rewrites map[string]string
 			}
 		}
 		result = append(result, crossmodelrelation.RelationNetworkImport{
-			RelationKey: relationKey,
-			Direction:   key.Direction,
-			CIDRs:       network.CIDRs,
+			RelationKey:  relationKey,
+			RelationUUID: relationUUID,
+			Direction:    key.Direction,
+			CIDRs:        network.CIDRs,
 		})
 	}
 	return result, nil

@@ -14,6 +14,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	appcharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
@@ -768,6 +769,59 @@ func (s *importSecretSuite) TestGetRelationUUIDByRelationKey(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.IsNil)
 	c.Check(obtainedUUID, tc.Equals, relUUID.String())
+}
+
+func (s *importSecretSuite) TestRelationExists(c *tc.C) {
+	// Arrange
+	relUUID := s.addRelation(c)
+	missingUUID := tc.Must(c, corerelation.NewUUID)
+
+	// Act
+	exists, err := s.state.RelationExists(c.Context(), relUUID.String())
+	c.Assert(err, tc.IsNil)
+	missing, err := s.state.RelationExists(c.Context(), missingUUID.String())
+	c.Assert(err, tc.IsNil)
+
+	// Assert
+	c.Check(exists, tc.IsTrue)
+	c.Check(missing, tc.IsFalse)
+}
+
+// The offer connection made for a relation shares the UUID of the
+// synthetic application representing the remote consumer of the relation,
+// so the application of a consumer relation is resolved from it, not by
+// name.
+func (s *importSecretSuite) TestGetSyntheticApplicationUUIDByRelationUUID(c *tc.C) {
+	// Arrange
+	relUUID := s.addRelation(c)
+	syntheticAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, "test-offer")
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, "bob")`, syntheticAppUUID, offerUUID, relUUID.String())
+
+	// Act
+	obtainedUUID, err := s.state.GetSyntheticApplicationUUIDByRelationUUID(c.Context(), relUUID.String())
+
+	// Assert
+	c.Assert(err, tc.IsNil)
+	c.Check(obtainedUUID, tc.Equals, syntheticAppUUID)
+}
+
+// A relation without an offer connection has no synthetic consumer
+// application, which is reported as RemoteRelationNotFound so the caller
+// can fall back to resolving the application by name.
+func (s *importSecretSuite) TestGetSyntheticApplicationUUIDByRelationUUIDNotFound(c *tc.C) {
+	// Arrange
+	relUUID := s.addRelation(c)
+
+	// Act
+	_, err := s.state.GetSyntheticApplicationUUIDByRelationUUID(c.Context(), relUUID.String())
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteRelationNotFound)
 }
 
 func (s *importSecretSuite) TestImportRemoteApplicationSecretGrants(c *tc.C) {

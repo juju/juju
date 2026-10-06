@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	domainmodelmigration "github.com/juju/juju/domain/modelmigration/modelmigration"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -47,6 +48,21 @@ type ModelMigrationState interface {
 	// GetRelationUUIDByRelationKey retrieves the UUID of a relation using its
 	// relation key.
 	GetRelationUUIDByRelationKey(ctx context.Context, key relation.Key) (string, error)
+
+	// RelationExists reports whether the relation with the given UUID
+	// exists in the model.
+	RelationExists(ctx context.Context, relationUUID string) (bool, error)
+
+	// GetSyntheticApplicationUUIDByRelationUUID returns the UUID of the
+	// synthetic application representing the remote consumer of the
+	// relation with the given UUID: the UUID of the offer connection made
+	// for the relation, which is also the UUID of the synthetic
+	// application.
+	//
+	// The following error types can be expected to be returned:
+	//   - [crossmodelrelationerrors.RemoteRelationNotFound] is returned if
+	//     the relation has no offer connection.
+	GetSyntheticApplicationUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error)
 
 	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
 	// relation.
@@ -207,6 +223,14 @@ type GrantedSecretACLImport struct {
 	// through which the secret is granted.
 	RelationKey relation.Key
 
+	// RelationUUID is the relation token recorded for the relation in the
+	// source model, being the UUID the relation was imported under. It is
+	// set when the relation crossed a model boundary, and empty otherwise:
+	// the relation of an additional offer connection of a legacy consumer
+	// proxy is represented in the model by a freshly named synthetic
+	// application, so it cannot be located by its legacy key.
+	RelationUUID string
+
 	// Role defines the access role for a secret within the permissions of
 	// a granted secret ACL.
 	Role secrets.SecretRole
@@ -358,7 +382,7 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 
 // ImportRelationNetworks adds the relation networks being migrated to the
 // current model. The relation networks are imported after the relations of
-// the model exist, as the networks are located by relation key. A network
+// the model exist, as the networks are located by relation. A network
 // referencing a relation that was not migrated, for example because the
 // relation was removed from the source model before the export, only skips
 // that network with a warning instead of failing the migration.
@@ -382,7 +406,7 @@ func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports [
 			}
 		}
 
-		relationUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, network.RelationKey)
+		relationUUID, err := s.getMigrationRelationUUID(ctx, network.RelationUUID, network.RelationKey)
 		if internalerrors.Is(err, relationerrors.RelationNotFound) {
 			// The relation was not migrated, for example because it was
 			// removed from the source model before the export. Only this
@@ -412,6 +436,35 @@ func (s *MigrationService) ImportRelationNetworks(ctx context.Context, imports [
 		}
 	}
 	return nil
+}
+
+// getMigrationRelationUUID returns the UUID of a migrated relation, given
+// the relation token recorded for it in the source model and its legacy
+// relation key. The token is the identity the relation was imported under,
+// so it is authoritative when present: the relation of an additional offer
+// connection of a legacy consumer proxy cannot be located by its legacy
+// key, as it is represented in the model by a freshly named synthetic
+// application. Without a token, the relation is located by its key. A
+// relation that was not migrated is reported as
+// [relationerrors.RelationNotFound], so the caller can skip the data
+// referencing it instead of failing the migration.
+func (s *MigrationService) getMigrationRelationUUID(
+	ctx context.Context,
+	relationUUID string,
+	key relation.Key,
+) (string, error) {
+	if relationUUID == "" {
+		return s.modelState.GetRelationUUIDByRelationKey(ctx, key)
+	}
+
+	exists, err := s.modelState.RelationExists(ctx, relationUUID)
+	if err != nil {
+		return "", internalerrors.Capture(err)
+	} else if !exists {
+		return "", internalerrors.Errorf("relation %q not found", relationUUID).
+			Add(relationerrors.RelationNotFound)
+	}
+	return relationUUID, nil
 }
 
 // constructApplicationConsumer constructs the state import argument for a
@@ -583,12 +636,14 @@ func (s *MigrationService) constructConsumedSyntheticCharm(appName string, endpo
 // consumer applications in the offerer model. The model holds at most one
 // grant per secret and application, so only the first grant of each
 // application is imported and the grants that follow for the same
-// application are ignored. A grant scoped by a relation that was not
-// migrated, for example a relation of a legacy consumer proxy that was
-// re-keyed on import or a relation removed from the source model before
-// the export, only skips that grant with a warning instead of failing the
-// migration; a skipped grant doesn't count towards the first, so a later
-// grant of the same application can still be imported.
+// application are ignored. Every offer connection of a legacy consumer
+// proxy is represented by its own synthetic application, so a grant over
+// each of those relations imports one grant per synthetic application.
+// A grant scoped by a relation that was not migrated, for example a
+// relation removed from the source model before the export, only skips
+// that grant with a warning instead of failing the migration; a skipped
+// grant doesn't count towards the first, so a later grant of the same
+// application can still be imported.
 func (s *MigrationService) ImportGrantedSecrets(ctx context.Context, grantedSecrets []GrantedSecretImport) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -621,45 +676,47 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 	// Fetch application and relation UUIDs. The model holds at most one
 	// grant per secret and application, so only the first grant of each
 	// application is imported and the grants that follow for the same
-	// application are ignored.
+	// application are ignored. Every offer connection of a legacy consumer
+	// proxy is represented by its own synthetic application, so a grant
+	// over each of those relations imports one grant per synthetic
+	// application.
 	// A grant scoped by a relation that was not migrated, for example a
-	// relation of a legacy consumer proxy that was re-keyed on import or a
 	// relation removed from the source model before the export, only skips
 	// that grant with a warning, the remaining grants are still imported.
 	// A skipped grant doesn't count towards the first, so a later grant
 	// of the same application can still be imported.
 	grants := make([]internal.RemoteApplicationSecretGrant, 0, len(secret.ACLs))
 	grantByApplications := make(map[string]struct{}, len(secret.ACLs))
+	grantedSubjects := make(map[string]struct{}, len(secret.ACLs))
 	skippedGrantApps := make(map[string]struct{})
 	for _, acl := range secret.ACLs {
 		if acl.Role != secrets.RoleView {
 			return internalerrors.Errorf("unsupported role %q for remote secret %q", acl.Role, secret.SecretID)
 		}
+		relUUID, err := s.getMigrationRelationUUID(ctx, acl.RelationUUID, acl.RelationKey)
+		if internalerrors.Is(err, relationerrors.RelationNotFound) {
+			// The relation was not migrated. Only this grant is skipped,
+			// the remaining grants are still imported.
+			s.logger.Warningf(ctx, "skipping secret grant for application %q on relation %q: %v",
+				acl.ApplicationName, acl.RelationKey, err)
+			skippedGrantApps[acl.ApplicationName] = struct{}{}
+			continue
+		} else if err != nil {
+			return internalerrors.Errorf("getting relation UUID for relation with key %q: %w", acl.RelationKey, err)
+		}
+		appUUID, err := s.getGrantSubjectUUID(ctx, relUUID, acl.ApplicationName)
+		if err != nil {
+			return internalerrors.Errorf("getting grant subject for application %q: %w", acl.ApplicationName, err)
+		}
 		// Importing a second grant of a granted application would violate
 		// the secret permission primary key.
-		if _, ok := grantByApplications[acl.ApplicationName]; ok {
+		if _, ok := grantedSubjects[appUUID]; ok {
 			// The application already holds a grant of this secret, so this
 			// grant is ignored, it is not counted as a skipped grant.
 			s.logger.Warningf(ctx,
 				"ignoring secret grant for application %q on relation %q: application already holds a grant",
 				acl.ApplicationName, acl.RelationKey)
 			continue
-		}
-		relUUID, err := s.modelState.GetRelationUUIDByRelationKey(ctx, acl.RelationKey)
-		if internalerrors.Is(err, relationerrors.RelationNotFound) {
-			// The relation was not migrated under its legacy key. Only
-			// this grant is skipped, the remaining grants are still
-			// imported.
-			s.logger.Warningf(ctx, "skipping secret grant for application %q on relation %q: %v",
-				acl.ApplicationName, acl.RelationKey, err)
-			skippedGrantApps[acl.ApplicationName] = struct{}{}
-			continue
-		} else if err != nil {
-			return internalerrors.Errorf("getting relation UUID by relation key %q: %w", acl.RelationKey, err)
-		}
-		appUUID, err := s.modelState.GetApplicationUUIDByName(ctx, acl.ApplicationName)
-		if err != nil {
-			return internalerrors.Errorf("getting application UUID by name %q: %w", acl.ApplicationName, err)
 		}
 		grants = append(grants, internal.RemoteApplicationSecretGrant{
 			SecretID:        secret.SecretID,
@@ -668,6 +725,7 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 			RelationKey:     acl.RelationKey.String(),
 			RelationUUID:    relUUID,
 		})
+		grantedSubjects[appUUID] = struct{}{}
 		grantByApplications[acl.ApplicationName] = struct{}{}
 	}
 
@@ -704,6 +762,26 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 	}
 
 	return nil
+}
+
+// getGrantSubjectUUID returns the UUID of the application a secret grant
+// is recorded for. For the relation of a remote application consumer, the
+// grant subject is the synthetic application of the offer connection of
+// the relation: an additional offer connection of a legacy consumer proxy
+// is represented by a freshly named synthetic application, which cannot be
+// resolved by the legacy proxy name of the grant. For any other relation,
+// the granted application is resolved by its name.
+func (s *MigrationService) getGrantSubjectUUID(
+	ctx context.Context,
+	relationUUID, applicationName string,
+) (string, error) {
+	appUUID, err := s.modelState.GetSyntheticApplicationUUIDByRelationUUID(ctx, relationUUID)
+	if err == nil {
+		return appUUID, nil
+	} else if !internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationNotFound) {
+		return "", internalerrors.Capture(err)
+	}
+	return s.modelState.GetApplicationUUIDByName(ctx, applicationName)
 }
 
 func (s *MigrationService) importRemoteSecret(ctx context.Context, secret RemoteSecretImport) error {
