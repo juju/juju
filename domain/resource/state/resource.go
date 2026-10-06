@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	domainsequence "github.com/juju/juju/domain/sequence"
@@ -1372,6 +1373,13 @@ AND    resource_uuid = $replacePotentialResource.old_uuid
 			if err != nil {
 				return errors.Errorf("selecting replacement resource %q: %w", res.Name, err)
 			}
+			removalJobUUID, ok := config.RemovalJobUUIDs[res.Name]
+			if !ok {
+				return errors.Errorf("removal job UUID not supplied for resource %q", res.Name)
+			}
+			if err := st.scheduleResourceRemoval(ctx, tx, removalJobUUID, res.UUID); err != nil {
+				return errors.Errorf("scheduling removal of replaced resource %q: %w", res.Name, err)
+			}
 		}
 		return nil
 	})
@@ -1566,10 +1574,41 @@ func (st *State) UpdateUploadResource(
 		if err != nil {
 			return errors.Errorf("updating application resource: %w", err)
 		}
+		if err := st.scheduleResourceRemoval(ctx, tx, args.RemovalJobUUID, args.ResourceUUID); err != nil {
+			return errors.Errorf("scheduling removal of replaced resource: %w", err)
+		}
 
 		return nil
 	})
 	return errors.Capture(err)
+}
+
+func (st *State) scheduleResourceRemoval(
+	ctx context.Context,
+	tx *sqlair.TX,
+	jobUUID string,
+	resourceUUID string,
+) error {
+	if jobUUID == "" {
+		return errors.Errorf("removal job UUID not supplied for resource %q", resourceUUID)
+	}
+	job := resourceRemovalJob{
+		UUID:          jobUUID,
+		ResourceUUID:  resourceUUID,
+		ScheduledFor:  st.clock.Now().UTC(),
+		RemovalTypeID: uint64(removal.ResourceJob),
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid, scheduled_for)
+VALUES ($resourceRemovalJob.uuid,
+        $resourceRemovalJob.removal_type_id,
+        $resourceRemovalJob.resource_uuid,
+        $resourceRemovalJob.scheduled_for)
+`, job)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, stmt, job).Run())
 }
 
 // getResourceCharmDataForUpdate returns a resourceCharmData for the given
