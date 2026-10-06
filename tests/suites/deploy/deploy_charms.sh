@@ -143,54 +143,6 @@ run_deploy_specific_series() {
 	echo "$base_name2@$base_chan2" | check "$expected_base"
 }
 
-run_deploy_lxd_profile_charm() {
-	echo
-
-	file="${TEST_DIR}/test-deploy-lxd-profile.log"
-	model_name="test-deploy-lxd-profile"
-	ensure "${model_name}" "${file}"
-
-	# This charm deploys to Xenial by default, which doesn't
-	# always result in a machine which becomes fully deployed
-	# with the lxd provider.
-	juju deploy juju-qa-lxd-profile-without-devices --base ubuntu@22.04
-	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
-
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
-	lxd_profile="juju-test-deploy-lxd-profile-${short_uuid}-lxd-profile"
-
-	juju status --format=json | yq '.machines | .["0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' | check "${lxd_profile}"
-
-	destroy_model "test-deploy-lxd-profile"
-}
-
-run_deploy_lxd_profile_charm_container() {
-	echo
-
-	file="${TEST_DIR}/test-deploy-lxd-profile.log"
-	model_name="test-deploy-lxd-profile-container"
-
-	ensure "${model_name}" "${file}"
-
-	# This charm deploys to Xenial by default, which doesn't
-	# always result in a machine which becomes fully deployed
-	# with the lxd provider.
-	juju deploy juju-qa-lxd-profile-without-devices --to lxd --base ubuntu@22.04
-	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
-
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
-	lxd_profile="juju-test-deploy-lxd-profile-container-${short_uuid}-lxd-profile"
-
-	juju status --format=json | yq '.machines | .["0"] | .containers | .["0/lxd/0"] | select(.["lxd-profiles"]) | .["lxd-profiles"] | keys[0]' |
-		check "${lxd_profile}"
-
-	destroy_model "test-deploy-lxd-profile-container"
-}
-
 run_deploy_local_predeployed_charm() {
 	echo
 
@@ -210,125 +162,9 @@ run_deploy_local_predeployed_charm() {
 	destroy_model "${model_name}"
 }
 
-run_deploy_local_lxd_profile_charm() {
-	echo
-
-	file="${TEST_DIR}/test-deploy-local-lxd-profile.log"
-	model_name="test-deploy-local-lxd-profile"
-
-	ensure "${model_name}" "${file}"
-
-	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/lxd-profile)
-	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/lxd-profile-subordinate)
-	juju integrate lxd-profile-subordinate lxd-profile
-
-	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
-	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
-
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
-
-	lxd_profile_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile"
-	lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-${short_uuid}-lxd-profile-subordinate"
-
-	# subordinates take longer to show, so use wait_for
-	machine_0="$(machine_path 0)"
-	wait_for "${lxd_profile_sub_name}" "${machine_0}"
-
-	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_name}"
-	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_sub_name}"
-
-	juju add-unit "lxd-profile"
-
-	machine_1="$(machine_path 1)"
-	wait_for "${lxd_profile_sub_name}" "${machine_1}"
-
-	juju status --format=json | yq "${machine_1}" | check "${lxd_profile_name}"
-	juju status --format=json | yq "${machine_1}" | check "${lxd_profile_sub_name}"
-
-	destroy_model "test-deploy-local-lxd-profile"
-}
-
-run_deploy_lxd_to_machine() {
-	echo
-
-	model_name="test-deploy-lxd-machine"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	juju add-machine -n 2 --base ubuntu@24.04
-
-	charm=$(pack_charm ./tests/suites/deploy/charms/lxd-profile-alt)
-	juju deploy ${charm} --to 0 --base ubuntu@24.04
-
-	# Test the case where we wait for the machine to start
-	# before deploying the unit.
-	wait_for_machine_agent_status "1" "started"
-	juju add-unit lxd-profile-alt --to 1
-
-	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
-
-	lxd_profile_0="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-0"
-	lxd_profile_1="juju-test-deploy-lxd-machine-${short_uuid}-lxd-profile-alt-1"
-
-	echo "looking for profile: ${lxd_profile_0}..."
-
-	lxc profile show "${lxd_profile_0}" |
-		grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
-
-	juju refresh "lxd-profile-alt" --path ${charm}
-
-	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
-	# has finished though, just started.
-	wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
-	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-
-	attempt=0
-	while true; do
-		OUT=$(lxc profile show "${lxd_profile_1}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?" || echo 'NOT FOUND')
-		if [ "${OUT}" != "NOT FOUND" ]; then
-			break
-		fi
-		lxc profile show "${lxd_profile_1}"
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for lxc profile to show 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
-
-	# Ensure that the old one is removed
-	attempt=0
-	while true; do
-		OUT=$(lxc profile show "${lxd_profile_0}" || echo 'NOT FOUND')
-		if [[ ${OUT} == "NOT FOUND" ]]; then
-			break
-		fi
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for removal of lxc profile 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
-
-	destroy_model "${model_name}"
-}
-
 run_deploy_lxd_to_container() {
-	# Ensure profiles get applied correctly to containers
-	# and 1 gets added if a subordinate is added.
+	# Ensure charms can be deployed to a container and a subordinate
+	# charm can be integrated with a principal in a container.
 	echo
 
 	model_name="test-deploy-lxd-container"
@@ -336,78 +172,22 @@ run_deploy_lxd_to_container() {
 
 	ensure "${model_name}" "${file}"
 
-	charm=$(pack_charm ./tests/suites/deploy/charms/lxd-profile-alt)
+	charm=$(pack_charm ./testcharms/charms/ubuntu-plus)
 	juju deploy ${charm} --to lxd
 
 	# shellcheck disable=SC2046
-	juju deploy $(pack_charm ./testcharms/charms/lxd-profile-subordinate)
-	juju integrate lxd-profile-subordinate lxd-profile-alt
+	juju deploy $(pack_charm ./testcharms/charms/subordinate-link)
+	juju integrate subordinate-link ubuntu-plus
 
-	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-	wait_for "lxd-profile-subordinate" "select(.applications) | .applications | keys[1]"
+	wait_for_container_agent_status "0/lxd/0" "started"
+	wait_for "ubuntu-plus" "$(idle_condition "ubuntu-plus")"
+	wait_for "subordinate-link/0" '[.applications["ubuntu-plus"].units[] | (.subordinates // {}) | to_entries[] | select(.key == "subordinate-link/0" and .value["juju-status"].current == "idle") | .key] | .[]'
 
-	machine_0="$(machine_container_path 0 0/lxd/0)"
-	wait_for "lxd-profile-subordinate" "${machine_0}"
-
-	full_uuid=$(juju models --format json |
-		name="${model_name}" yq -r '.models[] | select(.["short-name"]==env(name)) | ."model-uuid"')
-	short_uuid="${full_uuid:0:6}"
-
-	lxd_profile_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt"
-	lxd_profile_sub_name="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-subordinate"
-
-	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_name}"
-	juju status --format=json | yq "${machine_0}" | check "${lxd_profile_sub_name}"
-
-	lxd_profile_0="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-0"
-	lxd_profile_1="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-1"
-
-	# Not using juju_exec_output: lxc profile commands are plain system
-	# commands that produce no stderr noise.
-	OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_0}\"")
-	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
-
-	juju refresh "lxd-profile-alt" --path ${charm}
-
-	# Ensure that an upgrade will be kicked off. This doesn't mean an upgrade
-	# has finished though, just started.
-	wait_for "lxd-profile-alt" "$(charm_rev "lxd-profile-alt" 1)"
-	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
-
-	attempt=0
-	while true; do
-		# Not using juju_exec_output: lxc profile commands are plain
-		# system commands that produce no stderr noise.
-		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_1}\"" || echo 'NOT FOUND')
-		if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
-			break
-		fi
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for lxc profile to show 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
-
-	# Ensure that the old one is removed
-	attempt=0
-	while true; do
-		# Not using juju_exec_output: lxc profile commands are plain
-		# system commands that produce no stderr noise.
-		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
-		if echo "${OUT}" | grep -v "${lxd_profile_0}"; then
-			break
-		fi
-		attempt=$((attempt + 1))
-		if [ $attempt -eq 10 ]; then
-			# shellcheck disable=SC2046
-			echo $(red "timeout: waiting for removal of lxc profile 50sec")
-			exit 5
-		fi
-		sleep 5
-	done
+	# The principal unit must be placed on the container, and the
+	# subordinate unit must be attached to the principal unit.
+	principal_machine=$(juju status --format=json |
+		yq -r '.applications["ubuntu-plus"].units["ubuntu-plus/0"].machine')
+	echo "${principal_machine}" | check "0/lxd/0"
 
 	destroy_model "${model_name}"
 }
@@ -462,42 +242,14 @@ test_deploy_charms() {
 				echo "==> TEST SKIPPED: deploy_charm_placement_directive - lxd without kvm is not supported"
 				echo "==> TEST SKIPPED: deploy_charm_zone_placement_directive - lxd without kvm is not supported"
 			fi
-			# Skip these tests for now, as they rely on lxd profiles, which
-			# have not been re-implemented yet
-			#
-			# run "run_deploy_lxd_to_machine"
-			# run "run_deploy_lxd_profile_charm"
 			run "run_deploy_local_predeployed_charm"
-			# run "run_deploy_local_lxd_profile_charm"
 			echo "==> TEST SKIPPED: deploy_lxd_to_container - tests for non LXD only"
-			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - tests for non LXD only"
 			;;
 		*)
 			run "run_deploy_charm_placement_directive"
 			run "run_deploy_charm_zone_placement_directive"
-			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
-			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
-			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
 			run "run_deploy_lxd_to_container"
-			run "run_deploy_lxd_profile_charm_container"
 			;;
 		esac
 	)
-}
-
-machine_path() {
-	local machine
-
-	machine=${1}
-
-	echo ".machines | .[\"${machine}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
-}
-
-machine_container_path() {
-	local machine container
-
-	machine=${1}
-	container=${2}
-
-	echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | select(.[\"lxd-profiles\"]) | .[\"lxd-profiles\"] | keys"
 }

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -eu
+
+juju-log "reprovision-relations: hook=start machine=${JUJU_MACHINE_ID}"
+status-set active "reprovision relation logger ready"

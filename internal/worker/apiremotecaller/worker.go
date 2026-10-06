@@ -36,9 +36,9 @@ type ControllerNodeService interface {
 	// controller ID, and the values are slices of strings representing the API
 	// addresses for each controller node.
 	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-	// WatchControllerAPIAddresses returns a watcher that observes changes to
+	// WatchControllerAgentAddresses returns a watcher that observes changes to
 	// the controller api address changes.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // WorkerConfig defines the configuration values that the pubsub worker needs
@@ -209,7 +209,7 @@ func (w *remoteWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.cfg.ControllerNodeService.WatchControllerAPIAddresses(ctx)
+	watcher, err := w.cfg.ControllerNodeService.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

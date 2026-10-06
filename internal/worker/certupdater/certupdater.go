@@ -38,14 +38,12 @@ type CertificateUpdater struct {
 
 // ControllerNodeService returns all known API addresses.
 type ControllerNodeService interface {
-	// GetAllCloudLocalAPIAddresses returns a string slice of api
-	// addresses available for clients. The list list only contains cloud
-	// local addresses. The returned strings are IP address only without
-	// port numbers.
+	// GetAllCloudLocalAPIAddresses returns cloud-local client IP addresses.
+	// The service strips the stored API ports before returning these values.
 	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
-	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// WatchControllerClientAddresses returns a watcher that observes changes to the
 	// controller api addresses.
-	WatchControllerAPIAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerClientAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
@@ -83,15 +81,9 @@ func NewCertificateUpdater(config Config) (worker.Worker, error) {
 
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
-	// Populate certificate SAN with any addresses we know about now.
-	initialSANAddresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
-	if err != nil {
-		return nil, errors.Errorf("retrieving initial server addresses: %w", err)
-	}
-	if err := c.updateCertificate(ctx, initialSANAddresses); err != nil {
-		return nil, errors.Errorf("setting initial certificate SAN list: %w", err)
-	}
-	return c.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	// Handle populates the certificate after the watcher's initial event has
+	// established that the subscription is active.
+	return c.controllerNodeService.WatchControllerClientAddresses(ctx)
 }
 
 // Handle is defined on the NotifyWatchHandler interface.

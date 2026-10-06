@@ -13,10 +13,17 @@ import (
 	"github.com/juju/juju/core/resource/store"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/containerimageresourcestore"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/errors"
 )
+
+// MaxContainerImageResourceSize is the maximum encoded metadata blob accepted
+// for a container image resource. It is an explicit memory bound, not a limit
+// imposed by DockerImageDetails, whose string fields have no format-level
+// maximum. Oversized blobs are rejected before state is modified.
+const MaxContainerImageResourceSize int64 = 1 << 20
 
 // State provides methods for interacting
 // with the container image resource store.
@@ -85,9 +92,13 @@ func (s *Service) Get(
 }
 
 // Put stores data from io.Reader in the resource store at the path specified in
-// the resource.
-// If an image is already stored under the storage key, it returns:
-// - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
+// the resource. The read is bounded by [MaxContainerImageResourceSize].
+//
+// The following errors can be expected to be returned:
+//   - [containerimageresourcestoreerrors.ContainerImageResourceTooLarge] if the
+//     encoded metadata exceeds the maximum size.
+//   - [containerimageresourcestoreerrors.ContainerImageMetadataAlreadyStored]
+//     if an image is already stored under the storage key.
 func (s *Service) Put(
 	ctx context.Context,
 	storageKey string,
@@ -99,10 +110,17 @@ func (s *Service) Put(
 	defer span.End()
 
 	respBuf := new(bytes.Buffer)
-	bytesRead, err := respBuf.ReadFrom(r)
+	bytesRead, err := respBuf.ReadFrom(io.LimitReader(r, MaxContainerImageResourceSize+1))
 	if err != nil {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("reading container image resource: %w", err)
-	} else if bytesRead == 0 {
+	}
+	if bytesRead > MaxContainerImageResourceSize {
+		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf(
+			"container image resource exceeds maximum size of %d bytes: %w",
+			MaxContainerImageResourceSize,
+			containerimageresourcestoreerrors.ContainerImageResourceTooLarge)
+	}
+	if bytesRead == 0 {
 		return store.ID{}, 0, store.Fingerprint{}, errors.Errorf("reading container image resource: zero bytes read")
 	}
 

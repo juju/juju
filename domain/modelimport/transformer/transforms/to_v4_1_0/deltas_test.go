@@ -5,6 +5,7 @@ package to_v4_1_0
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -28,7 +29,7 @@ func (s *deltasSuite) TestRelationApplicationSettingDropsEmptyValues(c *tc.C) {
 		{RelationEndpointUUID: "re-uuid", Key: "empty", Value: new("")},
 	}
 
-	got, err := deltas{}.RelationApplicationSetting(c.Context(), src)
+	got, err := deltas{}.RelationApplicationSetting(c.Context(), src, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, []v4_1_0.RelationApplicationSetting{
 		{RelationEndpointUUID: "re-uuid", Key: "set", Value: "v"},
@@ -45,7 +46,7 @@ func (s *deltasSuite) TestRelationUnitSettingDropsEmptyValues(c *tc.C) {
 		{RelationUnitUUID: "ru-uuid", Key: "empty", Value: new("")},
 	}
 
-	got, err := deltas{}.RelationUnitSetting(c.Context(), src)
+	got, err := deltas{}.RelationUnitSetting(c.Context(), src, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, []v4_1_0.RelationUnitSetting{
 		{RelationUnitUUID: "ru-uuid", Key: "set", Value: "v"},
@@ -63,7 +64,7 @@ func (s *deltasSuite) TestApplicationScale(c *tc.C) {
 		Scaling:         &scaling,
 	}}
 
-	got, err := deltas{}.ApplicationScale(c.Context(), src)
+	got, err := deltas{}.ApplicationScale(c.Context(), src, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationScale{{
 		ApplicationUUID: "app-uuid",
@@ -82,9 +83,90 @@ func (s *deltasSuite) TestOfferLeavesDescriptionNil(c *tc.C) {
 		{UUID: "offer-uuid", Name: "test-offer"},
 	}
 
-	got, err := deltas{}.Offer(c.Context(), src)
+	got, err := deltas{}.Offer(c.Context(), src, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, []v4_1_0.Offer{
 		{UUID: "offer-uuid", Name: "test-offer", Description: nil},
 	})
+}
+
+func (s *deltasSuite) TestRelationUnitDepartureStartsEmpty(c *tc.C) {
+	got, err := deltas{}.RelationUnitDeparture(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}
+
+func (s *deltasSuite) TestUnitResourceAddsNameAndReconcilesDuplicates(c *tc.C) {
+	oldTime := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	newTime := oldTime.Add(time.Hour)
+	model := &v4_0_12.ModelExport{
+		Resource: []v4_0_12.Resource{
+			{UUID: "resource-a", CharmUUID: "charm-a", CharmResourceName: "foo"},
+			{UUID: "resource-a2", CharmUUID: "charm-a", CharmResourceName: "foo"},
+			{UUID: "resource-b", CharmUUID: "charm-b", CharmResourceName: "foo"},
+			{UUID: "resource-bar", CharmUUID: "charm-b", CharmResourceName: "bar"},
+		},
+		Unit: []v4_0_12.Unit{
+			{UUID: "unit-0", CharmUUID: "charm-b"},
+			{UUID: "unit-1", CharmUUID: "charm-a"},
+		},
+	}
+	src := []v4_0_12.UnitResource{
+		{ResourceUUID: "resource-a", UnitUUID: "unit-0", AddedAt: newTime},
+		{ResourceUUID: "resource-b", UnitUUID: "unit-0", AddedAt: oldTime},
+		{ResourceUUID: "resource-bar", UnitUUID: "unit-0", AddedAt: newTime},
+		{ResourceUUID: "resource-a", UnitUUID: "unit-1", AddedAt: oldTime},
+		{ResourceUUID: "resource-a2", UnitUUID: "unit-1", AddedAt: newTime},
+	}
+
+	got, err := deltas{}.UnitResource(c.Context(), src, model)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.UnitResource{
+		{
+			ResourceUUID:      "resource-b",
+			UnitUUID:          "unit-0",
+			CharmResourceName: "foo",
+			AddedAt:           oldTime,
+		}, {
+			ResourceUUID:      "resource-bar",
+			UnitUUID:          "unit-0",
+			CharmResourceName: "bar",
+			AddedAt:           newTime,
+		}, {
+			ResourceUUID:      "resource-a2",
+			UnitUUID:          "unit-1",
+			CharmResourceName: "foo",
+			AddedAt:           newTime,
+		},
+	})
+}
+
+func (s *deltasSuite) TestUnitResourceBreaksEqualTimestampTieByUUID(c *tc.C) {
+	addedAt := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	model := &v4_0_12.ModelExport{
+		Resource: []v4_0_12.Resource{
+			{UUID: "resource-a", CharmUUID: "charm-a", CharmResourceName: "foo"},
+			{UUID: "resource-b", CharmUUID: "charm-a", CharmResourceName: "foo"},
+		},
+		Unit: []v4_0_12.Unit{{UUID: "unit-0", CharmUUID: "charm-a"}},
+	}
+
+	for _, src := range [][]v4_0_12.UnitResource{
+		{
+			{ResourceUUID: "resource-a", UnitUUID: "unit-0", AddedAt: addedAt},
+			{ResourceUUID: "resource-b", UnitUUID: "unit-0", AddedAt: addedAt},
+		}, {
+			{ResourceUUID: "resource-b", UnitUUID: "unit-0", AddedAt: addedAt},
+			{ResourceUUID: "resource-a", UnitUUID: "unit-0", AddedAt: addedAt},
+		},
+	} {
+		got, err := deltas{}.UnitResource(c.Context(), src, model)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(got, tc.DeepEquals, []v4_1_0.UnitResource{{
+			ResourceUUID:      "resource-b",
+			UnitUUID:          "unit-0",
+			CharmResourceName: "foo",
+			AddedAt:           addedAt,
+		}})
+	}
 }

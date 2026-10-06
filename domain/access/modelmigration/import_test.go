@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
@@ -253,6 +254,7 @@ func (s *importSuite) TestImportExternalUsers(c *tc.C) {
 type importExternalUsersSuite struct {
 	coordinator *MockCoordinator
 	service     *MockImportExternalUsersService
+	now         time.Time
 }
 
 func TestImportExternalUsersSuite(t *testing.T) {
@@ -264,10 +266,12 @@ func (s *importExternalUsersSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.coordinator = NewMockCoordinator(ctrl)
 	s.service = NewMockImportExternalUsersService(ctrl)
+	s.now = time.Now().Truncate(time.Minute).UTC()
 
 	c.Cleanup(func() {
 		s.coordinator = nil
 		s.service = nil
+		s.now = time.Time{}
 	})
 
 	return ctrl
@@ -276,6 +280,7 @@ func (s *importExternalUsersSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *importExternalUsersSuite) newImportExternalUsersOperation() *importExternalUsersOperation {
 	return &importExternalUsersOperation{
 		service: s.service,
+		clock:   testclock.NewClock(s.now),
 	}
 }
 
@@ -338,6 +343,181 @@ func (s *importExternalUsersSuite) TestImportExternalUsersCreatesExternalUsers(c
 		DateCreated:    extDate,
 		DisplayName:    "Bob External",
 		LastConnection: time.Now(),
+	})
+
+	bobExtName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.service.EXPECT().ImportExternalUsers(gomock.Any(), []internal.ExternalUserImport{
+		{
+			Name:        bobExtName,
+			DisplayName: "Bob External",
+			DateCreated: extDate,
+		},
+	}).Return(nil)
+
+	op := s.newImportExternalUsersOperation()
+	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersFromOfferACL verifies that external users named only
+// in offer ACLs (and not model members) are collected for creation. Since the
+// model description carries no display name or creation date for them, they
+// are materialised with the user name as display name and the current time as
+// creation date, consistent with external users created on first
+// authentication.
+func (s *importExternalUsersSuite) TestImportExternalUsersFromOfferACL(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{Name: "mysql"})
+	app.AddOffer(description.ApplicationOfferArgs{
+		OfferUUID:       tc.Must(c, uuid.NewUUID).String(),
+		OfferName:       "mysql",
+		ApplicationName: "mysql",
+		Endpoints:       map[string]string{"db": "db"},
+		ACL: map[string]string{
+			"alice@external":    "consume",
+			"bob@external":      "read",
+			"admin":             "admin",
+			"everyone@external": "read",
+		},
+	})
+
+	aliceExtName, err := user.NewName("alice@external")
+	c.Assert(err, tc.ErrorIsNil)
+	bobExtName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Local users and everyone@external are skipped: they must already exist
+	// on the target controller.
+	s.service.EXPECT().ImportExternalUsers(gomock.Any(), []internal.ExternalUserImport{
+		{
+			Name:        aliceExtName,
+			DisplayName: "alice@external",
+			DateCreated: s.now,
+		},
+		{
+			Name:        bobExtName,
+			DisplayName: "bob@external",
+			DateCreated: s.now,
+		},
+	}).Return(nil)
+
+	op := s.newImportExternalUsersOperation()
+	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersOfferACLDeduplicatesAcrossOffers verifies that an
+// external user named in the ACLs of several offers is collected only once.
+func (s *importExternalUsersSuite) TestImportExternalUsersOfferACLDeduplicatesAcrossOffers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{Name: "mysql"})
+	app.AddOffer(description.ApplicationOfferArgs{
+		OfferUUID: tc.Must(c, uuid.NewUUID).String(),
+		OfferName: "mysql",
+		ACL:       map[string]string{"bob@external": "consume"},
+	})
+	app.AddOffer(description.ApplicationOfferArgs{
+		OfferUUID: tc.Must(c, uuid.NewUUID).String(),
+		OfferName: "mysql-secondary",
+		ACL:       map[string]string{"bob@external": "read"},
+	})
+
+	bobExtName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.service.EXPECT().ImportExternalUsers(gomock.Any(), []internal.ExternalUserImport{
+		{
+			Name:        bobExtName,
+			DisplayName: "bob@external",
+			DateCreated: s.now,
+		},
+	}).Return(nil)
+
+	op := s.newImportExternalUsersOperation()
+	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersOfferACLInvalidName verifies that an unparseable ACL
+// user name is skipped without error; the offer access import operation
+// rejects it later.
+func (s *importExternalUsersSuite) TestImportExternalUsersOfferACLInvalidName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{Name: "mysql"})
+	app.AddOffer(description.ApplicationOfferArgs{
+		OfferUUID: tc.Must(c, uuid.NewUUID).String(),
+		OfferName: "mysql",
+		ACL: map[string]string{
+			"@bad":         "consume",
+			"bob@external": "read",
+		},
+	})
+
+	bobExtName, err := user.NewName("bob@external")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.service.EXPECT().ImportExternalUsers(gomock.Any(), []internal.ExternalUserImport{
+		{
+			Name:        bobExtName,
+			DisplayName: "bob@external",
+			DateCreated: s.now,
+		},
+	}).Return(nil)
+
+	op := s.newImportExternalUsersOperation()
+	err = op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersOfferACLLocalUsersOnly verifies that the operation is
+// a no-op when offer ACLs only name local users.
+func (s *importExternalUsersSuite) TestImportExternalUsersOfferACLLocalUsersOnly(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	app := model.AddApplication(description.ApplicationArgs{Name: "mysql"})
+	app.AddOffer(description.ApplicationOfferArgs{
+		OfferUUID: tc.Must(c, uuid.NewUUID).String(),
+		OfferName: "mysql",
+		ACL: map[string]string{
+			"admin": "admin",
+			"joe":   "consume",
+		},
+	})
+
+	op := s.newImportExternalUsersOperation()
+	err := op.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportExternalUsersOfferACLDoesNotDuplicateModelUsers verifies that an
+// external user that is both a model member and named in an offer ACL is
+// imported only once, keeping the model member display name and creation date.
+func (s *importExternalUsersSuite) TestImportExternalUsersOfferACLDoesNotDuplicateModelUsers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	extDate := time.Now().Add(-time.Hour).Truncate(time.Minute).UTC()
+	model := description.NewModel(description.ModelArgs{})
+	model.AddUser(description.UserArgs{
+		Name:        "bob@external",
+		Access:      string(permission.ReadAccess),
+		CreatedBy:   "admin",
+		DateCreated: extDate,
+		DisplayName: "Bob External",
+	})
+	app := model.AddApplication(description.ApplicationArgs{Name: "mysql"})
+	app.AddOffer(description.ApplicationOfferArgs{
+		OfferUUID: tc.Must(c, uuid.NewUUID).String(),
+		OfferName: "mysql",
+		ACL:       map[string]string{"bob@external": "consume"},
 	})
 
 	bobExtName, err := user.NewName("bob@external")

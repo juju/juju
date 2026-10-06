@@ -44,6 +44,24 @@ WHERE controller_id = $controllerNode.controller_id`, node)
 	if err != nil {
 		return errors.Errorf("preparing controller api address deletion: %w", err)
 	}
+	deleteClientAddressesStmt, err := st.Prepare(`
+DELETE FROM controller_client_address AS address
+WHERE address.controller_id = $controllerNode.controller_id`, node)
+	if err != nil {
+		return errors.Errorf("preparing controller client address deletion: %w", err)
+	}
+	deleteAgentAddressesStmt, err := st.Prepare(`
+DELETE FROM controller_agent_address AS address
+WHERE address.controller_id = $controllerNode.controller_id`, node)
+	if err != nil {
+		return errors.Errorf("preparing controller agent address deletion: %w", err)
+	}
+	deletePeerAddressesStmt, err := st.Prepare(`
+DELETE FROM controller_peer_address AS address
+WHERE address.controller_id = $controllerNode.controller_id`, node)
+	if err != nil {
+		return errors.Errorf("preparing controller peer address deletion: %w", err)
+	}
 	deleteAgentVersionStmt, err := st.Prepare(`
 DELETE FROM controller_node_agent_version
 WHERE controller_id = $controllerNode.controller_id`, node)
@@ -93,6 +111,15 @@ AND life_id < 2`, node)
 
 		if err := tx.Query(ctx, deleteAPIAddressesStmt, node).Run(); err != nil {
 			return errors.Errorf("deleting controller api addresses for %q: %w", controllerID, err)
+		}
+		if err := tx.Query(ctx, deleteClientAddressesStmt, node).Run(); err != nil {
+			return errors.Errorf("deleting controller client addresses: %w", err)
+		}
+		if err := tx.Query(ctx, deleteAgentAddressesStmt, node).Run(); err != nil {
+			return errors.Errorf("deleting controller agent addresses: %w", err)
+		}
+		if err := tx.Query(ctx, deletePeerAddressesStmt, node).Run(); err != nil {
+			return errors.Errorf("deleting controller peer addresses: %w", err)
 		}
 		if err := tx.Query(ctx, deleteAgentVersionStmt, node).Run(); err != nil {
 			return errors.Errorf("deleting controller agent version for %q: %w", controllerID, err)

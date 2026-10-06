@@ -20,21 +20,25 @@ import (
 // compile until every method has a receiver.
 type Deltas interface {
 	// ApplicationScale: struct shape changed in 4.1.0.
-	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale) ([]v4_1_0.ApplicationScale, error)
+	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
 	// Constraint: struct shape changed in 4.1.0.
-	Constraint(ctx context.Context, src []v4_0_12.Constraint) ([]v4_1_0.Constraint, error)
+	Constraint(ctx context.Context, src []v4_0_12.Constraint, model *v4_0_12.ModelExport) ([]v4_1_0.Constraint, error)
 	// Offer: struct shape changed in 4.1.0.
-	Offer(ctx context.Context, src []v4_0_12.Offer) ([]v4_1_0.Offer, error)
+	Offer(ctx context.Context, src []v4_0_12.Offer, model *v4_0_12.ModelExport) ([]v4_1_0.Offer, error)
 	// Operation: struct shape changed in 4.1.0.
-	Operation(ctx context.Context, src []v4_0_12.Operation) ([]v4_1_0.Operation, error)
+	Operation(ctx context.Context, src []v4_0_12.Operation, model *v4_0_12.ModelExport) ([]v4_1_0.Operation, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
-	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting) ([]v4_1_0.RelationApplicationSetting, error)
+	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSetting, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
-	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting) ([]v4_1_0.RelationUnitSetting, error)
+	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
+	// UnitResource: struct shape changed in 4.1.0.
+	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineVirtualSshHostKey(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error)
+	// RelationUnitDeparture: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	RelationUnitDeparture(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitDeparture, error)
 	// SshConnectionRequest: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	SshConnectionRequest(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequest, error)
 	// SshKeyAlgorithmType: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1197,11 +1201,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.UnitResolved[i] = v4_1_0.UnitResolved(src.UnitResolved[i])
 		}
 
-		dst.UnitResource = make([]v4_1_0.UnitResource, len(src.UnitResource))
-		for i := range src.UnitResource {
-			dst.UnitResource[i] = v4_1_0.UnitResource(src.UnitResource[i])
-		}
-
 		dst.UnitState = make([]v4_1_0.UnitState, len(src.UnitState))
 		for i := range src.UnitState {
 			dst.UnitState[i] = v4_1_0.UnitState(src.UnitState[i])
@@ -1242,28 +1241,32 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.WorkloadStatusValue[i] = v4_1_0.WorkloadStatusValue(src.WorkloadStatusValue[i])
 		}
 
-		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale); err != nil {
+		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
 		}
 
-		if dst.Constraint, err = d.Constraint(ctx, src.Constraint); err != nil {
+		if dst.Constraint, err = d.Constraint(ctx, src.Constraint, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
 		}
 
-		if dst.Offer, err = d.Offer(ctx, src.Offer); err != nil {
+		if dst.Offer, err = d.Offer(ctx, src.Offer, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Offer delta: %w", err)
 		}
 
-		if dst.Operation, err = d.Operation(ctx, src.Operation); err != nil {
+		if dst.Operation, err = d.Operation(ctx, src.Operation, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Operation delta: %w", err)
 		}
 
-		if dst.RelationApplicationSetting, err = d.RelationApplicationSetting(ctx, src.RelationApplicationSetting); err != nil {
+		if dst.RelationApplicationSetting, err = d.RelationApplicationSetting(ctx, src.RelationApplicationSetting, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationApplicationSetting delta: %w", err)
 		}
 
-		if dst.RelationUnitSetting, err = d.RelationUnitSetting(ctx, src.RelationUnitSetting); err != nil {
+		if dst.RelationUnitSetting, err = d.RelationUnitSetting(ctx, src.RelationUnitSetting, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitSetting delta: %w", err)
+		}
+
+		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("UnitResource delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {
@@ -1272,6 +1275,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.MachineVirtualSshHostKey, err = d.MachineVirtualSshHostKey(ctx, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("MachineVirtualSshHostKey delta: %w", err)
+		}
+
+		if dst.RelationUnitDeparture, err = d.RelationUnitDeparture(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitDeparture delta: %w", err)
 		}
 
 		if dst.SshConnectionRequest, err = d.SshConnectionRequest(ctx, &src); err != nil {

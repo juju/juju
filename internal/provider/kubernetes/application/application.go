@@ -278,11 +278,9 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		// Push the volume to podspec.
 		vol := corev1.Volume{
 			Name: r.GetName(),
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: r.GetName(),
-					ReadOnly:  attachParams.ReadOnly,
-				},
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: r.GetName(),
+				ReadOnly:  attachParams.ReadOnly,
 			},
 		}
 		return handleVolume(vol, attachParams)
@@ -370,13 +368,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Trace(err)
 		}
 		sts := &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      a.name,
-				Namespace: a.namespace,
-				Labels:    a.labels(),
-				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
-			},
+			Name:        a.name,
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config).Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			Spec: appsv1.StatefulSetSpec{
 				Replicas: numPods,
 				Selector: &metav1.LabelSelector{
@@ -420,13 +415,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 
 		dep := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      a.name,
-				Namespace: a.namespace,
-				Labels:    a.labels(),
-				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
-			},
+			Name:        a.name,
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config).Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			Spec: appsv1.DeploymentSpec{
 				Replicas: numPods,
 				Selector: &metav1.LabelSelector{
@@ -455,13 +447,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Trace(err)
 		}
 		ds := &appsv1.DaemonSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      a.name,
-				Namespace: a.namespace,
-				Labels:    a.labels(),
-				Annotations: a.annotations(config).
-					Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
-			},
+			Name:        a.name,
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config).Add(utils.AnnotationKeyApplicationUUID(a.labelVersion), config.StorageUniqueID),
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: a.selectorLabels(),
@@ -594,48 +583,40 @@ func ensureContainerNamesEnv(existing, desired *corev1.Container) {
 
 func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config caas.ApplicationConfig) error {
 	sec := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.secretName(),
-			Namespace:   a.namespace,
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
-		Data: ApplicationConfigSecretData(a.name, a.modelUUID, config),
+		Name:        a.secretName(),
+		Namespace:   a.namespace,
+		Labels:      a.labels(),
+		Annotations: a.annotations(config),
+		Data:        ApplicationConfigSecretData(a.name, a.modelUUID, config),
 	}
 	secret := resources.NewSecret(a.client.CoreV1().Secrets(a.namespace), a.namespace, a.secretName(), sec)
 	applier.Apply(secret)
 
 	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.serviceAccountName(),
-			Namespace:   a.namespace,
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
+		Name:                         a.serviceAccountName(),
+		Namespace:                    a.namespace,
+		Labels:                       a.labels(),
+		Annotations:                  a.annotations(config),
 		AutomountServiceAccountToken: new(false),
 	}
 	serviceAccount := resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), sa)
 	applier.Apply(serviceAccount)
 
 	r := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.serviceAccountName(),
-			Namespace:   a.namespace,
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
-		Rules: a.roleRules(config.Trust),
+		Name:        a.serviceAccountName(),
+		Namespace:   a.namespace,
+		Labels:      a.labels(),
+		Annotations: a.annotations(config),
+		Rules:       a.roleRules(config.Trust),
 	}
 	role := resources.NewRole(a.client.RbacV1().Roles(a.namespace), a.namespace, a.serviceAccountName(), r)
 	applier.Apply(role)
 
 	rb := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.serviceAccountName(),
-			Namespace:   a.namespace,
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
+		Name:        a.serviceAccountName(),
+		Namespace:   a.namespace,
+		Labels:      a.labels(),
+		Annotations: a.annotations(config),
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
@@ -652,22 +633,18 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 	applier.Apply(roleBinding)
 
 	cr := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.qualifiedClusterName(),
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
-		Rules: a.clusterRoleRules(config.Trust),
+		Name:        a.qualifiedClusterName(),
+		Labels:      a.labels(),
+		Annotations: a.annotations(config),
+		Rules:       a.clusterRoleRules(config.Trust),
 	}
 	clusterRole := resources.NewClusterRole(a.client.RbacV1().ClusterRoles(), a.qualifiedClusterName(), cr)
 	applier.Apply(clusterRole)
 
 	crb := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        a.qualifiedClusterName(),
-			Labels:      a.labels(),
-			Annotations: a.annotations(config),
-		},
+		Name:        a.qualifiedClusterName(),
+		Labels:      a.labels(),
+		Annotations: a.annotations(config),
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
@@ -858,13 +835,10 @@ func IsManagedHeadlessService(svc corev1.Service) bool {
 
 func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
 	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, HeadlessServiceName(name), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: utils.LabelsMerge(a.labels(), labels.Set{
-				constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
-			}),
-			Annotations: annotation.
-				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
-		},
+		Labels: utils.LabelsMerge(a.labels(), labels.Set{
+			constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
+		}),
+		Annotations: annotation.Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
 		Spec: corev1.ServiceSpec{
 			Selector:                 a.selectorLabels(),
 			Type:                     corev1.ServiceTypeClusterIP,
@@ -884,10 +858,8 @@ const (
 // It's only configured once when the application was deployed in the first time.
 func (a *app) configureDefaultService(annotation annotations.Annotation) (err error) {
 	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, a.name, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      a.labels(),
-			Annotations: annotation,
-		},
+		Labels:      a.labels(),
+		Annotations: annotation,
 		Spec: corev1.ServiceSpec{
 			Selector: a.selectorLabels(),
 			Type:     corev1.ServiceTypeClusterIP,
@@ -1505,6 +1477,13 @@ func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 			o.FieldSelector = a.fieldSelector()
 		}),
 	)
+	serviceName := utils.ServiceAddressName(a.name, a.modelName)
+	serviceFactory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
+		informers.WithNamespace(a.namespace),
+		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
+			o.FieldSelector = fields.OneTermEqualSelector("metadata.name", serviceName).String()
+		}),
+	)
 	pvcFactory := informers.NewSharedInformerFactoryWithOptions(a.client, 0,
 		informers.WithNamespace(a.namespace),
 		informers.WithTweakListOptions(func(o *metav1.ListOptions) {
@@ -1526,7 +1505,7 @@ func (a *app) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w2, err := a.newWatcher(factory.Core().V1().Services().Informer(), a.name, a.clock)
+	w2, err := a.newWatcher(serviceFactory.Core().V1().Services().Informer(), serviceName, a.clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1603,8 +1582,12 @@ func (a *app) State() (caas.ApplicationState, error) {
 
 // Service returns the service associated with the application.
 func (a *app) Service() (*caas.Service, error) {
-	svc, err := a.getService()
-	if err != nil {
+	serviceName := utils.ServiceAddressName(a.name, a.modelName)
+	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, serviceName, nil)
+	if err := svc.Get(context.TODO()); err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return nil, internalerrors.Errorf("%w", err).Add(caas.ServiceNotFound)
+		}
 		return nil, errors.Trace(err)
 	}
 	ctx := context.TODO()
@@ -1615,7 +1598,7 @@ func (a *app) Service() (*caas.Service, error) {
 	}
 	return &caas.Service{
 		Id:        string(svc.GetUID()),
-		Addresses: utils.GetSvcAddresses(&svc.Service, false),
+		Addresses: utils.GetSvcAddresses(&svc.Service, serviceName != a.name),
 		Status: status.StatusInfo{
 			Status:  svcStatus,
 			Message: statusMessage,
@@ -1818,11 +1801,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		"--verbose",
 	}
 	charmContainerLivenessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/health?level=alive",
-				Port: intstr.Parse(containerAgentPebblePort),
-			},
+		HTTPGet: &corev1.HTTPGetAction{
+			Path: "/v1/health?level=alive",
+			Port: intstr.Parse(containerAgentPebblePort),
 		},
 		InitialDelaySeconds: containerProbeInitialDelay,
 		TimeoutSeconds:      containerProbeTimeout,
@@ -1831,11 +1812,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		FailureThreshold:    containerLivenessProbeFailure,
 	}
 	charmContainerReadinessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/health?level=ready",
-				Port: intstr.Parse(containerAgentPebblePort),
-			},
+		HTTPGet: &corev1.HTTPGetAction{
+			Path: "/v1/health?level=ready",
+			Port: intstr.Parse(containerAgentPebblePort),
 		},
 		InitialDelaySeconds: containerProbeInitialDelay,
 		TimeoutSeconds:      containerProbeTimeout,
@@ -1844,11 +1823,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		FailureThreshold:    containerReadinessProbeFailure,
 	}
 	charmContainerStartupProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/v1/health?level=alive",
-				Port: intstr.Parse(containerAgentPebblePort),
-			},
+		HTTPGet: &corev1.HTTPGetAction{
+			Path: "/v1/health?level=alive",
+			Port: intstr.Parse(containerAgentPebblePort),
 		},
 		InitialDelaySeconds: containerProbeInitialDelay,
 		TimeoutSeconds:      containerProbeTimeout,
@@ -1904,11 +1881,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	if config.AgentVersion.Compare(containerAgentPebbleVersion) < 0 {
 		charmContainerExtraVolumeMounts = []corev1.VolumeMount{}
 		charmContainerLivenessProbe = &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: constants.AgentHTTPPathLiveness,
-					Port: intstr.Parse(constants.AgentHTTPProbePort),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: constants.AgentHTTPPathLiveness,
+				Port: intstr.Parse(constants.AgentHTTPProbePort),
 			},
 			InitialDelaySeconds: 30,
 			PeriodSeconds:       10,
@@ -1916,11 +1891,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			FailureThreshold:    2,
 		}
 		charmContainerReadinessProbe = &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: constants.AgentHTTPPathReadiness,
-					Port: intstr.Parse(constants.AgentHTTPProbePort),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: constants.AgentHTTPPathReadiness,
+				Port: intstr.Parse(constants.AgentHTTPProbePort),
 			},
 			InitialDelaySeconds: 30,
 			PeriodSeconds:       10,
@@ -1928,11 +1901,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			FailureThreshold:    2,
 		}
 		charmContainerStartupProbe = &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: constants.AgentHTTPPathStartup,
-					Port: intstr.Parse(constants.AgentHTTPProbePort),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: constants.AgentHTTPPathStartup,
+				Port: intstr.Parse(constants.AgentHTTPProbePort),
 			},
 			InitialDelaySeconds: 30,
 			PeriodSeconds:       10,
@@ -2216,15 +2187,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				},
 			},
 		},
-		EnvFrom: []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: appSecret,
-					},
-				},
-			},
-		},
+		EnvFrom: []corev1.EnvFromSource{{SecretRef: &corev1.SecretEnvSource{Name: appSecret}}},
 		VolumeMounts: append([]corev1.VolumeMount{
 			{
 				Name:      constants.CharmVolumeName,
@@ -2275,14 +2238,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		InitContainers:                []corev1.Container{charmInitContainer},
 		Containers:                    containerSpecs,
 		EnableServiceLinks:            new(a.enableServiceLinksFunc()),
-		Volumes: []corev1.Volume{
-			{
-				Name: constants.CharmVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
-			},
-		},
+		Volumes:                       []corev1.Volume{{Name: constants.CharmVolumeName, EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 
 	if agentVersionNoBuild.Compare(charmContainerResourceVersion) >= 0 {
@@ -2328,13 +2284,11 @@ func (a *app) applyImagePullSecrets(applier resources.Applier, config caas.Appli
 			return errors.Trace(err)
 		}
 		sec := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        a.imagePullSecretName(container.Name),
-				Namespace:   a.namespace,
-				Labels:      a.labels(),
-				Annotations: a.annotations(config),
-			},
-			Type: corev1.SecretTypeDockerConfigJson,
+			Name:        a.imagePullSecretName(container.Name),
+			Namespace:   a.namespace,
+			Labels:      a.labels(),
+			Annotations: a.annotations(config),
+			Type:        corev1.SecretTypeDockerConfigJson,
 			Data: map[string][]byte{
 				corev1.DockerConfigJsonKey: secretData,
 			},
@@ -2639,13 +2593,11 @@ func (a *app) filesystemToVolumeInfo(
 
 	pvcSpec := storage.PersistentVolumeClaimSpec(*params)
 	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   params.Name,
-			Labels: labels,
-			Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, a.labelVersion).
-				Merge(utils.AnnotationsForStorage(fs.StorageName, a.labelVersion)).
-				ToMap(),
-		},
+		Name:   params.Name,
+		Labels: labels,
+		Annotations: utils.ResourceTagsToAnnotations(fs.ResourceTags, a.labelVersion).
+			Merge(utils.AnnotationsForStorage(fs.StorageName, a.labelVersion)).
+			ToMap(),
 		Spec: *pvcSpec,
 	}
 	return nil, pvc, newStorageClass, nil

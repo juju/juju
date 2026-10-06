@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	apiservercharms "github.com/juju/juju/apiserver/internal/charms"
-	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/repository"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/resource"
-	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -173,12 +171,9 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 	return r, nil
 }
 
-// AddPendingResources handles 2 scenarios
-//  1. Adds the provided resources (info) to the Juju model before the
-//     application exists. These resources are resolved when the
-//     application is created using the returned Resource UUIDs.
-//  2. Updates which resource revision an application uses, changing the
-//     origin to store. No Resource IDs are returned.
+// AddPendingResources adds resource candidates before an application is
+// created or before an existing application changes charm. The returned IDs
+// are activated by the application operation.
 //
 // Handles CharmHub and Local charms.
 func (a *API) AddPendingResources(
@@ -204,8 +199,6 @@ func (a *API) AddPendingResources(
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("application %s", appName))
 		return result, nil
 	}
-	applicationExists := err == nil
-
 	requestedOrigin, err := charms.ConvertParamsOrigin(args.CharmOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
@@ -232,16 +225,6 @@ func (a *API) AddPendingResources(
 	resolvedResources, err := a.resolveResources(ctx, curl, requestedOrigin, resources)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	if applicationExists {
-		newUUIDs, err := a.updateResources(ctx, appDetails.UUID, resolvedResources)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-			return result, nil
-		}
-		result.PendingIDs = newUUIDs
 		return result, nil
 	}
 
@@ -324,68 +307,6 @@ func (a *API) addPendingResources(
 }
 
 // updateResources handles updates of all provided resources.
-func (a *API) updateResources(
-	ctx context.Context,
-	appID coreapplication.UUID,
-	resources []charmresource.Resource,
-) ([]string, error) {
-	newUUIDs := make([]string, len(resources))
-	for i, res := range resources {
-		newUUID, err := a.updateResource(ctx, appID, res)
-		if errors.Is(err, resourceerrors.ArgumentNotValid) || errors.Is(err, resourceerrors.ResourceUUIDNotValid) {
-			return nil, internalerrors.Errorf("%w, %w", err, errors.NotValid)
-		} else if err != nil {
-			// TODO: hml 2025-02-18
-			// This behavior conflicts with what actually happens in the
-			// juju cli where it does not make bulk calls to this method.
-			// Work should be done to remove any successfully created
-			// resources, to change the expected behavior.
-			//
-			// We don't bother aggregating errors since a partial
-			// completion is disruptive and a retry of this endpoint
-			// is not expensive.
-			return nil, internalerrors.Capture(err)
-		}
-		newUUIDs[i] = newUUID.String()
-	}
-	return newUUIDs, nil
-}
-
-// updateResource updates the resource based on origin.
-func (a *API) updateResource(
-	ctx context.Context,
-	appID coreapplication.UUID,
-	res charmresource.Resource,
-) (coreresource.UUID, error) {
-	resourceID, err := a.resourceService.GetApplicationResourceID(ctx,
-		resource.GetApplicationResourceIDArgs{
-			ApplicationUUID: appID,
-			Name:            res.Name,
-		},
-	)
-	if errors.Is(err, resourceerrors.ResourceNameNotValid) || errors.Is(err, resourceerrors.ResourceNotFound) {
-		return "", internalerrors.Errorf("resource %q: %w", res.Name,
-			err)
-	} else if err != nil {
-		return "", internalerrors.Capture(err)
-	}
-
-	var newUUID coreresource.UUID
-	switch res.Origin {
-	case charmresource.OriginStore:
-		arg := resource.UpdateResourceRevisionArgs{
-			ResourceUUID: resourceID,
-			Revision:     res.Revision,
-		}
-		newUUID, err = a.resourceService.UpdateResourceRevision(ctx, arg)
-	case charmresource.OriginUpload:
-		newUUID, err = a.resourceService.UpdateUploadResource(ctx, resourceID)
-	default:
-		return "", internalerrors.Errorf("unknown origin %q", res.Origin)
-	}
-	return newUUID, internalerrors.Capture(err)
-}
-
 func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) {
 	applicationTag, err := names.ParseApplicationTag(tagStr)
 	if err != nil {

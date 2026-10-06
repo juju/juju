@@ -172,15 +172,13 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 	}
 
 	appSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab-application-config",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name:      "gitlab-application-config",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": agentVersion},
 		Data: map[string][]byte{
 			"JUJU_K8S_APPLICATION":          []byte("gitlab"),
 			"JUJU_K8S_MODEL":                []byte(s.modelUUID),
@@ -190,15 +188,13 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 		},
 	}
 	appSvc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": agentVersion},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "gitlab"},
 			Type:     corev1.ServiceTypeClusterIP,
@@ -210,42 +206,36 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 	}
 	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "docker.io/library/nginx:latest")
 	nginxPullSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab-nginx-secret",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name:      "gitlab-nginx-secret",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
-		Type: corev1.SecretTypeDockerConfigJson,
+		Annotations: map[string]string{"juju.is/version": agentVersion},
+		Type:        corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			corev1.DockerConfigJsonKey: pullSecretConfig,
 		},
 	}
 	appSA := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations:                  map[string]string{"juju.is/version": agentVersion},
 		AutomountServiceAccountToken: pointer.BoolPtr(false),
 	}
 	appRole := rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": agentVersion},
 	}
 	if trust {
 		appRole.Rules = []rbacv1.PolicyRule{{
@@ -283,15 +273,13 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 		}
 	}
 	appRoleBinding := rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": agentVersion},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      "gitlab",
@@ -303,14 +291,12 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 		},
 	}
 	appClusterRole := rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-gitlab",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name: "test-gitlab",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": agentVersion},
 	}
 	if trust {
 		appClusterRole.Rules = []rbacv1.PolicyRule{{
@@ -326,14 +312,12 @@ func (s *applicationSuite) assertEnsure(c *tc.C, app caas.Application,
 		}}
 	}
 	appClusterRoleBinding := rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-gitlab",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": agentVersion},
+		Name: "test-gitlab",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": agentVersion},
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      "gitlab",
@@ -730,18 +714,16 @@ func (s *applicationSuite) assertDelete(c *tc.C, app caas.Application) {
 func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	// Base service used by all entry in test table.
 	expectedService := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab-endpoints",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-				"service.juju.is/type":         "endpoints",
-			},
-			Annotations: map[string]string{
-				"juju.is/version": "3.5-beta1",
-				"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-			},
+		Name:      "gitlab-endpoints",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
+			"service.juju.is/type":         "endpoints",
+		},
+		Annotations: map[string]string{
+			"juju.is/version": "3.5-beta1",
+			"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 		},
 		Spec: corev1.ServiceSpec{
 			Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -753,16 +735,14 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	// Expected PVC that follows the modern naming format <app>-<storage>-<uniqid>-<app>-<ordinal>.
 	expectedPVCsModernFormat := []corev1.PersistentVolumeClaim{
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "gitlab-database-uniqid",
-				Labels: map[string]string{
-					"storage.juju.is/name":         "database",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{
-					"foo":                  "bar",
-					"storage.juju.is/name": "database",
-				},
+			Name: "gitlab-database-uniqid",
+			Labels: map[string]string{
+				"storage.juju.is/name":         "database",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: pointer.StringPtr("test-workload-storage"),
@@ -780,16 +760,14 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	// Expected PVC that follows the legacy naming format <storage>-<uniqid>-<app>-<ordinal>.
 	expectedPVCsLegacyFormatWithUniqID := []corev1.PersistentVolumeClaim{
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "database-uniqid",
-				Labels: map[string]string{
-					"storage.juju.is/name":         "database",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{
-					"foo":                  "bar",
-					"storage.juju.is/name": "database",
-				},
+			Name: "database-uniqid",
+			Labels: map[string]string{
+				"storage.juju.is/name":         "database",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: pointer.StringPtr("test-workload-storage"),
@@ -807,16 +785,14 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 	// Expected PVC that follows the legacy naming format juju-<storage>-<number>.
 	expectedPVCsLegacyFormatWithoutUniqID := []corev1.PersistentVolumeClaim{
 		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "juju-database-123",
-				Labels: map[string]string{
-					"storage.juju.is/name":         "database",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{
-					"foo":                  "bar",
-					"storage.juju.is/name": "database",
-				},
+			Name: "juju-database-123",
+			Labels: map[string]string{
+				"storage.juju.is/name":         "database",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"foo":                  "bar",
+				"storage.juju.is/name": "database",
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: pointer.StringPtr("test-workload-storage"),
@@ -1028,17 +1004,15 @@ func expectedStatefulSet(
 	podspec corev1.PodSpec,
 ) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{
-				"juju.is/version":  "3.5-beta1",
-				"app.juju.is/uuid": "uniqid",
-			},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
+		},
+		Annotations: map[string]string{
+			"juju.is/version":  "3.5-beta1",
+			"app.juju.is/uuid": "uniqid",
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: pointer.Int32Ptr(3),
@@ -1048,11 +1022,9 @@ func expectedStatefulSet(
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-					Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
-				},
-				Spec: podspec,
+				Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+				Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+				Spec:        podspec,
 			},
 			VolumeClaimTemplates: pvcs,
 			PodManagementPolicy:  appsv1.ParallelPodManagement,
@@ -1068,28 +1040,24 @@ func (s *applicationSuite) TestEnsureStatefulDeletesOrphanedStatefulSet(c *tc.C)
 	// but valid Juju ownership labels and annotations. This simulates
 	// the leftover from a force-removed deployment.
 	orphanSts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.appName,
-			Namespace: s.namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       s.appName,
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{
-				"app.juju.is/uuid":      "old-uuid",
-				"model.juju.is/id":      s.modelUUID,
-				"controller.juju.is/id": s.controllerUUID,
-				"juju.is/version":       defaultAgentVersion,
-			},
+		Name:      s.appName,
+		Namespace: s.namespace,
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       s.appName,
+			"app.kubernetes.io/managed-by": "juju",
+		},
+		Annotations: map[string]string{
+			"app.juju.is/uuid":      "old-uuid",
+			"model.juju.is/id":      s.modelUUID,
+			"controller.juju.is/id": s.controllerUUID,
+			"juju.is/version":       defaultAgentVersion,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": s.appName},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app.kubernetes.io/name": s.appName},
-				},
+				Labels: map[string]string{"app.kubernetes.io/name": s.appName},
 			},
 		},
 	}
@@ -1137,27 +1105,23 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanNotOwnedByJuju(c *tc.C) 
 	// Pre-create a StatefulSet with a different UUID but NOT owned by Juju
 	// (missing the managed-by label). The fix must not delete it.
 	orphanSts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.appName,
-			Namespace: s.namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name": s.appName,
-				// No "app.kubernetes.io/managed-by": "juju" label.
-			},
-			Annotations: map[string]string{
-				"app.juju.is/uuid": "old-uuid",
-				"model.juju.is/id": s.modelUUID,
-				"juju.is/version":  defaultAgentVersion,
-			},
+		Name:      s.appName,
+		Namespace: s.namespace,
+		Labels: map[string]string{
+			"app.kubernetes.io/name": s.appName,
+			// No "app.kubernetes.io/managed-by": "juju" label.
+		},
+		Annotations: map[string]string{
+			"app.juju.is/uuid": "old-uuid",
+			"model.juju.is/id": s.modelUUID,
+			"juju.is/version":  defaultAgentVersion,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": s.appName},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app.kubernetes.io/name": s.appName},
-				},
+				Labels: map[string]string{"app.kubernetes.io/name": s.appName},
 			},
 		},
 	}
@@ -1190,27 +1154,23 @@ func (s *applicationSuite) TestEnsureStatefulSkipsOrphanFromDifferentModel(c *tc
 	// Pre-create a StatefulSet with a different UUID that is managed by Juju
 	// but belongs to a different model. The fix must not delete it.
 	orphanSts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      s.appName,
-			Namespace: s.namespace,
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       s.appName,
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{
-				"app.juju.is/uuid": "old-uuid",
-				"model.juju.is/id": "different-model-uuid",
-				"juju.is/version":  defaultAgentVersion,
-			},
+		Name:      s.appName,
+		Namespace: s.namespace,
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       s.appName,
+			"app.kubernetes.io/managed-by": "juju",
+		},
+		Annotations: map[string]string{
+			"app.juju.is/uuid": "old-uuid",
+			"model.juju.is/id": "different-model-uuid",
+			"juju.is/version":  defaultAgentVersion,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": s.appName},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"app.kubernetes.io/name": s.appName},
-				},
+				Labels: map[string]string{"app.kubernetes.io/name": s.appName},
 			},
 		},
 	}
@@ -1244,18 +1204,16 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-endpoints",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-						"service.juju.is/type":         "endpoints",
-					},
-					Annotations: map[string]string{
-						"juju.is/version": "3.5-beta1",
-						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-					},
+				Name:      "gitlab-endpoints",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+					"service.juju.is/type":         "endpoints",
+				},
+				Annotations: map[string]string{
+					"juju.is/version": "3.5-beta1",
+					"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 				},
 				Spec: corev1.ServiceSpec{
 					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -1269,17 +1227,15 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: pointer.Int32Ptr(3),
@@ -1289,24 +1245,21 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 						},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
-						},
-						Spec: podSpec,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						Spec:        podSpec,
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-uniqid",
-								Labels: map[string]string{
-									"storage.juju.is/name":         "database",
-									"app.kubernetes.io/managed-by": "juju",
-								},
-								Annotations: map[string]string{
-									"foo":                  "bar",
-									"storage.juju.is/name": "database",
-								}},
+							Name: "gitlab-database-uniqid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							},
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1335,18 +1288,16 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-endpoints",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-						"service.juju.is/type":         "endpoints",
-					},
-					Annotations: map[string]string{
-						"juju.is/version": "3.6-beta3",
-						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-					},
+				Name:      "gitlab-endpoints",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+					"service.juju.is/type":         "endpoints",
+				},
+				Annotations: map[string]string{
+					"juju.is/version": "3.6-beta3",
+					"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 				},
 				Spec: corev1.ServiceSpec{
 					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -1360,17 +1311,15 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "3.6-beta3",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.6-beta3",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: pointer.Int32Ptr(3),
@@ -1380,24 +1329,21 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 						},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.6-beta3"},
-						},
-						Spec: podSpec,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.6-beta3"},
+						Spec:        podSpec,
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-uniqid",
-								Labels: map[string]string{
-									"storage.juju.is/name":         "database",
-									"app.kubernetes.io/managed-by": "juju",
-								},
-								Annotations: map[string]string{
-									"foo":                  "bar",
-									"storage.juju.is/name": "database",
-								}},
+							Name: "gitlab-database-uniqid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							},
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1446,18 +1392,16 @@ func (s *applicationSuite) TestEnsureStatefulRootlessWithTempFSStorage(c *tc.C) 
 			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-endpoints",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-						"service.juju.is/type":         "endpoints",
-					},
-					Annotations: map[string]string{
-						"juju.is/version": "4.0-beta8",
-						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-					},
+				Name:      "gitlab-endpoints",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+					"service.juju.is/type":         "endpoints",
+				},
+				Annotations: map[string]string{
+					"juju.is/version": "4.0-beta8",
+					"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 				},
 				Spec: corev1.ServiceSpec{
 					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -1484,17 +1428,15 @@ func (s *applicationSuite) TestEnsureStatefulRootlessWithTempFSStorage(c *tc.C) 
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "4.0-beta8",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "4.0-beta8",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: pointer.Int32Ptr(3),
@@ -1504,24 +1446,21 @@ func (s *applicationSuite) TestEnsureStatefulRootlessWithTempFSStorage(c *tc.C) 
 						},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "4.0-beta8"},
-						},
-						Spec: podSpec,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "4.0-beta8"},
+						Spec:        podSpec,
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-uniqid",
-								Labels: map[string]string{
-									"storage.juju.is/name":         "database",
-									"app.kubernetes.io/managed-by": "juju",
-								},
-								Annotations: map[string]string{
-									"foo":                  "bar",
-									"storage.juju.is/name": "database",
-								}},
+							Name: "gitlab-database-uniqid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							},
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1576,18 +1515,16 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-endpoints",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-						"service.juju.is/type":         "endpoints",
-					},
-					Annotations: map[string]string{
-						"juju.is/version": "3.5-beta1",
-						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-					},
+				Name:      "gitlab-endpoints",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+					"service.juju.is/type":         "endpoints",
+				},
+				Annotations: map[string]string{
+					"juju.is/version": "3.5-beta1",
+					"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 				},
 				Spec: corev1.ServiceSpec{
 					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -1600,17 +1537,15 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: pointer.Int32Ptr(3),
@@ -1620,24 +1555,21 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 						},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
-						},
-						Spec: podSpec,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						Spec:        podSpec,
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-uniqid",
-								Labels: map[string]string{
-									"storage.juju.is/name":         "database",
-									"app.kubernetes.io/managed-by": "juju",
-								},
-								Annotations: map[string]string{
-									"foo":                  "bar",
-									"storage.juju.is/name": "database",
-								}},
+							Name: "gitlab-database-uniqid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							},
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -1670,17 +1602,15 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 				Get(c.Context(), "gitlab-database-uniqid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-database-uniqid",
-					Namespace: "test",
-					Labels: map[string]string{
-						"storage.juju.is/name":         "database",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"foo":                  "bar",
-						"storage.juju.is/name": "database",
-					},
+				Name:      "gitlab-database-uniqid",
+				Namespace: "test",
+				Labels: map[string]string{
+					"storage.juju.is/name":         "database",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"foo":                  "bar",
+					"storage.juju.is/name": "database",
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					StorageClassName: pointer.StringPtr("test-workload-storage"),
@@ -1702,17 +1632,15 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 					}},
 			})
 			c.Assert(ss, tc.DeepEquals, &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: pointer.Int32Ptr(3),
@@ -1720,11 +1648,9 @@ func (s *applicationSuite) TestEnsureStateless(c *tc.C) {
 						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
-						},
-						Spec: podSpec,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						Spec:        podSpec,
 					},
 				},
 			})
@@ -1745,17 +1671,15 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 				Get(c.Context(), "gitlab-database-uniqid", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(pvc, tc.DeepEquals, &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-database-uniqid",
-					Namespace: "test",
-					Labels: map[string]string{
-						"storage.juju.is/name":         "database",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"foo":                  "bar",
-						"storage.juju.is/name": "database",
-					},
+				Name:      "gitlab-database-uniqid",
+				Namespace: "test",
+				Labels: map[string]string{
+					"storage.juju.is/name":         "database",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"foo":                  "bar",
+					"storage.juju.is/name": "database",
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					StorageClassName: pointer.StringPtr("test-workload-storage"),
@@ -1777,28 +1701,24 @@ func (s *applicationSuite) TestEnsureDaemon(c *tc.C) {
 					}},
 			})
 			c.Assert(ss, tc.DeepEquals, &appsv1.DaemonSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.DaemonSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
-						},
-						Spec: podSpec,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						Spec:        podSpec,
 					},
 				},
 			})
@@ -1825,15 +1745,13 @@ func (s *applicationSuite) TestExistsDeployment(c *tc.C) {
 
 	// ensure a terminating Deployment.
 	dr := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -1864,15 +1782,13 @@ func (s *applicationSuite) TestExistsStatefulSet(c *tc.C) {
 
 	// ensure a terminating Statefulset.
 	sr := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		Spec: appsv1.StatefulSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -1904,15 +1820,13 @@ func (s *applicationSuite) TestExistsDaemonSet(c *tc.C) {
 
 	// ensure a terminating Daemonset.
 	dmr := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		Spec: appsv1.DaemonSetSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -2151,26 +2065,22 @@ func (s *applicationSuite) assertState(c *tc.C, deploymentType caas.DeploymentTy
 	desiredReplicas := createMainResource()
 
 	pod1 := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "pod1",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
-		},
+		TypeMeta:    metav1.TypeMeta{},
+		Name:        "pod1",
+		Namespace:   "test",
+		Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
 	}
 	_, err := s.client.CoreV1().Pods("test").Create(c.Context(),
 		pod1, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	pod2 := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "pod2",
-			Namespace:   "test",
-			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
-		},
+		TypeMeta:    metav1.TypeMeta{},
+		Name:        "pod2",
+		Namespace:   "test",
+		Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
 	}
 	_, err = s.client.CoreV1().Pods("test").Create(c.Context(),
 		pod2, metav1.CreateOptions{})
@@ -2189,15 +2099,13 @@ func (s *applicationSuite) TestStateStateful(c *tc.C) {
 		desiredReplicas := 10
 
 		dmr := &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab",
-				Namespace: "test",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":       "gitlab",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{"juju.is/version": "2.9.37"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
 			},
+			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 			Spec: appsv1.StatefulSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -2217,15 +2125,13 @@ func (s *applicationSuite) TestStateStateless(c *tc.C) {
 		desiredReplicas := 10
 
 		dmr := &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab",
-				Namespace: "test",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":       "gitlab",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{"juju.is/version": "2.9.37"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
 			},
+			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -2245,15 +2151,13 @@ func (s *applicationSuite) TestStateDaemon(c *tc.C) {
 		desiredReplicas := 10
 
 		dmr := &appsv1.DaemonSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab",
-				Namespace: "test",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":       "gitlab",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{"juju.is/version": "2.9.37"},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
 			},
+			Annotations: map[string]string{"juju.is/version": "2.9.37"},
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -2272,15 +2176,13 @@ func (s *applicationSuite) TestStateDaemon(c *tc.C) {
 
 func getDefaultSvc() *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+		Name:      "gitlab",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app.kubernetes.io/name": "gitlab"},
 
@@ -2302,27 +2204,23 @@ func (s *applicationSuite) TestUpdatePortsStatelessUpdateContainerPorts(c *tc.C)
 
 	getMainResourceSpec := func() *appsv1.Deployment {
 		return &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab",
-				Namespace: "test",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":       "gitlab",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{
-					"juju.is/version":  "2.9.37",
-					"app.juju.is/uuid": "uniqid",
-				},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"juju.is/version":  "2.9.37",
+				"app.juju.is/uuid": "uniqid",
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-						Annotations: map[string]string{"juju.is/version": "2.9.37"},
-					},
+					Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+					Annotations: map[string]string{"juju.is/version": "2.9.37"},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name:            "charm",
@@ -2432,27 +2330,23 @@ func (s *applicationSuite) TestUpdatePortsStatefulUpdateContainerPorts(c *tc.C) 
 
 	getMainResourceSpec := func() *appsv1.StatefulSet {
 		return &appsv1.StatefulSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab",
-				Namespace: "test",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":       "gitlab",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{
-					"juju.is/version":  "2.9.37",
-					"app.juju.is/uuid": "uniqid",
-				},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"juju.is/version":  "2.9.37",
+				"app.juju.is/uuid": "uniqid",
 			},
 			Spec: appsv1.StatefulSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-						Annotations: map[string]string{"juju.is/version": "2.9.37"},
-					},
+					Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+					Annotations: map[string]string{"juju.is/version": "2.9.37"},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name:            "charm",
@@ -2562,27 +2456,23 @@ func (s *applicationSuite) TestUpdatePortsDaemonUpdateContainerPorts(c *tc.C) {
 
 	getMainResourceSpec := func() *appsv1.DaemonSet {
 		return &appsv1.DaemonSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "gitlab",
-				Namespace: "test",
-				Labels: map[string]string{
-					"app.kubernetes.io/name":       "gitlab",
-					"app.kubernetes.io/managed-by": "juju",
-				},
-				Annotations: map[string]string{
-					"juju.is/version":  "2.9.37",
-					"app.juju.is/uuid": "uniqid",
-				},
+			Name:      "gitlab",
+			Namespace: "test",
+			Labels: map[string]string{
+				"app.kubernetes.io/name":       "gitlab",
+				"app.kubernetes.io/managed-by": "juju",
+			},
+			Annotations: map[string]string{
+				"juju.is/version":  "2.9.37",
+				"app.juju.is/uuid": "uniqid",
 			},
 			Spec: appsv1.DaemonSetSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"app.kubernetes.io/name": "gitlab"},
 				},
 				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-						Annotations: map[string]string{"juju.is/version": "2.9.37"},
-					},
+					Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+					Annotations: map[string]string{"juju.is/version": "2.9.37"},
 					Spec: corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name:            "charm",
@@ -2954,13 +2844,11 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 			corev1.VolumeMount{Name: "vol-emptydir", MountPath: "path/emptydir"},
 		)
 		pod := corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   s.namespace,
-				Name:        fmt.Sprintf("%s-%d", s.appName, i),
-				Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-				Annotations: map[string]string{"juju.is/version": "2.9.37"},
-			},
-			Spec: podSpec,
+			Namespace:   s.namespace,
+			Name:        fmt.Sprintf("%s-%d", s.appName, i),
+			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+			Annotations: map[string]string{"juju.is/version": "2.9.37"},
+			Spec:        podSpec,
 			Status: corev1.PodStatus{
 				PodIP: fmt.Sprintf("10.10.10.%d", i),
 			},
@@ -3085,10 +2973,8 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 
 		pvc := corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: s.namespace,
-				Name:      fmt.Sprintf("gitlab-database-uniqid-gitlab-%d", i),
-			},
+			Namespace: s.namespace,
+			Name:      fmt.Sprintf("gitlab-database-uniqid-gitlab-%d", i),
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
@@ -3114,9 +3000,7 @@ func (s *applicationSuite) TestUnits(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 
 		pv := corev1.PersistentVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("pv-%d", i),
-			},
+			Name: fmt.Sprintf("pv-%d", i),
 			Spec: corev1.PersistentVolumeSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
@@ -3459,13 +3343,11 @@ func (s *applicationSuite) TestUnitsWithEmptyDirStorage(c *tc.C) {
 	})
 
 	pod := corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   s.namespace,
-			Name:        "gitlab-0",
-			Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-			Annotations: map[string]string{"juju.is/version": "2.9.37"},
-		},
-		Spec: podSpec,
+		Namespace:   s.namespace,
+		Name:        "gitlab-0",
+		Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+		Annotations: map[string]string{"juju.is/version": "2.9.37"},
+		Spec:        podSpec,
 		Status: corev1.PodStatus{
 			PodIP: "10.10.10.10",
 			Conditions: []corev1.PodCondition{
@@ -3663,10 +3545,8 @@ func (s *applicationSuite) TestServiceError(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	evt := corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "test",
-			Name:      "evt1",
-		},
+		Namespace: "test",
+		Name:      "evt1",
 		InvolvedObject: corev1.ObjectReference{
 			Name: "gitlab",
 			Kind: "StatefulSet",
@@ -3707,8 +3587,8 @@ func (s *applicationSuite) TestEnsureControllerNonceConfigMapConflictRetry(c *tc
 	configMapName := s.appName + "-configmap"
 	key := "controller-nonce-1"
 	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
-		Data:       map[string]string{key: "old-nonce"},
+		Name: configMapName,
+		Data: map[string]string{key: "old-nonce"},
 	}, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3738,13 +3618,13 @@ func (s *applicationSuite) TestEnsureControllerNonceStatefulSetConflictRetry(c *
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	configMapName := s.appName + "-configmap"
 	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
-		Data:       map[string]string{"controller-nonce-1": "persisted-nonce"},
+		Name: configMapName,
+		Data: map[string]string{"controller-nonce-1": "persisted-nonce"},
 	}, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.client.AppsV1().StatefulSets(s.namespace).Create(c.Context(), &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{Name: s.appName},
+		Name: s.appName,
 		Spec: appsv1.StatefulSetSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{Volumes: []corev1.Volume{{
@@ -3785,8 +3665,8 @@ func (s *applicationSuite) TestEnsureControllerNonceConflictExhaustsRetries(c *t
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	configMapName := s.appName + "-configmap"
 	_, err := s.client.CoreV1().ConfigMaps(s.namespace).Create(c.Context(), &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: configMapName},
-		Data:       map[string]string{"controller-nonce-1": "old-nonce"},
+		Name: configMapName,
+		Data: map[string]string{"controller-nonce-1": "old-nonce"},
 	}, metav1.CreateOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3812,18 +3692,16 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 			svc, err := s.client.CoreV1().Services("test").Get(c.Context(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(svc, tc.DeepEquals, &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab-endpoints",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-						"service.juju.is/type":         "endpoints",
-					},
-					Annotations: map[string]string{
-						"juju.is/version": "3.5-beta1",
-						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
-					},
+				Name:      "gitlab-endpoints",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+					"service.juju.is/type":         "endpoints",
+				},
+				Annotations: map[string]string{
+					"juju.is/version": "3.5-beta1",
+					"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
 				},
 				Spec: corev1.ServiceSpec{
 					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
@@ -3849,17 +3727,15 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 			ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, tc.ErrorIsNil)
 			c.Assert(ss, tc.DeepEquals, &appsv1.StatefulSet{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "gitlab",
-					Namespace: "test",
-					Labels: map[string]string{
-						"app.kubernetes.io/name":       "gitlab",
-						"app.kubernetes.io/managed-by": "juju",
-					},
-					Annotations: map[string]string{
-						"juju.is/version":  "3.5-beta1",
-						"app.juju.is/uuid": "uniqid",
-					},
+				Name:      "gitlab",
+				Namespace: "test",
+				Labels: map[string]string{
+					"app.kubernetes.io/name":       "gitlab",
+					"app.kubernetes.io/managed-by": "juju",
+				},
+				Annotations: map[string]string{
+					"juju.is/version":  "3.5-beta1",
+					"app.juju.is/uuid": "uniqid",
 				},
 				Spec: appsv1.StatefulSetSpec{
 					Replicas: pointer.Int32Ptr(3),
@@ -3869,24 +3745,21 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 						},
 					},
 					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
-							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
-						},
-						Spec: ps,
+						Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+						Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+						Spec:        ps,
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "gitlab-database-uniqid",
-								Labels: map[string]string{
-									"storage.juju.is/name":         "database",
-									"app.kubernetes.io/managed-by": "juju",
-								},
-								Annotations: map[string]string{
-									"foo":                  "bar",
-									"storage.juju.is/name": "database",
-								}},
+							Name: "gitlab-database-uniqid",
+							Labels: map[string]string{
+								"storage.juju.is/name":         "database",
+								"app.kubernetes.io/managed-by": "juju",
+							},
+							Annotations: map[string]string{
+								"foo":                  "bar",
+								"storage.juju.is/name": "database",
+							},
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -3911,16 +3784,14 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
 	unusedPullSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab-oldcontainer-secret",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+		Name:      "gitlab-oldcontainer-secret",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
-		Type: corev1.SecretTypeDockerConfigJson,
+		Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+		Type:        corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			corev1.DockerConfigJsonKey: []byte("wow"),
 		},
@@ -3932,16 +3803,14 @@ func (s *applicationSuite) TestPullSecretUpdate(c *tc.C) {
 
 	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username-old", "password-old", "docker.io/library/nginx:latest")
 	nginxPullSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab-nginx-secret",
-			Namespace: "test",
-			Labels: map[string]string{
-				"app.kubernetes.io/name":       "gitlab",
-				"app.kubernetes.io/managed-by": "juju",
-			},
-			Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+		Name:      "gitlab-nginx-secret",
+		Namespace: "test",
+		Labels: map[string]string{
+			"app.kubernetes.io/name":       "gitlab",
+			"app.kubernetes.io/managed-by": "juju",
 		},
-		Type: corev1.SecretTypeDockerConfigJson,
+		Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
+		Type:        corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{
 			corev1.DockerConfigJsonKey: pullSecretConfig,
 		},
@@ -4042,22 +3911,18 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ServiceAccount (namespace-scoped)
 	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sa1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "sa1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 	}
 	_, err := s.client.CoreV1().ServiceAccounts(modelName).Create(ctx, sa, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Role (namespace-scoped)
 	role := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "role1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "role1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"},
 		}},
@@ -4067,23 +3932,19 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// RoleBinding (namespace-scoped)
 	rb := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rb1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
-		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: role.Name},
-		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: sa.Name, Namespace: modelName}},
+		Name:      "rb1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
+		RoleRef:   rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: role.Name},
+		Subjects:  []rbacv1.Subject{{Kind: "ServiceAccount", Name: sa.Name, Namespace: modelName}},
 	}
 	_, err = s.client.RbacV1().RoleBindings(modelName).Create(ctx, rb, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// ClusterRole (cluster-scoped)
 	cr := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "cr1",
-			Labels: resourceLabels,
-		},
+		Name:   "cr1",
+		Labels: resourceLabels,
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{""}, Resources: []string{"nodes"}, Verbs: []string{"get", "list"},
 		}},
@@ -4093,10 +3954,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ClusterRoleBinding (cluster-scoped)
 	crb := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "crb1",
-			Labels: resourceLabels,
-		},
+		Name:     "crb1",
+		Labels:   resourceLabels,
 		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: cr.Name},
 		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: sa.Name, Namespace: modelName}},
 	}
@@ -4105,36 +3964,30 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ConfigMap
 	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cm1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
-		Data: map[string]string{"k": "v"},
+		Name:      "cm1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
+		Data:      map[string]string{"k": "v"},
 	}
 	_, err = s.client.CoreV1().ConfigMaps(modelName).Create(ctx, cm, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Secret
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-container-secret", appName),
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
-		Type: corev1.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+		Name:      fmt.Sprintf("%s-container-secret", appName),
+		Namespace: modelName,
+		Labels:    resourceLabels,
+		Type:      corev1.SecretTypeDockerConfigJson,
+		Data:      map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
 	}
 	_, err = s.client.CoreV1().Secrets(modelName).Create(ctx, secret, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Service (ref by Ingress/Webhooks)
 	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "svc1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 		Spec: corev1.ServiceSpec{
 			Selector: resourceLabels,
 			Ports:    []corev1.ServicePort{{Port: 80}},
@@ -4145,16 +3998,14 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// StatefulSet
 	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sts1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "sts1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: "svc1",
 			Replicas:    pointer.Int32(1),
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: resourceLabels},
+				Labels: resourceLabels,
 				Spec: corev1.PodSpec{
 					ServiceAccountName: sa.Name,
 					Containers: []corev1.Container{{
@@ -4170,16 +4021,14 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// Deployment
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "gitlab",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: pointer.Int32(1),
 			Selector: &metav1.LabelSelector{MatchLabels: resourceLabels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: resourceLabels},
+				Labels: resourceLabels,
 				Spec: corev1.PodSpec{
 					ServiceAccountName: sa.Name,
 					Containers: []corev1.Container{{
@@ -4196,11 +4045,9 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// DaemonSet
 	ds := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ds1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "ds1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 		Spec: appsv1.DaemonSetSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
@@ -4214,11 +4061,9 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// Ingress
 	ing := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ing1",
-			Namespace: modelName,
-			Labels:    resourceLabels,
-		},
+		Name:      "ing1",
+		Namespace: modelName,
+		Labels:    resourceLabels,
 		Spec: networkingv1.IngressSpec{
 			Rules: []networkingv1.IngressRule{{
 				Host: "example.local",
@@ -4230,10 +4075,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// CRD (namespace-scoped)
 	namespacedCRD := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "widgets.example.com",
-			Labels: resourceLabels,
-		},
+		Name:   "widgets.example.com",
+		Labels: resourceLabels,
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: "example.com",
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
@@ -4281,10 +4124,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// CRD (cluster-scoped)
 	clusterCRD := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "clusterwidgets.example.com",
-			Labels: resourceLabels,
-		},
+		Name:   "clusterwidgets.example.com",
+		Labels: resourceLabels,
 		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
 			Group: "example.com",
 			Names: apiextensionsv1.CustomResourceDefinitionNames{
@@ -4340,10 +4181,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// MutatingWebhookConfiguration
 	mwc := &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "mwc1",
-			Labels: resourceLabels,
-		},
+		Name:   "mwc1",
+		Labels: resourceLabels,
 		Webhooks: []admissionregistrationv1.MutatingWebhook{{
 			Name: "mwc1.example.com",
 		}},
@@ -4353,10 +4192,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ValidatingWebhookConfiguration
 	vwc := &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "vwc1",
-			Labels: resourceLabels,
-		},
+		Name:   "vwc1",
+		Labels: resourceLabels,
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
 			Name: "vwc1.example.com",
 		}},
@@ -4374,22 +4211,18 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ServiceAccount (bad)
 	saBad := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sa1-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
+		Name:      "sa1-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
 	}
 	_, err = s.client.CoreV1().ServiceAccounts(modelName).Create(ctx, saBad, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Role (bad)
 	roleBad := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "role1-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
+		Name:      "role1-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list"},
 		}},
@@ -4399,23 +4232,19 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// RoleBinding (bad)
 	rbBad := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "rb1-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
-		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: roleBad.Name},
-		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: saBad.Name, Namespace: modelName}},
+		Name:      "rb1-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
+		RoleRef:   rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: roleBad.Name},
+		Subjects:  []rbacv1.Subject{{Kind: "ServiceAccount", Name: saBad.Name, Namespace: modelName}},
 	}
 	_, err = s.client.RbacV1().RoleBindings(modelName).Create(ctx, rbBad, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// ClusterRole (bad)
 	crBad := &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "cr1-bad",
-			Labels: wrongAppResourceLabels,
-		},
+		Name:   "cr1-bad",
+		Labels: wrongAppResourceLabels,
 		Rules: []rbacv1.PolicyRule{{
 			APIGroups: []string{""}, Resources: []string{"nodes"}, Verbs: []string{"get", "list"},
 		}},
@@ -4425,10 +4254,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ClusterRoleBinding (bad)
 	crbBad := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "crb1-bad",
-			Labels: wrongModelResourceLabels,
-		},
+		Name:     "crb1-bad",
+		Labels:   wrongModelResourceLabels,
 		RoleRef:  rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "ClusterRole", Name: crBad.Name},
 		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: saBad.Name, Namespace: modelName}},
 	}
@@ -4437,36 +4264,30 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ConfigMap (bad)
 	cmBad := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cm1-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
-		Data: map[string]string{"k": "v"},
+		Name:      "cm1-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
+		Data:      map[string]string{"k": "v"},
 	}
 	_, err = s.client.CoreV1().ConfigMaps(modelName).Create(ctx, cmBad, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Secret (bad)
 	secretBad := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-container-secret-bad", appName),
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
-		Type: corev1.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+		Name:      fmt.Sprintf("%s-container-secret-bad", appName),
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
+		Type:      corev1.SecretTypeDockerConfigJson,
+		Data:      map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
 	}
 	_, err = s.client.CoreV1().Secrets(modelName).Create(ctx, secretBad, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Service (bad)
 	svcBad := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc2",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
+		Name:      "svc2",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
 		Spec: corev1.ServiceSpec{
 			Selector: wrongAppResourceLabels,
 			Ports:    []corev1.ServicePort{{Port: 80}},
@@ -4477,16 +4298,14 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// StatefulSet (bad)
 	stsBad := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sts1-bad",
-			Namespace: modelName,
-			Labels:    wrongModelResourceLabels,
-		},
+		Name:      "sts1-bad",
+		Namespace: modelName,
+		Labels:    wrongModelResourceLabels,
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: "svc2",
 			Replicas:    pointer.Int32(1),
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: wrongAppResourceLabels},
+				Labels: wrongAppResourceLabels,
 				Spec: corev1.PodSpec{
 					ServiceAccountName: saBad.Name,
 					Containers: []corev1.Container{{
@@ -4502,16 +4321,14 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// Deployment (bad)
 	deploymentBad := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "gitlab-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
+		Name:      "gitlab-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: pointer.Int32(1),
 			Selector: &metav1.LabelSelector{MatchLabels: wrongAppResourceLabels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: wrongAppResourceLabels},
+				Labels: wrongAppResourceLabels,
 				Spec: corev1.PodSpec{
 					ServiceAccountName: saBad.Name,
 					Containers:         []corev1.Container{{Name: "testContainer", Image: "testImage"}},
@@ -4525,15 +4342,13 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// DaemonSet (bad)
 	dsBad := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ds1-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
+		Name:      "ds1-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
 		Spec: appsv1.DaemonSetSpec{
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: wrongAppResourceLabels},
-				Spec:       corev1.PodSpec{Containers: []corev1.Container{{Name: "c", Image: "testImage"}}},
+				Labels: wrongAppResourceLabels,
+				Spec:   corev1.PodSpec{Containers: []corev1.Container{{Name: "c", Image: "testImage"}}},
 			},
 		},
 	}
@@ -4542,12 +4357,10 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// Ingress (bad)
 	ingBad := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ing1-bad",
-			Namespace: modelName,
-			Labels:    wrongAppResourceLabels,
-		},
-		Spec: networkingv1.IngressSpec{Rules: []networkingv1.IngressRule{{Host: "example-bad.local"}}},
+		Name:      "ing1-bad",
+		Namespace: modelName,
+		Labels:    wrongAppResourceLabels,
+		Spec:      networkingv1.IngressSpec{Rules: []networkingv1.IngressRule{{Host: "example-bad.local"}}},
 	}
 	_, err = s.client.NetworkingV1().Ingresses(modelName).Create(ctx, ingBad, metav1.CreateOptions{FieldManager: "juju"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -4597,10 +4410,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// MutatingWebhookConfiguration (bad)
 	mwcBad := &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "mwc1-bad",
-			Labels: wrongModelResourceLabels,
-		},
+		Name:     "mwc1-bad",
+		Labels:   wrongModelResourceLabels,
 		Webhooks: []admissionregistrationv1.MutatingWebhook{{Name: "mwc1-bad.example.com"}},
 	}
 	_, err = s.client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(ctx, mwcBad, metav1.CreateOptions{FieldManager: "juju"})
@@ -4608,10 +4419,8 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 
 	// ValidatingWebhookConfiguration (bad)
 	vwcBad := &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "vwc1-bad",
-			Labels: wrongAppResourceLabels,
-		},
+		Name:     "vwc1-bad",
+		Labels:   wrongAppResourceLabels,
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{{Name: "vwc1-bad.example.com"}},
 	}
 	_, err = s.client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(ctx, vwcBad, metav1.CreateOptions{FieldManager: "juju"})
@@ -4717,11 +4526,9 @@ func TestHeadlessServiceSuite(t *stdtesting.T) {
 
 func (s *headlessServiceSuite) TestIsManagedHeadlessServiceByLabel(c *tc.C) {
 	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "not-an-endpoints-suffixed-name",
-			Labels: map[string]string{
-				constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
-			},
+		Name: "not-an-endpoints-suffixed-name",
+		Labels: map[string]string{
+			constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
 		},
 	}
 	c.Check(application.IsManagedHeadlessService(svc), tc.IsTrue)
@@ -4729,18 +4536,16 @@ func (s *headlessServiceSuite) TestIsManagedHeadlessServiceByLabel(c *tc.C) {
 
 func (s *headlessServiceSuite) TestIsManagedHeadlessServiceByLegacySuffix(c *tc.C) {
 	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: "gitlab-endpoints"},
+		Name: "gitlab-endpoints",
 	}
 	c.Check(application.IsManagedHeadlessService(svc), tc.IsTrue)
 }
 
 func (s *headlessServiceSuite) TestIsManagedHeadlessServiceFalse(c *tc.C) {
 	svc := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "gitlab",
-			Labels: map[string]string{
-				constants.LabelJujuServiceType: "something-else",
-			},
+		Name: "gitlab",
+		Labels: map[string]string{
+			constants.LabelJujuServiceType: "something-else",
 		},
 	}
 	c.Check(application.IsManagedHeadlessService(svc), tc.IsFalse)

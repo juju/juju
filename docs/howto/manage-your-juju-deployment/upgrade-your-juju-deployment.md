@@ -18,7 +18,7 @@ This typically involves upgrading Juju itself -- the client, the controller (i.e
 None of these upgrades are systematically related.
 
 ```{ibnote}
-See more: {ref}`upgrading-things`, {ref}`juju-cross-version-compatibility`, {ref}`releasenotes`, individual charm releases
+See more: {ref}`juju-cross-version-compatibility`, {ref}`releasenotes`, individual charm releases
 ```
 
 However, in principle, you should always try to keep all the various pieces up to date, the main caveats being that the Juju components are more tightly coupled to one another than to charms and that, due to the way controller upgrades work, keeping your client, controller, and models aligned is quite different if you're upgrading your Juju patch version vs. minor or major version.
@@ -27,13 +27,13 @@ However, in principle, you should always try to keep all the various pieces up t
 ## Upgrade your Juju components' patch version
 
 ```{ibnote}
-e.g., `3.4.4` &rarr; `3.4.5`
+e.g., `4.0.14` &rarr; `4.0.15`
 ```
 
 1. Upgrade the client's patch version to stable. For example:
 
 ```text
-snap refresh juju --channel 3.3/stable
+snap refresh juju --channel 4.0/stable
 ```
 
 ```{ibnote}
@@ -67,7 +67,7 @@ See more: {ref}`upgrade-a-model`, {ref}`upgrade-an-application`
 ## Upgrade your Juju components' minor or major version
 
 ```{ibnote}
-e.g., `3.5` &rarr; `3.6` or  `2.9` &rarr; `3.0`
+e.g., `3.6` &rarr; `4.0` or `4.0` &rarr; `4.1`
 ```
 
 ```{caution}

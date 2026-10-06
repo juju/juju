@@ -89,7 +89,7 @@ type State interface {
 	// DetachLostMachineCloudInstance atomically clears the provider-observed
 	// state for a lost machine instance and moves the machine back to pending.
 	DetachLostMachineCloudInstance(
-		context.Context, string, string, string, []byte, time.Time,
+		context.Context, string, string, string, []byte, time.Time, domainmachine.ReprovisionStatusIDs,
 	) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the

@@ -41,6 +41,36 @@ func (s *applicationStateSuite) TestK8sServiceAddressLifecycle(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+func (s *applicationStateSuite) TestDeleteK8sServiceAddresses(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	s.createCAASApplication(c, "bar", life.Alive)
+	// Absence is authoritative even before the first Service is recorded.
+	c.Assert(s.state.DeleteK8sServiceAddresses(c.Context(), appUUID.String()), tc.ErrorIsNil)
+	shared := network.NewMachineAddress("shared.example.com", network.WithScope(network.ScopePublic)).AsProviderAddress()
+	c.Assert(s.upsertK8sService(c, "foo", "old-service", network.ProviderAddresses{
+		shared,
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+		network.NewMachineAddress("old.example.com", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+	}), tc.ErrorIsNil)
+	c.Assert(s.upsertK8sService(c, "bar", "other-service", network.ProviderAddresses{shared}), tc.ErrorIsNil)
+	var node string
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT net_node_uuid FROM k8s_service WHERE application_uuid = ?", appUUID).Scan(&node), tc.ErrorIsNil)
+	for range 2 {
+		c.Assert(s.state.DeleteK8sServiceAddresses(c.Context(), appUUID.String()), tc.ErrorIsNil)
+		c.Check(s.k8sServiceAddresses(c, "foo"), tc.HasLen, 0)
+		c.Check(s.k8sServiceAddresses(c, "bar"), tc.SameContents, []string{"shared.example.com|public"})
+	}
+	var count int
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM fqdn_address").Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Assert(s.upsertK8sService(c, "foo", "new-service", network.ProviderAddresses{shared}), tc.ErrorIsNil)
+	var newNode, providerID string
+	c.Assert(s.DB().QueryRowContext(c.Context(), "SELECT net_node_uuid, provider_id FROM k8s_service WHERE application_uuid = ?", appUUID).Scan(&newNode, &providerID), tc.ErrorIsNil)
+	c.Check(newNode, tc.Equals, node)
+	c.Check(providerID, tc.Equals, "new-service")
+	c.Check(s.k8sServiceAddresses(c, "foo"), tc.SameContents, []string{"shared.example.com|public"})
+}
+
 func (s *applicationStateSuite) TestK8sServiceSharedHostname(c *tc.C) {
 	s.createCAASApplication(c, "foo", life.Alive)
 	s.createCAASApplication(c, "bar", life.Alive)

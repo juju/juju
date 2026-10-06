@@ -863,6 +863,10 @@ FROM   "relation_status" AS t`, v4_1_0.RelationStatus{}, nullableRelationStatus{
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationUnit statement: %w", err)
 	}
+	stmtRelationUnitDeparture, err := sqlair.Prepare(`SELECT &RelationUnitDeparture.* FROM "relation_unit_departure"`, v4_1_0.RelationUnitDeparture{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing RelationUnitDeparture statement: %w", err)
+	}
 	stmtRelationUnitSetting, err := sqlair.Prepare(`SELECT &RelationUnitSetting.* FROM "relation_unit_setting"`, v4_1_0.RelationUnitSetting{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing RelationUnitSetting statement: %w", err)
@@ -1876,6 +1880,9 @@ FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWo
 		}
 		if err := tx.Query(ctx, stmtRelationUnit).GetAll(&modelExport.RelationUnit); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying RelationUnit (table relation_unit): %w", err)
+		}
+		if err := tx.Query(ctx, stmtRelationUnitDeparture).GetAll(&modelExport.RelationUnitDeparture); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying RelationUnitDeparture (table relation_unit_departure): %w", err)
 		}
 		if err := tx.Query(ctx, stmtRelationUnitSetting).GetAll(&modelExport.RelationUnitSetting); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying RelationUnitSetting (table relation_unit_setting): %w", err)

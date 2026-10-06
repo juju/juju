@@ -5,6 +5,7 @@ package controllernode_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/controllernode"
@@ -70,84 +72,80 @@ func (s *watcherSuite) TestControllerNodes(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestControllerAPIAddresses(c *tc.C) {
-	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_api_address")
+func (s *watcherSuite) TestControllerAgentAddresses(c *tc.C) {
+	s.checkAddressWatcher(c, "controller_agent_address", (*service.WatchableService).WatchControllerAgentAddresses)
+}
 
-	ctx := c.Context()
+func (s *watcherSuite) TestControllerClientAddresses(c *tc.C) {
+	s.checkAddressWatcher(c, "controller_client_address", (*service.WatchableService).WatchControllerClientAddresses)
+}
+
+func (s *watcherSuite) checkAddressWatcher(c *tc.C, table string, watch func(*service.WatchableService, context.Context) (watcher.NotifyWatcher, error)) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, database.ControllerNS)
 	svc := s.setupService(c, factory)
-	watcher, err := svc.WatchControllerAPIAddresses(ctx)
+	w, err := watch(svc, c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 
-	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
-
-	addrs := network.SpaceHostPorts{
-		{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.9.9.32",
-				},
-			},
-			NetPort: 42,
-		},
-	}
-	// Ensure that we get the controller api address created event.
+	// Publish through the setter after the initial event, so a consumer that
+	// read an empty projection is notified when addresses become available.
 	harness.AddTest(c, func(c *tc.C) {
-		args := controllernode.SetAPIAddressArgs{
+		err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
 			APIAddresses: map[string]network.SpaceHostPorts{
-				"0": addrs,
+				"0": network.NewSpaceHostPorts(17070, "10.0.0.1"),
 			},
-		}
-		svc.SetAPIAddresses(ctx, args)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	// Ensure that we get the controller api address added event.
-	harness.AddTest(c, func(c *tc.C) {
-		err := svc.AddDqliteNode(ctx, "1", uint64(1), "10.0.0.1")
+		})
 		c.Assert(err, tc.ErrorIsNil)
-		args := controllernode.SetAPIAddressArgs{
-			APIAddresses: map[string]network.SpaceHostPorts{
-				"1": addrs,
-			},
-		}
-		svc.SetAPIAddresses(ctx, args)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 
-	// Ensure that we get the controller api address updated event.
+	// Shared endpoints have no controller ID but still notify consumers.
 	harness.AddTest(c, func(c *tc.C) {
-		addrs[0].Value = "10.43.25.2"
-		args := controllernode.SetAPIAddressArgs{
-			APIAddresses: map[string]network.SpaceHostPorts{
-				"0": addrs,
-			},
-		}
-		svc.SetAPIAddresses(ctx, args)
+		s.execAddressSQL(c, "INSERT INTO "+table+" (uuid, address, scope) VALUES ('shared', 'shared.example.com:17070', 'public')")
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
-
-	// Ensure that we get the removed controller api address event.
+	for _, update := range []string{
+		"scope = 'local-cloud'", "priority = 2", "controller_id = '0'",
+		"address = 'updated.example.com:17070'",
+	} {
+		harness.AddTest(c, func(c *tc.C) {
+			s.execAddressSQL(c, "UPDATE "+table+" SET "+update+" WHERE uuid = 'shared'")
+		}, func(w watchertest.WatcherC[struct{}]) {
+			w.AssertChange()
+		})
+	}
 	harness.AddTest(c, func(c *tc.C) {
-		args := controllernode.SetAPIAddressArgs{
-			APIAddresses: map[string]network.SpaceHostPorts{
-				"0": {},
-			},
-		}
-		svc.SetAPIAddresses(ctx, args)
-	}, func(w watchertest.WatcherC[struct{}]) {
-		w.AssertChange()
-	})
-
-	// Nothing happens so no change.
-	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "UPDATE "+table+" SET priority = priority")
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})
-
+	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "DELETE FROM "+table+" WHERE uuid = 'shared'")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	// Each audience observes only its own projection.
+	harness.AddTest(c, func(c *tc.C) {
+		for _, other := range []string{"controller_agent_address", "controller_client_address", "controller_peer_address"} {
+			if other != table {
+				s.execAddressSQL(c, "INSERT INTO "+other+" (uuid, controller_id, address, scope) VALUES ('other', '0', 'other.example.com:17070', 'public')")
+			}
+		}
+		s.execAddressSQL(c, "INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('0', 'legacy.example.com:17070', 'public')")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
 	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) execAddressSQL(c *tc.C, query string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, query)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *watcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {

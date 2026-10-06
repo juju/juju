@@ -69,8 +69,9 @@ type MockImportService struct {
 
 // MockImportServiceMockRecorder is the mock recorder for MockImportService.
 type MockImportServiceMockRecorder struct {
-	mock                   *MockImportService
-	importRelationsExpects []*gomock.Call2_1[context.Context, relation.ImportRelationsArgs, error]
+	mock                                               *MockImportService
+	importConsumerProxyRelationSettingsAndUnitsExpects []*gomock.Call2_1[context.Context, relation.ImportRelationSettingsAndUnitsArgs, error]
+	importRelationsExpects                             []*gomock.Call2_1[context.Context, relation.ImportRelationsArgs, error]
 }
 
 // NewMockImportService creates a new mock instance.
@@ -84,6 +85,24 @@ func NewMockImportService(ctrl *gomock.Controller) *MockImportService {
 func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 	return m.recorder
 }
+
+// ImportConsumerProxyRelationSettingsAndUnits mocks base method.
+func (m *MockImportService) ImportConsumerProxyRelationSettingsAndUnits(ctx context.Context, args relation.ImportRelationSettingsAndUnitsArgs) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.importConsumerProxyRelationSettingsAndUnitsExpects, m.ctrl, m, "ImportConsumerProxyRelationSettingsAndUnits", ctx, args)
+}
+
+// ImportConsumerProxyRelationSettingsAndUnits indicates an expected call of ImportConsumerProxyRelationSettingsAndUnits.
+func (mr *MockImportServiceMockRecorder) ImportConsumerProxyRelationSettingsAndUnits(ctx, args any) *MockImportServiceImportConsumerProxyRelationSettingsAndUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, relation.ImportRelationSettingsAndUnitsArgs, error](mr.mock.ctrl.T, mr.mock, "ImportConsumerProxyRelationSettingsAndUnits", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
+	mr.importConsumerProxyRelationSettingsAndUnitsExpects = append(mr.importConsumerProxyRelationSettingsAndUnitsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockImportServiceImportConsumerProxyRelationSettingsAndUnitsCall is the typed call wrapper for ImportConsumerProxyRelationSettingsAndUnits.
+type MockImportServiceImportConsumerProxyRelationSettingsAndUnitsCall = gomock.Call2_1[context.Context, relation.ImportRelationSettingsAndUnitsArgs, error]
 
 // ImportRelations mocks base method.
 func (m *MockImportService) ImportRelations(ctx context.Context, args relation.ImportRelationsArgs) error {

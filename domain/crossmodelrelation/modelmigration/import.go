@@ -6,7 +6,6 @@ package modelmigration
 import (
 	"context"
 	"sort"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -114,7 +113,8 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// Extract remote entities for application and relation UUIDs, or commonly
 	// called tokens in prior Juju versions.
-	relationRemoteEntities, err := extractRelationUUIDFromRemoteEntities(model)
+	relationRemoteEntities, err := domainmodelmigration.
+		ExtractRelationUUIDFromRemoteEntities(model)
 	if err != nil {
 		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
 	}
@@ -333,7 +333,7 @@ func (i *importOperation) importRemoteApplicationConsumers(
 	remoteApps []description.RemoteApplication,
 	remoteAppUnits map[string][]string,
 	offerConnections []offerConnection,
-	relationRemoteEntities []relationRemoteEntity,
+	relationRemoteEntities []domainmodelmigration.RelationRemoteEntity,
 	relationKeys map[string]importRelation,
 	applicationRemoteEntities map[string]string,
 ) error {
@@ -344,74 +344,112 @@ func (i *importOperation) importRemoteApplicationConsumers(
 			continue
 		}
 
-		endpoints, err := extractRemoteEndpoints(remoteApp)
-		if err != nil {
-			return errors.Errorf("extracting endpoints for remote application %q: %w",
-				remoteApp.Name(), err)
-		}
-
-		// Note: we can't use the remoteApp.OfferUUID as it's not filled in for
-		// consumers, only offerers. This means that we have to go hunting for
-		// it in the offer connections.
-
-		// Extract the username from the offer connection, this should tell us
-		// who made the original offer connection request in the source model.
-		offerConnection, err := findOfferConnection(offerConnections, remoteApp.Name(), remoteApp.SourceModelUUID())
-		if err != nil {
-			return errors.Errorf("extracting offer connection user name for remote application %q: %w",
-				remoteApp.Name(), err)
-		}
-
-		relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
-		if err != nil {
-			return errors.Errorf("finding relation UUID for remote application %q: %w",
-				remoteApp.Name(), err)
-		}
-
 		consumerApplicationUUID, ok := applicationRemoteEntities[remoteApp.Name()]
 		if !ok {
 			return errors.Errorf("no consumer application UUID found for remote application %q",
 				remoteApp.Name())
 		}
 
-		rel, ok := relationKeys[offerConnection.RelationKeyStr]
-		if !ok {
-			return errors.Errorf("no relation key found for %q with remote application %q",
-				offerConnection.RelationKeyStr, remoteApp.Name())
+		// Note: we can't use the remoteApp.OfferUUID as it's not filled in for
+		// consumers, only offerers. This means that we have to go hunting for
+		// it in the offer connections.
+
+		// The consumer proxy stands for an application of the consuming
+		// model, which can relate to several offered applications. The
+		// description holds one offer connection for each of those
+		// relations, so every connection referencing the proxy must be
+		// imported, not just the first one. Each imported relation keeps
+		// its own offer and remote relation token.
+		conns, err := findOfferConnections(offerConnections, remoteApp.Name(), remoteApp.SourceModelUUID())
+		if err != nil {
+			return errors.Errorf("extracting offer connections for remote application %q: %w",
+				remoteApp.Name(), err)
 		}
 
-		// The offer connection records the relation it was created for, along
-		// with the relation itself. The two must agree, otherwise the
-		// description is inconsistent.
-		if offerConnection.RelationID != rel.Rel.Id() {
-			return errors.Errorf("offer connection relation ID %d does not match relation ID %d for relation %q",
-				offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
+		// The offer connections of a proxy must each reference a distinct
+		// relation, as a duplicated key would fail the import deep in the
+		// state layer, when importing the same relation twice.
+		if err := validateOfferConnectionRelationKeys(conns, remoteApp.Name()); err != nil {
+			return errors.Capture(err)
 		}
 
-		input = append(input, service.RemoteApplicationConsumerImport{
-			RemoteApplicationImport: service.RemoteApplicationImport{
-				Name:      remoteApp.Name(),
-				OfferUUID: offerConnection.OfferUUID,
-				URL:       remoteApp.URL(),
-				Macaroon:  remoteApp.Macaroon(),
-				Endpoints: endpoints,
-				Units:     remoteAppUnits[remoteApp.Name()],
-			},
-			RelationUUID:            relationUUID,
-			RelationID:              rel.Rel.Id(),
-			RelationScope:           relationScopeFromEndpoints(rel.Rel),
-			RelationSuspended:       rel.Rel.Suspended(),
-			RelationSuspendedReason: rel.Rel.SuspendedReason(),
-			RelationKey:             rel.Key,
-			ConsumerModelUUID:       remoteApp.SourceModelUUID(),
-			ConsumerApplicationUUID: consumerApplicationUUID,
-			UserName:                offerConnection.UserName,
-		})
+		for _, offerConnection := range conns {
+			// The username of the offer connection tells us who made the
+			// original offer connection request in the source model.
+			relationUUID, err := findRelationUUIDForKey(relationRemoteEntities, offerConnection.RelationKey)
+			if err != nil {
+				return errors.Errorf("finding relation UUID for remote application %q: %w",
+					remoteApp.Name(), err)
+			}
+
+			rel, ok := relationKeys[offerConnection.RelationKeyStr]
+			if !ok {
+				return errors.Errorf("no relation key found for %q with remote application %q",
+					offerConnection.RelationKeyStr, remoteApp.Name())
+			}
+
+			// The offer connection records the relation it was created for,
+			// along with the relation itself. The two must agree, otherwise
+			// the description is inconsistent.
+			if offerConnection.RelationID != rel.Rel.Id() {
+				return errors.Errorf("offer connection relation ID %d does not match relation ID %d for relation %q",
+					offerConnection.RelationID, rel.Rel.Id(), rel.Rel.Key())
+			}
+
+			// The synthetic charm for the consuming side of the relation is
+			// built from the relation's own consumer endpoint. The proxy's
+			// stored endpoints cannot be used for that: a 3.6 proxy is
+			// created with the endpoint of its first relation only and is
+			// never updated when the consuming application relates to
+			// further offered applications, so an additional connection can
+			// reference an endpoint name that the proxy does not hold.
+			consumerEndpoint, err := consumerEndpointFromRelation(remoteApp.Name(), rel.Rel)
+			if err != nil {
+				return errors.Errorf("extracting consumer endpoint for remote application %q: %w",
+					remoteApp.Name(), err)
+			}
+
+			input = append(input, service.RemoteApplicationConsumerImport{
+				RemoteApplicationImport: service.RemoteApplicationImport{
+					Name:      remoteApp.Name(),
+					OfferUUID: offerConnection.OfferUUID,
+					URL:       remoteApp.URL(),
+					Macaroon:  remoteApp.Macaroon(),
+					Endpoints: []crossmodelrelation.RemoteApplicationEndpoint{consumerEndpoint},
+					Units:     remoteAppUnits[remoteApp.Name()],
+				},
+				RelationUUID:            relationUUID,
+				RelationID:              rel.Rel.Id(),
+				RelationScope:           relationScopeFromEndpoints(rel.Rel),
+				RelationSuspended:       rel.Rel.Suspended(),
+				RelationSuspendedReason: rel.Rel.SuspendedReason(),
+				RelationKey:             rel.Key,
+				ConsumerModelUUID:       remoteApp.SourceModelUUID(),
+				ConsumerApplicationUUID: consumerApplicationUUID,
+				UserName:                offerConnection.UserName,
+			})
+		}
 	}
 	if len(input) == 0 {
 		return nil
 	}
 	return i.importService.ImportRemoteApplicationConsumers(ctx, input)
+}
+
+// validateOfferConnectionRelationKeys checks that each offer connection
+// of a remote application references a distinct relation. A description
+// anomaly duplicating a relation key would otherwise fail the import deep
+// in the state layer, when importing the same relation twice.
+func validateOfferConnectionRelationKeys(conns []offerConnection, appName string) error {
+	seenRelationKeys := make(map[string]struct{}, len(conns))
+	for _, conn := range conns {
+		if _, ok := seenRelationKeys[conn.RelationKeyStr]; ok {
+			return errors.Errorf("duplicate relation key %q in offer connections of remote application %q",
+				conn.RelationKeyStr, appName)
+		}
+		seenRelationKeys[conn.RelationKeyStr] = struct{}{}
+	}
+	return nil
 }
 
 type offerConnection struct {
@@ -445,35 +483,6 @@ func extractOfferConnections(model description.Model) ([]offerConnection, error)
 	return offerConnections, nil
 }
 
-type relationRemoteEntity struct {
-	RelationKey  relation.Key
-	RelationUUID string
-}
-
-func extractRelationUUIDFromRemoteEntities(model description.Model) ([]relationRemoteEntity, error) {
-	var remoteEntities []relationRemoteEntity
-	for _, re := range model.RemoteEntities() {
-		// Handle only remote entities that are relation UUIDs.
-		remoteEntityID := re.ID()
-		if !strings.HasPrefix(remoteEntityID, "relation-") {
-			continue
-		}
-
-		key, err := relation.ParseKeyFromTagString(relationTagSuffixToKey(remoteEntityID))
-		if err != nil {
-			return nil, errors.Errorf("parsing relation key from remote entity id %q: %w", remoteEntityID, err)
-		}
-
-		// We shouldn't require the macaroon here, as no connections from the
-		// consumer side should be made to the offerer side.
-		remoteEntities = append(remoteEntities, relationRemoteEntity{
-			RelationKey:  key,
-			RelationUUID: re.Token(),
-		})
-	}
-	return remoteEntities, nil
-}
-
 func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmodelrelation.RemoteApplicationEndpoint, error) {
 	endpoints := make([]crossmodelrelation.RemoteApplicationEndpoint, 0, len(remoteApp.Endpoints()))
 	for _, ep := range remoteApp.Endpoints() {
@@ -489,6 +498,31 @@ func extractRemoteEndpoints(remoteApp description.RemoteApplication) ([]crossmod
 		})
 	}
 	return endpoints, nil
+}
+
+// consumerEndpointFromRelation returns the endpoint of the given relation
+// that belongs to the application with the given name. The relation of a
+// consumer proxy must reference the proxy application, otherwise the
+// description is inconsistent and the import fails instead of importing a
+// relation whose synthetic application is missing its endpoint.
+func consumerEndpointFromRelation(appName string, rel description.Relation) (crossmodelrelation.RemoteApplicationEndpoint, error) {
+	for _, ep := range rel.Endpoints() {
+		if ep.ApplicationName() != appName {
+			continue
+		}
+		role, err := parseRelationRole(ep.Role())
+		if err != nil {
+			return crossmodelrelation.RemoteApplicationEndpoint{}, errors.Errorf("parsing role for endpoint %q: %w",
+				ep.Name(), err)
+		}
+		return crossmodelrelation.RemoteApplicationEndpoint{
+			Name:      ep.Name(),
+			Role:      role,
+			Interface: ep.Interface(),
+		}, nil
+	}
+	return crossmodelrelation.RemoteApplicationEndpoint{}, errors.Errorf(
+		"no endpoint for application %q in relation %q", appName, rel.Key())
 }
 
 // importRelation holds the canonical relation key, along with the relation
@@ -551,11 +585,17 @@ func relationKeyOrdered(key relation.Key) relation.Key {
 	return key
 }
 
-func findOfferConnection(offerConns []offerConnection, appName, modelUUID string) (offerConnection, error) {
+// findOfferConnections returns every offer connection that references the
+// given application in its relation key, for the given source model UUID.
+// A 3.6 consumer proxy is named after the consuming application, which can
+// relate to several offered applications, so more than one offer connection
+// can reference the same proxy.
+func findOfferConnections(offerConns []offerConnection, appName, modelUUID string) ([]offerConnection, error) {
 	if len(offerConns) == 0 {
-		return offerConnection{}, errors.Errorf("no offer connections for application %q", appName)
+		return nil, errors.Errorf("no offer connections for application %q", appName)
 	}
 
+	var conns []offerConnection
 	for _, conn := range offerConns {
 		if conn.SourceModelUUID != modelUUID {
 			continue
@@ -563,61 +603,41 @@ func findOfferConnection(offerConns []offerConnection, appName, modelUUID string
 
 		for _, key := range conn.RelationKey {
 			if key.ApplicationName == appName {
-				return conn, nil
+				conns = append(conns, conn)
+				break
 			}
 		}
 	}
 
-	return offerConnection{}, errors.Errorf("no offer connection contains application %q", appName)
+	if len(conns) == 0 {
+		return nil, errors.Errorf("no offer connection contains application %q", appName)
+	}
+	return conns, nil
 }
 
-func findRelationUUIDForKey(remoteEntities []relationRemoteEntity, relationKey relation.Key) (string, error) {
+// findRelationUUIDForKey returns the relation token recorded in the remote
+// entities of the model for the given relation key. The token is the identity
+// that both sides of the cross model relation agreed on, so the synthetic
+// relation created for a remote application consumer keeps using it as its
+// relation UUID.
+//
+// Unlike the relation domain, which generates a UUID when it has no token to
+// reuse, a missing token here is an error: the consumer of an offer always
+// registers its relation, so a description without the token is inconsistent,
+// and inventing a UUID would leave the two sides disagreeing.
+func findRelationUUIDForKey(
+	remoteEntities []domainmodelmigration.RelationRemoteEntity,
+	relationKey relation.Key,
+) (string, error) {
 	if len(relationKey) != 2 {
 		return "", errors.Errorf("expected relation key with 2 endpoints, got %d", len(relationKey))
 	}
 
-	for _, remoteEntity := range remoteEntities {
-		key := remoteEntity.RelationKey
-		if relationKeysEqual(key, relationKey) {
-			return remoteEntity.RelationUUID, nil
-		}
+	uuid, ok := domainmodelmigration.FindRelationUUID(remoteEntities, relationKey)
+	if !ok {
+		return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
 	}
-
-	return "", errors.Errorf("no relation UUID found for relation key %q", relationKey.String())
-}
-
-func relationTagSuffixToKey(s string) string {
-	// Replace both "." with ":" and the "#" with " ".
-	s = strings.Replace(s, ".", ":", 2)
-	return strings.Replace(s, "#", " ", 1)
-}
-
-// relationKeysEqual compares two relation keys for equality, ignoring order.
-// Assumes both keys have exactly two endpoints and no scopes.
-func relationKeysEqual(a, b relation.Key) bool {
-	if len(a) != len(b) {
-		return false
-	}
-
-	// Make defensive copies so that sorting does not mutate the caller's
-	// slices.
-	aCopy := append(relation.Key(nil), a...)
-	bCopy := append(relation.Key(nil), b...)
-
-	sort.Slice(aCopy, func(i, j int) bool {
-		return aCopy[i].String() < aCopy[j].String()
-	})
-	sort.Slice(bCopy, func(i, j int) bool {
-		return bCopy[i].String() < bCopy[j].String()
-	})
-
-	// Note: we ignore scope here, as cross model relations do not have scopes
-	// when being imported.
-	return endpointEquals(aCopy[0], bCopy[0]) && endpointEquals(aCopy[1], bCopy[1])
-}
-
-func endpointEquals(a, b relation.EndpointIdentifier) bool {
-	return a.ApplicationName == b.ApplicationName && a.EndpointName == b.EndpointName
+	return uuid, nil
 }
 
 // parseRelationRole parses a string role to a charm.RelationRole.

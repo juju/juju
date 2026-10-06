@@ -672,7 +672,26 @@ BEGIN
     VALUES (1, %[1]d, NEW.relation_endpoint_uuid, DATETIME('now', 'utc'));
 END;
 
--- delete trigger for RelationUnit
+-- retain departed relation unit identity for watchers
+CREATE TRIGGER trg_relation_unit_departure
+AFTER DELETE ON relation_unit FOR EACH ROW
+BEGIN
+    INSERT INTO relation_unit_departure (
+        relation_uuid,
+        relation_endpoint_uuid,
+        unit_uuid,
+        unit_name
+    )
+    SELECT re.relation_uuid,
+           OLD.relation_endpoint_uuid,
+           OLD.unit_uuid,
+           u.name
+    FROM   relation_endpoint AS re
+    JOIN   unit AS u ON u.uuid = OLD.unit_uuid
+    WHERE  re.uuid = OLD.relation_endpoint_uuid
+    ON CONFLICT (relation_uuid, unit_uuid) DO NOTHING;
+END;
+
 CREATE TRIGGER trg_log_custom_relation_unit_delete
 AFTER DELETE ON relation_unit FOR EACH ROW
 BEGIN

@@ -22,11 +22,12 @@ juju reprovision-machine [options] <machine>
 ## Details
 
 Reprovision a machine whose backing cloud instance is operator-declared lost.
-This preserves the Juju machine identity and unit assignment and creates a
-replacement cloud instance through the normal provisioning path.
+This preserves the Juju machine identity, creates replacement units with new
+ordinals on that machine, and provisions a replacement cloud instance.
 
-Root disk, ephemeral disk, charm-local state, and machine-scoped storage
-data are NOT recovered. The replacement instance will have empty storage.
+Root disk, ephemeral disk, charm-local state, and machine-scoped storage data
+are NOT recovered. New empty machine-scoped storage is created for the
+replacement instance.
 
 This command is only supported for top-level, non-controller, IaaS
 provider-backed machines without child container machines or attached

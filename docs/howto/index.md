@@ -13,90 +13,85 @@ myst:
 :maxdepth: 2
 :hidden:
 
-Upgrade your deployment from 3.6 to 4.0 <upgrade-your-juju-deployment-from-36-to-40>
+Upgrade your deployment from 3.6 to 4.1 <upgrade-your-juju-deployment-from-36-to-41>
 Manage your deployment <manage-your-deployment>
 Manage juju <manage-juju>
-Manage clouds <manage-clouds>
+Add, update, and remove clouds and their regions <manage-clouds>
 Manage credentials <manage-credentials>
 Manage metadata <manage-metadata>
-Manage controllers <manage-controllers>
-Manage the databases <manage-the-databases>
-Manage the Juju dashboard <manage-the-juju-dashboard>
+Bootstrap and operate controllers <manage-controllers>
+Inspect, query, and modify the databases <manage-the-databases>
+Set up, access, and upgrade the Juju dashboard <manage-the-juju-dashboard>
 Manage secret backends <manage-secret-backends>
 Manage logs <manage-logs>
 Manage SSH keys <manage-ssh-keys>
-Manage users <manage-users>
-Manage models <manage-models>
+Administer users and their access <manage-users>
+Work with models <manage-models>
 Manage charms <manage-charms>
-Manage applications <manage-applications>
-Manage resources <manage-charm-resources>
+Deploy and operate applications <manage-applications>
+Find, specify, and view charm resources <manage-charm-resources>
 Manage actions <manage-actions>
-Manage relations <manage-relations>
-Manage offers <manage-offers>
-Manage units <manage-units>
+Add, inspect, and remove relations <manage-relations>
+Share and consume offers <manage-offers>
+Inspect, scale, and troubleshoot units <manage-units>
 Manage secrets <manage-secrets>
-Manage machines <manage-machines>
+Operate machines <manage-machines>
 Manage storage <manage-storage>
-Manage storage pools <manage-storage-pools>
+Create, inspect, update, and remove storage pools <manage-storage-pools>
 Manage spaces <manage-spaces>
-Manage subnets <manage-subnets>
+List or move subnets <manage-subnets>
 Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 
 ```
 
 ```{tip}
-{ref}`Upgrade your deployment from 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
+Moving from Juju 3.6? Start with {ref}`Upgrade your deployment from 3.6 to 4.1 <upgrade-your-deployment-from-36-to-41>`.
 ```
 
 (your-juju-deployment-the-birds-eye-view)=
 ## Your Juju deployment: the bird's eye view
 
-Get a quick sense of how to do things in Juju, from preparing your deployment environment and setting up a basic deployment through hardening and upgrading your deployment all the way to troubleshooting procedures and steps to take your deployment offline.
+The high-level logic of a Juju deployment, from day 0 to day 2, is covered in {ref}`Manage your deployment <manage-your-deployment>`, with a page for each stage:
 
-- {ref}`Manage your deployment <manage-your-deployment>`
-    - {ref}`Set up your deployment <set-up-your-deployment>`
-    - {ref}`Set up your deployment -- local testing and development <set-things-up>`
-    - {ref}`Set up your deployment -- offline <take-your-deployment-offline>`
-    - {ref}`Harden your deployment <harden-your-deployment>`
-    - {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
-    - {ref}`Upgrade your deployment <upgrade-your-deployment>`
-    - {ref}`Tear down your deployment -- local testing and development <tear-things-down>`
+- **Set up**: {ref}`Standard <set-up-your-deployment>` • {ref}`Local testing and development <set-things-up>` • {ref}`Offline <take-your-deployment-offline>`
+- **Maintain**: {ref}`Harden <harden-your-deployment>` • {ref}`Troubleshoot <troubleshoot-your-deployment>` • {ref}`Upgrade <upgrade-your-deployment>`
+- **Tear down**: {ref}`Local testing and development <tear-things-down>`
 
-## Set up Juju
+## Setting up Juju
 
-Install the `juju` client, add a cloud to the client, bootstrap a Juju controller, connect further clouds to the client or an existing controller, set up the Juju dashboard, configure secret backends, configure logs.
+Setting up Juju involves installing the `juju` client, adding a cloud to it, bootstrapping a Juju controller, connecting further clouds to the client or an existing controller, setting up the Juju dashboard, and configuring secret backends and logs.
 
 - {ref}`Manage the juju CLI <manage-juju>`
-- {ref}`Manage clouds <manage-clouds>`
+- {ref}`Add, update, and remove clouds and their regions <manage-clouds>`
 - {ref}`Manage credentials <manage-credentials>`
 - {ref}`Manage metadata <manage-metadata>`
-- {ref}`Manage controllers <manage-controllers>`
-- {ref}`Manage the databases <manage-the-databases>`
-- {ref}`Manage the Juju dashboard <manage-the-juju-dashboard>`
+- {ref}`Bootstrap and operate controllers <manage-controllers>`
+- {ref}`Inspect, query, and modify the databases <manage-the-databases>`
+- {ref}`Set up, access, and upgrade the Juju dashboard <manage-the-juju-dashboard>`
 - {ref}`Manage secret backends <manage-secret-backends>`
 - {ref}`Manage logs <manage-logs>`
 
-## Handle authentication and authorization
+## Handling authentication and authorization
 
-Set up SSH keys. Add users and control their access to controllers, clouds, models, or application offers.
+Authentication and authorization cover SSH keys, as well as users and their access to controllers, clouds, models, and application offers.
 
 - {ref}`Manage SSH keys <manage-ssh-keys>`
-- {ref}`Manage users <manage-users>`
+- {ref}`Administer users and their access <manage-users>`
 
-## Deploy infrastructure and applications
+## Deploying infrastructure and applications
 
-Deploy, configure, integrate, scale, etc., charmed applications. This will automatically provision infrastructure, but you can customise it before, during, or after deploy too.
+Charmed applications are deployed, configured, integrated, scaled, and more. Deploying them automatically provisions infrastructure, which can also be customised before, during, or after deployment.
 
 - {ref}`Manage charms or bundles <manage-charms>`
-- {ref}`Manage charm resources <manage-charm-resources>`
-- {ref}`Manage applications <manage-applications>`
+- {ref}`Find, specify, and view charm resources <manage-charm-resources>`
+- {ref}`Deploy and operate applications <manage-applications>`
 - {ref}`Manage actions <manage-actions>`
-- {ref}`Manage relations <manage-relations>`
-- {ref}`Manage offers <manage-offers>`
-- {ref}`Manage units <manage-units>`
+- {ref}`Add, inspect, and remove relations <manage-relations>`
+- {ref}`Share and consume offers <manage-offers>`
+- {ref}`Inspect, scale, and troubleshoot units <manage-units>`
 - {ref}`Manage secrets <manage-secrets>`
-- {ref}`Manage machines <manage-machines>`
+- {ref}`Operate machines <manage-machines>`
 - {ref}`Manage storage <manage-storage>`
-- {ref}`Manage storage pools <manage-storage-pools>`
+- {ref}`Create, inspect, update, and remove storage pools <manage-storage-pools>`
 - {ref}`Manage spaces <manage-spaces>`
-- {ref}`Manage subnets <manage-subnets>`
+- {ref}`List or move subnets <manage-subnets>`

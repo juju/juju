@@ -5,6 +5,7 @@ package resource_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -302,7 +303,7 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 							Revision: 15, // Note revision is different to the application resource
 						},
 						Timestamp: time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
-						ID:        "one",
+						ID:        "unit-one",
 					},
 					{
 						Resource: charmresource.Resource{
@@ -314,8 +315,24 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 							Size:   15,
 						},
 						RetrievedBy: "Bill User",
-						ID:          "two",
+						ID:          "unit-two",
 						Timestamp:   time.Date(2012, 12, 12, 12, 12, 12, 0, time.UTC),
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta:     charmresource.Meta{Name: "a-removed"},
+							Origin:   charmresource.OriginStore,
+							Revision: 8,
+						},
+						ID: "unit-removed-a",
+					},
+					{
+						Resource: charmresource.Resource{
+							Meta:     charmresource.Meta{Name: "z-removed"},
+							Origin:   charmresource.OriginStore,
+							Revision: 7,
+						},
+						ID: "unit-removed",
 					},
 				},
 			}},
@@ -329,12 +346,25 @@ func (s *ShowApplicationSuite) TestRunUnit(c *tc.C) {
 	c.Assert(stderr, tc.Equals, "")
 
 	c.Check(stdout, tc.Equals, `
-Resource  Revision
-rsc1234   15
-website2  2012-12-12T12:12
+Resource   Revision
+a-removed  8
+rsc1234    15
+website2   2012-12-12T12:12
+z-removed  7
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
+
+	cmd = resourcecmd.NewListCommandForTest(s.stubDeps.NewClient)
+	code, stdout, stderr = runCmd(c, cmd, "--format", "json", "svc/0")
+	c.Assert(code, tc.Equals, 0)
+	c.Assert(stderr, tc.Equals, "")
+	aIndex := strings.Index(stdout, "a-removed")
+	zIndex := strings.Index(stdout, "z-removed")
+	c.Assert(aIndex, tc.Not(tc.Equals), -1)
+	c.Assert(zIndex, tc.Not(tc.Equals), -1)
+	c.Check(aIndex < zIndex, tc.IsTrue)
+	s.stubDeps.stub.CheckCall(c, 4, "ListResources", []string{"svc"})
 }
 
 func (s *ShowApplicationSuite) TestRunDetails(c *tc.C) {
@@ -427,6 +457,13 @@ func (s *ShowApplicationSuite) TestRunDetails(c *tc.C) {
 						// note the different time
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
+					{
+						Resource: charmresource.Resource{
+							Meta:     charmresource.Meta{Name: "z-removed"},
+							Origin:   charmresource.OriginStore,
+							Revision: 7,
+						},
+					},
 					// note we're missing the beta resource for this unit
 				},
 			},
@@ -480,13 +517,14 @@ func (s *ShowApplicationSuite) TestRunDetails(c *tc.C) {
 	c.Check(stderr, tc.Equals, "")
 
 	c.Check(stdout, tc.Equals, `
-Unit    Resource  Revision          Expected
-svc/5   alpha     10                15
-svc/5   beta      2012-12-12T12:12  2012-12-12T12:12
-svc/5   charlie   2011-11-11T11:11  2012-12-12T12:12
-svc/10  alpha     10                15
-svc/10  beta      -                 2012-12-12T12:12
-svc/10  charlie   2011-11-11T11:11  2012-12-12T12:12
+Unit    Resource   Revision          Expected
+svc/5   alpha      10                15
+svc/5   beta       2012-12-12T12:12  2012-12-12T12:12
+svc/5   charlie    2011-11-11T11:11  2012-12-12T12:12
+svc/10  alpha      10                15
+svc/10  beta       -                 2012-12-12T12:12
+svc/10  charlie    2011-11-11T11:11  2012-12-12T12:12
+svc/10  z-removed  7                 -
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})
@@ -558,6 +596,13 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *tc.C) {
 						// note the different time
 						Timestamp: time.Date(2011, 11, 11, 11, 11, 11, 0, time.UTC),
 					},
+					{
+						Resource: charmresource.Resource{
+							Meta:     charmresource.Meta{Name: "z-removed"},
+							Origin:   charmresource.OriginStore,
+							Revision: 7,
+						},
+					},
 					// note we're missing the beta resource for this unit
 				},
 			},
@@ -611,10 +656,11 @@ func (s *ShowApplicationSuite) TestRunUnitDetails(c *tc.C) {
 	c.Assert(stderr, tc.Equals, "")
 
 	c.Check(stdout, tc.Equals, `
-Resource  Revision          Expected
-alpha     10                15
-beta      -                 2012-12-12T12:12
-charlie   2011-11-11T11:11  2012-12-12T12:12
+Resource   Revision          Expected
+alpha      10                15
+beta       -                 2012-12-12T12:12
+charlie    2011-11-11T11:11  2012-12-12T12:12
+z-removed  7                 -
 `[1:])
 
 	s.stubDeps.stub.CheckCall(c, 1, "ListResources", []string{"svc"})

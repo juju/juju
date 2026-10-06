@@ -4,8 +4,10 @@
 package resources
 
 import (
+	"context"
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -19,9 +21,13 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	resourcesdownload "github.com/juju/juju/apiserver/internal/handlers/resources/download"
 	"github.com/juju/juju/core/resource"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	containerimageservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	domainresource "github.com/juju/juju/domain/resource"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -34,6 +40,8 @@ type resourcesUploadSuite struct {
 
 	modelServiceGetter *MockModelServiceGetter
 	modelService       *MockModelService
+
+	downloader *MockBlobValidator
 
 	content        string
 	origin         charmresource.Origin
@@ -87,6 +95,7 @@ func (s *resourcesUploadSuite) TestServeMethodNotSupported(c *tc.C) {
 	handler := NewResourceMigrationUploadHandler(
 		nil, // application service getter (unused for non-POST)
 		nil, // resource service getter (unused for non-POST)
+		nil, // blob validator (unused for non-POST)
 		loggertesting.WrapCheckLog(c),
 	)
 	unsupportedMethods := []string{
@@ -187,6 +196,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationStoreResourceError(c *t
 		"app-name",
 		"resource-name",
 	).Return("res-uuid", nil)
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), s.fingerprintStr, s.size).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).Return(
 		resource.Resource{}, errors.New("cannot store resource"))
 	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
@@ -289,6 +299,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplication(c *tc.C) {
 		},
 		Timestamp: now,
 	}
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), s.fingerprintStr, s.size).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -345,6 +356,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUser(c *tc.C
 		},
 		Timestamp: now,
 	}
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), s.fingerprintStr, s.size).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -391,6 +403,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByApplication(
 		},
 		Timestamp: now,
 	}
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), s.fingerprintStr, s.size).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -436,6 +449,7 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 		},
 		Timestamp: now,
 	}
+	s.downloader.EXPECT().Download(gomock.Any(), gomock.Any(), s.fingerprintStr, s.size).Return(http.NoBody, nil)
 	s.resourceService.EXPECT().StoreResource(gomock.Any(), domainresource.StoreResourceArgs{
 		ResourceUUID:    "res-uuid",
 		Reader:          http.NoBody,
@@ -450,6 +464,445 @@ func (s *resourcesUploadSuite) TestServeUploadApplicationRetrievedByUnit(c *tc.C
 	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(), "application/octet-stream", http.NoBody)
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
 	defer response.Body.Close()
+}
+
+// TestServeUploadApplicationFingerprintMismatch verifies that a file resource
+// blob whose hash does not match the claimed fingerprint is rejected with a
+// 400 and never stored.
+func (s *resourcesUploadSuite) TestServeUploadApplicationFingerprintMismatch(c *tc.C) {
+	// Arrange
+	defer s.setupHandlerWithDownloader(c,
+		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {strings.Repeat("a", 96)},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeFile,
+		},
+	}, nil)
+	// StoreResource is deliberately not expected: the upload must be rejected.
+
+	// Act
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", strings.NewReader(s.content))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert
+	c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest,
+		tc.Commentf("(Assert) unexpected status code."))
+	body, err := io.ReadAll(response.Body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(body), tc.Matches, ".*unexpected hash.*")
+}
+
+// TestServeUploadApplicationSizeMismatch verifies that a file resource blob
+// whose size does not match the claimed size is rejected with a 400 and never
+// stored.
+func (s *resourcesUploadSuite) TestServeUploadApplicationSizeMismatch(c *tc.C) {
+	// Arrange
+	defer s.setupHandlerWithDownloader(c,
+		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {strconv.Itoa(int(s.size + 5))},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeFile,
+		},
+	}, nil)
+	// StoreResource is deliberately not expected: the upload must be rejected.
+
+	// Act
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", strings.NewReader(s.content))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert
+	c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest,
+		tc.Commentf("(Assert) unexpected status code."))
+	body, err := io.ReadAll(response.Body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(body), tc.Matches, ".*unexpected size.*")
+}
+
+// TestResourceDetailsFromQueryRejectsInvalidSizeBounds verifies that sizes
+// that cannot describe a resource are rejected before being used as a read
+// limit.
+func (s *resourcesUploadSuite) TestResourceDetailsFromQueryRejectsInvalidSizeBounds(c *tc.C) {
+	for _, size := range []string{"-1", strconv.FormatInt(math.MaxInt64, 10)} {
+		query := url.Values{
+			"origin":      {s.originStr},
+			"revision":    {s.revisionStr},
+			"size":        {size},
+			"fingerprint": {s.fingerprintStr},
+		}
+		_, err := resourceDetailsFromQuery(query)
+		c.Check(err, tc.ErrorMatches, ".*invalid size.*", tc.Commentf("size %q", size))
+	}
+}
+
+// TestServeUploadApplicationOversizedBodyStoresClaimedPrefix verifies that a
+// body longer than the claimed size is truncated at the claimed size: the
+// hash over exactly those bytes matches the claimed fingerprint, so the
+// claimed prefix is stored and the trailing bytes are never read.
+func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedBodyStoresClaimedPrefix(c *tc.C) {
+	// Arrange
+	defer s.setupHandlerWithDownloader(c,
+		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeFile,
+		},
+	}, nil)
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			return resource.Resource{}, nil
+		})
+
+	// Act: the body is longer than the claimed size.
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", strings.NewReader(s.content+" and much more content"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert: only the claimed prefix reaches the store.
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
+	c.Check(storedContent, tc.Equals, s.content)
+}
+
+// TestServeUploadApplicationZeroSizeValidBlob verifies that a zero-size claim
+// with an empty body and the fingerprint of empty content is accepted and
+// stored: the read is bounded at 0 bytes, and the empty read hashes to the
+// fingerprint of empty content.
+func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeValidBlob(c *tc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandlerWithDownloader(c,
+		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
+	emptyFP, err := charmresource.GenerateFingerprint(strings.NewReader(""))
+	c.Assert(err, tc.ErrorIsNil)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {"0"},
+		"fingerprint": {emptyFP.String()},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	expectedRes := resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeFile,
+		},
+		Timestamp: now,
+	}
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedRes, nil)
+	var storedArgs domainresource.StoreResourceArgs
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			storedArgs = args
+			return expectedRes, nil
+		})
+
+	// Act: empty body, zero-size claim.
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", http.NoBody)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
+	c.Check(storedContent, tc.Equals, "")
+	c.Check(storedArgs.Size, tc.Equals, int64(0))
+	c.Check(storedArgs.Fingerprint.String(), tc.Equals, emptyFP.String())
+}
+
+// TestServeUploadApplicationZeroSizeClaimIgnoresBodyBytes verifies that a
+// zero-size claim accepts any body: the bounded read is empty, which hashes
+// to the fingerprint of empty content, so an empty blob is stored and the
+// body bytes are never read.
+func (s *resourcesUploadSuite) TestServeUploadApplicationZeroSizeClaimIgnoresBodyBytes(c *tc.C) {
+	// Arrange
+	defer s.setupHandlerWithDownloader(c,
+		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
+	emptyFP, err := charmresource.GenerateFingerprint(strings.NewReader(""))
+	c.Assert(err, tc.ErrorIsNil)
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {"0"},
+		"fingerprint": {emptyFP.String()},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeFile,
+		},
+	}, nil)
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			return resource.Resource{}, nil
+		})
+
+	// Act: non-empty body, zero-size claim.
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", strings.NewReader("x"))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert: the body bytes are never read; an empty blob is stored.
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
+	c.Check(storedContent, tc.Equals, "")
+}
+
+// TestServeUploadApplicationValidBlob verifies that a file resource blob
+// matching the claimed size and fingerprint is stored with the claimed values.
+func (s *resourcesUploadSuite) TestServeUploadApplicationValidBlob(c *tc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandlerWithDownloader(c,
+		resourcesdownload.NewDownloader(loggertesting.WrapCheckLog(c), resourcesdownload.DefaultFileSystem())).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	expectedRes := resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeFile,
+		},
+		Timestamp: now,
+	}
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedRes, nil)
+	var storedArgs domainresource.StoreResourceArgs
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			storedArgs = args
+			return expectedRes, nil
+		})
+
+	// Act
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", strings.NewReader(s.content))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
+	c.Check(storedContent, tc.Equals, s.content)
+	c.Check(storedArgs.Size, tc.Equals, s.size)
+	c.Check(storedArgs.Fingerprint.String(), tc.Equals, s.fingerprint.String())
+}
+
+// TestServeUploadApplicationContainerImageSkipsValidation is a regression test
+// for the Juju 3.6 export bug (see commit 432c96a1c2): container image
+// resources are stored without blob validation, even when the claimed size and
+// fingerprint do not match the blob bytes.
+func (s *resourcesUploadSuite) TestServeUploadApplicationContainerImageSkipsValidation(c *tc.C) {
+	// Arrange
+	now := time.Now().Truncate(time.Second).UTC()
+	defer s.setupHandler(c).Finish()
+	// Claims deliberately do not match the body, simulating a resource
+	// exported from Juju 3.6.
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {"9999"},
+		"fingerprint": {strings.Repeat("a", 96)},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(),
+		"app-name",
+		"resource-name",
+	).Return("res-uuid", nil)
+	expectedRes := resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeContainerImage,
+		},
+		Timestamp: now,
+	}
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(expectedRes, nil)
+	// The downloader is deliberately not expected: container image resources
+	// skip blob validation.
+	var storedArgs domainresource.StoreResourceArgs
+	var storedContent string
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			stored, rErr := io.ReadAll(args.Reader)
+			c.Assert(rErr, tc.ErrorIsNil)
+			storedContent = string(stored)
+			storedArgs = args
+			return expectedRes, nil
+		})
+	body := `{"ImageName":"ghcr.io/foo/bar@sha256:deadbeef"}`
+
+	// Act
+	response, err := http.Post(s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream", strings.NewReader(body))
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) unexpected error while executing request"))
+	defer response.Body.Close()
+
+	// Assert
+	c.Check(response.StatusCode, tc.Equals, http.StatusOK,
+		tc.Commentf("(Assert) unexpected status code."))
+	c.Check(storedContent, tc.Equals, body)
+	// The wrong claims are passed through untouched; the container image
+	// resource store re-derives them from the parsed metadata.
+	c.Check(storedArgs.Size, tc.Equals, int64(9999))
+	c.Check(storedArgs.Fingerprint.String(), tc.Equals, strings.Repeat("a", 96))
+}
+
+// TestServeUploadApplicationOversizedContainerImage verifies that the image
+// body is bounded at the store limit plus one and the typed error maps to 400.
+func (s *resourcesUploadSuite) TestServeUploadApplicationOversizedContainerImage(c *tc.C) {
+	defer s.setupHandler(c).Finish()
+	query := url.Values{
+		"name":        {"resource-name"},
+		"application": {"app-name"},
+		"timestamp":   {"not-placeholder"},
+		"origin":      {s.originStr},
+		"size":        {s.sizeStr},
+		"fingerprint": {s.fingerprintStr},
+		"revision":    {s.revisionStr},
+	}
+	s.resourceService.EXPECT().GetResourceUUIDByApplicationAndResourceName(
+		gomock.Any(), "app-name", "resource-name",
+	).Return("res-uuid", nil)
+	s.resourceService.EXPECT().GetResource(gomock.Any(), resource.UUID("res-uuid")).Return(resource.Resource{
+		ID: "res-uuid",
+		Resource: charmresource.Resource{
+			Origin:   s.origin,
+			Revision: s.revision,
+			Type:     charmresource.TypeContainerImage,
+		},
+	}, nil)
+	s.resourceService.EXPECT().StoreResource(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args domainresource.StoreResourceArgs) (resource.Resource, error) {
+			body, err := io.ReadAll(args.Reader)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(len(body), tc.Equals, int(containerimageservice.MaxContainerImageResourceSize+1))
+			return resource.Resource{}, internalerrors.Errorf(
+				"persisting container image metadata: %w",
+				containerimageresourcestoreerrors.ContainerImageResourceTooLarge,
+			)
+		})
+
+	response, err := http.Post(
+		s.srv.URL+migrateResourcesPrefix+"?"+query.Encode(),
+		"application/octet-stream",
+		strings.NewReader(strings.Repeat("x", int(containerimageservice.MaxContainerImageResourceSize+100))),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	defer response.Body.Close()
+
+	c.Check(response.StatusCode, tc.Equals, http.StatusBadRequest)
+	body, err := io.ReadAll(response.Body)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(body), tc.Matches, ".*container image resource exceeds maximum size.*")
 }
 
 // TestServeUploadUnitWithPlaceholder tests the upload functionality for a unit
@@ -512,9 +965,39 @@ func (s *resourcesUploadSuite) setupHandlerWithImporting(c *tc.C, importing bool
 		s.expectResourceService()
 	}
 
+	registered := s.registerHandlerWithDownloader(c, s.downloader)
+	return &finisherWrapper{
+		finish: func() {
+			registered.Finish()
+			finish()
+		},
+	}
+}
+
+// setupHandlerWithDownloader configures mocks for an importing model and
+// registers the handler with the given downloader. Use it for tests that need
+// a downloader other than the suite mock.
+func (s *resourcesUploadSuite) setupHandlerWithDownloader(c *tc.C, downloading BlobValidator) Finisher {
+	finish := s.setupMocks(c).Finish
+	s.expectApplicationService(true)
+	s.expectResourceService()
+
+	registered := s.registerHandlerWithDownloader(c, downloading)
+	return &finisherWrapper{
+		finish: func() {
+			registered.Finish()
+			finish()
+		},
+	}
+}
+
+// registerHandlerWithDownloader registers the resources migration upload HTTP
+// handler with the given downloader. Mocks must have been initialised first.
+func (s *resourcesUploadSuite) registerHandlerWithDownloader(c *tc.C, downloading BlobValidator) Finisher {
 	handler := NewResourceMigrationUploadHandler(
 		s.modelServiceGetter,
 		s.resourceServiceGetter,
+		downloading,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -524,7 +1007,6 @@ func (s *resourcesUploadSuite) setupHandlerWithImporting(c *tc.C, importing bool
 	return &finisherWrapper{
 		finish: func() {
 			s.mux.RemoveHandler("POST", migrateResourcesPrefix)
-			finish()
 		},
 	}
 }
@@ -549,6 +1031,7 @@ func (s *resourcesUploadSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.resourceService = NewMockResourceService(ctrl)
 	s.modelServiceGetter = NewMockModelServiceGetter(ctrl)
 	s.modelService = NewMockModelService(ctrl)
+	s.downloader = NewMockBlobValidator(ctrl)
 
 	return ctrl
 }

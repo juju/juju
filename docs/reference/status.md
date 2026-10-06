@@ -80,7 +80,7 @@ In the output of `juju status`, application status is given under `Application >
 
 ```text
 Model        Controller           Cloud/Region        Version  SLA          Timestamp
-charm-model  tutorial-controller  microk8s/localhost  3.1.5    unsupported  14:23:55+02:00
+charm-model  tutorial-controller  microk8s/localhost  4.0.15   unsupported  14:23:55+02:00
 
 App             Version  Status  Scale  Charm           Channel    Rev  Address         Exposed  Message
 demo-api-charm  1.0.0    active      1  demo-api-charm               0  10.152.183.175  no

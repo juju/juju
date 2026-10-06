@@ -19,6 +19,10 @@ import (
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
+	// NewNotifyWatcher returns a watcher observing changes to the namespaces
+	// selected by the supplied filters.
+	NewNotifyWatcher(context.Context, string, eventsource.FilterOption, ...eventsource.FilterOption) (watcher.NotifyWatcher, error)
+
 	// NewNamespaceMapperWatcher returns a new watcher that receives changes
 	// from the input base watcher's db/queue. Change-log events will be emitted
 	// only if the filter accepts them, and dispatching the notifications via
@@ -35,7 +39,7 @@ type WatcherFactory interface {
 	) (watcher.StringsWatcher, error)
 }
 
-// WatchableService provides the API for working with external controllers
+// WatchableService provides the API for working with the network domain
 // and the ability to create watchers.
 type WatchableService struct {
 	ProviderService
@@ -49,15 +53,11 @@ func NewWatchableService(st State,
 	providerWithZones providertracker.ProviderGetter[ProviderWithZones],
 	watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
-		ProviderService: ProviderService{
-			Service: Service{
-				st:     st,
-				logger: logger,
-			},
-			providerWithNetworking: providerWithNetworking,
-			providerWithZones:      providerWithZones,
-		},
-		watcherFactory: watcherFactory,
+		st:                     st,
+		logger:                 logger,
+		providerWithNetworking: providerWithNetworking,
+		providerWithZones:      providerWithZones,
+		watcherFactory:         watcherFactory,
 	}
 }
 

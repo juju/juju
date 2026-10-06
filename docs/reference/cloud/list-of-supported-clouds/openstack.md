@@ -226,7 +226,7 @@ The constraints `instance-type` and `[mem, cores]` are mutually exclusive. Addit
 - {ref}`constraint-arch`
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
-- {ref}`constraint-image-id`. Starting with Juju 3.3. Valid values: An OpenStack image ID.
+- {ref}`constraint-image-id`. Valid values: An OpenStack image ID.
 - {ref}`constraint-instance-type`. Valid values: Any user-defined OpenStack flavor.
 - {ref}`constraint-mem`
 - {ref}`constraint-virt-type`. Valid values: `kvm`, `lxd`.

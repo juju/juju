@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,6 +16,8 @@ import (
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	"github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
+	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
+	containerimageservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/resource"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -24,6 +28,7 @@ import (
 type resourcesMigrationUploadHandler struct {
 	resourceServiceGetter ResourceServiceGetter
 	modelService          ModelServiceGetter
+	validator             BlobValidator
 	logger                logger.Logger
 }
 
@@ -32,11 +37,13 @@ type resourcesMigrationUploadHandler struct {
 func NewResourceMigrationUploadHandler(
 	modelService ModelServiceGetter,
 	resourceServiceGetter ResourceServiceGetter,
+	validator BlobValidator,
 	logger logger.Logger,
 ) *resourcesMigrationUploadHandler {
 	return &resourcesMigrationUploadHandler{
 		modelService:          modelService,
 		resourceServiceGetter: resourceServiceGetter,
+		validator:             validator,
 		logger:                logger,
 	}
 }
@@ -150,18 +157,59 @@ func (h *resourcesMigrationUploadHandler) processPost(
 	}
 	retrievedBy, retrievedByType := determineRetrievedBy(query)
 
-	// Ideally we would verify that the hash and size of the blob in the request
-	// body matches the hash and size in the headers. However, there is a bug
-	// for container resources exported from 3.6 where the hash the header does
-	// not match the hash in the body. For this reason, we do not check it here.
-	return resourceService.StoreResource(ctx, resource.StoreResourceArgs{
+	// Container image resources are exempt from claim comparison: models
+	// exported from Juju 3.6 carry fingerprints that do not match the blob
+	// bytes (commit 432c96a1c2 removed an earlier unconditional check for
+	// exactly this reason), and the store re-derives both values from the
+	// parsed metadata. Those bodies are bounded at the store maximum plus
+	// one byte, so the store rejects an oversized blob instead of
+	// truncating it. Every other type is bounded at exactly the claimed
+	// size: the bytes read must hash to the claimed fingerprint and number
+	// exactly the claimed size. A corrupt body fails the hash check, as
+	// does a truncated one when the claims are consistent; internally
+	// inconsistent claims fail the size check; and the trailing bytes of
+	// an over-long body are neither hashed nor stored. Migration uploads
+	// are chunked, so r.ContentLength is not usable here.
+	var reader io.Reader
+	if res.Type == charmresource.TypeContainerImage {
+		reader = limitReadCloser(r.Body, containerimageservice.MaxContainerImageResourceSize+1)
+	} else {
+		validated, err := h.validator.Download(
+			ctx,
+			limitReadCloser(r.Body, details.size),
+			details.fingerprint.String(),
+			details.size,
+		)
+		if err != nil {
+			return empty, errors.BadRequestf("validating resource blob: %w", err)
+		}
+		defer validated.Close()
+		reader = validated
+	}
+	stored, err := resourceService.StoreResource(ctx, resource.StoreResourceArgs{
 		ResourceUUID:    resUUID,
-		Reader:          r.Body,
+		Reader:          reader,
 		RetrievedBy:     retrievedBy,
 		RetrievedByType: retrievedByType,
 		Size:            details.size,
 		Fingerprint:     details.fingerprint,
 	})
+	if internalerrors.Is(err, containerimageresourcestoreerrors.ContainerImageResourceTooLarge) {
+		return empty, errors.BadRequestf(
+			"container image resource exceeds maximum size of %d bytes",
+			containerimageservice.MaxContainerImageResourceSize,
+		)
+	}
+	return stored, err
+}
+
+// limitReadCloser exposes at most n bytes from r. Reaching the limit reports
+// EOF, which io.Copy treats as a normal end of stream.
+func limitReadCloser(r io.ReadCloser, n int64) io.ReadCloser {
+	return struct {
+		io.Reader
+		io.Closer
+	}{io.LimitReader(r, n), r}
 }
 
 // determineRetrievedBy determines the entity that retrieved the resource using
@@ -232,6 +280,9 @@ func resourceDetailsFromQuery(query url.Values) (resourceDetails, error) {
 	details.size, err = strconv.ParseInt(query.Get("size"), 10, 64)
 	if err != nil {
 		return details, errors.BadRequestf("invalid size: %w", err)
+	}
+	if details.size < 0 || details.size == math.MaxInt64 {
+		return details, errors.BadRequestf("invalid size: %d", details.size)
 	}
 	details.fingerprint, err = charmresource.ParseFingerprint(query.Get("fingerprint"))
 	if err != nil {

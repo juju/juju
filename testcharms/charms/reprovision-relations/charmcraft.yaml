@@ -1,0 +1,18 @@
+name: reprovision-relations
+summary: Records peer relation hooks during machine reprovisioning tests.
+description: |
+  A minimal machine charm that records peer relation lifecycle hooks and
+  departed unit settings for reprovisioning integration tests.
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+peers:
+  peers:
+    interface: reprovision-relations
+parts:
+  charm:
+    plugin: dump
+    source: .
+    prime:
+      - hooks

@@ -14,7 +14,7 @@ See also: {ref}`secret`
 Charms can use relations to share secrets, such as API keys, a database’s address, credentials and so on. This document demonstrates how to interact with them as a Juju user.
 
 ```{caution}
-The write operations are only available (a) starting with Juju 3.3 and (b) to model admin users looking to manage user-owned secrets. See more: {ref}`secret`.
+The write operations are only available to model admin users looking to manage user-owned secrets. See more: {ref}`secret`.
 ```
 
 ## Add a secret

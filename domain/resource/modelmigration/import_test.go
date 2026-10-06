@@ -121,6 +121,20 @@ func (s *importSuite) TestImport(c *tc.C) {
 			Origin:    unitRes2Origin.String(),
 		},
 	})
+	unit2Name := "app-name/1"
+	unit2ResRevision := 2
+	unit2ResTime := time.Now().Truncate(time.Second).Add(-time.Minute).UTC()
+	unit2 := app.AddUnit(description.UnitArgs{
+		Name: unit2Name,
+	})
+	unit2.AddResource(description.UnitResourceArgs{
+		Name: res1Name,
+		RevisionArgs: description.ResourceRevisionArgs{
+			Timestamp: unit2ResTime,
+			Revision:  unit2ResRevision,
+			Origin:    res1Origin.String(),
+		},
+	})
 
 	s.resourceService.EXPECT().ImportResources(gomock.Any(), []domainresource.ImportResourcesArg{{
 		ApplicationName: appName,
@@ -150,6 +164,14 @@ func (s *importSuite) TestImport(c *tc.C) {
 				Origin:    unitRes2Origin,
 				Revision:  unitRes2Revision,
 				Timestamp: unitRes2Time,
+			},
+		}, {
+			UnitName: unit2Name,
+			ImportResourceInfo: domainresource.ImportResourceInfo{
+				Name:      res1Name,
+				Origin:    res1Origin,
+				Revision:  unit2ResRevision,
+				Timestamp: unit2ResTime,
 			},
 		}},
 	}})

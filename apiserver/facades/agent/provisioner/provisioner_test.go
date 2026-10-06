@@ -19,7 +19,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	machinetesting "github.com/juju/juju/core/machine/testing"
 	coremodel "github.com/juju/juju/core/model"
@@ -127,47 +126,34 @@ func (s *provisionerMockSuite) TestHostChangesForContainers(c *tc.C) {
 	})
 }
 
-func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoNoAddrAllocation(c *tc.C) {
+func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfo(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	hostUUID := machinetesting.GenUUID(c)
 	guestUUID := machinetesting.GenUUID(c)
-	hostInstanceID := instance.Id("m0-instance-id")
 
 	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
 
 	expMach := s.machineService.EXPECT()
 	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(hostUUID, nil)
-	expMach.GetInstanceID(gomock.Any(), hostUUID).Return(hostInstanceID, nil)
 	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return(guestUUID, nil)
 
-	s.networkService.EXPECT().DevicesForGuest(gomock.Any(), hostUUID, guestUUID).Return([]domainnetwork.NetInterface{{
-		MACAddress:       new("some:mac:address"),
-		Name:             "eth0",
-		ParentDeviceName: "br-eth0",
-		Type:             network.EthernetDevice,
-		IsAutoStart:      true,
-		IsEnabled:        true,
-		Addrs: []domainnetwork.NetAddr{{
-			AddressValue: "192.168.0.0/24",
-			ConfigType:   network.ConfigDHCP,
-		}},
-	}}, nil)
-
-	preparedInfo := network.InterfaceInfos{{
+	// The allocation of addresses is the concern of the network service:
+	// the facade only converts what it returns to the wire format.
+	s.networkService.EXPECT().NetworkConfigForGuest(
+		gomock.Any(), hostUUID, guestUUID, coremachine.Name("0/lxd/0"),
+	).Return(network.InterfaceInfos{{
 		MACAddress:          "some:mac:address",
 		InterfaceName:       "eth0",
 		ParentInterfaceName: "br-eth0",
 		InterfaceType:       network.EthernetDevice,
-		ConfigType:          network.ConfigDHCP,
+		ConfigType:          network.ConfigStatic,
 		Addresses: network.ProviderAddresses{{MachineAddress: network.MachineAddress{
+			Value:      "192.168.0.6",
 			CIDR:       "192.168.0.0/24",
-			ConfigType: network.ConfigDHCP,
+			ConfigType: network.ConfigStatic,
 		}}},
-	}}
-
-	s.networkService.EXPECT().AllocateContainerAddresses(
-		gomock.Any(), hostInstanceID, "0/lxd/0", preparedInfo).Return(nil, errors.ContainerAddressesNotSupported)
+	}}, nil)
 
 	res, err := s.api.PrepareContainerInterfaceInfo(c.Context(), params.Entities{
 		Entities: []params.Entity{{
@@ -184,86 +170,6 @@ func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoNoAddrAllocation
 				InterfaceName:       "eth0",
 				ParentInterfaceName: "br-eth0",
 				InterfaceType:       "ethernet",
-				ConfigType:          "dhcp",
-				Addresses: []params.Address{{
-					CIDR:       "192.168.0.0/24",
-					ConfigType: "dhcp",
-				}},
-			}},
-		}},
-	})
-}
-
-func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoProviderAddrAllocation(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	hostUUID := machinetesting.GenUUID(c)
-	guestUUID := machinetesting.GenUUID(c)
-	hostInstanceID := instance.Id("m0-instance-id")
-
-	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
-
-	expMach := s.machineService.EXPECT()
-	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(hostUUID, nil)
-	expMach.GetInstanceID(gomock.Any(), hostUUID).Return(hostInstanceID, nil)
-	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return(guestUUID, nil)
-
-	s.networkService.EXPECT().DevicesForGuest(gomock.Any(), hostUUID, guestUUID).Return([]domainnetwork.NetInterface{{
-		MACAddress:       new("some:mac:address"),
-		Name:             "eth0",
-		ParentDeviceName: "br-eth0",
-		Type:             network.EthernetDevice,
-		IsAutoStart:      true,
-		IsEnabled:        true,
-		Addrs: []domainnetwork.NetAddr{{
-			AddressValue: "192.168.0.0/24",
-			ConfigType:   network.ConfigStatic,
-		}},
-	}}, nil)
-
-	preparedInfo := network.InterfaceInfos{{
-		MACAddress:          "some:mac:address",
-		InterfaceName:       "eth0",
-		ParentInterfaceName: "br-eth0",
-		InterfaceType:       network.EthernetDevice,
-		ConfigType:          network.ConfigStatic,
-		Addresses: network.ProviderAddresses{{MachineAddress: network.MachineAddress{
-			CIDR:       "192.168.0.0/24",
-			ConfigType: network.ConfigStatic,
-		}}},
-	}}
-
-	allocatedInfo := network.InterfaceInfos{{
-		MACAddress:          "some:other:mac:address",
-		InterfaceName:       "eth0",
-		ParentInterfaceName: "br-eth0",
-		InterfaceType:       network.EthernetDevice,
-		ConfigType:          network.ConfigStatic,
-		Addresses: network.ProviderAddresses{{MachineAddress: network.MachineAddress{
-			Value:      "192.168.0.6",
-			CIDR:       "192.168.0.0/24",
-			ConfigType: network.ConfigStatic,
-		}}},
-	}}
-
-	s.networkService.EXPECT().AllocateContainerAddresses(
-		gomock.Any(), hostInstanceID, "0/lxd/0", preparedInfo).Return(allocatedInfo, nil)
-
-	res, err := s.api.PrepareContainerInterfaceInfo(c.Context(), params.Entities{
-		Entities: []params.Entity{{
-			Tag: "machine-0-lxd-0",
-		}},
-	})
-
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(res, tc.DeepEquals, params.MachineNetworkConfigResults{
-		Results: []params.MachineNetworkConfigResult{{
-			Error: nil,
-			Config: []params.NetworkConfig{{
-				MACAddress:          "some:other:mac:address",
-				InterfaceName:       "eth0",
-				ParentInterfaceName: "br-eth0",
-				InterfaceType:       "ethernet",
 				ConfigType:          "static",
 				Addresses: []params.Address{{
 					Value:      "192.168.0.6",
@@ -273,6 +179,128 @@ func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoProviderAddrAllo
 			}},
 		}},
 	})
+}
+
+func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoHostNotProvisioned(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	hostUUID := machinetesting.GenUUID(c)
+	guestUUID := machinetesting.GenUUID(c)
+
+	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
+
+	expMach := s.machineService.EXPECT()
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(hostUUID, nil)
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return(guestUUID, nil)
+
+	s.networkService.EXPECT().NetworkConfigForGuest(
+		gomock.Any(), hostUUID, guestUUID, coremachine.Name("0/lxd/0"),
+	).Return(nil, internalerrors.Errorf("allocating: %w", errors.HostNotProvisioned))
+
+	res, err := s.api.PrepareContainerInterfaceInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: "machine-0-lxd-0",
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotProvisioned)
+	c.Check(res.Results[0].Config, tc.HasLen, 0)
+}
+
+func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoGuestNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	hostUUID := machinetesting.GenUUID(c)
+
+	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
+
+	expMach := s.machineService.EXPECT()
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(hostUUID, nil)
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return("", machineerrors.MachineNotFound)
+
+	res, err := s.api.PrepareContainerInterfaceInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: "machine-0-lxd-0",
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoNetworkServiceError(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	hostUUID := machinetesting.GenUUID(c)
+	guestUUID1 := machinetesting.GenUUID(c)
+	guestUUID2 := machinetesting.GenUUID(c)
+
+	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
+
+	expMach := s.machineService.EXPECT()
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(hostUUID, nil)
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return(guestUUID1, nil)
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/1")).Return(guestUUID2, nil)
+
+	// One guest's network configuration fails, the other's succeeds: the
+	// failure is reported per entity and does not abort the batch.
+	s.networkService.EXPECT().NetworkConfigForGuest(
+		gomock.Any(), hostUUID, guestUUID1, coremachine.Name("0/lxd/0"),
+	).Return(nil, internalerrors.Errorf("boom"))
+	s.networkService.EXPECT().NetworkConfigForGuest(
+		gomock.Any(), hostUUID, guestUUID2, coremachine.Name("0/lxd/1"),
+	).Return(network.InterfaceInfos{{
+		MACAddress:          "some:mac:address",
+		InterfaceName:       "eth0",
+		ParentInterfaceName: "br-eth0",
+		InterfaceType:       network.EthernetDevice,
+		ConfigType:          network.ConfigDHCP,
+	}}, nil)
+
+	res, err := s.api.PrepareContainerInterfaceInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: "machine-0-lxd-0",
+		}, {
+			Tag: "machine-0-lxd-1",
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 2)
+	c.Check(res.Results[0].Error, tc.NotNil)
+	c.Check(res.Results[0].Error, tc.Not(tc.Satisfies), params.IsCodeNotProvisioned)
+	c.Check(res.Results[0].Error, tc.Not(tc.Satisfies), params.IsCodeNotFound)
+	c.Check(res.Results[0].Config, tc.HasLen, 0)
+	c.Check(res.Results[1].Error, tc.IsNil)
+	c.Check(res.Results[1].Config, tc.HasLen, 1)
+	c.Check(res.Results[1].Config[0].ParentInterfaceName, tc.Equals, "br-eth0")
+}
+
+func (s *provisionerMockSuite) TestPrepareContainerInterfaceInfoMachineUUIDError(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	hostUUID := machinetesting.GenUUID(c)
+
+	s.authorizer.EXPECT().GetAuthTag().Return(names.NewMachineTag("0"))
+
+	expMach := s.machineService.EXPECT()
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0")).Return(hostUUID, nil)
+	expMach.GetMachineUUID(gomock.Any(), coremachine.Name("0/lxd/0")).Return("", internalerrors.Errorf("boom"))
+
+	res, err := s.api.PrepareContainerInterfaceInfo(c.Context(), params.Entities{
+		Entities: []params.Entity{{
+			Tag: "machine-0-lxd-0",
+		}},
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.NotNil)
+	c.Check(res.Results[0].Error, tc.Not(tc.Satisfies), params.IsCodeNotFound)
+	c.Check(res.Results[0].Config, tc.HasLen, 0)
 }
 
 func (s *provisionerMockSuite) TestStatusSuccess(c *tc.C) {

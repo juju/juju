@@ -6,9 +6,9 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
-	// ContainerAddressesNotSupported is returned when the provider
-	// returns false to SupportsContainerAddresses.
-	ContainerAddressesNotSupported = errors.ConstError("container addressing not supported")
+	// HostNotProvisioned is returned when the cloud instance of a host
+	// machine is required, but the machine has not been provisioned.
+	HostNotProvisioned = errors.ConstError("host machine not provisioned")
 
 	// NetNodeNotFound is returned when a network node does not exist.
 	NetNodeNotFound = errors.ConstError("network node not found")

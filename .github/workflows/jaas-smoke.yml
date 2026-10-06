@@ -21,7 +21,7 @@ jobs:
       - ${{ (github.repository_owner == 'juju' && 'quad-xlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@54042514f505b273907334ae2b9cdbb9a0213c1a # v2.4.0
 
@@ -37,7 +37,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
       - name: Checkout juju
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -57,10 +57,10 @@ jobs:
           make go-install
 
       - name: Start JIMM, bootstrap a Juju controller and add it to JIMM.
-        uses: canonical/jimm/.github/actions/test-server@feature/juju-4
+        uses: canonical/jimm/.github/actions/test-server@v4
         id: jaas
         with:
-          jimm-version: v3.4.0-alpha2
+          jimm-version: v4.0.0-alpha4
           ghcr-pat: ${{ secrets.GITHUB_TOKEN }}
           dump-logs: true
           use-charmed-k8s-action: "false"

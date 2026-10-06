@@ -1090,9 +1090,10 @@ ON CONFLICT (application_uuid) DO NOTHING
 	return nil
 }
 
-// ClearApplicationHasK8sResources records that the provisioner has finished
+// DeleteAppHasK8sResourcesEntry records that the provisioner has finished
 // managing k8s resources for the given application, unblocking removal.
-func (st *State) ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error {
+// It is a no-op if no entry exists for the application.
+func (st *State) DeleteAppHasK8sResourcesEntry(ctx context.Context, appUUID coreapplication.UUID) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1290,11 +1291,11 @@ WHERE  name = $unitName.name
 // service (if any) addresses along with the associated endpoint bindings.
 //
 // NOTE(nvinuesa): This method is used in the `WatchUnitAddressesHash` watcher
-// to validate if a change has indeed occurred. The issue with this behavior is
+// to validate if a change has indeed occurred. The issue with this behaviour is
 // that it will get fired very often and the probability of a change that is
 // of interest for the unit is low.
 // A possible future improvement would be to accumulate the change events and
-// check whether the unit of interest has been affaceted, before hitting the db.
+// check whether the unit of interest has been affected, before hitting the db.
 func (st *State) GetAddressesHash(ctx context.Context, appUUID coreapplication.UUID, netNodeUUID string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1525,8 +1526,8 @@ func (st *State) GetCharmByApplicationUUID(ctx context.Context, appUUID coreappl
 	return ch, nil
 }
 
-// SetApplicationCharm sets a new charm for the specified application using
-// the provided parameters and validates changes.
+// SetApplicationCharm sets a new charm for the specified application and
+// atomically reconciles its current resources using the provided parameters.
 // Some validation needs to be transactional:
 // - relation compatibility needs to be transactional, since a new or removed
 // relation can change the validation result.
@@ -1605,6 +1606,12 @@ WHERE  uuid = $entityUUID.uuid
 		})
 		if err := st.mergeApplicationEndpointBindings(ctx, tx, appID.String(), bindings, false); err != nil {
 			return errors.Capture(err)
+		}
+
+		if err := st.reconcileApplicationResourcesForCharm(
+			ctx, tx, appID.String(), chID.String(), params,
+		); err != nil {
+			return errors.Errorf("reconciling application resources: %w", err)
 		}
 
 		if err := tx.Query(ctx, setAppCharmStmt, appAndCharmPair).Run(); err != nil {
@@ -1768,7 +1775,7 @@ WHERE  name = $unitName.name;
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, query, unit).Get(&app)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return applicationerrors.ApplicationNotFound
+			return applicationerrors.UnitNotFound
 		}
 		return err
 	})

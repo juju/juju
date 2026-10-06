@@ -13,4 +13,7 @@ const (
 	// container image metadata has already been stored under the specified
 	// storage key.
 	ContainerImageMetadataAlreadyStored = errors.ConstError("container image metadata already stored")
+	// ContainerImageResourceTooLarge describes an error that occurs when a
+	// container image resource exceeds its maximum encoded size.
+	ContainerImageResourceTooLarge = errors.ConstError("container image resource too large")
 )

@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -255,6 +256,62 @@ AND    state = 'available'
 		return "", errors.Capture(err)
 	}
 	return coreresource.UUID(resource.UUID), nil
+}
+
+// GetUnitResourceID returns the ID of the resource selected by a unit for a
+// logical resource name.
+//
+// The following error types can be expected to be returned:
+//   - [applicationerrors.UnitNotFound] if the unit does not exist.
+//   - [resourceerrors.ResourceNotFound] if the unit has no selected resource
+//     with the supplied name.
+func (st *State) GetUnitResourceID(
+	ctx context.Context,
+	unitName, resourceName string,
+) (coreresource.UUID, error) {
+	type unitResourceResult struct {
+		UnitUUID     string         `db:"unit_uuid"`
+		ResourceUUID sql.NullString `db:"resource_uuid"`
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	resourceInput := unitResource{
+		CharmResourceName: resourceName,
+	}
+	unitInput := unitUUIDAndName{Name: unitName}
+	var result unitResourceResult
+	stmt, err := st.Prepare(`
+SELECT u.uuid AS &unitResourceResult.unit_uuid,
+       ur.resource_uuid AS &unitResourceResult.resource_uuid
+FROM   unit AS u
+LEFT JOIN unit_resource AS ur
+ON     ur.unit_uuid = u.uuid
+AND    ur.charm_resource_name = $unitResource.charm_resource_name
+WHERE  u.name = $unitUUIDAndName.name
+`, result, resourceInput, unitInput)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, resourceInput, unitInput).Get(&result); errors.Is(err, sqlair.ErrNoRows) {
+			return applicationerrors.UnitNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		if !result.ResourceUUID.Valid {
+			return resourceerrors.ResourceNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return coreresource.UUID(result.ResourceUUID.String), nil
 }
 
 // GetResourceUUIDByApplicationAndResourceName returns the ID of the application
@@ -627,14 +684,23 @@ func (st *State) GetResourceWithoutApplication(
 	resourceOutput := resourceView{}
 
 	stmt, err := st.Prepare(`
+WITH resource_application (resource_uuid, application_name) AS (
+    SELECT ar.resource_uuid, a.name
+    FROM   application_resource AS ar
+    JOIN   application AS a ON a.uuid = ar.application_uuid
+    UNION
+    SELECT ur.resource_uuid, a.name
+    FROM   unit_resource AS ur
+    JOIN   unit AS u ON u.uuid = ur.unit_uuid
+    JOIN   application AS a ON a.uuid = u.application_uuid
+)
 SELECT ( r.uuid, r.name, r.created_at, r.revision, r.origin_type,
     r.state, r.retrieved_by, r.path, r.description, r.kind_name,
     r.size, r.sha384) AS (&resourceView.*),
-    a.name AS &resourceView.application_name
-FROM v_resource AS r
-LEFT JOIN application_resource AS ar ON r.uuid = ar.resource_uuid
-LEFT JOIN application AS a ON ar.application_uuid = a.uuid
-WHERE r.uuid = $resourceIdentity.uuid
+    ra.application_name AS &resourceView.application_name
+FROM   v_resource AS r
+LEFT JOIN resource_application AS ra ON ra.resource_uuid = r.uuid
+WHERE  r.uuid = $resourceIdentity.uuid
 `,
 		resourceParam, resourceOutput)
 	if err != nil {
@@ -696,7 +762,7 @@ func (st *State) RecordStoredResource(
 		}
 
 		if args.IncrementCharmModifiedVersion {
-			err := st.incrementCharmModifiedVersion(ctx, tx, args.ResourceUUID)
+			err := st.incrementCharmModifiedVersion(ctx, tx, args.ResourceUUID.String())
 			if err != nil {
 				return errors.Errorf("incrementing charm modified version for application of resource %s: %w", args.ResourceUUID, err)
 			}
@@ -710,65 +776,61 @@ func (st *State) RecordStoredResource(
 	return nil
 }
 
-// GetResourceType finds the type of the given resource from the resource table.
+// GetResourceStorageKey returns the key used to retrieve the resource's
+// content from its resource store.
 //
 // The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] if the resource UUID cannot be
-//     found.
-func (st *State) GetResourceType(
+//   - [resourceerrors.StoredResourceNotFound] if the resource has no stored
+//     content.
+func (st *State) GetResourceStorageKey(
 	ctx context.Context,
 	resourceUUID coreresource.UUID,
-) (charmresource.Type, error) {
+) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return 0, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
-	var resKind charmresource.Type
+	type storageKey struct {
+		ResourceUUID string `db:"resource_uuid"`
+		Value        string `db:"storage_key"`
+	}
+	input := storageKey{ResourceUUID: resourceUUID.String()}
+	// Object-store blobs may have multiple path aliases. Prefer the stable path
+	// owned by this resource when it is present.
+	stmt, err := st.Prepare(`
+WITH storage_keys AS (
+    SELECT osmp.path AS storage_key
+    FROM   resource_file_store AS rfs
+    JOIN   object_store_metadata_path AS osmp
+    ON     osmp.metadata_uuid = rfs.store_uuid
+    WHERE  rfs.resource_uuid = $storageKey.resource_uuid
+    UNION ALL
+    SELECT ris.store_storage_key AS storage_key
+    FROM   resource_image_store AS ris
+    WHERE  ris.resource_uuid = $storageKey.resource_uuid
+)
+SELECT storage_key AS &storageKey.storage_key
+FROM   storage_keys
+ORDER BY storage_key = $storageKey.resource_uuid DESC
+LIMIT  1
+`, input)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result storageKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var errQuery error
-		resKind, errQuery = st.getResourceType(ctx, tx, resourceUUID)
-		return errors.Capture(errQuery)
+		err := tx.Query(ctx, stmt, input).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return resourceerrors.StoredResourceNotFound
+		}
+		return errors.Capture(err)
 	})
 	if err != nil {
-		return 0, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
-
-	return resKind, nil
-}
-
-func (st *State) getResourceType(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resourceUUID coreresource.UUID,
-) (charmresource.Type, error) {
-	resKind := resourceKind{
-		UUID: resourceUUID.String(),
-	}
-	getResourceType, err := st.Prepare(`
-SELECT crk.name AS &resourceKind.kind_name
-FROM   resource AS r
-JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
-JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
-WHERE  r.uuid = $resourceKind.uuid
-`, resKind)
-
-	if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, getResourceType, resKind).Get(&resKind)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return 0, resourceerrors.ResourceNotFound
-	} else if err != nil {
-		return 0, errors.Capture(err)
-	}
-
-	kind, err := charmresource.ParseType(resKind.Name)
-	if err != nil {
-		return 0, errors.Errorf("parsing resource kind: %w", err)
-	}
-	return kind, nil
+	return result.Value, nil
 }
 
 // recordStoredFileResource checks that the storage ID corresponds to stored
@@ -989,8 +1051,8 @@ ON CONFLICT(resource_uuid) DO UPDATE SET retrieved_by_type_id=excluded.retrieved
 
 // incrementCharmModifiedVersion increments the charm modified version on the
 // application associated with a resource.
-func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID coreresource.UUID) error {
-	resID := resourceIdentity{UUID: resourceUUID.String()}
+func (st *State) incrementCharmModifiedVersion(ctx context.Context, tx *sqlair.TX, resourceUUID string) error {
+	resID := resourceIdentity{UUID: resourceUUID}
 	getApplicationUUIDsStmt, err := st.Prepare(`
 SELECT &applicationUUID.*
 FROM   application_resource
@@ -1035,8 +1097,7 @@ WHERE  uuid = $applicationUUID.application_uuid
 }
 
 // SetUnitResource links a unit and a resource. If the unit is already linked to
-// a resource with the same charm uuid and resource name as the resource being
-// set, this resource is unset from the unit.
+// a resource with the same name, the link is updated to the supplied resource.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.UnitNotFound] if the unit id doesn't belong to an
@@ -1068,9 +1129,11 @@ AND    unit_resource.unit_uuid = $unitResource.unit_uuid`, unitResourceInput)
 		return errors.Capture(err)
 	}
 
-	// Prepare statement to check if the unit already has a resource set for this charm resource.
+	// Prepare statement to check that the resource exists and retrieve its
+	// name.
 	checkResourceExistsStmt, err := st.Prepare(`
-SELECT uuid AS &unitResource.resource_uuid
+SELECT uuid AS &unitResource.resource_uuid,
+       charm_resource_name AS &unitResource.charm_resource_name
 FROM   resource
 WHERE  uuid = $unitResource.resource_uuid
 `, unitResourceInput)
@@ -1087,10 +1150,16 @@ WHERE  uuid = $unitResource.unit_uuid`, unitResourceInput)
 		return errors.Capture(err)
 	}
 
-	// Prepare statement to insert a new link between unit and resource.
+	// Prepare statement to insert or replace a unit's resource by logical name.
 	insertUnitResourceQuery := `
-INSERT INTO unit_resource (unit_uuid, resource_uuid, added_at)
-VALUES      ($unitResource.*)`
+INSERT INTO unit_resource (resource_uuid, unit_uuid, charm_resource_name, added_at)
+VALUES ($unitResource.resource_uuid,
+        $unitResource.unit_uuid,
+        $unitResource.charm_resource_name,
+        $unitResource.added_at)
+ON CONFLICT(unit_uuid, charm_resource_name) DO UPDATE SET
+    resource_uuid = excluded.resource_uuid,
+    added_at = excluded.added_at`
 	insertUnitResourceStmt, err := st.Prepare(insertUnitResourceQuery, unitResourceInput)
 	if err != nil {
 		return errors.Capture(err)
@@ -1122,15 +1191,6 @@ VALUES      ($unitResource.*)`
 			return errors.Capture(err)
 		}
 
-		// Unset any existing resources with the same charm resource as the
-		// resource being set in the unit resource table.
-		err = st.unsetUnitResourcesWithSameCharmResource(ctx, tx, resourceUUID, unitUUID)
-		if err != nil {
-			return errors.Errorf(
-				"removing previously set unit resources for resource %s: %w", resourceUUID, err,
-			)
-		}
-
 		// Update unit resource table.
 		err = tx.Query(ctx, insertUnitResourceStmt, unitResourceInput).Run()
 		return errors.Capture(err)
@@ -1139,77 +1199,15 @@ VALUES      ($unitResource.*)`
 	return err
 }
 
-// unsetUnitResourcesForCharmResource removes all unit resources that use a
-// charm resource.
-func (st *State) unsetUnitResourcesWithSameCharmResource(
-	ctx context.Context, tx *sqlair.TX, uuid coreresource.UUID, unitUUID coreunit.UUID) error {
-	unitRes := unitResource{ResourceUUID: uuid.String(), UnitUUID: unitUUID.String()}
-
-	// Check if there is a resource on the unit that is using the same charm
-	// resource as the resource we are trying to set. This will be an old
-	// application resource of the units' which needs to be unset.
-	checkForResourcesStmt, err := st.Prepare(`
-SELECT ur.resource_uuid AS &localUUID.uuid
-FROM   unit_resource ur
-JOIN   resource r ON ur.resource_uuid = r.uuid
-WHERE  ur.unit_uuid = $unitResource.unit_uuid
-AND    (r.charm_uuid, r.charm_resource_name) IN (
-    SELECT charm_uuid, charm_resource_name
-    FROM   resource 
-    WHERE  uuid = $unitResource.resource_uuid
-    AND    state_id = 0 -- Only check available resources, not potential.
-)`, unitRes, localUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Check if the unit already had a resource set for this charm resource.
-	var matchingUUIDs []localUUID
-	err = tx.Query(ctx, checkForResourcesStmt, unitRes).GetAll(&matchingUUIDs)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		// Nothing to do.
-		return nil
-	} else if err != nil {
-		return errors.Capture(err)
-	}
-
-	// There should be at most one resource with a matching charm resource
-	// entry for this unit. There must be 1 here because of there were none
-	// we would have had ErrNoRows.
-	if len(matchingUUIDs) != 1 {
-		return errors.Errorf("unit already has the charm resource set more than once")
-	}
-
-	// Unset the old unit resource pointing to the charm resource.
-	unsetResourceStmt, err := st.Prepare(`
-DELETE FROM   unit_resource
-WHERE         resource_uuid = $localUUID.uuid 
-AND           unit_uuid = $unitResource.unit_uuid
-`, unitRes, localUUID{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	var outcome sqlair.Outcome
-	err = tx.Query(ctx, unsetResourceStmt, unitRes, matchingUUIDs[0]).Get(&outcome)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	num, err := outcome.Result().RowsAffected()
-	if err != nil {
-		return errors.Capture(err)
-	} else if num != int64(len(matchingUUIDs)) {
-		return errors.Errorf("expected %d rows to be deleted, got %d", len(matchingUUIDs), num)
-	}
-
-	return nil
-}
-
-// SetRepositoryResources updates the "potential" resources as the last
-// revision from charm repository. The current data for this
-// application/resource  combination with "potential" state will be overwritten.
-// If the resource doesn't exist, a log is generated.
+// SetRepositoryResources records the latest "potential" resources from the
+// charm repository. A changed revision or charm creates a replacement resource;
+// only last-polled time is updated in place. If the resource doesn't exist, a
+// log is generated.
+// Updates are last-write-wins and must be supplied in polling order.
+//
+// Immutable replacements leave historical resource rows behind. The resource
+// pruner must remove rows with no application, pending-application, or unit
+// link, together with blob links referenced only by those rows.
 //
 // "Potential" resources should be created at the creation of the application
 // for repository charm, with undefined `revision` and `last_polled` fields.
@@ -1219,7 +1217,7 @@ AND           unit_uuid = $unitResource.unit_uuid
 //     to a valid application.
 func (st *State) SetRepositoryResources(
 	ctx context.Context,
-	config resource.SetRepositoryResourcesArgs,
+	config resource.StateSetRepositoryResourcesArgs,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1241,35 +1239,73 @@ WHERE uuid = $applicationNameAndID.uuid
 	}
 
 	type resourceNames []string
-	// Prepare statement to get impacted resources UUID.
+	// Prepare statement to get the impacted potential resources.
+	type potentialResource struct {
+		UUID      string          `db:"uuid"`
+		Name      string          `db:"name"`
+		CharmUUID string          `db:"charm_uuid"`
+		Revision  sql.Null[int64] `db:"revision"`
+	}
 	fetchResIdentity := resourceIdentity{ApplicationUUID: config.ApplicationUUID.String()}
 	fetchUUIDsQuery := `
-SELECT &resourceIdentity.*
-FROM v_application_resource
-WHERE  application_uuid = $resourceIdentity.application_uuid
-AND state = 'potential'
-AND name IN ($resourceNames[:])
+SELECT r.uuid AS &potentialResource.uuid,
+       r.charm_resource_name AS &potentialResource.name,
+       r.charm_uuid AS &potentialResource.charm_uuid,
+       r.revision AS &potentialResource.revision
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   resource_state AS rs ON rs.id = r.state_id
+WHERE  ar.application_uuid = $resourceIdentity.application_uuid
+AND    rs.name = 'potential'
+AND    r.charm_resource_name IN ($resourceNames[:])
 `
-	fetchUUIDsStmt, err := st.Prepare(fetchUUIDsQuery, fetchResIdentity, resourceNames{})
+	fetchUUIDsStmt, err := st.Prepare(fetchUUIDsQuery, fetchResIdentity, resourceNames{}, potentialResource{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	// Prepare statement to update resources.
-	type updatePotentialResource struct {
-		UUID       string    `db:"uuid"`
-		LastPolled time.Time `db:"last_polled"`
-		Revision   int       `db:"revision"`
+	type replacePotentialResource struct {
+		OldUUID    string    `db:"old_uuid"`
+		NewUUID    string    `db:"new_uuid"`
 		CharmUUID  string    `db:"charm_uuid"`
+		Revision   int       `db:"revision"`
+		CreatedAt  time.Time `db:"created_at"`
+		LastPolled time.Time `db:"last_polled"`
 	}
 	updateLastPolledQuery := `
-UPDATE resource 
-SET last_polled=$updatePotentialResource.last_polled,
-    revision=$updatePotentialResource.revision,
-    charm_uuid=$updatePotentialResource.charm_uuid
-WHERE uuid = $updatePotentialResource.uuid
+UPDATE resource
+SET    last_polled = $replacePotentialResource.last_polled
+WHERE  uuid = $replacePotentialResource.old_uuid
 `
-	updateLastPolledStmt, err := st.Prepare(updateLastPolledQuery, updatePotentialResource{})
+	updateLastPolledStmt, err := st.Prepare(updateLastPolledQuery, replacePotentialResource{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertReplacementStmt, err := st.Prepare(`
+INSERT INTO resource (
+    uuid, charm_uuid, charm_resource_name, revision, origin_type_id,
+    state_id, created_at, last_polled
+)
+SELECT $replacePotentialResource.new_uuid,
+       $replacePotentialResource.charm_uuid,
+       r.charm_resource_name,
+       $replacePotentialResource.revision,
+       r.origin_type_id,
+       r.state_id,
+       $replacePotentialResource.created_at,
+       $replacePotentialResource.last_polled
+FROM   resource AS r
+WHERE  r.uuid = $replacePotentialResource.old_uuid
+`, replacePotentialResource{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	replaceApplicationResourceStmt, err := st.Prepare(`
+UPDATE application_resource
+SET    resource_uuid = $replacePotentialResource.new_uuid
+WHERE  application_uuid = $resourceIdentity.application_uuid
+AND    resource_uuid = $replacePotentialResource.old_uuid
+`, replacePotentialResource{}, resourceIdentity{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1280,7 +1316,7 @@ WHERE uuid = $updatePotentialResource.uuid
 		names = append(names, info.Name)
 		revisionByName[info.Name] = info.Revision
 	}
-	var resIdentities []resourceIdentity
+	var potentialResources []potentialResource
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check application exists.
 		err := tx.Query(ctx, getAppNameStmt, appNameAndID).Get(&appNameAndID)
@@ -1292,30 +1328,49 @@ WHERE uuid = $updatePotentialResource.uuid
 		}
 
 		// Fetch resources UUID.
-		err = tx.Query(ctx, fetchUUIDsStmt, resourceNames(names), fetchResIdentity).GetAll(&resIdentities)
+		err = tx.Query(ctx, fetchUUIDsStmt, resourceNames(names), fetchResIdentity).GetAll(&potentialResources)
 		if !errors.Is(err, sqlair.ErrNoRows) && err != nil {
 			return errors.Capture(err)
 		}
 
-		if len(resIdentities) != len(names) {
+		if len(potentialResources) != len(names) {
 			foundResources := set.NewStrings()
-			for _, res := range resIdentities {
+			for _, res := range potentialResources {
 				foundResources.Add(res.Name)
 			}
 			st.logger.Errorf(ctx, "Resource not found for application %s (%s), missing: %s",
 				appNameAndID.Name, config.ApplicationUUID, set.NewStrings(names...).Difference(foundResources).Values())
 		}
 
-		// Update last polled resources.
-		for _, res := range resIdentities {
-			err := tx.Query(ctx, updateLastPolledStmt, updatePotentialResource{
-				UUID:       res.UUID,
+		for _, res := range potentialResources {
+			revision := revisionByName[res.Name]
+			replacement := replacePotentialResource{
+				OldUUID:    res.UUID,
 				CharmUUID:  config.CharmID.String(),
+				Revision:   revision,
+				CreatedAt:  st.clock.Now().UTC(),
 				LastPolled: config.LastPolled,
-				Revision:   revisionByName[res.Name],
-			}).Run()
+			}
+			if res.CharmUUID == replacement.CharmUUID &&
+				res.Revision.Valid && res.Revision.V == int64(revision) {
+				err := tx.Query(ctx, updateLastPolledStmt, replacement).Run()
+				if err != nil {
+					return errors.Capture(err)
+				}
+				continue
+			}
+
+			replacementUUID, ok := config.ReplacementUUIDs[res.Name]
+			if !ok {
+				return errors.Errorf("replacement UUID not supplied for resource %q", res.Name)
+			}
+			replacement.NewUUID = replacementUUID
+			if err := tx.Query(ctx, insertReplacementStmt, replacement).Run(); err != nil {
+				return errors.Errorf("inserting replacement resource %q: %w", res.Name, err)
+			}
+			err := tx.Query(ctx, replaceApplicationResourceStmt, replacement, fetchResIdentity).Run()
 			if err != nil {
-				return errors.Capture(err)
+				return errors.Errorf("selecting replacement resource %q: %w", res.Name, err)
 			}
 		}
 		return nil
@@ -1323,9 +1378,9 @@ WHERE uuid = $updatePotentialResource.uuid
 	return errors.Capture(err)
 }
 
-// AddResourcesBeforeApplication adds the details of which resource
-// revisions to use before the application exists in the model. The
-// charm and resource metadata must exist.
+// AddResourcesBeforeApplication stages the resource revisions to use before an
+// application is created or its charm is changed. The charm and resource
+// metadata must exist.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.CharmResourceNotFound] if the charm or charm resource
@@ -1472,43 +1527,30 @@ func (st *State) buildResourcesToAdd(
 	return resources, result, nil
 }
 
-// UpdateUploadResourceAndDeletePriorVersion deletes a reference to the old
-// stored blob, saving the hash to return. Adds a new row in the resource
-// table with an Upload origin and nil revision, which indicates the resource
-// will be updated via an uploaded blob. Next, it sets it on the
-// application_resource table, removing the old resource for this charm
-// resource.
+// UpdateUploadResource creates and selects an immutable replacement resource
+// with an upload origin. The previous resource and its stored content are
+// retained for units which may still be using them.
 //
 // The following error types can be expected to be returned:
 //   - [resourceerrors.ResourceNotFound] is returned if the resource cannot be
 //     found.
-func (st *State) UpdateUploadResourceAndDeletePriorVersion(
+func (st *State) UpdateUploadResource(
 	ctx context.Context,
 	args resource.StateUpdateUploadResourceArgs,
-) (coreresource.UUID, error) {
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	newUUID, err := coreresource.NewUUID()
-	if err != nil {
-		return "", errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = st.deleteResourceBlobLink(ctx, tx, args.ResourceUUID, args.ResourceType)
-		if err != nil {
-			return errors.Errorf("deleting resource blob reference: %w", err)
-		}
-
 		resourceToUpdate, err := st.getResourceCharmDataForUpdate(ctx, tx, args.ResourceUUID)
 		if err != nil {
 			return errors.Errorf("getting resource with uuid: %w", err)
 		}
 
 		res := addResource{
-			UUID:      newUUID.String(),
+			UUID:      args.NewResourceUUID,
 			CharmUUID: resourceToUpdate.CharmUUID,
 			Name:      resourceToUpdate.Name,
 			Origin:    charmresource.OriginUpload.String(),
@@ -1520,18 +1562,14 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 			return errors.Errorf("inserting new resource record: %w", err)
 		}
 
-		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, newUUID)
+		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, args.NewResourceUUID)
 		if err != nil {
 			return errors.Errorf("updating application resource: %w", err)
 		}
 
 		return nil
 	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return newUUID, nil
+	return errors.Capture(err)
 }
 
 // getResourceCharmDataForUpdate returns a resourceCharmData for the given
@@ -1539,7 +1577,7 @@ func (st *State) UpdateUploadResourceAndDeletePriorVersion(
 func (st *State) getResourceCharmDataForUpdate(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid coreresource.UUID,
+	uuid string,
 ) (resourceCharmData, error) {
 
 	type availableResource struct {
@@ -1547,14 +1585,16 @@ func (st *State) getResourceCharmDataForUpdate(
 		State string `db:"state_name"`
 	}
 	input := availableResource{
-		UUID:  uuid.String(),
+		UUID:  uuid,
 		State: resource.StateAvailable.String(),
 	}
 	var output resourceCharmData
 	stmt, err := st.Prepare(`
-SELECT (charm_uuid, charm_resource_name) AS (&resourceCharmData.*)
-FROM   resource r
+SELECT (a.charm_uuid, r.charm_resource_name) AS (&resourceCharmData.*)
+FROM   resource AS r
 JOIN   resource_state AS rs ON r.state_id = rs.id
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   application AS a ON a.uuid = ar.application_uuid
 WHERE  r.uuid = $availableResource.uuid
 AND    rs.name = $availableResource.state_name
 `, output, input)
@@ -1608,12 +1648,12 @@ AND    rs.name = $addResource.state_name`, res)
 func (st *State) replaceResourceInApplicationResource(
 	ctx context.Context,
 	tx *sqlair.TX,
-	oldUUID coreresource.UUID,
-	newUUID coreresource.UUID,
+	oldUUID string,
+	newUUID string,
 ) error {
 	type update struct {
-		OldUUID coreresource.UUID `db:"old_uuid"`
-		NewUUID coreresource.UUID `db:"new_uuid"`
+		OldUUID string `db:"old_uuid"`
+		NewUUID string `db:"new_uuid"`
 	}
 	args := update{
 		OldUUID: oldUUID,
@@ -1639,190 +1679,6 @@ WHERE  resource_uuid = $update.old_uuid
 		return errors.Capture(err)
 	} else if rows != 1 {
 		return errors.Errorf("updating application resource: expected 1 row changed, got %d", rows)
-	}
-
-	return nil
-}
-
-// UpdateResourceRevisionAndDeletePriorVersion deletes a reference to the old
-// stored blob, saving the hash to return. Adds a new row in the resource
-// table with a Store origin and new revision which indicates the resource will
-// be updated. Next, it sets it on the application_resource table, removing the
-// old resource for this charm resource. Lastly the charm modified version is
-// updated to enable the resource upgrade.
-//
-// The following error types can be expected to be returned:
-//   - [resourceerrors.ResourceNotFound] is returned if the resource cannot be
-//     found.
-func (st *State) UpdateResourceRevisionAndDeletePriorVersion(
-	ctx context.Context,
-	args resource.UpdateResourceRevisionArgs,
-	resourceType charmresource.Type,
-) (coreresource.UUID, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	newUUID, err := coreresource.NewUUID()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = st.deleteResourceBlobLink(ctx, tx, args.ResourceUUID, resourceType)
-		if err != nil {
-			return errors.Errorf("deleting resource blob reference: %w", err)
-		}
-
-		resourceToUpdate, err := st.getResourceCharmDataForUpdate(ctx, tx, args.ResourceUUID)
-		if err != nil {
-			return errors.Errorf("getting resource with uuid: %w", err)
-		}
-
-		res := addResource{
-			UUID:      newUUID.String(),
-			CharmUUID: resourceToUpdate.CharmUUID,
-			Name:      resourceToUpdate.Name,
-			Revision:  &args.Revision,
-			Origin:    charmresource.OriginStore.String(),
-			State:     resource.StateAvailable.String(),
-			CreatedAt: st.clock.Now().UTC(),
-		}
-		err = st.addResource(ctx, tx, res)
-		if err != nil {
-			return errors.Errorf("inserting new resource record: %w", err)
-		}
-
-		err = st.replaceResourceInApplicationResource(ctx, tx, args.ResourceUUID, newUUID)
-		if err != nil {
-			return errors.Errorf("updating application resource: %w", err)
-		}
-
-		err = st.incrementCharmModifiedVersion(ctx, tx, newUUID)
-		if err != nil {
-			return errors.Errorf(
-				"incrementing charm modified version for application of resource %s: %w",
-				args.ResourceUUID, err)
-		}
-		return nil
-	})
-	return newUUID, errors.Capture(err)
-}
-
-// deleteResourceBlobLink deletes the link between a resource and its stored blob.
-func (st *State) deleteResourceBlobLink(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resUUID coreresource.UUID,
-	resourceType charmresource.Type,
-) error {
-	var (
-		err error
-	)
-	// Setup to delete the blob in the service if one exists.
-	switch resourceType {
-	case charmresource.TypeFile:
-		err = st.deleteFileResource(ctx, tx, resUUID)
-		if err != nil && !errors.Is(err, resourceerrors.StoredResourceNotFound) {
-			return errors.Errorf("deleting stored file resource information: %w", err)
-		}
-	case charmresource.TypeContainerImage:
-		err = st.deleteImageResource(ctx, tx, resUUID)
-		if err != nil && !errors.Is(err, resourceerrors.StoredResourceNotFound) {
-			return errors.Errorf("deleting stored image resource information: %w", err)
-		}
-	default:
-		return errors.Errorf("unknown resource type: %q", resourceType.String())
-	}
-	return nil
-}
-
-// deleteFileResource deletes the resource_file_store row for the given
-// resource UUID.
-func (st *State) deleteFileResource(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resUUID coreresource.UUID,
-) error {
-	uuidToDelete := localUUID{UUID: resUUID.String()}
-	hash := hash{}
-
-	// Check if the resource blob exists.
-	queryStoredHash, err := st.Prepare(`
-SELECT &hash.*
-FROM   resource_file_store
-WHERE  resource_uuid = $localUUID.uuid
-`, hash, uuidToDelete)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, queryStoredHash, uuidToDelete).Get(&hash)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return resourceerrors.StoredResourceNotFound
-	} else if err != nil {
-		return errors.Errorf("removing stored file resource %s: %w", resUUID, err)
-	}
-
-	removeExistingStoredResource, err := st.Prepare(`
-DELETE FROM   resource_file_store
-WHERE         resource_uuid = $localUUID.uuid
-`, uuidToDelete)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, removeExistingStoredResource, uuidToDelete).Run()
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return resourceerrors.StoredResourceNotFound
-	} else if err != nil {
-		return errors.Errorf("removing stored file resource %s: %w", resUUID, err)
-	}
-
-	return nil
-}
-
-// deleteImageResource deletes the resource_image_store row for the given
-// resource UUID.
-func (st *State) deleteImageResource(
-	ctx context.Context,
-	tx *sqlair.TX,
-	resUUID coreresource.UUID,
-) error {
-	uuidToDelete := localUUID{UUID: resUUID.String()}
-	hash := hash{}
-
-	// Check if the resource blob exists.
-	queryStoredHash, err := st.Prepare(`
-SELECT sha384 AS &hash.*
-FROM   resource_image_store
-WHERE  resource_uuid = $localUUID.uuid
-`, hash, uuidToDelete)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, queryStoredHash, uuidToDelete).Get(&hash)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return resourceerrors.StoredResourceNotFound
-	} else if err != nil {
-		return errors.Errorf("removing stored image resource %s: %w", resUUID, err)
-	}
-
-	removeExistingStoredResource, err := st.Prepare(`
-DELETE FROM   resource_image_store
-WHERE         resource_uuid = $localUUID.uuid
-`, uuidToDelete)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	err = tx.Query(ctx, removeExistingStoredResource, uuidToDelete).Run()
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return resourceerrors.StoredResourceNotFound
-	} else if err != nil {
-		return errors.Errorf("removing stored image resource %s: %w", resUUID, err)
 	}
 
 	return nil
@@ -2218,9 +2074,10 @@ func (st *State) getUnitResourcesToSet(
 		}
 
 		unitResourcesToSet = append(unitResourcesToSet, unitResource{
-			ResourceUUID: resourceUUID.String(),
-			UnitUUID:     unitUUID.String(),
-			AddedAt:      unitRes.Timestamp,
+			ResourceUUID:      resourceUUID.String(),
+			UnitUUID:          unitUUID.String(),
+			CharmResourceName: unitRes.Name,
+			AddedAt:           unitRes.Timestamp,
 		})
 	}
 	return unitResourcesToSet, resourcesToSet, nil

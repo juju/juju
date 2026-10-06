@@ -128,6 +128,31 @@ errors, try `make clean`, then `make run` again. For other checks, see `make
 
 > Note: If you are building locally on an Ubuntu Cloud VM or a container, you may experience issues accessing the page from a browser. To resolve this, add the export variable to your shell `export SPHINX_HOST=0.0.0.0`
 
+### Diagrams
+
+Architecture diagrams are drawn with [ggarch](https://github.com/tmihoc/ggarch)
+from one plain-text model, `docs/juju.ggarch`. Local docs builds need Python
+3.11 or later on `PATH` before you run `make run`, because ggarch requires it.
+To add or change a diagram:
+
+1. Edit `docs/juju.ggarch`. Declare any new node or edge once in the model,
+   then add or change a view (a `diagram` or a `sequence`) that selects what
+   the figure needs.
+2. Embed the view in the page with the `{ggarch}` directive (see the existing
+   pages, for example `docs/explanation/architecture.md`), with a short
+   caption and alt text.
+3. Run `make run` in `docs/` and check the figure in the browser, in light
+   and dark mode. Edits to the page or the model rebuild automatically.
+   `ggarch check docs/juju.ggarch` (from `docs/.venv/bin/`) validates the
+   model without a full build.
+
+Do not commit rendered SVGs: the docs build renders them, and the Read the
+Docs preview of your PR shows them to reviewers. `docs/requirements.txt` pins
+ggarch to a commit; if your diagram needs a newer renderer, bump the commit
+in the same PR. The visual conventions (colour means ownership) and the
+authoring guide are in `docs/agents/AGENTS.documentation.rules.md` and in
+ggarch's [SKILL.md](https://github.com/tmihoc/ggarch/blob/main/SKILL.md).
+
 </details>
 
 ---

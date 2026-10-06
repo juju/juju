@@ -77,7 +77,7 @@ func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 		return result
 	}
 
-	controllerAPIHostPortsWatcher, err := api.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	controllerAgentAddressesWatcher, err := api.controllerNodeService.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -85,7 +85,7 @@ func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 
 	watch, err := eventsource.NewMultiNotifyWatcher(ctx,
 		modelConfigNotifyWatcher,
-		controllerAPIHostPortsWatcher,
+		controllerAgentAddressesWatcher,
 	)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)

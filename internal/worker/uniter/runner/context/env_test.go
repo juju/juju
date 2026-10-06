@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"slices"
 	"sort"
 	stdtesting "testing"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/semversion"
+	coretrace "github.com/juju/juju/core/trace"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
@@ -265,6 +267,29 @@ func (s *EnvSuite) TestHostEnv(c *tc.C) {
 	)
 }
 
+func (s *EnvSuite) TestHookVarsIncludeW3CTraceContext(c *tc.C) {
+	hookContext, _ := s.getHookContext(c, false, nil, nil)
+	paths, _ := s.getPaths()
+	environmenter := context.NewRemoteEnvironmenter(
+		func() []string { return nil },
+		func(string) string { return "" },
+		func(string) (string, bool) { return "", false },
+	)
+	ctx := coretrace.WithSpan(c.Context(), traceSpan{scope: traceScope{
+		traceID:    "80f198ee56343ba864fe8b2a57d3eff7",
+		spanID:     "ff00000000000000",
+		traceFlags: 1,
+	}})
+
+	vars, err := hookContext.HookVars(ctx, paths, environmenter)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(slices.Contains(vars, "TRACEPARENT=00-80f198ee56343ba864fe8b2a57d3eff7-ff00000000000000-01"), tc.IsTrue)
+	c.Check(slices.Contains(vars, "TRACESTATE="), tc.IsTrue)
+	c.Check(slices.Contains(vars, "JUJU_TRACE_ID=80f198ee56343ba864fe8b2a57d3eff7"), tc.IsTrue)
+	c.Check(slices.Contains(vars, "JUJU_SPAN_ID=ff00000000000000"), tc.IsTrue)
+	c.Check(slices.Contains(vars, "JUJU_TRACE_FLAGS=1"), tc.IsTrue)
+}
+
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *tc.C) {
 	environmenter := context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },
@@ -332,3 +357,29 @@ func (s *EnvSuite) TestContextDependentCallsAllVarKeys(c *tc.C) {
 	c.Assert(len(rval), tc.Equals, len(queriedVars))
 	c.Assert(len(queriedVars), tc.Equals, len(context.ContextAllowedEnvVars))
 }
+
+type traceSpan struct {
+	scope coretrace.Scope
+}
+
+func (s traceSpan) Scope() coretrace.Scope { return s.scope }
+
+func (traceSpan) AddEvent(string, ...coretrace.Attribute) {}
+
+func (traceSpan) RecordError(error, ...coretrace.Attribute) {}
+
+func (traceSpan) End(...coretrace.Attribute) {}
+
+type traceScope struct {
+	traceID    string
+	spanID     string
+	traceFlags int
+}
+
+func (s traceScope) TraceID() string { return s.traceID }
+
+func (s traceScope) SpanID() string { return s.spanID }
+
+func (s traceScope) TraceFlags() int { return s.traceFlags }
+
+func (s traceScope) IsSampled() bool { return s.traceFlags&1 == 1 }

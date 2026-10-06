@@ -55,8 +55,16 @@ type ResourceService interface {
 	// natural key of application and resource name.
 	GetApplicationResourceID(ctx context.Context, args resource.GetApplicationResourceIDArgs) (coreresource.UUID, error)
 
+	// GetUnitResourceID returns the UUID of the resource selected by a unit for
+	// a logical resource name.
+	GetUnitResourceID(ctx context.Context, args resource.GetUnitResourceIDArgs) (coreresource.UUID, error)
+
 	// GetResource returns the identified application resource.
 	GetResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
+
+	// GetResourceWithoutApplication returns a resource without requiring a
+	// current application link.
+	GetResourceWithoutApplication(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, error)
 
 	// OpenResource returns the details of and a reader for the resource.
 	OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error)

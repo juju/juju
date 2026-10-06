@@ -16,6 +16,7 @@ import (
 	application "github.com/juju/juju/core/application"
 	resource "github.com/juju/juju/core/resource"
 	unit "github.com/juju/juju/core/unit"
+	resource0 "github.com/juju/juju/domain/resource"
 )
 
 // MockApplicationService is a mock of ApplicationService interface.
@@ -90,7 +91,9 @@ type MockResourceService struct {
 // MockResourceServiceMockRecorder is the mock recorder for MockResourceService.
 type MockResourceServiceMockRecorder struct {
 	mock                                 *MockResourceService
+	getResourceWithoutApplicationExpects []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 	getResourcesByApplicationUUIDExpects []*gomock.Call2_2[context.Context, application.UUID, []resource.Resource, error]
+	getUnitResourceIDExpects             []*gomock.Call2_2[context.Context, resource0.GetUnitResourceIDArgs, resource.UUID, error]
 }
 
 // NewMockResourceService creates a new mock instance.
@@ -104,6 +107,24 @@ func NewMockResourceService(ctrl *gomock.Controller) *MockResourceService {
 func (m *MockResourceService) EXPECT() *MockResourceServiceMockRecorder {
 	return m.recorder
 }
+
+// GetResourceWithoutApplication mocks base method.
+func (m *MockResourceService) GetResourceWithoutApplication(ctx context.Context, resourceUUID resource.UUID) (resource.Resource, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getResourceWithoutApplicationExpects, m.ctrl, m, "GetResourceWithoutApplication", ctx, resourceUUID)
+}
+
+// GetResourceWithoutApplication indicates an expected call of GetResourceWithoutApplication.
+func (mr *MockResourceServiceMockRecorder) GetResourceWithoutApplication(ctx, resourceUUID any) *MockResourceServiceGetResourceWithoutApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, resource.UUID, resource.Resource, error](mr.mock.ctrl.T, mr.mock, "GetResourceWithoutApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceUUID))
+	mr.getResourceWithoutApplicationExpects = append(mr.getResourceWithoutApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockResourceServiceGetResourceWithoutApplicationCall is the typed call wrapper for GetResourceWithoutApplication.
+type MockResourceServiceGetResourceWithoutApplicationCall = gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 
 // GetResourcesByApplicationUUID mocks base method.
 func (m *MockResourceService) GetResourcesByApplicationUUID(ctx context.Context, applicationID application.UUID) ([]resource.Resource, error) {
@@ -122,3 +143,21 @@ func (mr *MockResourceServiceMockRecorder) GetResourcesByApplicationUUID(ctx, ap
 
 // MockResourceServiceGetResourcesByApplicationUUIDCall is the typed call wrapper for GetResourcesByApplicationUUID.
 type MockResourceServiceGetResourcesByApplicationUUIDCall = gomock.Call2_2[context.Context, application.UUID, []resource.Resource, error]
+
+// GetUnitResourceID mocks base method.
+func (m *MockResourceService) GetUnitResourceID(ctx context.Context, args resource0.GetUnitResourceIDArgs) (resource.UUID, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitResourceIDExpects, m.ctrl, m, "GetUnitResourceID", ctx, args)
+}
+
+// GetUnitResourceID indicates an expected call of GetUnitResourceID.
+func (mr *MockResourceServiceMockRecorder) GetUnitResourceID(ctx, args any) *MockResourceServiceGetUnitResourceIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, resource0.GetUnitResourceIDArgs, resource.UUID, error](mr.mock.ctrl.T, mr.mock, "GetUnitResourceID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
+	mr.getUnitResourceIDExpects = append(mr.getUnitResourceIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockResourceServiceGetUnitResourceIDCall is the typed call wrapper for GetUnitResourceID.
+type MockResourceServiceGetUnitResourceIDCall = gomock.Call2_2[context.Context, resource0.GetUnitResourceIDArgs, resource.UUID, error]

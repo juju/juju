@@ -16,9 +16,9 @@ type ControllerNodeService interface {
 	// GetAllNoProxyAPIAddressesForAgents returns a sorted, comma separated string
 	// of agent API addresses suitable for no proxy settings.
 	GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (string, error)
-	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// WatchControllerAgentAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ModelConfigService provides access to the model's configuration.

@@ -892,6 +892,57 @@ func (s *importSuite) TestImportRemoteApplicationConsumers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestFindOfferConnections checks that every offer connection referencing
+// the application in its relation key is returned, in order, for the given
+// source model, and that non-matching or duplicated references are
+// filtered out.
+func (s *importSuite) TestFindOfferConnections(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	const proxyName = "remote-13ea27915e7840d888c5e9451444b45d"
+	const modelUUID = "4ddd6454-931d-4278-8779-b0b7208994d9"
+	newConn := func(offerUUID, key, sourceModelUUID string) offerConnection {
+		relationKey, err := relation.NewKeyFromString(key)
+		c.Assert(err, tc.ErrorIsNil)
+		return offerConnection{
+			OfferUUID:       offerUUID,
+			RelationID:      41,
+			RelationKey:     relationKey,
+			RelationKeyStr:  key,
+			SourceModelUUID: sourceModelUUID,
+			UserName:        "admin",
+		}
+	}
+
+	// No offer connections at all.
+	_, err := findOfferConnections(nil, proxyName, modelUUID)
+	c.Assert(err, tc.ErrorMatches,
+		`no offer connections for application "remote-13ea27915e7840d888c5e9451444b45d"`)
+
+	// Connections of another source model are filtered out.
+	_, err = findOfferConnections(
+		[]offerConnection{newConn("offer-0", proxyName+":db mysql:db", "other-model-uuid")},
+		proxyName, modelUUID)
+	c.Assert(err, tc.ErrorMatches,
+		`no offer connection contains application "remote-13ea27915e7840d888c5e9451444b45d"`)
+
+	// Every matching connection is returned in order, connections of other
+	// applications are filtered out, and a connection referencing the
+	// application twice in its relation key is only returned once.
+	conns := []offerConnection{
+		newConn("offer-1", proxyName+":db mysql:db", modelUUID),
+		newConn("offer-2", "other-app:db mysql:db", modelUUID),
+		newConn("offer-3", proxyName+":db postgres:db", modelUUID),
+		newConn("offer-4", proxyName+":db "+proxyName+":db", modelUUID),
+	}
+	got, err := findOfferConnections(conns, proxyName, modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 3)
+	c.Check(got[0].OfferUUID, tc.Equals, "offer-1")
+	c.Check(got[1].OfferUUID, tc.Equals, "offer-3")
+	c.Check(got[2].OfferUUID, tc.Equals, "offer-4")
+}
+
 // The offer connection records the relation it was created for, along with
 // the relation itself. The two must agree, otherwise the description is
 // inconsistent and the import fails instead of importing the relation with
@@ -1183,6 +1234,53 @@ func (s *importSuite) TestImportRemoteApplicationConsumersMultipleRemoteApplicat
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestImportRemoteApplicationConsumersDuplicateRelationKey checks that a
+// description anomaly yielding two offer connections of the same proxy
+// with the same relation key fails with a clear error naming the proxy
+// and the duplicated key, instead of failing deep in the state layer
+// when importing the same relation twice.
+func (s *importSuite) TestImportRemoteApplicationConsumersDuplicateRelationKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+
+	remoteApp := model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-13ea27915e7840d888c5e9451444b45d",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		IsConsumerProxy: true,
+		ConsumeVersion:  1,
+	})
+	remoteApp.AddEndpoint(description.RemoteEndpointArgs{
+		Name:      "sink",
+		Role:      "requirer",
+		Interface: "dummy-token",
+	})
+
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID:       "cfa46843-ebf2-4fff-8519-c1fb5a9816f3",
+		RelationID:      0,
+		RelationKey:     "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID:       "0f282d2e-884c-4b18-8b45-fa32f3b7b64a",
+		RelationID:      0,
+		RelationKey:     "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink",
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "application-remote-13ea27915e7840d888c5e9451444b45d",
+		Token: "13ea2791-5e78-40d8-88c5-e9451444b45d",
+	})
+
+	err := s.newImportOperation(c).Execute(c.Context(), model)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `.*duplicate relation key "dummy-sink:source remote-13ea27915e7840d888c5e9451444b45d:sink" in offer connections of remote application "remote-13ea27915e7840d888c5e9451444b45d".*`)
+}
+
 func (s *importSuite) TestImportRemoteApplicationConsumersNormalizesRelationKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1266,74 +1364,6 @@ func (s *importSuite) TestImportRemoteApplicationConsumersNormalizesRelationKey(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *importSuite) TestExtractRelationUUIDFromRemoteEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(entities, tc.DeepEquals, []relationRemoteEntity{{
-		RelationKey: relation.Key{{
-			ApplicationName: "dummy-source",
-			EndpointName:    "sink",
-			Role:            deploymentcharm.RoleRequirer,
-		}, {
-			ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
-			EndpointName:    "source",
-			Role:            deploymentcharm.RoleProvider,
-		}},
-		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	}})
-}
-
-func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesWithApplicationEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "relation-dummy-source.sink#remote-13ea27915e7840d888c5e9451444b45d.source",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-	model.AddRemoteEntity(description.RemoteEntityArgs{
-		ID:    "application-remote-13ea2791-5e78-40d8-88c5-e9451444b45d",
-		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	})
-
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(entities, tc.DeepEquals, []relationRemoteEntity{{
-		RelationKey: relation.Key{{
-			ApplicationName: "dummy-source",
-			EndpointName:    "sink",
-			Role:            deploymentcharm.RoleRequirer,
-		}, {
-			ApplicationName: "remote-13ea27915e7840d888c5e9451444b45d",
-			EndpointName:    "source",
-			Role:            deploymentcharm.RoleProvider,
-		}},
-		RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
-	}})
-}
-
-func (s *importSuite) TestExtractRelationUUIDFromRemoteEntitiesNoEntities(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	model := description.NewModel(description.ModelArgs{})
-
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(entities, tc.HasLen, 0)
-}
-
 func (s *importSuite) TestFindRelationUUIDForKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1344,7 +1374,7 @@ func (s *importSuite) TestFindRelationUUIDForKey(c *tc.C) {
 		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
 	})
 
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	entities, err := domainmodelmigration.ExtractRelationUUIDFromRemoteEntities(model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := findRelationUUIDForKey(entities, relation.Key{
@@ -1365,7 +1395,7 @@ func (s *importSuite) TestFindRelationUUIDForKeyIgnoresOrder(c *tc.C) {
 		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
 	})
 
-	entities, err := extractRelationUUIDFromRemoteEntities(model)
+	entities, err := domainmodelmigration.ExtractRelationUUIDFromRemoteEntities(model)
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := findRelationUUIDForKey(entities, relation.Key{

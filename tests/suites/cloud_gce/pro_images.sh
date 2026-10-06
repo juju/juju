@@ -7,7 +7,7 @@ run_pro_images() {
 	juju model-config image-stream=pro
 	juju metadata add-image --base ubuntu@24.04 ubuntu-pro-2404-noble-amd64-v20250805 --stream pro
 	juju deploy ubuntu
-	wait_for "ubuntu" "$(idle_condition "ubuntu")"
+	wait_for "ubuntu" "$(idle_condition "ubuntu")" 1200
 	pro_status=$(juju ssh 0 'sudo pro status --format json' | yq -r .attached)
 	check_contains "$pro_status" "true"
 

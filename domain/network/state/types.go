@@ -33,6 +33,12 @@ type name struct {
 	Name string `db:"name"`
 }
 
+type instanceID struct {
+	// ID is the provider's identity for a machine's cloud instance.
+	// It is NULL until the instance has been created.
+	ID sql.NullString `db:"instance_id"`
+}
+
 type netNodeUUID struct {
 	// UUID uniquely identifies a net node.
 	UUID string `db:"net_node_uuid"`

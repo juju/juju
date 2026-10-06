@@ -1070,13 +1070,20 @@ func (s *stateSuite) TestGetSourceControllerInfo(c *tc.C) {
 		ControllerID: "0",
 		Address:      "10.0.0.1:17070",
 		Scope:        string(network.ScopeCloudLocal),
-		IsAgent:      true,
 	}, {
 		ControllerID: "0",
 		Address:      "192.0.2.1:17070",
 		Scope:        string(network.ScopePublic),
-		IsAgent:      false,
+	}, {
+		Address: "shared.example.com:17070", Scope: string(network.ScopePublic),
 	}})
+
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO controller_agent_address (uuid, controller_id, address, scope)
+VALUES ('agent', '0', 'agent.example.com:17070', 'local-cloud');
+INSERT INTO controller_api_address (controller_id, address, scope, is_agent)
+VALUES ('0', 'legacy.example.com:17070', 'public', true)`)
+	c.Assert(err, tc.ErrorIsNil)
 
 	info, err := st.GetSourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1088,12 +1095,12 @@ func (s *stateSuite) TestGetSourceControllerInfo(c *tc.C) {
 		ControllerID: "0",
 		Address:      "10.0.0.1:17070",
 		Scope:        string(network.ScopeCloudLocal),
-		IsAgent:      true,
 	}, {
 		ControllerID: "0",
 		Address:      "192.0.2.1:17070",
 		Scope:        string(network.ScopePublic),
-		IsAgent:      false,
+	}, {
+		Address: "shared.example.com:17070", Scope: string(network.ScopePublic),
 	}})
 }
 
@@ -1611,7 +1618,7 @@ func (s *stateSuite) seedControllerAPIAddresses(c *tc.C, addrs []sourceAPIAddres
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		seenNodes := make(map[string]bool)
 		for _, addr := range addrs {
-			if !seenNodes[addr.ControllerID] {
+			if addr.ControllerID != "" && !seenNodes[addr.ControllerID] {
 				if _, err := tx.ExecContext(ctx,
 					`INSERT INTO controller_node (controller_id) VALUES (?) ON CONFLICT DO NOTHING`, addr.ControllerID); err != nil {
 					return err
@@ -1619,8 +1626,8 @@ func (s *stateSuite) seedControllerAPIAddresses(c *tc.C, addrs []sourceAPIAddres
 				seenNodes[addr.ControllerID] = true
 			}
 			if _, err := tx.ExecContext(ctx,
-				`INSERT INTO controller_api_address (controller_id, address, is_agent, scope) VALUES (?, ?, ?, ?)`,
-				addr.ControllerID, addr.Address, addr.IsAgent, addr.Scope); err != nil {
+				`INSERT INTO controller_client_address (uuid, controller_id, address, scope) VALUES (?, NULLIF(?, ''), ?, ?)`,
+				uuid.MustNewUUID().String(), addr.ControllerID, addr.Address, addr.Scope); err != nil {
 				return err
 			}
 		}

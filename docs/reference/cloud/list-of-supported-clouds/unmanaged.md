@@ -120,9 +120,9 @@ Bootstrap initializes the remote machine by creating an `ubuntu` user with passw
 **SSH operations during bootstrap:**
 
 1. **Ubuntu user setup**: SSH to `ubuntu@host` (or provided user). If `ubuntu` user doesn't exist, creates it with passwordless sudo via `sudo /bin/bash` script.
-2. **Provisioning check**: Verifies no jujud service already exists (fails if found).
+2. **Provisioning check**: Verifies that no `jujuagentd` machine service already exists (fails if found).
 3. **Hardware detection**: SSH script reads `/etc/os-release`, `uname`, `/proc/meminfo`, `/proc/cpuinfo` to detect OS, architecture, memory, CPU cores.
-4. **Machine configuration**: Generates cloud-init bash script and runs via `ssh ubuntu@host "sudo /bin/bash" < script`. Installs packages, downloads jujud binary, configures systemd service, enables auto-start.
+4. **Machine configuration**: Generates cloud-init bash script and runs via `ssh ubuntu@host "sudo /bin/bash" < script`. Installs packages, downloads the `jujuagentd` binary, configures systemd service, enables auto-start.
 5. **Bootstrap instance**: Instance ID: `"manual:"` (constant). Status: Always `Running`. Address derived from hostname/IP.
 
 ````{dropdown} Troubleshooting
@@ -148,7 +148,7 @@ See more: https://bugs.launchpad.net/juju/+bug/2030507
 The Unmanaged cloud does not create infrastructure resources. It configures the existing controller machine:
 
 - **Ubuntu user**: Created with passwordless sudo if doesn't exist.
-- **Juju agent**: jujud binary downloaded and configured as systemd service.
+- **Juju agent**: `jujuagentd` binary downloaded and configured as systemd service.
 - **Machine record**: Instance ID `"manual:"`, status `Running`, address from hostname/IP.
 
 (unmanaged-machine)=
@@ -209,7 +209,7 @@ Adding machines with `juju add-machine ssh:[user@]<host>` requires the target to
 
 **SSH operations when adding a machine:**
 
-1. **Verify pre-existence**: SSH checks if machine already has jujud.
+1. **Verify pre-existence**: SSH checks if the machine already has a `jujuagentd` machine service.
 2. **Gather machine info**: Detects base, hardware characteristics. Generates instance ID `"manual:hostname"`.
 3. **Install agent**: Runs provisioning script (same cloud-init model as bootstrap).
 

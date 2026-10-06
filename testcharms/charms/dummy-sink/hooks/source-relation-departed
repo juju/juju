@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -eu
+
+juju-log "dummy-sink: hook=source-relation-departed remote=${JUJU_DEPARTING_UNIT}"

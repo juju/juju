@@ -9,10 +9,31 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/application/internal"
+	"github.com/juju/juju/internal/errors"
 )
+
+func (s *applicationServiceSuite) TestClearK8sServiceAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must0(c, coreapplication.NewUUID)
+	for _, stateErr := range []error{nil, errors.New("state failure")} {
+		s.state.EXPECT().DeleteK8sServiceAddresses(gomock.Any(), appUUID.String()).Return(stateErr)
+		err := s.service.ClearK8sServiceAddresses(c.Context(), appUUID)
+		if stateErr == nil {
+			c.Assert(err, tc.ErrorIsNil)
+		} else {
+			c.Assert(err, tc.ErrorIs, stateErr)
+		}
+	}
+}
+
+func (s *applicationServiceSuite) TestClearK8sServiceAddressesInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	c.Assert(s.service.ClearK8sServiceAddresses(c.Context(), "invalid"), tc.NotNil)
+}
 
 func (s *applicationServiceSuite) TestUpdateK8sServiceAllocatesUUIDs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
