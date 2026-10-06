@@ -563,6 +563,16 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
 		}
 
+		// The machine_parent rows of the machine's children reference the
+		// machine row, so the children's own removal jobs must remove them
+		// first. This is a physical requirement like the net-node wait in
+		// removeNetNode: it applies even when the deletion is forced,
+		// unlike the dependents check below, which force may bypass.
+		if err := st.checkNoMachineChildren(ctx, tx, machineUUIDParam); err != nil {
+			return errors.Errorf("checking for child machines: %w", err).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
+
 		if !force {
 			// Check to see if the machine instance is in the dying state only if
 			// not forced.
@@ -607,12 +617,10 @@ WHERE uuid = $machine.uuid;
 }
 
 func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
-	countContainersOnMachine, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM machine_parent
-WHERE parent_uuid = $entityUUID.uuid
-`, count{}, machineUUIDParam)
-	if err != nil {
+	// Containers are a physical requirement of deleting the machine row,
+	// so they are checked unconditionally by DeleteMachine as well; see
+	// checkNoMachineChildren.
+	if err := st.checkNoMachineChildren(ctx, tx, machineUUIDParam); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -663,15 +671,6 @@ SELECT SUM(count) AS &count.count FROM (
 		return errors.Capture(err)
 	}
 
-	var containerCount count
-	err = tx.Query(ctx, countContainersOnMachine, machineUUIDParam).Get(&containerCount)
-	if err != nil {
-		return errors.Errorf("getting container count: %w", err)
-	} else if containerCount.Count > 0 {
-		return errors.Errorf("cannot delete machine %q, it hosts has %d container(s)", machineUUIDParam.UUID, containerCount.Count).
-			Add(removalerrors.MachineHasContainers)
-	}
-
 	var unitCount count
 	err = tx.Query(ctx, countUnitsOnMachine, machineUUIDParam).Get(&unitCount)
 	if err != nil {
@@ -700,6 +699,32 @@ SELECT SUM(count) AS &count.count FROM (
 		).Add(removalerrors.MachineHasStorage)
 	}
 
+	return nil
+}
+
+// checkNoMachineChildren asserts that no machine_parent rows reference the
+// machine: the machine row can only be deleted once the removal jobs of
+// its child machines have removed them. Unlike the other dependents
+// checked by checkNoMachineDependents, this is a physical requirement -
+// the machine_parent foreign key - so DeleteMachine enforces it even
+// when the deletion is forced, like the net-node waits in removeNetNode.
+func (st *State) checkNoMachineChildren(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
+	countChildren, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   machine_parent
+WHERE  parent_uuid = $entityUUID.uuid
+`, count{}, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var childCount count
+	if err := tx.Query(ctx, countChildren, machineUUIDParam).Get(&childCount); err != nil {
+		return errors.Errorf("getting container count: %w", err)
+	} else if childCount.Count > 0 {
+		return errors.Errorf("cannot delete machine %q, it hosts %d container(s)", machineUUIDParam.UUID, childCount.Count).
+			Add(removalerrors.MachineHasContainers)
+	}
 	return nil
 }
 
