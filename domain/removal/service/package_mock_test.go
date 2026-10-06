@@ -307,6 +307,7 @@ type MockModelDBStateMockRecorder struct {
 	deleteRelationWithRemoteConsumerExpects                 []*gomock.Call2_1[context.Context, string, error]
 	deleteRelationWithRemoteOffererExpects                  []*gomock.Call2_1[context.Context, string, error]
 	deleteRemoteApplicationOffererExpects                   []*gomock.Call2_1[context.Context, string, error]
+	deleteResourceIfUnusedExpects                           []*gomock.Call2_2[context.Context, string, bool, error]
 	deleteSecretRevisionsExpects                            []*gomock.Call3_2[context.Context, *secrets.URI, []int, []string, error]
 	deleteStorageAttachmentExpects                          []*gomock.Call2_1[context.Context, string, error]
 	deleteStorageInstanceExpects                            []*gomock.Call2_1[context.Context, string, error]
@@ -389,6 +390,7 @@ type MockModelDBStateMockRecorder struct {
 	relationWithRemoteOffererScheduleRemovalExpects         []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
 	remoteApplicationOffererExistsExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
 	remoteApplicationOffererScheduleRemovalExpects          []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+	resourceExistsExpects                                   []*gomock.Call2_2[context.Context, string, bool, error]
 	setFilesystemStatusExpects                              []*gomock.Call3_1[context.Context, string, int, error]
 	setVolumeStatusExpects                                  []*gomock.Call3_1[context.Context, string, int, error]
 	storageAttachmentExistsExpects                          []*gomock.Call2_2[context.Context, string, bool, error]
@@ -791,6 +793,24 @@ func (mr *MockModelDBStateMockRecorder) DeleteRemoteApplicationOfferer(ctx, rUUI
 
 // MockModelDBStateDeleteRemoteApplicationOffererCall is the typed call wrapper for DeleteRemoteApplicationOfferer.
 type MockModelDBStateDeleteRemoteApplicationOffererCall = gomock.Call2_1[context.Context, string, error]
+
+// DeleteResourceIfUnused mocks base method.
+func (m *MockModelDBState) DeleteResourceIfUnused(ctx context.Context, resourceUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.deleteResourceIfUnusedExpects, m.ctrl, m, "DeleteResourceIfUnused", ctx, resourceUUID)
+}
+
+// DeleteResourceIfUnused indicates an expected call of DeleteResourceIfUnused.
+func (mr *MockModelDBStateMockRecorder) DeleteResourceIfUnused(ctx, resourceUUID any) *MockModelDBStateDeleteResourceIfUnusedCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "DeleteResourceIfUnused", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceUUID))
+	mr.deleteResourceIfUnusedExpects = append(mr.deleteResourceIfUnusedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateDeleteResourceIfUnusedCall is the typed call wrapper for DeleteResourceIfUnused.
+type MockModelDBStateDeleteResourceIfUnusedCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // DeleteSecretRevisions mocks base method.
 func (m *MockModelDBState) DeleteSecretRevisions(ctx context.Context, uri *secrets.URI, revisions []int) ([]string, error) {
@@ -2267,6 +2287,24 @@ func (mr *MockModelDBStateMockRecorder) RemoteApplicationOffererScheduleRemoval(
 
 // MockModelDBStateRemoteApplicationOffererScheduleRemovalCall is the typed call wrapper for RemoteApplicationOffererScheduleRemoval.
 type MockModelDBStateRemoteApplicationOffererScheduleRemovalCall = gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+
+// ResourceExists mocks base method.
+func (m *MockModelDBState) ResourceExists(ctx context.Context, resourceUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.resourceExistsExpects, m.ctrl, m, "ResourceExists", ctx, resourceUUID)
+}
+
+// ResourceExists indicates an expected call of ResourceExists.
+func (mr *MockModelDBStateMockRecorder) ResourceExists(ctx, resourceUUID any) *MockModelDBStateResourceExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "ResourceExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(resourceUUID))
+	mr.resourceExistsExpects = append(mr.resourceExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateResourceExistsCall is the typed call wrapper for ResourceExists.
+type MockModelDBStateResourceExistsCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // SetFilesystemStatus mocks base method.
 func (m *MockModelDBState) SetFilesystemStatus(ctx context.Context, fsUUID string, status int) error {

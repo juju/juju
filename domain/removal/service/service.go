@@ -52,6 +52,7 @@ type ModelDBState interface {
 	RelationWithRemoteConsumer
 	OfferState
 	SecretModelState
+	ResourceState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -152,6 +153,8 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	s.logger.Criticalf(ctx, "Executing removal job %v %v", job.RemovalType.String(), job.EntityUUID)
+
 	var err error
 	switch job.RemovalType {
 	case removal.RelationJob:
@@ -207,6 +210,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 
 	case removal.ObsoleteUserSecretRevisionsJob:
 		err = s.processObsoleteUserSecretRevisionsJob(ctx, job)
+
+	case removal.ResourceJob:
+		err = s.processResourceRemovalJob(ctx, job)
 
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
