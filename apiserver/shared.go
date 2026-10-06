@@ -237,3 +237,13 @@ func (c *sharedServerContext) maxDebugLogDuration() time.Duration {
 
 	return c.controllerConfig.MaxDebugLogDuration()
 }
+
+// sshMaxConcurrentConnections returns the current controller-configured
+// maximum number of concurrent SSH connections. It is read under the
+// config mutex so it reflects runtime controller-config changes.
+func (c *sharedServerContext) sshMaxConcurrentConnections() int {
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+
+	return c.controllerConfig.SSHMaxConcurrentConnections()
+}

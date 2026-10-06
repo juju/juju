@@ -1,0 +1,185 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package sshproxy
+
+import (
+	"context"
+	"net/http"
+	"sync/atomic"
+
+	"github.com/lestrrat-go/jwx/v3/jwt"
+	gliderssh "github.com/tailscale/gliderssh"
+
+	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
+	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/permission"
+	coresshproxy "github.com/juju/juju/core/sshproxy"
+	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/internal/errors"
+	coressh "github.com/juju/juju/internal/ssh"
+)
+
+// RelayJWTKey is the context key for the relay JWT, set by the apiserver
+// from the request's auth info.
+type RelayJWTKey struct{}
+
+// TerminatingServerFactory builds terminating SSH servers for routed
+// destinations. It is satisfied by the factory the SSH server worker
+// outputs.
+type TerminatingServerFactory interface {
+	// New returns a terminating SSH server for the destination, with proxy
+	// handlers and the destination's host key configured.
+	New(ctx context.Context, destination virtualhostname.Info) (*gliderssh.Server, error)
+}
+
+// RelayHandler implements the JIMM relay upgrade endpoint:
+//
+//	GET /ssh-relay/:virtualHostname
+//
+// JIMM authenticates with a bearer JWT in the Authorization header (the
+// same external-auth flow the API server already supports on HTTP
+// endpoints). After the upgrade, the user's SSH session - relayed blind by
+// JIMM - terminates in the embedded SSH server built here.
+//
+// The handler is a worker: the apiserver attaches it to its catacomb,
+// so killing it cancels the request contexts of in-flight relays. Each
+// relay watches its request context and closes its hijacked connection
+// when the handler dies, draining the relays on apiserver shutdown
+// (hijacked connections are invisible to http.Server.Shutdown).
+type RelayHandler struct {
+	hijackWorker
+	config RelayHandlerConfig
+
+	// concurrentConnections holds the number of in-flight relays, capped
+	// by config.MaxConcurrentConnections.
+	concurrentConnections atomic.Int32
+}
+
+// RelayHandlerConfig holds the configuration for the JIMM relay endpoint.
+type RelayHandlerConfig struct {
+	// Logger is used for logging.
+	Logger logger.Logger
+	// ServerFactory builds the per-destination terminating SSH server.
+	ServerFactory TerminatingServerFactory
+	// MaxConcurrentConnections returns the maximum number of concurrent
+	// relays served at once. It is read per request so runtime
+	// controller-config changes take effect without rebuilding the
+	// handler. Each relay holds a hijacked connection for the life of the
+	// SSH session, so the cap bounds the connections, goroutines and
+	// per-connection lookups the endpoint can accumulate. The cap is
+	// per-endpoint: the relay and jump server count separately.
+	MaxConcurrentConnections func() int
+}
+
+// Validate checks whether the configuration is valid.
+func (cfg RelayHandlerConfig) Validate() error {
+	if cfg.Logger == nil {
+		return errors.New("nil Logger")
+	}
+	if cfg.ServerFactory == nil {
+		return errors.New("nil ServerFactory")
+	}
+	if cfg.MaxConcurrentConnections == nil {
+		return errors.New("nil MaxConcurrentConnections")
+	}
+	return nil
+}
+
+// NewRelayHandler returns a new JIMM relay endpoint handler.
+func NewRelayHandler(config RelayHandlerConfig) (*RelayHandler, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Errorf("validating relay handler config: %w", err)
+	}
+	h := &RelayHandler{config: config}
+	h.start()
+	return h, nil
+}
+
+// ServeHTTP implements http.Handler.
+func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// The request context is cancelled when the handler's tomb starts
+	// dying, so in-flight relays observe shutdown and their connections
+	// are closed by the tomb goroutine.
+	ctx := h.requestContext(r)
+	r = r.WithContext(ctx)
+
+	virtualHostname := r.URL.Query().Get(":virtualHostname")
+	destination, err := virtualhostname.Parse(virtualHostname)
+	if err != nil {
+		http.Error(w, "failed to parse destination hostname", http.StatusBadRequest)
+		return
+	}
+
+	// The user identity comes from the JWT claims (PermissionDelegator
+	// flow). The token was validated by the HTTP authentication layer.
+	token, ok := ctx.Value(RelayJWTKey{}).(jwt.Token)
+	if !ok || token == nil {
+		http.Error(w, "missing relay JWT", http.StatusUnauthorized)
+		return
+	}
+
+	// Only admin access on the target model permits relay. An invalid
+	// access value is a scope problem, not authentication, so it is 403
+	// like an insufficient value, not 401.
+	access, err := authjwt.PermissionFromToken(token, permission.ID{
+		ObjectType: permission.Model,
+		Key:        destination.ModelUUID().String(),
+	})
+	if err != nil {
+		h.config.Logger.Warningf(ctx, "authorizing relay access: %v", err)
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	// Cap before the upgrade so an over-limit relay never allocates a
+	// hijacked connection, goroutine or destination lookup that would
+	// otherwise be held for the life of the SSH session.
+	if current := h.concurrentConnections.Add(1); int(current) > h.config.MaxConcurrentConnections() {
+		h.concurrentConnections.Add(-1)
+		http.Error(w, "too many concurrent relay connections", http.StatusServiceUnavailable)
+		return
+	}
+	defer h.concurrentConnections.Add(-1)
+
+	conn, err := hijack(w, r, coresshproxy.RelayUpgradeToken)
+	if err != nil {
+		h.config.Logger.Errorf(ctx, "upgrading relay connection: %v", err)
+		return
+	}
+	defer func() { _ = conn.Close() }()
+
+	// HandleConn blocks for the life of the SSH session and cannot be
+	// cancelled, so watch the request context and close the connection
+	// when the handler dies. The watch goroutine exits when the session
+	// ends, so it does not outlive the connection.
+	sessionDone := make(chan struct{})
+	defer close(sessionDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+			// Races the deferred close above; both are safe to ignore.
+			_ = conn.Close()
+		case <-sessionDone:
+		}
+	}()
+
+	// Resolve after the upgrade. Failures reach the user's client as SSH
+	// pre-banner text through JIMM's blind relay.
+	server, err := h.config.ServerFactory.New(ctx, destination)
+	if err != nil {
+		// Log the details but send the client a generic message,
+		// as the error may expose internal information.
+		h.config.Logger.Errorf(ctx, "resolving destination: %v", err)
+		if werr := coressh.WritePreBannerError(conn, "juju ssh relay: cannot reach destination"); werr != nil {
+			h.config.Logger.Errorf(ctx, "writing resolve error to connection: %v", werr)
+		}
+		return
+	}
+
+	server.HandleConn(conn)
+}
