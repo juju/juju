@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/lestrrat-go/jwx/v3/jwk"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	coreagent "github.com/juju/juju/core/agent"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
@@ -43,13 +44,14 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// DqliteInitializerFunc is a function that initializes the dqlite database
+// DqliteInitialiserFunc is a function that initialises the dqlite database
 // for the controller.
-type DqliteInitializerFunc func(
+type DqliteInitialiserFunc func(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
 	bootstrapAddresses corenetwork.ProviderAddresses,
@@ -64,19 +66,19 @@ func CheckJWKSReachable(url string) error {
 	defer cancelF()
 	_, err := jwk.Fetch(ctx, url)
 	if err != nil {
-		return errors.Annotatef(err, "failed to fetch jwks")
+		return errors.Errorf("failed to fetch jwks: %w", err)
 	}
 	return nil
 }
 
-// AgentBootstrap is used to initialize the state for a new controller.
+// AgentBootstrap is used to initialise the state for a new controller.
 type AgentBootstrap struct {
 	adminUser                 names.UserTag
 	agentConfig               agent.ConfigSetter
-	bootstrapDqlite           DqliteInitializerFunc
+	bootstrapDqlite           DqliteInitialiserFunc
 	bootstrapMachineAddresses corenetwork.ProviderAddresses
 
-	stateInitializationParams instancecfg.StateInitializationParams
+	stateInitialisationParams instancecfg.StateInitializationParams
 
 	clock clock.Clock
 	// StorageProviderRegistry is used to determine and store the
@@ -91,46 +93,37 @@ type AgentBootstrapArgs struct {
 	AgentConfig               agent.ConfigSetter
 	BootstrapEnviron          environs.BootstrapEnviron
 	BootstrapMachineAddresses corenetwork.ProviderAddresses
-	StateInitializationParams instancecfg.StateInitializationParams
-	BootstrapDqlite           DqliteInitializerFunc
+	StateInitialisationParams instancecfg.StateInitializationParams
+	BootstrapDqlite           DqliteInitialiserFunc
 	Logger                    logger.Logger
 }
 
 func (a *AgentBootstrapArgs) validate() error {
 	if a.BootstrapEnviron == nil {
-		return errors.NotValidf("bootstrap environ")
+		return jujuerrors.NotValidf("bootstrap environ")
 	}
 	if a.AdminUser == (names.UserTag{}) {
-		return errors.NotValidf("admin user")
+		return jujuerrors.NotValidf("admin user")
 	}
 	if a.AgentConfig == nil {
-		return errors.NotValidf("agent config")
+		return jujuerrors.NotValidf("agent config")
 	}
 
 	if a.BootstrapDqlite == nil {
-		return errors.NotValidf("bootstrap dqlite")
+		return jujuerrors.NotValidf("bootstrap dqlite")
 	}
 	if a.Logger == nil {
-		return errors.NotValidf("logger")
+		return jujuerrors.NotValidf("logger")
 	}
 	return nil
 }
 
-// NewAgentBootstrap creates a new AgentBootstrap, that can be used to
-// initialize the state for a new controller.
-// NewAgentBootstrap should be called with the bootstrap machine's agent
-// configuration. It uses that information to create the controller, dial the
-// controller, and initialize it. It also generates a new password for the
-// bootstrap machine and calls Write to save the configuration.
-//
-// The cfg values will be stored in the state's ModelConfig; the
-// machineCfg values will be used to configure the bootstrap Machine,
-// and its constraints will be also be used for the model-level
-// constraints. The connection to the controller will respect the
-// given timeout parameter.
+// NewAgentBootstrap constructs the state initialiser for a fresh controller.
+// The caller supplies the bootstrap agent configuration and is responsible for
+// persisting its changes after Initialise succeeds.
 func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 	if err := args.validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Capture(err)
 	}
 	return &AgentBootstrap{
 		adminUser:                 args.AdminUser,
@@ -139,14 +132,14 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
 		clock:                     clock.WallClock,
 		logger:                    args.Logger,
-		stateInitializationParams: args.StateInitializationParams,
+		stateInitialisationParams: args.StateInitialisationParams,
 	}, nil
 }
 
-// Initialize returns the newly initialized state and bootstrap machine.
-// If it fails, the state may well be irredeemably compromised.
-// TODO (stickupkid): Split this function into testable smaller functions.
-func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
+// Initialise seeds a fresh controller and updates its in-memory agent
+// configuration after database initialisation succeeds. Database failures may
+// leave partial state; the caller must not start the agent after a failure.
+func (b *AgentBootstrap) Initialise(ctx context.Context) error {
 	agentConfig := b.agentConfig
 	if agentConfig.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(agentConfig.Tag().Kind()) {
 		return errors.Errorf("InitializeState not called with bootstrap controller's configuration")
@@ -156,17 +149,48 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		return errors.Errorf("controller agent info not available")
 	}
 
-	stateParams := b.stateInitializationParams
+	controllerModelUUID, seedOperations, err := b.prepareFreshState(controllerAgentInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := b.initialiseDqlite(
+		ctx, controllerModelUUID, seedOperations...,
+	); err != nil {
+		return errors.Capture(err)
+	}
+
+	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
+
+	// Generate the agent password only after its database state is ready.
+	newPassword, err := password.RandomPassword()
+	if err != nil {
+		return err
+	}
+
+	b.agentConfig.SetPassword(newPassword)
+
+	return nil
+}
+
+// prepareFreshState builds the seed operations for a fresh controller without
+// opening databases or changing the agent configuration. Restoration supplies
+// its own state population workflow rather than modifying these seed operations.
+func (b *AgentBootstrap) prepareFreshState(
+	controllerAgentInfo controller.ControllerAgentInfo,
+) (coremodel.UUID, []database.BootstrapOpt, error) {
+	agentConfig := b.agentConfig
+	stateParams := b.stateInitialisationParams
 
 	// Add the controller model cloud and credential to the database.
 	cloudCred, cloudCredTag, err := b.getCloudCredential()
 	if err != nil {
-		return errors.Annotate(err, "getting cloud credentials from args")
+		return "", nil, errors.Errorf("getting cloud credentials from args: %w", err)
 	}
 
 	controllerUUID, err := uuid.UUIDFromString(stateParams.ControllerConfig.ControllerUUID())
 	if err != nil {
-		return fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
+		return "", nil, errors.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
 	}
 
 	controllerModelUUID := coremodel.UUID(
@@ -204,9 +228,9 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		stateParams.ControllerCloud.Type,
 	)
 
-	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
+	isK8s := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	modelType := coremodel.IAAS
-	if isCAAS {
+	if isK8s {
 		modelType = coremodel.CAAS
 	}
 
@@ -215,7 +239,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		agentVersion = jujuversion.Current
 	}
 	if agentVersion.Major != jujuversion.Current.Major || agentVersion.Minor != jujuversion.Current.Minor {
-		return fmt.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
+		return "", nil, errors.Errorf("%w %q during bootstrap", modelerrors.AgentVersionNotSupported, agentVersion)
 	}
 
 	// localModelRecordOP defines the bootstrap operation that should be run
@@ -251,34 +275,17 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		modelconfigbootstrap.SetModelConfig(
 			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
 	}
-	if !isCAAS {
+	if !isK8s {
 		databaseBootstrapOptions = append(databaseBootstrapOptions,
 			cloudimagemetadatabootstrap.AddCustomImageMetadata(
 				b.clock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
 		)
 	}
 
-	if err := b.initializeDqlite(
-		ctx, controllerModelUUID, databaseBootstrapOptions...,
-	); err != nil {
-		return errors.Trace(err)
-	}
-
-	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
-
-	// Create a new password. It is used down below to set  the agent's initial
-	// API password in agent config.
-	newPassword, err := password.RandomPassword()
-	if err != nil {
-		return err
-	}
-
-	b.agentConfig.SetPassword(newPassword)
-
-	return nil
+	return controllerModelUUID, databaseBootstrapOptions, nil
 }
 
-func (b *AgentBootstrap) initializeDqlite(
+func (b *AgentBootstrap) initialiseDqlite(
 	ctx context.Context, controllerModelUUID coremodel.UUID,
 	options ...database.BootstrapOpt,
 ) error {
@@ -304,7 +311,7 @@ func (b *AgentBootstrap) initializeDqlite(
 func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCredentialTag, error) {
 	var cloudCredentialTag names.CloudCredentialTag
 
-	stateParams := b.stateInitializationParams
+	stateParams := b.stateInitialisationParams
 	if stateParams.ControllerCloudCredential != nil && stateParams.ControllerCloudCredentialName != "" {
 		id := fmt.Sprintf(
 			"%s/%s/%s",
@@ -313,7 +320,7 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 			stateParams.ControllerCloudCredentialName,
 		)
 		if !names.IsValidCloudCredential(id) {
-			return cloud.Credential{}, cloudCredentialTag, errors.NotValidf("cloud credential UUID %q", id)
+			return cloud.Credential{}, cloudCredentialTag, jujuerrors.NotValidf("cloud credential UUID %q", id)
 		}
 		cloudCredentialTag = names.NewCloudCredentialTag(id)
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil
