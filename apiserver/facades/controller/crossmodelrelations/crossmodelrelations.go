@@ -573,10 +573,14 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(args params.Wat
 		}
 
 		// 4.0 workers send the offering application's token, which
-		// resolves to an offer tag; resolve the consuming application
-		// proxy for the relation, the identity secret consumer
-		// records are keyed by.
-		if appTag.Kind() == names.ApplicationOfferTagKind && arg.RelationToken != "" {
+		// resolves to an offer tag; it is never a valid consumer
+		// identity, so resolve the consuming application proxy for
+		// the relation. Reject it if no relation token scopes it.
+		if appTag.Kind() == names.ApplicationOfferTagKind {
+			if arg.RelationToken == "" {
+				results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			}
 			appTag, err = api.consumingApplicationForRelation(arg.RelationToken)
 			if err != nil {
 				if errors.Is(err, errors.NotFound) {
