@@ -106,6 +106,50 @@ func (s *bootstrapSuite) TestBootstrapNoAddress(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "Dqlite bootstrap address not found")
 }
 
+func (s *bootstrapSuite) TestBootstrapOperationsStopOnFailure(c *tc.C) {
+	addresses := network.NewMachineAddresses(
+		[]string{"10.0.0.1"}, network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddresses()
+	mgr := &testNodeManager{c: c}
+	expected := errors.New("seed failed")
+	var modelRunner database.TxnRunner
+	seed := func(ctx context.Context, controller, model database.TxnRunner) error {
+		modelRunner = model
+		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `INSERT INTO model_config (key, value) VALUES ('name', 'controller')`)
+			return err
+		})
+	}
+	fail := func(ctx context.Context, controller, model database.TxnRunner) error {
+		err := model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			var name string
+			err := tx.QueryRowContext(ctx, `SELECT value FROM model_config WHERE key = 'name'`).Scan(&name)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(name, tc.Equals, "controller")
+			return nil
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		return expected
+	}
+	notRun := func(context.Context, database.TxnRunner, database.TxnRunner) error {
+		c.Fatal("seed operation ran after a failure")
+		return nil
+	}
+
+	err := BootstrapDqlite(
+		c.Context(), mgr, addresses, tc.Must0(c, coremodel.NewUUID),
+		loggertesting.WrapCheckLog(c), seed, fail, notRun,
+	)
+	c.Check(err, tc.ErrorIs, expected)
+	c.Check(err, tc.ErrorMatches, "running bootstrap operation at index 1: seed failed")
+	c.Assert(modelRunner, tc.NotNil)
+	err = modelRunner.StdTxn(c.Context(), func(context.Context, *sql.Tx) error {
+		c.Fatal("model database remained usable after bootstrap failed")
+		return nil
+	})
+	c.Check(err, tc.ErrorMatches, ".*database is closed.*")
+}
+
 func (s *bootstrapSuite) TestInsertControllerNodeIDPersistsHostname(c *tc.C) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	c.Assert(err, tc.ErrorIsNil)
