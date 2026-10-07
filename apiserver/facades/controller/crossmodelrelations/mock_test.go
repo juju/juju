@@ -390,6 +390,7 @@ type mockRelation struct {
 	endpoints       []state.Endpoint
 	watchers        map[string]*mockUnitsWatcher
 	appSettings     map[string]map[string]interface{}
+	remoteApp       *mockRemoteApplication
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -478,6 +479,17 @@ func (r *mockRelation) AllRemoteUnits(appName string) ([]commoncrossmodel.Relati
 	return result, nil
 }
 
+func (r *mockRelation) RemoteApplication() (commoncrossmodel.RemoteApplication, bool, error) {
+	r.MethodCall(r, "RemoteApplication")
+	if err := r.NextErr(); err != nil {
+		return nil, false, err
+	}
+	if r.remoteApp == nil {
+		return nil, false, nil
+	}
+	return r.remoteApp, true, nil
+}
+
 func (r *mockRelation) Unit(unitId string) (commoncrossmodel.RelationUnit, error) {
 	r.MethodCall(r, "Unit", unitId)
 	if err := r.NextErr(); err != nil {
@@ -539,9 +551,15 @@ func (m *mockDestroyOperation) Done(error) error {
 type mockRemoteApplication struct {
 	commoncrossmodel.RemoteApplication
 	testing.Stub
+	name            string
 	consumerproxy   bool
 	sourceModelUUID string
 	consumeversion  int
+}
+
+func (r *mockRemoteApplication) Tag() names.Tag {
+	r.MethodCall(r, "Tag")
+	return names.NewApplicationTag(r.name)
 }
 
 func (r *mockRemoteApplication) IsConsumerProxy() bool {

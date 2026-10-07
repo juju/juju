@@ -192,6 +192,17 @@ func (r relationShim) AllRemoteUnits(appName string) ([]RelationUnit, error) {
 	return result, nil
 }
 
+func (r relationShim) RemoteApplication() (RemoteApplication, bool, error) {
+	app, isCrossModel, err := r.Relation.RemoteApplication()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	if !isCrossModel {
+		return nil, false, nil
+	}
+	return &remoteApplicationShim{app}, true, nil
+}
+
 func (r relationShim) Unit(unitId string) (RelationUnit, error) {
 	unit, err := r.st.Unit(unitId)
 	if err != nil {

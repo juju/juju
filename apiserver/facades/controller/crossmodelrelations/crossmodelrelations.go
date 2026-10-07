@@ -571,6 +571,26 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(args params.Wat
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+
+		// 4.0 workers send the offering application's token, which
+		// resolves to an offer tag; it is never a valid consumer
+		// identity, so resolve the consuming application proxy for
+		// the relation. Reject it if no relation token scopes it.
+		if appTag.Kind() == names.ApplicationOfferTagKind {
+			if arg.RelationToken == "" {
+				results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+				continue
+			}
+			appTag, err = api.consumingApplicationForRelation(arg.RelationToken)
+			if err != nil {
+				if errors.Is(err, errors.NotFound) {
+					err = apiservererrors.ErrPerm
+				}
+				results.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+
 		if offerUUID == "" {
 			declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, arg.Macaroons)
 			offerUUID = declared["offer-uuid"]
@@ -605,6 +625,30 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(args params.Wat
 		}
 	}
 	return results, nil
+}
+
+// consumingApplicationForRelation returns the tag of the remote
+// application proxy representing the consuming side of the relation
+// identified by the given relation token.
+func (api *CrossModelRelationsAPIv3) consumingApplicationForRelation(
+	relationToken string,
+) (names.Tag, error) {
+	relationTag, err := api.st.GetRemoteEntity(relationToken)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	relation, err := api.st.KeyRelation(relationTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	remoteApp, isCrossModel, err := relation.RemoteApplication()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isCrossModel {
+		return nil, errors.NotFoundf("consuming application for relation %q", relationTag.Id())
+	}
+	return remoteApp.Tag(), nil
 }
 
 func (api *CrossModelRelationsAPIv3) getSecretChanges(uris []string) ([]params.SecretRevisionChange, error) {

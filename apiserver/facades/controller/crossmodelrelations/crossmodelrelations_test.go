@@ -13,6 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -968,5 +969,272 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
 		{"GetSecretConsumerInfo", []interface{}{"token-mysql", "token-rel-mysql"}},
 		{"GetSecretConsumerInfo", []interface{}{"token-postgresql", "token-rel-postgresql"}},
+	})
+}
+
+// TestWatchConsumedSecretsChangesOfferApplicationToken covers 4.0
+// consuming workers, which send the offering application's token -
+// the offer token returned by relation registration - rather than the
+// consuming application token sent by 3.6 workers. The facade must
+// resolve the consuming application proxy for the relation.
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChangesOfferApplicationToken(c *gc.C) {
+	const (
+		offerUUID     = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+		relationKey   = "mysql:db remote-abc:foo"
+		appToken      = "token-offer-mysql"
+		relationToken = "token-rel-mysql"
+	)
+	s.st.secrets["9m4e2mr0ui3e8a215n4g"] = coresecrets.SecretMetadata{LatestRevision: 666}
+	// The application token maps to the offer, as when a 4.0
+	// consuming worker passes the registration result token.
+	s.st.remoteEntities[names.NewApplicationOfferTag(offerUUID)] = appToken
+	s.st.remoteEntities[names.NewRelationTag(relationKey)] = relationToken
+	rel := newMockRelation(1)
+	rel.key = relationKey
+	rel.remoteApp = &mockRemoteApplication{name: "remote-abc", consumerproxy: true}
+	s.st.relations[relationKey] = rel
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", relationToken+"-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{relationToken + "-uuid", "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.WatchConsumedSecretsChanges(params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken,
+			RelationToken:    relationToken,
+			Macaroons:        macaroon.Slice{mac.M()},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Changes, jc.DeepEquals, []params.SecretRevisionChange{{
+		URI:      "secret://" + s.st.ModelUUID() + "/9m4e2mr0ui3e8a215n4g",
+		Revision: 666,
+	}})
+	// The watch must be for the consuming application proxy, not
+	// the offered application.
+	c.Assert(s.watchedSecretConsumers, jc.DeepEquals, []string{"remote-abc"})
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{appToken, relationToken}},
+		{"GetRemoteEntity", []interface{}{relationToken}},
+		{"KeyRelation", []interface{}{relationKey}},
+		{"GetSecret", []interface{}{&coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
+	})
+}
+
+// TestWatchConsumedSecretsChangesOfferTokenNoRemoteApp ensures an
+// application token resolving to an offer, for a relation with no
+// consuming remote application proxy, is rejected.
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChangesOfferTokenNoRemoteApp(c *gc.C) {
+	const (
+		offerUUID     = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+		relationKey   = "mysql:db remote-abc:foo"
+		appToken      = "token-offer-mysql"
+		relationToken = "token-rel-mysql"
+	)
+	s.st.remoteEntities[names.NewApplicationOfferTag(offerUUID)] = appToken
+	s.st.remoteEntities[names.NewRelationTag(relationKey)] = relationToken
+	rel := newMockRelation(1)
+	rel.key = relationKey
+	s.st.relations[relationKey] = rel
+	s.watchedSecretConsumers = nil
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", relationToken+"-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{relationToken + "-uuid", "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.WatchConsumedSecretsChanges(params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken,
+			RelationToken:    relationToken,
+			Macaroons:        macaroon.Slice{mac.M()},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedSecretConsumers, gc.IsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{appToken, relationToken}},
+		{"GetRemoteEntity", []interface{}{relationToken}},
+		{"KeyRelation", []interface{}{relationKey}},
+	})
+}
+
+// TestWatchConsumedSecretsChangesOfferTokenUnknownRelation ensures an
+// application token resolving to an offer, with a relation token which
+// cannot be resolved, is rejected.
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChangesOfferTokenUnknownRelation(c *gc.C) {
+	const (
+		offerUUID     = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+		appToken      = "token-offer-mysql"
+		relationToken = "token-rel-unknown"
+	)
+	s.st.remoteEntities[names.NewApplicationOfferTag(offerUUID)] = appToken
+	s.watchedSecretConsumers = nil
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", relationToken+"-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{relationToken + "-uuid", "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.WatchConsumedSecretsChanges(params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken,
+			RelationToken:    relationToken,
+			Macaroons:        macaroon.Slice{mac.M()},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedSecretConsumers, gc.IsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{appToken, relationToken}},
+		{"GetRemoteEntity", []interface{}{relationToken}},
+	})
+}
+
+// TestWatchConsumedSecretsChangesOfferTokenNoRelationToken ensures an
+// application token resolving to an offer, with no relation token
+// provided, is rejected: an offer tag is never the identity secret
+// consumer records are keyed by, so there is nothing to watch.
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChangesOfferTokenNoRelationToken(c *gc.C) {
+	const (
+		offerUUID = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+		appToken  = "token-offer-mysql"
+	)
+	s.st.remoteEntities[names.NewApplicationOfferTag(offerUUID)] = appToken
+	s.watchedSecretConsumers = nil
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", offerUUID),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{offerUUID, "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.WatchConsumedSecretsChanges(params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken,
+			Macaroons:        macaroon.Slice{mac.M()},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedSecretConsumers, gc.IsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{appToken, ""}},
+	})
+}
+
+// TestWatchConsumedSecretsChangesOfferTokenRelationNotFound ensures an
+// application token resolving to an offer, whose relation token maps
+// to a relation unknown to the model, is rejected.
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChangesOfferTokenRelationNotFound(c *gc.C) {
+	const (
+		offerUUID     = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+		relationKey   = "mysql:db remote-abc:foo"
+		appToken      = "token-offer-mysql"
+		relationToken = "token-rel-mysql"
+	)
+	// The relation token resolves, but the relation is absent.
+	s.st.remoteEntities[names.NewApplicationOfferTag(offerUUID)] = appToken
+	s.st.remoteEntities[names.NewRelationTag(relationKey)] = relationToken
+	s.watchedSecretConsumers = nil
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", relationToken+"-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{relationToken + "-uuid", "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.WatchConsumedSecretsChanges(params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken,
+			RelationToken:    relationToken,
+			Macaroons:        macaroon.Slice{mac.M()},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)
+	c.Assert(s.watchedSecretConsumers, gc.IsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{appToken, relationToken}},
+		{"GetRemoteEntity", []interface{}{relationToken}},
+		{"KeyRelation", []interface{}{relationKey}},
+	})
+}
+
+// TestWatchConsumedSecretsChangesOfferTokenLookupError ensures an
+// error resolving the consuming application for the relation is
+// propagated to the caller rather than masked as permission denied.
+func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChangesOfferTokenLookupError(c *gc.C) {
+	const (
+		offerUUID     = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+		relationKey   = "mysql:db remote-abc:foo"
+		appToken      = "token-offer-mysql"
+		relationToken = "token-rel-mysql"
+	)
+	s.st.remoteEntities[names.NewApplicationOfferTag(offerUUID)] = appToken
+	s.st.remoteEntities[names.NewRelationTag(relationKey)] = relationToken
+	rel := newMockRelation(1)
+	rel.key = relationKey
+	rel.SetErrors(errors.New("boom"))
+	s.st.relations[relationKey] = rel
+	s.watchedSecretConsumers = nil
+
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("offer-uuid", relationToken+"-uuid"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{relationToken + "-uuid", "consume"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.WatchConsumedSecretsChanges(params.WatchRemoteSecretChangesArgs{
+		Args: []params.WatchRemoteSecretChangesArg{{
+			ApplicationToken: appToken,
+			RelationToken:    relationToken,
+			Macaroons:        macaroon.Slice{mac.M()},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error.Message, gc.Matches, ".*boom.*")
+	c.Assert(s.watchedSecretConsumers, gc.IsNil)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetSecretConsumerInfo", []interface{}{appToken, relationToken}},
+		{"GetRemoteEntity", []interface{}{relationToken}},
+		{"KeyRelation", []interface{}{relationKey}},
 	})
 }
