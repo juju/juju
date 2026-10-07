@@ -144,7 +144,8 @@ func (st *State) GetCACert(ctx context.Context) (string, error) {
 	return cert, errors.Capture(err)
 }
 
-// GetControllerInfo returns information about the current controller.
+// GetControllerInfo returns the controller identity, CA certificate, public DNS
+// address and API addresses selected for clients.
 func (st *State) GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {

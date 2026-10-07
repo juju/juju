@@ -217,6 +217,14 @@ func (w *apiAddressSetterWorker) consumeInitialStrings(ch <-chan []string, name 
 	}
 }
 
+// reconcile keeps the client, agent and peer API address projections in sync
+// with controller membership, controller config and unit network addresses.
+//
+// The projections are derived data, pre-selected and ordered so readers and
+// watchers do not need to reapply policy. Because their sources change
+// independently, reconcile recomputes and writes all projections as one
+// snapshot. This keeps them consistent, removes obsolete rows and repairs
+// missed events. An unchanged snapshot is a no-op.
 func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	controllerIDs, err := w.config.ControllerNodeService.GetControllerIDs(ctx)
 	if errors.Is(err, controllernodeerrors.EmptyControllerIDs) {
