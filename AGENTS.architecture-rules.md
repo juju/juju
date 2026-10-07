@@ -28,6 +28,22 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - `domain` -> must not import `apiserver`, `cmd`, or `internal/worker`.
 - `core` -> should only import other `core` sub-packages or external packages; not other Juju packages.
 
+## Interface Contracts and Initialisation
+
+- Every implementation must satisfy the interface's documented completion,
+  error, retry and lifecycle semantics. Preserve these contracts when changing
+  an implementation or extending an interface.
+- Callers must not need concrete-type knowledge or undocumented
+  implementation-specific call sequencing. Document required lifecycle
+  ordering as part of the shared contract.
+- Supply required dependencies during construction, or make incomplete
+  initialisation explicit. Operations must not silently succeed with empty or
+  default results because a dependency has not been set.
+- Give adapters and wrappers an identifiable responsibility, such as enforcing
+  an architectural boundary, translating representations or coordinating
+  lifecycle. Preserve necessary boundaries even when their implementation is
+  simple forwarding.
+
 ## Concurrency and Goroutine Rules
 
 ### Required
@@ -74,3 +90,7 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Avoid new global state.
 - Avoid new dependencies unless clearly justified.
 - Do not introduce new patterns or abstractions unless clearly necessary.
+- Before removing a defensive branch or fallback, establish that its condition
+  is unreachable across supported callers, retries and concurrent state
+  changes. Validation by one caller alone does not establish this; document
+  deliberate guards where their purpose is not evident.

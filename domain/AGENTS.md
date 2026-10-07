@@ -15,10 +15,17 @@ These rules apply to `domain/` and its sub-packages and supplement the
   embedded `SELECT` subqueries.
 - SQL queries must use explicit aliases for tables, CTEs, and projected values;
   use `AS` rather than relying on implicit aliasing.
+- For changed queries and filters, identify which entities are included or
+  excluded. Check missing join rows, empty or zero values, and entities created
+  through alternative lifecycle paths. Trace excluded categories downstream
+  and verify that exclusions preserve the caller's contract.
 - State method arguments should be simple types (`string`, `int`, etc.) or
   types local to that domain.
 - Types intended only for exchange between service and state layers must go in
   the domain sub-package's `internal` package (`domain/<name>/internal`).
+- Each field transferred across a service and state boundary must have a
+  demonstrated consumer. Keep implementation-specific fields with the layer
+  that owns them instead of carrying them through shared types unnecessarily.
 - Generate new UUIDs in the service layer, then pass them into state methods as
   strings. State should persist supplied UUIDs rather than creating them, so
   services can return created entity UUIDs directly when needed.
@@ -38,3 +45,16 @@ These rules apply to `domain/` and its sub-packages and supplement the
   partial data that would produce duplicate or inconsistent results. Do not add
   redundant resets for retry-consistent assignments or Sqlair `GetAll` targets,
   which Sqlair clears before populating.
+- For workflows spanning transactions or databases, establish what remains
+  committed if execution stops after each write, and how retry or
+  reconciliation completes the operation. Do not assume atomicity across
+  controller and model databases. Cover partial completion and recovery in
+  tests.
+
+## State Method Naming
+
+- Use consistent verbs for equivalent operations, following neighbouring state
+  packages and the prevailing convention in the package being extended. Match
+  the `Get` or `List` convention for queries with equivalent semantics.
+- Prefer `Delete` for deleting persisted entities. Reserve `Clear` for
+  operations that clear a value or association.

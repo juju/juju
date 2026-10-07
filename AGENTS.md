@@ -1,15 +1,16 @@
 # Juju Agent Rules Index
 
-Apply both files below for any code change:
+Apply both files below when implementing or reviewing code:
 
 1. [Architectural rules](AGENTS.architecture-rules.md)
 2. [Core domain rules](AGENTS.core-domain-rules.md)
 
 If guidance conflicts, architectural rules take precedence.
 
-Before modifying a file, read any applicable nested `AGENTS.md` files between
-the repository root and that file's directory. Nested rules supplement the
-shared rules above; architectural rules still take precedence.
+Before modifying or reviewing code, read any applicable nested `AGENTS.md`
+files between the repository root and each relevant file's directory. Nested
+rules supplement the shared rules above; architectural rules still take
+precedence.
 
 ## Documentation
 
@@ -21,6 +22,14 @@ shared rules above; architectural rules still take precedence.
 - `make go-build` — Build without schema rebuild.
 - `make juju` — Build the CLI client only.
 - `make jujuagentd` — Build the machine agent binary.
+
+## Behaviour Checks
+
+- Trace changed behaviour from data producers through conversions,
+  serialisation and persistence to consumers. Check that fields and supported
+  representations survive each boundary and that consumers handle them.
+- Verify that intended side effects reach their destination; a method named
+  to save, repair or persist something does not establish that it does so.
 
 ## Unit Test Conventions
 
@@ -39,6 +48,10 @@ shared rules above; architectural rules still take precedence.
 - For `select` cases, use test context (`c.Context`) instead of timeouts.
 - If a test event must occur, block on it and rely on the native test timeout
   instead of adding an explicit timeout branch.
+- Cover materially distinct inputs, outputs and error paths, including
+  representations produced by other callers. For round trips, exercise both
+  directions and supported representations. A regression test for one reported
+  case may not establish the whole contract.
 
 ## Running Tests
 
@@ -88,6 +101,9 @@ timeframe.
 - Place methods and functions below others that call them.
 - Limit comment line lengths to 80 characters.
 - Prefer British English spelling.
+- Avoid `IAAS` and `CAAS` in new logs, errors and user-facing text. Use machine
+  or Kubernetes terminology as appropriate. Prefer `K8s` over `CAAS` in new
+  identifiers for Kubernetes functionality.
 - When wrapping errors across layers, add identifying context such as
   entity UUIDs once at the highest useful layer. Keep state-layer
   `Errorf` messages generic to avoid repeated identifiers in the final
