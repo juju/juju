@@ -4,13 +4,9 @@ on:
   workflow_call:
 
 jobs:
-  test-client-ubuntu:
-    name: "Client Tests"
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macOS-latest]
+  test-client-macos:
+    name: "Client Tests (macOS)"
+    runs-on: macOS-latest
 
     steps:
     - name: "Checkout"
