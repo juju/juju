@@ -88,6 +88,41 @@ func (s *unitSuite) TestRemoveUnitNoForceIgnoresWaitForCascadedJobs(c *tc.C) {
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveUnitForceWaitSchedulesMachineJobImmediatelyAndAfterWait
+// ensures that a forced unit removal with a wait duration schedules
+// the machine the unit was the last one on twice, like the unit
+// itself: a normal removal job scheduled immediately, and a forced one
+// scheduled after the wait duration.
+func (s *unitSuite) TestRemoveUnitForceWaitSchedulesMachineJobImmediatelyAndAfterWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uUUID := unittesting.GenUnitUUID(c)
+	mUUID := "some-machine-uuid"
+
+	when := time.Now()
+	// The unit job is scheduled twice, and so is the machine job.
+	s.clock.EXPECT().Now().Return(when).Times(4)
+
+	exp := s.modelState.EXPECT()
+	exp.UnitExists(gomock.Any(), uUUID.String()).Return(true, nil)
+	exp.EnsureUnitNotAliveCascade(gomock.Any(), uUUID.String(), false).Return(internal.CascadedUnitLives{
+		MachineUUID: &mUUID,
+	}, nil)
+
+	// The unit's own jobs: the first normal removal scheduled
+	// immediately, the forced removal scheduled after the wait duration.
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), uUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// The machine the unit was the last one on follows the same pattern.
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID, false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID, true, when.UTC().Add(time.Minute)).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveUnit(c.Context(), uUUID, false, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *unitSuite) TestRemoveUnitForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

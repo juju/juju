@@ -120,6 +120,51 @@ func (s *applicationSuite) TestRemoveApplicationNoForceIgnoresWaitForCascadedJob
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveApplicationForceWaitSchedulesCascadedJobsImmediatelyAndAfterWait
+// ensures that a forced application removal with a wait duration
+// schedules the cascaded relations, units and machines twice, like the
+// application itself: a normal removal job scheduled immediately, and
+// a forced one scheduled after the wait duration.
+func (s *applicationSuite) TestRemoveApplicationForceWaitSchedulesCascadedJobsImmediatelyAndAfterWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	when := time.Now()
+	// The application job is scheduled twice, and so are the cascaded
+	// relation, unit and machine jobs.
+	s.clock.EXPECT().Now().Return(when).Times(8)
+
+	exp := s.modelState.EXPECT()
+	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil)
+	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(internal.CascadedApplicationLives{
+		RelationUUIDs: []string{"relation-1"},
+		UnitUUIDs:     []string{"unit-1"},
+		MachineUUIDs:  []string{"machine-1"},
+	}, nil)
+
+	// The application's own jobs: the first normal removal scheduled
+	// immediately, the forced removal scheduled after the wait duration.
+	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
+	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// The cascaded relation jobs follow the same pattern.
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// So do the cascaded unit jobs.
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// And the cascaded machine jobs.
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", true, when.UTC().Add(time.Minute)).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

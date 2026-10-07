@@ -149,6 +149,41 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForc
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveRemoteApplicationOffererForceWaitSchedulesRelationJobsImmediatelyAndAfterWait
+// ensures that a forced remote application offerer removal with a wait
+// duration schedules the cascaded relations twice, like the offerer
+// itself: a normal removal job scheduled immediately, and a forced one
+// scheduled after the wait duration.
+func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererForceWaitSchedulesRelationJobsImmediatelyAndAfterWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
+
+	when := time.Now()
+	// The remote application offerer job is scheduled twice, and so are
+	// the cascaded relation jobs.
+	s.clock.EXPECT().Now().Return(when).Times(4)
+
+	exp := s.modelState.EXPECT()
+	exp.RemoteApplicationOffererExists(gomock.Any(), remoteAppUUID.String()).Return(true, nil)
+	exp.EnsureRemoteApplicationOffererNotAliveCascade(gomock.Any(), remoteAppUUID.String()).Return(internal.CascadedRemoteApplicationOffererLives{
+		RelationUUIDs: []string{"relation-1"},
+	}, nil)
+
+	// The offerer's own jobs: the first normal removal scheduled
+	// immediately, the forced removal scheduled after the wait duration.
+	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
+	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// The cascaded relation jobs follow the same pattern.
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *remoteApplicationOffererSuite) TestProcessRemovalJobInvalidJobType(c *tc.C) {
 	var invalidJobType removal.JobType = 500
 

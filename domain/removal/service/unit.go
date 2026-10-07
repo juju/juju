@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -120,7 +119,7 @@ func (s *Service) RemoveUnit(
 
 	if cascaded.MachineUUID != nil {
 		s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
-		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(*cascaded.MachineUUID), force, wait); err != nil {
+		if err := s.scheduleCascaded(ctx, []string{*cascaded.MachineUUID}, force, wait, s.machineScheduleRemoval); err != nil {
 			return "", errors.Capture(err)
 		}
 	}

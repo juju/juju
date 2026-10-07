@@ -10,7 +10,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
@@ -106,16 +105,12 @@ func (s *Service) RemoveMachine(
 		return machineJobUUID, nil
 	}
 
-	for _, u := range cascaded.UnitUUIDs {
-		if _, err := s.unitScheduleRemoval(ctx, unit.UUID(u), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.UnitUUIDs, force, wait, s.unitScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, m := range cascaded.MachineUUIDs {
-		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(m), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.MachineUUIDs, force, wait, s.machineScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	if err := s.scheduleCascaded(ctx, cascaded.StorageAttachmentUUIDs, force, wait, s.storageAttachmentScheduleRemoval); err != nil {

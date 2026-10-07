@@ -8,7 +8,6 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	"github.com/juju/juju/core/trace"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -103,10 +102,8 @@ func (s *Service) RemoveRemoteApplicationOfferer(
 		return appJobUUID, nil
 	}
 
-	for _, r := range cascaded.RelationUUIDs {
-		if _, err := s.relationScheduleRemoval(ctx, relation.UUID(r), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.RelationUUIDs, force, wait, s.relationScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	return appJobUUID, nil

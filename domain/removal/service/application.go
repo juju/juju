@@ -8,11 +8,8 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/removal"
@@ -120,22 +117,16 @@ func (s *Service) RemoveApplication(
 		return appJobUUID, nil
 	}
 
-	for _, r := range cascaded.RelationUUIDs {
-		if _, err := s.relationScheduleRemoval(ctx, relation.UUID(r), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.RelationUUIDs, force, wait, s.relationScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, u := range cascaded.UnitUUIDs {
-		if _, err := s.unitScheduleRemoval(ctx, unit.UUID(u), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.UnitUUIDs, force, wait, s.unitScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, m := range cascaded.MachineUUIDs {
-		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(m), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.MachineUUIDs, force, wait, s.machineScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	if err := s.scheduleCascaded(ctx, cascaded.StorageAttachmentUUIDs, force, wait, s.storageAttachmentScheduleRemoval); err != nil {
