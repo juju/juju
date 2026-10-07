@@ -90,6 +90,32 @@ dump_k8s_diagnostics() {
 	microk8s kubectl -n "${model_name}" get events 2>&1 | tail -20 | sed 's/^/    |     /g' || true
 }
 
+# wait_timed_out reports a timed out wait, dumps diagnostics and exits the
+# test with a failure.
+#
+# An optional model scopes the debug-log dump to that model. Without it the
+# current controller and model logs are dumped.
+wait_timed_out() {
+	local description model
+
+	description=${1}
+	model=${2:-}
+
+	echo "[-] $(red 'timed out waiting for')" "$(red "${description}")"
+	# TODO: remove when dump_timeout_diagnostics is removed.
+	dump_timeout_diagnostics
+	if [ -n "${model}" ]; then
+		echo "    (model ${model}) juju debug-log output"
+		juju debug-log -m "${model}" --replay --no-tail 2>&1 | sed 's/^/    | /g'
+	else
+		echo "    (controller) juju debug-log output"
+		juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
+		echo "    (model) juju debug-log output"
+		juju debug-log --replay --no-tail 2>&1 | sed 's/^/    | /g'
+	fi
+	exit 1
+}
+
 # wait_for defines the ability to wait for a given condition to happen in a
 # juju status output. The output is JSON, so everything that the API server
 # knows about should be valid.
@@ -117,14 +143,7 @@ wait_for() {
 
 		elapsed=$(date -u +%s)-$start_time
 		if [[ ${elapsed} -ge ${timeout} ]]; then
-			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
-			# TODO: remove when dump_timeout_diagnostics is removed.
-			dump_timeout_diagnostics
-			echo "    (controller) juju debug-log output"
-			juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
-			echo "    (model) juju debug-log output"
-			juju debug-log --replay --no-tail 2>&1 | sed 's/^/    | /g'
-			exit 1
+			wait_timed_out "${name}"
 		fi
 
 		attempt=$((attempt + 1))
@@ -276,35 +295,93 @@ charm_channel() {
 	echo ".applications | select(.[\"$app\"] | .[\"charm-channel\"] == \"$channel\")"
 }
 
-# wait_for_machine_agent_status blocks until the machine agent for the specified
-# machine instance ID reports the requested status.
+# poll_for_machine_status is the shared polling core behind the machine
+# status helpers. It polls the requested status field for the given machine
+# until it reports the expected value.
 #
-# ```
-# wait_for_machine_agent_status <instance-id> <status>
-#
-# example:
-# wait_for_machine_agent_status "i-1234" "started"
-# ```
-wait_for_machine_agent_status() {
-	local inst_id status
+# Polling is capped at 10 minutes. On expiry, diagnostics are dumped and
+# the test exits with failure.
+poll_for_machine_status() {
+	local machine_id status status_field model show_cmd machines_cmd timeout
 
-	inst_id=${1}
+	machine_id=${1}
 	status=${2}
+	status_field=${3}
+	model=${4:-}
+	timeout=600 # 600s = 10m
+
+	if [ -n "${model}" ]; then
+		show_cmd="juju show-machine -m ${model} --format json"
+		machines_cmd="juju machines -m ${model}"
+	else
+		show_cmd="juju show-machine --format json"
+		machines_cmd="juju machines"
+	fi
 
 	attempt=0
+	start_time="$(date -u +%s)"
 	# shellcheck disable=SC2046,SC2143
-	until [ $(juju show-machine --format json | yq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
-		echo "[+] (attempt ${attempt}) polling machines"
-		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+	until [ $(${show_cmd} | yq -r ".[\"machines\"] | .[\"${machine_id}\"] | .[\"${status_field}\"] | .[\"current\"]" | grep "^${status}$") ]; do
+		echo "[+] (attempt ${attempt}) polling machine ${machine_id} ${status_field} status"
+		${machines_cmd} 2>&1 | sed 's/^/    | /g'
 		sleep "${SHORT_TIMEOUT}"
+
+		elapsed=$(date -u +%s)-$start_time
+		if [[ ${elapsed} -ge ${timeout} ]]; then
+			wait_timed_out "machine ${machine_id} ${status_field} status to be ${status}" "${model}"
+		fi
+
 		attempt=$((attempt + 1))
 	done
 
 	if [[ ${attempt} -gt 0 ]]; then
-		echo "[+] $(green 'Completed polling machines')"
-		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
-		sleep "${SHORT_TIMEOUT}"
+		echo "[+] $(green 'Completed polling machine')" "${machine_id}" "$(green "${status_field} status")"
+		${machines_cmd} 2>&1 | sed 's/^/    | /g'
 	fi
+}
+
+# wait_for_machine_agent_status blocks until the machine agent for the
+# specified machine ID reports the requested status.
+#
+# An optional model may be supplied to query a model other than the
+# current one.
+#
+# ```
+# wait_for_machine_agent_status <machine-id> <status> [model]
+#
+# example:
+# wait_for_machine_agent_status "0" "started" "myctrl:controller"
+# ```
+wait_for_machine_agent_status() {
+	local machine_id status model
+
+	machine_id=${1}
+	status=${2}
+	model=${3:-}
+
+	poll_for_machine_status "${machine_id}" "${status}" "juju-status" "${model}"
+}
+
+# wait_for_instance_status blocks until the instance status for the
+# specified machine reports the requested status.
+#
+# An optional model may be supplied to query a model other than the
+# current one.
+#
+# ```
+# wait_for_instance_status <machine-id> <status> [model]
+#
+# example:
+# wait_for_instance_status "0" "running" "myctrl:controller"
+# ```
+wait_for_instance_status() {
+	local machine_id status model
+
+	machine_id=${1}
+	status=${2}
+	model=${3:-}
+
+	poll_for_machine_status "${machine_id}" "${status}" "machine-status" "${model}"
 }
 
 # wait_for_container_agent_status blocks until the machine agent for the specified
