@@ -27,6 +27,7 @@ func (s *archiveSuite) TestNewCanonoicalArchivePaths(c *tc.C) {
 	c.Check(ap.FilesBundle, tc.Equals, "juju-backup/root.tar")
 	c.Check(ap.DBDumpDir, tc.Equals, "juju-backup/dump")
 	c.Check(ap.MetadataFile, tc.Equals, "juju-backup/metadata.json")
+	c.Check(ap.ManifestFile, tc.Equals, "juju-backup/manifest.json")
 }
 
 func (s *archiveSuite) TestNewNonCanonicalArchivePaths(c *tc.C) {
@@ -36,4 +37,5 @@ func (s *archiveSuite) TestNewNonCanonicalArchivePaths(c *tc.C) {
 	c.Check(ap.FilesBundle, tc.SamePath, "/tmp/juju-backup/root.tar")
 	c.Check(ap.DBDumpDir, tc.SamePath, "/tmp/juju-backup/dump")
 	c.Check(ap.MetadataFile, tc.SamePath, "/tmp/juju-backup/metadata.json")
+	c.Check(ap.ManifestFile, tc.SamePath, "/tmp/juju-backup/manifest.json")
 }

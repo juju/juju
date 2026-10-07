@@ -7,12 +7,16 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/juju/tc"
 
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/semversion"
 	domainrecovery "github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/recovery"
@@ -258,4 +262,112 @@ func (s *validateSuite) TestValidateArchiveCAASInventorySkipsDeadEntities(c *tc.
 	// recovery summary, not substrate to verify.
 	c.Assert(workload, tc.NotNil)
 	c.Check(workload.Applications, tc.HasLen, 0)
+}
+
+func (s *validateSuite) TestValidateArchiveWithManifest(c *tc.C) {
+	files := withManifest(c, validFiles())
+	path, sum := writeArchive(c, files)
+
+	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
+	c.Check(info.Checksum, tc.Equals, sum)
+}
+
+// A component modified after the manifest was written disagrees with
+// the manifest's recorded size and hash: the archive must be rejected
+// even though its outer checksum (computed over the corrupt bytes) is
+// not consulted.
+func (s *validateSuite) TestValidateArchiveManifestDetectsTamperedDump(c *tc.C) {
+	files := withManifest(c, validFiles())
+	files["juju-backup/dump/models/"+testModelAUUID+".yaml"] =
+		[]byte("payload: {tampered: true}\n")
+	path, _ := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/manifest.json records size .* but the archive entry has size .*")
+}
+
+// A manifest entry for a file the archive does not hold means the
+// archive lost a component after creation.
+func (s *validateSuite) TestValidateArchiveManifestListsMissingEntry(c *tc.C) {
+	files := withManifest(c, validFiles())
+	delete(files, "juju-backup/root.tar")
+	path, _ := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/manifest.json lists \"juju-backup/root.tar\", which is not in the archive")
+}
+
+// An archive entry the manifest does not list was added after
+// creation: the manifest indexes the archive, never vice versa.
+func (s *validateSuite) TestValidateArchiveManifestOmitsEntry(c *tc.C) {
+	files := withManifest(c, validFiles())
+	files["juju-backup/extra.bin"] = []byte("x")
+	path, _ := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches,
+		"archive entry \"juju-backup/extra.bin\" is not listed in juju-backup/manifest.json")
+}
+
+// A model dump entry whose model UUID does not match its path is an
+// internally inconsistent manifest.
+func (s *validateSuite) TestValidateArchiveManifestModelUUIDMismatch(c *tc.C) {
+	files := withManifest(c, validFiles())
+	manifest, err := corebackups.NewManifestJSONReader(
+		bytes.NewReader(files["juju-backup/manifest.json"]))
+	c.Assert(err, tc.ErrorIsNil)
+	for i, f := range manifest.Files {
+		if f.Kind == corebackups.ManifestKindModelDump {
+			manifest.Files[i].ModelUUID = testModelBUUID
+			break
+		}
+	}
+	reader, err := manifest.AsJSONBuffer()
+	c.Assert(err, tc.ErrorIsNil)
+	manifestJSON, err := io.ReadAll(reader)
+	c.Assert(err, tc.ErrorIsNil)
+	files["juju-backup/manifest.json"] = manifestJSON
+	path, _ := writeArchive(c, files)
+
+	_, err = recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/manifest.json lists model dump .* with mismatched model UUID .*")
+}
+
+func (s *validateSuite) TestValidateArchiveManifestInvalidJSON(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/manifest.json"] = []byte("{")
+	path, _ := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches, "parsing juju-backup/manifest.json: .*")
+}
+
+func (s *validateSuite) TestValidateArchiveManifestDuplicateListing(c *tc.C) {
+	files := validFiles()
+	// Both entries record the correct digest, so only the duplicate
+	// listing itself fails the archive.
+	metadata := files["juju-backup/metadata.json"]
+	sum := sha256.Sum256(metadata)
+	entry := corebackups.ManifestEntry{
+		Path:   "juju-backup/metadata.json",
+		Kind:   corebackups.ManifestKindMetadata,
+		Size:   int64(len(metadata)),
+		SHA256: hex.EncodeToString(sum[:]),
+	}
+	manifest := corebackups.NewManifest([]corebackups.ManifestEntry{entry, entry})
+	reader, err := manifest.AsJSONBuffer()
+	c.Assert(err, tc.ErrorIsNil)
+	manifestJSON, err := io.ReadAll(reader)
+	c.Assert(err, tc.ErrorIsNil)
+	files["juju-backup/manifest.json"] = manifestJSON
+	path, _ := writeArchive(c, files)
+
+	_, err = recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/manifest.json lists \"juju-backup/metadata.json\" twice")
 }

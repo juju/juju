@@ -6,6 +6,8 @@ package backups_test
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -90,6 +92,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	c.Check(entries, tc.DeepEquals, set.NewStrings(
 		"juju-backup",
 		"juju-backup/metadata.json",
+		"juju-backup/manifest.json",
 		"juju-backup/root.tar",
 		"juju-backup/dump",
 		"juju-backup/dump/controller.yaml",
@@ -124,6 +127,65 @@ func (s *createSuite) archiveEntries(c *tc.C,
 	ad *backups.ArchiveData,
 ) (set.Strings, map[string]string) {
 	return s.tarEntries(c, ad.NewBuffer())
+}
+
+// TestCreateManifest verifies the staged content manifest indexes every
+// other archive component with the size and SHA-256 of the bytes
+// actually archived.
+func (s *createSuite) TestCreateManifest(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+
+	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+	meta := backups.NewMetadata(testStarted)
+	filename, err := backups.Create(meta, backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+		DumpEntries: []backups.DumpEntry{{
+			Name:   "controller.yaml",
+			Reader: strings.NewReader("controller: data"),
+		}, {
+			Name:   "models/" + modelUUID + ".yaml",
+			Reader: strings.NewReader("model: data"),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	archiveFile, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = archiveFile.Close() }()
+	ad, err := backups.NewArchiveDataReader(archiveFile)
+	c.Assert(err, tc.ErrorIsNil)
+	_, contents := s.archiveEntries(c, ad)
+
+	manifest, err := backups.NewManifestJSONReader(
+		strings.NewReader(contents["juju-backup/manifest.json"]))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(manifest.FormatVersion, tc.Equals, int64(1))
+
+	// One entry per component: metadata, files bundle and both dumps.
+	// The manifest cannot record itself.
+	c.Assert(manifest.Files, tc.HasLen, 4)
+	byPath := make(map[string]backups.ManifestEntry, len(manifest.Files))
+	for _, f := range manifest.Files {
+		byPath[f.Path] = f
+		data, ok := contents[f.Path]
+		c.Assert(ok, tc.IsTrue)
+		sum := sha256.Sum256([]byte(data))
+		c.Check(f.SHA256, tc.Equals, hex.EncodeToString(sum[:]))
+		c.Check(f.Size, tc.Equals, int64(len(data)))
+	}
+
+	c.Check(byPath["juju-backup/metadata.json"].Kind,
+		tc.Equals, backups.ManifestKindMetadata)
+	c.Check(byPath["juju-backup/root.tar"].Kind,
+		tc.Equals, backups.ManifestKindFilesBundle)
+	c.Check(byPath["juju-backup/dump/controller.yaml"].Kind,
+		tc.Equals, backups.ManifestKindControllerDump)
+	model := byPath["juju-backup/dump/models/"+modelUUID+".yaml"]
+	c.Check(model.Kind, tc.Equals, backups.ManifestKindModelDump)
+	c.Check(model.ModelUUID, tc.Equals, modelUUID)
 }
 
 func (s *createSuite) tarEntries(c *tc.C,
