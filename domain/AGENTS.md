@@ -29,9 +29,6 @@ These rules apply to `domain/` and its sub-packages and supplement the
 - Generate new UUIDs in the service layer, then pass them into state methods as
   strings. State should persist supplied UUIDs rather than creating them, so
   services can return created entity UUIDs directly when needed.
-- When wrapping errors across layers, add identifying context such as entity
-  UUIDs once at the highest useful layer. Keep state-layer `Errorf` messages
-  generic to avoid repeated identifiers in the final error chain.
 - UUID parameters accepted by service-layer methods should use their typed form
   (e.g. `coremodel.UUID`) whenever such a type exists, and the service method
   must validate them (e.g. `modelUUID.Validate()`) before use.
