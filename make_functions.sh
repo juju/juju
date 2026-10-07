@@ -81,26 +81,6 @@ operator_image_lib_dir() {
     echo "${BUILD_DIR}/$(echo "$1" | sed 's/\//_/g')/lib"
 }
 
-# multiarch_lib_dirs echoes the Debian multiarch library directories for a
-# Go architecture. The arch-qualified Dqlite/SQLite packages installed by
-# 'make install-dqlite-dependencies DQLITE_CROSS_ARCHES=<deb arch>' place
-# their target-architecture shared libraries there.
-multiarch_lib_dirs() {
-    arch="${1:-}"
-    case "${arch}" in
-        amd64) triplet="x86_64-linux-gnu" ;;
-        arm64) triplet="aarch64-linux-gnu" ;;
-        s390x) triplet="s390x-linux-gnu" ;;
-        ppc64le|ppc64el) triplet="powerpc64le-linux-gnu" ;;
-        riscv64) triplet="riscv64-linux-gnu" ;;
-        *)
-            echo "operator image staging: no Debian multiarch library directories known for ${arch}" >&2
-            return 1
-            ;;
-    esac
-    echo "/usr/lib/${triplet} /lib/${triplet}"
-}
-
 # Sonames provided by the Ubuntu base image (libc6 and the loader) are
 # never staged: /opt/lib is on the image LD_LIBRARY_PATH and must not
 # shadow the base runtime. Everything else in the closure is required.
@@ -113,91 +93,15 @@ elf_needed_sonames() {
     readelf -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p'
 }
 
-# stage_foreign_operator_image_libs copies the shared libraries a
-# cross-built jujud needs into the image's lib/ staging directory. It runs
-# when the jujud binary was built for a different CPU architecture than
-# the build host (e.g. building linux/s390x on an amd64 machine). The
-# host's ldd cannot read a binary for another architecture, so readelf
-# lists the needed libraries instead (readelf handles any architecture)
-# and each library is looked up in the multiarch directories that
-# 'make install-dqlite-dependencies DQLITE_CROSS_ARCHES=<deb arch>'
-# filled with the target architecture's packages. Each library found is
-# copied together with the libraries it itself needs. A library that
-# cannot be found fails the image build with a message saying how to
-# install it.
-stage_foreign_operator_image_libs() {
-    platform="${1:-}"
-    arch=$(echo "$platform" | cut -d/ -f2)
-    jujud_bin="${BUILD_DIR}/$(echo "$platform" | sed 's/\//_/g')/bin/jujud"
-    lib_dir=$(operator_image_lib_dir "$platform")
-
-    if ! command -v readelf >/dev/null 2>&1; then
-        echo "operator image staging: readelf (binutils) is required to stage a foreign-architecture jujud closure" >&2
-        exit 1
-    fi
-    if ! lib_dirs=$(multiarch_lib_dirs "${arch}"); then
-        exit 1
-    fi
-
-    # Walk the NEEDED closure transitively, starting with jujud's own
-    # entries: every non-base library the binary and its staged
-    # dependencies require must resolve from the multiarch directories.
-    pending=$(elf_needed_sonames "${jujud_bin}")
-    seen=""
-    staged=0
-    rm -rf "${lib_dir}"
-    mkdir -p "${lib_dir}"
-    while [ -n "${pending}" ]; do
-        soname=$(echo "${pending}" | head -n 1)
-        pending=$(echo "${pending}" | tail -n +2)
-        if [ -z "${soname}" ]; then
-            continue
-        fi
-        case " ${seen} " in
-            *" ${soname} "*) continue ;;
-        esac
-        seen="${seen} ${soname}"
-        if echo "${soname}" | grep -Eq "${base_libs}"; then
-            continue
-        fi
-        lib_path=""
-        for dir in ${lib_dirs}; do
-            if [ -e "${dir}/${soname}" ]; then
-                lib_path="${dir}/${soname}"
-                break
-            fi
-        done
-        if [ -z "${lib_path}" ]; then
-            echo "operator image staging: ${soname} (needed by the ${platform} jujud closure) was not found under ${lib_dirs};" >&2
-            echo "install the arch-qualified packages: make install-dqlite-dependencies DQLITE_CROSS_ARCHES=<deb arch>" >&2
-            exit 1
-        fi
-        real_path=$(readlink -f "${lib_path}")
-        real_name=$(basename "${real_path}")
-        cp -L "${real_path}" "${lib_dir}/${real_name}"
-        if [ "${soname}" != "${real_name}" ]; then
-            ln -sf "${real_name}" "${lib_dir}/${soname}"
-        fi
-        staged=$((staged + 1))
-        pending="${pending}
-$(elf_needed_sonames "${real_path}")"
-    done
-    if [ "${staged}" -eq 0 ]; then
-        echo "operator image staging: no non-base dynamic libraries found for ${jujud_bin};" >&2
-        echo "the jujud controller binary must be dynamically linked" >&2
-        exit 1
-    fi
-}
-
 # stage_operator_image_libs copies the shared libraries the dynamically
 # linked jujud binary needs into the per-platform lib/ staging directory
 # (_build/<os>_<arch>/lib), which caas/Dockerfile then copies into /opt/lib
 # inside the image. The Ubuntu base image already ships the C runtime and
-# the dynamic loader, so those are not copied (see base_libs). When the
-# binary was built for a different architecture than the host, this
-# delegates to stage_foreign_operator_image_libs; otherwise the host's ldd
-# resolves the full list of libraries. If ldd reports a missing library,
-# the build fails here with instructions to install it, rather than
+# the dynamic loader, so those are not copied (see base_libs). Source-built
+# operator images are native builds (cross-architecture controller binaries
+# come from the published controller snap, staged by release tooling); the
+# host's ldd resolves the full list of libraries. If ldd reports a missing
+# library, the build fails here with instructions to install it, rather than
 # producing an image whose jujud would fail to start.
 stage_operator_image_libs() {
     platform="${1:-}"
@@ -206,17 +110,16 @@ stage_operator_image_libs() {
     platform_dir="${BUILD_DIR}/${os}_${arch}"
     jujud_bin="${platform_dir}/bin/jujud"
     lib_dir=$(operator_image_lib_dir "$platform")
-    host_arch=$(go env GOARCH)
 
     if [ ! -f "${jujud_bin}" ]; then
         echo "operator image staging: ${jujud_bin} not found; run 'make image-check' first" >&2
         exit 1
     fi
-    if [ "${arch}" != "${host_arch}" ]; then
-        # Foreign-architecture binary: the closure comes from readelf and
-        # the target architecture's multiarch packages, never host ldd.
-        stage_foreign_operator_image_libs "${platform}"
-        return
+    if [ "${arch}" != "$(go env GOARCH)" ]; then
+        echo "operator image staging: ${platform} is a foreign architecture on this host;" >&2
+        echo "source-built operator images are native builds. Build on a native ${arch} host," >&2
+        echo "or use the published controller snap payload (OPERATOR_IMAGE_BUILD_SRC=false)." >&2
+        exit 1
     fi
     if ! closure=$(ldd "${jujud_bin}" 2>/dev/null); then
         echo "operator image staging: cannot resolve ${jujud_bin} with ldd" >&2
@@ -434,115 +337,7 @@ wait_for_dpkg() {
     done
 }
 
-# check_dqlite_cross_stale clears leftover distro (1.16-line) Dqlite packages
-# for cross-build architectures. An early revision of the DQLITE_CROSS_ARCHES
-# provisioning resolved the arch-qualified libdqlite-dev meta name to the
-# distro's older real dev package; its half-completed transactions left
-# libdqlite0:<arch> installed and a stuck want-install selection for
-# libdqlite-dev:<arch>. The leftover owns the same plain sonames as the PPA
-# series package the flow installs, so every later apt operation on the host
-# fails deep inside dpkg (file overwrite or unmet dependencies) instead of at
-# the provisioning step that caused it. The removal is loud and scoped to
-# distro Dqlite packages for the requested cross architectures only; with
-# no architectures requested it expands to every registered foreign
-# architecture only when this flow's apt sources file exists, since that
-# is the evidence a previous cross-provisioning run created the state.
-# PPA series packages and native packages are never touched.
-check_dqlite_cross_stale() {
-    arches="${1:-}"
-    if [ -z "${arches}" ] && [ -f /etc/apt/sources.list.d/juju-dqlite-cross-arch.list ]; then
-        arches=$(dpkg --print-foreign-architectures)
-    fi
-    for arch in ${arches}; do
-        for name in libdqlite-dev libdqlite0; do
-            st=$(dpkg-query -W -f='${db:Status-Abbrev}' "$name:$arch" 2>/dev/null | tr -d ' ') || st=""
-            case "$st" in
-                in)
-                    echo "Clearing stuck install selection for $name:$arch (leftover from an earlier failed cross-provisioning run)" >&2
-                    echo "$name:$arch deinstall" | sudo dpkg --set-selections
-                    ;;
-                i*)
-                    echo "Removing leftover distro Dqlite package $name:$arch (state '$st') from an earlier failed cross-provisioning run" >&2
-                    sudo dpkg --remove "$name:$arch"
-                    ;;
-            esac
-        done
-    done
-}
-
-# apt_update runs 'apt-get update' for the provisioning targets. It first
-# clears any leftover distro Dqlite packages for cross architectures (see
-# check_dqlite_cross_stale): while such a leftover exists, every apt
-# operation on the host fails with unmet dependencies, so the cleanup must
-# precede both the update and any later install. When foreign
-# architectures are registered with dpkg, every repository whose
-# Release file advertises them is asked for their indexes, and
-# repositories that do not actually serve them report 404s; apt still
-# uses the indexes that did fetch. Ubuntu's primary archive and most of
-# its mirrors advertise every architecture but only serve amd64 and
-# i386, so such failures are expected on a cross-build host and are
-# tolerated with a note. Without foreign architectures registered the
-# update stays strict.
+# apt_update runs 'apt-get update' for the provisioning targets.
 apt_update() {
-    arches="$*"
-    check_dqlite_cross_stale "${arches}"
-    if [ -z "$(dpkg --print-foreign-architectures)" ]; then
-        sudo apt-get update
-        return
-    fi
-    if ! sudo apt-get update; then
-        echo "NOTE: 'apt-get update' could not fetch some indexes (see the errors above)." >&2
-        echo "Foreign architectures are registered ($(dpkg --print-foreign-architectures | tr '\n' ' '));" >&2
-        echo "repositories that do not serve them report 404s, which is expected. apt" >&2
-        echo "continues with the indexes that were fetched. Restrict such repositories" >&2
-        echo "with an 'arch=' option on their source entries to silence the errors." >&2
-    fi
-}
-
-# write_dqlite_cross_apt_sources writes an apt sources file giving each
-# requested cross-build architecture a package index it can actually
-# fetch. Ubuntu splits its archive by architecture: amd64 and i386 live
-# on the primary archive (archive.ubuntu.com, security.ubuntu.com) while
-# every other architecture lives on ports.ubuntu.com. Mirrors of the
-# primary archive advertise all architectures in their Release files but
-# generally serve only amd64/i386, so a dpkg-registered foreign
-# architecture needs index entries of its own. Each entry is restricted
-# to a single architecture, so it never changes which indexes the host's
-# own sources fetch.
-write_dqlite_cross_apt_sources() {
-    arches="${1:-}"
-    sources_file="${2:-/etc/apt/sources.list.d/juju-dqlite-cross-arch.list}"
-    if [ -z "${arches}" ]; then
-        echo "write_dqlite_cross_apt_sources: no architectures given" >&2
-        return 1
-    fi
-    . /etc/os-release
-    if [ -z "${UBUNTU_CODENAME:-}" ]; then
-        echo "write_dqlite_cross_apt_sources: /etc/os-release has no UBUNTU_CODENAME; only Ubuntu hosts are supported" >&2
-        return 1
-    fi
-    tmp_file=$(mktemp)
-    {
-        echo "# Managed by juju 'make install-dqlite-dependencies' (DQLITE_CROSS_ARCHES)."
-        echo "# Package indexes for cross-building the dynamic jujud. Undo with:"
-        echo "#   sudo rm ${sources_file} && sudo dpkg --remove-architecture <arch>"
-        for arch in ${arches}; do
-            case "${arch}" in
-                amd64|i386)
-                    mirror="https://archive.ubuntu.com/ubuntu"
-                    security_mirror="https://security.ubuntu.com/ubuntu"
-                    ;;
-                *)
-                    mirror="https://ports.ubuntu.com/ubuntu-ports"
-                    security_mirror="https://ports.ubuntu.com/ubuntu-ports"
-                    ;;
-            esac
-            echo "deb [arch=${arch}] ${mirror} ${UBUNTU_CODENAME} main universe"
-            echo "deb [arch=${arch}] ${mirror} ${UBUNTU_CODENAME}-updates main universe"
-            echo "deb [arch=${arch}] ${security_mirror} ${UBUNTU_CODENAME}-security main universe"
-        done
-    } >"${tmp_file}"
-    sudo tee "${sources_file}" <"${tmp_file}" >/dev/null
-    rm -f "${tmp_file}"
-    echo "Wrote ${sources_file} (cross-architecture package indexes for: ${arches})"
+    sudo apt-get update
 }

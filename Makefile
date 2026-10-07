@@ -146,14 +146,18 @@ define BUILD_AGENT_TARGETS
 endef
 
 # BUILD_CGO_AGENT_TARGETS is a list of make targets that get built, that fall
-# under the category of Juju agents, that are CGO. These targets are also the
-# ones we are more then likely wanting to cross compile.
+# under the category of Juju agents, that are CGO. CGO targets are native
+# builds only: cross-architecture controller binaries are snapcraft's job
+# (the controller snap and its remote-build), so a foreign
+# AGENT_PACKAGE_PLATFORMS member never cross-links a CGO binary here.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujud,$(filter $(GOOS)/$(GOARCH),$(filter linux%,${AGENT_PACKAGE_PLATFORMS})))
 endef
 
+# BUILD_CGO_BENCH_TARGETS lists the dqlite-bench targets to build. Like the
+# CGO agent targets, dqlite-bench is a native build.
 define BUILD_CGO_BENCH_TARGETS
-	$(call tool_platform_paths,dqlite-bench,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,dqlite-bench,$(filter $(GOOS)/$(GOARCH),$(filter linux%,${AGENT_PACKAGE_PLATFORMS})))
 endef
 
 # BUILD_CLIENT_TARGETS is a list of make targets that get built that fall under
@@ -279,7 +283,7 @@ endef
 # install-dqlite-dependencies). It applies no musl toolchain, no static Dqlite
 # archive paths, and no static external link mode: the resulting binary links
 # dynamically against the host's glibc and libdqlite. The ambient CC is
-# respected so cross builds can select a cross compiler.
+# respected so a native non-default compiler can be selected.
 define run_cgo_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
@@ -768,32 +772,21 @@ endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
 APT_UPDATE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; apt_update "$$@"' apt_update
-WRITE_DQLITE_CROSS_APT_SOURCES=bash -c '. "${PROJECT_DIR}/make_functions.sh"; write_dqlite_cross_apt_sources "$$@"' write_dqlite_cross_apt_sources
 
 .PHONY: install-sqlite3-dependencies
 install-sqlite3-dependencies:
 ## install-sqlite3-dependencies: Install libsqlite3-dev
 	@echo Installing libsqlite3-dev
 	@$(WAIT_FOR_DPKG)
-	@$(APT_UPDATE) $(DQLITE_CROSS_DEB_ARCHES)
+	@$(APT_UPDATE)
 	@sudo apt-get --yes install libsqlite3-dev
 
 # install-dqlite-dependencies provisions the native Dqlite development
 # libraries the dynamic jujud build contract links against. The distro
 # archive's libdqlite-dev is older than the versions Juju and the jujud
-# snap use, so the packages come from the Dqlite team's PPA.
-#
-# DQLITE_CROSS_ARCHES is a space separated list of Debian architecture names
-# (e.g. "arm64 s390x ppc64el"; the Go spelling ppc64le is accepted) to
-# provision for cross-building the dynamic jujud, in addition to the host
-# architecture. Build each target architecture in its own invocation with its
-# matching CC; an ambient CC must never be shared by heterogeneous target
-# builds:
-#   make install-dqlite-dependencies DQLITE_CROSS_ARCHES="arm64"
-#   CC=aarch64-linux-gnu-gcc AGENT_PACKAGE_PLATFORMS="linux/arm64" make go-agent-build
-DQLITE_CROSS_ARCHES ?=
-DQLITE_CROSS_DEB_ARCHES = $(subst ppc64le,ppc64el,$(DQLITE_CROSS_ARCHES))
-
+# snap use, so the packages come from the Dqlite team's PPA. CGO builds
+# are native: cross-architecture controller binaries come from the
+# controller snap (snapcraft), not from a cross-linked build here.
 .PHONY: install-dqlite-dependencies
 install-dqlite-dependencies: install-sqlite3-dependencies
 ## install-dqlite-dependencies: Install libdqlite-dev from ppa:dqlite/dev (required to build jujud)
@@ -801,51 +794,11 @@ install-dqlite-dependencies: install-sqlite3-dependencies
 	@sudo apt-get --yes install software-properties-common
 	@sudo add-apt-repository -y ppa:dqlite/dev
 	@$(WAIT_FOR_DPKG)
-	@$(APT_UPDATE) $(DQLITE_CROSS_DEB_ARCHES)
+	@$(APT_UPDATE)
 	@sudo apt-get --yes install gcc libdqlite-dev libuv1-dev liblz4-dev
 	@dqlite_native_pkg=$$(dpkg-query -W -f='$${Depends}' libdqlite-dev 2>/dev/null | grep -oE 'libdqlite[0-9][0-9.]*-dev' | head -n1); \
 	dqlite_native_ver=$$(dpkg-query -W -f='$${Version}' "$$dqlite_native_pkg:$$(dpkg --print-architecture)" 2>/dev/null); \
 	echo "Native Dqlite: $$dqlite_native_pkg $$dqlite_native_ver (ppa:dqlite/dev)"
-ifneq ($(DQLITE_CROSS_DEB_ARCHES),)
-	@for arch in $(DQLITE_CROSS_DEB_ARCHES); do dpkg --print-foreign-architectures | grep -qx $$arch || sudo dpkg --add-architecture $$arch; done
-	@$(WRITE_DQLITE_CROSS_APT_SOURCES) "$(DQLITE_CROSS_DEB_ARCHES)"
-	@$(APT_UPDATE) $(DQLITE_CROSS_DEB_ARCHES)
-	@dqlite_dev_pkg=$$(dpkg-query -W -f='$${Depends}' libdqlite-dev 2>/dev/null | grep -oE 'libdqlite[0-9][0-9.]*-dev' | head -n1); \
-	if [ -z "$$dqlite_dev_pkg" ]; then \
-		echo "cannot determine the installed Dqlite dev series from the libdqlite-dev meta package" >&2; \
-		echo "the native provisioning above must have installed it; re-run make install-dqlite-dependencies" >&2; \
-		exit 1; \
-	fi; \
-	dqlite_dev_ver=$$(dpkg-query -W -f='$${Version}' "$$dqlite_dev_pkg:$$(dpkg --print-architecture)"); \
-	echo "Cross-building against $$dqlite_dev_pkg $$dqlite_dev_ver (matching the native PPA install)"; \
-	for arch in $(DQLITE_CROSS_DEB_ARCHES); do \
-		case $$arch in \
-			arm64) cross_gcc=gcc-aarch64-linux-gnu ;; \
-			s390x) cross_gcc=gcc-s390x-linux-gnu ;; \
-			ppc64el) cross_gcc=gcc-powerpc64le-linux-gnu ;; \
-			riscv64) cross_gcc=gcc-riscv64-linux-gnu ;; \
-			*) echo "unsupported DQLITE_CROSS_ARCHES entry: $$arch (supported: arm64, s390x, ppc64el, riscv64)" >&2; exit 1 ;; \
-		esac; \
-		cand=$$(apt-cache policy "$$dqlite_dev_pkg:$$arch" 2>/dev/null | sed -n 's/^  Candidate: //p'); \
-		if [ "$$cand" != "$$dqlite_dev_ver" ]; then \
-			echo "candidate for $$dqlite_dev_pkg:$$arch is '$${cand:-none}' but the native install is $$dqlite_dev_ver" >&2; \
-			echo "(the PPA $$arch index did not load, or the PPA moved; check /etc/apt/sources.list.d/juju-dqlite-cross-arch.list" >&2; \
-			echo "and the apt-get update output above, then re-run make install-dqlite-dependencies)" >&2; \
-			exit 1; \
-		fi; \
-		echo "Installing Dqlite cross-build packages for $$arch ($$cross_gcc)"; \
-		sudo apt-get --yes install $$cross_gcc \
-			"$$dqlite_dev_pkg:$$arch" \
-			libsqlite3-dev:$$arch \
-			libuv1t64:$$arch \
-			liblz4-1:$$arch \
-			libsqlite3-0:$$arch; \
-	done
-	@echo ""
-	@echo "Note: while the cross architectures remain registered with dpkg, repositories"
-	@echo "that do not serve them report 404s during 'apt-get update' (apt continues with"
-	@echo "the fetched indexes); silence them with an 'arch=' option on those entries."
-endif
 
 .PHONY: install-dependencies
 install-dependencies: install-snap-dependencies install-dqlite-dependencies
