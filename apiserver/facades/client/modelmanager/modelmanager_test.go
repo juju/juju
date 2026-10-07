@@ -28,6 +28,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	coreprovidertracker "github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
@@ -74,7 +75,9 @@ type modelManagerSuite struct {
 	modelConfigService   *MockModelConfigService
 	machineService       *MockMachineService
 
-	modelStatusAPI *MockModelStatusAPI
+	modelStatusAPI  *MockModelStatusAPI
+	cloudService    *stubCloudService
+	providerFactory *stubEphemeralProviderFactory
 }
 
 func TestModelManagerSuite(t *testing.T) {
@@ -92,6 +95,27 @@ func (s stubExportService) Export(context.Context) (*domainexport.ModelExport, e
 
 type stubRemovalService struct {
 	err error
+}
+
+type stubCloudService struct {
+	cloud *cloud.Cloud
+	err   error
+}
+
+func (s *stubCloudService) Cloud(context.Context, string) (*cloud.Cloud, error) {
+	return s.cloud, s.err
+}
+
+type stubEphemeralProviderFactory struct {
+	err    error
+	called bool
+}
+
+func (s *stubEphemeralProviderFactory) EphemeralProviderFromConfig(
+	context.Context, coreprovidertracker.EphemeralProviderConfig,
+) (coreprovidertracker.Provider, error) {
+	s.called = true
+	return nil, s.err
 }
 
 func (s stubRemovalService) RemoveModel(
@@ -113,6 +137,8 @@ func (s *modelManagerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	s.machineService = NewMockMachineService(ctrl)
 	s.domainServices = NewMockModelDomainServices(ctrl)
 	s.modelStatusAPI = NewMockModelStatusAPI(ctrl)
+	s.cloudService = &stubCloudService{}
+	s.providerFactory = &stubEphemeralProviderFactory{}
 
 	c.Cleanup(func() {
 		s.modelService = nil
@@ -174,14 +200,16 @@ func (s *modelManagerSuite) setUpAPIWithUserAndBlockChecker(
 		s.controllerUUID,
 		tc.Must0(c, coremodel.NewUUID),
 		modelmanager.Services{
-			DomainServicesGetter: s.domainServicesGetter,
-			CredentialService:    apiservertesting.ConstCredentialGetter(&cred),
-			ModelService:         s.modelService,
-			ModelDefaultsService: s.modelDefaultService,
-			SecretBackendService: s.secretBackendService,
-			ApplicationService:   s.applicationService,
-			AccessService:        s.accessService,
-			ObjectStore:          &mockObjectStore{},
+			DomainServicesGetter:     s.domainServicesGetter,
+			CredentialService:        apiservertesting.ConstCredentialGetter(&cred),
+			CloudService:             s.cloudService,
+			EphemeralProviderFactory: s.providerFactory,
+			ModelService:             s.modelService,
+			ModelDefaultsService:     s.modelDefaultService,
+			SecretBackendService:     s.secretBackendService,
+			ApplicationService:       s.applicationService,
+			AccessService:            s.accessService,
+			ObjectStore:              &mockObjectStore{},
 		},
 		blockChecker,
 		s.authoriser,
@@ -213,6 +241,17 @@ func (s *modelManagerSuite) expectCreateModel(
 	expectedCloudName string,
 	expectedCloudRegion string,
 ) coremodel.UUID {
+	regions := []cloud.Region{}
+	if expectedCloudRegion != "" {
+		regions = append(regions, cloud.Region{Name: expectedCloudRegion})
+	}
+	s.cloudService.cloud = &cloud.Cloud{
+		Name:      expectedCloudName,
+		Type:      expectedCloudName,
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		Regions:   regions,
+	}
+
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	adminName := usertesting.GenNewName(c, "admin")
 	adminUUID := usertesting.GenUserUUID(c)
@@ -274,6 +313,35 @@ func (s *modelManagerSuite) expectCreateModel(
 	s.modelService.EXPECT().GetModelUsers(gomock.Any(), gomock.Any()).AnyTimes()
 
 	return modelUUID
+}
+
+func (s *modelManagerSuite) TestCreateModelProviderOpenFailureDoesNotPersist(c *tc.C) {
+	defer s.setUpAPI(c).Finish()
+
+	providerErr := errors.New("provider authentication failed")
+	s.providerFactory.err = providerErr
+	s.cloudService.cloud = &cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		Regions:   []cloud.Region{{Name: "dummy-region"}},
+	}
+
+	adminUUID := usertesting.GenUserUUID(c)
+	s.modelService.EXPECT().DefaultModelCloudInfo(gomock.Any()).Return("dummy", "dummy-region", nil)
+	s.modelService.EXPECT().DefaultCloudCredentialKeyForOwner(
+		gomock.Any(), coreuser.AdminUserName, "dummy",
+	).Return(credential.Key{}, nil)
+	s.accessService.EXPECT().GetUserUUIDByName(
+		gomock.Any(), coreuser.AdminUserName,
+	).Return(adminUUID, nil)
+
+	_, err := s.api.CreateModel(c.Context(), params.ModelCreateArgs{
+		Name:      "provider-preflight",
+		Qualifier: "admin",
+	})
+	c.Assert(err, tc.ErrorIs, providerErr)
+	c.Check(s.providerFactory.called, tc.IsTrue)
 }
 
 // expectCreateModelOnModelDB expects all the service calls to the new model's
