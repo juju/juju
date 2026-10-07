@@ -1707,6 +1707,26 @@ func (m *stateSuite) TestGetModelUsers(c *tc.C) {
 	})
 }
 
+// TestGetModelUsersNoUsers asserts that a model with no active users returns
+// an empty result rather than an error.
+func (m *stateSuite) TestGetModelUsersNoUsers(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	// Remove all permissions on the model, as can happen when a model is
+	// imported by a migration that carried no model permissions. This is
+	// done directly as the access domain won't remove the last model admin.
+	err := m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM permission WHERE grant_on = ?`, m.uuid.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelUsers, err := m.modelState.GetModelUsers(c.Context(), m.uuid)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelUsers, tc.HasLen, 0)
+}
+
 func (m *stateSuite) TestGetModelUsersModelNotFound(c *tc.C) {
 
 	_, err := m.modelState.GetModelUsers(c.Context(), "bad-uuid")
