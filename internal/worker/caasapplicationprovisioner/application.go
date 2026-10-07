@@ -297,7 +297,9 @@ func (a *appWorker) loop() error {
 				if statusOnly {
 					// Clear provisioning state for status only app.
 					err = a.applicationService.SetApplicationScalingState(ctx, name, 0, coreapplication.NoOperation)
-					if err != nil {
+					if err != nil &&
+						!errors.Is(err, applicationerrors.OperationInProgress) &&
+						!errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 						return errors.Trace(err)
 					}
 				} else {

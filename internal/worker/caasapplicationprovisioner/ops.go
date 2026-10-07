@@ -728,6 +728,15 @@ func ensureScale(
 		return errors.Trace(err)
 	}
 
+	// A live different operation blocks scale requests while the
+	// application is alive; wait for it to be cleared before claiming.
+	// Dying and dead applications are exempt, so scale-down can drain
+	// the application.
+	if appLife == life.Alive &&
+		coreapplication.IsDifferentOperation(ps.CurrentOperation, coreapplication.ScaleOperation) {
+		return tryAgain
+	}
+
 	logger.Debugf(ctx, "updating application %q scale to %d", appName, desiredScale)
 	if ps.CurrentOperation != coreapplication.ScaleOperation || appLife != life.Alive {
 		err := updateProvisioningState(ctx, appName, coreapplication.ScaleOperation, desiredScale, applicationService)
@@ -838,10 +847,11 @@ func updateProvisioningState(
 	applicationService ApplicationService,
 ) error {
 	err := applicationService.SetApplicationScalingState(ctx, appName, scaleTarget, op)
-	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
+	if errors.Is(err, applicationerrors.ScalingStateInconsistent) ||
+		errors.Is(err, applicationerrors.OperationInProgress) {
 		return tryAgain
 	} else if err != nil {
-		return errors.Annotatef(err, "setting provisiong state for application %q", appName)
+		return errors.Annotatef(err, "setting provisioning state for application %q", appName)
 	}
 	return nil
 }

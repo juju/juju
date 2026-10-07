@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/storageprovisioning"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -536,6 +537,84 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *tc.C) {
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
 		life.Alive, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorMatches, `try again`)
+}
+
+func (s *OpsSuite) TestEnsureScaleConflictingOperationRetry(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// A different live operation blocks the scale request while the
+	// application is alive; the scale is not claimed.
+	ps := applicationservice.ScalingState{
+		CurrentOperation: application.StorageUpdateOperation,
+		ScaleTarget:      3,
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(1, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Alive, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorMatches, `try again`)
+}
+
+func (s *OpsSuite) TestEnsureScaleConflictingOperationClaimRetry(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// The pre-check passes, but a different operation is claimed before
+	// the scale claim lands; the state conflict guard rejects it and the
+	// worker waits for the operation to be cleared.
+	conflict := internalerrors.Errorf("provisioning operation %q in progress", application.StorageUpdateOperation).
+		Add(applicationerrors.OperationInProgress)
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(1, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 1, application.ScaleOperation).Return(conflict),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Alive, facade, applicationService, s.logger)
+	c.Assert(err, tc.ErrorMatches, `try again`)
+}
+
+func (s *OpsSuite) TestEnsureScaleDyingConflictingOperationClaimRetry(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	// Dying and dead applications are exempt from the pre-check, so
+	// scale-down can drain the application; the state conflict guard
+	// still rejects the claim, which the worker waits out.
+	ps := applicationservice.ScalingState{
+		CurrentOperation: application.StorageUpdateOperation,
+		ScaleTarget:      3,
+	}
+	conflict := internalerrors.Errorf("provisioning operation %q in progress", application.StorageUpdateOperation).
+		Add(applicationerrors.OperationInProgress)
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
+		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, application.ScaleOperation).Return(conflict),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appId, app,
+		life.Dying, facade, applicationService, s.logger)
 	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
