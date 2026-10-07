@@ -1164,6 +1164,19 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 	if err := validateScaleTarget(scaleTarget); err != nil {
 		return err
 	}
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	state, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting scaling state for %q: %w", appName, err)
+	}
+	if err := validateScaleTargetAndOrdinalWindow(
+		scaleTarget, state.StartOrdinal, state.EndOrdinal, scaling,
+	); err != nil {
+		return err
+	}
 	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
 		return errors.Errorf("updating scaling state for %q: %w", appName, err)
 	}

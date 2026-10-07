@@ -1384,6 +1384,21 @@ func (s *applicationServiceSuite) TestSetApplicationScalingStateWithRange(c *tc.
 	c.Check(err, tc.ErrorIsNil)
 }
 
+func (s *applicationServiceSuite) TestSetApplicationScalingStateRejectsZeroTargetForNonEmptyRange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{
+		StartOrdinal: 1,
+		EndOrdinal:   2,
+	}, nil)
+
+	err := s.service.SetApplicationScalingState(c.Context(), "foo", 0, true)
+	c.Check(err, tc.ErrorMatches,
+		`ordinal window \[1,2\) not valid for zero scale target`)
+}
+
 func (s *applicationServiceSuite) TestSetApplicationScalingStateWithRangeInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
