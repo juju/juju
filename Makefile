@@ -119,6 +119,15 @@ JUJU_GOMOD_MODE ?= readonly
 # Extra linker flags passed to CGO builds.
 CGO_LDFLAGS ?=
 
+# The dynamically linked jujud resolves its runtime shared-library closure
+# from the operator image's /opt/lib (see caas/Dockerfile). The rpath is
+# absolute because the CAAS startup scripts copy jujud from /opt into
+# $JUJU_TOOLS_DIR before launch, so $ORIGIN-relative paths do not resolve.
+# It must produce DT_RPATH (--disable-new-dtags), not DT_RUNPATH: RUNPATH
+# on the executable is not searched when resolving the staged libraries'
+# own dependencies, while RPATH is consulted for the whole process.
+CGO_RPATH = -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib'
+
 # If .git directory is missing, we are building out of an archive, otherwise report
 # if the tree that is checked out is dirty (modified) or clean.
 GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
@@ -218,11 +227,11 @@ endif
 ifdef DEBUG_JUJU
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
     LINK_FLAGS = $(COVER_LINK_FLAGS) "$(link_flags_version)"
-    CGO_LINK_FLAGS = $(COVER_CGO_LINK_FLAGS) "$(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) $(CGO_RPATH) $(link_flags_version)"
 else
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
     LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
-    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w $(CGO_RPATH) $(link_flags_version)"
 endif
 
 # run_go_build is a canned command sequence for the steps required to build a
@@ -539,9 +548,13 @@ run-go-tests:
 go-test-alias: EXTRA_BUILD_TAGS += dqlite libsqlite3
 go-test-alias:
 ## go-test-alias: Prints out an alias command for easy running of tests.
+# CGO_LINK_FLAGS contains single quotes (CGO_RPATH's -extldflags argument),
+# so embedding it inside a single-quoted alias would close the quoting early.
+# $(subst ','\'',...) rewrites every ' as '\'' so the printed alias can be
+# evaluated by a shell.
 	@echo alias jt=\'CGO_ENABLED=\"1\" \
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
-		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
+		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"$(subst ','\'',$(CGO_LINK_FLAGS))\"\'
 
 .PHONY: install
 install: rebuild-schema go-install
@@ -654,19 +667,22 @@ jujud-snap-build:
 
 .PHONY: jujud-snap-patch
 jujud-snap-patch:
-## jujud-snap-patch: Fast-patch the base jujud snap with a freshly built dynamic jujud; the host link-time Dqlite (ppa:dqlite/dev) and the snap's bundled Dqlite must stay on the same upstream release line and be raised together; if the snap's libraries change, run make jujud-snap-clean first
+## jujud-snap-patch: Patch a freshly built jujud into the controller snap
 #
-# Library-pairing rule: the freshly built jujud links against the host's Dqlite
-# development libraries (installed from ppa:dqlite/dev), while the patched snap
-# resolves its native libraries from the snap payload, where
-# snaps/jujud/snapcraft.yaml builds and stages its own dqlite. The two must
-# stay on the same upstream Dqlite release line and be raised together. A
-# violation surfaces as a loader or symbol error when the patched snap's jujud
-# service starts (verify with a manual --build-snap bootstrap and `snap logs
-# jujud`). When the snap's bundled libraries change, a plain rerun of
-# jujud-snap-build is not a recovery mechanism: the smart target patches the
-# existing base snap unless snaps/jujud/ changed. Run `make jujud-snap-clean`
-# first to remove the base snap and force the full rebuild.
+# Only the jujud binary inside the snap is replaced; the snap keeps its own
+# bundled Dqlite libraries (built and staged by snaps/jujud/snapcraft.yaml).
+# The freshly built jujud was linked against the host's Dqlite development
+# libraries (installed by 'make install-dqlite-dependencies' from
+# ppa:dqlite/dev), so the host's Dqlite version must match the version
+# bundled in the snap. When the snap moves to a newer Dqlite, raise the
+# host's PPA packages to the same version too; a mismatch surfaces as a
+# loader or symbol error when the patched snap's jujud service starts
+# (check with a --build-snap bootstrap and 'snap logs jujud').
+#
+# When the snap's bundled libraries change, rerunning jujud-snap-build
+# alone does not pick that up: it fast-patches the existing base snap
+# unless a file under snaps/jujud/ changed. Run 'make jujud-snap-clean'
+# first to delete the base snap and force the full snapcraft rebuild.
 	@set -e; \
 	mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
 	$(MAKE) --no-print-directory jujud > ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
@@ -713,7 +729,13 @@ jujud-snap-patch:
 
 .PHONY: jujud-snap-clean
 jujud-snap-clean:
-## jujud-snap-clean: Remove the built controller snap and fast-patch cache so the next jujud-snap-build runs a full snapcraft build (required when the snap's bundled libraries change)
+## jujud-snap-clean: Remove the built controller snap and the fast-patch cache
+# Deletes the snap built by jujud-snap-build (_build/snap/jujud_*.snap) and
+# the fast-patch cache under _jujud-snap-patch/, so the next
+# jujud-snap-build cannot fast-patch and runs a full snapcraft build
+# instead. Run this when the snap's bundled libraries change:
+# fast-patching only replaces the jujud binary, so a changed library set
+# never reaches an existing base snap.
 	@rm -rf ${JUJUD_SNAP_PATCH_DIR} ${SNAP_BUILD_DIR}/jujud_*.snap
 
 .PHONY: install-snap-dependencies
