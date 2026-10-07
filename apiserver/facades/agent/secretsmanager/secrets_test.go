@@ -19,6 +19,7 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
@@ -645,6 +646,49 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAcce
 			Revision: 666,
 		}},
 	})
+}
+
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitInSameApplication(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	// The caller authenticates as mariadb/0 and asks about a peer unit in
+	// the same application. The same application guard must let this
+	// through so the consumer lookup runs for mariadb/1.
+	uri := coresecrets.NewURI()
+	s.secretsConsumer.EXPECT().SecretAccess(uri, names.NewUnitTag("mariadb/1")).Return(coresecrets.RoleView, nil)
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, names.NewUnitTag("mariadb/1")).Return(
+		&coresecrets.SecretConsumerMetadata{
+			LatestRevision: 666,
+			Label:          "peer-label",
+		}, nil)
+
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "unit-mariadb/1",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{
+		Results: []params.SecretConsumerInfoResult{{
+			Label:    "peer-label",
+			Revision: 666,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForOtherApplicationDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	// The caller authenticates as mariadb/0, so naming a consumer in a
+	// different application must be refused before any consumer lookup
+	// runs. No SecretAccess or GetSecretConsumer expectation is registered,
+	// so the mock controller fails if the read is reached.
+	uri := coresecrets.NewURI()
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "unit-othersql/0",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(results, jc.DeepEquals, params.SecretConsumerInfoResults{})
 }
 
 func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
