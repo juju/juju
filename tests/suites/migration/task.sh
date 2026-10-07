@@ -36,6 +36,7 @@ test_migration() {
 	test_migration_version
 	test_migration_saas_common
 	test_migration_saas_external
+	test_migration_saas_consumer
 
 	destroy_controller "test-migration"
 }

@@ -1330,3 +1330,18 @@ test_migration_saas_external() {
 		run "run_migration_saas_external"
 	)
 }
+
+test_migration_saas_consumer() {
+	if [ -n "$(skip 'test_migration_saas_consumer')" ]; then
+		echo "==> SKIP: Asked to skip model migration saas consumer tests"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_migration_saas_consumer"
+	)
+}

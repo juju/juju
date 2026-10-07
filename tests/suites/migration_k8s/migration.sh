@@ -349,7 +349,7 @@ test_migration_caas() {
 
 	# This test migrates a k8s model between two controllers on the same k8s
 	# cloud; it only makes sense on a k8s provider.
-	if [ "${BOOTSTRAP_PROVIDER}" != "k8s" ] && [ "${BOOTSTRAP_PROVIDER}" != "microk8s" ]; then
+	if [ "${BOOTSTRAP_PROVIDER}" != "k8s" ]; then
 		echo "==> SKIP: model migration CAAS test needs a k8s provider"
 		return
 	fi
