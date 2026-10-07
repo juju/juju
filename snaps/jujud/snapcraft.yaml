@@ -140,7 +140,18 @@ parts:
       export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
       export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-      export GO_LDFLAGS="-s -w -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
+      # The rpath matches the Makefile's CGO_RPATH: the jujud controller
+      # binary is dynamically linked and resolves its bundled Dqlite
+      # libraries from the snap payload at snap runtime, and from the
+      # operator image's /opt/lib when the snap payload is extracted into
+      # an OCI image (see juju-dynamic-image-layout in caas/Dockerfile).
+      # It must produce DT_RPATH (--disable-new-dtags), not DT_RUNPATH:
+      # RUNPATH on the executable is not searched when resolving the
+      # staged libraries' own dependencies, while RPATH is consulted for
+      # the whole process. The absolute path is safe inside the snap
+      # (the loader falls through to the snap's own library paths when
+      # /opt/lib does not exist there).
+      export GO_LDFLAGS="-s -w -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib' -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
       go mod download
       go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
       ln -s jujud "${CRAFT_PART_INSTALL}/bin/juju-introspect"

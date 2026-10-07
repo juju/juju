@@ -81,10 +81,17 @@ operator_image_lib_dir() {
     echo "${BUILD_DIR}/$(echo "$1" | sed 's/\//_/g')/lib"
 }
 
-# Sonames provided by the Ubuntu base image (libc6 and the loader) are
-# never staged: /opt/lib is on the image LD_LIBRARY_PATH and must not
-# shadow the base runtime. Everything else in the closure is required.
-base_libs='^(ld-linux|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so)'
+# Sonames provided by the Ubuntu base image are never staged into the
+# image's /opt/lib: the image's own runtime must not be shadowed, and
+# staging them would only duplicate what the base already resolves. The
+# list covers the glibc family and the loader (libc6 and the loader come
+# from the base image), plus liblz4 and libsqlite3: the controller snap
+# does not bundle liblz4 (it comes from the snap's core26 base) and the
+# published operator image's Ubuntu base carries both (verified against
+# public.ecr.aws/ubuntu/ubuntu:24.04). Everything else in the jujud
+# closure must be staged into _build/<os>_<arch>/lib/, or the image build
+# fails.
+base_libs='^(ld-linux|ld64|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so|liblz4\.so|libsqlite3\.so)'
 
 # elf_needed_sonames echoes the NEEDED shared-library sonames of an ELF
 # binary, one per line. readelf is architecture-neutral, so it is safe
@@ -93,67 +100,83 @@ elf_needed_sonames() {
     readelf -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p'
 }
 
-# stage_operator_image_libs copies the shared libraries the dynamically
-# linked jujud binary needs into the per-platform lib/ staging directory
-# (_build/<os>_<arch>/lib), which caas/Dockerfile then copies into /opt/lib
-# inside the image. The Ubuntu base image already ships the C runtime and
-# the dynamic loader, so those are not copied (see base_libs). Source-built
-# operator images are native builds (cross-architecture controller binaries
-# come from the published controller snap, staged by release tooling); the
-# host's ldd resolves the full list of libraries. If ldd reports a missing
-# library, the build fails here with instructions to install it, rather than
-# producing an image whose jujud would fail to start.
-stage_operator_image_libs() {
-    platform="${1:-}"
+# stage_operator_image_snap_payload stages the per-platform operator-image
+# payload (_build/<os>_<arch>/bin/jujud and _build/<os>_<arch>/lib/) from
+# the locally built controller snap, giving every operator image the same
+# provenance rule as the release path: the jujud binary and its bundled
+# Dqlite shared libraries come from the controller snap (built by
+# snaps/jujud/snapcraft.yaml, via the smart jujud-snap-build flow), never
+# from a source-built binary linked against host libraries. The snap
+# payload's lib/ tree carries the primed libdqlite, libuv and libsqlite3
+# soname links and real files; soname links are preserved as links so the
+# loader resolves them by soname the same way it does inside the snap.
+# Sonames the image base provides (see base_libs) are staged as they are
+# found - the completeness of the staged closure is verified separately by
+# require_operator_image_libs, which walks the NEEDED closure of the
+# staged binary and every staged library.
+stage_operator_image_snap_payload() {
+    platform="${1:-$(go env GOOS)/$(go env GOARCH)}"
     os=$(echo "$platform" | cut -d/ -f1)
     arch=$(echo "$platform" | cut -d/ -f2)
+    if [ "${os}" != "$(go env GOOS)" ] || [ "${arch}" != "$(go env GOARCH)" ]; then
+        echo "operator image staging: ${platform} is a foreign platform on this host;" >&2
+        echo "operator image payloads are extracted from the locally built controller snap," >&2
+        echo "which is a native build. Build on a native ${arch} host," >&2
+        echo "or pre-stage the payload (OPERATOR_IMAGE_BUILD_SRC=false)." >&2
+        exit 1
+    fi
+    snap_arch=$(echo "${arch}" | sed 's/ppc64le/ppc64el/')
+    snap_version=$(sed -n 's/^version: *//p' "${PROJECT_DIR}/snaps/jujud/snapcraft.yaml" | tr -d '"' | head -n1)
+    snap_file="${BUILD_DIR}/snap/jujud_${snap_version}_${snap_arch}.snap"
+    if [ ! -f "${snap_file}" ]; then
+        echo "operator image staging: no controller snap found at ${snap_file};" >&2
+        echo "run 'make jujud-snap-build' first" >&2
+        exit 1
+    fi
     platform_dir="${BUILD_DIR}/${os}_${arch}"
-    jujud_bin="${platform_dir}/bin/jujud"
+    bin_dir="${platform_dir}/bin"
     lib_dir=$(operator_image_lib_dir "$platform")
-
-    if [ ! -f "${jujud_bin}" ]; then
-        echo "operator image staging: ${jujud_bin} not found; run 'make image-check' first" >&2
+    if ! command -v unsquashfs >/dev/null 2>&1; then
+        echo "operator image staging: unsquashfs (squashfs-tools) is required to extract the controller snap payload" >&2
         exit 1
     fi
-    if [ "${arch}" != "$(go env GOARCH)" ]; then
-        echo "operator image staging: ${platform} is a foreign architecture on this host;" >&2
-        echo "source-built operator images are native builds. Build on a native ${arch} host," >&2
-        echo "or use the published controller snap payload (OPERATOR_IMAGE_BUILD_SRC=false)." >&2
+    tmp_root=$(mktemp -d)
+    cleanup() {
+        rm -rf "${tmp_root}"
+    }
+    trap cleanup EXIT
+    unsquashfs -no-progress -d "${tmp_root}/root" "${snap_file}" 'bin/jujud' 'lib/*' >/dev/null
+    if [ ! -f "${tmp_root}/root/bin/jujud" ]; then
+        echo "operator image staging: the controller snap payload does not carry bin/jujud" >&2
         exit 1
     fi
-    if ! closure=$(ldd "${jujud_bin}" 2>/dev/null); then
-        echo "operator image staging: cannot resolve ${jujud_bin} with ldd" >&2
-        exit 1
-    fi
-    if echo "${closure}" | grep -q "not found"; then
-        echo "operator image staging: ${jujud_bin} has unresolved libraries:" >&2
-        echo "${closure}" | grep "not found" >&2
-        echo "Run 'make install-dependencies' to install the Dqlite runtime libraries (ppa:dqlite/dev), then retry." >&2
-        exit 1
-    fi
-
+    mkdir -p "${bin_dir}"
     rm -rf "${lib_dir}"
     mkdir -p "${lib_dir}"
+    cp "${tmp_root}/root/bin/jujud" "${bin_dir}/jujud"
     staged=0
-    for lib_path in $(echo "${closure}" | awk '/=>/ {print $3}'); do
-        lib_soname=$(basename "${lib_path}")
-        if echo "${lib_soname}" | grep -Eq "${base_libs}"; then
-            continue
-        fi
-        real_path=$(readlink -f "${lib_path}")
-        real_name=$(basename "${real_path}")
-        cp -L "${real_path}" "${lib_dir}/${real_name}"
-        if [ "${lib_soname}" != "${real_name}" ]; then
-            ln -sf "${real_name}" "${lib_dir}/${lib_soname}"
+    while IFS= read -r lib_src; do
+        real_src=$(readlink -f "${lib_src}")
+        real_name=$(basename "${real_src}")
+        soname=$(basename "${lib_src}")
+        cp -L "${real_src}" "${lib_dir}/${real_name}"
+        if [ "${soname}" != "${real_name}" ]; then
+            ln -sf "${real_name}" "${lib_dir}/${soname}"
         fi
         staged=$((staged + 1))
-    done
+    done < <(find "${tmp_root}/root/lib" \( -type f -o -type l \) -name '*.so*' 2>/dev/null)
     if [ "${staged}" -eq 0 ]; then
-        echo "operator image staging: no non-base dynamic libraries found for ${jujud_bin};" >&2
-        echo "the jujud controller binary must be dynamically linked" >&2
+        echo "operator image staging: the controller snap payload carries no shared libraries;" >&2
+        echo "the juju-dynamic-image-layout contract requires the snap's bundled Dqlite closure" >&2
         exit 1
     fi
+    echo "operator image staging: staged ${bin_dir}/jujud and ${staged} libraries from ${snap_file}"
 }
+
+# stage_operator_image_libs was removed with the source-build image
+# staging: every operator image now consumes the controller snap payload
+# (stage_operator_image_snap_payload locally, pre-staged CI payloads, or
+# the release snap extraction), validated by require_operator_image_libs.
 
 # require_operator_image_libs checks that the runtime libraries jujud needs
 # are already present in the build payload's lib/ directory. This runs when
@@ -219,17 +242,17 @@ $(elf_needed_sonames "${lib_dir}/${soname}")"
 
 # build_push_operator_image is responsible for doing the heavy lifting when it
 # comes time to build the Juju oci operator image. This function can also build
-# the operator image for multiple architectures at once. Takes 3 arguments that
-# describe one or more platforms to build for, whether to push the image, and
-# where the jujud binary comes from.
-# - $1 space seperated list of os/arch to build the image for. Follow the GO
+# the operator image for multiple architectures at once. Takes 2 arguments:
+# - $1 space separated list of os/arch to build the image for. Follow the GO
 #   idiom for naming. Example "linux/amd64 linux/arm64". The only supported OS
 #   is linux at the moment. If no argument is provided defaults to GOOS & GOARCH
 # - $2 true or false value on if the resultant image(s) should be pushed to the
 #   registry
-# - $3 true or false value on whether the jujud binary and its runtime library
-#   closure come from a local source build (true, the default) or from a
-#   pre-staged build payload (false, the CI contract)
+#
+# The jujud binary and its runtime library closure are never built or staged
+# here: they are a pre-staged input (staged from the locally built controller
+# snap by the image-check target locally, delivered by the QA payload unpack
+# or the release snap extraction in CI), verified by require_operator_image_libs.
 build_push_operator_image() {
     build_multi_osarch=${1-""}
     if [[ -z "$build_multi_osarch" ]]; then
@@ -257,16 +280,14 @@ build_push_operator_image() {
     done
     build_multi_osarch=$(echo "$build_multi_osarch" | sed 's/ppc64el/ppc64le/g')
 
-    build_from_src=${3:-"true"}
-
-    # Stage (or require) the jujud runtime library closure for every image
-    # platform, per the dynamic-image-layout contract in caas/Dockerfile.
+    # Verify the staged jujud payload for every image platform, per the
+    # dynamic-image-layout contract in caas/Dockerfile. With
+    # OPERATOR_IMAGE_BUILD_SRC=true (local) the payload was just staged by
+    # stage_operator_image_snap_payload; with false (CI) it was delivered
+    # pre-staged by the QA payload unpack or the release snap extraction.
+    # Nothing is built or staged here - only verified.
     for platform in $build_multi_osarch; do
-        if [ "${build_from_src}" = "true" ]; then
-            stage_operator_image_libs "${platform}"
-        else
-            require_operator_image_libs "${platform}"
-        fi
+        require_operator_image_libs "${platform}"
     done
 
     push_image=${2:-"false"}

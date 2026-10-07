@@ -33,9 +33,11 @@ RUN ln -s jujud /opt/juju-introspect
 # juju-dynamic-image-layout: jujud is linked dynamically and needs the
 # shared libraries staged into /opt/lib (see the COPY above), because the
 # Ubuntu base image does not ship Dqlite. jujud finds /opt/lib through an
-# rpath embedded when it was linked (CGO_RPATH in the Makefile), which
-# works no matter how the container is started - including the Kubernetes
-# launch paths that replace the image command. The LD_LIBRARY_PATH export
-# below is only a fallback for bare `docker run <image> <cmd>` calls; with
-# no command it runs nothing and exits 0.
+# rpath embedded when it was linked (CGO_RPATH in the Makefile, and the
+# matching rpath in the snapcraft.yaml jujud part, so the snap-built binary
+# extracted into release images resolves it too), which works no matter how
+# the container is started - including the Kubernetes launch paths that
+# replace the image command. The LD_LIBRARY_PATH export below is only a
+# fallback for bare `docker run <image> <cmd>` calls; with no command it
+# runs nothing and exits 0.
 ENTRYPOINT ["sh", "-c", "export LD_LIBRARY_PATH=/opt/lib; exec \"$@\"", "--"]
