@@ -218,6 +218,37 @@ func (db *failCleanupSchedulingDatabase) Run(source jujutxn.TransactionSource) e
 	})
 }
 
+// raceContainerRemovalDatabase removes a container's references through the
+// normal path after the cleanup transaction has been built, so its first
+// attempt aborts the way a concurrent container removal would.
+type raceContainerRemovalDatabase struct {
+	Database
+	st          *State
+	containerId string
+	raced       bool
+	retried     bool
+}
+
+func (db *raceContainerRemovalDatabase) Run(source jujutxn.TransactionSource) error {
+	return db.Database.Run(func(attempt int) ([]txn.Op, error) {
+		ops, err := source(attempt)
+		if attempt > 0 && db.raced && errors.Is(err, jujutxn.ErrNoOperations) {
+			db.retried = true
+		}
+		if err != nil {
+			return nil, err
+		}
+		if attempt == 0 && !db.raced && len(ops) > 0 &&
+			ops[0].C == containerRefsC && ops[0].Id == db.st.docID(db.containerId) {
+			db.raced = true
+			if err := db.Database.RunTransaction(removeContainerRefOps(db.st, db.containerId)); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		return ops, nil
+	})
+}
+
 func pendingForceCleanupsForUnit(c *gc.C, st *State, unitName string) []cleanupDoc {
 	cleanups, closer, err := st.db().GetCollection(cleanupsC)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1060,6 +1091,42 @@ func (s *cleanupInternalSuite) testCleanupContainersContinuesAfterMissingContain
 	c.Assert(dyingChild.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(st.cleanupEvacuateMachineInternal(parent.Id(), force, force, 0), jc.ErrorIsNil)
 	c.Assert(dyingChild.Refresh(), jc.Satisfies, errors.IsNotFound)
+	_, err = missingChild.Containers()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Dead)
+	children, err := parent.Containers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(children, gc.HasLen, 0)
+}
+
+func (s *cleanupInternalSuite) TestCleanupContainersRetriesAfterConcurrentContainerRemoval(c *gc.C) {
+	st := s.newState(c)
+	parent, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	child, err := st.AddMachineInsideMachine(MachineTemplate{
+		Base: UbuntuBase("12.10"),
+		Jobs: []MachineJob{JobHostUnits},
+	}, parent.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	machines, closer, err := st.db().GetCollection(machinesC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	c.Assert(machines.Writeable().RemoveId(child.Id()), jc.ErrorIsNil)
+	c.Assert(parent.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+
+	faultState := *st
+	database := &raceContainerRemovalDatabase{
+		Database:    st.database,
+		st:          st,
+		containerId: child.Id(),
+	}
+	faultState.database = database
+	c.Assert(faultState.cleanupEvacuateMachineInternal(parent.Id(), false, false, 0), jc.ErrorIsNil)
+	c.Check(database.raced, jc.IsTrue)
+	c.Check(database.retried, jc.IsTrue)
+	_, err = child.Containers()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(parent.Refresh(), jc.ErrorIsNil)
 	c.Check(parent.Life(), gc.Equals, Dead)
 	children, err := parent.Containers()

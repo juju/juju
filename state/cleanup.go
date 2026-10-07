@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -1611,22 +1612,20 @@ func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, max
 					return errors.Trace(err)
 				}
 			}
-			buildTxn := func(int) ([]txn.Op, error) {
-				if _, err := st.Machine(containerId); err == nil {
-					return nil, jujutxn.ErrNoOperations
-				} else if !errors.IsNotFound(err) {
-					return nil, err
+			// The container document is gone but the parent still lists it.
+			buildTxn := func(attempt int) ([]txn.Op, error) {
+				if attempt > 0 {
+					// The container's own teardown may have removed the
+					// references since the parent's children were read.
+					children, err := machine.Containers()
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					if !slices.Contains(children, containerId) {
+						return nil, jujutxn.ErrNoOperations
+					}
 				}
-				return []txn.Op{{
-					C:      machinesC,
-					Id:     st.docID(containerId),
-					Assert: txn.DocMissing,
-				}, {
-					C:      containerRefsC,
-					Id:     machine.doc.DocID,
-					Assert: txn.DocExists,
-					Update: bson.D{{"$pull", bson.D{{"children", containerId}}}},
-				}}, nil
+				return removeContainerRefOps(st, containerId), nil
 			}
 			if err := st.db().Run(buildTxn); err != nil {
 				return err
