@@ -10,6 +10,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainrelation "github.com/juju/juju/domain/relation"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 )
 
 // WatcherRelationUnitsData contains data returned by the
@@ -62,6 +63,11 @@ type SubordinateUnitCreationInfo struct {
 	// principal unit. Storage for the new subordinate unit is attached to
 	// this net node.
 	MachineNetNodeUUID domainnetwork.NetNodeUUID
+
+	// StorageDirectives are the storage directives set for the subordinate
+	// application. The storage arguments for the new subordinate unit are
+	// made from these directives.
+	StorageDirectives []domainstorageprovisioning.StorageDirective
 }
 
 // SubordinateUnitStorageArgs contains the storage arguments to use when

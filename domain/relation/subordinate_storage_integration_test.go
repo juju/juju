@@ -135,8 +135,8 @@ VALUES (?, 0, 'instance-0', 'amd64')
 }
 
 // setupRelationService wires the relation service with the real relation
-// state, the real application storage service and a registry of dummy
-// storage providers, the same way the controller does.
+// state, the real storage pool provider and a registry of dummy storage
+// providers, the same way the controller does.
 func (s *subordinateStorageIntegrationSuite) setupRelationService(c *tc.C) *relationservice.Service {
 	modelDB := func(ctx context.Context) (coredatabase.TxnRunner, error) {
 		return s.ModelTxnRunner(), nil
@@ -148,26 +148,24 @@ func (s *subordinateStorageIntegrationSuite) setupRelationService(c *tc.C) *rela
 	unitState := applicationstate.NewInsertIAASUnitState(modelDB, clock.WallClock, log)
 	relState := relationstate.NewState(modelDB, clock.WallClock, log, unitState)
 
-	// The storage arguments for the subordinate units are made by the real
-	// application storage service, resolving storage directives through the
-	// dummy storage providers.
+	// The storage arguments for the subordinate units are made by the
+	// relation service from the storage directives read by the relation
+	// state, resolving the storage pools through the same pool provider
+	// implementation as the application domain, backed by the dummy
+	// storage providers.
 	appState := applicationstate.NewState(
 		modelDB, coremodel.UUID(s.ModelUUID()), clock.WallClock, log,
 	)
-	storageSvc := applicationstorageservice.NewService(
-		appState,
-		applicationstorageservice.NewStoragePoolProvider(
-			corestorage.ConstModelStorageRegistry(
-				func() internalstorage.ProviderRegistry {
-					return dummystorage.StorageProviders()
-				},
-			),
-			appState,
+	poolProvider := applicationstorageservice.NewStoragePoolProvider(
+		corestorage.ConstModelStorageRegistry(
+			func() internalstorage.ProviderRegistry {
+				return dummystorage.StorageProviders()
+			},
 		),
-		log,
+		appState,
 	)
 
-	return relationservice.NewService(relState, storageSvc, noopStatusHistory{}, log)
+	return relationservice.NewService(relState, poolProvider, noopStatusHistory{}, log)
 }
 
 // query executes a given SQL query with optional arguments within the model

@@ -24,6 +24,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	domainapplication "github.com/juju/juju/domain/application"
+	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/deployment"
@@ -34,6 +35,7 @@ import (
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -859,6 +861,46 @@ func (s *subordinateUnitSuite) TestAddSubordinateUnitSubordinateNotAlive(c *tc.C
 	c.Check(obtainedData.SubordinateCreated(), tc.Equals, false)
 }
 
+// addStoragePool adds a storage pool to the database. It returns the pool
+// UUID.
+func (s *subordinateUnitSuite) addStoragePool(c *tc.C) domainstorage.StoragePoolUUID {
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	s.query(c, `
+INSERT INTO storage_pool (uuid, name, type)
+VALUES (?, 'test-pool', 'test-provider')
+`, poolUUID)
+	return poolUUID
+}
+
+// addCharmStorage adds a charm storage definition with the given name and
+// charm storage type to the given charm. The definition has no count
+// limits.
+func (s *subordinateUnitSuite) addCharmStorage(
+	c *tc.C, charmUUID corecharm.ID, storageName string, storageType domainapplicationcharm.StorageType,
+) {
+	// The storage kind ids reflect the contents of the charm_storage_kind
+	// table: 0 is block, 1 is filesystem.
+	storageKindID := map[domainapplicationcharm.StorageType]int{
+		domainapplicationcharm.StorageBlock:      0,
+		domainapplicationcharm.StorageFilesystem: 1,
+	}[storageType]
+	s.query(c, `
+INSERT INTO charm_storage (charm_uuid, name, description, storage_kind_id, shared, read_only, count_min, count_max, minimum_size_mib, location)
+VALUES (?, ?, 'test storage', ?, false, false, 0, ?, 0, '/')
+`, charmUUID, storageName, storageKindID, domainapplicationcharm.StorageNoMaxCount)
+}
+
+// addApplicationStorageDirective adds a storage directive with the given
+// name to the given application, backed by the given storage pool.
+func (s *subordinateUnitSuite) addApplicationStorageDirective(
+	c *tc.C, appUUID coreapplication.UUID, charmUUID corecharm.ID, storageName string, poolUUID domainstorage.StoragePoolUUID,
+) {
+	s.query(c, `
+INSERT INTO application_storage_directive (application_uuid, charm_uuid, storage_name, storage_pool_uuid, size_mib, count)
+VALUES (?, ?, ?, ?, 1024, 1)
+`, appUUID, charmUUID, storageName, poolUUID)
+}
+
 // TestGetSubordinateUnitCreationInfo ensures that the information required
 // to make the storage arguments for a subordinate unit is returned when
 // entering scope of the relation with the given unit would create one. The
@@ -875,7 +917,58 @@ func (s *subordinateUnitSuite) TestGetSubordinateUnitCreationInfo(c *tc.C) {
 	s.addMachineToUnit(c, principalUnitUUID.String())
 	principalUnitNetNode := s.getUnitNetNode(c, principalUnitUUID.String())
 
-	// Arrange: add a subordinate application with no unit
+	// Arrange: add a subordinate application with a filesystem storage
+	// directive backed by a machine scoped storage pool.
+	subordinateCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinateCharmUUID, true)
+	subordinateApplicationUUID := s.addApplication(c, subordinateCharmUUID, "sub")
+	poolUUID := s.addStoragePool(c)
+	s.addCharmStorage(c, subordinateCharmUUID, "data", domainapplicationcharm.StorageFilesystem)
+	s.addApplicationStorageDirective(c, subordinateApplicationUUID, subordinateCharmUUID, "data", poolUUID)
+
+	// Arrange: relate the principal and subordinate applications
+	relationUUID, _, _ := s.addContainerScopedRelation(c, principalApplicationUUID, principalCharmUUID, subordinateApplicationUUID, subordinateCharmUUID)
+
+	// Act
+	info, create, err := s.state.GetSubordinateUnitCreationInfo(c.Context(), relationUUID, principalUnitName)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(create, tc.IsTrue)
+	c.Check(info, tc.DeepEquals, internal.SubordinateUnitCreationInfo{
+		SubordinateApplicationUUID: subordinateApplicationUUID,
+		MachineNetNodeUUID:         principalUnitNetNode,
+		StorageDirectives: []domainstorageprovisioning.StorageDirective{
+			{
+				CharmMetadataName: subordinateCharmUUID.String(),
+				CharmStorageType:  domainapplicationcharm.StorageFilesystem,
+				Count:             1,
+				MaxCount:          domainapplicationcharm.StorageNoMaxCount,
+				Name:              "data",
+				PoolUUID:          poolUUID,
+				Size:              1024,
+			},
+		},
+	})
+}
+
+// TestGetSubordinateUnitCreationInfoNoStorageDirectives ensures that the
+// creation information is returned with no storage directives when the
+// subordinate application has none, proving that subordinate creation is
+// not blocked for charms without storage.
+func (s *subordinateUnitSuite) TestGetSubordinateUnitCreationInfoNoStorageDirectives(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: add principal application with 1 unit on a machine
+	principalCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, principalCharmUUID, false)
+	principalApplicationUUID := s.addApplication(c, principalCharmUUID, "pri")
+	principalUnitName := coreunittesting.GenNewName(c, "pri/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationUUID, principalCharmUUID)
+	s.addMachineToUnit(c, principalUnitUUID.String())
+	principalUnitNetNode := s.getUnitNetNode(c, principalUnitUUID.String())
+
+	// Arrange: add a subordinate application with no storage directives
 	subordinateCharmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, subordinateCharmUUID, true)
 	subordinateApplicationUUID := s.addApplication(c, subordinateCharmUUID, "sub")
@@ -892,6 +985,7 @@ func (s *subordinateUnitSuite) TestGetSubordinateUnitCreationInfo(c *tc.C) {
 	c.Check(info, tc.DeepEquals, internal.SubordinateUnitCreationInfo{
 		SubordinateApplicationUUID: subordinateApplicationUUID,
 		MachineNetNodeUUID:         principalUnitNetNode,
+		StorageDirectives:          []domainstorageprovisioning.StorageDirective{},
 	})
 }
 

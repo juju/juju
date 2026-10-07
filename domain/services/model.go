@@ -570,13 +570,16 @@ func (s *ModelServices) Relation() *relationservice.WatchableService {
 
 	// The relation domain creates subordinate units on behalf of the
 	// application domain when a unit enters scope of a container scoped
-	// relation. The storage service is used to make the storage arguments
-	// for the new subordinate unit.
-	_, storageSvc := s.applicationStateAndStorageService(log)
+	// relation. The storage pool provider, the same implementation as the
+	// application domain's, is used to make the storage arguments for the
+	// new subordinate unit, via the shared storageprovisioning package.
+	applicationStorageState := applicationstate.NewState(
+		changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID, s.clock, log,
+	)
 
 	return relationservice.NewWatchableService(
 		relationstate.NewState(factory, s.clock, log, unitState),
-		storageSvc,
+		applicationstorageservice.NewStoragePoolProvider(s.storageRegistry, applicationStorageState),
 		s.modelWatcherFactory("relation.watcher"),
 		domain.NewLeaseService(s.leaseManager),
 		domain.NewStatusHistory(log, s.clock),

@@ -16,6 +16,7 @@ import (
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -23,6 +24,8 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
+	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -239,9 +242,19 @@ WHERE  name = $getUnit.name
 			return nil
 		}
 
+		// Read the storage directives set for the subordinate application,
+		// so the storage arguments for the new subordinate unit can be made
+		// from them before entering scope.
+		storageDirectives, err := st.getApplicationStorageDirectives(ctx, tx, subAppUUID)
+		if err != nil {
+			return errors.Errorf(
+				"getting storage directives for subordinate application: %w", err)
+		}
+
 		info = internal.SubordinateUnitCreationInfo{
 			SubordinateApplicationUUID: coreapplication.UUID(subAppUUID),
 			MachineNetNodeUUID:         network.NetNodeUUID(machineIdentifiers.NetNodeUUID),
+			StorageDirectives:          storageDirectives,
 		}
 		createSubordinate = true
 		return nil
@@ -250,6 +263,73 @@ WHERE  name = $getUnit.name
 		return internal.SubordinateUnitCreationInfo{}, false, errors.Capture(err)
 	}
 	return info, createSubordinate, nil
+}
+
+// getApplicationStorageDirectives returns the storage directives that are
+// set for the given application, for the purpose of making the storage
+// arguments of a new subordinate unit. If the application does not have any
+// storage directives set then an empty result is returned.
+//
+// The read mirrors GetApplicationStorageDirectives of the application domain
+// state, without the application existence check: the caller has already
+// resolved the application.
+func (st *State) getApplicationStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID string,
+) ([]domainstorageprovisioning.StorageDirective, error) {
+	type applicationStorageDirective struct {
+		CharmMetadataName string `db:"charm_metadata_name"`
+		CharmStorageKind  string `db:"charm_storage_kind"`
+		Count             uint32 `db:"count"`
+		CountMax          int    `db:"count_max"`
+		SizeMiB           uint64 `db:"size_mib"`
+		StorageName       string `db:"storage_name"`
+		StoragePoolUUID   string `db:"storage_pool_uuid"`
+	}
+
+	stmt, err := st.Prepare(`
+WITH directives AS (
+	SELECT cm.name AS charm_metadata_name,
+	       csk.kind AS charm_storage_kind,
+	       asd.count AS count,
+	       cs.count_max AS count_max,
+	       asd.size_mib AS size_mib,
+	       asd.storage_name AS storage_name,
+	       asd.storage_pool_uuid AS storage_pool_uuid
+	FROM   application_storage_directive AS asd
+	JOIN   charm_storage AS cs ON cs.charm_uuid = asd.charm_uuid AND cs.name = asd.storage_name
+	JOIN   charm_metadata AS cm ON cm.charm_uuid = asd.charm_uuid
+	JOIN   charm_storage_kind AS csk ON csk.id = cs.storage_kind_id
+	WHERE  asd.application_uuid = $entityUUID.uuid
+)
+SELECT &applicationStorageDirective.* FROM directives
+`, applicationStorageDirective{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	directives := []applicationStorageDirective{}
+	err = tx.Query(ctx, stmt, entityUUID{UUID: appUUID}).GetAll(&directives)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	rval := make([]domainstorageprovisioning.StorageDirective, 0, len(directives))
+	for _, directive := range directives {
+		rval = append(rval, domainstorageprovisioning.StorageDirective{
+			CharmMetadataName: directive.CharmMetadataName,
+			CharmStorageType:  domainapplicationcharm.StorageType(directive.CharmStorageKind),
+			Count:             directive.Count,
+			MaxCount:          directive.CountMax,
+			Name:              domainstorage.Name(directive.StorageName),
+			PoolUUID:          domainstorage.StoragePoolUUID(directive.StoragePoolUUID),
+			Size:              directive.SizeMiB,
+		})
+	}
+	return rval, nil
 }
 
 // subordinateCreationTarget returns the UUID of the principal unit that a

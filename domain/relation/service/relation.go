@@ -20,12 +20,11 @@ import (
 	"github.com/juju/juju/core/unit"
 	domainapplication "github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
-	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -38,21 +37,6 @@ type StatusHistory interface {
 	// If the status data cannot be marshalled, it will not be recorded, instead
 	// the error will be logged under the data_error key.
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
-}
-
-// IAASUnitStorageArgsFactory provides the capability to make the storage
-// arguments required when creating new IAAS subordinate units.
-type IAASUnitStorageArgsFactory interface {
-	// MakeIAASSubordinateUnitStorageArgs returns the unit storage arguments
-	// and IAAS unit storage arguments required to provision storage for a
-	// new IAAS subordinate unit of the given application. The subordinate
-	// unit's storage is attached to the net node of the machine hosting the
-	// principal unit.
-	MakeIAASSubordinateUnitStorageArgs(
-		ctx context.Context,
-		subordinateAppUUID application.UUID,
-		machineNetNodeUUID domainnetwork.NetNodeUUID,
-	) (domainstorage.CreateUnitStorageArg, domainstorage.CreateIAASUnitStorageArg, error)
 }
 
 // State describes retrieval and persistence methods for relations.
@@ -74,7 +58,8 @@ type State interface {
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
 	// GetSubordinateUnitCreationInfo returns the information required to
-	// make the storage arguments for a subordinate unit, and true, if
+	// make the storage arguments for a subordinate unit, including the
+	// storage directives of the subordinate application, and true, if
 	// entering scope of the given relation with the given unit would create
 	// one. If no subordinate unit would be created, false is returned.
 	GetSubordinateUnitCreationInfo(
@@ -285,13 +270,13 @@ type LeadershipService struct {
 // the underlying state.
 func NewLeadershipService(
 	st State,
-	iaasUnitStorageArgs IAASUnitStorageArgsFactory,
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider,
 	leaderEnsurer leadership.Ensurer,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service:       NewService(st, iaasUnitStorageArgs, statusHistory, logger),
+		Service:       NewService(st, storagePoolProvider, statusHistory, logger),
 		leaderEnsurer: leaderEnsurer,
 	}
 }
@@ -408,13 +393,13 @@ type Service struct {
 	logger logger.Logger
 
 	statusHistory       StatusHistory
-	iaasUnitStorageArgs IAASUnitStorageArgsFactory
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
-	iaasUnitStorageArgs IAASUnitStorageArgsFactory,
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *Service {
@@ -422,7 +407,7 @@ func NewService(
 		st:                  st,
 		logger:              logger,
 		statusHistory:       statusHistory,
-		iaasUnitStorageArgs: iaasUnitStorageArgs,
+		storagePoolProvider: storagePoolProvider,
 	}
 }
 
@@ -558,13 +543,13 @@ func (s *Service) EnterScope(
 // subordinate unit. If no subordinate unit will be created, zero storage
 // arguments are returned.
 //
-// The subordinate unit's storage arguments are made via the IAAS unit
-// storage arguments factory, using the subordinate application and the
-// machine net node of the principal unit that will host the subordinate
-// unit. The factory is optional: services wired without one, such as the
-// migration import service, may enter scope of relations that do not
-// create subordinate units, but return an error if entering scope would
-// create one.
+// The subordinate unit's storage arguments are made with the storage
+// provisioning package, from the storage directives of the subordinate
+// application read by the state, using the machine net node of the principal
+// unit that will host the subordinate unit. The pool provider is optional:
+// services wired without one, such as the migration import service, may enter
+// scope of relations that do not create subordinate units, but return an
+// error if entering scope would create one.
 //
 // The pre-read races with state changes in the reverse direction too: if
 // it returns false but the authoritative in-transaction checks create a
@@ -586,15 +571,16 @@ func (s *Service) makeSubordinateStorageArgs(
 	if !createSubordinate {
 		return internal.SubordinateUnitStorageArgs{}, nil
 	}
-	if s.iaasUnitStorageArgs == nil {
+	if s.storagePoolProvider == nil {
 		return internal.SubordinateUnitStorageArgs{}, errors.New(
-			"subordinate unit storage args factory not configured")
+			"storage pool provider not configured")
 	}
 
-	unitStorageArgs, iaasUnitStorageArgs, err := s.iaasUnitStorageArgs.MakeIAASSubordinateUnitStorageArgs(
+	unitStorageArgs, iaasUnitStorageArgs, err := domainstorageprovisioning.MakeNewUnitStorageArgs(
 		ctx,
-		creationInfo.SubordinateApplicationUUID,
+		s.storagePoolProvider,
 		creationInfo.MachineNetNodeUUID,
+		creationInfo.StorageDirectives,
 	)
 	if err != nil {
 		return internal.SubordinateUnitStorageArgs{}, errors.Errorf(

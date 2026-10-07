@@ -18,6 +18,7 @@ import (
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	domainapplication "github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
@@ -26,8 +27,10 @@ import (
 	"github.com/juju/juju/domain/relation/internal"
 	domainstatus "github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 type relationServiceSuite struct {
@@ -707,26 +710,16 @@ func (s *relationServiceSuite) TestEnterScopeNthTimeStorageArgsDiscarded(c *tc.C
 	data := internal.SubordinateUnitStatusHistoryData{}
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	// The subordinate application has no storage directives, so the
+	// storage arguments made for it are zero-value.
 	creationInfo := internal.SubordinateUnitCreationInfo{
 		SubordinateApplicationUUID: appUUID,
 		MachineNetNodeUUID:         machineNetNodeUUID,
 	}
-	storageArgs := internal.SubordinateUnitStorageArgs{
-		UnitStorageArgs: domainstorage.CreateUnitStorageArg{
-			StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{
-				{UUID: tc.Must(c, domainstorage.NewStorageInstanceUUID)},
-			},
-		},
-		IAASUnitStorageArgs: domainstorage.CreateIAASUnitStorageArg{
-			VolumesToOwn: []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)},
-		},
-	}
 	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
 		Return(creationInfo, true, nil)
-	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
-		Return(storageArgs.UnitStorageArgs, storageArgs.IAASUnitStorageArgs, nil)
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings, storageArgs).
-		Return(data, relationerrors.RelationUnitAlreadyExists)
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings,
+		internal.SubordinateUnitStorageArgs{}).Return(data, relationerrors.RelationUnitAlreadyExists)
 
 	// Act.
 	err := s.service.EnterScope(
@@ -772,10 +765,6 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNoStorage(c *tc.
 	}
 	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
 		Return(creationInfo, true, nil)
-	// The subordinate application has no storage directives, so the
-	// factory returns zero-value storage arguments.
-	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
-		Return(domainstorage.CreateUnitStorageArg{}, domainstorage.CreateIAASUnitStorageArg{}, nil)
 	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings,
 		internal.SubordinateUnitStorageArgs{}).Return(data, nil)
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.UnitAgentNamespace.WithID(unitName.String()),
@@ -801,7 +790,8 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNoStorage(c *tc.
 }
 
 func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	// Arrange.
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -821,25 +811,48 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 	}
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	creationInfo := internal.SubordinateUnitCreationInfo{
 		SubordinateApplicationUUID: appUUID,
 		MachineNetNodeUUID:         machineNetNodeUUID,
-	}
-	expectedStorageArgs := internal.SubordinateUnitStorageArgs{
-		UnitStorageArgs: domainstorage.CreateUnitStorageArg{
-			StorageInstances: []domainstorage.CreateUnitStorageInstanceArg{
-				{UUID: tc.Must(c, domainstorage.NewStorageInstanceUUID)},
+		StorageDirectives: []domainstorageprovisioning.StorageDirective{
+			{
+				CharmMetadataName: "sub-charm",
+				CharmStorageType:  charm.StorageFilesystem,
+				Count:             1,
+				MaxCount:          charm.StorageNoMaxCount,
+				Name:              "data",
+				PoolUUID:          poolUUID,
+				Size:              1024,
 			},
-		},
-		IAASUnitStorageArgs: domainstorage.CreateIAASUnitStorageArg{
-			VolumesToOwn: []domainstorage.VolumeUUID{tc.Must(c, domainstorage.NewVolumeUUID)},
 		},
 	}
 	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
 		Return(creationInfo, true, nil)
-	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
-		Return(expectedStorageArgs.UnitStorageArgs, expectedStorageArgs.IAASUnitStorageArgs, nil)
-	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings, expectedStorageArgs).Return(data, nil)
+
+	provider := NewMockStorageProvider(ctrl)
+	provider.EXPECT().Scope().Return(internalstorage.ScopeMachine).AnyTimes()
+	provider.EXPECT().Supports(internalstorage.StorageKindFilesystem).Return(true).AnyTimes()
+	s.storagePoolProvider.EXPECT().GetProviderForPool(gomock.Any(), poolUUID).Return(
+		provider, nil,
+	).AnyTimes()
+
+	// The storage arguments are made by the service from the storage
+	// directives of the subordinate application. The generated UUIDs are
+	// not deterministic, so the arguments are captured and asserted
+	// structurally.
+	var subordinateStorageArgs internal.SubordinateUnitStorageArgs
+	s.state.EXPECT().EnterScope(gomock.Any(), relationUUID, unitName, settings, gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context,
+			_ corerelation.UUID,
+			_ coreunit.Name,
+			_ map[string]string,
+			storageArgs internal.SubordinateUnitStorageArgs,
+		) (internal.SubordinateUnitStatusHistoryData, error) {
+			subordinateStorageArgs = storageArgs
+			return data, nil
+		})
 	s.statusHistory.EXPECT().RecordStatus(gomock.Any(), domainstatus.UnitAgentNamespace.WithID(unitName.String()),
 		status.StatusInfo{
 			Status: status.Allocating,
@@ -860,6 +873,42 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinate(c *tc.C) {
 
 	// Assert.
 	c.Assert(err, tc.ErrorIsNil)
+
+	// The storage directive is passed through to the subordinate unit's
+	// storage arguments, with a new instance attached to the net node of
+	// the machine hosting the principal unit.
+	unitStorageArgs := subordinateStorageArgs.UnitStorageArgs
+	c.Check(unitStorageArgs.StorageDirectives, tc.DeepEquals, []domainstorage.DirectiveArg{
+		{
+			Count:    1,
+			Name:     "data",
+			PoolUUID: poolUUID,
+			Size:     1024,
+		},
+	})
+	c.Check(unitStorageArgs.StorageInstances, tc.HasLen, 1)
+	instance := unitStorageArgs.StorageInstances[0]
+	c.Check(instance.Name, tc.Equals, domainstorage.Name("data"))
+	c.Check(instance.CharmName, tc.Equals, "sub-charm")
+	c.Check(instance.Kind, tc.Equals, domainstorage.StorageKindFilesystem)
+	c.Check(instance.RequestSizeMiB, tc.Equals, uint64(1024))
+	c.Check(instance.StoragePoolUUID, tc.Equals, poolUUID)
+	c.Check(unitStorageArgs.StorageToAttach, tc.HasLen, 1)
+	attachment := unitStorageArgs.StorageToAttach[0]
+	c.Check(attachment.StorageInstanceUUID, tc.Equals, instance.UUID)
+	if attachment.FilesystemAttachment != nil {
+		c.Check(attachment.FilesystemAttachment.NetNodeUUID, tc.Equals, machineNetNodeUUID)
+		c.Check(attachment.FilesystemAttachment.ProvisionScope, tc.Equals, domainstorage.ProvisionScopeMachine)
+	}
+	c.Check(unitStorageArgs.StorageToOwn, tc.DeepEquals, []domainstorage.StorageInstanceUUID{
+		instance.UUID,
+	})
+
+	// The machine scoped filesystem of the new storage instance is owned
+	// by the machine hosting the principal unit.
+	c.Check(subordinateStorageArgs.IAASUnitStorageArgs.FilesystemsToOwn, tc.DeepEquals,
+		[]domainstorage.FilesystemUUID{instance.Filesystem.UUID})
+	c.Check(subordinateStorageArgs.IAASUnitStorageArgs.VolumesToOwn, tc.IsNil)
 }
 
 // TestEnterScopeCreatingSubordinateStorageArgsError tests that an error
@@ -873,15 +922,27 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateStorageArgsError
 	unitName := coreunittesting.GenNewName(c, "app1/0")
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	machineNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
 	creationInfo := internal.SubordinateUnitCreationInfo{
 		SubordinateApplicationUUID: appUUID,
 		MachineNetNodeUUID:         machineNetNodeUUID,
+		StorageDirectives: []domainstorageprovisioning.StorageDirective{
+			{
+				CharmMetadataName: "sub-charm",
+				CharmStorageType:  charm.StorageFilesystem,
+				Count:             1,
+				MaxCount:          charm.StorageNoMaxCount,
+				Name:              "data",
+				PoolUUID:          poolUUID,
+				Size:              1024,
+			},
+		},
 	}
 	s.state.EXPECT().GetSubordinateUnitCreationInfo(gomock.Any(), relationUUID, unitName).
 		Return(creationInfo, true, nil)
 	expectedError := errors.New("boom")
-	s.iaasUnitStorageArgs.EXPECT().MakeIAASSubordinateUnitStorageArgs(gomock.Any(), appUUID, machineNetNodeUUID).
-		Return(domainstorage.CreateUnitStorageArg{}, domainstorage.CreateIAASUnitStorageArg{}, expectedError)
+	s.storagePoolProvider.EXPECT().GetProviderForPool(gomock.Any(), poolUUID).
+		Return(nil, expectedError)
 
 	// Act.
 	err := s.service.EnterScope(
@@ -895,16 +956,15 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateStorageArgsError
 	c.Assert(err, tc.ErrorIs, expectedError)
 }
 
-// TestEnterScopeCreatingSubordinateNilStorageArgsFactory tests that a
-// service wired without an IAAS unit storage args factory returns a
-// descriptive error when entering scope would create a subordinate unit,
-// instead of panicking with a nil interface dereference. Services wired
-// without a factory may still enter scope of relations that do not create
-// subordinate units.
-func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNilStorageArgsFactory(c *tc.C) {
+// TestEnterScopeCreatingSubordinateNilPoolProvider tests that a service
+// wired without a storage pool provider returns a descriptive error when
+// entering scope would create a subordinate unit, instead of panicking
+// with a nil interface dereference. Services wired without a provider may
+// still enter scope of relations that do not create subordinate units.
+func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNilPoolProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange. A service wired without a storage args factory.
+	// Arrange. A service wired without a storage pool provider.
 	svc := NewService(s.state, nil, s.statusHistory, loggertesting.WrapCheckLog(c))
 
 	relationUUID := corerelationtesting.GenRelationUUID(c)
@@ -927,7 +987,7 @@ func (s *relationServiceSuite) TestEnterScopeCreatingSubordinateNilStorageArgsFa
 	)
 
 	// Assert.
-	c.Assert(err, tc.ErrorMatches, "subordinate unit storage args factory not configured")
+	c.Assert(err, tc.ErrorMatches, "storage pool provider not configured")
 }
 
 // TestEnterScopeCreatingSubordinateCreationInfoError tests that an error
@@ -1851,7 +1911,7 @@ func (s *relationLeadershipServiceSuite) setupMocks(c *tc.C) *gomock.Controller 
 	ctrl := s.baseServiceSuite.setupMocks(c)
 
 	s.leaderEnsurer = NewMockEnsurer(ctrl)
-	s.leadershipService = NewLeadershipService(s.state, s.iaasUnitStorageArgs, s.leaderEnsurer, s.statusHistory, loggertesting.WrapCheckLog(c))
+	s.leadershipService = NewLeadershipService(s.state, s.storagePoolProvider, s.leaderEnsurer, s.statusHistory, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }
