@@ -140,24 +140,7 @@ func (s *Service) removeControllerModel(
 	// From here on, we can assume that the model and any associated model
 	// artifacts (machines, applications, units, etc) are not alive.
 
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the unit if the normal destruction
-			// workflows complete within the the wait duration.
-			if _, err := s.controllerModelScheduleRemoval(ctx, s.modelUUID, false, 0); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
-			wait = 0
-		}
-	}
-
-	modelJobUUID, err := s.controllerModelScheduleRemoval(ctx, s.modelUUID, force, wait)
+	modelJobUUID, err := s.scheduleWithForceWait(ctx, s.modelUUID, force, wait, s.controllerModelScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	}

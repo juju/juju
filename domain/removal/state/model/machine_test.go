@@ -2286,6 +2286,137 @@ func (s *machineSuite) TestDeleteMachineWithForceWaitsForDeadUnitRemoval(c *tc.C
 	c.Check(exists, tc.IsFalse)
 }
 
+// TestDeleteMachineWaitsForChildMachineRemoval verifies the composition the
+// model teardown relies on: an occupied host's removal job reports
+// RemovalJobIncomplete while its containers' machine_parent rows exist,
+// the container's own job deletes them, and the host's job then
+// completes. This is the machine analogue of
+// TestDeleteMachineWaitsForDeadUnitRemoval.
+func (s *machineSuite) TestDeleteMachineWaitsForChildMachineRemoval(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// For a container placement the result carries the container's name
+	// in ChildMachineName; MachineName is the parent's.
+	c.Assert(containerRes.ChildMachineName, tc.NotNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), *containerRes.ChildMachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+	s.advanceMachineLife(c, containerUUID, life.Dead)
+	s.advanceInstanceLife(c, containerUUID, life.Dead)
+
+	// The host's job defers while the container's machine_parent row
+	// still references it.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.NotNil)
+	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	// The container's own removal job deletes the child machine row and,
+	// with it, the machine_parent row.
+	err = st.DeleteMachine(c.Context(), containerUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the host's job can complete.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The host should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+// TestDeleteMachineWithForceDoesNotCheckChildMachines mirrors
+// TestDeleteMachineWaitsForChildMachineRemoval with force=true: a
+// forced host deletion skips the children check, so the delete itself
+// fails on the machine_parent foreign key while the children's rows
+// still reference the host. The removal worker retries the job, and
+// once the children's own jobs have deleted their rows the host's
+// delete goes through.
+func (s *machineSuite) TestDeleteMachineWithForceDoesNotCheckChildMachines(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containerRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeContainer,
+			Container: deployment.ContainerTypeLXD,
+			Directive: machineRes.MachineName.String(),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	// For a container placement the result carries the container's name
+	// in ChildMachineName; MachineName is the parent's.
+	c.Assert(containerRes.ChildMachineName, tc.NotNil)
+	containerUUID, err := svc.GetMachineUUID(c.Context(), *containerRes.ChildMachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+	s.advanceMachineLife(c, containerUUID, life.Dead)
+	s.advanceInstanceLife(c, containerUUID, life.Dead)
+
+	// With force, the children check is skipped, and the machine
+	// delete fails on the machine_parent foreign key instead.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.NotNil)
+	c.Check(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
+	c.Check(err, tc.Not(tc.ErrorIs), removalerrors.MachineHasContainers)
+
+	// The container's own forced removal job deletes the child machine
+	// row and, with it, the machine_parent row.
+	err = st.DeleteMachine(c.Context(), containerUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Now the host's job can complete.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The host should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
 // TestDeleteMachineWithProviderPlacement verifies that a machine created
 // with a provider placement directive (e.g. zone=us-east-1a) can be
 // deleted. The machine_placement table has a foreign key to machine(uuid),

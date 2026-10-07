@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
-	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
@@ -199,24 +198,10 @@ func (s *Service) removeModel(
 	// From here on, we can assume that the model and any associated model
 	// artifacts (machines, applications, units, etc) are not alive.
 
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the unit if the normal destruction
-			// workflows complete within the the wait duration.
-			if _, err := s.modelScheduleRemoval(ctx, modelUUID, false, 0); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
-			wait = 0
-		}
-	}
-
-	modelJobUUID, err := s.modelScheduleRemoval(ctx, modelUUID, force, wait)
+	// Normalize the wait here so the cascaded scheduling below cannot
+	// see a non-forced wait.
+	wait = s.normalizeWait(ctx, modelUUID, force, wait)
+	modelJobUUID, err := s.scheduleWithForceWait(ctx, modelUUID, force, wait, s.modelScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if artifacts.Empty() {
@@ -468,17 +453,36 @@ func (s *Service) removeUnits(ctx context.Context, uuids []string, destroyStorag
 	}
 }
 
+// removeMachines schedules a removal job for each of the input machines.
+//
+// The model removal cascade has already transitioned every machine of
+// the model to the dying state, so this does not route the machines
+// through [Service.RemoveMachine]: its cascade refuses occupied hosts
+// without force (MachineHasContainers / MachineHasUnits) and dropping
+// that failure would leave container hosts with no removal job forever,
+// since a machine row is only ever deleted by a machine removal job.
+// Instead, a job is scheduled for every machine, container hosts
+// included, the same way the model cascade schedules the jobs of every
+// other entity it owns.
+//
+// The jobs themselves reconcile the machines' dependents: while a
+// machine is not dead, or still hosts units or child machines, its job
+// reports [removalerrors.EntityNotDead] or
+// [removalerrors.RemovalJobIncomplete] and is retried by the removal
+// worker; once the dependents' own jobs have deleted them, the host's
+// job deletes the host.
+//
+// Scheduling failures are logged and dropped, like for every other
+// entity the cascade schedules: the machines are already dying, and
+// [Service.RemoveModel] is re-entrant, so a re-run of destroy-model
+// re-runs the cascade and reschedules the missing jobs.
 func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, machineUUID := range uuids {
-		if _, err := s.RemoveMachine(ctx, machine.UUID(machineUUID), force, wait); errors.Is(err, machineerrors.MachineNotFound) {
-			// There could be a chance that the machine has already been removed
-			// by another process. We can safely ignore this error and continue
-			// with the next machine.
-			continue
-		} else if err != nil {
-			// If the machine fails to be scheduled for removal, we log out the
-			// error. The machines are already transitioned to dying and there
-			// is no way to transition them back to alive.
+		// If a machine fails to be scheduled for removal, we log out the
+		// error. The machines are already transitioned to dying and there
+		// is no way to transition them back to alive.
+		_, err := s.scheduleWithForceWait(ctx, machine.UUID(machineUUID), force, wait, s.machineScheduleRemoval)
+		if err != nil {
 			s.logger.Errorf(ctx, "scheduling removal of machine %q: %v", machineUUID, err)
 		}
 	}
