@@ -8,9 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 
-	coreapplication "github.com/juju/juju/core/application"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/charm"
@@ -20,39 +18,6 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
-
-// GetApplicationResourceUUIDs returns all resources currently linked to an
-// application.
-func (st *State) GetApplicationResourceUUIDs(
-	ctx context.Context,
-	appUUID coreapplication.UUID,
-) ([]coreresource.UUID, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	input := resourceReconciliation{ApplicationUUID: appUUID.String()}
-	stmt, err := st.Prepare(`
-SELECT resource_uuid AS &resourceReconciliation.resource_uuid
-FROM   application_resource
-WHERE  application_uuid = $resourceReconciliation.application_uuid
-`, input)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var resources []resourceReconciliation
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, input).GetAll(&resources)
-	})
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-	return transform.Slice(resources, func(resource resourceReconciliation) coreresource.UUID {
-		return coreresource.UUID(resource.ResourceUUID)
-	}), nil
-}
 
 // createApplicationResources handles resources when creating an application
 // by updating resources added before the application via UUID, or by
@@ -231,9 +196,7 @@ WHERE resource_uuid = $resourceReconciliation.resource_uuid
 			if err := tx.Query(ctx, updateLinkStmt, candidate).Run(); err != nil {
 				return errors.Errorf("activating replacement resource %q: %w", name, err)
 			}
-			if err := st.scheduleResourceRemoval(
-				ctx, tx, params.ResourceRemovalJobUUIDs, current.ResourceUUID,
-			); err != nil {
+			if err := st.scheduleResourceRemoval(ctx, tx, current.ResourceUUID); err != nil {
 				return errors.Errorf("scheduling removal of replaced resource %q: %w", name, err)
 			}
 		} else if err := tx.Query(ctx, insertLinkStmt, candidate).Run(); err != nil {
@@ -252,23 +215,20 @@ WHERE resource_uuid = $resourceReconciliation.resource_uuid
 		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
 			return errors.Errorf("detaching removed resource %q: %w", name, err)
 		}
-		if err := st.scheduleResourceRemoval(
-			ctx, tx, params.ResourceRemovalJobUUIDs, current.ResourceUUID,
-		); err != nil {
+		if err := st.scheduleResourceRemoval(ctx, tx, current.ResourceUUID); err != nil {
 			return errors.Errorf("scheduling removal of detached resource %q: %w", name, err)
 		}
 	}
 
 	if err := st.replaceApplicationResourcesForCharm(
-		ctx, tx, appUUID, charmUUID,
-		params.ReplacementResourceUUIDs, params.ResourceRemovalJobUUIDs,
+		ctx, tx, appUUID, charmUUID, params.ReplacementResourceUUIDs,
 	); err != nil {
 		return errors.Capture(err)
 	}
 
 	return st.reconcileRepositoryResourcesForCharm(
 		ctx, tx, appUUID, charmUUID, targetByName,
-		params.RepositoryResourceUUIDs, params.ResourceRemovalJobUUIDs,
+		params.RepositoryResourceUUIDs,
 	)
 }
 
@@ -281,7 +241,6 @@ func (st *State) reconcileRepositoryResourcesForCharm(
 	charmUUID string,
 	targetResources map[string]charmResourceIdentity,
 	replacementUUIDs map[string]string,
-	removalJobUUIDs map[string]string,
 ) error {
 	input := resourceReconciliation{
 		ApplicationUUID: appUUID,
@@ -348,7 +307,7 @@ WHERE  c.uuid = $charmSource.uuid
 		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
 			return errors.Errorf("detaching repository resource %q: %w", current.Name, err)
 		}
-		if err := st.scheduleResourceRemoval(ctx, tx, removalJobUUIDs, current.ResourceUUID); err != nil {
+		if err := st.scheduleResourceRemoval(ctx, tx, current.ResourceUUID); err != nil {
 			return errors.Errorf("scheduling removal of repository resource %q: %w", current.Name, err)
 		}
 	}
@@ -360,7 +319,7 @@ WHERE  c.uuid = $charmSource.uuid
 		if err := tx.Query(ctx, deleteLinkStmt, current).Run(); err != nil {
 			return errors.Errorf("detaching removed repository resource %q: %w", name, err)
 		}
-		if err := st.scheduleResourceRemoval(ctx, tx, removalJobUUIDs, current.ResourceUUID); err != nil {
+		if err := st.scheduleResourceRemoval(ctx, tx, current.ResourceUUID); err != nil {
 			return errors.Errorf("scheduling removal of repository resource %q: %w", name, err)
 		}
 		delete(currentByName, name)
@@ -414,7 +373,6 @@ func (st *State) replaceApplicationResourcesForCharm(
 	appUUID string,
 	charmUUID string,
 	replacementUUIDs map[string]string,
-	removalJobUUIDs map[string]string,
 ) error {
 	input := replacement{
 		ApplicationUUID: appUUID,
@@ -546,9 +504,7 @@ AND    resource_uuid = $replacement.old_uuid
 		if err := tx.Query(ctx, replaceApplicationResourceStmt, replacements[i]).Run(); err != nil {
 			return errors.Errorf("selecting replacement resource: %w", err)
 		}
-		if err := st.scheduleResourceRemoval(
-			ctx, tx, removalJobUUIDs, replacements[i].OldUUID,
-		); err != nil {
+		if err := st.scheduleResourceRemoval(ctx, tx, replacements[i].OldUUID); err != nil {
 			return errors.Errorf("scheduling removal of replaced resource %q: %w", replacements[i].Name, err)
 		}
 	}
@@ -559,15 +515,21 @@ AND    resource_uuid = $replacement.old_uuid
 func (st *State) scheduleResourceRemoval(
 	ctx context.Context,
 	tx *sqlair.TX,
-	removalJobUUIDs map[string]string,
 	resourceUUID string,
 ) error {
-	jobUUID, ok := removalJobUUIDs[resourceUUID]
-	if !ok || jobUUID == "" {
-		return errors.Errorf("removal job UUID not supplied for resource %q", resourceUUID)
+	// UUIDs are normally generated in the service layer. This is intentionally
+	// an exception because the resources being displaced are selected inside
+	// this transaction. Pre-generating job UUIDs would require a separate read
+	// that can become stale when a concurrent operation replaces a resource.
+	// The job UUID is not returned, and a retried transaction rolls back the
+	// UUID from its previous attempt, so generating it here is safe and keeps
+	// resource displacement atomic with scheduling its removal.
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating resource removal job UUID: %w", err)
 	}
 	job := resourceRemovalJob{
-		UUID:          jobUUID,
+		UUID:          jobUUID.String(),
 		ResourceUUID:  resourceUUID,
 		ScheduledFor:  st.clock.Now().UTC(),
 		RemovalTypeID: uint64(removal.ResourceJob),

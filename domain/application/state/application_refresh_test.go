@@ -122,10 +122,8 @@ VALUES (?, ?, ?, ?)`, oldResourceUUID, storeUUID, 42, "sha384")
 	c.Assert(err, tc.ErrorIsNil)
 
 	replacementResourceUUID := uuid.MustNewUUID().String()
-	removalJobUUID := uuid.MustNewUUID().String()
 	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
 		ReplacementResourceUUIDs: map[string]string{resourceName: replacementResourceUUID},
-		ResourceRemovalJobUUIDs:  map[string]string{oldResourceUUID: removalJobUUID},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -159,10 +157,16 @@ AND    revision = ?`, oldResourceUUID, oldCharmUUID, revision).Scan(&oldRows)
 	c.Check(currentStoreUUID, tc.Equals, storeUUID)
 	c.Check(oldRows, tc.Equals, 1)
 
-	var removalEntityUUID string
+	var removalJobUUID, removalEntityUUID string
 	err = s.DB().QueryRowContext(c.Context(), `
-SELECT entity_uuid FROM removal WHERE uuid = ?`, removalJobUUID).Scan(&removalEntityUUID)
+SELECT uuid, entity_uuid
+FROM   removal
+WHERE  removal_type_id = ?
+AND    entity_uuid = ?`, removal.ResourceJob, oldResourceUUID).Scan(
+		&removalJobUUID, &removalEntityUUID,
+	)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removal.UUID(removalJobUUID).Validate(), tc.ErrorIsNil)
 	c.Check(removalEntityUUID, tc.Equals, oldResourceUUID)
 }
 
@@ -213,7 +217,6 @@ VALUES (?, ?, ?, ?)`, oldResourceUUID, storeUUID, 42, "sha384")
 	replacementResourceUUID := uuid.MustNewUUID().String()
 	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
 		ReplacementResourceUUIDs: map[string]string{resourceName: replacementResourceUUID},
-		ResourceRemovalJobUUIDs:  map[string]string{oldResourceUUID: uuid.MustNewUUID().String()},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -463,19 +466,12 @@ INSERT INTO application_resource (resource_uuid, application_uuid)
 VALUES (?, ?)`, oldPotentialUUID, appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(oldResourceUUIDs, tc.HasLen, 2)
-	resourceRemovalJobUUIDs := map[string]string{
-		oldResourceUUIDs[0]: uuid.MustNewUUID().String(),
-		oldResourceUUIDs[1]: uuid.MustNewUUID().String(),
-		oldPotentialUUID:    uuid.MustNewUUID().String(),
-	}
-
 	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
 		ResourceIDs: map[string]string{
 			"retained": retainedUUID,
 			"added":    addedUUID,
 		},
 		RepositoryResourceUUIDs: repositoryResourceUUIDs,
-		ResourceRemovalJobUUIDs: resourceRemovalJobUUIDs,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -603,7 +599,6 @@ END`)
 	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
 		ResourceIDs:             map[string]string{"foo": pendingUUID},
 		RepositoryResourceUUIDs: map[string]string{"foo": repositoryResourceUUID},
-		ResourceRemovalJobUUIDs: map[string]string{oldResourceUUID: uuid.MustNewUUID().String()},
 	})
 	c.Assert(err, tc.ErrorMatches, `.*forced charm update failure.*`)
 

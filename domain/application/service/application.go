@@ -40,7 +40,6 @@ import (
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/life"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
-	"github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
@@ -184,10 +183,6 @@ type ApplicationState interface {
 	// SetApplicationCharm sets a new charm for the specified application using
 	// the provided parameters and validates changes.
 	SetApplicationCharm(ctx context.Context, appUUID coreapplication.UUID, charmID corecharm.ID, params application.SetCharmStateParams) error
-
-	// GetApplicationResourceUUIDs returns all resources currently linked to an
-	// application.
-	GetApplicationResourceUUIDs(ctx context.Context, appUUID coreapplication.UUID) ([]resource.UUID, error)
 
 	// GetApplicationUUIDByUnitName returns the application UUID for the named unit,
 	// returning an error satisfying [applicationerrors.UnitNotFound] if the
@@ -1851,7 +1846,7 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 		return errors.Errorf("validating final storage directives against charm storage: %w", err)
 	}
 	paramsState, err := s.makeSetCharmStateArg(
-		ctx, appUUID, charmID, params, toCreate, toUpdate,
+		ctx, charmID, params, toCreate, toUpdate,
 	)
 	if err != nil {
 		return errors.Capture(err)
@@ -2123,7 +2118,6 @@ func coerceValue(t charm.OptionType, value string) (any, error) {
 
 func (s *ProviderService) makeSetCharmStateArg(
 	ctx context.Context,
-	appUUID coreapplication.UUID,
 	charmID corecharm.ID,
 	setCharmParams application.SetCharmParams,
 	toCreate []domainstorage.DirectiveArg,
@@ -2153,23 +2147,6 @@ func (s *ProviderService) makeSetCharmStateArg(
 		}
 		repositoryResourceUUIDs[name] = repositoryUUID.String()
 	}
-	currentResourceUUIDs, err := s.st.GetApplicationResourceUUIDs(ctx, appUUID)
-	if err != nil {
-		return application.SetCharmStateParams{}, errors.Errorf(
-			"getting application resource UUIDs: %w", err,
-		)
-	}
-	resourceRemovalJobUUIDs := make(map[string]string, len(currentResourceUUIDs))
-	for _, resourceUUID := range currentResourceUUIDs {
-		jobUUID, err := removal.NewUUID()
-		if err != nil {
-			return application.SetCharmStateParams{}, errors.Errorf(
-				"generating resource removal job UUID: %w", err,
-			)
-		}
-		resourceRemovalJobUUIDs[resourceUUID.String()] = jobUUID.String()
-	}
-
 	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
 	if err != nil {
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
@@ -2192,7 +2169,6 @@ func (s *ProviderService) makeSetCharmStateArg(
 		StorageDirectivesToUpdate: toUpdate,
 		ReplacementResourceUUIDs:  replacementResourceUUIDs,
 		RepositoryResourceUUIDs:   repositoryResourceUUIDs,
-		ResourceRemovalJobUUIDs:   resourceRemovalJobUUIDs,
 		ResourceIDs: transform.Map(setCharmParams.ResourceIDs,
 			func(k string, v resource.UUID) (string, string) { return k, v.String() }),
 	}, nil

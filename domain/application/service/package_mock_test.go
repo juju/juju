@@ -26,7 +26,6 @@ import (
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
-	resource "github.com/juju/juju/core/resource"
 	semversion "github.com/juju/juju/core/semversion"
 	status "github.com/juju/juju/core/status"
 	storage "github.com/juju/juju/core/storage"
@@ -396,7 +395,6 @@ type MockStateMockRecorder struct {
 	getApplicationLifeExpects                                 []*gomock.Call2_2[context.Context, application.UUID, life.Life, error]
 	getApplicationLifeByNameExpects                           []*gomock.Call2_3[context.Context, string, application.UUID, life.Life, error]
 	getApplicationNameExpects                                 []*gomock.Call2_2[context.Context, application.UUID, string, error]
-	getApplicationResourceUUIDsExpects                        []*gomock.Call2_2[context.Context, application.UUID, []resource.UUID, error]
 	getApplicationScaleStateExpects                           []*gomock.Call2_2[context.Context, application.UUID, application0.ScaleState, error]
 	getApplicationTrustSettingExpects                         []*gomock.Call2_2[context.Context, application.UUID, bool, error]
 	getApplicationUUIDAndNameByUnitNameExpects                []*gomock.Call2_3[context.Context, unit.Name, application.UUID, string, error]
@@ -1068,24 +1066,6 @@ func (mr *MockStateMockRecorder) GetApplicationName(arg0, arg1 any) *MockStateGe
 
 // MockStateGetApplicationNameCall is the typed call wrapper for GetApplicationName.
 type MockStateGetApplicationNameCall = gomock.Call2_2[context.Context, application.UUID, string, error]
-
-// GetApplicationResourceUUIDs mocks base method.
-func (m *MockState) GetApplicationResourceUUIDs(ctx context.Context, appUUID application.UUID) ([]resource.UUID, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getApplicationResourceUUIDsExpects, m.ctrl, m, "GetApplicationResourceUUIDs", ctx, appUUID)
-}
-
-// GetApplicationResourceUUIDs indicates an expected call of GetApplicationResourceUUIDs.
-func (mr *MockStateMockRecorder) GetApplicationResourceUUIDs(ctx, appUUID any) *MockStateGetApplicationResourceUUIDsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, application.UUID, []resource.UUID, error](mr.mock.ctrl.T, mr.mock, "GetApplicationResourceUUIDs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID))
-	mr.getApplicationResourceUUIDsExpects = append(mr.getApplicationResourceUUIDsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetApplicationResourceUUIDsCall is the typed call wrapper for GetApplicationResourceUUIDs.
-type MockStateGetApplicationResourceUUIDsCall = gomock.Call2_2[context.Context, application.UUID, []resource.UUID, error]
 
 // GetApplicationScaleState mocks base method.
 func (m *MockState) GetApplicationScaleState(arg0 context.Context, arg1 application.UUID) (application0.ScaleState, error) {

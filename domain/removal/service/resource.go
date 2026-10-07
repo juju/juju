@@ -41,6 +41,15 @@ func (s *Service) processResourceRemovalJob(ctx context.Context, job removal.Job
 		return errors.Errorf("deleting resource %q: %w", job.EntityUUID, err)
 	}
 	if !removed {
+		// Resource removal can remain incomplete while a unit references an old
+		// resource. This currently retries at the removal worker's polling
+		// interval. A longer backoff requires jobs to return their next
+		// scheduled time to the removal domain.
+		//
+		// We could potentially return a more specific error to backoff the
+		// retry, so that the removal worker doesn't keep retrying every 10
+		// seconds, but for now we just return a generic error to indicate that
+		// the job is still incomplete.
 		return errors.Errorf("resource %q is still in use", job.EntityUUID).
 			Add(removalerrors.RemovalJobIncomplete)
 	}

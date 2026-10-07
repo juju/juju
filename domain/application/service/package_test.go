@@ -77,7 +77,6 @@ func (s *baseSuite) setupMocksWithStatusHistory(c *tc.C, fn func(*gomock.Control
 	s.leadership = NewMockEnsurer(ctrl)
 
 	s.state = NewMockState(ctrl)
-	s.state.EXPECT().GetApplicationResourceUUIDs(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	s.storageService = NewMockStorageService(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	s.charmStore = NewMockCharmStore(ctrl)
