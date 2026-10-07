@@ -324,7 +324,10 @@ archive_logs() {
 	if [[ -f ${OUTPUT_FILE} ]]; then
 		cp "${OUTPUT_FILE}" "${TEST_DIR}"
 	fi
-	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARTIFACT_FILE}" ./ 2>&1)
+	# Exclude cloud CLI credentials written under TEST_DIR (e.g. by
+	# setup_awscli_credential) from the archived artifact, so test
+	# artifacts never ship live cloud credentials.
+	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --exclude='./aws' --transform s/./artifacts/ -zcvf "${ARTIFACT_FILE}" ./ 2>&1)
 	# shellcheck disable=SC2181
 	if [[ $? -eq 0 ]]; then
 		echo "==> Test ${archive_type} artifact: COMPLETED"
