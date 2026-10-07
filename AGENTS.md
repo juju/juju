@@ -7,6 +7,10 @@ Apply both files below for any code change:
 
 If guidance conflicts, architectural rules take precedence.
 
+Before modifying a file, read any applicable nested `AGENTS.md` files between
+the repository root and that file's directory. Nested rules supplement the
+shared rules above; architectural rules still take precedence.
+
 ## Documentation
 
 - [Documentation agent files](docs/agents/) — Documentation-specific agent guidance.
