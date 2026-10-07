@@ -15,7 +15,9 @@
 // The controller creates the backup file in a gzipped tar file with the
 // following structure, then streams it to the local user's disk:
 // juju-backup/
-//     metadata.json             - the manifest for the archive.
+//     metadata.json             - the provenance record for the archive.
+//     manifest.json             - the content index: every component's
+//                                 path, kind, size and SHA-256 hash.
 //     root.tar                  - the bundle of data-directory files.
 //     dump/controller.yaml      - the controller database export.
 //     dump/models/<uuid>.yaml   - one export per model database.

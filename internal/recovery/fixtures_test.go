@@ -10,12 +10,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/juju/tc"
+
+	corebackups "github.com/juju/juju/core/backups"
 )
 
 const (
@@ -185,4 +188,34 @@ func validFiles() map[string][]byte {
 		"juju-backup/dump/models/" + testModelBUUID + ".yaml":          []byte("payload: {}\n"),
 		"juju-backup/root.tar": []byte("blobs"),
 	}
+}
+
+// withManifest adds a correct content manifest for the given archive
+// file set, mirroring what backup creation writes: one entry per file
+// with its size and SHA-256 content hash.
+func withManifest(c *tc.C, files map[string][]byte) map[string][]byte {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	entries := make([]corebackups.ManifestEntry, 0, len(names))
+	for _, name := range names {
+		data := files[name]
+		sum := sha256.Sum256(data)
+		kind, modelUUID := corebackups.ClassifyManifestPath(name)
+		entries = append(entries, corebackups.ManifestEntry{
+			Path:      name,
+			Kind:      kind,
+			Size:      int64(len(data)),
+			SHA256:    hex.EncodeToString(sum[:]),
+			ModelUUID: modelUUID,
+		})
+	}
+	reader, err := corebackups.NewManifest(entries).AsJSONBuffer()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := io.ReadAll(reader)
+	c.Assert(err, tc.ErrorIsNil)
+	files["juju-backup/manifest.json"] = data
+	return files
 }

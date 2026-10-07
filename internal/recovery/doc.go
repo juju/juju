@@ -7,5 +7,8 @@
 // archive summary (domain/recovery ArchiveInfo) driving the recovery
 // preflight checks. It runs on the bootstrap client before anything is
 // provisioned: validation is offline and read-only, and the archive is
-// operator-supplied but never trusted beyond its checksum.
+// operator-supplied but never trusted beyond its checksum. When the
+// archive carries a content manifest (manifest.json), reading
+// cross-checks it against the actual entries in both directions: the
+// manifest is an index of the archive, never a source of truth.
 package recovery
