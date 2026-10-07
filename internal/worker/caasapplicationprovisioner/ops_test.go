@@ -955,12 +955,12 @@ func (s *OpsSuite) TestAppDyingReconcileApplicationNotFound(c *tc.C) {
 	gomock.InOrder(
 		// ensureScale
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
+		applicationService.EXPECT().SetApplicationProvisioningState(gomock.Any(), "test", application.NoOperation, 0, application.ScaleOperation, 0).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
-		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
+		applicationService.EXPECT().SetApplicationProvisioningState(gomock.Any(), "test", application.ScaleOperation, 0, application.NoOperation, 0).Return(nil),
 		// reconcileDeadUnitScale: the application rows vanish from state
 		// mid-flight.
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).

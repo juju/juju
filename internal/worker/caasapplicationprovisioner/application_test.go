@@ -641,8 +641,8 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnlyAppRemovedDuringInitialHand
 		// the status-only scaling-state write observes the removal.
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		applicationService.EXPECT().GetApplicationScalingState(x, "test").
-			Return(applicationservice.ScalingState{Scaling: true, ScaleTarget: 1}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(x, "test", 0, false).
+			Return(applicationservice.ScalingState{CurrentOperation: application.ScaleOperation, ScaleTarget: 1}, nil),
+		applicationService.EXPECT().SetApplicationProvisioningState(x, "test", application.ScaleOperation, 1, application.NoOperation, 0).
 			Return(applicationerrors.ApplicationNotFound),
 
 		// handleChange 2 (rescheduled): the removal is observed, the Dead
