@@ -31,9 +31,10 @@ type DockerConfig map[string]DockerConfigEntry
 
 // DockerConfigEntry represents an Auth entry in the dockerconfigjson.
 type DockerConfigEntry struct {
-	Username string
-	Password string
-	Email    string
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Auth     string `json:"auth,omitempty"`
 }
 
 func CreateDockerConfigJSON(username, password, imagePath string) ([]byte, error) {
