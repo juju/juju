@@ -79,7 +79,7 @@ func (s *WorkerSuite) TestWorker(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(<-chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -96,9 +96,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServers(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, nil)
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -127,9 +127,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServerError(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{}, controllernodeerrors.EmptyAPIAddresses)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -158,9 +158,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -198,9 +198,9 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},
@@ -274,13 +274,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -291,7 +291,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -352,13 +352,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -369,7 +369,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -447,13 +447,13 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
 	done1 := make(chan struct{})
 	done2 := make(chan struct{})
 
 	gomock.InOrder(
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -464,7 +464,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
-		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 			"0": {
 				"192.168.0.1",
 			},
@@ -520,7 +520,7 @@ func (s *WorkerSuite) TestSubscribe(c *tc.C) {
 	s.expectClock()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -540,7 +540,7 @@ func (s *WorkerSuite) TestSubscribeUnsubscribeTwice(c *tc.C) {
 	s.expectClock()
 
 	watcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -563,9 +563,9 @@ func (s *WorkerSuite) TestSubscribeWithNotify(c *tc.C) {
 
 	ch := make(chan struct{})
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	s.controllerNodeService.EXPECT().WatchControllerAgentAddresses(gomock.Any()).Return(watcher, nil)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
 
-	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
+	s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
 		"0": {
 			"10.0.0.0:17070",
 		},

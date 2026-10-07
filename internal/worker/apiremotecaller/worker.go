@@ -31,14 +31,12 @@ const (
 // that provides information about the controller nodes. This is used to
 // determine which nodes are available for remote API calls.
 type ControllerNodeService interface {
-	// GetAPIAddressesByControllerIDForAgents returns a map of controller IDs to
-	// their API addresses that are available for agents. The map is keyed by
-	// controller ID, and the values are slices of strings representing the API
-	// addresses for each controller node.
-	GetAPIAddressesByControllerIDForAgents(ctx context.Context) (map[string][]string, error)
-	// WatchControllerAgentAddresses returns a watcher that observes changes to
-	// the controller api address changes.
-	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
+	// GetAPIAddressesByControllerIDForPeers returns peer API addresses grouped
+	// by the controller ID they reach.
+	GetAPIAddressesByControllerIDForPeers(ctx context.Context) (map[string][]string, error)
+	// WatchControllerPeerAddresses returns a watcher that observes changes to
+	// controller peer addresses.
+	WatchControllerPeerAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // WorkerConfig defines the configuration values that the pubsub worker needs
@@ -209,7 +207,7 @@ func (w *remoteWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	watcher, err := w.cfg.ControllerNodeService.WatchControllerAgentAddresses(ctx)
+	watcher, err := w.cfg.ControllerNodeService.WatchControllerPeerAddresses(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -228,7 +226,7 @@ func (w *remoteWorker) loop() error {
 			w.cfg.Logger.Debugf(ctx, "remoteWorker API server change")
 
 			// Get the latest API addresses for all controller nodes.
-			servers, err := w.cfg.ControllerNodeService.GetAPIAddressesByControllerIDForAgents(ctx)
+			servers, err := w.cfg.ControllerNodeService.GetAPIAddressesByControllerIDForPeers(ctx)
 			if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
 				// There should be at least one controller address available
 				// (itself), so if we get an empty addresses error then we can't
