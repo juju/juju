@@ -851,11 +851,21 @@ DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUAGENTD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
 JUJUAGENTD_BIN_DIR              ?= ${BIN_DIR}
+# OPERATOR_IMAGE_BUILD_SRC selects the operator-image payload provenance:
+# true (the default, local development) builds the controller snap via the
+# smart jujud-snap-build flow and stages bin/jujud plus the snap's bundled
+# native libraries into the per-platform image payload; false (the CI
+# contract set by the QA and release Jenkins jobs) trusts the payload
+# pre-staged by the QA payload unpack or the release snap extraction.
+# Either way no source-built jujud is linked against host libraries inside
+# the image: the jujud binary and its library closure always come from the
+# controller snap.
 OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
 # For the k8s operator.
 BUILD_OPERATOR_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
+STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD=bash -c '. "${PROJECT_DIR}/make_functions.sh"; stage_operator_image_snap_payload "$$@"' stage_operator_image_snap_payload
 OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
@@ -869,13 +879,22 @@ endif
 .PHONY: image-check
 image-check: $(image_check_prereq)
 
+# image-check-build stages the local operator-image payload: the pure-Go
+# agent binaries (jujuagentd, jujuc, containeragent, pebble) are built for
+# the host architecture, and the jujud binary plus its bundled native
+# library closure are extracted from the locally built controller snap
+# (jujud-snap-build is the smart full/patch flow, so a jujud-only change
+# does not re-run snapcraft). The docker build then copies the payload
+# into the image; build_push_operator_image verifies it before building.
 .PHONY: image-check-build
-image-check-build:
-	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make go-build
+image-check-build: jujud-snap-build
+## image-check-build: Build the agent binaries and stage the snap payload for the operator image
+	@$(MAKE) --no-print-directory go-agent-build
+	@$(STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD) "$(GOOS)/$(GOARCH)"
 
 .PHONY: image-check-build-skip
 image-check-build-skip:
-	@echo "skipping source build; using existing binaries at ${JUJUAGENTD_BIN_DIR}/ and the pre-staged jujud library closure at ${BUILD_DIR}/<os>_<arch>/lib/"
+	@echo "skipping payload staging; using the pre-staged binaries and the pre-staged jujud library closure at ${BUILD_DIR}/<os>_<arch>/lib/"
 
 .PHONY: docker-builder
 docker-builder:
@@ -887,7 +906,7 @@ endif
 .PHONY: image-check
 operator-image: image-check docker-builder
 ## operator-image: Build operator image via docker
-	${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)" "$(PUSH_IMAGE)" "$(OPERATOR_IMAGE_BUILD_SRC)"
+	${BUILD_OPERATOR_IMAGE} "$(OCI_IMAGE_PLATFORMS)" "$(PUSH_IMAGE)"
 
 push_operator_image_prereq=push-operator-image-defined
 ifeq ($(JUJU_BUILD_NUMBER),)
