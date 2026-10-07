@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/net/http/httpguts"
 
+	coresshproxy "github.com/juju/juju/core/sshproxy"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -19,7 +20,7 @@ const pushTunnelTimeout = 10 * time.Second
 
 // hijack upgrades the HTTP request to a raw connection. It validates the
 // upgrade headers, writes the 101 Switching Protocols response, hijacks
-// the connection, drains any bytes buffered by the server's bufio reader,
+// the connection, preserves any bytes buffered by the server's bufio reader,
 // and clears any deadlines so the protocol taking over the connection
 // owns its lifecycle.
 //
@@ -48,14 +49,15 @@ func hijack(w http.ResponseWriter, r *http.Request, token string) (net.Conn, err
 		return nil, errors.Errorf("hijacking connection: %w", err)
 	}
 
-	// Drain any bytes the server buffered beyond the request head before
-	// handing the connection to the next protocol.
+	// net/http may have buffered upgraded protocol bytes, so keep them.
 	reader := buf.Reader
 	if buffered := reader.Buffered(); buffered > 0 {
-		if _, err := reader.Discard(buffered); err != nil {
+		prefix, err := reader.Peek(buffered)
+		if err != nil {
 			_ = conn.Close()
-			return nil, errors.Errorf("draining buffered bytes: %w", err)
+			return nil, errors.Errorf("reading buffered bytes: %w", err)
 		}
+		conn = coresshproxy.NewPrefixConn(conn, prefix)
 	}
 
 	// Clear any read/write deadlines the HTTP server set. The protocol
