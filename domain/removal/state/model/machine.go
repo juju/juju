@@ -563,25 +563,26 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("cannot delete machine %q, instance is still alive", machineUUIDParam.UUID)
 		}
 
-		// The machine_parent rows of the machine's children reference the
-		// machine row, so the children's own removal jobs must remove them
-		// first. This is a physical requirement like the net-node wait in
-		// removeNetNode: it applies even when the deletion is forced,
-		// unlike the dependents check below, which force may bypass.
-		if err := st.checkNoMachineChildren(ctx, tx, machineUUIDParam); err != nil {
-			return errors.Errorf("checking for child machines: %w", err).
-				Add(removalerrors.RemovalJobIncomplete)
-		}
-
 		if !force {
-			// Check to see if the machine instance is in the dying state only if
-			// not forced.
+			// The machine_parent rows of the machine's children reference
+			// the machine row, so the children's own removal jobs must
+			// remove them first. A forced deletion skips this check: the
+			// machine delete then fails on the machine_parent foreign key
+			// until the children's jobs have removed their rows, and the
+			// removal worker retries the transaction.
+			if err := st.checkNoMachineChildren(ctx, tx, machineUUIDParam); err != nil {
+				return errors.Errorf("checking for child machines: %w", err).
+					Add(removalerrors.RemovalJobIncomplete)
+			}
+
+			// Check to see if the machine instance is in the dying state
+			// only if not forced.
 			if iLife == life.Dying {
 				return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
 			}
 
-			// If force is not set, check for dependents before allowing deletion.
-			// This prevents accidental data loss.
+			// If force is not set, check for dependents before allowing
+			// deletion. This prevents accidental data loss.
 			if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam); err != nil {
 				return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 			}
@@ -704,10 +705,11 @@ SELECT SUM(count) AS &count.count FROM (
 
 // checkNoMachineChildren asserts that no machine_parent rows reference the
 // machine: the machine row can only be deleted once the removal jobs of
-// its child machines have removed them. Unlike the other dependents
-// checked by checkNoMachineDependents, this is a physical requirement -
-// the machine_parent foreign key - so DeleteMachine enforces it even
-// when the deletion is forced, like the net-node waits in removeNetNode.
+// its child machines have removed them. The check only guards non-forced
+// deletions: a forced deletion skips it, and the machine delete then fails
+// on the machine_parent foreign key until the children's jobs have removed
+// their rows, so the removal worker's retry converges on the same order
+// either way.
 func (st *State) checkNoMachineChildren(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
 	countChildren, err := st.Prepare(`
 SELECT COUNT(*) AS &count.count

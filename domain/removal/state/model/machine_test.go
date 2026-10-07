@@ -2351,13 +2351,14 @@ func (s *machineSuite) TestDeleteMachineWaitsForChildMachineRemoval(c *tc.C) {
 	c.Check(exists, tc.IsFalse)
 }
 
-// TestDeleteMachineWithForceWaitsForChildMachineRemoval mirrors
-// TestDeleteMachineWaitsForChildMachineRemoval with force=true: even a
-// forced machine removal must wait for the children's machine_parent
-// rows to be removed by the children's own jobs, reporting
-// RemovalJobIncomplete rather than failing on the machine_parent
-// foreign key.
-func (s *machineSuite) TestDeleteMachineWithForceWaitsForChildMachineRemoval(c *tc.C) {
+// TestDeleteMachineWithForceDoesNotCheckChildMachines mirrors
+// TestDeleteMachineWaitsForChildMachineRemoval with force=true: a
+// forced host deletion skips the children check, so the delete itself
+// fails on the machine_parent foreign key while the children's rows
+// still reference the host. The removal worker retries the job, and
+// once the children's own jobs have deleted their rows the host's
+// delete goes through.
+func (s *machineSuite) TestDeleteMachineWithForceDoesNotCheckChildMachines(c *tc.C) {
 	svc := s.setupMachineService(c)
 	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
@@ -2394,12 +2395,12 @@ func (s *machineSuite) TestDeleteMachineWithForceWaitsForChildMachineRemoval(c *
 	s.advanceMachineLife(c, containerUUID, life.Dead)
 	s.advanceInstanceLife(c, containerUUID, life.Dead)
 
-	// Even with force, the container's machine_parent row still
-	// references the host, so the host's job defers.
+	// With force, the children check is skipped, and the machine
+	// delete fails on the machine_parent foreign key instead.
 	err = st.DeleteMachine(c.Context(), machineUUID.String(), true)
 	c.Assert(err, tc.NotNil)
-	c.Check(err, tc.ErrorIs, removalerrors.MachineHasContainers)
-	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
+	c.Check(err, tc.Not(tc.ErrorIs), removalerrors.MachineHasContainers)
 
 	// The container's own forced removal job deletes the child machine
 	// row and, with it, the machine_parent row.
