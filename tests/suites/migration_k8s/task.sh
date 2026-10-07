@@ -11,11 +11,6 @@ test_migration_k8s() {
 		return
 	fi
 
-	if ! gate_reason=$(mig36_gate 2>&1); then
-		echo "==> SKIP: test_migration_k8s test: ${gate_reason}"
-		return
-	fi
-
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
@@ -26,6 +21,7 @@ test_migration_k8s() {
 	# Tests that need to be run are added here.
 	test_migration_36_cmr_secrets_consumer
 	test_migration_36_cmr_secrets_offerer
+	test_migration_caas
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true

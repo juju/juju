@@ -1,7 +1,10 @@
 #!/usr/bin/env -S bash -e
 
-# Migrating a simple k8s model from a juju 3.6 controller into the 4.0
-# controller on the same k8s cloud.
+# Integration tests for k8s model migrations into a controller built from
+# this branch on the same k8s cloud. The juju 3.6 scenarios bootstrap their
+# source controllers with a juju 3.6 client (default /snap/bin/juju_36,
+# override with JUJU_MIGRATION_36_BIN); the same-version scenario migrates
+# between two controllers built from this branch.
 # PostgreSQL cross-model relation migration on k8s, consuming side: the
 # consumer model migrates to 4.0 while the offerer stays on 3.6. Covers
 # write continuity after the move and relation-secret rotation on the
@@ -223,6 +226,61 @@ run_migration_36_cmr_secrets_offerer() {
 	destroy_controller_36 "mig36-db-src-12345"
 }
 
+# Migrating a CAAS (k8s) model from one controller to another on the same k8s
+# cloud. This exercises the CAAS carve-outs in the migration path: the agent
+# binary metadata lookup must not require binaries that k8s never uploads to
+# the object store, and the migration minions must be the unit agents (the
+# only CAAS workload agents), not a per-application operator that does not
+# exist on k8s.
+run_migration_caas() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	# Ensure we have another controller available.
+	bootstrap_alt_controller "alt-model-migration-caas"
+	juju switch "alt-model-migration-caas"
+	add_model "model-migration-caas"
+
+	juju deploy snappass-test --revision 8 --channel stable
+
+	wait_for "snappass-test" "$(active_idle_condition "snappass-test")"
+
+	# Migrate the model to the other controller.
+	juju migrate "model-migration-caas" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+
+	# Wait for the model to appear on the target, then switch to it.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_for_model "model-migration-caas"
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-migration-caas"
+
+	# The application must be healthy on the target and the target must own
+	# the unit agent.
+	wait_for "snappass-test" "$(active_idle_condition "snappass-test")"
+	juju exec --unit snappass-test/0 -- hostname | grep -c snappass-test | check 1
+
+	# The source controller must reap the model: migration moves the model,
+	# it does not copy it. The reap runs after the target has activated, so
+	# poll the source until the model disappears.
+	juju switch "alt-model-migration-caas:controller"
+	attempt=0
+	until [[ -z $(juju models --format=json | yq -r '.models | .[] | select(.["short-name"] == "model-migration-caas") | .["short-name"]') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			red 'Failed: source controller did not reap model-migration-caas'
+			exit 1
+		fi
+		echo "[+] (attempt ${attempt}) polling for source reap of model-migration-caas"
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:model-migration-caas"
+
+	# Clean up: destroy the now-empty source controller, then the migrated
+	# model on the target (the framework teardown destroys the target
+	# controller itself).
+	destroy_controller "alt-model-migration-caas"
+	destroy_model "model-migration-caas"
+}
+
 
 test_migration_36_cmr_secrets_consumer() {
 	if [ -n "$(skip 'test_migration_36_cmr_secrets_consumer')" ]; then
@@ -280,5 +338,27 @@ test_migration_36_cmr_secrets_offerer() {
 		cd .. || exit
 
 		run "run_migration_36_cmr_secrets_offerer"
+	)
+}
+
+test_migration_caas() {
+	if [ -n "$(skip 'test_migration_caas')" ]; then
+		echo "==> SKIP: Asked to skip model migration CAAS tests"
+		return
+	fi
+
+	# This test migrates a k8s model between two controllers on the same k8s
+	# cloud; it only makes sense on a k8s provider.
+	if [ "${BOOTSTRAP_PROVIDER}" != "k8s" ]; then
+		echo "==> SKIP: model migration CAAS test needs a k8s provider"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_migration_caas"
 	)
 }
