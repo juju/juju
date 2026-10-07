@@ -53,8 +53,15 @@ These rules apply to `domain/` and its sub-packages and supplement the
 
 ## State Method Naming
 
-- Use consistent verbs for equivalent operations, following neighbouring state
-  packages and the prevailing convention in the package being extended. Match
-  the `Get` or `List` convention for queries with equivalent semantics.
-- Prefer `Delete` for deleting persisted entities. Reserve `Clear` for
-  operations that clear a value or association.
+- State method names must identify the persistence operation being performed.
+- Prefer `Get` for retrieval, whether selecting one entity or a collection:
+  `GetThing` and `GetThings`. Using `GetThings` in one state package and
+  `ListThings` in another falsely implies different operations. Use `Get`
+  consistently for equivalent queries; do not introduce `List` as a synonym.
+- Methods that delete persisted data must use `Delete`, including deletions of
+  association rows. A method that deletes a thing must be named `DeleteThing`,
+  not `ClearThing`.
+- Service methods may describe workflow intent, such as `ClearThing`. Their
+  state methods must describe the actual persistence operation, so a service's
+  `ClearThing` may call state's `DeleteThing`. Names need not match across the
+  service and state boundary.
