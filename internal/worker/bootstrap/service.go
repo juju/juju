@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	coreapplication "github.com/juju/juju/core/application"
@@ -117,12 +116,6 @@ type ControllerNodeService interface {
 	// The following errors can be expected:
 	// - [controllernodeerrors.NotFound] if the controller node does not exist.
 	SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error
-}
-
-// CloudService is the interface that is used to interact with the
-// cloud.
-type CloudService interface {
-	Cloud(context.Context, string) (*cloud.Cloud, error)
 }
 
 // KeyManagerService provides access to the authorised keys for individual users

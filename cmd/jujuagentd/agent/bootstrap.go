@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/ssh"
@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -60,16 +61,16 @@ type BootstrapCommand struct {
 	agentconf.AgentConf
 	Timeout           time.Duration
 	BootstrapAgent    BootstrapAgentFunc
-	DqliteInitializer agentbootstrap.DqliteInitializerFunc
+	DqliteInitialiser agentbootstrap.DqliteInitialiserFunc
 }
 
-// NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
+// NewBootstrapCommand returns a new BootstrapCommand that has been initialised.
 func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
 		AgentConf: agentconf.NewAgentConf(""),
 
 		BootstrapAgent:    agentbootstrap.NewAgentBootstrap,
-		DqliteInitializer: database.BootstrapDqlite,
+		DqliteInitialiser: database.BootstrapDqlite,
 	}
 }
 
@@ -77,7 +78,7 @@ func NewBootstrapCommand() *BootstrapCommand {
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "bootstrap-state",
-		Purpose: "initialize juju state",
+		Purpose: "initialise juju state",
 	})
 }
 
@@ -87,7 +88,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.DurationVar(&c.Timeout, "timeout", time.Duration(0), "set the bootstrap timeout")
 }
 
-// Init initializes the command for running.
+// Init initialises the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args); err != nil {
 		return err
@@ -98,33 +99,33 @@ func (c *BootstrapCommand) Init(args []string) error {
 func copyFile(dest, source string) error {
 	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	defer df.Close()
 
 	f, err := os.Open(source)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	defer f.Close()
 
 	_, err = io.Copy(df, f)
-	return errors.Trace(err)
+	return errors.Capture(err)
 }
 
 func copyFileFromTemplate(to, from string) (err error) {
 	if _, err := os.Stat(to); os.IsNotExist(err) {
 		logger.Debugf(context.TODO(), "copying file from %q to %s", from, to)
 		if err := copyFile(to, from); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	} else if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return nil
 }
 
-func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
+func (c *BootstrapCommand) ensureConfigFilesForK8s() error {
 	tag := names.NewControllerAgentTag(agent.BootstrapControllerId)
 	for _, v := range []struct {
 		to, from string
@@ -139,7 +140,7 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 		},
 	} {
 		if err := copyFileFromTemplate(v.to, v.from); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 	return nil
@@ -147,21 +148,29 @@ func (c *BootstrapCommand) ensureConfigFilesForCaas() error {
 
 var (
 	environsNewIAAS = environs.New
-	environsNewCAAS = caas.New
+	environsNewK8s  = caas.New
 )
 
-// Run initializes state for an environment.
+// Run initialises state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), cloudconfig.FileNameBootstrapParams))
 	if err != nil {
-		return errors.Annotate(err, "reading bootstrap params file")
+		return errors.Errorf("reading bootstrap params file: %w", err)
 	}
 	var args instancecfg.StateInitializationParams
 	if err := args.Unmarshal(bootstrapParamsData); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
+	// Choose fresh bootstrap or restoration here, before preparing identity or
+	// writing agent configuration. Each workflow owns its complete sequence.
+	return errors.Capture(c.initialiseFreshController(ctx, args))
+}
+
+// initialiseFreshController prepares a new controller's identity and local
+// configuration, seeds its databases, and persists the resulting agent password.
+func (c *BootstrapCommand) initialiseFreshController(ctx *cmd.Context, args instancecfg.StateInitializationParams) error {
 	// We need to set IsControllerCloud on the controller cloud from params.
-	// This is so caas environs work correctly for the moment. This SHOULD be
+	// This is so K8s environs work correctly for the moment. This SHOULD be
 	// removed in the future.
 	// Fixes: lp2040947
 	args.ControllerCloud.IsControllerCloud = true
@@ -172,15 +181,15 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	jwksRefreshURL := args.ControllerConfig.LoginTokenRefreshURL()
 	if jwksRefreshURL != "" {
 		if err := checkJWKSReachable(jwksRefreshURL); err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 	}
 
-	isCAAS := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
+	isK8s := args.ControllerCloud.Type == cloud.CloudTypeKubernetes
 
-	if isCAAS {
-		if err := c.ensureConfigFilesForCaas(); err != nil {
-			return errors.Trace(err)
+	if isK8s {
+		if err := c.ensureConfigFilesForK8s(); err != nil {
+			return errors.Capture(err)
 		}
 	}
 
@@ -191,7 +200,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		args.ControllerCloudCredential,
 	)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	cloudSpec.IsControllerCloud = true
 
@@ -202,13 +211,13 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var env environs.BootstrapEnviron
-	if isCAAS {
-		env, err = environsNewCAAS(ctx, openParams, environs.NoopCredentialInvalidator())
+	if isK8s {
+		env, err = environsNewK8s(ctx, openParams, environs.NoopCredentialInvalidator())
 	} else {
 		env, err = environsNewIAAS(ctx, openParams, environs.NoopCredentialInvalidator())
 	}
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	controllerModelConfigAttrs := make(map[string]any)
@@ -217,13 +226,13 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// by the bootstrap client.
 	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
 	if ok && desiredVersion != jujuversion.Current {
-		if isCAAS {
+		if isK8s {
 			currentVersion := jujuversion.Current
 			currentVersion.Build = 0
 			if desiredVersion != currentVersion {
-				// For CAAS, the agent-version in controller config should
+				// For K8s, the agent-version in controller config should
 				// always equals to current juju version.
-				return errors.NotSupportedf(
+				return jujuerrors.NotSupportedf(
 					"desired juju version %q, current version %q for k8s controllers",
 					desiredVersion, currentVersion,
 				)
@@ -247,37 +256,37 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			if toolsErr == nil {
 				logger.Infof(context.TODO(), "agent binaries are available, upgrade will occur after bootstrap")
 			}
-			if errors.Is(toolsErr, errors.NotFound) {
+			if errors.Is(toolsErr, jujuerrors.NotFound) {
 				// Newer tools not available, so revert to using the tools
 				// matching the current agent version.
 				logger.Warningf(context.TODO(), "newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
 				controllerModelConfigAttrs["agent-version"] = jujuversion.Current.String()
 			} else if toolsErr != nil {
 				logger.Errorf(context.TODO(), "cannot find newer agent binaries: %v", toolsErr)
-				return errors.Trace(toolsErr)
+				return errors.Capture(toolsErr)
 			}
 		}
 	}
 
 	if err := agentconfig.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
-		return errors.Annotate(err, "cannot read config")
+		return errors.Errorf("cannot read config: %w", err)
 	}
 	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(isCAAS, &args, &info); err != nil {
-		return errors.Trace(err)
+	if err := ensureKeys(isK8s, &args, &info); err != nil {
+		return errors.Capture(err)
 	}
 	if err := ensureSSHServerHostKey(&args); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	addrs, err := bootstrapControllerAddresses(
 		ctx, env, args.BootstrapMachineInstanceId,
 	)
 	if err != nil {
-		return errors.Annotate(err, "getting bootstrap controller addresses")
+		return errors.Errorf("getting bootstrap controller addresses: %w", err)
 	}
 
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
@@ -303,12 +312,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	// Create system-identity file
 	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 
 	controllerModelCfg, err := env.Config().Apply(controllerModelConfigAttrs)
 	if err != nil {
-		return errors.Annotate(err, "failed to update model config")
+		return errors.Errorf("failed to update model config: %w", err)
 	}
 	args.ControllerModelConfig = controllerModelCfg
 
@@ -319,18 +328,18 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			AgentConfig:               agentConfig,
 			BootstrapEnviron:          env,
 			AdminUser:                 adminTag,
-			StateInitializationParams: args,
+			StateInitialisationParams: args,
 			BootstrapMachineAddresses: addrs,
-			BootstrapDqlite:           c.DqliteInitializer,
+			BootstrapDqlite:           c.DqliteInitialiser,
 			Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
 		})
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
-		return bootstrap.Initialize(ctx)
+		return bootstrap.Initialise(ctx)
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Capture(err)
 	}
 	return nil
 }
@@ -340,10 +349,10 @@ func bootstrapControllerAddresses(
 ) (network.ProviderAddresses, error) {
 	addressFinder, err := environs.NewBootstrapAddressFinder(env, providerID)
 	if err != nil {
-		return nil, errors.Annotate(err, "selecting bootstrap address provider")
+		return nil, errors.Errorf("selecting bootstrap address provider: %w", err)
 	}
 	addresses, err := addressFinder.BootstrapControllerAddresses(ctx)
-	return addresses, errors.Trace(err)
+	return addresses, errors.Capture(err)
 }
 
 // ensureSSHServerHostKey ensures that either a) a user has provided a host key
@@ -355,18 +364,18 @@ func ensureSSHServerHostKey(args *instancecfg.StateInitializationParams) error {
 	// Generate the embedded SSH server host key and store it within StateInitializationParams.
 	hostKey, err := pkissh.NewMarshalledED25519()
 	if err != nil {
-		return errors.Annotatef(err, "failed to ensure ssh server host key")
+		return errors.Errorf("failed to ensure ssh server host key: %w", err)
 	}
 	args.SSHServerHostKey = string(hostKey)
 	return nil
 }
 
 func ensureKeys(
-	isCAAS bool,
+	isK8s bool,
 	args *instancecfg.StateInitializationParams,
 	info *controller.ControllerAgentInfo,
 ) error {
-	if isCAAS {
+	if isK8s {
 		return nil
 	}
 	// Generate a private SSH key for the controllers, and add
@@ -374,7 +383,7 @@ func ensureKeys(
 	// private key to StateServingInfo below.
 	privateKey, publicKey, err := sshGenerateKey(controllerdomain.ControllerSSHKeyComment)
 	if err != nil {
-		return errors.Annotate(err, "failed to generate system key")
+		return errors.Errorf("failed to generate system key: %w", err)
 	}
 	info.SystemIdentity = privateKey
 

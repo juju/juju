@@ -48,7 +48,7 @@ func (*bootstrapInternalSuite) TestBootstrapMachineAddressesReachDqlite(c *tc.C)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = bootstrap.initializeDqlite(c.Context(), tc.Must0(c, model.NewUUID))
+	err = bootstrap.initialiseDqlite(c.Context(), tc.Must0(c, model.NewUUID))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotAddresses, tc.DeepEquals, addresses)
 }

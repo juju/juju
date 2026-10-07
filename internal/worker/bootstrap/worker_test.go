@@ -5,430 +5,186 @@ package bootstrap
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	stdtesting "testing"
+	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/clock"
-	"github.com/juju/errors"
+	"github.com/juju/clock/testclock"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
-	accessservice "github.com/juju/juju/domain/access/service"
-	"github.com/juju/juju/domain/controllernode"
-	"github.com/juju/juju/domain/deployment/charm"
-	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
-	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/bootstrap"
-	"github.com/juju/juju/internal/cloudconfig"
-	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/storage"
+	corestatus "github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/status"
+	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/testing"
 )
 
 type workerSuite struct {
 	baseSuite
-
-	adminUserID     user.UUID
-	controllerModel coremodel.Model
-
-	states                 chan string
-	removeBootstrapSSHKeys func([]string) error
 }
 
-func TestWorkerSuite(t *stdtesting.T) {
-	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+func TestWorkerSuite(t *testing.T) {
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
 		tc.Run(t, &workerSuite{})
 	})
 }
 
-func (s *workerSuite) SetUpTest(c *tc.C) {
-	s.removeBootstrapSSHKeys = func([]string) error { return nil }
-	s.adminUserID = usertesting.GenUserUUID(c)
-	s.controllerModel = coremodel.Model{
-		UUID: tc.Must0(c, coremodel.NewUUID),
-	}
-}
-
-func (s *workerSuite) TestDeleteBootstrapSSHKeysEmpty(c *tc.C) {
-	c.Assert(DeleteBootstrapSSHKeys(nil), tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestKilled(c *tc.C) {
+func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.ensureBootstrapParams(c)
-
-	s.expectGateUnlock()
-	s.expectUser(c)
-	s.expectAuthorizedKeys()
-	s.expectControllerConfig()
-	s.expectBootstrapFlagSet()
-	s.removeBootstrapSSHKeys = func(keys []string) error {
-		c.Check(keys, tc.DeepEquals, []string{"bootstrap-ssh-key"})
-		return nil
-	}
-	s.expectReloadSpaces()
-	s.expectSeedDefaultStoragePools()
-	s.expectInitialiseBakeryConfig(nil)
-	s.expectSetAPIHostPorts()
-
-	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
-
-	s.ensureStartup(c)
-	s.ensureFinished(c)
-
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) TestDeleteBootstrapSSHKeysError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.ensureBootstrapParams(c)
-	s.domainServices.EXPECT().Flag().AnyTimes()
-	s.expectUser(c)
-	s.expectAuthorizedKeys()
-	s.expectControllerConfig()
-	s.expectReloadSpaces()
-	s.expectSeedDefaultStoragePools()
-	s.expectInitialiseBakeryConfig(nil)
-	s.expectSetAPIHostPorts()
-	s.removeBootstrapSSHKeys = func([]string) error {
-		return errors.New("cannot remove bootstrap keys")
+	for _, test := range []struct {
+		name       string
+		invalidate func(*WorkerConfig)
+	}{
+		{"Operation", func(cfg *WorkerConfig) { cfg.Operation = nil }},
+		{"FlagService", func(cfg *WorkerConfig) { cfg.FlagService = nil }},
+		{"BootstrapUnlocker", func(cfg *WorkerConfig) { cfg.BootstrapUnlocker = nil }},
+		{"StatusHistory", func(cfg *WorkerConfig) { cfg.StatusHistory = nil }},
+		{"Logger", func(cfg *WorkerConfig) { cfg.Logger = nil }},
+		{"Clock", func(cfg *WorkerConfig) { cfg.Clock = nil }},
+	} {
+		cfg := s.config(c)
+		c.Assert(cfg.Validate(), tc.ErrorIsNil)
+		test.invalidate(&cfg)
+		_, err := NewWorker(cfg)
+		c.Check(err, tc.ErrorIs, jujuerrors.NotValid, tc.Commentf("%s", test.name))
 	}
 
-	w := s.newWorker(c)
-	err := workertest.CheckKilled(c, w)
-	c.Check(err, tc.ErrorMatches, `removing bootstrap SSH keys: cannot remove bootstrap keys`)
+	cfg := s.config(c)
+	cfg.ControllerModelUUID = "invalid"
+	_, err := NewWorker(cfg)
+	c.Check(err, tc.ErrorMatches, "controller model id: .*")
 }
 
-func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
+func (s *workerSuite) TestCompletionOrder(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.ensureBootstrapParams(c)
-
-	s.expectGateUnlock()
-	s.expectUser(c)
-	s.expectAuthorizedKeys()
-	s.expectControllerConfig()
-	s.expectBootstrapFlagSet()
-	s.expectSetAPIHostPorts()
-	s.expectSeedDefaultStoragePools()
-	controllerCharmDeployerFunc := s.expectReloadSpacesWithFunc(c)
-	s.expectInitialiseBakeryConfig(nil)
-
-	w := s.newWorkerWithFunc(c, controllerCharmDeployerFunc)
-	defer workertest.DirtyKill(c, w)
-
-	workertest.CleanKill(c, w)
-}
-
-func (s *workerSuite) TestSeedAgentBinary(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Agent binary seeding does not need the model object store.
-	var called bool
-	w := &bootstrapWorker{
-		internalStates: s.states,
-		cfg: WorkerConfig{
-			AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, logger.Logger) (func(), error) {
-				called = true
-				return func() {}, nil
-			},
-			ControllerCharmDeployer: func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
-				return nil, nil
-			},
-			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
-				return nil
-			},
-			StatusHistory: s.statusHistory,
-			Logger:        s.logger,
-		},
+	cfg := s.config(c)
+	var events []string
+	cfg.Operation = func(context.Context) (func(), error) {
+		events = append(events, "operation")
+		return func() { events = append(events, "cleanup") }, nil
 	}
-	cleanup, err := w.seedAgentBinary(c.Context(), c.MkDir())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(called, tc.IsTrue)
-	c.Check(cleanup, tc.NotNil)
-}
-
-// TestSeedAuthorizedNilKeys is asserting that if we add a nil slice of
-// authorized keys to the controller model that it is safe. This test is here
-// assert that we don't break. Specifically because this functionality is being
-// added after the fact and may not always be set.
-func (s *workerSuite) TestSeedAuthorizedNilKeys(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(
-		user.User{
-			UUID: s.adminUserID,
-		},
-		nil,
-	)
-
-	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID).Return(nil)
-
-	w := &bootstrapWorker{
-		cfg: WorkerConfig{
-			UserService:       s.userService,
-			KeyManagerService: s.keyManagerService,
-		},
-	}
-
-	err := w.seedInitialAuthorizedKeys(c.Context(), nil)
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSeedBakeryConfig(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	w := &bootstrapWorker{
-		cfg: WorkerConfig{
-			BakeryConfigService: s.bakeryConfigService,
-		},
-	}
-
-	s.expectInitialiseBakeryConfig(nil)
-	err := w.seedMacaroonConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.expectInitialiseBakeryConfig(macaroonerrors.BakeryConfigAlreadyInitialised)
-	err = w.seedMacaroonConfig(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.expectInitialiseBakeryConfig(errors.Errorf("boom"))
-	err = w.seedMacaroonConfig(c.Context())
-	c.Assert(err, tc.Not(tc.ErrorIsNil))
-}
-
-func (s *workerSuite) TestSeedStoragePools(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectSeedDefaultStoragePools()
-	s.storageService.EXPECT().CreateStoragePool(
-		gomock.Any(),
-		"loop-pool",
-		domainstorage.ProviderType("loop"),
-		map[string]any{"foo": "bar"},
-	)
-
-	w := &bootstrapWorker{
-		internalStates: s.states,
-		cfg: WorkerConfig{
-			ModelInfoService: s.modelInfoService,
-			StorageService:   s.storageService,
-			Logger:           s.logger,
-		},
-	}
-	err := w.seedStoragePools(c.Context(), map[string]storage.Attrs{
-		"loop-pool": {
-			"name": "loop-pool",
-			"type": "loop",
-			"foo":  "bar",
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *workerSuite) TestSetControllerApplicationPassword(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	applicationUUID := coreapplication.UUID("controller-application-uuid")
-	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
-	s.agentPasswordService.EXPECT().SetApplicationPassword(gomock.Any(), applicationUUID, "application-password")
-
-	w := &bootstrapWorker{cfg: WorkerConfig{
-		ApplicationService:   s.applicationService,
-		AgentPasswordService: s.agentPasswordService,
-		ApplicationPassword:  "application-password",
-	}}
-	c.Assert(w.setControllerApplicationPassword(c.Context()), tc.ErrorIsNil)
-}
-
-func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
-	return s.newWorkerWithFunc(c,
-		func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
-			return nil, nil
+	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).
+		DoAndReturn(func(context.Context, string, bool, string) error {
+			events = append(events, "flag")
+			return nil
 		})
-}
-
-func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
-	w, err := newWorker(WorkerConfig{
-		RemoveBootstrapSSHKeys:     s.removeBootstrapSSHKeys,
-		BootstrapUnlocker:          s.bootstrapUnlocker,
-		DataDir:                    s.dataDir,
-		APIPort:                    42,
-		CharmhubHTTPClient:         s.httpClient,
-		ControllerAgentBinaryStore: s.controllerAgentBinaryStore,
-		UserService:                s.userService,
-		AgentPasswordService:       s.agentPasswordService,
-		ApplicationService:         s.applicationService,
-		ControllerNodeService:      s.controllerNodeService,
-		ModelConfigService:         s.modelConfigService,
-		ModelInfoService:           s.modelInfoService,
-		MachineService:             s.machineService,
-		ControllerModel:            s.controllerModel,
-		KeyManagerService:          s.keyManagerService,
-		ControllerConfigService:    s.controllerConfigService,
-		StorageService:             s.storageService,
-		CloudService:               s.cloudService,
-		NetworkService:             s.networkService,
-		BakeryConfigService:        s.bakeryConfigService,
-		FlagService:                s.flagService,
-		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
-			return nil
-		},
-		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, logger.Logger) (func(), error) {
-			return func() {}, nil
-		},
-		ControllerCharmDeployer: controllerCharmDeployerFunc,
-		AgentPassword:           "password",
-		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
-			return nil, nil
-		},
-		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, password string) error {
-			return nil
-		},
-		StatusHistory: s.statusHistory,
-		Logger:        s.logger,
-		Clock:         clock.WallClock,
-	}, s.states)
-	c.Assert(err, tc.ErrorIsNil)
-	return w
-}
-
-func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	// Buffer both state transitions. The worker can report "started" and
-	// "completed" before the test drains the first event.
-	s.states = make(chan string, 2)
-
-	ctrl := s.baseSuite.setupMocks(c)
-
-	return ctrl
-}
-
-func (s *workerSuite) ensureStartup(c *tc.C) {
-	s.ensureState(c, stateStarted)
-}
-
-func (s *workerSuite) ensureFinished(c *tc.C) {
-	s.ensureState(c, stateCompleted)
-}
-
-func (s *workerSuite) ensureState(c *tc.C, st string) {
-	select {
-	case state := <-s.states:
-		c.Assert(state, tc.Equals, st)
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for %s", st)
-	}
-}
-
-func (s *workerSuite) expectControllerConfig() {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
-		Return(controller.Config{
-			controller.ControllerUUIDKey:   "test-uuid",
-			controller.JujuManagementSpace: "mgmt-space",
-		}, nil).Times(3)
-}
-
-func (s *workerSuite) expectUser(c *tc.C) {
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(user.User{
-		UUID: s.adminUserID,
-	}, nil).Times(2)
-	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
-		c.Check(u.Name, tc.Equals, usertesting.GenNewName(c, "juju-metrics"))
-		return usertesting.GenUserUUID(c), nil, nil
+	s.bootstrapUnlocker.EXPECT().Unlock().Do(func() { events = append(events, "unlock") })
+	cfg.StatusHistory = statusHistoryFunc(func(_ context.Context, ns statushistory.Namespace, info corestatus.StatusInfo) error {
+		events = append(events, "history")
+		c.Check(ns, tc.Equals, status.ModelNamespace.WithID(cfg.ControllerModelUUID.String()))
+		c.Check(info.Status, tc.Equals, corestatus.Available)
+		c.Assert(info.Since, tc.NotNil)
+		c.Check(*info.Since, tc.Equals, cfg.Clock.Now())
+		return nil
 	})
-	s.userService.EXPECT().AddExternalUser(gomock.Any(), usertesting.GenNewName(c, "everyone@external"), "", gomock.Any())
+	states := make(chan string, 2)
+	w, err := newWorker(cfg, states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	c.Assert(workertest.CheckKilled(c, w), tc.ErrorIsNil)
+	c.Check(events, tc.DeepEquals, []string{"operation", "flag", "cleanup", "unlock", "history"})
+	c.Assert(len(states), tc.Equals, 2)
+	c.Check(<-states, tc.Equals, stateStarted)
+	c.Check(<-states, tc.Equals, stateCompleted)
 }
 
-func (s *workerSuite) expectAuthorizedKeys() {
-	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID, []string{}).Return(nil)
-}
-
-func (s *workerSuite) expectReloadSpaces() {
-	s.networkService.EXPECT().ReloadSpaces(gomock.Any())
-}
-
-func (s *workerSuite) expectReloadSpacesWithFunc(c *tc.C) ControllerCharmDeployerFunc {
-	seedControllerCharm := false
-	h := func(context.Context, ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
-		seedControllerCharm = true
-		return nil, nil
+func (s *workerSuite) TestOperationFailureDoesNotComplete(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	cfg := s.config(c)
+	expected := errors.New("operation failed")
+	cleaned := false
+	cfg.Operation = func(context.Context) (func(), error) {
+		return func() { cleaned = true }, expected
 	}
-
-	s.networkService.EXPECT().ReloadSpaces(gomock.Any()).DoAndReturn(
-		func(ctx context.Context) error {
-			c.Check(seedControllerCharm, tc.IsFalse, tc.Commentf("seedControllerCharm called before ReloadSpaces, kubernetes bootstrap will fail"))
-			return nil
-		},
-	)
-	return h
+	states := make(chan string, 2)
+	w, err := newWorker(cfg, states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	c.Check(workertest.CheckKilled(c, w), tc.ErrorIs, expected)
+	c.Check(cleaned, tc.IsFalse)
+	c.Assert(len(states), tc.Equals, 1)
+	c.Check(<-states, tc.Equals, stateStarted)
 }
 
-func (s *workerSuite) expectInitialiseBakeryConfig(err error) {
-	s.bakeryConfigService.EXPECT().InitialiseBakeryConfig(gomock.Any()).Return(err)
+func (s *workerSuite) TestFlagFailurePreservesArtefactsAndGate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	cfg := s.config(c)
+	expected := errors.New("flag write failed")
+	cleaned := false
+	cfg.Operation = func(context.Context) (func(), error) {
+		return func() { cleaned = true }, nil
+	}
+	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(expected)
+	states := make(chan string, 2)
+	w, err := newWorker(cfg, states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	c.Check(workertest.CheckKilled(c, w), tc.ErrorIs, expected)
+	c.Check(cleaned, tc.IsFalse)
+	c.Assert(len(states), tc.Equals, 1)
+	c.Check(<-states, tc.Equals, stateStarted)
 }
 
-func (s *workerSuite) expectBootstrapFlagSet() {
+func (s *workerSuite) TestKillCancelsOperation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	cfg := s.config(c)
+	started := make(chan struct{})
+	cfg.Operation = func(ctx context.Context) (func(), error) {
+		close(started)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	w, err := NewWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatal("operation did not start")
+	}
+	w.Kill()
+	c.Check(workertest.CheckKilled(c, w), tc.ErrorIs, context.Canceled)
+}
+
+func (s *workerSuite) TestStatusHistoryFailureDoesNotFailCompletion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	cfg := s.config(c)
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
+	s.bootstrapUnlocker.EXPECT().Unlock()
+	recorded := false
+	cfg.StatusHistory = statusHistoryFunc(func(context.Context, statushistory.Namespace, corestatus.StatusInfo) error {
+		recorded = true
+		return errors.New("history unavailable")
+	})
+	w, err := NewWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	c.Assert(workertest.CheckKilled(c, w), tc.ErrorIsNil)
+	c.Check(recorded, tc.IsTrue)
 }
 
-func (s *workerSuite) expectSeedDefaultStoragePools() {
-	s.modelInfoService.EXPECT().SeedDefaultStoragePools(gomock.Any())
+func (s *workerSuite) config(c *tc.C) WorkerConfig {
+	return WorkerConfig{
+		Operation:           func(context.Context) (func(), error) { return nil, nil },
+		FlagService:         s.flagService,
+		BootstrapUnlocker:   s.bootstrapUnlocker,
+		ControllerModelUUID: tc.Must0(c, coremodel.NewUUID),
+		StatusHistory: statusHistoryFunc(func(context.Context, statushistory.Namespace, corestatus.StatusInfo) error {
+			c.Error("unexpected status history write")
+			return nil
+		}),
+		Logger: s.logger,
+		Clock:  testclock.NewClock(time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)),
+	}
 }
 
-func (s *workerSuite) expectSetAPIHostPorts() {
-	spaceName := network.SpaceName("mgmt-space")
-	mgmtSpace := &network.SpaceInfo{
-		Name: spaceName,
-		Subnets: []network.SubnetInfo{
-			{
-				CIDR: "10.0.0.0/24",
-			},
-		},
-	}
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: mgmtSpace,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"0": {},
-		},
-	}
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), spaceName).Return(mgmtSpace, nil)
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args)
+type statusHistoryFunc func(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 
-	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-}
-
-func (s *workerSuite) ensureBootstrapParams(c *tc.C) {
-	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, tc.ErrorIsNil)
-
-	args := instancecfg.StateInitializationParams{
-		BootstrapSSHAuthorizedKeys:  []string{"bootstrap-ssh-key"},
-		ControllerModelConfig:       cfg,
-		BootstrapMachineConstraints: constraints.MustParse("mem=1G"),
-		BootstrapMachineInstanceId:  instance.Id("i-deadbeef"),
-		ControllerCharmPath:         "obscura",
-		ControllerCharmChannel:      charm.MakePermissiveChannel("", "stable", ""),
-	}
-	bytes, err := args.Marshal()
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = os.WriteFile(filepath.Join(s.dataDir, cloudconfig.FileNameBootstrapParams), bytes, 0644)
-	c.Assert(err, tc.ErrorIsNil)
+func (f statusHistoryFunc) RecordStatus(ctx context.Context, ns statushistory.Namespace, info corestatus.StatusInfo) error {
+	return f(ctx, ns, info)
 }
