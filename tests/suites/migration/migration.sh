@@ -8,8 +8,8 @@
 # JUJU_MIGRATION_36_BIN); the migration target is the suite's own
 # controller.
 #
-# The same-version scenarios migrate between two controllers built from this 
-# branch: the suite controller and one bootstrapped with 
+# The same-version scenarios migrate between two controllers built from this
+# branch: the suite controller and one bootstrapped with
 # bootstrap_alt_controller.
 
 run_migration_36() {
