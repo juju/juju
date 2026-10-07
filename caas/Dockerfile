@@ -30,8 +30,12 @@ COPY controller-wrappers/ /usr/bin/
 # which creates the same link in snapcraft.yaml.
 RUN ln -s jujud /opt/juju-introspect
 
-# juju-dynamic-image-layout: resolve the jujud native runtime closure from
-# the image-owned /opt/lib (the Ubuntu base does not carry libdqlite).
-# LD_LIBRARY_PATH is scoped to the launched jujud and its children so it
-# does not affect other processes in the operator image.
+# juju-dynamic-image-layout: jujud is linked dynamically and needs the
+# shared libraries staged into /opt/lib (see the COPY above), because the
+# Ubuntu base image does not ship Dqlite. jujud finds /opt/lib through an
+# rpath embedded when it was linked (CGO_RPATH in the Makefile), which
+# works no matter how the container is started - including the Kubernetes
+# launch paths that replace the image command. The LD_LIBRARY_PATH export
+# below is only a fallback for bare `docker run <image> <cmd>` calls; with
+# no command it runs nothing and exits 0.
 ENTRYPOINT ["sh", "-c", "export LD_LIBRARY_PATH=/opt/lib; exec \"$@\"", "--"]

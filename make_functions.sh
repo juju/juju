@@ -106,14 +106,25 @@ multiarch_lib_dirs() {
 # shadow the base runtime. Everything else in the closure is required.
 base_libs='^(ld-linux|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so)'
 
-# stage_foreign_operator_image_libs stages the runtime shared-library
-# closure of a cross-built jujud whose target architecture is foreign to
-# the build host. Host ldd cannot resolve a foreign ELF, so the closure is
-# derived from readelf NEEDED entries (readelf is architecture-neutral)
-# and every member is resolved from the Debian multiarch library
-# directories populated by 'make install-dqlite-dependencies
-# DQLITE_CROSS_ARCHES=<deb arch>'. Any non-base closure member that cannot
-# be resolved fails the image build here.
+# elf_needed_sonames echoes the NEEDED shared-library sonames of an ELF
+# binary, one per line. readelf is architecture-neutral, so it is safe
+# against foreign-architecture ELFs where host ldd is not.
+elf_needed_sonames() {
+    readelf -d "$1" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p'
+}
+
+# stage_foreign_operator_image_libs copies the shared libraries a
+# cross-built jujud needs into the image's lib/ staging directory. It runs
+# when the jujud binary was built for a different CPU architecture than
+# the build host (e.g. building linux/s390x on an amd64 machine). The
+# host's ldd cannot read a binary for another architecture, so readelf
+# lists the needed libraries instead (readelf handles any architecture)
+# and each library is looked up in the multiarch directories that
+# 'make install-dqlite-dependencies DQLITE_CROSS_ARCHES=<deb arch>'
+# filled with the target architecture's packages. Each library found is
+# copied together with the libraries it itself needs. A library that
+# cannot be found fails the image build with a message saying how to
+# install it.
 stage_foreign_operator_image_libs() {
     platform="${1:-}"
     arch=$(echo "$platform" | cut -d/ -f2)
@@ -131,7 +142,7 @@ stage_foreign_operator_image_libs() {
     # Walk the NEEDED closure transitively, starting with jujud's own
     # entries: every non-base library the binary and its staged
     # dependencies require must resolve from the multiarch directories.
-    pending=$(readelf -d "${jujud_bin}" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p')
+    pending=$(elf_needed_sonames "${jujud_bin}")
     seen=""
     staged=0
     rm -rf "${lib_dir}"
@@ -169,7 +180,7 @@ stage_foreign_operator_image_libs() {
         fi
         staged=$((staged + 1))
         pending="${pending}
-$(readelf -d "${real_path}" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p')"
+$(elf_needed_sonames "${real_path}")"
     done
     if [ "${staged}" -eq 0 ]; then
         echo "operator image staging: no non-base dynamic libraries found for ${jujud_bin};" >&2
@@ -178,17 +189,16 @@ $(readelf -d "${real_path}" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p')"
     fi
 }
 
-# stage_operator_image_libs stages the runtime shared-library closure of the
-# dynamically linked jujud binary into the per-platform Docker context lib/
-# directory. The Ubuntu image base provides the C runtime and the dynamic
-# loader, so only the non-base closure required by the binary is staged;
-# a binary whose closure cannot be resolved fails here instead of producing
-# an image that can only fail at startup.
-#
-# The native closure is derived from the build host's ldd output. Host ldd
-# is never run against a foreign-architecture ELF: a cross build's closure
-# is derived from readelf and the Debian multiarch packages instead (see
-# stage_foreign_operator_image_libs).
+# stage_operator_image_libs copies the shared libraries the dynamically
+# linked jujud binary needs into the per-platform lib/ staging directory
+# (_build/<os>_<arch>/lib), which caas/Dockerfile then copies into /opt/lib
+# inside the image. The Ubuntu base image already ships the C runtime and
+# the dynamic loader, so those are not copied (see base_libs). When the
+# binary was built for a different architecture than the host, this
+# delegates to stage_foreign_operator_image_libs; otherwise the host's ldd
+# resolves the full list of libraries. If ldd reports a missing library,
+# the build fails here with instructions to install it, rather than
+# producing an image whose jujud would fail to start.
 stage_operator_image_libs() {
     platform="${1:-}"
     os=$(echo "$platform" | cut -d/ -f1)
@@ -242,11 +252,16 @@ stage_operator_image_libs() {
     fi
 }
 
-# require_operator_image_libs enforces the pre-staged library closure for
-# image builds that do not build jujud from source (OPERATOR_IMAGE_BUILD_SRC
-# set to false). The closure is an input owned by the CI payload (QA
-# source-build closure or release snap extraction); it is never recomputed
-# from or overwritten with host libraries here.
+# require_operator_image_libs checks that the runtime libraries jujud needs
+# are already present in the build payload's lib/ directory. This runs when
+# OPERATOR_IMAGE_BUILD_SRC is false: instead of compiling jujud here, the CI
+# payload delivers the binary together with its shared libraries under
+# _build/<os>_<arch>/lib/. Nothing is rebuilt or replaced here - we only
+# verify what was delivered. Every library the jujud binary needs is
+# checked, including libraries needed by other staged libraries, except
+# the C runtime the Ubuntu base image already provides (see base_libs).
+# A missing library fails the image build here with a clear message,
+# rather than producing an image whose jujud would fail to start.
 require_operator_image_libs() {
     platform="${1:-}"
     os=$(echo "$platform" | cut -d/ -f1)
@@ -267,14 +282,28 @@ require_operator_image_libs() {
         echo "operator image build: readelf (binutils) is required to verify the pre-staged jujud closure" >&2
         exit 1
     fi
+    pending=$(elf_needed_sonames "${jujud_bin}")
+    seen=""
     missing=""
-    for soname in $(readelf -d "${jujud_bin}" | sed -n 's/.*Shared library: \[\([^]]*\)\]/\1/p'); do
+    while [ -n "${pending}" ]; do
+        soname=$(echo "${pending}" | head -n 1)
+        pending=$(echo "${pending}" | tail -n +2)
+        if [ -z "${soname}" ]; then
+            continue
+        fi
+        case " ${seen} " in
+            *" ${soname} "*) continue ;;
+        esac
+        seen="${seen} ${soname}"
         if echo "${soname}" | grep -Eq "${base_libs}"; then
             continue
         fi
         if [ ! -e "${lib_dir}/${soname}" ]; then
             missing="${missing} ${soname}"
+            continue
         fi
+        pending="${pending}
+$(elf_needed_sonames "${lib_dir}/${soname}")"
     done
     if [ -n "${missing}" ]; then
         echo "operator image build: the pre-staged jujud library closure at ${lib_dir} is incomplete;" >&2
@@ -414,10 +443,16 @@ wait_for_dpkg() {
 # series package the flow installs, so every later apt operation on the host
 # fails deep inside dpkg (file overwrite or unmet dependencies) instead of at
 # the provisioning step that caused it. The removal is loud and scoped to
-# distro Dqlite packages for foreign architectures only; PPA series packages
-# and native packages are never touched.
+# distro Dqlite packages for the requested cross architectures only; with
+# no architectures requested it expands to every registered foreign
+# architecture only when this flow's apt sources file exists, since that
+# is the evidence a previous cross-provisioning run created the state.
+# PPA series packages and native packages are never touched.
 check_dqlite_cross_stale() {
-    arches="${1:-$(dpkg --print-foreign-architectures)}"
+    arches="${1:-}"
+    if [ -z "${arches}" ] && [ -f /etc/apt/sources.list.d/juju-dqlite-cross-arch.list ]; then
+        arches=$(dpkg --print-foreign-architectures)
+    fi
     for arch in ${arches}; do
         for name in libdqlite-dev libdqlite0; do
             st=$(dpkg-query -W -f='${db:Status-Abbrev}' "$name:$arch" 2>/dev/null | tr -d ' ') || st=""

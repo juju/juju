@@ -142,6 +142,10 @@ jobs:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/smoke.yml'
+              - 'caas/**'
+              - 'Makefile'
+              - 'make_functions.sh'
+              - 'scripts/dqlite-repl/**'
 
   build:
     needs: [changed-files]
