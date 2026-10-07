@@ -702,7 +702,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		applicationService.EXPECT().GetApplicationScalingState(x, "con-troll-er").Return(applicationservice.ScalingState{CurrentOperation: application.ScaleOperation, ScaleTarget: 1}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(x, "con-troll-er", 0, application.NoOperation).Return(nil),
+		applicationService.EXPECT().SetApplicationProvisioningState(x, "con-troll-er", application.ScaleOperation, 1, application.NoOperation, 0).Return(nil),
 		facade.EXPECT().WatchProvisioningInfo(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
@@ -788,7 +788,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnlyClearContended(c *tc.C) {
 		// handleChange
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).Return(life.Alive, nil),
 		applicationService.EXPECT().GetApplicationScalingState(x, "con-troll-er").Return(applicationservice.ScalingState{CurrentOperation: application.ScaleOperation, ScaleTarget: 1}, nil),
-		applicationService.EXPECT().SetApplicationScalingState(x, "con-troll-er", 0, application.NoOperation).Return(contended),
+		applicationService.EXPECT().SetApplicationProvisioningState(x, "con-troll-er", application.ScaleOperation, 1, application.NoOperation, 0).Return(contended),
 		facade.EXPECT().WatchProvisioningInfo(x, "con-troll-er").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {

@@ -143,13 +143,16 @@ type ApplicationState interface {
 	// - [applicationerrors.UnitUpgrading] if any units are still upgrading.
 	CheckApplicationsForMigration(context.Context) error
 
-	// SetApplicationScalingState sets the scaling details for the given caas
-	// application Scale is optional and is only set if not nil.
-	// It returns an error satisfying [applicationerrors.OperationInProgress]
-	// if a different provisioning operation is already in progress for the
-	// application, and [applicationerrors.ProvisioningOperationNotValid] if
-	// the operation is not one of the defined operations.
-	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, op coreapplication.ProvisioningOperation) error
+	// SetApplicationProvisioningState sets the provisioning state for the
+	// given caas application. It returns an error satisfying
+	// [applicationerrors.OperationInProgress] if a different provisioning
+	// operation is already in progress for the application,
+	// [applicationerrors.ProvisioningOperationNotValid] if the operation is
+	// not one of the defined operations, and
+	// [applicationerrors.ScalingStateInconsistent] if the current operation
+	// or scale target differ from the expected values the caller last
+	// observed.
+	SetApplicationProvisioningState(ctx context.Context, appName string, expectedOp coreapplication.ProvisioningOperation, expectedTarget int, op coreapplication.ProvisioningOperation, targetScale int) error
 
 	// SetDesiredApplicationScale updates the desired scale of the specified
 	// application.
@@ -1061,14 +1064,17 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 	return newScale, nil
 }
 
-// SetApplicationScalingState updates the scale state of an application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-// An error satisfying [applicationerrors.OperationInProgress] is returned if a
-// different provisioning operation is already in progress for the application,
-// and [applicationerrors.ProvisioningOperationNotValid] if the operation is not
-// one of the defined operations.
+// SetApplicationProvisioningState updates the provisioning state of an
+// application, returning an error satisfying
+// [applicationerrors.ApplicationNotFound] if the application doesn't exist.
+// An error satisfying [applicationerrors.OperationInProgress] is returned if
+// a different provisioning operation is already in progress for the
+// application, [applicationerrors.ProvisioningOperationNotValid] if the
+// operation is not one of the defined operations, and
+// [applicationerrors.ScalingStateInconsistent] if the current operation or
+// scale target differ from the expected values the caller last observed.
 // This is used on CAAS models.
-func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, op coreapplication.ProvisioningOperation) error {
+func (s *Service) SetApplicationProvisioningState(ctx context.Context, appName string, expectedOp coreapplication.ProvisioningOperation, expectedTarget int, op coreapplication.ProvisioningOperation, targetScale int) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1077,7 +1083,7 @@ func (s *Service) SetApplicationScalingState(ctx context.Context, appName string
 			Add(applicationerrors.ProvisioningOperationNotValid)
 	}
 
-	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, op); err != nil {
+	if err := s.st.SetApplicationProvisioningState(ctx, appName, expectedOp, expectedTarget, op, targetScale); err != nil {
 		return errors.Errorf("updating scaling state for %q: %w", appName, err)
 	}
 	return nil

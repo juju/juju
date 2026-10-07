@@ -945,12 +945,20 @@ WHERE  application_uuid = $applicationScale.application_uuid
 	return newScale, errors.Capture(err)
 }
 
-// SetApplicationScalingState sets the scaling details for the given caas
-// application Scale is optional and is only set if not nil.
-// It returns an error satisfying [applicationerrors.OperationInProgress] if
-// a different provisioning operation is already in progress for the
-// application.
-func (st *State) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, op coreapplication.ProvisioningOperation) error {
+// SetApplicationProvisioningState sets the provisioning state for the given
+// caas application, presenting the current operation and scale target the
+// caller last observed. It returns an error satisfying
+// [applicationerrors.ScalingStateInconsistent] if the provisioning state
+// changed under the caller, and [applicationerrors.OperationInProgress] if a
+// different operation is already in progress for the application.
+func (st *State) SetApplicationProvisioningState(
+	ctx context.Context,
+	appName string,
+	expectedOp coreapplication.ProvisioningOperation,
+	expectedTarget int,
+	op coreapplication.ProvisioningOperation,
+	targetScale int,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -969,25 +977,9 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		return errors.Capture(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+		appDetails, currentScaleState, err := st.provisioningStateForUpdate(ctx, tx, appName, expectedOp, expectedTarget, op)
 		if err != nil {
-			return errors.Capture(err)
-		} else if appDetails.IsApplicationSynthetic {
-			return errors.Errorf("cannot set scaling state for synthetic application %q", appName)
-		}
-
-		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		// Reject a requested operation that conflicts with a different
-		// operation already in progress. Clearing the operation is
-		// always allowed.
-		if op != coreapplication.NoOperation &&
-			coreapplication.IsDifferentOperation(currentScaleState.CurrentOperation, op) {
-			return errors.Errorf("provisioning operation %q in progress", currentScaleState.CurrentOperation).
-				Add(applicationerrors.OperationInProgress)
+			return err
 		}
 
 		var scale int
@@ -1018,6 +1010,51 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		return tx.Query(ctx, upsertStmt, scaleDetailsToUpdate).Run()
 	})
 	return errors.Capture(err)
+}
+
+// provisioningStateForUpdate loads the application details and the current
+// provisioning state for a write presenting the current operation and scale
+// target the caller last observed. It returns an error satisfying
+// [applicationerrors.ScalingStateInconsistent] if the provisioning state
+// changed under the caller, and [applicationerrors.OperationInProgress] if a
+// different operation is already in progress for the application.
+func (st *State) provisioningStateForUpdate(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appName string,
+	expectedOp coreapplication.ProvisioningOperation,
+	expectedTarget int,
+	op coreapplication.ProvisioningOperation,
+) (applicationDetails, application.ScaleState, error) {
+	appDetails, err := st.getApplicationDetails(ctx, tx, appName)
+	if err != nil {
+		return applicationDetails{}, application.ScaleState{}, errors.Capture(err)
+	} else if appDetails.IsApplicationSynthetic {
+		return applicationDetails{}, application.ScaleState{}, errors.Errorf("cannot set provisioning state for synthetic application %q", appName)
+	}
+
+	currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
+	if err != nil {
+		return applicationDetails{}, application.ScaleState{}, errors.Capture(err)
+	}
+
+	// The provisioning state changed under the caller since its last read;
+	// its view is stale and the write must not proceed.
+	if currentScaleState.CurrentOperation != expectedOp ||
+		currentScaleState.ScaleTarget != expectedTarget {
+		return applicationDetails{}, application.ScaleState{}, applicationerrors.ScalingStateInconsistent
+	}
+
+	// Reject a requested operation that conflicts with a different
+	// operation already in progress. Clearing the operation is
+	// always allowed.
+	if op != coreapplication.NoOperation &&
+		coreapplication.IsDifferentOperation(currentScaleState.CurrentOperation, op) {
+		return applicationDetails{}, application.ScaleState{}, errors.Errorf("provisioning operation %q in progress", currentScaleState.CurrentOperation).
+			Add(applicationerrors.OperationInProgress)
+	}
+
+	return appDetails, currentScaleState, nil
 }
 
 // UpsertK8sService updates the cloud service for the specified application.

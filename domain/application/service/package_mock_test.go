@@ -495,7 +495,7 @@ type MockStateMockRecorder struct {
 	setApplicationCharmExpects                                []*gomock.Call4_1[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, error]
 	setApplicationConstraintsExpects                          []*gomock.Call3_1[context.Context, application.UUID, constraints0.Constraints, error]
 	setApplicationHasK8sResourcesExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
-	setApplicationScalingStateExpects                         []*gomock.Call4_1[context.Context, string, int, application.ProvisioningOperation, error]
+	setApplicationProvisioningStateExpects                    []*gomock.Call6_1[context.Context, string, application.ProvisioningOperation, int, application.ProvisioningOperation, int, error]
 	setCharmAvailableExpects                                  []*gomock.Call2_1[context.Context, charm.ID, error]
 	setDesiredApplicationScaleExpects                         []*gomock.Call3_1[context.Context, application.UUID, int, error]
 	setUnitWorkloadVersionExpects                             []*gomock.Call3_1[context.Context, unit.Name, string, error]
@@ -2868,23 +2868,23 @@ func (mr *MockStateMockRecorder) SetApplicationHasK8sResources(ctx, appUUID any)
 // MockStateSetApplicationHasK8sResourcesCall is the typed call wrapper for SetApplicationHasK8sResources.
 type MockStateSetApplicationHasK8sResourcesCall = gomock.Call2_1[context.Context, application.UUID, error]
 
-// SetApplicationScalingState mocks base method.
-func (m *MockState) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, op application.ProvisioningOperation) error {
+// SetApplicationProvisioningState mocks base method.
+func (m *MockState) SetApplicationProvisioningState(ctx context.Context, appName string, expectedOp application.ProvisioningOperation, expectedTarget int, op application.ProvisioningOperation, targetScale int) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.setApplicationScalingStateExpects, m.ctrl, m, "SetApplicationScalingState", ctx, appName, targetScale, op)
+	return gomock.Dispatch6_1(&m.recorder.setApplicationProvisioningStateExpects, m.ctrl, m, "SetApplicationProvisioningState", ctx, appName, expectedOp, expectedTarget, op, targetScale)
 }
 
-// SetApplicationScalingState indicates an expected call of SetApplicationScalingState.
-func (mr *MockStateMockRecorder) SetApplicationScalingState(ctx, appName, targetScale, op any) *MockStateSetApplicationScalingStateCall {
+// SetApplicationProvisioningState indicates an expected call of SetApplicationProvisioningState.
+func (mr *MockStateMockRecorder) SetApplicationProvisioningState(ctx, appName, expectedOp, expectedTarget, op, targetScale any) *MockStateSetApplicationProvisioningStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, string, int, application.ProvisioningOperation, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingState", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(targetScale), gomock.EnsureMatcher(op))
-	mr.setApplicationScalingStateExpects = append(mr.setApplicationScalingStateExpects, call)
+	call := gomock.NewCall6_1[context.Context, string, application.ProvisioningOperation, int, application.ProvisioningOperation, int, error](mr.mock.ctrl.T, mr.mock, "SetApplicationProvisioningState", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(expectedOp), gomock.EnsureMatcher(expectedTarget), gomock.EnsureMatcher(op), gomock.EnsureMatcher(targetScale))
+	mr.setApplicationProvisioningStateExpects = append(mr.setApplicationProvisioningStateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateSetApplicationScalingStateCall is the typed call wrapper for SetApplicationScalingState.
-type MockStateSetApplicationScalingStateCall = gomock.Call4_1[context.Context, string, int, application.ProvisioningOperation, error]
+// MockStateSetApplicationProvisioningStateCall is the typed call wrapper for SetApplicationProvisioningState.
+type MockStateSetApplicationProvisioningStateCall = gomock.Call6_1[context.Context, string, application.ProvisioningOperation, int, application.ProvisioningOperation, int, error]
 
 // SetCharmAvailable mocks base method.
 func (m *MockState) SetCharmAvailable(ctx context.Context, charmID charm.ID) error {

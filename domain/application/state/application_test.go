@@ -1564,7 +1564,7 @@ func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *tc.C) 
 	c.Assert(err, tc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateAlreadyScaling(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Dead)
 
 	// Set up the initial scale value.
@@ -1582,7 +1582,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 42)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:            42,
@@ -1591,7 +1591,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 	})
 
 	// Set scaling state but use the same target value as current scale.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 42, coreapplication.ScaleOperation, 42)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:            42,
@@ -1600,7 +1600,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateInconsistent(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
@@ -1609,11 +1609,11 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc
 
 	// Set scaling state but use a target value different than the current
 	// scale.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 42)
 	c.Assert(err, tc.ErrorMatches, "scaling state is inconsistent")
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateAppDying(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Dying)
 
 	// Set up the initial scale value.
@@ -1631,7 +1631,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 42)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:            42,
@@ -1640,9 +1640,9 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) 
 	})
 }
 
-// This test is exactly like TestSetApplicationScalingStateAppDying but the app
+// This test is exactly like TestSetApplicationProvisioningStateAppDying but the app
 // is dead instead of dying.
-func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateAppDead(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Dead)
 
 	// Set up the initial scale value.
@@ -1660,7 +1660,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 42)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:            42,
@@ -1669,7 +1669,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateNotScaling(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
@@ -1687,7 +1687,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 		c.Assert(got, tc.DeepEquals, want)
 	}
 
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 668, coreapplication.NoOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.NoOperation, 668)
 	c.Assert(err, tc.ErrorIsNil)
 	checkResult(application.ScaleState{
 		Scale:            666,
@@ -1696,7 +1696,7 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C
 	})
 }
 
-func (s *applicationStateSuite) TestSetApplicationScalingStateConflictingOperation(c *tc.C) {
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateConflictingOperation(c *tc.C) {
 	appUUID := s.createCAASApplication(c, "foo", life.Alive)
 
 	// Set up the initial scale value.
@@ -1705,26 +1705,26 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateConflictingOperati
 
 	// A storage update operation is allowed to start while no other
 	// operation is in progress.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.StorageUpdateOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.StorageUpdateOperation, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// A scale operation is rejected while a storage update operation is
 	// in progress.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.StorageUpdateOperation, 666, coreapplication.ScaleOperation, 666)
 	c.Assert(err, tc.ErrorIs, applicationerrors.OperationInProgress)
 
 	// Clearing the operation is always allowed.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.NoOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.StorageUpdateOperation, 666, coreapplication.NoOperation, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// A scale operation is allowed once no other operation is in
 	// progress.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 666, coreapplication.ScaleOperation, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// A storage update operation is rejected while a scale operation is
 	// in progress and must not clobber the in-flight operation.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.StorageUpdateOperation)
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 666, coreapplication.StorageUpdateOperation, 666)
 	c.Assert(err, tc.ErrorIs, applicationerrors.OperationInProgress)
 
 	var got application.ScaleState
@@ -1734,6 +1734,87 @@ func (s *applicationStateSuite) TestSetApplicationScalingStateConflictingOperati
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got.CurrentOperation, tc.Equals, coreapplication.ScaleOperation)
+}
+
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateStaleExpectation(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A claim presenting an operation the caller did not observe is
+	// rejected without writing.
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 5, coreapplication.ScaleOperation, 666)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+
+	// A claim presenting a target the caller did not observe is
+	// rejected without writing.
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 5, coreapplication.ScaleOperation, 666)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+
+	var got application.ScaleState
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+			Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, application.ScaleState{
+		Scale:            666,
+		ScaleTarget:      0,
+		CurrentOperation: coreapplication.NoOperation,
+	})
+}
+
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateClearWrongExpectation(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 666)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A completion presenting anything other than the in-flight pair is
+	// rejected without wiping the operation.
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.NoOperation, 0)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+
+	var got application.ScaleState
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+			Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.CurrentOperation, tc.Equals, coreapplication.ScaleOperation)
+	c.Assert(got.ScaleTarget, tc.Equals, 666)
+}
+
+func (s *applicationStateSuite) TestSetApplicationProvisioningStateRetargetMidFlight(c *tc.C) {
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+
+	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 5)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 5)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Re-targeting the in-flight operation with a fresh expectation
+	// converges to the latest target.
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 5, coreapplication.ScaleOperation, 7)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Re-targeting with a stale expectation is rejected.
+	err = s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 5, coreapplication.ScaleOperation, 8)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+
+	var got application.ScaleState
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT scale, current_operation, scale_target FROM application_provisioning_state WHERE application_uuid=?", appUUID).
+			Scan(&got.Scale, &got.CurrentOperation, &got.ScaleTarget)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.CurrentOperation, tc.Equals, coreapplication.ScaleOperation)
+	c.Assert(got.ScaleTarget, tc.Equals, 7)
 }
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {

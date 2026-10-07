@@ -296,7 +296,7 @@ func (a *appWorker) loop() error {
 			if ps.CurrentOperation == coreapplication.ScaleOperation {
 				if statusOnly {
 					// Clear provisioning state for status only app.
-					err = a.applicationService.SetApplicationScalingState(ctx, name, 0, coreapplication.NoOperation)
+					err = a.applicationService.SetApplicationProvisioningState(ctx, name, ps.CurrentOperation, ps.ScaleTarget, coreapplication.NoOperation, 0)
 					if err != nil &&
 						!errors.Is(err, applicationerrors.OperationInProgress) &&
 						!errors.Is(err, applicationerrors.ScalingStateInconsistent) {

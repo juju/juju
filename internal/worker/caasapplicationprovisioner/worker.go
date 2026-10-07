@@ -69,8 +69,9 @@ type ApplicationService interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	GetApplicationScale(ctx context.Context, appName string) (int, error)
 
-	// SetApplicationScalingState sets the scaling state for an application.
-	SetApplicationScalingState(ctx context.Context, name string, scaleTarget int, op coreapplication.ProvisioningOperation) error
+	// SetApplicationProvisioningState sets the provisioning state for an
+	// application.
+	SetApplicationProvisioningState(ctx context.Context, name string, expectedOp coreapplication.ProvisioningOperation, expectedTarget int, op coreapplication.ProvisioningOperation, scaleTarget int) error
 
 	// GetApplicationScalingState returns the scaling state for an application.
 	GetApplicationScalingState(ctx context.Context, name string) (applicationservice.ScalingState, error)

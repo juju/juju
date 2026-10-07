@@ -248,7 +248,7 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
 
 	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, coreapplication.ScaleOperation)
+	err := s.state.SetApplicationProvisioningState(c.Context(), "bar", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := application.RegisterCAASUnitArg{
@@ -294,7 +294,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitErrorOutsideTargetScale(c *tc.C) {
 	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 
 	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "foo", 1, coreapplication.ScaleOperation)
+	err := s.state.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try to create a unit with a higher ordinal number than the desired scale.

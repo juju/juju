@@ -112,7 +112,7 @@ func (s *serviceSuite) TestSetScalingState(c *tc.C) {
 
 	appID := s.createApplication(c, "foo", service.AddUnitArg{})
 
-	err := s.svc.SetApplicationScalingState(c.Context(), "foo", 1, coreapplication.ScaleOperation)
+	err := s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 1)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -143,7 +143,7 @@ func (s *serviceSuite) TestSetScalingStateAlreadyScaling(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.svc.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	err = s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 0, coreapplication.ScaleOperation, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -174,7 +174,7 @@ func (s *serviceSuite) TestSetScalingStateDying(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.svc.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	err = s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var (
@@ -199,14 +199,14 @@ func (s *serviceSuite) TestSetScalingStateInconsistent(c *tc.C) {
 
 	s.createApplication(c, "foo")
 
-	err := s.svc.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	err := s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 666)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
 }
 
 func (s *serviceSuite) TestSetScalingStateOperationNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.svc.SetApplicationScalingState(c.Context(), "foo", 1, coreapplication.ProvisioningOperation("sclae"))
+	err := s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.ProvisioningOperation("sclae"), 1)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ProvisioningOperationNotValid)
 }
 
@@ -221,7 +221,7 @@ func (s *serviceSuite) TestGetScalingState(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.svc.SetApplicationScalingState(c.Context(), "foo", 666, coreapplication.ScaleOperation)
+	err = s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.ScaleOperation, 0, coreapplication.ScaleOperation, 666)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := s.svc.GetApplicationScalingState(c.Context(), "foo")
@@ -352,7 +352,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumLessThanDesired(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
-	err := s.svc.SetApplicationScalingState(c.Context(), "foo", 6, coreapplication.NoOperation)
+	err := s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.NoOperation, 6)
 	c.Assert(err, tc.ErrorIsNil)
 
 	app := application.NewMockApplication(ctrl)
@@ -370,7 +370,7 @@ func (s *serviceSuite) TestCAASUnitTerminatingUnitNumGreaterThanDesired(c *tc.C)
 	defer ctrl.Finish()
 
 	s.createApplication(c, "foo", service.AddUnitArg{}, service.AddUnitArg{}, service.AddUnitArg{})
-	err := s.svc.SetApplicationScalingState(c.Context(), "foo", 6, coreapplication.NoOperation)
+	err := s.svc.SetApplicationProvisioningState(c.Context(), "foo", coreapplication.NoOperation, 0, coreapplication.NoOperation, 6)
 	c.Assert(err, tc.ErrorIsNil)
 
 	app := application.NewMockApplication(ctrl)

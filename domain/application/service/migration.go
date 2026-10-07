@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
@@ -282,7 +283,10 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 	// Improve the efficiency of importing caas applications by touching
 	// the application_provisioning_state table once, instead of three
 	// times. Once in st.ImportApplication and the following two methods.
-	if err := s.st.SetApplicationScalingState(ctx, name, args.ScaleState.ScaleTarget, args.ScaleState.CurrentOperation); err != nil {
+	// The application was just imported, so the provisioning state row was
+	// created with no operation and no target; the import writes present
+	// that state as their expectation.
+	if err := s.st.SetApplicationProvisioningState(ctx, name, coreapplication.NoOperation, 0, args.ScaleState.CurrentOperation, args.ScaleState.ScaleTarget); err != nil {
 		return errors.Errorf("setting scale state for application %q: %w", name, err)
 	}
 	if err := s.st.SetDesiredApplicationScale(ctx, args.UUID, args.ScaleState.Scale); err != nil {

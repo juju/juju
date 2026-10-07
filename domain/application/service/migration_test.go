@@ -606,7 +606,7 @@ func (s *migrationServiceSuite) TestImportCAASApplication(c *tc.C) {
 
 	var receivedUnitArgs []application.ImportCAASUnitArg
 	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), id, 1).Return(nil)
-	s.state.EXPECT().SetApplicationScalingState(gomock.Any(), "ubuntu", 42, coreapplication.ScaleOperation).Return(nil)
+	s.state.EXPECT().SetApplicationProvisioningState(gomock.Any(), "ubuntu", coreapplication.NoOperation, 0, coreapplication.ScaleOperation, 42).Return(nil)
 	s.state.EXPECT().InsertMigratingCAASUnits(gomock.Any(), id, gomock.Any()).DoAndReturn(func(_ context.Context, _ coreapplication.UUID, args ...application.ImportCAASUnitArg) error {
 		receivedUnitArgs = args
 		return nil
