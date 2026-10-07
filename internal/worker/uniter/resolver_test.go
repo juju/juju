@@ -116,7 +116,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		Secrets:             secrets.NewSecretsResolver(logger, secretsTracker, func(_ string) {}, func(_ string) {}, func(_ map[string][]int) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
-		Actions:             uniteractions.NewResolver(logger),
+		Actions:             uniteractions.NewResolver(logger, func(_ string) {}),
 		VerifyCharmProfile:  verifycharmprofile.NewResolver(logger, modelType),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},

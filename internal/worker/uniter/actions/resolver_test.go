@@ -25,7 +25,7 @@ type actionsSuite struct {
 var _ = gc.Suite(&actionsSuite{})
 
 func (s *actionsSuite) newResolver() resolver.Resolver {
-	return actions.NewResolver(loggo.GetLogger("test"))
+	return actions.NewResolver(loggo.GetLogger("test"), func(_ string) {})
 }
 
 func (s *actionsSuite) TestNoActions(c *gc.C) {
@@ -48,7 +48,7 @@ func (s *actionsSuite) TestActionStateKindContinue(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
+	c.Assert(operation.Unwrap(op), jc.DeepEquals, mockOp("actionA"))
 }
 
 func (s *actionsSuite) TestActionRunHook(c *gc.C) {
@@ -64,23 +64,7 @@ func (s *actionsSuite) TestActionRunHook(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionA"))
-}
-
-func (s *actionsSuite) TestNextAction(c *gc.C) {
-	actionResolver := s.newResolver()
-	localState := resolver.LocalState{
-		State: operation.State{
-			Kind: operation.Continue,
-		},
-		CompletedActions: map[string]struct{}{"actionA": {}},
-	}
-	remoteState := remotestate.Snapshot{
-		ActionsPending: []string{"actionA", "actionB"},
-	}
-	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
+	c.Assert(operation.Unwrap(op), jc.DeepEquals, mockOp("actionA"))
 }
 
 func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
@@ -89,7 +73,6 @@ func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		CompletedActions: map[string]struct{}{"actionA": {}},
 	}
 	remoteState := remotestate.Snapshot{
 		ActionsPending: []string{"actionA", "actionB"},
@@ -106,14 +89,13 @@ func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		CompletedActions: map[string]struct{}{"actionA": {}},
 	}
 	remoteState := remotestate.Snapshot{
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction("actionB"))
+	c.Assert(operation.Unwrap(op), jc.DeepEquals, mockFailAction("actionA"))
 }
 
 func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
@@ -122,7 +104,6 @@ func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
 		State: operation.State{
 			Kind: operation.Continue,
 		},
-		CompletedActions:    map[string]struct{}{"actionA": {}},
 		OutdatedRemoteCharm: true,
 	}
 	remoteState := remotestate.Snapshot{
@@ -135,14 +116,16 @@ func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
 }
 
 func (s *actionsSuite) TestNextActionBlockedRemoteInitInProgress(c *gc.C) {
-	actionResolver := s.newResolver()
+	var completed []string
+	actionResolver := actions.NewResolver(loggo.GetLogger("test"), func(id string) {
+		completed = append(completed, id)
+	})
 	actionId := "actionB"
 	localState := resolver.LocalState{
 		State: operation.State{
 			Kind:     operation.RunAction,
 			ActionId: &actionId,
 		},
-		CompletedActions:    map[string]struct{}{"actionA": {}},
 		OutdatedRemoteCharm: true,
 	}
 	remoteState := remotestate.Snapshot{
@@ -151,7 +134,12 @@ func (s *actionsSuite) TestNextActionBlockedRemoteInitInProgress(c *gc.C) {
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, gc.DeepEquals, mockFailAction("actionB"))
+	c.Assert(operation.Unwrap(op), gc.DeepEquals, mockFailAction(actionId))
+	c.Check(completed, gc.HasLen, 0)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.DeepEquals, []string{actionId})
 }
 
 func (s *actionsSuite) TestNextActionBlockedRemoteInitSkipHook(c *gc.C) {
@@ -163,7 +151,6 @@ func (s *actionsSuite) TestNextActionBlockedRemoteInitSkipHook(c *gc.C) {
 			ActionId: &actionId,
 			Hook:     &hook.Info{Kind: "test"},
 		},
-		CompletedActions:    map[string]struct{}{"actionA": {}},
 		OutdatedRemoteCharm: false,
 	}
 	remoteState := remotestate.Snapshot{
@@ -184,14 +171,13 @@ func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 			Kind:     operation.RunAction,
 			ActionId: &actionA,
 		},
-		CompletedActions: map[string]struct{}{},
 	}
 	remoteState := remotestate.Snapshot{
 		ActionsPending: []string{},
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockOp(actionA))
+	c.Assert(operation.Unwrap(op), jc.DeepEquals, mockOp(actionA))
 }
 
 func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
@@ -204,7 +190,6 @@ func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
 			ActionId: &actionA,
 			Hook:     &hook.Info{Kind: "test"},
 		},
-		CompletedActions: map[string]struct{}{},
 	}
 	remoteState := remotestate.Snapshot{
 		ActionsPending: []string{},
@@ -215,7 +200,10 @@ func (s *actionsSuite) TestActionStateKindRunActionSkipHook(c *gc.C) {
 }
 
 func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
-	actionResolver := s.newResolver()
+	var completed []string
+	actionResolver := actions.NewResolver(loggo.GetLogger("test"), func(id string) {
+		completed = append(completed, id)
+	})
 	actionA := "actionA"
 
 	localState := resolver.LocalState{
@@ -223,14 +211,18 @@ func (s *actionsSuite) TestActionStateKindRunActionPendingRemote(c *gc.C) {
 			Kind:     operation.RunAction,
 			ActionId: &actionA,
 		},
-		CompletedActions: map[string]struct{}{},
 	}
 	remoteState := remotestate.Snapshot{
 		ActionsPending: []string{actionA, "actionB"},
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+	c.Assert(operation.Unwrap(op), jc.DeepEquals, mockFailAction(actionA))
+	c.Check(completed, gc.HasLen, 0)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.DeepEquals, []string{actionA})
 }
 
 func (s *actionsSuite) TestPendingActionNotAvailable(c *gc.C) {
@@ -243,19 +235,84 @@ func (s *actionsSuite) TestPendingActionNotAvailable(c *gc.C) {
 			Step:     operation.Pending,
 			ActionId: &actionA,
 		},
-		CompletedActions: map[string]struct{}{},
 	}
 	remoteState := remotestate.Snapshot{
 		ActionsPending: []string{"666"},
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(op, jc.DeepEquals, mockFailAction(actionA))
+	c.Assert(operation.Unwrap(op), jc.DeepEquals, mockFailAction(actionA))
+}
+
+func (s *actionsSuite) TestActionCompletedOnCommit(c *gc.C) {
+	var completed []string
+	actionResolver := actions.NewResolver(loggo.GetLogger("test"), func(id string) {
+		completed = append(completed, id)
+	})
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"actionA", "actionB"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, gc.HasLen, 0)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.DeepEquals, []string{"actionA"})
+}
+
+func (s *actionsSuite) TestFailActionCompletedOnCommit(c *gc.C) {
+	var completed []string
+	actionResolver := actions.NewResolver(loggo.GetLogger("test"), func(id string) {
+		completed = append(completed, id)
+	})
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"actionA", "actionB"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, gc.HasLen, 0)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(completed, jc.DeepEquals, []string{"actionA"})
+}
+
+func (s *actionsSuite) TestActionNotCompletedOnCommitError(c *gc.C) {
+	var completed []string
+	actionResolver := actions.NewResolver(loggo.GetLogger("test"), func(id string) {
+		completed = append(completed, id)
+	})
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		ActionsPending: []string{"actionA"},
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{commitErr: errors.New("boom")})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, gc.ErrorMatches, "boom")
+	c.Check(completed, gc.HasLen, 0)
 }
 
 type mockOperations struct {
 	operation.Factory
-	err error
+	err       error
+	commitErr error
 }
 
 func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
@@ -265,7 +322,7 @@ func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
 	if id == "666" {
 		return nil, charmrunner.ErrActionNotAvailable
 	}
-	return mockOp(id), nil
+	return &mockOperation{name: id, commitErr: m.commitErr}, nil
 }
 
 func (m *mockOperations) NewFailAction(id string) (operation.Operation, error) {
@@ -290,11 +347,19 @@ func mockSkipHook(hookInfo hook.Info) operation.Operation {
 
 type mockOperation struct {
 	operation.Operation
-	name string
+	name      string
+	commitErr error
 }
 
 func (op *mockOperation) String() string {
 	return op.name
+}
+
+func (op *mockOperation) Commit(st operation.State) (*operation.State, error) {
+	if op.commitErr != nil {
+		return nil, op.commitErr
+	}
+	return &st, nil
 }
 
 type mockFailOp struct {
@@ -304,6 +369,10 @@ type mockFailOp struct {
 
 func (op *mockFailOp) String() string {
 	return op.name
+}
+
+func (op *mockFailOp) Commit(st operation.State) (*operation.State, error) {
+	return &st, nil
 }
 
 type mockSkipHookOp struct {

@@ -11,13 +11,19 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/worker/common/charmrunner"
+	"github.com/juju/juju/internal/worker/uniter/actions"
+	"github.com/juju/juju/internal/worker/uniter/operation"
+	operationmocks "github.com/juju/juju/internal/worker/uniter/operation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
+	"github.com/juju/juju/internal/worker/uniter/resolver"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -609,6 +615,76 @@ func (s *WatcherSuite) TestActionsReceivedWithChanges(c *gc.C) {
 	snapshot = s.watcher.Snapshot()
 	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
 	c.Assert(snapshot.ActionChanged["an-action"], gc.Equals, 1)
+}
+
+func (s *WatcherSuite) TestActionCompleted(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	s.st.unit.actionWatcher.changes <- []string{"action-a", "action-b"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snapshot := s.watcher.Snapshot()
+	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"action-a", "action-b"})
+
+	s.watcher.ActionCompleted("action-a")
+	snapshot = s.watcher.Snapshot()
+	c.Check(snapshot.ActionsPending, gc.DeepEquals, []string{"action-b"})
+	c.Check(snapshot.ActionChanged, gc.DeepEquals, map[string]int{"action-b": 0})
+}
+
+func (s *WatcherSuite) TestActionNotifiedAgainAfterCompletion(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	if s.runningStatusWatcher != nil {
+		// Actions are blocked on CAAS until the container is running.
+		s.st.unit.providerID = "provider-id"
+		s.running = &remotestate.ContainerRunningStatus{PodName: "wow", Running: true}
+		select {
+		case s.runningStatusWatcher.changes <- struct{}{}:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timeout waiting to post running status change")
+		}
+		assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	opFactory := operationmocks.NewMockFactory(ctrl)
+	state := operation.State{Kind: operation.Continue}
+	localState := resolver.LocalState{State: state}
+	actionResolver := actions.NewResolver(loggo.GetLogger("test"), s.watcher.ActionCompleted)
+
+	// Running the action removes it from the remote state when the
+	// operation commits.
+	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for action notification")
+	runOp := operationmocks.NewMockOperation(ctrl)
+	opFactory.EXPECT().NewAction("an-action").Return(runOp, nil)
+	runOp.EXPECT().Commit(state).Return(&state, nil)
+	op, err := actionResolver.NextOp(localState, s.watcher.Snapshot(), opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(state)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.watcher.Snapshot().ActionsPending, gc.HasLen, 0)
+
+	// A notification that arrives after the action completed, such as a
+	// cancellation of a task that has already finished, adds it again.
+	// The controller no longer has the action pending, so the resolver
+	// fails it and the commit removes it again.
+	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for late action notification")
+	c.Assert(s.watcher.Snapshot().ActionsPending, gc.DeepEquals, []string{"an-action"})
+	failOp := operationmocks.NewMockOperation(ctrl)
+	opFactory.EXPECT().NewAction("an-action").Return(nil, charmrunner.ErrActionNotAvailable)
+	opFactory.EXPECT().NewFailAction("an-action").Return(failOp, nil)
+	failOp.EXPECT().Commit(state).Return(&state, nil)
+	op, err = actionResolver.NextOp(localState, s.watcher.Snapshot(), opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(state)
+	c.Assert(err, jc.ErrorIsNil)
+	snapshot := s.watcher.Snapshot()
+	c.Check(snapshot.ActionsPending, gc.HasLen, 0)
+	c.Check(snapshot.ActionChanged, gc.HasLen, 0)
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {
