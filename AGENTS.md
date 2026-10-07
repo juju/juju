@@ -9,8 +9,13 @@ If guidance conflicts, architectural rules take precedence.
 
 Before modifying or reviewing code, read any applicable nested `AGENTS.md`
 files between the repository root and each relevant file's directory. Nested
-rules supplement the shared rules above; architectural rules still take
-precedence.
+rules supplement the shared rules above. Where nested files conflict, the
+closest applicable `AGENTS.md` to the affected file takes precedence;
+architectural rules always take precedence.
+
+Use plain `AGENTS.md` for new directory-specific guidance. Keep repository-wide
+topic files (`AGENTS.<topic>.md`) at the root and reference them explicitly from
+this index.
 
 ## Documentation
 
@@ -41,7 +46,8 @@ precedence.
   - The use of `tc.Must` (e.g. `tc.Must(c, NewUUID)`) should be limited to simple test setup.
 - Checkers:
   - Checkers are passed to `c.Assert` and `c.Check` as the second argument.
-  - Examples of checkers arr `tc.IsTrue`, `tc.IsFalse`, `tc.Equals` and `tc.DeepEquals`.
+  - Examples of checkers are `tc.IsTrue`, `tc.IsFalse`, `tc.Equals` and
+    `tc.DeepEquals`.
   - Use `c.Assert(err, tc.ErrorIs, MySentinalErr)` instead of `c.Assert(errors.Is(err, MySentinalErr), tc.Equals, true)`.
   - Use `c.Check(booleanExpr, tc.IsTrue)` instead of `c.Check(booleanExpr, tc.Equals, true)`.
   - There are more Checkers, look for the most appropriate checker.
