@@ -16,14 +16,9 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { os: linux, arch: amd64, host_arch: x64, cc: gcc }
-          - { os: linux, arch: arm64, host_arch: arm64, cc: gcc }
-          # Cross builds run on x64 hosts and link the target architecture's
-          # Dqlite libraries through dpkg multiarch (ppa:dqlite/dev publishes
-          # arch-qualified packages for both architectures).
-          - { os: linux, arch: s390x, host_arch: x64, deb_arch: s390x, cc: s390x-linux-gnu-gcc }
-          - { os: linux, arch: ppc64le, host_arch: x64, deb_arch: ppc64el, cc: powerpc64le-linux-gnu-gcc }
-          - { os: darwin, arch: arm64, host_arch: arm64, cc: clang }
+          - { os: linux, arch: amd64, host_arch: x64 }
+          - { os: linux, arch: arm64, host_arch: arm64 }
+          - { os: darwin, arch: arm64, host_arch: arm64 }
 
     steps:
       - name: "Checkout"
@@ -39,19 +34,13 @@ jobs:
           go-version-file: "go.mod"
           cache: false
 
-      # jujud is a native CGO build on every linux entry; darwin does not
-      # build jujud (the agent platform lists filter it to linux). Cross
-      # entries additionally install their target architecture's
-      # arch-qualified Dqlite packages via dpkg multiarch and select their
-      # cross compiler for the build below.
+      # jujud is a native CGO build on every linux entry and links against
+      # the host's Dqlite libraries (ppa:dqlite/dev); darwin does not build
+      # jujud (the agent platform lists filter it to linux).
       - name: "Install dependencies"
         if: matrix.platform.os == 'linux'
-        env:
-          DQLITE_CROSS_ARCHES: ${{ matrix.platform.deb_arch }}
         run: make install-dependencies
 
       - name: "Build"
-        env:
-          CC: ${{ matrix.platform.cc }}
         run: |
           GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} make go-build
