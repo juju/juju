@@ -13,6 +13,8 @@ import (
 
 	"github.com/distribution/reference"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/docker"
 )
 
 // These Docker Config datatypes have been pulled from
@@ -31,19 +33,22 @@ type DockerConfig map[string]DockerConfigEntry
 
 // DockerConfigEntry represents an Auth entry in the dockerconfigjson.
 type DockerConfigEntry struct {
-	Username string
-	Password string
-	Email    string
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Auth     string `json:"auth,omitempty"`
 }
 
 func CreateDockerConfigJSON(username, password, imagePath string) ([]byte, error) {
-	dockerEntry := DockerConfigEntry{
-		Username: username,
-		Password: password,
-	}
 	registryURL, err := ExtractRegistryURL(imagePath)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	dockerEntry := DockerConfigEntry{
+		Username: username,
+		Password: password,
+		Auth:     docker.BasicAuthToken(username, password),
 	}
 
 	dockerConfig := DockerConfigJSON{

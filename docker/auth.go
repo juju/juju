@@ -162,6 +162,15 @@ type dockerConfigData struct {
 	Auths map[string]ImageRepoDetails `json:"auths"`
 }
 
+// BasicAuthToken returns the base64 encoded basic authentication token for the given username and password.
+// If both username and password are empty, it returns an empty string.
+func BasicAuthToken(username, password string) string {
+	if username == "" && password == "" {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+}
+
 // SecretData returns secret data format.
 func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	if rid.BasicAuthConfig.Empty() && rid.TokenAuthConfig.Empty() {
@@ -170,8 +179,7 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	repo := strings.Split(rid.Repository, "/")[0]
 	rid.Repository = ""
 	if !rid.BasicAuthConfig.Empty() && rid.BasicAuthConfig.Auth.Empty() {
-		rid.BasicAuthConfig.Auth = NewToken(
-			base64.StdEncoding.EncodeToString([]byte(rid.BasicAuthConfig.Username + ":" + rid.BasicAuthConfig.Password)))
+		rid.BasicAuthConfig.Auth = NewToken(BasicAuthToken(rid.BasicAuthConfig.Username, rid.BasicAuthConfig.Password))
 	}
 	o := dockerConfigData{
 		Auths: map[string]ImageRepoDetails{
