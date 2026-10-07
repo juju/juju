@@ -45,6 +45,14 @@ AGENT_PACKAGE_PLATFORMS="linux/amd64 linux/arm64" make simplestreams
 This process will build all the juju agent binaries for the platforms specified
 above and package them into a simple streams repository.
 
+```{note}
+The agent binaries are pure Go, so this cross-build flow keeps working for any
+`AGENT_PACKAGE_PLATFORMS` entry. The `jujud` member of each tools tarball is
+only a rename shim forwarding to `jujuagentd`; a real controller binary for a
+foreign architecture comes from the controller snap (built with snapcraft),
+never from a cross-linked CGO build of this repository.
+```
+
 The end of the output for this `make` command will also provide the user with an
 `export` statement that the user should run to help the juju bootstrap command
 automatically find this local simple streams repository. Example output:
