@@ -7,9 +7,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"net/url"
 	"testing"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func TestRetryProxyConnectionRetriesTransientError(t *testing.T) {
