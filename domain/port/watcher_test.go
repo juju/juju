@@ -312,18 +312,24 @@ func (s *watcherSuite) TestWatchOpenedPorts(c *tc.C) {
 		w.AssertNoChange()
 	})
 
-	// open ports on different machines at the same time
+	// open ports on a unit on machine 0
 	harness.AddTest(c, func(c *tc.C) {
 		err := s.srv.ImportOpenUnitPorts(c.Context(), s.unitUUIDs[1], network.GroupedPortRanges{
 			"ep3": {https},
 		})
 		c.Assert(err, tc.ErrorIsNil)
-		err = s.srv.ImportOpenUnitPorts(c.Context(), s.unitUUIDs[2], network.GroupedPortRanges{
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert(s.unitUUIDs[1].String()))
+	})
+
+	// open ports on a unit on machine 1
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.srv.ImportOpenUnitPorts(c.Context(), s.unitUUIDs[2], network.GroupedPortRanges{
 			"ep3": {https},
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.Check(watchertest.StringSliceAssert(s.unitUUIDs[1].String(), s.unitUUIDs[2].String()))
+		w.Check(watchertest.StringSliceAssert(s.unitUUIDs[2].String()))
 	})
 
 	// ensure that a unit without an associated machine doesn't attempt to

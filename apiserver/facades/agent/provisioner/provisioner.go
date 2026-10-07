@@ -844,17 +844,6 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 		return result, err
 	}
 
-	hostInstanceID, err := api.machineService.GetInstanceID(ctx, hostUUID)
-	if errors.Is(err, machineerrors.NotProvisioned) {
-		return result, apiservererrors.ParamsErrorf(
-			params.CodeNotProvisioned,
-			"host machine %q is not provisioned", hostName,
-		)
-	} else if err != nil {
-		err := errors.Errorf("getting instance id for host machine %q: %w", hostName, err)
-		return result, apiservererrors.ServerError(err)
-	}
-
 	results := make([]params.MachineNetworkConfigResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		gTag, err := names.ParseMachineTag(entity.Tag)
@@ -863,99 +852,37 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(
 			continue
 		}
 
-		guestUUID, err := api.machineService.GetMachineUUID(ctx, coremachine.Name(gTag.Id()))
+		guestName := coremachine.Name(gTag.Id())
+		guestUUID, err := api.machineService.GetMachineUUID(ctx, guestName)
 		if errors.Is(err, machineerrors.MachineNotFound) {
 			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeNotFound, "machine %q not found", gTag.Id(),
 			)
 			continue
 		} else if err != nil {
-			err := errors.Errorf("getting machin %q uuid: %w", gTag.Id(), err)
-			results[i].Error = apiservererrors.ServerError(err)
-		}
-
-		devsForGuest, err := api.networkService.DevicesForGuest(ctx, hostUUID, guestUUID)
-		if err != nil {
+			err := errors.Errorf("getting machine %q uuid: %w", guestName, err)
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		// TODO (manadart 2025-07-23): I so, so do not want to use
-		//  InterfaceInfos anymore, but changing it would flow deep into the
-		//  MAAS provider, which is not going to be undertaken under the Dqlite
-		//  rewrite. Ideally we would use NetInterface from the network domain
-		//  everywhere. Anyone who reads this and wants to be a hero...
-		//  If we *did* change the provider to use NetInterface, the correct
-		//  thing to do would be to push the logic for
-		//  AllocateContainerAddresses into DevicesForGuest - choreography for
-		//  these concerns is business logic and should not be in the facade.
-		preparedInfo := toInterfaceInfos(devsForGuest)
-
-		allocatedInfo, err := api.networkService.AllocateContainerAddresses(
-			ctx, hostInstanceID, gTag.Id(), preparedInfo)
-		if errors.Is(err, networkerrors.ContainerAddressesNotSupported) {
-			api.logger.Debugf(ctx, "using DHCP allocated addresses")
-			allocatedInfo = preparedInfo
+		info, err := api.networkService.NetworkConfigForGuest(ctx, hostUUID, guestUUID, guestName)
+		if errors.Is(err, networkerrors.HostNotProvisioned) {
+			results[i].Error = apiservererrors.ParamsErrorf(
+				params.CodeNotProvisioned, "host machine %q is not provisioned", hostName,
+			)
+			continue
 		} else if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
-		} else {
-			api.logger.Debugf(ctx, "got allocated info from provider: %+v", allocatedInfo)
 		}
 
-		allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
-		api.logger.Debugf(ctx, "allocated network config: %+v", allocatedConfig)
-		results[i].Config = allocatedConfig
+		config := params.NetworkConfigFromInterfaceInfo(info)
+		api.logger.Debugf(ctx, "network config for container %q: %+v", gTag.Id(), config)
+		results[i].Config = config
 	}
 
 	result.Results = results
 	return result, nil
-}
-
-func toInterfaceInfos(netInterfaces []domainnetwork.NetInterface) network.InterfaceInfos {
-	res := make(network.InterfaceInfos, len(netInterfaces))
-	for i, netInterface := range netInterfaces {
-		var mtu int
-		if netInterface.MTU != nil {
-			mtu = int(*netInterface.MTU)
-		}
-		var mac string
-		if netInterface.MACAddress != nil {
-			mac = *netInterface.MACAddress
-		}
-
-		var (
-			addrs         network.ProviderAddresses
-			nicConfigType network.AddressConfigType
-		)
-
-		// There is a single address populated for each interface.
-		// The *device* config type is populated from the address.
-		// Note that we populate the *CIDR* from the address value.
-		if len(netInterface.Addrs) > 0 {
-			a := netInterface.Addrs[0]
-			addrs = network.ProviderAddresses{{MachineAddress: network.MachineAddress{
-				ConfigType: a.ConfigType,
-				CIDR:       a.AddressValue,
-			}}}
-			nicConfigType = a.ConfigType
-		}
-
-		res[i] = network.InterfaceInfo{
-			MACAddress:          mac,
-			ConfigType:          nicConfigType,
-			VLANTag:             int(netInterface.VLANTag),
-			InterfaceName:       netInterface.Name,
-			ParentInterfaceName: netInterface.ParentDeviceName,
-			InterfaceType:       netInterface.Type,
-			Disabled:            !netInterface.IsEnabled,
-			NoAutoStart:         !netInterface.IsAutoStart,
-			Addresses:           addrs,
-			DNSServers:          netInterface.DNSAddresses,
-			MTU:                 mtu,
-		}
-	}
-	return res
 }
 
 // HostChangesForContainers returns the set of changes that need to be done

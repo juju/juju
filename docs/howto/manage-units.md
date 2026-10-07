@@ -96,7 +96,7 @@ This will show information about the model, along with its machines, application
 
 ```text
 Model           Controller           Cloud/Region        Version  SLA          Timestamp
-tutorial-model  tutorial-controller  microk8s/localhost  2.9.34   unsupported  12:10:16+02:00
+tutorial-model  tutorial-controller  microk8s/localhost  4.0.15   unsupported  12:10:16+02:00
 
 App             Version                         Status  Scale  Charm           Channel  Rev  Address         Exposed  Message
 mattermost-k8s  .../mattermost:v6.6.0-20.04...  active      1  mattermost-k8s  stable    21  10.152.183.185  no

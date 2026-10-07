@@ -250,7 +250,10 @@ type RemoteApplicationConsumerImport struct {
 	// ConsumerModelUUID is the UUID of the model consuming the application.
 	ConsumerModelUUID string
 
-	// ConsumerApplicationUUID is the UUID of the consuming application UUID.
+	// ConsumerApplicationUUID is the UUID of the consuming application in
+	// the consuming model. The consuming model presents this UUID as its
+	// application token identifying itself to this model, and it is
+	// shared by every offer connection of the same consuming application.
 	ConsumerApplicationUUID string
 
 	// ConsumerApplicationEndpoint is the relation endpoint name of the
@@ -264,6 +267,13 @@ type RemoteApplicationConsumerImport struct {
 	// UserName is the name of the user who made the original offer connection
 	// request.
 	UserName string
+
+	// SyntheticApplicationUUID is the UUID of the synthetic application
+	// created in this model to represent the remote application consumer.
+	// The application, offer connection and remote application consumer
+	// records all share this UUID, as required by the offer connection
+	// lookups of the cross model relation facades.
+	SyntheticApplicationUUID string
 
 	// SyntheticCharmUUID is the UUID to assign to the synthetic charm
 	// representing the remote application, on the consuming model. This is used
@@ -495,6 +505,44 @@ func (f OfferFilter) Empty() bool {
 		f.ApplicationDescription == "" &&
 		len(f.Endpoints) == 0 &&
 		len(f.OfferUUIDs) == 0
+}
+
+// UpdateOfferPermissionArgs are the arguments for updating offer permissions.
+type UpdateOfferPermissionArgs struct {
+	// Username is the name of the user whose permission is being changed.
+	Username user.Name
+
+	// OfferUUID is the UUID of the offer.
+	OfferUUID string
+
+	// Access is the target access level for the permission.
+	Access permission.Access
+
+	// Change indicates whether to grant or revoke.
+	Change permission.AccessChange
+}
+
+func (a UpdateOfferPermissionArgs) Validate() error {
+	if a.Username.IsZero() {
+		return errors.Errorf("empty username %w", coreerrors.NotValid)
+	}
+	if a.OfferUUID == "" {
+		return errors.Errorf("empty offer UUID %w", coreerrors.NotValid)
+	}
+	if a.Change != permission.Grant && a.Change != permission.Revoke {
+		return errors.Errorf("change %q %w", a.Change, coreerrors.NotValid)
+	}
+	spec := permission.AccessSpec{
+		Target: permission.ID{
+			ObjectType: permission.Offer,
+			Key:        a.OfferUUID,
+		},
+		Access: a.Access,
+	}
+	if err := spec.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
 }
 
 // EmptyModuloEndpoints does the same as Empty, but not including endpoints.

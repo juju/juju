@@ -11,7 +11,7 @@ myst:
 See also: {ref}`secret-backend`
 ```
 
-Starting with Juju `3.1.0`, you can also manage secret backends in a number of ways.
+You can manage secret backends in a number of ways.
 
 (configure-a-secret-backend)=
 ## Configure a secret backend

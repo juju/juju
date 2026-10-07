@@ -37,6 +37,31 @@ The Juju environment variables are set in addition to those supplied by the exec
 
 All hooks get a common set of environment variables; in addition, some hooks (or hook kinds) also get hook (hook kind) specific environment variables, as specified in the documentation for each hook.
 
+(hook-execution-guarantees)=
+### Hook execution guarantees
+
+A hook runs as one pass of a fixed cycle: A state change on the controller wakes the unit agent, the unit agent runs the hook, and it serves every hook command the charm calls on the charm's behalf. The charm keeps no memory between runs: Everything it needs arrives through hook commands, on demand, from the controller database. Four guarantees follow from the way the unit agent runs a hook:
+
+- **One hook at a time per machine.** Running a hook, like running `juju exec` commands, takes the machine's execution lock, so the hooks of different units on the same machine run one after another. Different machines run independently, and no order holds across them.
+- **Config is read once.** The unit agent fetches the application configuration when a hook command first needs it and reuses that value for the rest of the hook.
+- **Writes are all-or-nothing.** Relation data, secrets, charm state and opened or closed ports are buffered and sent to the controller in a single commit when the hook exits with code 0. If the hook fails, the unit agent discards them, so a retry starts from the state the controller holds. `status-set` is the exception: It takes effect immediately.
+- **Leadership is a lease.** A successful leadership check holds for about 30 seconds, so the answer can change during a longer hook. A unit that finds it is not the leader stays a minion for the rest of the hook.
+
+The guarantees are independent: None builds on another, and none implies an order across machines or across the hooks of different units. Timing of access within a hook:
+
+| State | When the hook reads it | When the hook writes it |
+|---|---|---|
+| Configuration | On first use, then reused | Read-only |
+| Relation data | On demand, then reused | Buffered; committed on clean exit |
+| Secrets | On demand, at each `secret-get` | Buffered; committed on clean exit |
+| Charm state | On demand, then reused | Buffered; committed on clean exit |
+| Opened and closed ports | Not read | Buffered; committed on clean exit |
+| Action results | Not read | Buffered; sent when the action ends |
+| Unit and application status | On demand | Immediate, at each `status-set` |
+| Leadership | At each check | Read-only |
+
+With the Ops framework, `StoredState` backed by the controller (`use_controller_storage=True`) is charm state in this sense: Ops reads it on demand and the unit agent commits it only when the charm exits with code 0, so the changes of a failed run are lost. `StoredState` kept in the unit's local storage, and `Container.can_connect()` (a direct check of the Pebble server), never reach the controller.
+
 ```{ibnote}
 See more: {ref}`list-of-hooks`
 ```
@@ -436,8 +461,6 @@ Once all consumers have stopped tracking a specific outdated revision, the owner
 (hook-secret-expired)=
 #### `secret-expired`
 
-```{versionadded} 3.0.2
-```
 ```{important}
 Currently supported only for {ref}`charm secrets <charm-secret>`.
 ```
@@ -492,8 +515,6 @@ All the {ref}`generic environment variables <generic-environment-variables>` and
 
 (hook-secret-rotate)=
 #### `secret-rotate`
-```{versionadded} 3.0.2
-```
 ```{important}
 Currently supported only for charm secrets.
 ```
@@ -561,41 +582,6 @@ A storage volume having been attached to the charm's host machine or container a
 *What triggers it?*
 
 A request to detach storage having been processed.
-
-(upgrade-series-hooks)=
-### Upgrade series hooks
-
-> Juju `3.6` or earlier only. To be removed in Juju 4.
-
-These hooks are run to tell the charm the version of OS that the host machine will be upgraded to.
-
-Upgrade series hooks operate in an environment with additional environment variables available:
-
-* `JUJU_TARGET_BASE` holds the target base for the machine.
-
-(hook-post-series-upgrade)=
-#### `post-series-upgrade`
-
-*What triggers it?*
-
-Fired after the series upgrade has taken place.
-
-(hook-pre-series-upgrade)=
-#### `pre-series-upgrade`
-
-*What triggers it?*
-
-This event is triggered when an operator runs `juju upgrade-series <machine> prepare ...` from the command line. This event hook allows charm units on the machine being upgraded to do any necessary tasks prior to the upgrade process beginning (which may involve e.g. being rebooted, etc.).
-
-|  Scenario | Example command | Resulting events |
-|:-:|-|-|
-| {ref}`upgrade-series-hooks` | `juju upgrade-series <machine> prepare`| `pre-series-upgrade` -> (events on pause until upgrade completes) |
-
- Notably, after this event fires and before the {ref}`hook-post-series-upgrade` hook fires, Juju will pause events and changes for all units on the machine being upgraded.  There will be no config-changed, update-status, etc. events to interrupt the upgrade process until after the upgrade process is completed via `juju upgrade-series <machine> complete`.
-
-```{caution}
- Leadership is pinned during the series upgrade process.  Even if the current leader dies or is removed, re-election will not occur for applications on the upgrading machine until the series upgrade operation completes.
-```
 
 (workload-hooks)=
 ### Workload (Pebble) hooks

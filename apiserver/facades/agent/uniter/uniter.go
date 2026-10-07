@@ -787,7 +787,7 @@ func (u *UniterAPI) charmModifiedVersion(
 			return -1, err
 		}
 		id, err = u.applicationService.GetApplicationUUIDByUnitName(ctx, name)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
 			// Return an error that also matches a generic not found error.
 			return -1, internalerrors.Join(err, errors.Hide(errors.NotFound))
 		} else if err != nil {
@@ -1087,7 +1087,7 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 		}
 
 		appID, err := u.applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
+		if errors.Is(err, applicationerrors.UnitNotFound) {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		} else if err != nil {
@@ -2556,8 +2556,8 @@ func (u *UniterAPI) oneGoalState(ctx context.Context, unitName coreunit.Name) (*
 	appName := unitName.Application()
 
 	appID, err := u.applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, errors.NotFoundf("application %q", appName)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		return nil, errors.NotFoundf("unit %q", unitName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

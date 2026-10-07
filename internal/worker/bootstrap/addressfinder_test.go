@@ -163,6 +163,7 @@ func (s *k8sAddressFinderSuite) TestK8sAddressFinder(c *tc.C) {
 
 	addresses := network.NewMachineAddresses([]string{
 		"2001:0DB8::BEEF:FACE",
+		"api.example.com",
 	}).AsProviderAddresses()
 	svc := &caas.Service{
 		Addresses: addresses,
@@ -177,6 +178,18 @@ func (s *k8sAddressFinderSuite) TestK8sAddressFinder(c *tc.C) {
 	foundAddresses, err := K8sAddressFinder(s.providerFactory, "controller-test")(c.Context(), instance.Id("12345"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(foundAddresses, tc.DeepEquals, addresses)
+}
+
+func (s *k8sAddressFinderSuite) TestK8sAddressFinderNoServiceAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), "controller-test").Return(
+		&k8sStubProvider{serviceManager: s.serviceManager}, nil,
+	).AnyTimes()
+	for _, svc := range []*caas.Service{nil, {}, {Id: "service-uid"}} {
+		s.serviceManager.EXPECT().GetService(gomock.Any(), k8sconstants.JujuControllerStackName, true).Return(svc, nil)
+		_, err := K8sAddressFinder(s.providerFactory, "controller-test")(c.Context(), "controller-0")
+		c.Assert(err, tc.ErrorMatches, "controller API service has no addresses")
+	}
 }
 
 type iaasStubProvider struct {

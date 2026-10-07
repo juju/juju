@@ -109,9 +109,17 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing Controller statement: %w", err)
 	}
+	stmtControllerAgentAddress, err := sqlair.Prepare(`SELECT &ControllerAgentAddress.* FROM "controller_agent_address"`, v4_1_0.ControllerAgentAddress{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerAgentAddress statement: %w", err)
+	}
 	stmtControllerApiAddress, err := sqlair.Prepare(`SELECT &ControllerApiAddress.* FROM "controller_api_address"`, v4_1_0.ControllerApiAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerApiAddress statement: %w", err)
+	}
+	stmtControllerClientAddress, err := sqlair.Prepare(`SELECT &ControllerClientAddress.* FROM "controller_client_address"`, v4_1_0.ControllerClientAddress{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerClientAddress statement: %w", err)
 	}
 	stmtControllerConfig, err := sqlair.Prepare(`SELECT &ControllerConfig.* FROM "controller_config"`, v4_1_0.ControllerConfig{})
 	if err != nil {
@@ -132,6 +140,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 	stmtControllerNodePassword, err := sqlair.Prepare(`SELECT &ControllerNodePassword.* FROM "controller_node_password"`, v4_1_0.ControllerNodePassword{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ControllerNodePassword statement: %w", err)
+	}
+	stmtControllerPeerAddress, err := sqlair.Prepare(`SELECT &ControllerPeerAddress.* FROM "controller_peer_address"`, v4_1_0.ControllerPeerAddress{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing ControllerPeerAddress statement: %w", err)
 	}
 	stmtControllerSshHostKey, err := sqlair.Prepare(`SELECT &ControllerSshHostKey.* FROM "controller_ssh_host_key"`, v4_1_0.ControllerSshHostKey{})
 	if err != nil {
@@ -458,8 +470,14 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		if err := tx.Query(ctx, stmtController).GetAll(&controllerExport.Controller); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Controller (table controller): %w", err)
 		}
+		if err := tx.Query(ctx, stmtControllerAgentAddress).GetAll(&controllerExport.ControllerAgentAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerAgentAddress (table controller_agent_address): %w", err)
+		}
 		if err := tx.Query(ctx, stmtControllerApiAddress).GetAll(&controllerExport.ControllerApiAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerApiAddress (table controller_api_address): %w", err)
+		}
+		if err := tx.Query(ctx, stmtControllerClientAddress).GetAll(&controllerExport.ControllerClientAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerClientAddress (table controller_client_address): %w", err)
 		}
 		if err := tx.Query(ctx, stmtControllerConfig).GetAll(&controllerExport.ControllerConfig); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerConfig (table controller_config): %w", err)
@@ -475,6 +493,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ControllerExport, error) {
 		}
 		if err := tx.Query(ctx, stmtControllerNodePassword).GetAll(&controllerExport.ControllerNodePassword); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerNodePassword (table controller_node_password): %w", err)
+		}
+		if err := tx.Query(ctx, stmtControllerPeerAddress).GetAll(&controllerExport.ControllerPeerAddress); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying ControllerPeerAddress (table controller_peer_address): %w", err)
 		}
 		if err := tx.Query(ctx, stmtControllerSshHostKey).GetAll(&controllerExport.ControllerSshHostKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ControllerSshHostKey (table controller_ssh_host_key): %w", err)

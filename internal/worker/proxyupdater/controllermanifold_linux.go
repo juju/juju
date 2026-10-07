@@ -240,7 +240,7 @@ func (s domainProxySource) WatchForProxyConfigAndAPIHostPortChanges(ctx context.
 		return nil, errors.Trace(err)
 	}
 
-	controllerAPIAddressesWatcher, err := s.controllerNodeService.WatchControllerAPIAddresses(ctx)
+	controllerAPIAddressesWatcher, err := s.controllerNodeService.WatchControllerAgentAddresses(ctx)
 	if err != nil {
 		modelConfigNotifyWatcher.Kill()
 		return nil, errors.Trace(err)

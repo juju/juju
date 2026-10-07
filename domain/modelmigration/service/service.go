@@ -799,7 +799,6 @@ func sourceControllerAddrsByControllerID(
 	for _, addr := range addrs {
 		grouped[addr.ControllerID] = append(grouped[addr.ControllerID], controllernode.APIAddress{
 			Address: addr.Address,
-			IsAgent: addr.IsAgent,
 			Scope:   network.Scope(addr.Scope),
 		})
 	}

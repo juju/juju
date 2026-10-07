@@ -48,7 +48,7 @@ func NewResourceOpenerForUnit(
 
 	unitUUID, err := args.ApplicationService.GetUnitUUID(ctx, unitName)
 	if err != nil {
-		return nil, errors.Errorf("loading application UUID for unit %s: %w", unitName, err)
+		return nil, errors.Errorf("loading unit UUID for unit %s: %w", unitName, err)
 	}
 
 	applicationName := unitName.Application()
@@ -67,6 +67,8 @@ func NewResourceOpenerForUnit(
 		},
 		charmOrigin:                 charmOrigin,
 		appID:                       applicationID,
+		unitName:                    unitName,
+		unitUUID:                    unitUUID,
 		resourceDownloadLimiterFunc: resourceDownloadLimiterFunc,
 	}, nil
 }
@@ -122,6 +124,8 @@ type ResourceOpener struct {
 	setResourceFunc func(ctx context.Context, resourceUUID coreresource.UUID) error
 	charmOrigin     charm.Origin
 	appID           coreapplication.UUID
+	unitName        coreunit.Name
+	unitUUID        coreunit.UUID
 
 	resourceClientGetter        ResourceClientGetter
 	resourceDownloadLimiterFunc func() ResourceDownloadLock
@@ -174,6 +178,19 @@ func (ro ResourceOpener) getResource(
 		ApplicationUUID: ro.appID,
 		Name:            resName,
 	})
+	fromUnitFallback := false
+	if errors.Is(err, resourceerrors.ResourceNotFound) && ro.unitUUID != "" {
+		resourceUUID, err = ro.resourceService.GetUnitResourceID(ctx, resource.GetUnitResourceIDArgs{
+			UnitName: ro.unitName,
+			Name:     resName,
+		})
+		if err != nil {
+			return coreresource.Opened{}, errors.Errorf(
+				"getting UUID of resource %s for unit %s: %w", resName, ro.unitName, err,
+			)
+		}
+		fromUnitFallback = true
+	}
 	if err != nil {
 		return coreresource.Opened{}, errors.Errorf("getting UUID of resource %s for application %s: %w", resName, ro.appID, err)
 	}
@@ -194,7 +211,11 @@ func (ro ResourceOpener) getResource(
 
 	// The resource could not be opened, so may not be stored on the controller,
 	// get the resource info.
-	res, err = ro.resourceService.GetResource(ctx, resourceUUID)
+	if fromUnitFallback {
+		res, err = ro.resourceService.GetResourceWithoutApplication(ctx, resourceUUID)
+	} else {
+		res, err = ro.resourceService.GetResource(ctx, resourceUUID)
+	}
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
 	}

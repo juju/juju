@@ -1,0 +1,234 @@
+// The Juju model for the documentation.
+//
+// One model serves every page: nodes and edges are declared once and the
+// views (diagrams and sequences) select what each page needs. Pages embed
+// a view with the {ggarch} directive:
+//
+//   ```{ggarch}
+//   :file: ../juju.ggarch
+//   :view: The insight
+//   ```
+//
+// Colour means ownership (orange = Juju, grey = outside Juju); a cloud
+// badge marks an entity as deployed on a node from a cloud. See the
+// ggarch SKILL.md "Visual grammar".
+
+model "Juju" {
+
+  nodes {
+    // Actors and systems around Juju.
+    // Before Juju enters the story the person is an SRE; from "The insight"
+    // on, the same person is a Juju user (the account the controller knows).
+    sre      [type: person,        label: "SRE"]
+    user     [type: person,        label: "User"]
+    client   [type: juju-software, label: "Client"]
+    charmhub [type: external,      label: "Charmhub"]
+    cloud    [type: external,      label: "Cloud"]
+    clouds   [type: external,      label: "Clouds\n(AWS, MAAS, OpenStack,\nKubernetes, …)",
+              collective: cloud]
+
+    controller [type: juju-software, label: "Controller"]
+
+    // "The insight" shows Juju as one piece between the user and the
+    // applications. "The topology" opens it into a client and a controller
+    // and brings in the clouds and Charmhub.
+    juju     [type: juju-software, label: "Juju"]
+
+    // The entity chain: a model holds applications and an application runs
+    // as units. Models and applications are logical entities (dotted). A
+    // model lives on a cloud (the cloud badge), because that is where its
+    // workers get nodes from. A unit is a node with the unit agent, the
+    // charm and the workload on it.
+    model [type: entity, label: "Model", deployed: true] {
+      application [type: entity, label: "Application"] {
+        unit_node [type: node, label: "Unit"] {
+          unit_agent [type: juju-software, label: "Unit agent"]
+          charm      [type: charm,         label: "Charm"]
+          workload   [type: workload,      label: "Workload"]
+        }
+      }
+    }
+
+    // The applications as the user sees them: on nodes from a cloud,
+    // outside Juju. "The problem" and "The insight" draw them.
+    bare_node [type: external, label: "Node"]
+    bare_applications [type: external, label: "Applications", deployed: true,
+                       collective: bare_node]
+
+    // Two unit agents, for integration.
+    agent_foo [type: juju-software, label: "Unit agent\n(foo/0)"]
+    agent_bar [type: juju-software, label: "Unit agent\n(bar/0)"]
+  }
+
+  edges {
+    // The problem
+    sre  -> bare_applications [type: control, label: "operates"]
+
+    // The insight
+    user         -> juju              [type: api,     label: "declares intent to"]
+    juju         -> bare_applications [type: control, label: "operates"]
+
+    // The topology: declare a goal state, persist it, reconcile with it
+    user         -> client       [type: api,    label: "declares goal state to"]
+    client       -> controller   [type: api,    label: "persists goal state in"]
+    controller   -> clouds       [type: api,    label: "gets nodes from"]
+    controller   -> charmhub     [type: api,    label: "gets charms from"]
+
+    // The topology
+    unit_agent -> controller [type: stream,  label: "reconciles state with"]
+    unit_agent -> charm      [type: control, label: "runs"]
+    charm      -> workload   [type: control, label: "operates"]
+
+    // The steps
+    client     -> client     [type: api,    label: "saves to"]
+    client     -> cloud      [type: api,    label: "gets a node from"]
+    controller -> cloud      [type: api,    label: "gets nodes from"]
+    agent_foo  -> controller [type: stream, label: "watches"]
+    agent_bar  -> controller [type: stream, label: "watches"]
+  }
+
+  behaviours {
+    behaviour "add-cloud" {
+      user   -> client: call "juju add-cloud"
+      client -> client: self "save the cloud definition"
+      client -> user:   return "cloud added"
+    }
+    behaviour "add-credential" {
+      user   -> client: call "juju add-credential"
+      client -> client: self "save the credential"
+      client -> user:   return "credential added"
+    }
+    behaviour "bootstrap" {
+      user       -> client:     call "juju bootstrap"
+      client     -> cloud:      call "get a node"
+      cloud      -> client:     return "node ready"
+      client     -> controller: call "install and start the controller"
+      controller -> controller: self "initialize the database"
+      controller -> client:     return "API ready"
+    }
+    // Kubernetes clouds: one command adds the cluster and its credential from
+    // the kubeconfig, and the cluster runs the controller and the application
+    // pods, so there is no node to get and nothing to install by hand.
+    behaviour "add-k8s" {
+      user   -> client: call "juju add-k8s"
+      client -> client: self "save the cloud and its credential"
+      client -> user:   return "cloud added"
+    }
+    behaviour "bootstrap-k8s" {
+      user       -> client:     call "juju bootstrap"
+      client     -> cloud:      call "create the controller StatefulSet"
+      cloud      -> client:     return "created"
+      client     -> controller: call "wait for the API"
+      controller -> controller: self "initialize the database"
+      controller -> client:     return "API ready"
+    }
+    behaviour "add-model" {
+      user       -> client:     call "juju add-model"
+      client     -> controller: call "declare the model"
+      controller -> controller: self "persist it in the database"
+      controller -> client:     return "model ready"
+    }
+    behaviour "deploy" {
+      user       -> client:     call "juju deploy foo"
+      client     -> controller: call "declare the application"
+      controller -> controller: self "persist it in the database"
+      controller -> charmhub:   call "get the charm"
+      controller -> cloud:      call "get a node"
+      cloud      -> controller: return "node ready"
+      controller -> unit_agent: async "watcher fires"
+      unit_agent -> controller: call "fetch the current state"
+      unit_agent -> charm:      call "run the install hook"
+      unit_agent -> controller: call "report the result"
+    }
+    behaviour "deploy-k8s" {
+      user       -> client:     call "juju deploy foo"
+      client     -> controller: call "declare the application"
+      controller -> controller: self "persist it in the database"
+      controller -> charmhub:   call "get the charm"
+      controller -> cloud:      call "create the application's pods"
+      cloud      -> controller: return "pods created"
+      controller -> unit_agent: async "watcher fires"
+      unit_agent -> controller: call "fetch the current state"
+      unit_agent -> charm:      call "run the install hook"
+      unit_agent -> controller: call "report the result"
+    }
+    behaviour "config" {
+      user       -> client:     call "juju config foo key=value"
+      client     -> controller: call "declare the new value"
+      controller -> controller: self "persist it in the database"
+      controller -> unit_agent: async "watcher fires"
+      unit_agent -> controller: call "fetch the current state"
+      unit_agent -> charm:      call "run the config-changed hook"
+      unit_agent -> controller: call "report the result"
+    }
+    behaviour "integrate" {
+      user       -> client:     call "juju integrate foo bar"
+      client     -> controller: call "declare the integration"
+      controller -> controller: self "persist it in the database"
+      controller -> agent_foo:  async "watcher fires"
+      controller -> agent_bar:  async "watcher fires"
+      agent_foo  -> controller: call "fetch state, run relation hooks"
+      agent_bar  -> controller: call "fetch state, run relation hooks"
+    }
+  }
+
+  style { extends: juju }
+}
+
+diagram "The problem" from "Juju" {
+  // The user and the applications, which run on nodes from clouds (the
+  // cloud badge). The clouds themselves are a detail of "The topology".
+  select {
+    nodes: sre bare_applications
+    edges: type control
+    sizing: uniform
+  }
+  positions {
+    sre               left-of bare_applications gap: 120
+    sre               align-middle bare_applications
+  }
+}
+
+diagram "The insight" from "Juju" {
+  select {
+    nodes: user juju bare_applications
+    edges: type api type control
+    sizing: uniform
+  }
+  positions {
+    user              left-of juju gap: 100
+    user              align-middle juju
+    bare_applications right-of juju gap: 100
+    bare_applications align-middle juju
+  }
+}
+
+diagram "The topology" from "Juju" {
+  select {
+    nodes: user client controller clouds charmhub model
+    edges: type api type stream type control
+  }
+  positions {
+    user     left-of client gap: 90
+    user     align-middle client
+    client   left-of controller gap: 90
+    client   align-middle controller
+    clouds   above controller gap: 110
+    clouds   align-centre controller
+    charmhub below controller gap: 110
+    charmhub align-centre controller
+    model    right-of controller gap: 120
+    model    align-middle controller
+  }
+}
+
+sequence "juju add-cloud"      from "Juju" { select { behaviour: "add-cloud" } }
+sequence "juju add-credential" from "Juju" { select { behaviour: "add-credential" } }
+sequence "juju bootstrap"      from "Juju" { select { behaviour: "bootstrap" } }
+sequence "juju add-k8s"        from "Juju" { select { behaviour: "add-k8s" } }
+sequence "juju bootstrap (Kubernetes)" from "Juju" { select { behaviour: "bootstrap-k8s" } }
+sequence "juju add-model"      from "Juju" { select { behaviour: "add-model" } }
+sequence "juju deploy"         from "Juju" { select { behaviour: "deploy" } }
+sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8s" } }
+sequence "juju config"         from "Juju" { select { behaviour: "config" } }
+sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }

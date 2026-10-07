@@ -354,6 +354,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"relation_unit_setting",
 		"relation_unit_settings_hash",
 		"relation_unit_setting_archive",
+		"relation_unit_departure",
 		"relation_unit",
 		"relation",
 		"relation_network_ingress",
@@ -532,6 +533,12 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_ip_address_delete",
 		"trg_log_ip_address_insert",
 		"trg_log_ip_address_update",
+		"trg_log_link_layer_device_delete",
+		"trg_log_link_layer_device_insert",
+		"trg_log_link_layer_device_update",
+		"trg_log_space_delete",
+		"trg_log_space_insert",
+		"trg_log_space_update",
 
 		"trg_log_machine_cloud_instance_delete",
 		"trg_log_machine_cloud_instance_insert",
@@ -845,6 +852,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 
 		"trg_log_custom_relation_unit_insert",
 		"trg_log_custom_relation_unit_delete",
+		"trg_relation_unit_departure",
 
 		"trg_log_custom_relation_life_suspended_update",
 		"trg_log_custom_relation_life_suspended_delete",

@@ -293,6 +293,23 @@ type ImportRelationArg struct {
 	Scope     charm.RelationScope
 }
 
+// ImportRelationSettingsAndUnitsArgs are the arguments for importing the
+// settings and unit scope membership of relations that already exist.
+type ImportRelationSettingsAndUnitsArgs []ImportRelationSettingsAndUnitsArg
+
+// ImportRelationSettingsAndUnitsArg is the settings and unit scope data of
+// a single relation. The relation is located by its UUID, and Key is the
+// key it must have for the data to belong to it.
+type ImportRelationSettingsAndUnitsArg struct {
+	// UUID is the UUID of the relation the data belongs to.
+	UUID corerelation.UUID
+	// Key is the key the relation must have.
+	Key corerelation.Key
+	// Endpoints hold the application settings of each endpoint of the
+	// relation, and the settings of the units in its scope.
+	Endpoints []ImportEndpoint
+}
+
 // ImportEndpoint is a data to import for a single endpoint.
 type ImportEndpoint struct {
 	// The application which is participating in this end of the relation.

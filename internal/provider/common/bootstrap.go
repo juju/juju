@@ -22,7 +22,6 @@ import (
 	"github.com/juju/utils/v4/parallel"
 	"github.com/juju/utils/v4/ssh"
 
-	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -300,7 +299,7 @@ func BootstrapInstance(
 				return nil, nil, nil, errors.Annotate(err, "checking IPV6 CIDRs support to cloud provider")
 			}
 		}
-		if err := openControllerModelPorts(bootstrapContext, modelFw, args.ControllerConfig, env.Config(), envIPV6CIDRSupport); err != nil {
+		if err := openControllerModelPorts(bootstrapContext, modelFw, env.Config(), envIPV6CIDRSupport); err != nil {
 			return nil, nil, nil, errors.Annotate(err, "cannot open SSH")
 		}
 	}
@@ -369,30 +368,13 @@ func startInstanceZones(env environs.Environ, ctx context.Context, args environs
 	return zones, nil
 }
 
-// openControllerModelPorts opens port 22 and apiports on the controller to the configured allow list.
+// openControllerModelPorts opens the ssh port on the model firewall.
 // This is all that is required for the bootstrap to continue. Further configured
 // rules will be opened by the firewaller, Once it has started
 func openControllerModelPorts(bootstrapContext context.Context,
-	modelFw models.ModelFirewaller, controllerConfig controller.Config, cfg *config.Config, envIPV6CIDRSupport bool) error {
-	defaultCIDRs := []string{firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR}
+	modelFw models.ModelFirewaller, cfg *config.Config, envIPV6CIDRSupport bool) error {
 	rules := firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), cfg.SSHAllow()...),
-		firewall.NewIngressRule(network.PortRange{
-			Protocol: "tcp",
-			FromPort: controllerConfig.APIPort(),
-			ToPort:   controllerConfig.APIPort(),
-		}, defaultCIDRs...),
-	}
-
-	if controllerConfig.AutocertDNSName() != "" {
-		// Open port 80 as well as it handles Let's Encrypt HTTP challenge.
-		rules = append(rules,
-			firewall.NewIngressRule(network.PortRange{
-				Protocol: "tcp",
-				FromPort: 80,
-				ToPort:   80,
-			}, defaultCIDRs...),
-		)
 	}
 
 	// Strip IPV6 CIDRS from the collected ingress rule list if substrates do not support IPV6 CIDRs.

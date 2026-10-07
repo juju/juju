@@ -372,9 +372,10 @@ type MockStateMockRecorder struct {
 	addStorageForIAASUnitExpects                              []*gomock.Call4_2[context.Context, unit.UUID, storage.Name, storage0.IAASUnitAddStorageArg, []storage.ID, error]
 	attachStorageInstanceToUnitExpects                        []*gomock.Call3_1[context.Context, unit.UUID, storage0.AttachStorageInstanceToUnitArg, error]
 	checkApplicationsForMigrationExpects                      []*gomock.Call1_1[context.Context, error]
-	clearApplicationHasK8sResourcesExpects                    []*gomock.Call2_1[context.Context, application.UUID, error]
 	createCAASApplicationExpects                              []*gomock.Call4_2[context.Context, string, application0.AddCAASApplicationArg, []application0.AddCAASUnitArg, application.UUID, error]
 	createIAASApplicationExpects                              []*gomock.Call4_3[context.Context, string, application0.AddIAASApplicationArg, []application0.AddIAASUnitArg, application.UUID, []machine.Name, error]
+	deleteAppHasK8sResourcesEntryExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
+	deleteK8sServiceAddressesExpects                          []*gomock.Call2_1[context.Context, string, error]
 	endpointsExistExpects                                     []*gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
 	getAddressesHashExpects                                   []*gomock.Call3_2[context.Context, application.UUID, string, string, error]
 	getAllEndpointBindingsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]string, error]
@@ -652,24 +653,6 @@ func (mr *MockStateMockRecorder) CheckApplicationsForMigration(arg0 any) *MockSt
 // MockStateCheckApplicationsForMigrationCall is the typed call wrapper for CheckApplicationsForMigration.
 type MockStateCheckApplicationsForMigrationCall = gomock.Call1_1[context.Context, error]
 
-// ClearApplicationHasK8sResources mocks base method.
-func (m *MockState) ClearApplicationHasK8sResources(ctx context.Context, appUUID application.UUID) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.clearApplicationHasK8sResourcesExpects, m.ctrl, m, "ClearApplicationHasK8sResources", ctx, appUUID)
-}
-
-// ClearApplicationHasK8sResources indicates an expected call of ClearApplicationHasK8sResources.
-func (mr *MockStateMockRecorder) ClearApplicationHasK8sResources(ctx, appUUID any) *MockStateClearApplicationHasK8sResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, application.UUID, error](mr.mock.ctrl.T, mr.mock, "ClearApplicationHasK8sResources", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID))
-	mr.clearApplicationHasK8sResourcesExpects = append(mr.clearApplicationHasK8sResourcesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateClearApplicationHasK8sResourcesCall is the typed call wrapper for ClearApplicationHasK8sResources.
-type MockStateClearApplicationHasK8sResourcesCall = gomock.Call2_1[context.Context, application.UUID, error]
-
 // CreateCAASApplication mocks base method.
 func (m *MockState) CreateCAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddCAASApplicationArg, arg3 []application0.AddCAASUnitArg) (application.UUID, error) {
 	m.ctrl.T.Helper()
@@ -705,6 +688,42 @@ func (mr *MockStateMockRecorder) CreateIAASApplication(arg0, arg1, arg2, arg3 an
 
 // MockStateCreateIAASApplicationCall is the typed call wrapper for CreateIAASApplication.
 type MockStateCreateIAASApplicationCall = gomock.Call4_3[context.Context, string, application0.AddIAASApplicationArg, []application0.AddIAASUnitArg, application.UUID, []machine.Name, error]
+
+// DeleteAppHasK8sResourcesEntry mocks base method.
+func (m *MockState) DeleteAppHasK8sResourcesEntry(ctx context.Context, appUUID application.UUID) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.deleteAppHasK8sResourcesEntryExpects, m.ctrl, m, "DeleteAppHasK8sResourcesEntry", ctx, appUUID)
+}
+
+// DeleteAppHasK8sResourcesEntry indicates an expected call of DeleteAppHasK8sResourcesEntry.
+func (mr *MockStateMockRecorder) DeleteAppHasK8sResourcesEntry(ctx, appUUID any) *MockStateDeleteAppHasK8sResourcesEntryCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, application.UUID, error](mr.mock.ctrl.T, mr.mock, "DeleteAppHasK8sResourcesEntry", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID))
+	mr.deleteAppHasK8sResourcesEntryExpects = append(mr.deleteAppHasK8sResourcesEntryExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateDeleteAppHasK8sResourcesEntryCall is the typed call wrapper for DeleteAppHasK8sResourcesEntry.
+type MockStateDeleteAppHasK8sResourcesEntryCall = gomock.Call2_1[context.Context, application.UUID, error]
+
+// DeleteK8sServiceAddresses mocks base method.
+func (m *MockState) DeleteK8sServiceAddresses(ctx context.Context, appUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.deleteK8sServiceAddressesExpects, m.ctrl, m, "DeleteK8sServiceAddresses", ctx, appUUID)
+}
+
+// DeleteK8sServiceAddresses indicates an expected call of DeleteK8sServiceAddresses.
+func (mr *MockStateMockRecorder) DeleteK8sServiceAddresses(ctx, appUUID any) *MockStateDeleteK8sServiceAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DeleteK8sServiceAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID))
+	mr.deleteK8sServiceAddressesExpects = append(mr.deleteK8sServiceAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateDeleteK8sServiceAddressesCall is the typed call wrapper for DeleteK8sServiceAddresses.
+type MockStateDeleteK8sServiceAddressesCall = gomock.Call2_1[context.Context, string, error]
 
 // EndpointsExist mocks base method.
 func (m *MockState) EndpointsExist(ctx context.Context, appUUID application.UUID, endpoints set.Strings) error {

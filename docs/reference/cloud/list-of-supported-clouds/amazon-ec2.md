@@ -255,7 +255,7 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
-- {ref}`constraint-image-id`. Starting with Juju 3.3. Valid values: An AMI.
+- {ref}`constraint-image-id`. Valid values: An AMI.
 - {ref}`constraint-instance-role`. Values: `auto` (creates role automatically) or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name.
 - {ref}`constraint-instance-type`. Valid values: Any EC2 instance type. Default: `m3.medium`.
 - {ref}`constraint-mem`

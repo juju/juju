@@ -127,6 +127,14 @@ type PollingInfo struct {
 // PollingInfos is a slice of PollingInfo.
 type PollingInfos []PollingInfo
 
+// ReprovisionStatusIDs holds the database status IDs to record while
+// reprovisioning a machine. The service encodes domain status values before
+// passing them to state, so state persists values without owning that mapping.
+type ReprovisionStatusIDs struct {
+	MachineStatusID  int
+	InstanceStatusID int
+}
+
 // ProvisioningInfo holds the base, placement directive and constraints
 // for a machine, combined for efficient provisioning info retrieval.
 type ProvisioningInfo struct {

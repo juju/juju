@@ -43,7 +43,7 @@ type MockStateMockRecorder struct {
 	checkMachineReprovisioningEligibilityExpects              []*gomock.Call2_1[context.Context, machine.Name, error]
 	clearMachineRebootExpects                                 []*gomock.Call2_1[context.Context, machine.UUID, error]
 	countMachinesInSpaceExpects                               []*gomock.Call2_2[context.Context, string, int64, error]
-	detachLostMachineCloudInstanceExpects                     []*gomock.Call6_1[context.Context, string, string, string, []byte, time.Time, error]
+	detachLostMachineCloudInstanceExpects                     []*gomock.Call7_1[context.Context, string, string, string, []byte, time.Time, machine0.ReprovisionStatusIDs, error]
 	getAllProvisionedMachineInstanceIDExpects                 []*gomock.Call1_2[context.Context, map[machine.Name]string, error]
 	getHardwareCharacteristicsExpects                         []*gomock.Call2_2[context.Context, string, instance.HardwareCharacteristics, error]
 	getInstanceIDExpects                                      []*gomock.Call2_2[context.Context, string, string, error]
@@ -226,22 +226,22 @@ func (mr *MockStateMockRecorder) CountMachinesInSpace(ctx, spUUID any) *MockStat
 type MockStateCountMachinesInSpaceCall = gomock.Call2_2[context.Context, string, int64, error]
 
 // DetachLostMachineCloudInstance mocks base method.
-func (m *MockState) DetachLostMachineCloudInstance(arg0 context.Context, arg1, arg2, arg3 string, arg4 []byte, arg5 time.Time) error {
+func (m *MockState) DetachLostMachineCloudInstance(arg0 context.Context, arg1, arg2, arg3 string, arg4 []byte, arg5 time.Time, arg6 machine0.ReprovisionStatusIDs) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch6_1(&m.recorder.detachLostMachineCloudInstanceExpects, m.ctrl, m, "DetachLostMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
+	return gomock.Dispatch7_1(&m.recorder.detachLostMachineCloudInstanceExpects, m.ctrl, m, "DetachLostMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // DetachLostMachineCloudInstance indicates an expected call of DetachLostMachineCloudInstance.
-func (mr *MockStateMockRecorder) DetachLostMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateDetachLostMachineCloudInstanceCall {
+func (mr *MockStateMockRecorder) DetachLostMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockStateDetachLostMachineCloudInstanceCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall6_1[context.Context, string, string, string, []byte, time.Time, error](mr.mock.ctrl.T, mr.mock, "DetachLostMachineCloudInstance", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), gomock.EnsureMatcher(arg5))
+	call := gomock.NewCall7_1[context.Context, string, string, string, []byte, time.Time, machine0.ReprovisionStatusIDs, error](mr.mock.ctrl.T, mr.mock, "DetachLostMachineCloudInstance", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), gomock.EnsureMatcher(arg5), gomock.EnsureMatcher(arg6))
 	mr.detachLostMachineCloudInstanceExpects = append(mr.detachLostMachineCloudInstanceExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateDetachLostMachineCloudInstanceCall is the typed call wrapper for DetachLostMachineCloudInstance.
-type MockStateDetachLostMachineCloudInstanceCall = gomock.Call6_1[context.Context, string, string, string, []byte, time.Time, error]
+type MockStateDetachLostMachineCloudInstanceCall = gomock.Call7_1[context.Context, string, string, string, []byte, time.Time, machine0.ReprovisionStatusIDs, error]
 
 // GetAllProvisionedMachineInstanceID mocks base method.
 func (m *MockState) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]string, error) {

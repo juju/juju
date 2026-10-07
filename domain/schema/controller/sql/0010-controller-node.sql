@@ -46,6 +46,67 @@ CREATE TABLE controller_api_address (
     PRIMARY KEY (controller_id, address)
 );
 
+-- Published API endpoints for agents. A NULL controller_id represents a shared
+-- endpoint, such as a Kubernetes Service, rather than a specific controller.
+CREATE TABLE controller_agent_address (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    controller_id TEXT,
+    -- IP address or hostname with the API port appended.
+    address TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    -- Lower values are preferred within the controller or shared endpoint group.
+    priority INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_controller_agent_address_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id)
+);
+
+CREATE UNIQUE INDEX idx_controller_agent_address
+ON controller_agent_address (controller_id, address);
+
+-- NULL controller IDs do not compare equal in the index above.
+CREATE UNIQUE INDEX idx_controller_agent_address_shared
+ON controller_agent_address (address) WHERE controller_id IS NULL;
+
+-- Published API endpoints for clients. Controller identity is retained only
+-- when the endpoint reaches a specific controller; shared endpoints use NULL.
+CREATE TABLE controller_client_address (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    controller_id TEXT,
+    -- IP address or hostname with the API port appended.
+    address TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    -- Lower values are preferred within the controller or shared endpoint group.
+    priority INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_controller_client_address_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id)
+);
+
+CREATE UNIQUE INDEX idx_controller_client_address
+ON controller_client_address (controller_id, address);
+
+CREATE UNIQUE INDEX idx_controller_client_address_shared
+ON controller_client_address (address) WHERE controller_id IS NULL;
+
+-- Published API endpoints for communication between controllers. Each endpoint
+-- must reach the identified controller, so shared Service endpoints do not apply.
+CREATE TABLE controller_peer_address (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    controller_id TEXT NOT NULL,
+    -- IP address or hostname with the API port appended.
+    address TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    -- Lower values are preferred for this controller.
+    priority INT NOT NULL DEFAULT 0,
+    CONSTRAINT fk_controller_peer_address_controller
+    FOREIGN KEY (controller_id)
+    REFERENCES controller_node (controller_id)
+);
+
+CREATE UNIQUE INDEX idx_controller_peer_address
+ON controller_peer_address (controller_id, address);
+
 CREATE TABLE controller_node_password (
     controller_id TEXT NOT NULL PRIMARY KEY,
     password_hash_algorithm_id TEXT,

@@ -182,6 +182,7 @@ type MockCrossModelRelationServiceMockRecorder struct {
 	getConsumeDetailsExpects        []*gomock.Call2_2[context.Context, crossmodel.OfferURL, crossmodelrelation.ConsumeDetails, error]
 	getOfferUUIDExpects             []*gomock.Call2_2[context.Context, crossmodel.OfferURL, offer.UUID, error]
 	getOffersWithConnectionsExpects []*gomock.Call2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetailWithConnections, error]
+	updateOfferPermissionExpects    []*gomock.Call2_1[context.Context, crossmodelrelation.UpdateOfferPermissionArgs, error]
 }
 
 // NewMockCrossModelRelationService creates a new mock instance.
@@ -267,6 +268,24 @@ func (mr *MockCrossModelRelationServiceMockRecorder) GetOffersWithConnections(ct
 
 // MockCrossModelRelationServiceGetOffersWithConnectionsCall is the typed call wrapper for GetOffersWithConnections.
 type MockCrossModelRelationServiceGetOffersWithConnectionsCall = gomock.Call2_2[context.Context, []service.OfferFilter, []*crossmodelrelation.OfferDetailWithConnections, error]
+
+// UpdateOfferPermission mocks base method.
+func (m *MockCrossModelRelationService) UpdateOfferPermission(ctx context.Context, args crossmodelrelation.UpdateOfferPermissionArgs) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.updateOfferPermissionExpects, m.ctrl, m, "UpdateOfferPermission", ctx, args)
+}
+
+// UpdateOfferPermission indicates an expected call of UpdateOfferPermission.
+func (mr *MockCrossModelRelationServiceMockRecorder) UpdateOfferPermission(ctx, args any) *MockCrossModelRelationServiceUpdateOfferPermissionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, crossmodelrelation.UpdateOfferPermissionArgs, error](mr.mock.ctrl.T, mr.mock, "UpdateOfferPermission", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
+	mr.updateOfferPermissionExpects = append(mr.updateOfferPermissionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockCrossModelRelationServiceUpdateOfferPermissionCall is the typed call wrapper for UpdateOfferPermission.
+type MockCrossModelRelationServiceUpdateOfferPermissionCall = gomock.Call2_1[context.Context, crossmodelrelation.UpdateOfferPermissionArgs, error]
 
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {

@@ -80,6 +80,11 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	UpsertK8sService(ctx context.Context, appName, providerID string, args internal.UpsertK8sServiceArgs) error
 
+	// DeleteK8sServiceAddresses deletes an application's Service addresses after
+	// the provider reports that the Service no longer exists.
+	// An application without a recorded Service is a no-op.
+	DeleteK8sServiceAddresses(ctx context.Context, appUUID string) error
+
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application. This blocks removal until
 	// cleared.
@@ -87,17 +92,13 @@ type ApplicationState interface {
 	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
 	SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
 
-	// ClearApplicationHasK8sResources records that the provisioner has
+	// DeleteAppHasK8sResourcesEntry records that the provisioner has
 	// finished managing k8s resources for the given application, unblocking
-	// removal.
-	// The following errors may be returned:
-	// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-	ClearApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error
+	// removal. It is a no-op if no entry exists for the application.
+	DeleteAppHasK8sResourcesEntry(ctx context.Context, appUUID coreapplication.UUID) error
 
 	// IsSubordinateApplication returns true if the application is a subordinate
 	// application.
-	// The following errors may be returned:
-	// - [appliationerrors.ApplicationNotFound] if the application does not exist
 	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
 	// GetApplicationScaleState looks up the scale state of the specified
@@ -349,7 +350,7 @@ type ApplicationState interface {
 	// for application configuration changes.
 	NamespaceForWatchApplicationConfig() string
 
-	// NamesapceForWatchApplicationSetting returns the namespace string identifier
+	// NamespaceForWatchApplicationSetting returns the namespace string identifier
 	// for application setting changes.
 	NamespaceForWatchApplicationSetting() string
 
@@ -863,6 +864,21 @@ func (s *Service) GetCharmByApplicationUUID(ctx context.Context, id coreapplicat
 	), locator, nil
 }
 
+// ClearK8sServiceAddresses clears the addresses of a missing Kubernetes Service.
+// The Service record and net node are retained for subsequent reconciliation.
+// An application without a recorded Service is a no-op.
+func (s *Service) ClearK8sServiceAddresses(ctx context.Context, appUUID coreapplication.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	if err := appUUID.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if err := s.st.DeleteK8sServiceAddresses(ctx, appUUID.String()); err != nil {
+		return errors.Errorf("clearing Kubernetes Service addresses for application %q: %w", appUUID, err)
+	}
+	return nil
+}
+
 // UpdateK8sService replaces the cloud Service address snapshot for an
 // application. An empty snapshot removes all previously recorded addresses.
 // The following errors may be returned:
@@ -901,7 +917,7 @@ func (s *Service) UpdateK8sService(ctx context.Context, appName, providerID stri
 		if err != nil {
 			return errors.Capture(err)
 		}
-		args.Addresses = append(args.Addresses, internal.K8sServiceAddress{
+		args.Addresses = append(args.Addresses, internal.Address{
 			UUID: id.String(), ProviderAddress: addr,
 		})
 	}
@@ -926,7 +942,7 @@ func (s *Service) ClearApplicationHasK8sResources(ctx context.Context, appUUID c
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return errors.Capture(s.st.ClearApplicationHasK8sResources(ctx, appUUID))
+	return errors.Capture(s.st.DeleteAppHasK8sResourcesEntry(ctx, appUUID))
 }
 
 // GetApplicationLife looks up the life of the specified application, returning
@@ -1714,12 +1730,21 @@ func overrideStorageDirectives(
 	return created, updated
 }
 
-// SetApplicationCharm sets a new charm for the application, validating that aspects such
-// as storage are still viable with the new charm. It reconciles existing application
-// storage directives with the new charm's storage requirements.
+// SetApplicationCharm sets a new charm for the application, validating that
+// aspects such as storage are still viable with the new charm. It reconciles
+// existing resources and storage directives with the new charm's requirements.
 func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName string, charmLocator charm.CharmLocator, params application.SetCharmParams) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	for name, resourceUUID := range params.ResourceIDs {
+		if name == "" {
+			return errors.Errorf("resource name is empty: %w", applicationerrors.InvalidResourceArgs)
+		}
+		if err := resourceUUID.Validate(); err != nil {
+			return errors.Errorf("resource %q UUID: %w", name, err)
+		}
+	}
 
 	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
 	if err != nil {
@@ -1820,8 +1845,9 @@ func (s *ProviderService) SetApplicationCharm(ctx context.Context, appName strin
 	if err := storage.ValidateApplicationStorageDirectives(newCharmStorage, finalStorageDirectives); err != nil {
 		return errors.Errorf("validating final storage directives against charm storage: %w", err)
 	}
-
-	paramsState, err := makeSetCharmStateArg(params, toCreate, toUpdate)
+	paramsState, err := s.makeSetCharmStateArg(
+		ctx, charmID, params, toCreate, toUpdate,
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -2090,9 +2116,38 @@ func coerceValue(t charm.OptionType, value string) (any, error) {
 
 }
 
-func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
+func (s *ProviderService) makeSetCharmStateArg(
+	ctx context.Context,
+	charmID corecharm.ID,
+	setCharmParams application.SetCharmParams,
 	toCreate []domainstorage.DirectiveArg,
-	toUpdate []domainstorage.DirectiveArg) (application.SetCharmStateParams, error) {
+	toUpdate []domainstorage.DirectiveArg,
+) (application.SetCharmStateParams, error) {
+	newCharmResources, err := s.st.GetCharmMetadataResources(ctx, charmID)
+	if err != nil {
+		return application.SetCharmStateParams{}, errors.Errorf(
+			"getting charm resource metadata: %w", err,
+		)
+	}
+	replacementResourceUUIDs := make(map[string]string, len(newCharmResources))
+	repositoryResourceUUIDs := make(map[string]string, len(newCharmResources))
+	for name := range newCharmResources {
+		replacementUUID, err := resource.NewUUID()
+		if err != nil {
+			return application.SetCharmStateParams{}, errors.Errorf(
+				"generating replacement resource UUID: %w", err,
+			)
+		}
+		replacementResourceUUIDs[name] = replacementUUID.String()
+		repositoryUUID, err := resource.NewUUID()
+		if err != nil {
+			return application.SetCharmStateParams{}, errors.Errorf(
+				"generating repository resource UUID: %w", err,
+			)
+		}
+		repositoryResourceUUIDs[name] = repositoryUUID.String()
+	}
+
 	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
 	if err != nil {
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)
@@ -2113,5 +2168,9 @@ func makeSetCharmStateArg(setCharmParams application.SetCharmParams,
 		EndpointBindings:          setCharmParams.EndpointBindings,
 		StorageDirectivesToCreate: toCreate,
 		StorageDirectivesToUpdate: toUpdate,
+		ReplacementResourceUUIDs:  replacementResourceUUIDs,
+		RepositoryResourceUUIDs:   repositoryResourceUUIDs,
+		ResourceIDs: transform.Map(setCharmParams.ResourceIDs,
+			func(k string, v resource.UUID) (string, string) { return k, v.String() }),
 	}, nil
 }

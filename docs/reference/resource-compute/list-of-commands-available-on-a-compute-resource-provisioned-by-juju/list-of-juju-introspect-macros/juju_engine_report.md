@@ -75,8 +75,6 @@ manifolds:
 
 * Dependencies that are started which should be stopped. Can prevent a unit from upgrading or migrating if the workers do not quiesce.
 
-* A controller's engine report will contain the model cache contents as of 2.9
-
 * The report from an individual unit contains the local-state and relation, formerly in a file on the unit:
 ```
                  report:

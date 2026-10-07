@@ -1112,6 +1112,13 @@ type RelationUnit struct {
 	UnitUUID             string `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
 }
 
+type RelationUnitDeparture struct {
+	RelationUUID         string `db:"relation_uuid" json:"relation_uuid" yaml:"relation_uuid"`
+	RelationEndpointUUID string `db:"relation_endpoint_uuid" json:"relation_endpoint_uuid" yaml:"relation_endpoint_uuid"`
+	UnitUUID             string `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
+	UnitName             string `db:"unit_name" json:"unit_name" yaml:"unit_name"`
+}
+
 type RelationUnitSetting struct {
 	RelationUnitUUID string `db:"relation_unit_uuid" json:"relation_unit_uuid" yaml:"relation_unit_uuid"`
 	Key              string `db:"key" json:"key" yaml:"key"`
@@ -1568,9 +1575,10 @@ type UnitResolved struct {
 }
 
 type UnitResource struct {
-	ResourceUUID string    `db:"resource_uuid" json:"resource_uuid" yaml:"resource_uuid"`
-	UnitUUID     string    `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
-	AddedAt      time.Time `db:"added_at" json:"added_at" yaml:"added_at"`
+	ResourceUUID      string    `db:"resource_uuid" json:"resource_uuid" yaml:"resource_uuid"`
+	UnitUUID          string    `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
+	CharmResourceName string    `db:"charm_resource_name" json:"charm_resource_name" yaml:"charm_resource_name"`
+	AddedAt           time.Time `db:"added_at" json:"added_at" yaml:"added_at"`
 }
 
 type UnitState struct {
@@ -1802,6 +1810,7 @@ type ModelExport struct {
 	RelationStatus                           []RelationStatus                           `json:"relation_status" yaml:"relation_status"`
 	RelationStatusType                       []RelationStatusType                       `json:"relation_status_type" yaml:"relation_status_type"`
 	RelationUnit                             []RelationUnit                             `json:"relation_unit" yaml:"relation_unit"`
+	RelationUnitDeparture                    []RelationUnitDeparture                    `json:"relation_unit_departure" yaml:"relation_unit_departure"`
 	RelationUnitSetting                      []RelationUnitSetting                      `json:"relation_unit_setting" yaml:"relation_unit_setting"`
 	RelationUnitSettingArchive               []RelationUnitSettingArchive               `json:"relation_unit_setting_archive" yaml:"relation_unit_setting_archive"`
 	RelationUnitSettingsHash                 []RelationUnitSettingsHash                 `json:"relation_unit_settings_hash" yaml:"relation_unit_settings_hash"`

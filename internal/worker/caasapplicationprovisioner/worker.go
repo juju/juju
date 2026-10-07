@@ -115,6 +115,9 @@ type ApplicationService interface {
 	// UpdateK8sService updates the k8s service for the specified application.
 	UpdateK8sService(ctx context.Context, appName, providerID string, sAddrs network.ProviderAddresses) error
 
+	// ClearK8sServiceAddresses clears addresses when the provider Service is gone.
+	ClearK8sServiceAddresses(ctx context.Context, appUUID coreapplication.UUID) error
+
 	// SetApplicationHasK8sResources records that the provisioner is managing
 	// k8s resources for the given application.
 	SetApplicationHasK8sResources(ctx context.Context, appUUID coreapplication.UUID) error

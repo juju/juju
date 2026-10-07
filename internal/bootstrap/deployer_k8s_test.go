@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/caas"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
@@ -169,7 +170,7 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationServiceAddresses(c *tc
 			MachineAddress: network.MachineAddress{
 				Value: "10.0.0.1",
 				Type:  network.IPv4Address,
-				Scope: network.ScopeMachineLocal,
+				Scope: network.ScopeCloudLocal,
 			},
 		},
 		{
@@ -181,7 +182,10 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationServiceAddresses(c *tc
 		},
 	}
 
-	s.k8sApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), providerAddress).Return(nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+		Id: "service-uid", Addresses: providerAddress,
+	}, nil)
+	s.k8sApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, "service-uid", providerAddress).Return(nil)
 	s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
 	})
@@ -207,7 +211,10 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
 
 	unitName := unit.Name("controller/0")
 
-	s.k8sApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
+	s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+		Id: "service-uid", Addresses: cfg.BootstrapAddresses,
+	}, nil)
+	s.k8sApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, "service-uid", cfg.BootstrapAddresses).Return(nil)
 	// The controller FQDN is persisted in the same flow that upserts the k8s
 	// pod (provider id), i.e. via UpdateCAASUnit.
 	s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
@@ -220,6 +227,31 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationSetsFQDN(c *tc.C) {
 	deployer := s.newDeployerWithConfig(c, cfg)
 	err := deployer.EnsureControllerApplication(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *deployerK8sSuite) TestCompleteControllerApplicationServiceReadFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	cfg := s.newConfig(c)
+	deployer := s.newDeployerWithConfig(c, cfg)
+	expectedErr := errors.New("provider unavailable")
+	for _, test := range []struct {
+		service *caas.Service
+		err     error
+	}{
+		{err: expectedErr},
+		{},
+		{service: &caas.Service{}},
+	} {
+		s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("controller/0"), gomock.Any()).Return(nil)
+		s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unit.Name("controller/0"), cfg.UnitPassword).Return(nil)
+		s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(test.service, test.err)
+		err := deployer.completeControllerApplication(c.Context())
+		if test.err != nil {
+			c.Assert(err, tc.ErrorIs, expectedErr)
+		} else {
+			c.Assert(err, tc.ErrorMatches, "controller API service has not been provisioned")
+		}
+	}
 }
 
 func (s *deployerK8sSuite) TestEnsureControllerApplicationCreationFails(c *tc.C) {
@@ -301,6 +333,10 @@ func (s *deployerK8sSuite) TestEnsureControllerApplicationRetriesExposure(c *tc.
 }
 
 func (s *deployerK8sSuite) expectControllerApplicationCompletion(cfg K8sDeployerConfig, serviceErr error) {
+	serviceAddresses := network.ProviderAddresses{
+		network.NewMachineAddress("10.0.0.10", network.WithScope(network.ScopeCloudLocal)).AsProviderAddress(),
+		network.NewMachineAddress("api.example.com", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+	}
 	unitName := unit.Name("controller/0")
 	params := applicationservice.UpdateCAASUnitParams{
 		ProviderID: new("controller-0"),
@@ -311,8 +347,11 @@ func (s *deployerK8sSuite) expectControllerApplicationCompletion(cfg K8sDeployer
 	gomock.InOrder(
 		s.k8sApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, params).Return(nil),
 		s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword).Return(nil),
+		s.serviceManager.EXPECT().GetService(gomock.Any(), bootstrap.ControllerApplicationName, true).Return(&caas.Service{
+			Id: "controller-service-uid", Addresses: serviceAddresses,
+		}, nil),
 		s.k8sApplicationService.EXPECT().UpdateK8sService(
-			gomock.Any(), bootstrap.ControllerApplicationName, "controller-0", cfg.BootstrapAddresses,
+			gomock.Any(), bootstrap.ControllerApplicationName, "controller-service-uid", serviceAddresses,
 		).Return(serviceErr),
 	)
 }

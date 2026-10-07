@@ -195,6 +195,17 @@ func detailedResources(unit string, sr resource.ApplicationResources) []Formatte
 			for _, svc := range sr.Resources {
 				f := FormatDetailResource(tag, svc, units[svc.Name], -1)
 				formatted = append(formatted, f)
+				delete(units, svc.Name)
+			}
+			for _, unitResource := range ur.Resources {
+				if _, ok := units[unitResource.Name]; !ok {
+					continue
+				}
+				expected := resource.Resource{
+					Resource: charmresource.Resource{Meta: unitResource.Meta},
+				}
+				formatted = append(formatted,
+					FormatDetailResource(tag, expected, unitResource, -1))
 			}
 			if unit != "" {
 				break

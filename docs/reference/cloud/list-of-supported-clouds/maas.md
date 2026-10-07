@@ -24,7 +24,7 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 (maas-requirements)=
 ## Requirements
 
-Starting with Juju 3.0, MAAS versions earlier than 2 are no longer supported.
+Juju requires MAAS 2 or later.
 
 (maas-concepts)=
 ## Concepts
@@ -146,7 +146,7 @@ MAAS supports the following {ref}`constraints <constraint>`:
 
 - {ref}`constraint-arch`. Valid values: See cloud provider.
 - {ref}`constraint-cores`
-- {ref}`constraint-image-id`. Starting with Juju 3.2. Valid values: An image name from MAAS.
+- {ref}`constraint-image-id`. Valid values: An image name from MAAS.
 - {ref}`constraint-mem`
 - {ref}`constraint-virt-type`. Starting with Juju 3.6.22. Valid values: `virtual-machine`. Default: empty string (allocates from inventory). Use `virtual-machine` to compose a VM from a pod.
 

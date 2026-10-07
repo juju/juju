@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -18,12 +19,14 @@ import (
 type baseSuite struct {
 	controllerState *MockControllerState
 	modelState      *MockModelState
+	modelUUID       model.UUID
 }
 
 func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
+	s.modelUUID = model.UUID("test-model-uuid")
 
 	c.Cleanup(func() {
 		s.controllerState = nil

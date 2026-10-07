@@ -88,7 +88,6 @@ type SourceControllerAddress struct {
 	ControllerID string
 	Address      string
 	Scope        string
-	IsAgent      bool
 }
 
 // MinionReports is the aggregated set of persisted minion phase reports for a

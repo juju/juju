@@ -16,8 +16,8 @@ run_prometheus() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target prometheus-k8s 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | yq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
+	retry 'check_controller_charm_active' 10
+	retry 'check_app_active prometheus-k8s' 10
 
 	juju remove-application prometheus-k8s --destroy-storage --no-prompt \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed
@@ -53,8 +53,8 @@ run_prometheus_multiple_units() {
 	wait_for "p1" "$(active_condition "p1" 0)"
 
 	# Check all applications are still healthy
-	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | yq -r "$(active_condition "p1" 0)" | check "p1"
+	retry 'check_controller_charm_active' 10
+	retry 'check_app_active p1 0' 10
 
 	juju remove-relation p2 controller
 	# Wait until the application p2 settles before health checks
@@ -63,15 +63,15 @@ run_prometheus_multiple_units() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p2 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | yq -r "$(active_condition "p2" 1)" | check "p2"
+	retry 'check_controller_charm_active' 10
+	retry 'check_app_active p2 1' 10
 
 	juju remove-relation p1 controller
 
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p1 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
+	retry 'check_controller_charm_active' 10
 	# Ensure p1 is still healty
 	wait_for "p1" "$(active_condition "p1" 0)"
 
@@ -108,8 +108,8 @@ run_prometheus_cross_controller() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target prometheus-k8s 0' 30
 	# Check no errors in controller charm or Prometheus
-	juju status -m controller --format json | yq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | yq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
+	retry 'check_controller_charm_active' 10
+	retry 'check_app_active prometheus-k8s' 10
 
 	juju remove-application prometheus-k8s --destroy-storage --no-prompt \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed
@@ -123,7 +123,7 @@ check_prometheus_targets() {
 	local app_name=$1
 	local unit_number=$2
 
-	TARGET=$(get_juju_target "$app_name" "$unit_number")
+	TARGET=$(get_juju_target "$app_name" "$unit_number") || return $?
 	if [[ -z $TARGET ]]; then
 		echo "Juju controller not found in Prometheus targets"
 		return 1
@@ -139,13 +139,13 @@ check_prometheus_targets() {
 }
 
 # Check the Juju controller is not present in the list of Prometheus targets.
-#   usage: check_prometheus_targets <app-name> <unit-number>
+#   usage: check_prometheus_no_target <app-name> <unit-number>
 check_prometheus_no_target() {
 	set -uo pipefail
 	local app_name=$1
 	local unit_number=$2
 
-	TARGET=$(get_juju_target "$app_name" "$unit_number")
+	TARGET=$(get_juju_target "$app_name" "$unit_number") || return $?
 	if [[ -n $TARGET ]]; then
 		echo "Whoops: Juju controller still found in Prometheus targets"
 		return 1
@@ -154,7 +154,30 @@ check_prometheus_no_target() {
 	echo "Success: Juju controller removed from Prometheus targets"
 }
 
-# Extract the Juju controller from the list of Prometheus targets
+# Check the controller charm is healthy in the controller model. Relation
+# teardown hooks may still be settling, so callers should use retry.
+#   usage: check_controller_charm_active
+check_controller_charm_active() {
+	set -uo pipefail
+	juju status -m controller --format json |
+		yq -r "$(active_condition "controller")" | check "controller"
+}
+
+# Check the given application is healthy in the current model. Relation
+# teardown hooks may still be settling, so callers should use retry.
+#   usage: check_app_active <app-name> [app-index]
+check_app_active() {
+	set -uo pipefail
+	local app_name=$1
+	local app_index=${2:-0}
+	juju status --format json |
+		yq -r "$(active_condition "$app_name" "$app_index")" | check "$app_name"
+}
+
+# Extract the Juju controller from the list of Prometheus targets. Returns 2
+# when the Prometheus API cannot be reached, or its pod address cannot be
+# resolved, so callers can tell an unreachable API apart from an absent
+# target.
 #   usage: get_juju_target <app-name> <unit-number>
 get_juju_target() {
 	set -uo pipefail
@@ -163,9 +186,20 @@ get_juju_target() {
 
 	PROM_IP=$(juju status --format json |
 		yq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
-	TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
-		yq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
-	echo "$TARGET"
+	# Fail fast when the address itself cannot be resolved, so the retry
+	# log states which leg failed instead of blaming the API.
+	if [[ -z ${PROM_IP} || ${PROM_IP} == "null" ]]; then
+		echo "could not resolve $app_name/$unit_number address" >&2
+		return 2
+	fi
+	# Single-shot probe: the callers' retry loops provide the endurance,
+	# nesting curl retries here would multiply the worst-case latency.
+	if ! RESPONSE=$(curl -sS -m 10 "http://${PROM_IP}:9090/api/v1/targets"); then
+		echo "Prometheus API at ${PROM_IP}:9090 unreachable" >&2
+		return 2
+	fi
+	echo "$RESPONSE" |
+		yq '.data.activeTargets[] | select(.labels.juju_application == "controller")'
 }
 
 test_prometheus() {

@@ -18,6 +18,7 @@ import (
 	controllernodestate "github.com/juju/juju/domain/controllernode/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -111,9 +112,9 @@ func (s *stateSuite) TestGetControllerInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	addrs1 := []controllernode.APIAddress{
-		{Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
-		{Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
+		{UUID: uuid.MustNewUUID().String(), Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
 	}
 	err = controllerNodeState.SetAPIAddresses(
 		c.Context(),
@@ -132,11 +133,18 @@ INSERT INTO controller_config ("key", value) VALUES (?, ?)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO controller_agent_address (uuid, address, scope)
+VALUES ('shared', 'shared.example.com:17070', 'local-cloud');
+INSERT INTO controller_api_address (controller_id, address, scope, is_agent)
+VALUES ('1', 'legacy.example.com:17070', 'public', true)`)
+	c.Assert(err, tc.ErrorIsNil)
+
 	info, err := st.GetControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.UUID, tc.Equals, "deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	c.Check(info.CACert, tc.Equals, "test-ca-cert")
-	c.Check(info.APIAddresses, tc.SameContents, []string{"10.0.0.2:17070", "10.0.0.42:18080"})
+	c.Check(info.APIAddresses, tc.SameContents, []string{"10.0.0.2:17070", "10.0.0.42:18080", "shared.example.com:17070"})
 	c.Check(info.PublicDNSAddress, tc.Equals, "controller.test.com:1234")
 }
 

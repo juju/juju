@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -36,11 +37,39 @@ func TestRoundTripSuite(t *testing.T) {
 //   - space: a seeded-extensible table. Its well-known alpha seed row is skipped
 //     by ON CONFLICT DO NOTHING (not duplicated) while the user-created space is
 //     inserted.
+//   - unit_resource: a row with a denormalized resource name and its complete
+//     foreign-key chain (exact round-trip).
 func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
-	const userSpaceUUID = "11111111-1111-1111-1111-111111111111"
+	const (
+		userSpaceUUID = "11111111-1111-1111-1111-111111111111"
+		charmUUID     = "22222222-2222-2222-2222-222222222222"
+		appUUID       = "33333333-3333-3333-3333-333333333333"
+		netNodeUUID   = "44444444-4444-4444-4444-444444444444"
+		unitUUID      = "55555555-5555-5555-5555-555555555555"
+		resourceUUID  = "66666666-6666-6666-6666-666666666666"
+		resourceName  = "foo"
+	)
 	s.bootstrapModel(c)
+	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	payload := &v4_1_0.ModelExport{
+		Application: []v4_1_0.Application{{
+			UUID: appUUID, Name: "test-app", LifeID: 0, CharmUUID: charmUUID,
+			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
+		}},
+		Charm: []v4_1_0.Charm{{
+			UUID: charmUUID, SourceID: 1, Revision: 1,
+			ReferenceName: "test-charm", CreateTime: now,
+		}},
+		CharmResource: []v4_1_0.CharmResource{{
+			CharmUUID: charmUUID, Name: resourceName, KindID: 0,
+		}},
+		NetNode: []v4_1_0.NetNode{{UUID: netNodeUUID}},
+		Resource: []v4_1_0.Resource{{
+			UUID: resourceUUID, CharmUUID: charmUUID,
+			CharmResourceName: resourceName, OriginTypeID: 0,
+			StateID: 0, CreatedAt: now,
+		}},
 		Sequence: []v4_1_0.Sequence{
 			{Namespace: "machine", Value: 7},
 			{Namespace: "unit", Value: 3},
@@ -51,6 +80,15 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 		ProviderSpace: []v4_1_0.ProviderSpace{
 			{ProviderID: "provider-1", SpaceUUID: userSpaceUUID},
 		},
+		Unit: []v4_1_0.Unit{{
+			UUID: unitUUID, Name: "test-app/0", LifeID: 0,
+			ApplicationUUID: appUUID, NetNodeUUID: netNodeUUID,
+			CharmUUID: charmUUID,
+		}},
+		UnitResource: []v4_1_0.UnitResource{{
+			ResourceUUID: resourceUUID, UnitUUID: unitUUID,
+			CharmResourceName: resourceName, AddedAt: now,
+		}},
 	}
 
 	importSt := importstate.NewState(s.TxnRunnerFactory())
@@ -64,6 +102,7 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	// FK-free content tables round-trip exactly.
 	c.Check(got.Sequence, tc.SameContents, payload.Sequence)
 	c.Check(got.ProviderSpace, tc.SameContents, payload.ProviderSpace)
+	c.Check(got.UnitResource, tc.DeepEquals, payload.UnitResource)
 
 	// The user space was imported; the alpha seed row was preserved exactly once
 	// (skipped by ON CONFLICT DO NOTHING, not duplicated).

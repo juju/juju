@@ -180,13 +180,20 @@ func (d *K8sDeployer) completeControllerApplication(ctx context.Context) error {
 		return errors.Errorf("setting controller unit password: %w", err)
 	}
 
-	// Insert the k8s service with its addresses.
-	d.logger.Debugf(ctx, "creating cloud service for k8s controller %q", providerID)
-	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, providerID, d.bootstrapAddresses)
+	// Persist the API Service's actual UID and addresses, separately from the
+	// controller pod's provider ID and stable Dqlite identity above.
+	svc, err := d.serviceManager.GetService(ctx, bootstrap.ControllerApplicationName, true)
+	if err != nil {
+		return errors.Errorf("getting controller API service: %w", err)
+	}
+	if svc == nil || svc.Id == "" {
+		return errors.New("controller API service has not been provisioned")
+	}
+	err = d.applicationService.UpdateK8sService(ctx, bootstrap.ControllerApplicationName, svc.Id, svc.Addresses)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	d.logger.Debugf(ctx, "created cloud service with addresses %v for controller", d.bootstrapAddresses)
+	d.logger.Debugf(ctx, "recorded controller API service %q with addresses %v", svc.Id, svc.Addresses)
 
 	return nil
 }

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -eu
+
+unit_name=$(relation-get unit-name "${JUJU_DEPARTING_UNIT}")
+juju-log "reprovision-relations: hook=peers-relation-departed remote=${JUJU_DEPARTING_UNIT} setting=${unit_name}"

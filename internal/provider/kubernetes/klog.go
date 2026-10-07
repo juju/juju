@@ -111,13 +111,13 @@ type klogSuppressMessagePrefix struct {
 func (k klogSuppressMessagePrefix) Do(loggerFn func(context.Context, string, ...any), msg string, args ...any) {
 	// If we don't have a rate, just call the function directly.
 	if k.rate == nil {
-		loggerFn(context.TODO(), msg, args)
+		loggerFn(context.TODO(), msg, args...)
 		return
 	}
 
 	// If we have a rate, use it to suppress the message.
 	k.rate.Do(func() {
-		loggerFn(context.TODO(), msg, args)
+		loggerFn(context.TODO(), msg, args...)
 	})
 }
 

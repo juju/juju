@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -75,11 +74,6 @@ type ApplicationDomainService interface {
 	GetUnitLife(ctx context.Context, unitName coreunit.Name) (life.Value, error)
 }
 
-// ModelInfoDomainService provides access to model info operations.
-type ModelInfoDomainService interface {
-	IsControllerModel(ctx context.Context) (bool, error)
-}
-
 // firewallerAPIAdapter implements FirewallerAPI using domain services.
 type firewallerAPIAdapter struct {
 	machineSvc       MachineDomainService
@@ -89,7 +83,6 @@ type firewallerAPIAdapter struct {
 	relationSvc      RelationDomainService
 	extControllerSvc ExternalControllerDomainService
 	appSvc           ApplicationDomainService
-	modelInfoSvc     ModelInfoDomainService
 }
 
 // WatchModelMachines implements FirewallerAPI.
@@ -108,14 +101,6 @@ func (a *firewallerAPIAdapter) ModelFirewallRules(ctx context.Context) (firewall
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctrlCfg, err := a.ctrlConfigSvc.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	isController, err := a.modelInfoSvc.IsControllerModel(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	var rules firewall.IngressRules
 	sshAllow := cfg.SSHAllow()
@@ -125,19 +110,23 @@ func (a *firewallerAPIAdapter) ModelFirewallRules(ctx context.Context) (firewall
 			sshAllow...,
 		))
 	}
-	if isController {
-		rules = append(rules, firewall.NewIngressRule(
-			network.MustParsePortRange(strconv.Itoa(ctrlCfg.APIPort())),
-			"0.0.0.0/0", "::/0",
-		))
-	}
-	if isController && ctrlCfg.AutocertDNSName() != "" {
-		rules = append(rules, firewall.NewIngressRule(
-			network.MustParsePortRange("80"),
-			"0.0.0.0/0", "::/0",
-		))
-	}
 	return rules, nil
+}
+
+// ControllerFirewallPorts implements FirewallerAPI.
+func (a *firewallerAPIAdapter) ControllerFirewallPorts(ctx context.Context) ([]network.PortRange, error) {
+	cfg, err := a.ctrlConfigSvc.ControllerConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ports := []network.PortRange{
+		{Protocol: "tcp", FromPort: cfg.APIPort(), ToPort: cfg.APIPort()},
+		{Protocol: "tcp", FromPort: cfg.SSHServerPort(), ToPort: cfg.SSHServerPort()},
+	}
+	if cfg.AutocertDNSName() != "" {
+		ports = append(ports, network.MustParsePortRange("80/tcp"))
+	}
+	return ports, nil
 }
 
 // ModelConfig implements FirewallerAPI.

@@ -143,12 +143,6 @@ func (fakeExternalControllerDomainService) ControllerForModel(context.Context, s
 	return nil, nil
 }
 
-type fakeModelInfoDomainService struct{}
-
-func (fakeModelInfoDomainService) IsControllerModel(context.Context) (bool, error) {
-	return false, nil
-}
-
 var _ MachineDomainService = fakeMachineDomainService{}
 var _ ApplicationDomainService = fakeApplicationDomainService{}
 var _ RelationDomainService = fakeRelationDomainService{}
@@ -156,4 +150,3 @@ var _ ModelConfigDomainService = fakeModelConfigDomainService{}
 var _ ControllerConfigDomainService = fakeControllerConfigDomainService{}
 var _ NetworkDomainService = fakeNetworkDomainService{}
 var _ ExternalControllerDomainService = fakeExternalControllerDomainService{}
-var _ ModelInfoDomainService = fakeModelInfoDomainService{}

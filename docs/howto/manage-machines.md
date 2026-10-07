@@ -91,7 +91,7 @@ machines:
     juju-status:
       current: started
       since: 27 Oct 2022 09:37:17+02:00
-      version: 3.0.0
+      version: 4.0.15
     hostname: juju-552e37-0
     dns-name: 10.136.136.175
     ip-addresses:
@@ -139,7 +139,7 @@ This will report the status of the model, its applications, its units, and also 
 
 ```text
 Model            Controller            Cloud/Region         Version  SLA          Timestamp
-localhost-model  localhost-controller  localhost/localhost  3.0.0    unsupported  13:51:33+02:00
+localhost-model  localhost-controller  localhost/localhost  4.0.15   unsupported  13:51:33+02:00
 
 App       Version  Status   Scale  Charm     Channel  Rev  Exposed  Message
 influxdb           waiting    0/1  influxdb  stable    24  no       waiting for machine
@@ -217,7 +217,7 @@ machines:
     juju-status:
       current: started
       since: 01 Mar 2023 15:08:34+01:00
-      version: 3.1.0
+      version: 4.0.15
     hostname: juju-6a1e1b-0
     dns-name: 10.136.136.239
     ip-addresses:
@@ -266,10 +266,10 @@ juju exec --unit ubuntu/0 echo "hi"
 
 ```
 
-The `exec` command can take many other flags, allowing you to specify an output file, run the commands sequentially (since `juju v.3.0`, the default is to run them in parallel), etc.
+The `exec` command can take many other flags, allowing you to specify an output file, run the commands sequentially (the default is to run them in parallel), etc.
 
 ```{ibnote}
-See more: {ref}`command-juju-exec` (before `juju v.3.0`, `juju run`)
+See more: {ref}`command-juju-exec`
 ```
 
 (access-a-machine-via-ssh)=

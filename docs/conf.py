@@ -234,6 +234,8 @@ html_extra_path = ["robots.txt", "sitemapindex.xml"]
 redirects = {
     "user/reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
     "reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
+    "user/reference/charm/charm-maturity/": "https://canonical.com/juju/docs/ops/latest/explanation/charm-maturity/",
+    "reference/charm/charm-maturity/": "https://canonical.com/juju/docs/ops/latest/explanation/charm-maturity/",
 }
 
 ###########################
@@ -306,6 +308,8 @@ extensions = [
     "sphinx_new_tab_link",
     "sphinxcontrib.lightbox2",
     "ibnote",
+    "sphinx_structured_toc",
+    "ggarch.sphinxcontrib_ggarch",
 ]
 
 # Customize sphinx_llm.txt
@@ -317,7 +321,9 @@ llms_txt_description = (
 )
 ## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
 llms_txt_suffix_mode = "url-suffix"
-markdown_http_base = "https://documentation.ubuntu.com/juju/latest"
+markdown_http_base = "https://canonical.com/juju/docs/juju-cli/latest"
+## Build llms-full.txt, which concatenates all pages (off by default):
+llms_txt_full_build = True
 
 
 # Excludes files or directories from processing
@@ -340,6 +346,8 @@ html_css_files = [
     "css/cookie-banner.css",
     "https://assets.ubuntu.com/v1/d86746ef-cookie_banner.css",
     "css/ibnote.css",
+    "css/domain-list-override.css",
+    "css/blurb.css",
 ]
 
 # Adds custom JavaScript files, located under 'html_static_path'

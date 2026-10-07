@@ -248,10 +248,6 @@ See more: {ref}`command-juju-find-offers`
 ## Integrate with an offer
 > Who: User with {ref}`offer consume access <user-access-offer-consume>`.
 
-```{important}
-Before Juju `3.0`, `juju integrate` was `juju relate`.
-```
-
 If a user has consume access to an offer, they can deploy an application in their model and establish a relation with the offer by way of its URL.
 
 ```text

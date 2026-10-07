@@ -12,9 +12,12 @@ import (
 
 	"github.com/juju/tc"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/offer"
 	corepermission "github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -307,6 +310,22 @@ func (s *controllerOfferSuite) addOfferPermission(c *tc.C, userUUID, offerUUID s
 	return permissionUUID
 }
 
+// addPermission inserts a permission row for the given user with the
+// provided access and object type ids. The grant_on value is the target
+// the permission is granted on, e.g. a controller or model UUID.
+func (s *controllerOfferSuite) addPermission(c *tc.C, userUUID, grantOn string, accessTypeID, objectTypeTypeID int) string {
+	permissionUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO permission (uuid, access_type_id, object_type_id, grant_to, grant_on)
+			VALUES (?, ?, ?, ?, ?)
+		`, permissionUUID, accessTypeID, objectTypeTypeID, userUUID, grantOn)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return permissionUUID
+}
+
 func (s *controllerOfferSuite) readPermissions(c *tc.C) []permission {
 	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM v_permission`)
 	c.Assert(err, tc.IsNil)
@@ -319,4 +338,333 @@ func (s *controllerOfferSuite) readPermissions(c *tc.C) []permission {
 		foundPermissions = append(foundPermissions, p)
 	}
 	return foundPermissions
+}
+
+// setupUpdateOfferPermission seeds an admin user (used as the creator of
+// all other users) and a target user, returning the target user's name
+// and UUID.
+func (s *controllerOfferSuite) setupUpdateOfferPermission(c *tc.C) (coreuser.Name, string) {
+	ownerUUID := uuid.MustNewUUID()
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+
+	userName := usertesting.GenNewName(c, "fred")
+	userUUID := uuid.MustNewUUID().String()
+	s.ensureUser(c, userUUID, userName.Name(), ownerUUID.String(), false, false, false)
+	return userName, userUUID
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantNewUser(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].UUID, tc.Not(tc.Equals), "")
+	c.Check(obtained[0].GrantTo, tc.Equals, userUUID)
+	c.Check(obtained[0].GrantOn, tc.Equals, offerUUID.String())
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+	c.Check(obtained[0].ObjectType, tc.Equals, corepermission.Offer.String())
+}
+
+// TestUpdateOfferPermissionGrantNewUserUUID tests that the permission
+// UUID supplied by the service layer is persisted when a new permission
+// is inserted.
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantNewUserUUID(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	userName, _ := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+	permissionUUID := uuid.MustNewUUID().String()
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), permissionUUID, args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].UUID, tc.Equals, permissionUUID)
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantUpgrade(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user already has read access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 0 /* read */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantEqual(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user already has consume access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 2 /* consume */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, accesserrors.PermissionAccessGreater)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionGrantLower(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user already has consume access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 2 /* consume */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ReadAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, accesserrors.PermissionAccessGreater)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionRevokeConsume(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user has consume access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 2 /* consume */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Revoke,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert: revoking consume downgrades the user to read.
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ReadAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionRevokeAdmin(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user has admin access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 3 /* admin */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.AdminAccess,
+		Change:    corepermission.Revoke,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert: revoking admin downgrades the user to consume.
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.readPermissions(c)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].AccessType, tc.Equals, corepermission.ConsumeAccess.String())
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionRevokeRead(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: the user has read access on the offer.
+	userName, userUUID := s.setupUpdateOfferPermission(c)
+	offerUUID := tc.Must(c, offer.NewUUID)
+	s.addOfferPermission(c, userUUID, offerUUID.String(), 0 /* read */)
+
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ReadAccess,
+		Change:    corepermission.Revoke,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert: revoking read removes the permission entirely.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.readPermissions(c), tc.HasLen, 0)
+}
+
+func (s *controllerOfferSuite) TestUpdateOfferPermissionUserNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange: no users are seeded.
+	userName := usertesting.GenNewName(c, "ghost")
+	offerUUID := tc.Must(c, offer.NewUUID)
+	args := crossmodelrelation.UpdateOfferPermissionArgs{
+		Username:  userName,
+		OfferUUID: offerUUID.String(),
+		Access:    corepermission.ConsumeAccess,
+		Change:    corepermission.Grant,
+	}
+
+	// Act
+	err := st.UpdateOfferPermission(c.Context(), uuid.MustNewUUID().String(), args)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `looking up user "ghost": "ghost": user not found`)
+}
+
+func (s *controllerOfferSuite) TestIsUserControllerOrModelAdmin(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	// Arrange
+	// An admin user is required as the creator of all other users.
+	ownerUUID := uuid.MustNewUUID()
+	s.ensureUser(c, ownerUUID.String(), "admin", ownerUUID.String(), false, false, false)
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	otherModelUUID := tc.Must(c, coremodel.NewUUID)
+
+	// Access and object type ids from the controller schema:
+	// access types 3 (admin) and 6 (superuser),
+	// object types 1 (controller) and 2 (model).
+	const (
+		adminAccessID     = 3
+		superuserAccessID = 6
+		controllerTypeID  = 1
+		modelTypeID       = 2
+	)
+
+	newUser := func(c *tc.C, name string, removed, disabled bool) (coreuser.Name, string) {
+		userUUID := uuid.MustNewUUID().String()
+		s.ensureUser(c, userUUID, name, ownerUUID.String(), false, removed, disabled)
+		return usertesting.GenNewName(c, name), userUUID
+	}
+
+	tests := []struct {
+		summary string
+		seed    func(c *tc.C) coreuser.Name
+		isAdmin bool
+	}{{
+		summary: "user with no permissions",
+		seed: func(c *tc.C) coreuser.Name {
+			name, _ := newUser(c, "fred", false, false)
+			return name
+		},
+	}, {
+		summary: "controller superuser",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "super", false, false)
+			s.addPermission(c, userUUID, s.controllerUUID, superuserAccessID, controllerTypeID)
+			return name
+		},
+		isAdmin: true,
+	}, {
+		summary: "model admin",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "modeladmin", false, false)
+			s.addPermission(c, userUUID, modelUUID.String(), adminAccessID, modelTypeID)
+			return name
+		},
+		isAdmin: true,
+	}, {
+		summary: "admin on a different model",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "otheradmin", false, false)
+			s.addPermission(c, userUUID, otherModelUUID.String(), adminAccessID, modelTypeID)
+			return name
+		},
+	}, {
+		summary: "disabled model admin",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "disabledadmin", false, true)
+			s.addPermission(c, userUUID, modelUUID.String(), adminAccessID, modelTypeID)
+			return name
+		},
+	}, {
+		summary: "removed superuser",
+		seed: func(c *tc.C) coreuser.Name {
+			name, userUUID := newUser(c, "removedsuper", true, false)
+			s.addPermission(c, userUUID, s.controllerUUID, superuserAccessID, controllerTypeID)
+			return name
+		},
+	}, {
+		summary: "unknown user",
+		seed: func(c *tc.C) coreuser.Name {
+			return usertesting.GenNewName(c, "ghost")
+		},
+	}}
+
+	for _, test := range tests {
+		c.Logf("Test case: %s", test.summary)
+		userName := test.seed(c)
+
+		// Act
+		isAdmin, err := st.IsUserControllerOrModelAdmin(c.Context(), userName, modelUUID)
+
+		// Assert
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(isAdmin, tc.Equals, test.isAdmin)
+	}
 }

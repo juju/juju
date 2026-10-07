@@ -86,9 +86,9 @@ type ControllerNodeService interface {
 	// agents. HostPorts are grouped by controller node, though each specific
 	// controller is not identified.
 	GetAPIHostPortsForAgents(ctx context.Context) ([]network.HostPorts, error)
-	// WatchControllerAPIAddresses returns a watcher that observes changes to the
+	// WatchControllerAgentAddresses returns a watcher that observes changes to the
 	// controller ip addresses.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
+	WatchControllerAgentAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // CrossModelRelationService provides access to the cross model relation

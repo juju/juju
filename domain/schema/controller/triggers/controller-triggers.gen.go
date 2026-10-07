@@ -9,6 +9,45 @@ import (
 )
 
 
+// ChangeLogTriggersForControllerAgentAddress generates the triggers for the
+// controller_agent_address table.
+func ChangeLogTriggersForControllerAgentAddress(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerAgentAddress
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_agent_address', 'ControllerAgentAddress changes based on %[1]s');
+
+-- insert trigger for ControllerAgentAddress
+CREATE TRIGGER trg_log_controller_agent_address_insert
+AFTER INSERT ON controller_agent_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ControllerAgentAddress
+CREATE TRIGGER trg_log_controller_agent_address_update
+AFTER UPDATE ON controller_agent_address FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	(NEW.controller_id != OLD.controller_id OR (NEW.controller_id IS NOT NULL AND OLD.controller_id IS NULL) OR (NEW.controller_id IS NULL AND OLD.controller_id IS NOT NULL)) OR
+	NEW.address != OLD.address OR
+	NEW.scope != OLD.scope OR
+	NEW.priority != OLD.priority
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ControllerAgentAddress
+CREATE TRIGGER trg_log_controller_agent_address_delete
+AFTER DELETE ON controller_agent_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForControllerApiAddress generates the triggers for the
 // controller_api_address table.
 func ChangeLogTriggersForControllerApiAddress(columnName string, namespaceID int) func() schema.Patch {
@@ -40,6 +79,45 @@ END;
 -- delete trigger for ControllerApiAddress
 CREATE TRIGGER trg_log_controller_api_address_delete
 AFTER DELETE ON controller_api_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForControllerClientAddress generates the triggers for the
+// controller_client_address table.
+func ChangeLogTriggersForControllerClientAddress(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerClientAddress
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_client_address', 'ControllerClientAddress changes based on %[1]s');
+
+-- insert trigger for ControllerClientAddress
+CREATE TRIGGER trg_log_controller_client_address_insert
+AFTER INSERT ON controller_client_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ControllerClientAddress
+CREATE TRIGGER trg_log_controller_client_address_update
+AFTER UPDATE ON controller_client_address FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	(NEW.controller_id != OLD.controller_id OR (NEW.controller_id IS NOT NULL AND OLD.controller_id IS NULL) OR (NEW.controller_id IS NULL AND OLD.controller_id IS NOT NULL)) OR
+	NEW.address != OLD.address OR
+	NEW.scope != OLD.scope OR
+	NEW.priority != OLD.priority
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ControllerClientAddress
+CREATE TRIGGER trg_log_controller_client_address_delete
+AFTER DELETE ON controller_client_address FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -114,6 +192,45 @@ END;
 -- delete trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_delete
 AFTER DELETE ON controller_node FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForControllerPeerAddress generates the triggers for the
+// controller_peer_address table.
+func ChangeLogTriggersForControllerPeerAddress(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ControllerPeerAddress
+INSERT INTO change_log_namespace VALUES (%[2]d, 'controller_peer_address', 'ControllerPeerAddress changes based on %[1]s');
+
+-- insert trigger for ControllerPeerAddress
+CREATE TRIGGER trg_log_controller_peer_address_insert
+AFTER INSERT ON controller_peer_address FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ControllerPeerAddress
+CREATE TRIGGER trg_log_controller_peer_address_update
+AFTER UPDATE ON controller_peer_address FOR EACH ROW
+WHEN 
+	NEW.uuid != OLD.uuid OR
+	NEW.controller_id != OLD.controller_id OR
+	NEW.address != OLD.address OR
+	NEW.scope != OLD.scope OR
+	NEW.priority != OLD.priority
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ControllerPeerAddress
+CREATE TRIGGER trg_log_controller_peer_address_delete
+AFTER DELETE ON controller_peer_address FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

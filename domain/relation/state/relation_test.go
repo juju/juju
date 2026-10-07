@@ -3227,6 +3227,28 @@ func (s *relationSuite) TestGetRelationUnitChanges(c *tc.C) {
 	c.Assert(changes.Departed, tc.SameContents, []coreunit.Name{"noSetting/1"})
 }
 
+func (s *relationSuite) TestGetRelationUnitChangesUsesDepartureTombstone(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	charmRelationUUID := s.addCharmRelationWithDefaults(c, charmUUID)
+	applicationUUID := s.addApplication(c, charmUUID, "application")
+	applicationEndpointUUID := s.addApplicationEndpoint(c, applicationUUID, charmRelationUUID)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID)
+	unitUUID := s.addUnit(c, "application/0", applicationUUID, charmUUID)
+	s.addRelationUnit(c, unitUUID, relationEndpointUUID)
+
+	_, err := s.DB().ExecContext(c.Context(), "DELETE FROM relation_unit WHERE unit_uuid = ?", unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), "DELETE FROM unit WHERE uuid = ?", unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	changes, err := s.state.GetRelationUnitChanges(
+		c.Context(), relationUUID.String(), []coreunit.UUID{unitUUID}, nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(changes.Departed, tc.DeepEquals, []coreunit.Name{"application/0"})
+}
+
 func (s *relationSuite) TestGetRelationUnitChangesForDifferentRelationUUID(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)

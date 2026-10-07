@@ -1,8 +1,0 @@
-#name: juju-default
-description: lxd profile for testing nested container profiles
-config:
-  security.nesting: "true"
-  security.privileged: "true"
-  linux.kernel_modules: openvswitch,nbd,ip_tables,ip6_tables
-  environment.http_proxy: ""
-devices: {}

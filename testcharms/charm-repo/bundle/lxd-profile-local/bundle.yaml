@@ -1,4 +1,0 @@
-applications:
-    lxd-profile-local:
-        charm: ./../../quantal/lxd-profile
-        num_units: 1

@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	domainresource "github.com/juju/juju/domain/resource"
+	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -32,18 +34,23 @@ func NewUnitFacade(
 	resourceService ResourceService,
 ) (*UnitFacade, error) {
 	var applicationUUIDGetter applicationUUIDGetter
+	var applicationName string
+	var unitName coreunit.Name
 	switch tag := appOrUnitTag.(type) {
 	case names.UnitTag:
-		unitName, err := coreunit.NewName(tag.Id())
+		var err error
+		unitName, err = coreunit.NewName(tag.Id())
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
 		applicationUUIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
 			return applicationService.GetApplicationUUIDByUnitName(ctx, unitName)
 		}
+		applicationName = unitName.Application()
 	case names.ApplicationTag:
+		applicationName = tag.Id()
 		applicationUUIDGetter = func(ctx context.Context) (coreapplication.UUID, error) {
-			return applicationService.GetApplicationUUIDByName(ctx, tag.Id())
+			return applicationService.GetApplicationUUIDByName(ctx, applicationName)
 		}
 	default:
 		return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
@@ -52,6 +59,8 @@ func NewUnitFacade(
 	return &UnitFacade{
 		resourceService:           resourceService,
 		getApplicationUUIDFromAPI: applicationUUIDGetter,
+		applicationName:           applicationName,
+		unitName:                  unitName,
 	}, nil
 }
 
@@ -60,6 +69,8 @@ type UnitFacade struct {
 	resourceService           ResourceService
 	getApplicationUUIDFromAPI applicationUUIDGetter
 	applicationID             coreapplication.UUID
+	applicationName           string
+	unitName                  coreunit.Name
 }
 
 // getApplicationUUID retrieves and caches the application UUID for the unit.
@@ -67,8 +78,10 @@ type UnitFacade struct {
 func (uf *UnitFacade) getApplicationUUID(ctx context.Context) (coreapplication.UUID, error) {
 	if uf.applicationID == "" {
 		applicationID, err := uf.getApplicationUUIDFromAPI(ctx)
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			return "", jujuerrors.NotFoundf("application for unit")
+		if errors.Is(err, applicationerrors.UnitNotFound) {
+			return "", jujuerrors.NotFoundf("unit %q", uf.unitName)
+		} else if errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return "", jujuerrors.NotFoundf("application %q", uf.applicationName)
 		} else if err != nil {
 			return uf.applicationID, err
 		}
@@ -90,8 +103,7 @@ func (uf *UnitFacade) listResources(ctx context.Context) ([]resource.Resource, e
 // GetResourceInfo returns the resource info for each of the given
 // resource names (for the implicit application). If any one is missing then
 // the corresponding result is set with errors.NotFound.
-func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.
-	UnitResourcesResult, error) {
+func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitResourcesArgs) (params.UnitResourcesResult, error) {
 	var r params.UnitResourcesResult
 	r.Resources = make([]params.UnitResourceResult, len(args.ResourceNames))
 
@@ -102,20 +114,53 @@ func (uf *UnitFacade) GetResourceInfo(ctx context.Context, args params.ListUnitR
 
 	foundResources, err := uf.listResources(ctx)
 	if err != nil {
+		switch {
+		case errors.Is(err, applicationerrors.ApplicationNotFound):
+			err = jujuerrors.NotFoundf("application %q", uf.applicationName)
+		default:
+			err = errors.Errorf("cannot list resources: %w", err)
+		}
 		r.Error = apiservererrors.ServerError(err)
 		return r, nil
 	}
 
 	for i, name := range args.ResourceNames {
 		res, ok := lookUpResource(name, foundResources)
-		if !ok {
+		if ok {
+			r.Resources[i].Resource = resources.Resource2API(res)
+			continue
+		}
+		if uf.unitName == "" {
 			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
 			continue
+		}
+
+		res, err = uf.getUnitResource(ctx, name)
+		switch {
+		case errors.Is(err, applicationerrors.UnitNotFound):
+			r.Error = apiservererrors.ServerError(
+				jujuerrors.NotFoundf("unit %q", uf.unitName),
+			)
+		case errors.Is(err, resourceerrors.ResourceNotFound):
+			r.Resources[i].Error = apiservererrors.ServerError(jujuerrors.NotFoundf("resource %q", name))
+		default:
+			r.Resources[i].Error = apiservererrors.ServerError(err)
 		}
 
 		r.Resources[i].Resource = resources.Resource2API(res)
 	}
 	return r, nil
+}
+
+func (uf *UnitFacade) getUnitResource(ctx context.Context, name string) (resource.Resource, error) {
+	resourceUUID, err := uf.resourceService.GetUnitResourceID(ctx, domainresource.GetUnitResourceIDArgs{
+		UnitName: uf.unitName,
+		Name:     name,
+	})
+	if err != nil {
+		return resource.Resource{}, errors.Capture(err)
+	}
+	return uf.resourceService.GetResourceWithoutApplication(ctx, resourceUUID)
 }
 
 // lookUpResource searches for a resource by name in a list of resources and

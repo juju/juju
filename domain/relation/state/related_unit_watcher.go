@@ -115,6 +115,11 @@ func (st *State) InitialWatchRelatedUnits(
 			if err != nil {
 				return nil, errors.Errorf("fetching units for relation %q: %w", relationUUID, err)
 			}
+			departedUnits, err := st.getDepartedUnitsInRelation(ctx, relationUUID)
+			if err != nil {
+				return nil, errors.Errorf("fetching departed units for relation %q: %w", relationUUID, err)
+			}
+			unitsInRelation = append(unitsInRelation, departedUnits...)
 
 			// Populate data structures for convenient lookups.
 			// Exclude the input unit from the list of related units.
@@ -249,6 +254,39 @@ ORDER BY u.uuid`
 		st.logger.Tracef(ctx, "units in relation: %#v", units)
 	}
 
+	return units, errors.Capture(err)
+}
+
+// getDepartedUnitsInRelation fetches departed units retained for relation
+// watchers after their unit rows have been removed.
+func (st *State) getDepartedUnitsInRelation(ctx context.Context, relUUID string) ([]relationUnit, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	relUnit := relationUnit{RelationUUID: relUUID}
+	stmt, err := st.Prepare(`
+SELECT rud.unit_uuid AS &relationUnit.unit_uuid,
+       rud.relation_endpoint_uuid AS &relationUnit.relation_endpoint_uuid,
+       rud.relation_uuid AS &relationUnit.relation_uuid
+FROM   relation_unit_departure AS rud
+WHERE  rud.relation_uuid = $relationUnit.relation_uuid
+ORDER BY rud.unit_uuid`, relUnit)
+	if err != nil {
+		return nil, errors.Errorf("preparing departed units in relation query: %w", err)
+	}
+
+	var units []relationUnit
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, relUnit).GetAll(&units)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Errorf("running departed units in relation query: %w", err)
+		}
+		return nil
+	})
 	return units, errors.Capture(err)
 }
 
