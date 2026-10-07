@@ -6,9 +6,6 @@ package backups
 import (
 	"context"
 
-	"github.com/juju/clock"
-	"github.com/juju/names/v6"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
@@ -63,35 +60,15 @@ type ControllerNodeLister interface {
 
 // API provides backup-specific API methods.
 type API struct {
-	authorizer          facade.Authorizer
-	machineID           string
-	controllerUUID      string
-	controllerModelUUID coremodel.UUID
-	dataDir             string
-	logDir              string
-
-	controllerExport ControllerExportService
-	modelServicesFor ModelServicesForFunc
-	modelConfig      ModelConfigService
-	controller       ControllerModelLister
-	controllerNodes  ControllerNodeLister
-	clock            clock.Clock
-	logger           corelogger.Logger
+	authorizer     facade.Authorizer
+	controllerUUID string
+	logger         corelogger.Logger
 }
 
 // NewAPI creates a new instance of the Backups API facade.
 func NewAPI(
 	authorizer facade.Authorizer,
-	machineTag names.Tag,
 	controllerUUID string,
-	controllerModelUUID coremodel.UUID,
-	dataDir, logDir string,
-	controllerExport ControllerExportService,
-	modelServicesFor ModelServicesForFunc,
-	modelConfig ModelConfigService,
-	controller ControllerModelLister,
-	controllerNodes ControllerNodeLister,
-	clock clock.Clock,
 	logger corelogger.Logger,
 ) (*API, error) {
 	if !authorizer.AuthClient() {
@@ -99,18 +76,8 @@ func NewAPI(
 	}
 
 	return &API{
-		authorizer:          authorizer,
-		machineID:           machineTag.Id(),
-		controllerUUID:      controllerUUID,
-		controllerModelUUID: controllerModelUUID,
-		dataDir:             dataDir,
-		logDir:              logDir,
-		controllerExport:    controllerExport,
-		modelServicesFor:    modelServicesFor,
-		modelConfig:         modelConfig,
-		controller:          controller,
-		controllerNodes:     controllerNodes,
-		clock:               clock,
-		logger:              logger,
+		authorizer:     authorizer,
+		controllerUUID: controllerUUID,
+		logger:         logger,
 	}, nil
 }
