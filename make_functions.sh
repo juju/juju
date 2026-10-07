@@ -362,3 +362,53 @@ wait_for_dpkg() {
 apt_update() {
     sudo apt-get update
 }
+
+# snap_dqlite_pin reads the controller snap's Dqlite pin from the snapcraft
+# dqlite part. The part builds upstream Dqlite from a pinned source commit
+# annotated with its upstream version ('source-commit: <sha> # v1.18.7').
+snap_dqlite_pin() {
+    sed -n 's/^[[:space:]]*source-commit:.*#[[:space:]]*\(v[0-9][0-9.]*\)[[:space:]]*$/\1/p' \
+        "${PROJECT_DIR}/snaps/jujud/snapcraft.yaml" | head -n1
+}
+
+# install_dqlite_dev_packages installs the Dqlite development packages the
+# dynamic jujud build links against, pinned to the controller snap's Dqlite
+# version. The snapcraft dqlite part builds upstream Dqlite from a pinned
+# source commit; the local build must link against the same upstream version
+# so the fast-patch library-pairing rule (the host link-time Dqlite matches
+# the snap-bundled Dqlite) holds by construction instead of by documentation.
+# The series-suffixed real dev package (libdqlite<series>-dev, e.g.
+# libdqlite1.18-dev) is installed rather than the libdqlite-dev meta: the
+# meta's resolved version depends on which archive wins the resolution
+# (the distro archive also carries a libdqlite-dev), while the series
+# package is the actual header and library carrier. The installed upstream
+# version is verified against the snap pin; a mismatch fails loudly with
+# the remedy instead of silently linking a drifted Dqlite.
+install_dqlite_dev_packages() {
+    pin=$(snap_dqlite_pin)
+    if [ -z "${pin}" ]; then
+        echo "install-dqlite-dependencies: cannot read the snap's Dqlite pin from" >&2
+        echo "${PROJECT_DIR}/snaps/jujud/snapcraft.yaml;" >&2
+        echo "expected a 'source-commit: <sha> # v<version>' line in the dqlite part" >&2
+        exit 1
+    fi
+    version="${pin#v}"
+    series=$(printf '%s' "${version}" | cut -d. -f1,2)
+    dev_pkg="libdqlite${series}-dev"
+    echo "Installing ${dev_pkg} from ppa:dqlite/dev (snap pin: ${pin})"
+    sudo apt-get --yes install gcc "${dev_pkg}" libuv1-dev liblz4-dev
+    installed=$(dpkg-query -W -f='${Version}' "${dev_pkg}" 2>/dev/null || true)
+    if [ -z "${installed}" ]; then
+        echo "install-dqlite-dependencies: ${dev_pkg} is not installed after apt-get install" >&2
+        exit 1
+    fi
+    upstream=$(printf '%s' "${installed}" | sed -E 's/[~+].*$//')
+    if [ "${upstream}" != "${version}" ]; then
+        echo "install-dqlite-dependencies: ${dev_pkg} resolved to ${installed} but the snap pins ${pin}." >&2
+        echo "Raise the snap's dqlite source-commit pin to the PPA version, or install the exact" >&2
+        echo "pinned version (${dev_pkg}=${version}~*); a local build linked against a different" >&2
+        echo "Dqlite violates the fast-patch library-pairing rule." >&2
+        exit 1
+    fi
+    echo "Native Dqlite: ${dev_pkg} ${installed} (matches the snap pin ${pin}, ppa:dqlite/dev)"
+}
