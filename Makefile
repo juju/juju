@@ -678,8 +678,10 @@ jujud-snap-patch:
 # The freshly built jujud was linked against the host's Dqlite development
 # libraries (installed by 'make install-dqlite-dependencies' from
 # ppa:dqlite/dev), so the host's Dqlite version must match the version
-# bundled in the snap. When the snap moves to a newer Dqlite, raise the
-# host's PPA packages to the same version too; a mismatch surfaces as a
+# bundled in the snap; install-dqlite-dependencies verifies this match by
+# installing the PPA series package pinned to the snap's dqlite
+# source-commit version. When the snap moves to a newer Dqlite, raise the
+# snap pin and rerun install-dqlite-dependencies; a mismatch surfaces as a
 # loader or symbol error when the patched snap's jujud service starts
 # (check with a --build-snap bootstrap and 'snap logs jujud').
 #
@@ -784,21 +786,22 @@ install-sqlite3-dependencies:
 # install-dqlite-dependencies provisions the native Dqlite development
 # libraries the dynamic jujud build contract links against. The distro
 # archive's libdqlite-dev is older than the versions Juju and the jujud
-# snap use, so the packages come from the Dqlite team's PPA. CGO builds
-# are native: cross-architecture controller binaries come from the
-# controller snap (snapcraft), not from a cross-linked build here.
+# snap use, so the packages come from the Dqlite team's PPA. The version
+# is pinned to the snap's dqlite source-commit pin (see
+# install_dqlite_dev_packages in make_functions.sh): local builds link
+# against the same upstream Dqlite the snap bundles, so the fast-patch
+# library-pairing rule holds by construction. CGO builds are native:
+# cross-architecture controller binaries come from the controller snap
+# (snapcraft), not from a cross-linked build here.
 .PHONY: install-dqlite-dependencies
 install-dqlite-dependencies: install-sqlite3-dependencies
-## install-dqlite-dependencies: Install libdqlite-dev from ppa:dqlite/dev (required to build jujud)
+## install-dqlite-dependencies: Install the snap-pinned libdqlite-dev from ppa:dqlite/dev (required to build jujud)
 	@echo Installing Dqlite development packages from ppa:dqlite/dev
 	@sudo apt-get --yes install software-properties-common
 	@sudo add-apt-repository -y ppa:dqlite/dev
 	@$(WAIT_FOR_DPKG)
 	@$(APT_UPDATE)
-	@sudo apt-get --yes install gcc libdqlite-dev libuv1-dev liblz4-dev
-	@dqlite_native_pkg=$$(dpkg-query -W -f='$${Depends}' libdqlite-dev 2>/dev/null | grep -oE 'libdqlite[0-9][0-9.]*-dev' | head -n1); \
-	dqlite_native_ver=$$(dpkg-query -W -f='$${Version}' "$$dqlite_native_pkg:$$(dpkg --print-architecture)" 2>/dev/null); \
-	echo "Native Dqlite: $$dqlite_native_pkg $$dqlite_native_ver (ppa:dqlite/dev)"
+	@$(INSTALL_DQLITE_DEV_PACKAGES)
 
 .PHONY: install-dependencies
 install-dependencies: install-snap-dependencies install-dqlite-dependencies
@@ -870,6 +873,7 @@ OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_imag
 OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 SEED_REPOSITORY=bash -c '. "${PROJECT_DIR}/make_functions.sh"; seed_repository "$$@"' seed_repository
+INSTALL_DQLITE_DEV_PACKAGES=bash -c '. "${PROJECT_DIR}/make_functions.sh"; install_dqlite_dev_packages "$$@"' install_dqlite_dev_packages
 
 image_check_prereq=image-check-build
 ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
