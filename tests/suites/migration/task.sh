@@ -15,11 +15,6 @@ test_migration() {
 		;;
 	esac
 
-	if ! gate_reason=$(mig36_gate 2>&1); then
-		echo "==> SKIP: test_migration test: ${gate_reason}"
-		return
-	fi
-
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
@@ -27,13 +22,20 @@ test_migration() {
 
 	bootstrap "test-migration" "${file}"
 
-	# Tests that need to be run are added here.
+	# The juju 3.6 tests gate on the juju 3.6 client being available.
 	test_migration_36
 	test_migration_36_cmr_offering
 	test_migration_36_cmr_consuming
 	test_migration_36_cmr_spaces
 	test_migration_36_abort
 	test_migration_36_users_permissions
+
+	# Same-version migrations: both controllers are built from this branch.
+	test_migration_basic
+	test_migration_abort
+	test_migration_version
+	test_migration_saas_common
+	test_migration_saas_external
 
 	destroy_controller "test-migration"
 }
