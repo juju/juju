@@ -130,6 +130,7 @@ parts:
       - go/1.27/stable
     build-packages:
       - gcc
+      - libsqlite3-dev
       - pkg-config
     override-build: |
       set -ex
@@ -151,7 +152,7 @@ parts:
       # the whole process. The absolute path is safe inside the snap
       # (the loader falls through to the snap's own library paths when
       # /opt/lib does not exist there).
-      export GO_LDFLAGS="-s -w -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib' -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
+      export GO_LDFLAGS="-s -w -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib' -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace=ghcr.io/juju"
       go mod download
       go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
       ln -s jujud "${CRAFT_PART_INSTALL}/bin/juju-introspect"
