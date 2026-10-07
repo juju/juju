@@ -4,18 +4,23 @@ setup_awscli_credential() {
 	fi
 
 	export AWS_DEFAULT_PROFILE=default
-	if [ -f "$HOME/.aws/credentials" ]; then
+	# Isolate the AWS CLI config under TEST_DIR instead of writing to
+	# $HOME/.aws, so a test run never clobbers a developer's own AWS
+	# credentials. TEST_DIR is removed at teardown by main.sh.
+	export AWS_SHARED_CREDENTIALS_FILE="${TEST_DIR}/aws/credentials"
+	export AWS_CONFIG_FILE="${TEST_DIR}/aws/config"
+	if [ -f "${AWS_SHARED_CREDENTIALS_FILE}" ]; then
 		return
 	fi
 
-	mkdir -p "$HOME"/.aws
-	echo "[default]" >"$HOME/.aws/credentials"
+	mkdir -p "${TEST_DIR}/aws"
+	echo "[default]" >"${AWS_SHARED_CREDENTIALS_FILE}"
 	cat "$HOME/.local/share/juju/credentials.yaml" |
 		grep aws: -A 4 | grep key: |
 		tail -2 |
 		sed -e 's/      access-key:/aws_access_key_id =/' \
 			-e 's/      secret-key:/aws_secret_access_key =/' \
-			>>"$HOME/.aws/credentials"
-	echo -e "[default]\nregion = us-east-1" >"$HOME/.aws/config"
-	chmod 600 $HOME/.aws/*
+			>>"${AWS_SHARED_CREDENTIALS_FILE}"
+	echo -e "[default]\nregion = us-east-1" >"${AWS_CONFIG_FILE}"
+	chmod 600 "${TEST_DIR}"/aws/*
 }
