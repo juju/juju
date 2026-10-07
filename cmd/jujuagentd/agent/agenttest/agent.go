@@ -221,12 +221,12 @@ func (s *AgentSuite) primeAPIHostPorts(c *tc.C) {
 	mHP, err := network.ParseMachineHostPort(apiInfo.Addrs[0])
 	c.Assert(err, tc.ErrorIsNil)
 
-	hostPorts := network.SpaceHostPorts{
-		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
+	addresses := network.SpaceAddresses{{MachineAddress: mHP.MachineAddress}}
 
 	apiAddrArgs := controllernode.SetAPIAddressArgs{
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"0": hostPorts,
+		APIPort: int(mHP.NetPort),
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: addresses, Agents: addresses, Peers: addresses},
 		},
 	}
 
@@ -236,7 +236,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *tc.C) {
 	err = controllerNodeService.SetAPIAddresses(c.Context(), apiAddrArgs)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Logf("api host ports primed %#v", hostPorts)
+	c.Logf("api host ports primed %#v", addresses)
 }
 
 // InitAgent initialises the given agent command with additional

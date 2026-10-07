@@ -225,17 +225,17 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	domainServices := s.ControllerDomainServices(c)
 
 	// Set the api host ports in state.
+	address := network.SpaceAddress{MachineAddress: network.MachineAddress{
+		Value: "localhost",
+		Type:  network.AddressType("hostname"),
+	}}
 	apiAddrArgs := controllernode.SetAPIAddressArgs{
-		MgmtSpace: nil,
-		APIAddresses: map[string]network.SpaceHostPorts{
+		APIPort: apiPort,
+		Addresses: map[string]controllernode.APIAddressSet{
 			"0": {
-				network.SpaceHostPort{
-					SpaceAddress: network.SpaceAddress{MachineAddress: network.MachineAddress{
-						Value: "localhost",
-						Type:  network.AddressType("hostname"),
-					}},
-					NetPort: network.NetPort(apiPort),
-				},
+				Clients: network.SpaceAddresses{address},
+				Agents:  network.SpaceAddresses{address},
+				Peers:   network.SpaceAddresses{address},
 			},
 		},
 	}

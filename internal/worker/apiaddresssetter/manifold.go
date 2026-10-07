@@ -39,8 +39,6 @@ type ModelService interface {
 // DomainServices is an interface that defines the domain services required by
 // the api address setter.
 type DomainServices interface {
-	// Application returns the application service.
-	Application() ApplicationService
 	// Network returns the network service.
 	Network() NetworkService
 }
@@ -53,7 +51,7 @@ type ManifoldConfig struct {
 
 	// GetDomainServices is used to extract the domain services from the
 	// dependency getter.
-	GetDomainServices func(getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error)
+	GetDomainServices func(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error)
 
 	// GetControllerDomainServices is used to extract the controller domain
 	// services from the dependency getter.
@@ -109,27 +107,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Capture(err)
 			}
 
-			domainServices, err := config.GetDomainServices(getter, config.DomainServicesName, controllerModelUUID)
+			domainServices, err := config.GetDomainServices(ctx, getter, config.DomainServicesName, controllerModelUUID)
 			if err != nil {
 				return nil, errors.Capture(err)
 			}
 
 			controllerConfigService := controllerDomainServices.ControllerConfig()
 			controllerNodeService := controllerDomainServices.ControllerNode()
-			applicationService := domainServices.Application()
 			networkService := domainServices.Network()
-
-			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
 
 			w, err := config.NewWorker(Config{
 				ControllerConfigService: controllerConfigService,
-				ApplicationService:      applicationService,
 				ControllerNodeService:   controllerNodeService,
 				NetworkService:          networkService,
-				APIPort:                 controllerConfig.APIPort(),
 				Logger:                  config.Logger,
 			})
 			if err != nil {
@@ -141,31 +131,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // GetDomainServices retrieves the domain services from the dependency getter.
-func GetDomainServices(getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error) {
+func GetDomainServices(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error) {
 	domainServicesGetter, err := coredependency.GetDependencyByName(getter, name, func(s services.DomainServicesGetter) services.DomainServicesGetter {
 		return s
 	})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	services, err := domainServicesGetter.ServicesForModel(context.Background(), controllerModelUUID)
+	services, err := domainServicesGetter.ServicesForModel(ctx, controllerModelUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 	return domainServices{
-		applicationService: services.Application(),
-		networkService:     services.Network(),
+		networkService: services.Network(),
 	}, nil
 }
 
 type domainServices struct {
-	applicationService ApplicationService
-	networkService     NetworkService
-}
-
-// Application returns the application service.
-func (s domainServices) Application() ApplicationService {
-	return s.applicationService
+	networkService NetworkService
 }
 
 // Network returns the network service.

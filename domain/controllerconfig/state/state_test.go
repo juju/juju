@@ -73,10 +73,7 @@ func (s *stateSuite) TestControllerConfigReadWithoutData(c *tc.C) {
 	})
 }
 
-// TestGetControllerConfigValue checks that a single config key can be read
-// directly, and that an unset key reports ok=false so callers can fall back to
-// a default.
-func (s *stateSuite) TestGetControllerConfigValue(c *tc.C) {
+func (s *stateSuite) TestGetControllerConfigValuesOmitUnsetKeys(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateControllerConfig(c.Context(), map[string]string{
@@ -86,15 +83,35 @@ func (s *stateSuite) TestGetControllerConfigValue(c *tc.C) {
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	value, ok, err := st.GetControllerConfigValue(c.Context(), controller.SSHServerPort)
+	values, err := st.GetControllerConfigValues(c.Context(), []string{
+		controller.SSHServerPort,
+		controller.PublicDNSAddress,
+	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ok, tc.IsTrue)
-	c.Check(value, tc.Equals, "2223")
+	c.Check(values, tc.DeepEquals, map[string]string{
+		controller.SSHServerPort: "2223",
+	})
+}
 
-	// An unset key reports ok=false rather than erroring.
-	_, ok, err = st.GetControllerConfigValue(c.Context(), controller.PublicDNSAddress)
+func (s *stateSuite) TestGetControllerConfigValues(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.UpdateControllerConfig(c.Context(), map[string]string{
+		controller.APIPort:             "17071",
+		controller.JujuManagementSpace: "management",
+	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ok, tc.IsFalse)
+
+	values, err := st.GetControllerConfigValues(c.Context(), []string{
+		controller.JujuManagementSpace,
+		controller.APIPort,
+		controller.PublicDNSAddress,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values, tc.DeepEquals, map[string]string{
+		controller.APIPort:             "17071",
+		controller.JujuManagementSpace: "management",
+	})
 }
 
 func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {

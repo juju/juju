@@ -39,32 +39,45 @@ type ControllerState interface {
 }
 
 // GetControllerPeerAddresses returns IP/DNS addresses for communication between
-// controllers. Dying units remain eligible while draining; Dead, missing and
-// non-controller units are rejected. An existing unit with no addresses returns
-// an empty result, which is distinct from a failed read.
+// controllers, grouped by controller unit. Dying units remain eligible while
+// draining; Dead, missing and non-controller units are rejected. An existing
+// unit with no addresses has an empty result, which is distinct from a failed
+// read. Invalid names and failed reads return errors, never a partial selection.
 //
 // A management space restricts machine-controller candidates when it contains
 // eligible addresses; otherwise all eligible candidates remain as a fallback.
 // Management-space configuration is ignored for Kubernetes models.
 // Kubernetes pod scopes are preserved, including legacy machine-local scopes.
-func (s *Service) GetControllerPeerAddresses(ctx context.Context, name unit.Name, managementSpace network.SpaceName) (network.SpaceAddresses, error) {
-	controllerAddresses, err := s.controllerNetwork(ctx, name)
-	if err != nil {
-		return nil, errors.Capture(err)
+func (s *Service) GetControllerPeerAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName) (domainnetwork.ControllerAddressSelection, error) {
+	for _, name := range names {
+		if err := validateControllerUnitName(name); err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
+		}
 	}
 	modelType, err := s.st.GetModelType(ctx)
 	if err != nil {
-		return nil, errors.Errorf("getting controller model type: %w", err)
+		return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting controller model type: %w", err)
 	}
 	var space *network.SpaceInfo
 	if managementSpace != "" && modelType == model.IAAS {
 		space, err = s.st.GetSpaceByName(ctx, managementSpace)
 		if err != nil {
-			return nil, errors.Errorf("getting management space %q: %w", managementSpace, err)
+			return domainnetwork.ControllerAddressSelection{}, errors.Errorf("getting management space %q: %w", managementSpace, err)
 		}
 	}
-	addresses := selectControllerAddresses(controllerAddresses, modelType == model.CAAS, space)
-	return orderControllerAddresses(addresses, network.ScopeCloudLocal), nil
+
+	result := domainnetwork.ControllerAddressSelection{
+		ByUnit: make(map[unit.Name]network.SpaceAddresses, len(names)),
+	}
+	for _, name := range names {
+		controllerAddresses, err := s.controllerNetwork(ctx, name)
+		if err != nil {
+			return domainnetwork.ControllerAddressSelection{}, errors.Capture(err)
+		}
+		addresses := selectControllerAddresses(controllerAddresses, modelType == model.CAAS, space)
+		result.ByUnit[name] = orderControllerAddresses(addresses, network.ScopeCloudLocal)
+	}
+	return result, nil
 }
 
 // GetControllerClientAddresses selects addresses for ordinary client discovery.

@@ -144,7 +144,8 @@ func (st *State) GetCACert(ctx context.Context) (string, error) {
 	return cert, errors.Capture(err)
 }
 
-// GetControllerInfo returns information about the current controller.
+// GetControllerInfo returns the controller identity, CA certificate, public DNS
+// address and API addresses selected for clients.
 func (st *State) GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -159,7 +160,7 @@ func (st *State) GetControllerInfo(ctx context.Context) (domaincontroller.Contro
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		if controllerAddresses, err = st.getAllAPIAddressesForAgents(ctx, tx); err != nil {
+		if controllerAddresses, err = st.getAllAPIAddressesForClients(ctx, tx); err != nil {
 			return err
 		}
 		if uuid, err = st.getControllerUUID(ctx, tx); err != nil {
@@ -243,10 +244,10 @@ func (st *State) getCACert(ctx context.Context, tx *sqlair.TX) (string, error) {
 	return cert.CACert, nil
 }
 
-func (st *State) getAllAPIAddressesForAgents(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
+func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX) ([]controllerAPIAddress, error) {
 	stmt, err := st.Prepare(`
 SELECT address.address AS &controllerAPIAddress.address
-FROM controller_agent_address AS address
+FROM controller_client_address AS address
 ORDER BY address.controller_id, address.priority, address.address
 `, controllerAPIAddress{})
 	if err != nil {

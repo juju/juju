@@ -4,6 +4,7 @@
 package apiaddresssetter
 
 import (
+	"context"
 	stdtesting "testing"
 
 	gomock "github.com/canonical/gomock/gomock"
@@ -11,7 +12,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -108,22 +108,17 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 	s.controllerDomainServices.EXPECT().ControllerNode().Return(noService{})
 	s.controllerDomainServices.EXPECT().ControllerConfig().Return(s.controllerConfigService)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		"api-port":            1234,
-		"controller-api-port": 4321,
-	}, nil)
 
 	s.controllerDomainServices.EXPECT().Model().Return(s.modelService)
 	controllerModelUUID, err := model.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)
 	s.modelService.EXPECT().GetControllerModelUUID(gomock.Any()).Return(controllerModelUUID, nil)
 
-	s.domainServices.EXPECT().Application().Return(noService{})
 	s.domainServices.EXPECT().Network().Return(noService{})
-
 	cfg := ManifoldConfig{
 		DomainServicesName: "domain-services",
-		GetDomainServices: func(getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error) {
+		GetDomainServices: func(ctx context.Context, getter dependency.Getter, name string, controllerModelUUID model.UUID) (DomainServices, error) {
+			c.Check(ctx, tc.Equals, c.Context())
 			return s.domainServices, nil
 		},
 		GetControllerDomainServices: func(getter dependency.Getter, name string) (ControllerDomainServices, error) {
@@ -148,7 +143,6 @@ type noGetter struct {
 }
 
 type noService struct {
-	ApplicationService
 	ControllerNodeService
 	NetworkService
 }
