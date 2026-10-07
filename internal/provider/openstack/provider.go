@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -724,7 +725,7 @@ func (e *Environ) PrecheckInstance(ctx context.Context, args environs.PrecheckIn
 		rootDiskSource := *args.Constraints.RootDiskSource
 		if rootDiskSource != rootDiskSourceLocal &&
 			rootDiskSource != rootDiskSourceVolume &&
-			!storage.IsValidPoolName(rootDiskSource) {
+			!corestorage.IsValidPoolName(rootDiskSource) {
 			return errors.Errorf(
 				"invalid %s %q (must be %q, %q, or a storage pool name)",
 				constraints.RootDiskSource, rootDiskSource,

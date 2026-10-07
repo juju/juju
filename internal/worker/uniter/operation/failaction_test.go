@@ -25,7 +25,7 @@ func TestFailActionSuite(t *testing.T) {
 
 func (s *FailActionSuite) TestPrepare(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
-	op, err := factory.NewFailAction(someActionId)
+	op, err := factory.NewFailAction(c.Context(), someActionId)
 	c.Assert(err, tc.ErrorIsNil)
 
 	newState, err := op.Prepare(c.Context(), operation.State{})
@@ -65,7 +65,7 @@ func (s *FailActionSuite) TestExecuteSuccess(c *tc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{}}
 		factory := newOpFactory(c, nil, callbacks)
-		op, err := factory.NewFailAction(someActionId)
+		op, err := factory.NewFailAction(c.Context(), someActionId)
 		c.Assert(err, tc.ErrorIsNil)
 		midState, err := op.Prepare(c.Context(), test.before)
 		c.Assert(midState, tc.NotNil)
@@ -88,7 +88,7 @@ func (s *FailActionSuite) TestExecuteFail(c *tc.C) {
 	}
 	callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{err: errors.New("squelch")}}
 	factory := newOpFactory(c, nil, callbacks)
-	op, err := factory.NewFailAction(someActionId)
+	op, err := factory.NewFailAction(c.Context(), someActionId)
 	c.Assert(err, tc.ErrorIsNil)
 	midState, err := op.Prepare(c.Context(), st)
 	c.Assert(midState, tc.NotNil)
@@ -144,7 +144,7 @@ func (s *FailActionSuite) TestCommit(c *tc.C) {
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
 		factory := newOpFactory(c, nil, nil)
-		op, err := factory.NewFailAction(someActionId)
+		op, err := factory.NewFailAction(c.Context(), someActionId)
 		c.Assert(err, tc.ErrorIsNil)
 
 		newState, err := op.Commit(c.Context(), test.before)
@@ -155,7 +155,7 @@ func (s *FailActionSuite) TestCommit(c *tc.C) {
 
 func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *tc.C) {
 	factory := newOpFactory(c, nil, nil)
-	op, err := factory.NewFailAction(someActionId)
+	op, err := factory.NewFailAction(c.Context(), someActionId)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), tc.IsTrue)
 }
