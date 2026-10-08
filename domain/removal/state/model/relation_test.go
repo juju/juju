@@ -437,6 +437,7 @@ VALUES (?, ?, 'old-key', 'old-value')`, rel, unit)
 		}
 		others++
 	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
 
 	c.Check(ours, tc.Equals, 1)
 	c.Check(others, tc.Equals, 1)

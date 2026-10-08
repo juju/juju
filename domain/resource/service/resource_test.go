@@ -28,6 +28,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/errors"
@@ -1099,6 +1100,8 @@ func (s *resourceServiceSuite) TestSetRepositoryResources(c *tc.C) {
 			c.Check(stateArgs.SetRepositoryResourcesArgs, tc.DeepEquals, args)
 			c.Assert(stateArgs.ReplacementUUIDs, tc.HasLen, 1)
 			c.Check(coreresource.UUID(stateArgs.ReplacementUUIDs["my-resource"]).Validate(), tc.ErrorIsNil)
+			c.Assert(stateArgs.RemovalJobUUIDs, tc.HasLen, 1)
+			c.Check(removal.UUID(stateArgs.RemovalJobUUIDs["my-resource"]).Validate(), tc.ErrorIsNil)
 			return nil
 		},
 	)
@@ -1240,6 +1243,7 @@ func (s *resourceServiceSuite) testUpdateUploadResource(c *tc.C) {
 		func(_ context.Context, args resource.StateUpdateUploadResourceArgs) error {
 			c.Check(args.ResourceUUID, tc.Equals, oldResUUID.String())
 			c.Check(args.NewResourceUUID, tc.Not(tc.Equals), args.ResourceUUID)
+			c.Check(removal.UUID(args.RemovalJobUUID).Validate(), tc.ErrorIsNil)
 			newResUUID = coreresource.UUID(args.NewResourceUUID)
 			return nil
 		},

@@ -30,6 +30,13 @@ type entityUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type resourceRemovalJob struct {
+	UUID          string    `db:"uuid"`
+	ResourceUUID  string    `db:"resource_uuid"`
+	ScheduledFor  time.Time `db:"scheduled_for"`
+	RemovalTypeID uint64    `db:"removal_type_id"`
+}
+
 // entityUUIDLife represents a UUID and life ID pair.
 type entityUUIDLife struct {
 	UUID   string `db:"uuid"`

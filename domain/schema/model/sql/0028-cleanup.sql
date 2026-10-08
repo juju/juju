@@ -25,7 +25,8 @@ INSERT INTO removal_type VALUES
 (15, 'controller-model'),
 (16, 'user secret'),
 (17, 'obsolete user secret revisions'),
-(18, 'charm secret');
+(18, 'charm secret'),
+(19, 'resource');
 
 
 CREATE TABLE removal (

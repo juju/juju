@@ -1,0 +1,23 @@
+name: resources
+summary: Test charm that consumes a file resource.
+description: |
+  A local test charm that retrieves its file resource during installation and
+  charm upgrades. It is used to verify that resources are associated with
+  units and refreshed correctly.
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+  arm64:
+  s390x:
+parts:
+  include:
+    plugin: dump
+    source: .
+    prime:
+      - hooks
+resources:
+  test-resource:
+    type: file
+    filename: test-resource
+    description: A file consumed by the resources test charm.

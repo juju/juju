@@ -33,6 +33,13 @@ type localUUID struct {
 	UUID string `db:"uuid"`
 }
 
+type resourceRemovalJob struct {
+	UUID          string    `db:"uuid"`
+	ResourceUUID  string    `db:"resource_uuid"`
+	ScheduledFor  time.Time `db:"scheduled_for"`
+	RemovalTypeID uint64    `db:"removal_type_id"`
+}
+
 // charmUUID represents the unique identifier of a charm.
 type charmUUID struct {
 	UUID string `db:"uuid"`

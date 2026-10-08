@@ -1,0 +1,14 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+resource_path="$(resource-get test-resource)"
+
+test -f "${resource_path}"
+test -r "${resource_path}"
+
+resource_size="$(wc -c < "${resource_path}")"
+resource_digest="$(sha256sum "${resource_path}" | awk '{print $1}')"
+status-set active "test-resource: ${resource_size} bytes, sha256 ${resource_digest}"
