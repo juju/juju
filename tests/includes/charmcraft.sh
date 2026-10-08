@@ -15,7 +15,7 @@ pack_charm() {
 	local CHARM_DIR=$1
 	CHARM_NAME=$(basename "$CHARM_DIR")
 
-	charmcraft pack -p "$CHARM_DIR"
+	charmcraft pack -p "$CHARM_DIR" >&2 || return
 	local charm_file
 	charm_file=$(ls -1 ./"${CHARM_NAME}"_*.charm "${CHARM_DIR}"/"${CHARM_NAME}"_*.charm 2>/dev/null | head -n1)
 	echo "${charm_file:-./${CHARM_NAME}_*.charm}"
