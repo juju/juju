@@ -10,7 +10,7 @@ myst:
 
 Juju 4.1 introduced changes in how you access a debug shell on a machine or Kubernetes unit. 
 
-Previously Juju intended for users to connect directly to machines or the Kubernetes API server by placing users' SSH keys directly on machines or issuing users with a scoped Kubernetes access token.
+Previously, Juju let users connect directly to machines or the Kubernetes API server by placing users' SSH keys directly on machines or issuing users with a scoped Kubernetes access token.
 
 Juju 4.1 includes an SSH server in the controller that, by default, runs on port 17022. Clients can use the existing `juju ssh` and `juju scp` commands to connect and have their connection proxied to the final destination.
 
@@ -46,7 +46,7 @@ In the above view, we can better see the operations occurring inside the Juju SS
 
 The initial SSH connection is terminated by Juju's SSH server running on port 17022 and exists to authenticate the user and receive details for the user's intended target, using SSH direct TCP forwarding. The initial connection then serves as a tunnel for another SSH connection that is also terminated at the Juju controller. With this setup, Juju can serve a unique host key for each destination and still inspect the SSH traffic before forwarding it.
 
-When a client runs `juju ssh` it uses Juju's API server to verify the expected host keys that will be exchanged. This step is not possible when using another SSH client and will require you to manually verify the presented host keys.
+When a client runs `juju ssh`, it uses Juju's API server to verify the expected host keys that will be exchanged. This step is not possible when using another SSH client and will require you to manually verify the presented host keys.
 
 The first SSH connection exchanges the server's fixed host key and the second connection exchanges a "virtual" host key based on the target destination.
 
@@ -55,7 +55,7 @@ The Juju controller will establish a connection to the target machine or the Kub
 (juju-ssh-kubernetes-vs-machines)=
 ### Kubernetes vs Machine targets
 
-Establishing a connection to Kubernetes units and machines varies but requires no changes to users' network setup.
+Establishing a connection to Kubernetes units and machines varies, but requires no changes to users' network setup.
 
 #### Kubernetes 
 
@@ -70,7 +70,7 @@ For Kubernetes units, the Juju controller establishes a direct connection to the
 
 #### Machines
 
-For machines, the Juju controller uses a "reverse-tunnel" approach where the machine initiates a connection that the controller uses to establish an SSH session back to the machine.
+For machines, the Juju controller uses a "reverse tunnel" approach where the machine initiates a connection that the controller uses to establish an SSH session back to the machine.
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -96,7 +96,7 @@ See more: {ref}`manage-ssh-keys`, {ref}`command-juju-add-ssh-key`
 ## Availability and limitations
 
 SSH access to machines/units now requires the Juju controller to be running and accessible. For machines, it also requires that the Juju agent service is running. If the agent service cannot start, `juju ssh` will not be able to connect to the machine and alternatives should be explored:
-1. Use provider specific access e.g. use AWS EC2, use `lxc shell`, or other provider specific tooling to connect to the machine.
+1. Use provider specific access (e.g. EC2 Instance Connect, `lxc shell`) or other provider specific tooling to connect to the machine.
 2. Use cloud-init config to add an administrator public key to machines that can be used to SSH directly in special cases.
 
 ```{ibnote}
