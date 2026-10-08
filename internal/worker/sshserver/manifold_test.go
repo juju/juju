@@ -128,6 +128,12 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
+	// Missing Clock.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.Clock = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
@@ -136,6 +142,7 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
+		Clock:                  clock.WallClock,
 		DomainServicesName:     "domain-services",
 		SSHTunnelerName:        "ssh-tunneler",
 		ControllerID:           "0",
@@ -225,6 +232,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldConfig)) *ManifoldConfig {
 	cfg := &ManifoldConfig{
+		Clock:              clock.WallClock,
 		DomainServicesName: "domain-services",
 		SSHTunnelerName:    "ssh-tunneler",
 		ControllerID:       "0",
@@ -261,6 +269,7 @@ func (s *manifoldSuite) TestManifoldMissingDependency(c *tc.C) {
 
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
+		Clock:                  clock.WallClock,
 		DomainServicesName:     "domain-services",
 		SSHTunnelerName:        "ssh-tunneler",
 		ControllerID:           "0",

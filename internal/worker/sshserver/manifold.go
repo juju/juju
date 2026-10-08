@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -107,6 +108,8 @@ type ManifoldConfig struct {
 	GetDomainServicesGetter GetDomainServicesGetterFunc
 	// GetSSHService is used to get the SSH service from the manifold.
 	GetSSHService GetSSHServiceFunc
+	// Clock is used to time SSH connections.
+	Clock clock.Clock
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
 	// PrometheusRegisterer registers SSH server metrics.
@@ -144,6 +147,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetSSHService == nil {
 		return errors.NotValidf("nil GetSSHService")
+	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -217,6 +223,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		},
 		getExecutor: k8sexec.NewForJujuCloudSpec,
 		metrics:     metricsCollector,
+		clock:       config.Clock,
 	}
 
 	w, err := config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
@@ -232,8 +239,9 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 			access: sshService,
 			logger: config.Logger,
 		},
-		ServerFactory: newTerminatingServerFactory(proxyFactory, sshService),
+		ServerFactory: newTerminatingServerFactory(proxyFactory, sshService, config.Clock),
 		Metrics:       metricsCollector,
+		Clock:         config.Clock,
 	})
 	if err != nil {
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)

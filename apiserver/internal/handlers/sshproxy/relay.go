@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"sync/atomic"
 
+	"github.com/juju/clock"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/prometheus/client_golang/prometheus"
 	gliderssh "github.com/tailscale/gliderssh"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
@@ -23,6 +25,16 @@ import (
 // RelayJWTKey is the context key for the relay JWT, set by the apiserver
 // from the request's auth info.
 type RelayJWTKey struct{}
+
+// Relay rejection reasons, used as metric label values.
+const (
+	// ReasonMissingJWT means no relay JWT was received.
+	ReasonMissingJWT = "missing_jwt"
+	// ReasonDenied means the relay JWT lacked access.
+	ReasonDenied = "denied"
+	// ReasonOverCapacity means the relay was at its connection cap.
+	ReasonOverCapacity = "over_capacity"
+)
 
 // TerminatingServerFactory builds terminating SSH servers for routed
 // destinations. It is satisfied by the factory the SSH server worker
@@ -70,6 +82,12 @@ type RelayHandlerConfig struct {
 	// per-connection lookups the endpoint can accumulate. The cap is
 	// per-endpoint: the relay and jump server count separately.
 	MaxConcurrentConnections func() int
+	// SessionDuration observes the duration of each relayed session.
+	SessionDuration prometheus.Histogram
+	// Rejections counts rejected relays by reason.
+	Rejections *prometheus.CounterVec
+	// Clock is used to time relayed sessions.
+	Clock clock.Clock
 }
 
 // Validate checks whether the configuration is valid.
@@ -82,6 +100,15 @@ func (cfg RelayHandlerConfig) Validate() error {
 	}
 	if cfg.MaxConcurrentConnections == nil {
 		return errors.New("nil MaxConcurrentConnections")
+	}
+	if cfg.SessionDuration == nil {
+		return errors.New("nil SessionDuration")
+	}
+	if cfg.Rejections == nil {
+		return errors.New("nil Rejections")
+	}
+	if cfg.Clock == nil {
+		return errors.New("nil Clock")
 	}
 	return nil
 }
@@ -115,6 +142,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// flow). The token was validated by the HTTP authentication layer.
 	token, ok := ctx.Value(RelayJWTKey{}).(jwt.Token)
 	if !ok || token == nil {
+		h.reject(ReasonMissingJWT)
 		http.Error(w, "missing relay JWT", http.StatusUnauthorized)
 		return
 	}
@@ -128,10 +156,12 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		h.config.Logger.Warningf(ctx, "authorizing relay access: %v", err)
+		h.reject(ReasonDenied)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	if !access.EqualOrGreaterModelAccessThan(permission.AdminAccess) {
+		h.reject(ReasonDenied)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -141,6 +171,7 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// otherwise be held for the life of the SSH session.
 	if current := h.concurrentConnections.Add(1); int(current) > h.config.MaxConcurrentConnections() {
 		h.concurrentConnections.Add(-1)
+		h.reject(ReasonOverCapacity)
 		http.Error(w, "too many concurrent relay connections", http.StatusServiceUnavailable)
 		return
 	}
@@ -181,5 +212,11 @@ func (h *RelayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	start := h.config.Clock.Now()
 	server.HandleConn(conn)
+	h.config.SessionDuration.Observe(h.config.Clock.Now().Sub(start).Seconds())
+}
+
+func (h *RelayHandler) reject(reason string) {
+	h.config.Rejections.WithLabelValues(reason).Inc()
 }

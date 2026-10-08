@@ -962,6 +962,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:         domainServicesName,
 			ControllerID:               config.ControllerID,
 			ControllerUUID:             config.ControllerUUID,
+			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.sshserver"),
 			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
 			NewServerWorker:            sshserver.NewServerWorker,
