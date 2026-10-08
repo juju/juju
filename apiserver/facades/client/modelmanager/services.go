@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/user"
@@ -201,6 +202,11 @@ type CredentialService interface {
 	CloudCredential(ctx context.Context, id credential.Key) (cloud.Credential, error)
 }
 
+// CloudService exposes cloud definitions required during model creation.
+type CloudService interface {
+	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
 // AccessService defines a interface for interacting the users and permissions
 // of a controller.
 type AccessService interface {
@@ -333,6 +339,10 @@ type Services struct {
 	// CredentialService is an interface for interacting with the credential
 	// service.
 	CredentialService CredentialService
+	// CloudService is used to resolve the provider endpoint for model creation.
+	CloudService CloudService
+	// EphemeralProviderFactory opens the provider before model state is created.
+	EphemeralProviderFactory providertracker.EphemeralProviderFactory
 	// ModelService is an interface for interacting with the model service.
 	ModelService ModelService
 	// ModelDefaultsService is an interface for interacting with the model
