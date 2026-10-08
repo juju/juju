@@ -1,9 +1,6 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package crossmodel holds helpers for cross-model relation consumers,
-// including following controller redirects when a model has been migrated
-// to another controller.
 package crossmodel
 
 import (
