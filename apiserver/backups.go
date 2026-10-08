@@ -167,6 +167,11 @@ func (h *backupHandler) cancelOnShutdown(ctx context.Context, w http.ResponseWri
 // facade's creator, resolving the domain services per call, and
 // returns its metadata, path, and cleanup.
 func (srv *Server) createBackupArchive(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	ctx, release, err := srv.backupLock.Acquire(ctx)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	defer release()
 	controllerServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, srv.shared.controllerModelUUID)
 	if err != nil {
 		return nil, "", nil, internalerrors.Capture(err)
@@ -208,7 +213,12 @@ func (srv *Server) createBackupArchive(ctx context.Context, notes string) (*core
 	if err != nil {
 		return nil, "", nil, internalerrors.Capture(err)
 	}
-	return creator.Create(ctx, notes)
+	meta, archive, cleanup, err := creator.Create(ctx, notes)
+	if err == nil && ctx.Err() != nil {
+		cleanup()
+		return nil, "", nil, context.Cause(ctx)
+	}
+	return meta, archive, cleanup, err
 }
 
 // modelExportDomainServices adapts a [services.DomainServices] to the

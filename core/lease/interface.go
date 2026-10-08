@@ -9,6 +9,9 @@ import (
 )
 
 const (
+	// BackupCreationNamespace serialises archive creation across the controller.
+	BackupCreationNamespace = "backup-creation"
+
 	// ApplicationLeadershipNamespace is the namespace used to manage
 	// leadership leases.
 	ApplicationLeadershipNamespace = "application-leadership"

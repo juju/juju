@@ -99,6 +99,9 @@ type CreateArgs struct {
 // It is a variable so tests can replace the archive creation with a
 // stub, mirroring [GetFilesToBackUp].
 var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if args.Clock == nil {
 		return "", errors.New("missing clock")
 	}
@@ -162,8 +165,12 @@ var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string,
 		SHA256: filesSum,
 	})
 
+	entries := make([]DumpEntry, len(args.DumpEntries))
+	for i, entry := range args.DumpEntries {
+		entries[i] = DumpEntry{Name: entry.Name, Reader: contextReader{ctx: ctx, Reader: entry.Reader}}
+	}
 	dumpEntries, err := buildDump(
-		archivePaths.DBDumpDir, canonicalPaths.DBDumpDir, args.DumpEntries)
+		archivePaths.DBDumpDir, canonicalPaths.DBDumpDir, entries)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -182,7 +189,7 @@ var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string,
 
 	filename := filepath.Join(args.DestinationDir,
 		meta.Started.Format(FilenameTemplate))
-	size, checksum, err := buildArchiveAndChecksum(filename, stagingDir,
+	size, checksum, err := buildArchiveAndChecksumContext(ctx, filename, stagingDir,
 		archivePaths.ContentDir)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -195,6 +202,9 @@ var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string,
 	if err := meta.MarkComplete(size, checksum, args.Clock.Now()); err != nil {
 		return "", discardArchive(filename,
 			errors.Errorf("updating metadata: %w", err))
+	}
+	if err := ctx.Err(); err != nil {
+		return "", discardArchive(filename, err)
 	}
 
 	return filename, nil
@@ -309,7 +319,7 @@ func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackU
 	// single tar stream, so the archive is written by one tar.Writer,
 	// hashed while writing so the archive is only read once.
 	hasher := sha256.New()
-	tarw := archivetar.NewWriter(io.MultiWriter(archiveFile, hasher))
+	tarw := archivetar.NewWriter(contextWriter{ctx: ctx, Writer: io.MultiWriter(archiveFile, hasher)})
 	fail := func(err error) (int64, string, error) {
 		if terr := tarw.Close(); err == nil {
 			err = errors.Capture(terr)
@@ -516,6 +526,10 @@ func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]Manifes
 // in its canonical prefixed form, see [ChecksumSHA256] — and size along
 // the way.
 func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
+	return buildArchiveAndChecksumContext(context.Background(), filename, stagingDir, contentDir)
+}
+
+func buildArchiveAndChecksumContext(ctx context.Context, filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
 		return 0, "", errors.Errorf("creating archive file: %w", err)
@@ -538,7 +552,7 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 	// users can compare the published checksum against the checksum of
 	// the file without having to decompress it first.
 	hasher := sha256.New()
-	if err := buildArchive(io.MultiWriter(archiveFile, hasher), stagingDir, contentDir); err != nil {
+	if err := buildArchive(contextWriter{ctx: ctx, Writer: io.MultiWriter(archiveFile, hasher)}, stagingDir, contentDir); err != nil {
 		return 0, "", errors.Capture(err)
 	}
 
@@ -548,6 +562,30 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 	}
 
 	return stat.Size(), ChecksumSHA256(hex.EncodeToString(hasher.Sum(nil))), nil
+}
+
+type contextReader struct {
+	ctx context.Context
+	io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.Reader.Read(p)
+}
+
+type contextWriter struct {
+	ctx context.Context
+	io.Writer
+}
+
+func (w contextWriter) Write(p []byte) (int, error) {
+	if err := w.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return w.Writer.Write(p)
 }
 
 // buildArchive writes the gzipped tar of the content directory to the

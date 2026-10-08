@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
@@ -146,6 +147,13 @@ func (s *backupSuite) TestCreateFailure(c *tc.C) {
 
 	c.Check(rec.Code, tc.Equals, http.StatusInternalServerError)
 	c.Check(s.errorMessage(c, rec), tc.Matches, "cannot export controller")
+}
+
+func (s *backupSuite) TestCreateBusy(c *tc.C) {
+	s.createErr = jujuerrors.NotYetAvailablef("a backup is already being created")
+	rec := s.postRequest(c, "", nil)
+	c.Check(rec.Code, tc.Equals, http.StatusConflict)
+	c.Check(s.errorMessage(c, rec), tc.Matches, "a backup is already being created.*")
 }
 
 func (s *backupSuite) TestCreateBadJSON(c *tc.C) {

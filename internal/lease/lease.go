@@ -12,6 +12,7 @@ import (
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // SecretaryFinder is responsible for returning the correct Secretary for a
@@ -46,9 +47,31 @@ func NewSecretaryFinder(controllerUUID string) lease.SecretaryFinder {
 			},
 			lease.ApplicationLeadershipNamespace: LeadershipSecretary{},
 			lease.ObjectStoreNamespace:           ObjectStoreSecretary{},
+			lease.BackupCreationNamespace:        BackupSecretary{ControllerUUID: controllerUUID},
 		},
 	}
 	return finder
+}
+
+// BackupSecretary restricts backup leases to this controller and gives each
+// request a distinct holder, even when requests reach the same API server.
+type BackupSecretary struct {
+	baseSecretary
+	ControllerUUID string
+}
+
+// CheckLease implements lease.Secretary.
+func (s BackupSecretary) CheckLease(key lease.Key) error {
+	if key.Lease != s.ControllerUUID {
+		return errors.NotValidf("backup controller UUID")
+	}
+	return nil
+}
+
+// CheckHolder implements lease.Secretary.
+func (BackupSecretary) CheckHolder(holder string) error {
+	_, err := uuid.UUIDFromString(holder)
+	return err
 }
 
 type baseSecretary struct{}

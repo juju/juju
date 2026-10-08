@@ -21,6 +21,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/ratelimit"
+	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -67,6 +68,7 @@ import (
 	"github.com/juju/juju/internal/resource"
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/backuplock"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
@@ -104,7 +106,10 @@ type Server struct {
 	pingClock clock.Clock
 	wg        sync.WaitGroup
 
-	shared *sharedServerContext
+	shared     *sharedServerContext
+	backupLock interface {
+		Acquire(context.Context) (context.Context, func(), error)
+	}
 
 	// modelRemovals reports the removal of a model from this controller to the
 	// connections serving it.
@@ -466,9 +471,21 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	ready := make(chan struct{})
+	backupLock, err := backuplock.NewWorker(backuplock.Config{
+		Manager:             cfg.LeaseManager,
+		ControllerUUID:      cfg.ControllerUUID,
+		ControllerModelUUID: cfg.ControllerModelUUID.String(),
+		Clock:               cfg.Clock,
+		Logger:              shared.logger.Child("backups"),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	srv.backupLock = backupLock
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "apiserver",
 		Site: &srv.catacomb,
+		Init: []worker.Worker{backupLock},
 		Work: func() error {
 			return srv.loop(ready)
 		},
