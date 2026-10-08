@@ -26,25 +26,24 @@ type ControllerConfigGetter interface {
 
 // CertificateUpdater is responsible for generating controller certificates.
 //
-// In practice, CertificateUpdater is used by a controller's machine agent to watch
-// that server's machines addresses in state, and write a new certificate to the
+// In practice, CertificateUpdater is used by a controller agent to watch the
+// published client and peer addresses, and write an updated certificate to the
 // agent's config file.
 type CertificateUpdater struct {
 	authority             pki.Authority
 	controllerNodeService ControllerNodeService
 	addresses             []string
+	initialized           bool
 	logger                logger.Logger
 }
 
-// ControllerNodeService returns all known API addresses.
+// ControllerNodeService provides controller certificate addresses.
 type ControllerNodeService interface {
-	// GetAllCloudLocalAPIAddresses returns cloud-local client addresses, which
-	// may be IP addresses or hostnames. The service strips the stored API ports
-	// before returning these values.
-	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
-	// WatchControllerClientAddresses returns a watcher that observes changes to the
-	// controller api addresses.
-	WatchControllerClientAddresses(ctx context.Context) (watcher.NotifyWatcher, error)
+	// GetAllAPIAddressesForCertificates returns SAN addresses without ports.
+	GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error)
+	// WatchControllerAddressesForCertificates watches client and peer address
+	// projections.
+	WatchControllerAddressesForCertificates(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
@@ -67,10 +66,13 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// NewCertificateUpdater returns a worker.Worker that watches for changes to
-// machine addresses and then generates a new controller certificate with those
+// NewCertificateUpdater returns a worker.Worker that watches published client
+// and peer addresses and generates a controller certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(config Config) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Capture(err)
+	}
 	return watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &CertificateUpdater{
 			authority:             config.Authority,
@@ -82,19 +84,17 @@ func NewCertificateUpdater(config Config) (worker.Worker, error) {
 
 // SetUp is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
-	// Handle populates the certificate after the watcher's initial event has
-	// established that the subscription is active.
-	return c.controllerNodeService.WatchControllerClientAddresses(ctx)
+	return c.controllerNodeService.WatchControllerAddressesForCertificates(ctx)
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) Handle(ctx context.Context) error {
-	addresses, err := c.controllerNodeService.GetAllCloudLocalAPIAddresses(ctx)
+	addresses, err := c.controllerNodeService.GetAllAPIAddressesForCertificates(ctx)
 	if err != nil {
-		return errors.Errorf("retrieving cloud local api addresses: %w", err)
+		return errors.Errorf("retrieving controller certificate addresses: %w", err)
 	}
 
-	if reflect.DeepEqual(addresses, c.addresses) {
+	if c.initialized && reflect.DeepEqual(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
 		c.logger.Debugf(ctx, "addresses have not changed since last updated cert")
@@ -104,12 +104,7 @@ func (c *CertificateUpdater) Handle(ctx context.Context) error {
 }
 
 func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses []string) error {
-	c.logger.Debugf(ctx, "new machine addresses: %#v", addresses)
-	c.addresses = addresses
-
-	if len(addresses) == 0 {
-		return nil
-	}
+	c.logger.Debugf(ctx, "new controller certificate SAN addresses: %#v", addresses)
 
 	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
 	for _, addr := range addresses {
@@ -137,6 +132,8 @@ func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses []
 		c.logger.Debugf(ctx, "commit error: %w", err)
 		return errors.Errorf("generating default controller ip certificate: %w", err)
 	}
+	c.addresses = append([]string{}, addresses...)
+	c.initialized = true
 	return nil
 }
 

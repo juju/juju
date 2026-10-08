@@ -4,7 +4,6 @@
 package certupdater
 
 import (
-	"context"
 	"net"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/core/watcher"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
@@ -37,53 +36,40 @@ func TestCertUpdaterSuite(t *testing.T) {
 func (s *certUpdaterSuite) TestWorkerCleanKill(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// Arrange
-	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{}, nil).AnyTimes()
-
-	// We use the consume of the initial event as a sync point to decide
-	// whether the worker has started. This channel is then used to stop
-	// waiting for the worker to start.
-	notifyInitialConfigConsumed := make(chan struct{})
-	s.controllerNodeService.EXPECT().WatchControllerClientAddresses(gomock.Any()).DoAndReturn(
-		func(ctx context.Context) (watcher.Watcher[struct{}], error) {
-			ch := make(chan struct{})
-			go func() {
-				defer close(notifyInitialConfigConsumed)
-
-				select {
-				case ch <- struct{}{}:
-				case <-c.Context().Done():
-					return
-				}
-			}()
-			return watchertest.NewMockNotifyWatcher(ch), nil
-		})
+	s.expectWatchers()
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{}, nil)
+	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
+	committed := make(chan struct{})
+	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
+		close(committed)
+		return nil, nil
+	})
 	w := s.newUpdater(c)
 	defer workertest.DirtyKill(c, w)
 
-	<-notifyInitialConfigConsumed
+	<-committed
 	workertest.CleanKill(c, w)
 }
 
-func (s *certUpdaterSuite) TestSetUpWaitsForInitialEvent(c *tc.C) {
+func (s *certUpdaterSuite) TestSetUpWatchesCertificateAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	nodeWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	defer workertest.CleanKill(c, nodeWatcher)
-	s.controllerNodeService.EXPECT().WatchControllerClientAddresses(gomock.Any()).Return(nodeWatcher, nil)
+	addressChanges := make(chan struct{})
+	addressWatcher := watchertest.NewMockNotifyWatcher(addressChanges)
+	s.controllerNodeService.EXPECT().WatchControllerAddressesForCertificates(gomock.Any()).Return(addressWatcher, nil)
 	updater := CertificateUpdater{controllerNodeService: s.controllerNodeService}
 	w, err := updater.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(w, tc.Equals, nodeWatcher)
+	c.Check(w, tc.Equals, addressWatcher)
+	workertest.CleanKill(c, w)
 }
 
 func (s *certUpdaterSuite) TestInitialAddress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	watcherChannel := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(watcherChannel)
-	s.controllerNodeService.EXPECT().WatchControllerClientAddresses(gomock.Any()).Return(nodeWatcher, nil)
-	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6", "2001:db8::1"}, nil)
+	watcherChannel := make(chan struct{}, 2)
+	s.expectWatcherWithChanges(watcherChannel)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"3.4.5.6", "2001:db8::1"}, nil)
 
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
@@ -97,7 +83,6 @@ func (s *certUpdaterSuite) TestInitialAddress(c *tc.C) {
 	w := s.newUpdater(c)
 	defer workertest.DirtyKill(c, w)
 
-	watcherChannel <- struct{}{}
 	<-committed
 	workertest.CleanKill(c, w)
 }
@@ -106,10 +91,9 @@ func (s *certUpdaterSuite) TestInitialAddressAsHostname(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	watcherChannel := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(watcherChannel)
-	s.controllerNodeService.EXPECT().WatchControllerClientAddresses(gomock.Any()).Return(nodeWatcher, nil)
-	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"testhost"}, nil)
+	watcherChannel := make(chan struct{}, 2)
+	s.expectWatcherWithChanges(watcherChannel)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"testhost"}, nil)
 
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddDNSNames("testhost")
@@ -122,7 +106,6 @@ func (s *certUpdaterSuite) TestInitialAddressAsHostname(c *tc.C) {
 	w := s.newUpdater(c)
 	defer workertest.DirtyKill(c, w)
 
-	watcherChannel <- struct{}{}
 	<-committed
 	workertest.CleanKill(c, w)
 }
@@ -131,18 +114,17 @@ func (s *certUpdaterSuite) TestAddressChange(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Arrange
-	watcherChannel := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(watcherChannel)
-	s.controllerNodeService.EXPECT().WatchControllerClientAddresses(gomock.Any()).Return(nodeWatcher, nil)
+	watcherChannel := make(chan struct{}, 2)
+	s.expectWatcherWithChanges(watcherChannel)
 
 	// initial addresses
-	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"3.4.5.6"}, nil)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"3.4.5.6"}, nil)
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
 	s.leafRequest.EXPECT().Commit().Return(nil, nil)
 
 	// new address
-	s.controllerNodeService.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return([]string{"0.1.2.3"}, nil)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"0.1.2.3"}, nil)
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("0.1.2.3"))
 
@@ -156,14 +138,48 @@ func (s *certUpdaterSuite) TestAddressChange(c *tc.C) {
 	w := s.newUpdater(c)
 	defer workertest.DirtyKill(c, w)
 
-	// Initial event followed by a change. Both reads follow a notification.
-	watcherChannel <- struct{}{}
+	// The initial event is sent by the merged watcher; this is the later change.
 	watcherChannel <- struct{}{}
 
 	// Assert: Wait for the worker to process the event.
 	<-sync
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *certUpdaterSuite) TestEmptyAddressSelectionReplacesCertificate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	watcherChannel := make(chan struct{}, 2)
+	s.expectWatcherWithChanges(watcherChannel)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"3.4.5.6"}, nil)
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{}, nil)
+
+	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest).Times(2)
+	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
+	firstCommit := make(chan struct{})
+	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
+		close(firstCommit)
+		return nil, nil
+	})
+	secondCommit := make(chan struct{})
+	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
+		close(secondCommit)
+		return nil, nil
+	})
+
+	w := s.newUpdater(c)
+	defer workertest.DirtyKill(c, w)
+
+	<-firstCommit
+	watcherChannel <- struct{}{}
+	<-secondCommit
+	workertest.CleanKill(c, w)
+}
+
+func (s *certUpdaterSuite) TestNewCertificateUpdaterValidatesConfig(c *tc.C) {
+	_, err := NewCertificateUpdater(Config{})
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *certUpdaterSuite) newUpdater(c *tc.C) worker.Worker {
@@ -190,4 +206,15 @@ func (s *certUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
+}
+
+func (s *certUpdaterSuite) expectWatchers() {
+	changes := make(chan struct{}, 1)
+	changes <- struct{}{}
+	s.controllerNodeService.EXPECT().WatchControllerAddressesForCertificates(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(changes), nil)
+}
+
+func (s *certUpdaterSuite) expectWatcherWithChanges(changes chan struct{}) {
+	changes <- struct{}{}
+	s.controllerNodeService.EXPECT().WatchControllerAddressesForCertificates(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(changes), nil)
 }
