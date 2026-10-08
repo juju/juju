@@ -831,6 +831,131 @@ run_migration_36_cmr_secrets_offerer() {
 	destroy_controller_36 "mig36-db-src-12345"
 }
 
+# Migrating a consuming model with a per-relation egress override (juju
+# integrate --via CIDRs) from a juju 3.6 source controller into the suite's
+# 4.0 target controller must keep the override: the migration import has to
+# persist the admin-supplied per-relation CIDRs, and network-get in relation
+# scope must report them instead of the egress-subnets model default. This
+# is the end-to-end counterpart of
+# domain/modelmigration/import_relation_network_test.go
+# (TestRelationEgressOverride).
+#
+# Only the supported 3.6 -> 4.0 migration direction is exercised; the
+# offerer model stays on the 3.6 source controller, so the migrated
+# relation is also a mixed-version cross-model relation. A 4.0 -> 4.0
+# migration would need the MigrationTarget v8 / SerializedModelV2 path
+# that lands in 4.1.
+#
+# The migration import runs on the 4.0 target controller's jujud, so the
+# target must run the agent binaries built from this checkout
+# (BUILD_AGENT=true for local suite runs). With the released agents the
+# import silently runs stale code and drops the egress override: the very
+# bug this test guards against.
+run_migration_36_relation_egress_override() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	file="${TEST_DIR}/test-mig-egress36-12345.log"
+	ensure "mig-target-egress-12345" "${file}"
+
+	# A model-level egress default (egress-subnets) that differs from the
+	# per-relation override, so that a dropped override is distinguishable
+	# from the model default after the migration.
+	egress_default="203.0.113.0/24"
+
+	# The per-relation egress override applied with juju integrate --via.
+	via_cidrs="198.51.100.0/25,192.0.2.0/24"
+	via1="${via_cidrs%%,*}"
+	via2="${via_cidrs##*,}"
+
+	add_clean_func "cleanup_mig_controllers_36"
+	bootstrap_controller_36 "mig36-egress-src-12345"
+
+	add_model_36 "mig36-egress-src-12345" "mig-egress-off36-12345"
+	${JUJU_36} switch "mig36-egress-src-12345:mig-egress-off36-12345"
+	${JUJU_36} deploy juju-qa-dummy-source --base ubuntu@22.04
+	${JUJU_36} config dummy-source token=yeah-boi
+	wait_for_36 "mig36-egress-src-12345:mig-egress-off36-12345" "dummy-source" "$(idle_condition "dummy-source")"
+	${JUJU_36} offer dummy-source:sink db-src
+
+	add_model_36 "mig36-egress-src-12345" "mig-egress-cons36-12345"
+	${JUJU_36} switch "mig36-egress-src-12345:mig-egress-cons36-12345"
+	${JUJU_36} model-config "egress-subnets=${egress_default}"
+	${JUJU_36} deploy juju-qa-dummy-sink --base ubuntu@22.04
+
+	# Same-controller consume: the offer creates the remote application
+	# and remote entity tokens that the 4.0 import must map the egress
+	# CIDRs onto. 3.6 exports local offers with the source controller's
+	# connection info (state/migrations/externalcontrollers.go), so the
+	# migrated model can reach back to the source controller to keep the
+	# relation alive.
+	${JUJU_36} consume "mig36-egress-src-12345:admin/mig-egress-off36-12345.db-src"
+
+	# The per-relation egress override under test.
+	${JUJU_36} integrate dummy-sink:source db-src --via "${via_cidrs}"
+
+	wait_for_36 "mig36-egress-src-12345:mig-egress-cons36-12345" "yeah-boi" "$(workload_status "dummy-sink" 0).message"
+
+	# Check the per-relation egress override before migrating. The
+	# per-relation egress policy (--via) is only reported when network-get
+	# runs in relation scope (-r); without it the hook tool returns
+	# binding-level egress, which is always the egress-subnets model
+	# default. The `--` separator keeps juju exec from consuming the hook
+	# tool's flags.
+	echo "Model default (expect ${egress_default}):"
+	OUT="$(${JUJU_36} model-config egress-subnets)"
+	echo "${OUT}"
+	check_contains "${OUT}" "${egress_default}"
+
+	echo "Unit view of the relation (expect ${via_cidrs}):"
+	unit_view="$(juju36_exec_output --unit dummy-sink/0 -- network-get source -r 0 --format=yaml || true)"
+	echo "${unit_view}"
+
+	# Each --via CIDR must be reported by the relation-scoped egress
+	# list, and the list must hold exactly the two of them.
+	echo "${unit_view}" | yq -e ".egress-subnets[] | select(. == \"${via1}\")" >/dev/null || { red "Failed: expected ${via1} among the relation egress subnets"; exit 1; }
+	echo "${unit_view}" | yq -e ".egress-subnets[] | select(. == \"${via2}\")" >/dev/null || { red "Failed: expected ${via2} among the relation egress subnets"; exit 1; }
+	echo "${unit_view}" | yq -e '.egress-subnets | length == 2' >/dev/null || { red "Failed: expected exactly 2 relation egress subnets"; exit 1; }
+
+	# wait for relation joined before migrate.
+	# work around for fixing:
+	# ERROR source prechecks failed: unit hasn't joined relation yet
+	sleep 30
+
+	migrate_36 "mig36-egress-src-12345" "mig-egress-cons36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_source_reaped_36 "mig36-egress-src-12345" "mig-egress-cons36-12345"
+
+	# wait_for drives the current model of the 4.0 client, and migrate_36
+	# left the shared current controller pointing at the 3.6 source,
+	# which the 4.0 client cannot drive. Switch to the migrated consumer
+	# model on the target before the post-migration waits.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-egress-cons36-12345"
+
+	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+	# Check the per-relation egress override survived the migration.
+	echo "Model default (expect ${egress_default}):"
+	OUT="$(juju model-config egress-subnets)"
+	echo "${OUT}"
+	check_contains "${OUT}" "${egress_default}"
+
+	echo "Unit view of the relation (expect ${via_cidrs}):"
+	unit_view="$(juju_exec_output --unit dummy-sink/0 -- network-get source -r 0 --format=yaml || true)"
+	echo "${unit_view}"
+
+	echo "${unit_view}" | yq -e ".egress-subnets[] | select(. == \"${via1}\")" >/dev/null || { red "Failed: expected ${via1} among the relation egress subnets"; exit 1; }
+	echo "${unit_view}" | yq -e ".egress-subnets[] | select(. == \"${via2}\")" >/dev/null || { red "Failed: expected ${via2} among the relation egress subnets"; exit 1; }
+	echo "${unit_view}" | yq -e '.egress-subnets | length == 2' >/dev/null || { red "Failed: expected exactly 2 relation egress subnets"; exit 1; }
+
+	# Clean up. The consumer model is destroyed on the target while the
+	# source controller is still alive, which breaks the cross-model
+	# relation cleanly; destroy_controller_36 removes the offerer's offer
+	# before destroying the source controller.
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	destroy_model "mig-egress-cons36-12345"
+	destroy_controller_36 "mig36-egress-src-12345"
+}
+
 test_migration_36() {
 	if [ -n "$(skip 'test_migration_36')" ]; then
 		echo "==> SKIP: Asked to skip juju 3.6 model migration test"
@@ -1064,5 +1189,34 @@ test_migration_36_cmr_secrets_offerer() {
 		cd .. || exit
 
 		run "run_migration_36_cmr_secrets_offerer"
+	)
+}
+
+test_migration_36_relation_egress_override() {
+	if [ -n "$(skip 'test_migration_36_relation_egress_override')" ]; then
+		echo "==> SKIP: Asked to skip juju 3.6 model migration relation egress override test"
+		return
+	fi
+
+	if ! gate_reason=$(mig36_gate 2>&1); then
+		echo "==> SKIP: juju 3.6 model migration relation egress override test: ${gate_reason}"
+		return
+	fi
+
+	case "${BOOTSTRAP_PROVIDER}" in
+	"lxd"|"ec2")
+		;;
+	*)
+		echo "==> SKIP: juju 3.6 model migration relation egress override test needs the lxd or ec2 provider"
+		return
+		;;
+	esac
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_migration_36_relation_egress_override"
 	)
 }
