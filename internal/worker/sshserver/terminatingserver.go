@@ -5,6 +5,8 @@ package sshserver
 
 import (
 	"context"
+	"net"
+	"time"
 
 	"github.com/juju/errors"
 	gliderssh "github.com/tailscale/gliderssh"
@@ -41,6 +43,11 @@ func (f *TerminatingServerFactory) New(ctx context.Context, destination virtualh
 		return nil, errors.Trace(err)
 	}
 	server := newTerminatingSSHServer(handlers)
+	// The jump server's start time doesn't reach this server's context.
+	server.ConnCallback = func(ctx gliderssh.Context, conn net.Conn) net.Conn {
+		ctx.SetValue(connectionStartTime{}, time.Now())
+		return conn
+	}
 	server.AddHostKey(signer)
 	return server, nil
 }
