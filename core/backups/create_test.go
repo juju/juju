@@ -122,6 +122,67 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	c.Check(staging[0].Name(), tc.Equals, filepath.Base(filename))
 }
 
+func (s *createSuite) TestCreatePreservesSymlinks(c *tc.C) {
+	toolsDir := c.MkDir()
+	agent := filepath.Join(toolsDir, "jujud")
+	err := os.WriteFile(agent, []byte("agent binary"), 0755)
+	c.Assert(err, tc.ErrorIsNil)
+
+	links := map[string]string{
+		"jujud-link":    "jujud",
+		"chained-link":  "jujud-link",
+		"absolute-link": agent,
+		"broken-link":   "missing-jujud",
+	}
+	files := []string{agent}
+	for name, target := range links {
+		link := filepath.Join(toolsDir, name)
+		c.Assert(os.Symlink(target, link), tc.ErrorIsNil)
+		files = append(files, link)
+	}
+
+	filename, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: c.MkDir(),
+		Clock:          clock.WallClock,
+		FilesToBackUp:  files,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	archiveFile, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = archiveFile.Close() }()
+	ad, err := backups.NewArchiveDataReader(archiveFile)
+	c.Assert(err, tc.ErrorIsNil)
+	_, contents := s.archiveEntries(c, ad)
+
+	tr := tar.NewReader(strings.NewReader(contents["juju-backup/root.tar"]))
+	header, err := tr.Next()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(header.Typeflag, tc.Equals, byte(tar.TypeReg))
+	content, err := io.ReadAll(tr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "agent binary")
+
+	seen := set.NewStrings()
+	for range links {
+		header, err := tr.Next()
+		c.Assert(err, tc.ErrorIsNil)
+		name := filepath.Base(header.Name)
+		c.Check(header.Name, tc.Equals,
+			strings.TrimPrefix(filepath.Join(toolsDir, name), "/"))
+		c.Check(header.Typeflag, tc.Equals, byte(tar.TypeSymlink))
+		c.Check(header.Linkname, tc.Equals, links[name])
+		c.Check(header.Size, tc.Equals, int64(0))
+		content, err := io.ReadAll(tr)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(content, tc.HasLen, 0)
+		seen.Add(name)
+	}
+	c.Check(seen, tc.DeepEquals,
+		set.NewStrings("jujud-link", "chained-link", "absolute-link", "broken-link"))
+	_, err = tr.Next()
+	c.Assert(err, tc.ErrorIs, io.EOF)
+}
+
 func (s *createSuite) archiveEntries(c *tc.C,
 	ad *backups.ArchiveData,
 ) (set.Strings, map[string]string) {

@@ -297,17 +297,11 @@ func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackU
 }
 
 // writeArchiveFile adds a single file or directory to the archive, with the
-// strip prefix removed from its stored name, mirroring the semantics of the
-// tar.TarFiles helper: symlinks are preserved as links (never followed),
-// directories are stored as headers and regular files are copied in full.
+// strip prefix removed from its stored name. Symlinks retain their link
+// targets without being followed, directories are stored as headers and
+// regular files are copied in full.
 func writeArchiveFile(tarw *archivetar.Writer, fileName, stripPrefix string) error {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer func() { _ = f.Close() }()
-
-	fInfo, err := f.Stat()
+	fInfo, err := os.Lstat(fileName)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -327,6 +321,12 @@ func writeArchiveFile(tarw *archivetar.Writer, fileName, stripPrefix string) err
 		return errors.Capture(err)
 	}
 	if fInfo.Mode().IsRegular() {
+		f, err := os.Open(fileName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = f.Close() }()
+
 		if _, err := io.CopyN(tarw, f, fInfo.Size()); err != nil {
 			return errors.Capture(err)
 		}
