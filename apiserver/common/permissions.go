@@ -18,6 +18,32 @@ import (
 // level of access a user has for a given target.
 type UserAccessFunc func(ctx context.Context, userName coreuser.Name, target permission.ID) (permission.Access, error)
 
+// tagKindPermission describes how a tag kind maps onto a permission
+// object type, along with the validator for access levels on that
+// object type.
+type tagKindPermission struct {
+	objectType permission.ObjectType
+	validate   func(permission.Access) error
+	satisfies  func(have, want permission.Access) bool
+}
+
+// permissionsByTagKind is the single source of truth for which tag
+// kinds carry permissions, and how. Both HasPermission and
+// UserAccessLevel look up here rather than maintaining their own
+// copies of this mapping, so the two can't drift out of sync.
+var permissionsByTagKind = map[string]tagKindPermission{
+	names.ControllerTagKind:       {permission.Controller, permission.ValidateControllerAccess, permission.Access.EqualOrGreaterControllerAccessThan},
+	names.ModelTagKind:            {permission.Model, permission.ValidateModelAccess, permission.Access.EqualOrGreaterModelAccessThan},
+	names.ApplicationOfferTagKind: {permission.Offer, permission.ValidateOfferAccess, permission.Access.EqualOrGreaterOfferAccessThan},
+	names.CloudTagKind:            {permission.Cloud, permission.ValidateCloudAccess, permission.Access.EqualOrGreaterCloudAccessThan},
+}
+
+// AccessSatisfies reports whether have meets required for target's kind.
+func AccessSatisfies(target names.Tag, have, required permission.Access) bool {
+	tkp, ok := permissionsByTagKind[target.Kind()]
+	return ok && tkp.validate(required) == nil && tkp.satisfies(have, required)
+}
+
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(
@@ -27,32 +53,39 @@ func HasPermission(
 	requestedPermission permission.Access,
 	target names.Tag,
 ) (bool, error) {
-	var objectType permission.ObjectType
-	var validate func(permission.Access) error
-	switch target.Kind() {
-	case names.ControllerTagKind:
-		objectType = permission.Controller
-		validate = permission.ValidateControllerAccess
-	case names.ModelTagKind:
-		objectType = permission.Model
-		validate = permission.ValidateModelAccess
-	case names.ApplicationOfferTagKind:
-		objectType = permission.Offer
-		validate = permission.ValidateOfferAccess
-	case names.CloudTagKind:
-		objectType = permission.Cloud
-		validate = permission.ValidateCloudAccess
-	default:
+	tkp, ok := permissionsByTagKind[target.Kind()]
+	if !ok || tkp.validate(requestedPermission) != nil {
 		return false, nil
 	}
-	if err := validate(requestedPermission); err != nil {
-		return false, nil
+
+	userAccess, err := UserAccessLevel(ctx, accessGetter, utag, target)
+	if err != nil || userAccess == permission.NoAccess {
+		return false, err
 	}
+	return tkp.satisfies(userAccess, requestedPermission), nil
+}
+
+// UserAccessLevel resolves the caller's access level on target in a
+// single call, using accessGetter directly rather than probing candidate
+// levels one at a time. It returns [permission.NoAccess] if the caller's
+// tag is not a user, the tag kind has no associated permission object
+// type, or the user has no access recorded for the target.
+func UserAccessLevel(
+	ctx context.Context,
+	accessGetter UserAccessFunc,
+	utag names.Tag,
+	target names.Tag,
+) (permission.Access, error) {
+	tkp, ok := permissionsByTagKind[target.Kind()]
+	if !ok {
+		return permission.NoAccess, nil
+	}
+	objectType := tkp.objectType
 
 	userTag, ok := utag.(names.UserTag)
 	if !ok {
 		// Reveal no more than is strictly necessary.
-		return false, nil
+		return permission.NoAccess, nil
 	}
 
 	userAccess, err := accessGetter(ctx, coreuser.NameFromTag(userTag), permission.ID{
@@ -64,18 +97,7 @@ func HasPermission(
 		accesserrors.UserNotFound,
 		accesserrors.PermissionNotFound,
 	) {
-		return false, errors.Errorf("while obtaining %s user: %w", target.Kind(), err)
+		return permission.NoAccess, errors.Errorf("while obtaining %s user: %w", target.Kind(), err)
 	}
-	if userAccess == permission.NoAccess {
-		return false, nil
-	}
-
-	modelPermission := userAccess.EqualOrGreaterModelAccessThan(requestedPermission) && target.Kind() == names.ModelTagKind
-	controllerPermission := userAccess.EqualOrGreaterControllerAccessThan(requestedPermission) && target.Kind() == names.ControllerTagKind
-	offerPermission := userAccess.EqualOrGreaterOfferAccessThan(requestedPermission) && target.Kind() == names.ApplicationOfferTagKind
-	cloudPermission := userAccess.EqualOrGreaterCloudAccessThan(requestedPermission) && target.Kind() == names.CloudTagKind
-	if !controllerPermission && !modelPermission && !offerPermission && !cloudPermission {
-		return false, nil
-	}
-	return true, nil
+	return userAccess, nil
 }

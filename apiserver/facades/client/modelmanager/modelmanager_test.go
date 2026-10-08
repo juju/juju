@@ -389,7 +389,7 @@ func (s *modelManagerSuite) expectCreateModelOnModelDB(
 }
 
 func (s *modelManagerSuite) TestCreateModelQualifierMismatch(c *tc.C) {
-	charlie := names.NewUserTag("add-model-charlie")
+	charlie := names.NewUserTag("add-model-cloud-dummy")
 	defer s.setUpAPIWithUser(c, charlie).Finish()
 
 	s.modelService.EXPECT().DefaultModelCloudInfo(

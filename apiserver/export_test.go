@@ -35,6 +35,10 @@ func APIHandlerWithEntity(tag names.Tag) *apiHandler {
 	}
 }
 
+func APIHandlerWithAuthInfo(authInfo authentication.AuthInfo) *apiHandler {
+	return &apiHandler{authInfo: authInfo}
+}
+
 func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
