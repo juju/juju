@@ -45,6 +45,15 @@ jobs:
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      # The dev client bootstrapping the target controller below is newer
+      # than any published controller snap, so bootstrap falls back to
+      # building the controller snap from the checkout. That fallback needs
+      # snapcraft to pack the snap, unsquashfs to inspect the built snap's
+      # version, and the host Dqlite/SQLite dev libraries for the
+      # dynamically linked jujud.
+      - name: Install controller snap prerequisites
+        run: make install-dependencies
+
       - name: Setup LXD
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
