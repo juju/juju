@@ -88,6 +88,10 @@ type State interface {
 	// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
 	// scope, including shared endpoints. Addresses include port numbers.
 	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
+
+	// GetAllAPIAddressesForCertificates returns the union of client and peer
+	// addresses with ports, including shared client addresses.
+	GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -481,6 +485,30 @@ func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, e
 	return returnAddrs, nil
 }
 
+// GetAllAPIAddressesForCertificates returns the union of the published client
+// and peer addresses, stripped of their API ports for certificate SANs.
+func (s *Service) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
+	addrs, err := s.st.GetAllAPIAddressesForCertificates(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]string, 0, len(addrs))
+	seen := make(map[string]struct{}, len(addrs))
+	for _, addr := range addrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, errors.Errorf("splitting controller certificate address %q: %w", addr, err)
+		}
+		if _, ok := seen[host]; ok {
+			continue
+		}
+		seen[host] = struct{}{}
+		result = append(result, host)
+	}
+	return result, nil
+}
+
 // WatcherFactory instances return watchers for a given namespace and UUID.
 type WatcherFactory interface {
 	// NewNotifyWatcher returns a new watcher that filters changes from the
@@ -566,6 +594,20 @@ func (s *WatchableService) WatchControllerPeerAddresses(ctx context.Context) (wa
 		ctx,
 		"controller peer addresses watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerPeerAddresses(), changestream.All),
+	)
+}
+
+// WatchControllerAddressesForCertificates watches the client and peer address
+// projections used to select controller certificate SANs.
+func (s *WatchableService) WatchControllerAddressesForCertificates(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"controller client and peer addresses watcher",
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerPeerAddresses(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerClientAddresses(), changestream.All),
 	)
 }
 

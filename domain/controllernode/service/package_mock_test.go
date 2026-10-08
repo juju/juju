@@ -34,6 +34,7 @@ type MockStateMockRecorder struct {
 	getAPIAddressesForAgentsExpects                   []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
 	getAPIAddressesForClientsExpects                  []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
 	getAPIAddressesForPeersExpects                    []*gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+	getAllAPIAddressesForCertificatesExpects          []*gomock.Call1_2[context.Context, []string, error]
 	getAllCloudLocalAPIAddressesExpects               []*gomock.Call1_2[context.Context, []string, error]
 	getControllerIDsExpects                           []*gomock.Call1_2[context.Context, []string, error]
 	namespaceForWatchControllerAgentAddressesExpects  []*gomock.Call0_1[string]
@@ -146,6 +147,24 @@ func (mr *MockStateMockRecorder) GetAPIAddressesForPeers(ctx any) *MockStateGetA
 
 // MockStateGetAPIAddressesForPeersCall is the typed call wrapper for GetAPIAddressesForPeers.
 type MockStateGetAPIAddressesForPeersCall = gomock.Call1_2[context.Context, map[string]controllernode.APIAddresses, error]
+
+// GetAllAPIAddressesForCertificates mocks base method.
+func (m *MockState) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getAllAPIAddressesForCertificatesExpects, m.ctrl, m, "GetAllAPIAddressesForCertificates", ctx)
+}
+
+// GetAllAPIAddressesForCertificates indicates an expected call of GetAllAPIAddressesForCertificates.
+func (mr *MockStateMockRecorder) GetAllAPIAddressesForCertificates(ctx any) *MockStateGetAllAPIAddressesForCertificatesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetAllAPIAddressesForCertificates", gomock.EnsureMatcher(ctx))
+	mr.getAllAPIAddressesForCertificatesExpects = append(mr.getAllAPIAddressesForCertificatesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetAllAPIAddressesForCertificatesCall is the typed call wrapper for GetAllAPIAddressesForCertificates.
+type MockStateGetAllAPIAddressesForCertificatesCall = gomock.Call1_2[context.Context, []string, error]
 
 // GetAllCloudLocalAPIAddresses mocks base method.
 func (m *MockState) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
