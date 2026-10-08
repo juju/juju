@@ -621,6 +621,36 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	c.Assert(controllerIds, jc.DeepEquals, changes.Added)
 }
 
+func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachineSchedulesRemoveAfterVote(c *gc.C) {
+	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.ForceDestroy(time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The peer grouper takes longer than maxWait to remove the vote.
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, machine, state.Dying)
+	s.Clock.Advance(time.Minute)
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, machine, state.Dying)
+
+	// The machine is left Dead for the provisioner, as the backstop
+	// removal waits from when the controller reference was removed.
+	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
+	s.assertCleanupRuns(c)
+	assertLifeIs(c, machine, state.Dead)
+
+	s.Clock.Advance(time.Minute)
+	s.assertCleanupRuns(c)
+	c.Assert(machine.Refresh(), jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachineEvacuatesUnitsWithForce(c *gc.C) {
 	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)

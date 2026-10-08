@@ -1458,12 +1458,12 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceD
 		return errors.Trace(err)
 	}
 
-	// Schedule a forced cleanup if not already done.
-	if force && !machine.ForceDestroyed() {
-		if err := st.scheduleForceCleanup(cleanupForceRemoveMachine, machineID, maxWait); err != nil {
-			return errors.Trace(err)
-		}
-		if err := st.db().RunTransaction(machine.forceDestroyedOps()); err != nil {
+	// Schedule a forced cleanup if not already done. A controller can't
+	// become Dead until the peer grouper has removed its vote, so its
+	// backstop removal is scheduled after that below, giving the
+	// provisioner maxWait to remove it once it is Dead.
+	if force && !machine.IsManager() {
+		if err := st.scheduleForceRemoveMachine(machine, maxWait); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1493,6 +1493,11 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceD
 		}
 		if err := st.RemoveControllerReference(machineID); err != nil {
 			return errors.Trace(err)
+		}
+		if force {
+			if err := st.scheduleForceRemoveMachine(machine, maxWait); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 
@@ -1525,6 +1530,18 @@ func (st *State) cleanupDestroyedMachineInternal(machineID string, force, forceD
 	// with an unreferenced instance that would otherwise be ignored
 	// when in provisioner-safe-mode.
 	return nil
+}
+
+// scheduleForceRemoveMachine schedules the backstop removal of a
+// force-destroyed machine, if not already done.
+func (st *State) scheduleForceRemoveMachine(machine *Machine, maxWait time.Duration) error {
+	if machine.ForceDestroyed() {
+		return nil
+	}
+	if err := st.scheduleForceCleanup(cleanupForceRemoveMachine, machine.Id(), maxWait); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(st.db().RunTransaction(machine.forceDestroyedOps()))
 }
 
 // cleanupForceRemoveMachine is a backstop to remove a force-destroyed
