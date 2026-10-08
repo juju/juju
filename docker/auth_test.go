@@ -220,3 +220,10 @@ func (s *authSuite) TestToken(c *gc.C) {
 	c.Assert(token.Empty(), jc.IsTrue)
 	c.Assert(token, gc.IsNil)
 }
+
+func (s *authSuite) TestBasicAuthToken(c *gc.C) {
+	c.Assert(docker.BasicAuthToken("", ""), gc.Equals, "")
+	c.Assert(docker.BasicAuthToken("user", "pass"), gc.Equals, "dXNlcjpwYXNz")
+	c.Assert(docker.BasicAuthToken("", "pass"), gc.Equals, "OnBhc3M=")
+	c.Assert(docker.BasicAuthToken("user", ""), gc.Equals, "dXNlcjo=")
+}
