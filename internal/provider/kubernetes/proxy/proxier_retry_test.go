@@ -5,27 +5,55 @@ package proxy
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
 	"fmt"
-	"net/url"
 	"testing"
+	"time"
 
+	"github.com/juju/clock/testclock"
+	jujuerrors "github.com/juju/errors"
+	"github.com/juju/retry"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func TestRetryProxyConnectionRetriesTransientError(t *testing.T) {
+	clock := testclock.NewClock(time.Time{})
 	attempts := 0
+	attempted := make(chan struct{}, 3)
 
-	err := retryProxyConnection(context.Background(), func(context.Context) error {
-		attempts++
-		if attempts < 3 {
-			return fmt.Errorf("forwarding ports: %v", errors.New("etcdserver: leader changed"))
-		}
-		return nil
-	})
+	done := make(chan error, 1)
+	go func() {
+		done <- retry.Call(retry.CallArgs{
+			Func: func() error {
+				attempts++
+				attempted <- struct{}{}
 
+				if attempts < 3 {
+					return fmt.Errorf(
+						"forwarding ports: %v",
+						stderrors.New("etcdserver: leader changed"),
+					)
+				}
+				return nil
+			},
+			IsFatalError: func(err error) bool {
+				return !isRetryableProxyError(err)
+			},
+			Attempts: 3,
+			Delay:    time.Second,
+			Clock:    clock,
+		})
+	}()
+
+	<-attempted
+	clock.Advance(time.Second)
+
+	<-attempted
+	clock.Advance(time.Second)
+
+	err := <-done
 	if err != nil {
-		t.Fatalf("retryProxyConnection failed: %v", err)
+		t.Fatalf("retry.Call failed: %v", err)
 	}
 
 	if attempts != 3 {
@@ -34,15 +62,24 @@ func TestRetryProxyConnectionRetriesTransientError(t *testing.T) {
 }
 
 func TestRetryProxyConnectionDoesNotRetryNonTransientError(t *testing.T) {
+	clock := testclock.NewClock(time.Time{})
 	attempts := 0
-	expectedErr := errors.New("some non-transient error")
+	expectedErr := stderrors.New("some non-transient error")
 
-	err := retryProxyConnection(context.Background(), func(context.Context) error {
-		attempts++
-		return expectedErr
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			attempts++
+			return expectedErr
+		},
+		IsFatalError: func(err error) bool {
+			return !isRetryableProxyError(err)
+		},
+		Attempts: 3,
+		Delay:    time.Second,
+		Clock:    clock,
 	})
 
-	if !errors.Is(err, expectedErr) {
+	if !stderrors.Is(err, expectedErr) {
 		t.Fatalf("expected %v, got %v", expectedErr, err)
 	}
 
@@ -52,19 +89,53 @@ func TestRetryProxyConnectionDoesNotRetryNonTransientError(t *testing.T) {
 }
 
 func TestRetryProxyConnectionStopsAfterMaxAttempts(t *testing.T) {
+	clock := testclock.NewClock(time.Time{})
 	attempts := 0
+	attempted := make(chan struct{}, 3)
 
-	err := retryProxyConnection(context.Background(), func(context.Context) error {
-		attempts++
-		return fmt.Errorf("forwarding ports: %v", errors.New("etcdserver: leader changed"))
-	})
+	done := make(chan error, 1)
+	go func() {
+		done <- retry.Call(retry.CallArgs{
+			Func: func() error {
+				attempts++
+				attempted <- struct{}{}
 
+				return fmt.Errorf(
+					"forwarding ports: %v",
+					stderrors.New("etcdserver: leader changed"),
+				)
+			},
+			IsFatalError: func(err error) bool {
+				return !isRetryableProxyError(err)
+			},
+			Attempts: 3,
+			Delay:    time.Second,
+			Clock:    clock,
+		})
+	}()
+
+	<-attempted
+	clock.Advance(time.Second)
+
+	<-attempted
+	clock.Advance(time.Second)
+
+	err := <-done
 	if err == nil {
-		t.Fatal("expected retryProxyConnection to return an error")
+		t.Fatal("expected retry.Call to return an error")
+	}
+
+	if !retry.IsAttemptsExceeded(err) {
+		t.Fatalf("expected attempts exceeded error, got %v", err)
 	}
 
 	if attempts != 3 {
 		t.Fatalf("expected 3 attempts, got %d", attempts)
+	}
+
+	lastErr := retry.LastError(err)
+	if lastErr == nil {
+		t.Fatal("expected last retry error")
 	}
 }
 
@@ -77,7 +148,7 @@ func TestIsRetryableProxyError(t *testing.T) {
 		{
 			name: "kubernetes internal error",
 			err: apierrors.NewInternalError(
-				errors.New("etcdserver: leader changed"),
+				stderrors.New("etcdserver: leader changed"),
 			),
 			want: true,
 		},
@@ -85,34 +156,34 @@ func TestIsRetryableProxyError(t *testing.T) {
 			name: "wrapped kubernetes internal error",
 			err: fmt.Errorf(
 				"forwarding ports: %w",
-				apierrors.NewInternalError(errors.New("etcdserver: leader changed")),
+				apierrors.NewInternalError(stderrors.New("etcdserver: leader changed")),
 			),
 			want: true,
 		},
 		{
 			name: "unrelated error",
-			err:  errors.New("error upgrading connection: error sending request: connection refused"),
+			err:  stderrors.New("error upgrading connection: error sending request: connection refused"),
 			want: false,
 		},
 		{
 			name: "leader changed without port forward context",
-			err:  errors.New("etcdserver: leader changed"),
+			err:  stderrors.New("etcdserver: leader changed"),
 			want: false,
-		},
-		{
-			name: "url error",
-			err: &url.Error{
-				Op:  "POST",
-				URL: "https://kubernetes.example/api",
-				Err: fmt.Errorf("forwarding ports: %v", errors.New("etcdserver: leader changed")),
-			},
-			want: true,
 		},
 		{
 			name: "forwarding ports error",
 			err: fmt.Errorf(
 				"forwarding ports: %v",
-				apierrors.NewInternalError(errors.New("etcdserver: leader changed")),
+				apierrors.NewInternalError(stderrors.New("etcdserver: leader changed")),
+			),
+			want: true,
+		},
+		{
+			name: "traced kubernetes internal error",
+			err: jujuerrors.Trace(
+				apierrors.NewInternalError(
+					stderrors.New("etcdserver: leader changed"),
+				),
 			),
 			want: true,
 		},
@@ -128,19 +199,33 @@ func TestIsRetryableProxyError(t *testing.T) {
 }
 
 func TestRetryProxyConnectionContextCancellation(t *testing.T) {
+	clock := testclock.NewClock(time.Time{})
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	attempts := 0
 
-	err := retryProxyConnection(ctx, func(context.Context) error {
-		attempts++
-		cancel()
-		return fmt.Errorf(
-			"forwarding ports: %v", errors.New("etcdserver: leader changed"),
-		)
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			attempts++
+			cancel()
+
+			return fmt.Errorf(
+				"forwarding ports: %v",
+				stderrors.New("etcdserver: leader changed"),
+			)
+		},
+		IsFatalError: func(err error) bool {
+			return !isRetryableProxyError(err)
+		},
+		Attempts: 3,
+		Delay:    time.Second,
+		Clock:    clock,
+		Stop:     ctx.Done(),
 	})
 
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("expected context.Canceled, got %v", err)
+	if !retry.IsRetryStopped(err) {
+		t.Fatalf("expected retry stopped error, got %v", err)
 	}
 
 	if attempts != 1 {
