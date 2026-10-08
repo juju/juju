@@ -309,6 +309,8 @@ cleanup() {
 		echo "==> Tests Removed: ${TEST_DIR}"
 	fi
 
+	rm -rf "${CREDS_DIR}"
+
 	echo "==> TEST COMPLETE"
 }
 
@@ -324,10 +326,7 @@ archive_logs() {
 	if [[ -f ${OUTPUT_FILE} ]]; then
 		cp "${OUTPUT_FILE}" "${TEST_DIR}"
 	fi
-	# Exclude cloud CLI credentials written under TEST_DIR (e.g. by
-	# setup_awscli_credential) from the archived artifact, so test
-	# artifacts never ship live cloud credentials.
-	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --exclude='./aws' --transform s/./artifacts/ -zcvf "${ARTIFACT_FILE}" ./ 2>&1)
+	TAR_OUTPUT=$(tar -C "${TEST_DIR}" --transform s/./artifacts/ -zcvf "${ARTIFACT_FILE}" ./ 2>&1)
 	# shellcheck disable=SC2181
 	if [[ $? -eq 0 ]]; then
 		echo "==> Test ${archive_type} artifact: COMPLETED"
@@ -346,6 +345,13 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+
+# Scratch directory for cloud CLI credentials written by test setup
+# helpers (e.g. setup_awscli_credential). Kept outside TEST_DIR so these
+# are never swept into archive_logs' artifact tarball and never retained
+# alongside TEST_DIR when a failed run is kept around for debugging.
+CREDS_DIR=$(mktemp -d)
+export CREDS_DIR
 
 run_test() {
 	TEST_CURRENT=${1}
