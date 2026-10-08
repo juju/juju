@@ -66,7 +66,6 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timeout waiting for worker to start")
 	}
-
 	workertest.CleanKill(c, w)
 }
 
@@ -584,6 +583,7 @@ func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
 		defer close(done)
 		return nil
 	})
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
