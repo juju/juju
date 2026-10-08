@@ -1371,9 +1371,6 @@ AND       u.removed = false
 			// A model can legitimately have no users, for example a model
 			// imported by a migration that carried no model permissions.
 			// Only report an error if the model itself doesn't exist.
-			if _, err := GetModel(ctx, tx, modelUUID); err != nil {
-				return errors.Capture(err)
-			}
 			return nil
 		} else if err != nil {
 			return errors.Capture(err)

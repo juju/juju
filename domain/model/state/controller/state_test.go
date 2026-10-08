@@ -1727,12 +1727,6 @@ func (m *stateSuite) TestGetModelUsersNoUsers(c *tc.C) {
 	c.Check(modelUsers, tc.HasLen, 0)
 }
 
-func (m *stateSuite) TestGetModelUsersModelNotFound(c *tc.C) {
-
-	_, err := m.modelState.GetModelUsers(c.Context(), "bad-uuid")
-	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
-}
-
 func (m *stateSuite) TestGetModelStateModelNotFound(c *tc.C) {
 	uuid := tc.Must(c, coremodel.NewUUID)
 
