@@ -1,12 +1,12 @@
 #!/usr/bin/env -S bash -e
 
-# Helpers shared by the migration suites (migration and migration_k8s)
-# for migrating juju 3.6 models into a controller built from this
-# branch (4.0). The source controllers are bootstrapped with a juju 3.6
-# client binary (default /snap/bin/juju_36, override with
-# JUJU_MIGRATION_36_BIN); the migration target is the suite's own 4.0
-# controller. All clients share ~/.local/share/juju, so a 3.6 client
-# and the 4.0 client see the same controllers and credentials.
+# Helpers shared by the migration suite for migrating juju 3.6 models
+# into a controller built from this branch (4.0). The source controllers
+# are bootstrapped with a juju 3.6 client binary (default
+# /snap/bin/juju_36, override with JUJU_MIGRATION_36_BIN); the migration
+# target is the suite's own 4.0 controller. All clients share
+# ~/.local/share/juju, so a 3.6 client and the 4.0 client see the same
+# controllers and credentials.
 
 JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju_36}"
 
