@@ -1251,6 +1251,15 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+				},
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -1373,6 +1382,15 @@ var statusTests = []testCase{
 							"metrics-client": network.AlphaSpaceName,
 						},
 					}),
+				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -1745,6 +1763,29 @@ var statusTests = []testCase{
 						},
 					}),
 				},
+				"relations": L{
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "private:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "project:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "varnish:webcache",
+						"requirer":  "project:cache",
+						"interface": "varnish",
+						"type":      "regular",
+						"status":    "joined",
+					},
+				},
 				"storage": M{},
 				"controller": M{
 					"timestamp": "15:04:05+07:00",
@@ -1867,6 +1908,15 @@ var statusTests = []testCase{
 								},
 							},
 						},
+					},
+				},
+				"relations": L{
+					M{
+						"provider":  "riak:ring",
+						"requirer":  "riak:ring",
+						"interface": "riak",
+						"type":      "peer",
+						"status":    "joined",
 					},
 				},
 				"storage": M{},
@@ -2059,6 +2109,29 @@ var statusTests = []testCase{
 						},
 					}),
 					"logging": loggingCharm,
+				},
+				"relations": L{
+					M{
+						"provider":  "mysql:juju-info",
+						"requirer":  "logging:info",
+						"interface": "juju-info",
+						"type":      "subordinate",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
+					M{
+						"provider":  "wordpress:logging-dir",
+						"requirer":  "logging:logging-directory",
+						"interface": "logging",
+						"type":      "subordinate",
+						"status":    "joined",
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -2773,6 +2846,15 @@ var statusTests = []testCase{
 							"logging-dir":     network.AlphaSpaceName,
 						},
 					}),
+				},
+				"relations": L{
+					M{
+						"provider":  "hosted-mysql:server",
+						"requirer":  "wordpress:db",
+						"interface": "mysql",
+						"type":      "regular",
+						"status":    "joined",
+					},
 				},
 				"storage": M{},
 				"controller": M{
