@@ -87,6 +87,8 @@ func (s *redirectSuite) TestNoRedirect(c *tc.C) {
 func (s *redirectSuite) TestFollowsRedirect(c *tc.C) {
 	redirectErr := newRedirectError()
 	expectConn := stubConnection{}
+	tag := names.NewUserTag(api.AnonymousUsername)
+	modelTag := names.NewModelTag(modelUUID)
 	var opens int
 	open := func(_ context.Context, info *api.Info) (api.Connection, error) {
 		defer func() { opens++ }()
@@ -97,17 +99,24 @@ func (s *redirectSuite) TestFollowsRedirect(c *tc.C) {
 		// original tag and model tag untouched.
 		c.Check(info.Addrs, tc.DeepEquals, []string{dstAddr})
 		c.Check(info.CACert, tc.Equals, "redirected-ca-cert")
+		c.Check(info.Tag, tc.Equals, tag)
+		c.Check(info.ModelTag, tc.Equals, modelTag)
 		return expectConn, nil
 	}
 
-	apiInfo := &api.Info{Addrs: []string{srcAddr}, CACert: "src-ca-cert"}
+	apiInfo := &api.Info{
+		Addrs:    []string{srcAddr},
+		CACert:   "src-ca-cert",
+		Tag:      tag,
+		ModelTag: modelTag,
+	}
+	originalInfo := *apiInfo
 	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), apiInfo, open)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn == expectConn, tc.IsTrue)
 	c.Check(redirect == redirectErr, tc.IsTrue)
 	c.Check(opens, tc.Equals, 2)
-	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{dstAddr})
-	c.Check(apiInfo.CACert, tc.Equals, "redirected-ca-cert")
+	c.Check(*apiInfo, tc.DeepEquals, originalInfo)
 }
 
 func (s *redirectSuite) TestRedirectSecondOpenFails(c *tc.C) {
@@ -121,11 +130,36 @@ func (s *redirectSuite) TestRedirectSecondOpenFails(c *tc.C) {
 		return nil, errBoom
 	}
 
-	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), &api.Info{}, open)
+	apiInfo := &api.Info{Addrs: []string{srcAddr}, CACert: "src-ca-cert"}
+	originalInfo := *apiInfo
+	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), apiInfo, open)
 	c.Assert(err, tc.ErrorIs, errBoom)
 	c.Check(conn, tc.IsNil)
 	c.Check(redirect, tc.IsNil)
 	c.Check(opens, tc.Equals, 2)
+	c.Check(*apiInfo, tc.DeepEquals, originalInfo)
+}
+
+func (s *redirectSuite) TestSecondRedirectIsNotFollowed(c *tc.C) {
+	firstRedirect := newRedirectError()
+	secondRedirect := newRedirectError()
+	var opens int
+	open := func(_ context.Context, info *api.Info) (api.Connection, error) {
+		opens++
+		if opens == 1 {
+			return nil, firstRedirect
+		}
+		return nil, secondRedirect
+	}
+
+	apiInfo := &api.Info{Addrs: []string{srcAddr}, CACert: "src-ca-cert"}
+	originalInfo := *apiInfo
+	conn, redirect, err := crossmodel.ConnectWithRedirect(c.Context(), apiInfo, open)
+	c.Assert(err, tc.ErrorIs, secondRedirect)
+	c.Check(conn, tc.IsNil)
+	c.Check(redirect, tc.IsNil)
+	c.Check(opens, tc.Equals, 2)
+	c.Check(*apiInfo, tc.DeepEquals, originalInfo)
 }
 
 func (s *redirectSuite) TestNonRedirectError(c *tc.C) {
@@ -144,9 +178,8 @@ func (s *redirectSuite) TestNonRedirectError(c *tc.C) {
 
 func (s *redirectSuite) TestSaveMigratedModelController(c *tc.C) {
 	updater := &recordingUpdater{}
-	apiInfo := &api.Info{Addrs: []string{dstAddr}, CACert: "redirected-ca-cert"}
 
-	err := crossmodel.SaveMigratedModelController(c.Context(), updater, newRedirectError(), apiInfo, modelUUID)
+	err := crossmodel.SaveMigratedModelController(c.Context(), updater, newRedirectError(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(updater.updated, tc.IsTrue)
 	c.Check(updater.info, tc.DeepEquals, corecrossmodel.ControllerInfo{
@@ -166,18 +199,16 @@ func (s *redirectSuite) TestSaveMigratedModelControllerInvalidControllerTag(c *t
 		},
 		CACert: "redirected-ca-cert",
 	}
-	apiInfo := &api.Info{Addrs: []string{dstAddr}, CACert: "redirected-ca-cert"}
 
-	err := crossmodel.SaveMigratedModelController(c.Context(), updater, redirectErr, apiInfo, modelUUID)
+	err := crossmodel.SaveMigratedModelController(c.Context(), updater, redirectErr, modelUUID)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(updater.updated, tc.IsFalse)
 }
 
 func (s *redirectSuite) TestSaveMigratedModelControllerUpdaterError(c *tc.C) {
 	updater := &recordingUpdater{returnErr: errBoom}
-	apiInfo := &api.Info{Addrs: []string{dstAddr}, CACert: "redirected-ca-cert"}
 
-	err := crossmodel.SaveMigratedModelController(c.Context(), updater, newRedirectError(), apiInfo, modelUUID)
+	err := crossmodel.SaveMigratedModelController(c.Context(), updater, newRedirectError(), modelUUID)
 	c.Assert(err, tc.ErrorIs, errBoom)
 	c.Check(updater.updated, tc.IsTrue)
 }

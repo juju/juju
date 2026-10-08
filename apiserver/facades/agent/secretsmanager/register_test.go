@@ -194,11 +194,16 @@ func (s *remoteClientGetterSuite) TestFollowsRedirectInvalidControllerTag(c *tc.
 		return stubConnection{}, nil
 	}
 
-	getter := newRemoteSecretsClientGetter(controllerAPI, externalControllers, open, loggertesting.WrapCheckLog(c))
+	var logs int
+	logger := loggertesting.WrapCheckLog(loggertesting.RecordLog(func(string, ...any) {
+		logs++
+	}))
+	getter := newRemoteSecretsClientGetter(controllerAPI, externalControllers, open, logger)
 	client, err := getter(c.Context(), s.newURI())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(client, tc.NotNil)
 	c.Check(opens, tc.Equals, 2)
+	c.Check(logs, tc.Equals, 0)
 }
 
 func (s *remoteClientGetterSuite) TestOpenError(c *tc.C) {
@@ -220,4 +225,70 @@ func (s *remoteClientGetterSuite) TestOpenError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errOpen)
 	c.Check(client, tc.IsNil)
 	c.Check(opens, tc.Equals, 1)
+}
+
+func (s *remoteClientGetterSuite) TestControllerAPIInfoError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerAPI := mocks.NewMockControllerAPIInfoGetter(ctrl)
+	externalControllers := mocks.NewMockExternalControllerUpdater(ctrl)
+	infoErr := errors.New("controller info failed")
+	controllerAPI.EXPECT().ControllerAPIInfoForModels(gomock.Any(), params.Entities{
+		Entities: []params.Entity{{Tag: names.NewModelTag(sourceUUID).String()}},
+	}).Return(params.ControllerAPIInfoResults{}, infoErr)
+
+	var opens int
+	open := func(context.Context, *api.Info) (api.Connection, error) {
+		opens++
+		return stubConnection{}, nil
+	}
+	getter := newRemoteSecretsClientGetter(controllerAPI, externalControllers, open, loggertesting.WrapCheckLog(c))
+	client, err := getter(c.Context(), s.newURI())
+	c.Assert(err, tc.ErrorIs, infoErr)
+	c.Check(client, tc.IsNil)
+	c.Check(opens, tc.Equals, 0)
+}
+
+func (s *remoteClientGetterSuite) TestControllerAPIInfoEmptyResults(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerAPI := mocks.NewMockControllerAPIInfoGetter(ctrl)
+	externalControllers := mocks.NewMockExternalControllerUpdater(ctrl)
+	controllerAPI.EXPECT().ControllerAPIInfoForModels(gomock.Any(), gomock.Any()).Return(params.ControllerAPIInfoResults{}, nil)
+
+	var opens int
+	open := func(context.Context, *api.Info) (api.Connection, error) {
+		opens++
+		return stubConnection{}, nil
+	}
+	getter := newRemoteSecretsClientGetter(controllerAPI, externalControllers, open, loggertesting.WrapCheckLog(c))
+	client, err := getter(c.Context(), s.newURI())
+	c.Assert(err, tc.ErrorMatches, `no controller api for model "`+sourceUUID+`"`)
+	c.Check(client, tc.IsNil)
+	c.Check(opens, tc.Equals, 0)
+}
+
+func (s *remoteClientGetterSuite) TestControllerAPIInfoResultError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerAPI := mocks.NewMockControllerAPIInfoGetter(ctrl)
+	externalControllers := mocks.NewMockExternalControllerUpdater(ctrl)
+	infoErr := &params.Error{Code: params.CodeNotFound, Message: "controller not found"}
+	controllerAPI.EXPECT().ControllerAPIInfoForModels(gomock.Any(), gomock.Any()).Return(params.ControllerAPIInfoResults{
+		Results: []params.ControllerAPIInfoResult{{Error: infoErr}},
+	}, nil)
+
+	var opens int
+	open := func(context.Context, *api.Info) (api.Connection, error) {
+		opens++
+		return stubConnection{}, nil
+	}
+	getter := newRemoteSecretsClientGetter(controllerAPI, externalControllers, open, loggertesting.WrapCheckLog(c))
+	client, err := getter(c.Context(), s.newURI())
+	c.Assert(err, tc.ErrorIs, infoErr)
+	c.Check(client, tc.IsNil)
+	c.Check(opens, tc.Equals, 0)
 }

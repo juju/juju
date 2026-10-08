@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -262,9 +263,10 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorInvalidContr
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := model.UUID("test-model-uuid")
-
-	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), modelUUID).Return(s.domainServices, nil)
-	s.domainServices.EXPECT().ExternalController().Return(s.externalController)
+	var logs int
+	s.logger = loggertesting.WrapCheckLog(loggertesting.RecordLog(func(string, ...any) {
+		logs++
+	}))
 
 	var called uint64
 	getter := s.newConnectionGetter(c, func(apiInfo *api.Info) (api.Connection, error) {
@@ -274,7 +276,7 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorInvalidContr
 
 		if called == 0 {
 			// A redirect without a controller tag cannot be persisted;
-			// UpdateExternalController must not be called.
+			// Domain services must not be fetched.
 			return nil, &api.RedirectError{
 				Servers: []network.MachineHostPorts{
 					network.NewMachineHostPorts(1234, "7.7.7.7"),
@@ -293,6 +295,8 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorInvalidContr
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn == s.connection, tc.IsTrue)
+	c.Check(called, tc.Equals, uint64(2))
+	c.Check(logs, tc.Equals, 0)
 }
 
 func (s *connectionSuite) newConnectionGetter(c *tc.C, fn func(*api.Info) (api.Connection, error)) *connectionGetter {

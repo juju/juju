@@ -27,11 +27,10 @@ type ExternalControllerUpdater interface {
 // following at most one redirect if the target model has been migrated to
 // another controller.
 //
-// apiInfo is updated in place with the redirected controller addresses and
-// CA certificate, so the caller can persist the new location. The returned
-// redirect is non-nil if and only if a redirect was followed; it carries
-// the target controller details for persistence by the caller (see
-// SaveMigratedModelController). open is the connection factory to use
+// apiInfo is left unchanged. The returned redirect is non-nil only when a
+// redirected connection succeeds; it carries the target controller details
+// for persistence by the caller (see SaveMigratedModelController).
+// open is the connection factory to use
 // (e.g. apicaller.NewExternalControllerConnection); it is required.
 func ConnectWithRedirect(
 	ctx context.Context,
@@ -49,12 +48,12 @@ func ConnectWithRedirect(
 	}
 
 	// The model was migrated to another controller; retry against the
-	// redirected addresses, updating apiInfo in place so the caller can
-	// persist the new controller location.
-	apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
-	apiInfo.CACert = redirectErr.CACert
+	// redirected addresses without changing the caller's connection details.
+	redirectedInfo := *apiInfo
+	redirectedInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
+	redirectedInfo.CACert = redirectErr.CACert
 
-	conn, err = open(ctx, apiInfo)
+	conn, err = open(ctx, &redirectedInfo)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -70,14 +69,13 @@ func SaveMigratedModelController(
 	ctx context.Context,
 	updater ExternalControllerUpdater,
 	redirect *api.RedirectError,
-	apiInfo *api.Info,
 	modelUUID string,
 ) error {
 	controllerInfo := corecrossmodel.ControllerInfo{
 		ControllerUUID: redirect.ControllerTag.Id(),
 		Alias:          redirect.ControllerAlias,
-		Addrs:          apiInfo.Addrs,
-		CACert:         apiInfo.CACert,
+		Addrs:          network.CollapseToHostPorts(redirect.Servers).Strings(),
+		CACert:         redirect.CACert,
 		ModelUUIDs:     []string{modelUUID},
 	}
 	if err := controllerInfo.Validate(); err != nil {

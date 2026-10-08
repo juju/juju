@@ -22,6 +22,15 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// ControllerAPIInfoGetter returns controller API connection details for
+// models. It is implemented by *common.ControllerConfigAPI.
+type ControllerAPIInfoGetter interface {
+	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
+	ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error)
+}
+
+var _ ControllerAPIInfoGetter = (*common.ControllerConfigAPI)(nil)
+
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsManager", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
@@ -76,14 +85,6 @@ func NewSecretManagerAPI(_ context.Context, ctx facade.ModelContext) (*SecretsMa
 	}, nil
 }
 
-// ControllerAPIInfoGetter returns controller API connection details for
-// models. It is implemented by *common.ControllerConfigAPI.
-type ControllerAPIInfoGetter interface {
-	ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error)
-}
-
-var _ ControllerAPIInfoGetter = (*common.ControllerConfigAPI)(nil)
-
 // newRemoteSecretsClientGetter returns a getter that connects to the
 // controller hosting the source model of a cross-model secret. If that
 // model has been migrated to another controller, the connection redirect
@@ -118,12 +119,12 @@ func newRemoteSecretsClientGetter(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if redirect != nil {
+		if redirect != nil && redirect.ControllerTag.Id() != "" {
 			// The source model was migrated to another controller; persist
 			// its new location so future secret accesses connect directly.
 			// Best effort: the connection is valid either way.
 			if err := crossmodel.SaveMigratedModelController(
-				stdCtx, externalControllers, redirect, &apiInfo, uri.SourceUUID,
+				stdCtx, externalControllers, redirect, uri.SourceUUID,
 			); err != nil {
 				logger.Infof(stdCtx, "failed to update external controller for model %s: %v", uri.SourceUUID, err)
 			}

@@ -272,7 +272,7 @@ func (c connectionGetter) GetConnectionForModel(ctx context.Context, modelUUID m
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if redirect == nil {
+	if redirect == nil || redirect.ControllerTag.Id() == "" {
 		return conn, nil
 	}
 
@@ -287,7 +287,7 @@ func (c connectionGetter) GetConnectionForModel(ctx context.Context, modelUUID m
 		return conn, nil
 	}
 
-	if err := crossmodel.SaveMigratedModelController(ctx, services.ExternalController(), redirect, info, modelUUID.String()); err != nil {
+	if err := crossmodel.SaveMigratedModelController(ctx, services.ExternalController(), redirect, modelUUID.String()); err != nil {
 		c.logger.Infof(ctx, "failed to update external controller for model %s: %v", modelUUID, err)
 	}
 	return conn, nil
