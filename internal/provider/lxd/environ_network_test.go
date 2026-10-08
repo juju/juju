@@ -223,6 +223,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *tc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
+	srv.EXPECT().HasExtension("network_forward").Return(false)
 	srv.EXPECT().GetInstanceState("woot").Return(&lxdapi.InstanceState{
 		Network: map[string]lxdapi.InstanceStateNetwork{
 			"eth0": {
@@ -319,6 +320,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *tc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
+	srv.EXPECT().HasExtension("network_forward").Return(false)
 	srv.EXPECT().GetInstanceState("unknown").Return(nil, "", errors.New("not found"))
 	srv.EXPECT().GetInstanceState("woot").Return(&lxdapi.InstanceState{
 		Network: map[string]lxdapi.InstanceStateNetwork{

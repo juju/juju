@@ -6,9 +6,13 @@ package lxd
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
+	containerlxd "github.com/juju/juju/internal/container/lxd"
+	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -21,6 +25,23 @@ func TestServerSuite(t *testing.T) {
 // only the exported surface of the package.
 type serverSuite struct {
 	testhelpers.IsolationSuite
+}
+
+func (s *serverSuite) TestGetNetworkInProjectPreservesInstanceClient(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	client := lxdtesting.NewMockInstanceServer(ctrl)
+	uplinkClient := lxdtesting.NewMockInstanceServer(ctrl)
+	client.EXPECT().UseProject("default").Return(uplinkClient)
+	uplink := &api.Network{Name: "UPLINK"}
+	uplinkClient.EXPECT().GetNetwork("UPLINK").Return(uplink, "etag", nil)
+	client.EXPECT().GetInstance("guest").Return(&api.Instance{Name: "guest"}, "", nil)
+	srv := &providerServer{&containerlxd.Server{InstanceServer: client}}
+	network, _, err := srv.GetNetworkInProject("UPLINK", "default")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(network, tc.Equals, uplink)
+	guest, _, err := srv.GetInstance("guest")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(guest.Name, tc.Equals, "guest")
 }
 
 func (s *serverSuite) TestParseAPIVersion(c *tc.C) {
