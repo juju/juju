@@ -16,7 +16,7 @@ func (s *migrationSuite) TestGetModelCloudType(c *tc.C) {
 
 	s.st.EXPECT().GetModelCloudType(gomock.Any()).Return("ec2", nil)
 
-	cloudType, err := s.service(c).GetModelCloudType(c.Context())
+	cloudType, err := s.migrationService(c).GetModelCloudType(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cloudType, tc.Equals, "ec2")
 }
@@ -27,6 +27,6 @@ func (s *migrationSuite) TestGetModelCloudTypeFailedModelNotFound(c *tc.C) {
 
 	s.st.EXPECT().GetModelCloudType(gomock.Any()).Return("", modelerrors.NotFound)
 
-	_, err := s.service(c).GetModelCloudType(c.Context())
+	_, err := s.migrationService(c).GetModelCloudType(c.Context())
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }

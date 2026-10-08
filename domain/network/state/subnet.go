@@ -12,7 +12,8 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/network"
 	networkerrors "github.com/juju/juju/domain/network/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
@@ -56,7 +57,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 				ctx,
 				tx,
 				subnet{
-					UUID:      string(sub.ID),
+					UUID:      sub.UUID.String(),
 					SpaceUUID: sub.SpaceID,
 				},
 			)
@@ -68,7 +69,16 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 				if err := st.addSubnet(
 					ctx,
 					tx,
-					sub,
+					sub.UUID.String(),
+					network.AddSubnetArgs{
+						CIDR:              sub.CIDR,
+						ProviderId:        sub.ProviderId,
+						ProviderSpaceId:   sub.ProviderSpaceId,
+						ProviderNetworkId: sub.ProviderNetworkId,
+						VLANTag:           sub.VLANTag,
+						AvailabilityZones: sub.AvailabilityZones,
+						SpaceID:           sub.SpaceID,
+					},
 				); err != nil {
 					return errors.Capture(err)
 				}
@@ -84,18 +94,16 @@ func (*State) NamespaceForWatchSubnet() string {
 	return "subnet"
 }
 
-func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo network.SubnetInfo) error {
-	spaceUUIDValue := subnetInfo.SpaceID
-	if subnetInfo.SpaceID == "" {
-		spaceUUIDValue = network.AlphaSpaceId
+func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, args network.AddSubnetArgs) error {
+	spaceUUIDValue := args.SpaceID
+	if args.SpaceID == "" {
+		spaceUUIDValue = corenetwork.AlphaSpaceId
 	}
-
-	subnetUUID := subnetInfo.ID.String()
 
 	subnet := subnet{
 		UUID:      subnetUUID,
-		CIDR:      subnetInfo.CIDR,
-		VLANtag:   subnetInfo.VLANTag,
+		CIDR:      args.CIDR,
+		VLANtag:   args.VLANTag,
 		SpaceUUID: spaceUUIDValue,
 	}
 
@@ -112,27 +120,27 @@ VALUES ($subnet.*)`, subnet)
 	}
 
 	// If provider IDs are provided, add them to the appropriate tables.
-	if subnetInfo.ProviderId != "" {
-		if err := st.addProviderIDForSubnet(ctx, tx, subnetUUID, subnetInfo); err != nil {
+	if args.ProviderId != "" {
+		if err := st.addProviderIDForSubnet(ctx, tx, subnetUUID, args); err != nil {
 			return errors.Errorf("adding subnet %q: %w", subnetUUID, err)
 		}
 	}
 
 	// If provider network IDs are provided, add them to the appropriate tables.
 	// Do this before adding provider
-	if subnetInfo.ProviderNetworkId != "" {
-		if err := st.addProviderNetworkIDForSubnet(ctx, tx, subnetUUID, subnetInfo); err != nil {
+	if args.ProviderNetworkId != "" {
+		if err := st.addProviderNetworkIDForSubnet(ctx, tx, subnetUUID, args); err != nil {
 			return errors.Errorf("adding subnet %q: %w", subnetUUID, err)
 		}
 	}
 
-	return st.addAvailabilityZones(ctx, tx, subnetUUID, subnetInfo)
+	return st.addAvailabilityZones(ctx, tx, subnetUUID, args.AvailabilityZones)
 }
 
-func (st *State) addProviderIDForSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo network.SubnetInfo) error {
+func (st *State) addProviderIDForSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, args network.AddSubnetArgs) error {
 	providerSub := providerSubnet{
 		SubnetUUID: subnetUUID,
-		ProviderID: subnetInfo.ProviderId,
+		ProviderID: args.ProviderId,
 	}
 
 	insertSubnetProviderIDStmt, err := st.Prepare(`
@@ -145,18 +153,18 @@ VALUES ($providerSubnet.*)`, providerSub)
 	// Add the subnet uuid to the provider ids table.
 	if err := tx.Query(ctx, insertSubnetProviderIDStmt, providerSub).Run(); err != nil {
 		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			return errors.Errorf("provider id %q already exists", subnetInfo.ProviderId).Add(coreerrors.AlreadyExists)
+			return errors.Errorf("provider id %q already exists", args.ProviderId).Add(coreerrors.AlreadyExists)
 		}
 
-		return errors.Errorf("inserting provider id %q: %w", subnetInfo.ProviderId, err)
+		return errors.Errorf("inserting provider id %q: %w", args.ProviderId, err)
 	}
 
 	return nil
 }
 
-func (st *State) addProviderNetworkIDForSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo network.SubnetInfo) error {
+func (st *State) addProviderNetworkIDForSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, args network.AddSubnetArgs) error {
 	providerNet := providerNetwork{
-		ProviderNetworkID: subnetInfo.ProviderNetworkId,
+		ProviderNetworkID: args.ProviderNetworkId,
 	}
 	providerNetSub := providerNetworkSubnet{}
 
@@ -171,7 +179,7 @@ WHERE  provider_network_id = $providerNetwork.provider_network_id`, providerNet,
 	// Check if the provider network already exists. If it does, just insert
 	// the mapping between the subnet and the provider network.
 	if err := tx.Query(ctx, selectProviderNetworkUUIDStmt, providerNet).Get(&providerNetSub); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("retrieving provider network ID %q: %w", subnetInfo.ProviderNetworkId, err)
+		return errors.Errorf("retrieving provider network ID %q: %w", args.ProviderNetworkId, err)
 	} else if err == nil && providerNetSub.ProviderNetworkUUID != "" {
 		return st.addProviderNetworkSubnetForSubnet(ctx, tx, subnetUUID, providerNetSub.ProviderNetworkUUID)
 	}
@@ -196,7 +204,7 @@ VALUES ($providerNetwork.*)`, providerNet)
 	// Add the provider network id and its uuid to the provider_network
 	// table.
 	if err := tx.Query(ctx, insertSubnetProviderNetworkIDStmt, providerNet).Run(); err != nil {
-		return errors.Errorf("inserting provider network id %q: %w", subnetInfo.ProviderNetworkId, err)
+		return errors.Errorf("inserting provider network id %q: %w", args.ProviderNetworkId, err)
 	}
 
 	return st.addProviderNetworkSubnetForSubnet(ctx, tx, subnetUUID, providerNet.ProviderNetworkUUID)
@@ -226,7 +234,7 @@ VALUES ($providerNetworkSubnet.*)`, providerNetSub)
 
 // addAvailabilityZones adds the availability zones of a subnet if they don't exist, and
 // update the availability_zone_subnet table with the subnets' id.
-func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet network.SubnetInfo) error {
+func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, zones []string) error {
 	az := availabilityZone{}
 	azSub := availabilityZoneSubnet{
 		SubnetUUID: subnetUUID,
@@ -251,7 +259,7 @@ VALUES ($availabilityZoneSubnet.*)`, azSub)
 		return errors.Capture(err)
 	}
 
-	for _, zoneName := range subnet.AvailabilityZones {
+	for _, zoneName := range zones {
 		az.Name = zoneName
 		az.UUID = ""
 		// Retrieve the availability zone.
@@ -284,10 +292,11 @@ VALUES ($availabilityZoneSubnet.*)`, azSub)
 	return nil
 }
 
-// AddSubnet creates a subnet.
-func (st *State) AddSubnet(
+// ImportSubnets imports the provided subnets as a single bulk operation in one
+// transaction. Each element's UUID must be set by the caller.
+func (st *State) ImportSubnets(
 	ctx context.Context,
-	subnet network.SubnetInfo,
+	subnets []network.ImportSubnetArgs,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -296,9 +305,21 @@ func (st *State) AddSubnet(
 
 	return errors.Capture(
 		db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return st.addSubnet(ctx, tx, subnet)
+			for _, sub := range subnets {
+				if err := st.addSubnet(ctx, tx, sub.UUID.String(), network.AddSubnetArgs{
+					CIDR:              sub.CIDR,
+					ProviderId:        sub.ProviderId,
+					ProviderSpaceId:   sub.ProviderSpaceId,
+					ProviderNetworkId: sub.ProviderNetworkId,
+					VLANTag:           sub.VLANTag,
+					AvailabilityZones: sub.AvailabilityZones,
+					SpaceID:           sub.SpaceID,
+				}); err != nil {
+					return errors.Capture(err)
+				}
+			}
+			return nil
 		}))
-
 }
 
 // GetAllSubnets returns all known subnets in the model.
@@ -331,44 +352,6 @@ FROM   v_space_subnet`
 	}
 
 	return rows.ToSubnetInfos(), nil
-}
-
-// GetSubnet returns the subnet by UUID.
-func (st *State) GetSubnet(
-	ctx context.Context,
-	uuid string,
-) (*network.SubnetInfo, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	// Append the space uuid condition to the query only if it's passed to the function.
-	q := `
-SELECT &SubnetRow.*
-FROM   v_space_subnet
-WHERE  subnet_uuid = $M.id;`
-
-	stmt, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
-	if err != nil {
-		return nil, errors.Errorf("preparing %q: %w", q, err)
-	}
-
-	var rows subnetRows
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, sqlair.M{"id": uuid}).GetAll(&rows)
-		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return networkerrors.SubnetNotFound
-			}
-			return errors.Errorf("retrieving subnet %q: %w", uuid, err)
-		}
-		return nil
-	}); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return &rows.ToSubnetInfos()[0], nil
 }
 
 // GetSubnetsByCIDR returns the subnets by CIDR.
@@ -479,7 +462,7 @@ WHERE  uuid = $subnet.uuid;`, subnet)
 func (st *State) UpdateSubnet(
 	ctx context.Context,
 	uuid string,
-	spaceID network.SpaceUUID,
+	spaceID corenetwork.SpaceUUID,
 ) error {
 	db, err := st.DB(ctx)
 	if err != nil {

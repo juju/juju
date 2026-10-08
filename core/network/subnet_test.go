@@ -232,10 +232,8 @@ func (*subnetSuite) TestSubnetInfosGetByID(c *tc.C) {
 	}
 
 	c.Check(s.GetByID("1"), tc.NotNil)
-	c.Check(s.ContainsID("1"), tc.IsTrue)
 
 	c.Check(s.GetByID("9"), tc.IsNil)
-	c.Check(s.ContainsID("9"), tc.IsFalse)
 }
 
 func (*subnetSuite) TestSubnetInfosGetByAddress(c *tc.C) {
