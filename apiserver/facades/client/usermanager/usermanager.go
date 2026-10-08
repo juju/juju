@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -62,8 +63,9 @@ type ModelService interface {
 	// [github.com/juju/juju/domain/model/errors.NotFound].
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
-	// GetModelUser will retrieve basic information about the specified model
-	// user.
+	// GetModelUser retrieves basic information about the specified
+	// model user. Unlike GetModelUsers, a user with no local permission
+	// row is still returned, with an empty access level.
 	// If the model cannot be found it will return
 	// [github.com/juju/juju/domain/model/errors.NotFound].
 	// If the user cannot be found it will return
@@ -440,15 +442,30 @@ func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.Mod
 		return results, errors.Trace(err)
 	}
 
+	isAdmin := api.isAdmin || access == permission.AdminAccess
 	modelUserInfo, err := commonmodel.ModelUserInfo(
 		ctx,
 		api.modelService,
 		modelTag,
 		api.apiUser.Name,
-		api.isAdmin || access == permission.AdminAccess,
+		isAdmin,
+		access,
 	)
 	if err != nil {
 		return results, errors.Trace(err)
+	}
+
+	// An admin whose grant isn't stored locally is missing from the list.
+	if isAdmin && !slices.ContainsFunc(modelUserInfo, func(u params.ModelUserInfo) bool {
+		return u.UserName == api.apiUser.Name.Name()
+	}) {
+		own, err := commonmodel.ModelUserInfo(
+			ctx, api.modelService, modelTag, api.apiUser.Name, false, access,
+		)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		modelUserInfo = append(modelUserInfo, own...)
 	}
 
 	for i := range modelUserInfo {

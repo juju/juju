@@ -354,7 +354,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
+	modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices, permission.AdminAccess)
 	if err != nil {
 		return result, err
 	}
@@ -975,7 +975,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			return params.ModelInfo{}, errors.Trace(err)
 		}
 
-		modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
+		modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices, access)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -1049,6 +1049,7 @@ func (m *ModelManagerAPI) getModelInfo(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 	modelDomainServices ModelDomainServices,
+	access permission.Access,
 ) (params.ModelInfo, error) {
 	modelTag := names.NewModelTag(modelUUID.String())
 	modelInfoService := modelDomainServices.ModelInfo()
@@ -1116,7 +1117,7 @@ func (m *ModelManagerAPI) getModelInfo(
 		}
 	}
 
-	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, coreuser.NameFromTag(m.apiUser), m.isAdmin)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, coreuser.NameFromTag(m.apiUser), m.isAdmin, access)
 	if err != nil {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}

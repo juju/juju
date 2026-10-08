@@ -445,6 +445,20 @@ func (d *dummyState) GetModelUsers(_ context.Context, _ coremodel.UUID) ([]corem
 	return rval, nil
 }
 
+func (d *dummyState) GetModelUser(_ context.Context, _ coremodel.UUID, name user.Name) (coremodel.ModelUserInfo, error) {
+	for _, userName := range d.users {
+		if userName == name {
+			return coremodel.ModelUserInfo{
+				Name:           userName,
+				DisplayName:    userName.Name(),
+				Access:         permission.AdminAccess,
+				LastModelLogin: time.Time{},
+			}, nil
+		}
+	}
+	return coremodel.ModelUserInfo{}, modelerrors.UserNotFoundOnModel
+}
+
 func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	var rval []coremodel.UserModelSummary
 	for _, m := range d.models {
