@@ -1406,6 +1406,7 @@ func (s *StateSuite) assertAddContainerToEvacuatingMachine(c *gc.C, concurrent, 
 		changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		controllerIDs = changes.Added
+		giveVotes(c, s.State, controllerIDs[2])
 	}
 	for i, force := range []bool{false, true} {
 		var host *state.Machine

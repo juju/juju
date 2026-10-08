@@ -521,6 +521,7 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 	s.assertControllerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"}, nil)
+	giveVotes(c, s.State, changes.Added...)
 	err = m0.ForceDestroy(dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
@@ -528,6 +529,101 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	c.Check(m0.Life(), gc.Equals, state.Dying)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(node.WantsVote(), jc.IsFalse)
+}
+
+// giveVotes gives the controllers a vote, as the peer grouper does once
+// they have joined the replica set.
+func giveVotes(c *gc.C, st *state.State, ids ...string) {
+	for _, id := range ids {
+		node, err := st.ControllerNode(id)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
+	}
+}
+
+func (s *EnableHASuite) addVotingControllers(c *gc.C) {
+	_, err := s.State.AddMachine(state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	giveVotes(c, s.State, "0", "1", "2")
+}
+
+func (s *EnableHASuite) TestForceDestroyLastVotingController(c *gc.C) {
+	s.addVotingControllers(c)
+	for _, id := range []string{"0", "1"} {
+		m, err := s.State.Machine(id)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.ForceDestroy(dontWait), jc.ErrorIsNil)
+	}
+
+	m2, err := s.State.Machine("2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = m2.ForceDestroy(dontWait)
+	c.Assert(err, gc.ErrorMatches, "controller 2 cannot be removed as no other alive controller has a vote")
+	c.Assert(m2.Refresh(), jc.ErrorIsNil)
+	c.Check(m2.Life(), gc.Equals, state.Alive)
+	node, err := s.State.ControllerNode(m2.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(node.WantsVote(), jc.IsTrue)
+}
+
+func (s *EnableHASuite) TestForceDestroyOnlyVoterBeforeOthersVote(c *gc.C) {
+	m0, err := s.State.AddMachine(state.UbuntuBase("18.04"), state.JobHostUnits, state.JobManageModel)
+	c.Assert(err, jc.ErrorIsNil)
+	node, err := s.State.ControllerNode(m0.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
+	// The new controllers are Alive, but the peer grouper has not given
+	// them a vote yet.
+	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("18.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = m0.ForceDestroy(dontWait)
+	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as no other alive controller has a vote")
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
+	c.Check(m0.Life(), gc.Equals, state.Alive)
+}
+
+func (s *EnableHASuite) TestForceDestroyRaceLastVotingController(c *gc.C) {
+	s.addVotingControllers(c)
+	m0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m0.ForceDestroy(dontWait), jc.ErrorIsNil)
+	m1, err := s.State.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
+	m2, err := s.State.Machine("2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Check(m2.ForceDestroy(dontWait), jc.ErrorIsNil)
+	}).Check()
+	err = m1.ForceDestroy(dontWait)
+	c.Assert(err, gc.ErrorMatches, "controller 1 cannot be removed as no other alive controller has a vote")
+	c.Assert(m1.Refresh(), jc.ErrorIsNil)
+	c.Check(m1.Life(), gc.Equals, state.Alive)
+	c.Assert(m2.Refresh(), jc.ErrorIsNil)
+	c.Check(m2.Life(), gc.Equals, state.Dying)
+}
+
+func (s *EnableHASuite) TestForceDestroyRaceOtherVotesRemoved(c *gc.C) {
+	s.addVotingControllers(c)
+	m0, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The peer grouper removes the other controllers' votes after the
+	// removal has picked one of them to keep its vote.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		for _, id := range []string{"1", "2"} {
+			node, err := s.State.ControllerNode(id)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(node.SetHasVote(false), jc.ErrorIsNil)
+		}
+	}).Check()
+	err = m0.ForceDestroy(dontWait)
+	c.Assert(err, gc.ErrorMatches, "controller 0 cannot be removed as no other alive controller has a vote")
+	c.Assert(m0.Refresh(), jc.ErrorIsNil)
+	c.Check(m0.Life(), gc.Equals, state.Alive)
 }
 
 func (s *EnableHASuite) TestDestroyRaceLastController(c *gc.C) {
