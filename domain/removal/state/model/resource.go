@@ -55,24 +55,24 @@ func (st *State) DeleteResourceIfUnused(ctx context.Context, resourceUUID string
 
 	resourceID := entityUUID{UUID: resourceUUID}
 	selectUnusedStmt, err := st.Prepare(`
-WITH referenced_resource AS (
-    SELECT ar.resource_uuid AS uuid
-    FROM   application_resource AS ar
-    WHERE  ar.resource_uuid = $entityUUID.uuid
-    UNION
-    SELECT par.resource_uuid AS uuid
-    FROM   pending_application_resource AS par
-    WHERE  par.resource_uuid = $entityUUID.uuid
-    UNION
-    SELECT ur.resource_uuid AS uuid
-    FROM   unit_resource AS ur
-    WHERE  ur.resource_uuid = $entityUUID.uuid
-)
 SELECT r.uuid AS &entityUUID.uuid
 FROM   resource AS r
-LEFT JOIN referenced_resource AS rr ON rr.uuid = r.uuid
 WHERE  r.uuid = $entityUUID.uuid
-AND    rr.uuid IS NULL
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   application_resource AS ar
+    WHERE  ar.resource_uuid = r.uuid
+)
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   pending_application_resource AS par
+    WHERE  par.resource_uuid = r.uuid
+)
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   unit_resource AS ur
+    WHERE  ur.resource_uuid = r.uuid
+)
 `, resourceID)
 	if err != nil {
 		return false, errors.Capture(err)
@@ -89,7 +89,6 @@ WHERE  uuid = $entityUUID.uuid
 
 	removed := false
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		removed = false
 		var unusedResource entityUUID
 		err := tx.Query(ctx, selectUnusedStmt, resourceID).Get(&unusedResource)
 		if errors.Is(err, sqlair.ErrNoRows) {
