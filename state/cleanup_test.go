@@ -627,8 +627,9 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachineSchedulesRemove
 	node, err := s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
+	giveVotes(c, s.State, changes.Added...)
 
 	err = machine.ForceDestroy(time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
@@ -655,6 +656,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachineEvacuatesUnitsW
 	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
+	giveVotes(c, s.State, changes.Added[1:]...)
 
 	machine, err := s.State.Machine(changes.Added[0])
 	c.Assert(err, jc.ErrorIsNil)
@@ -725,6 +727,7 @@ func (s *CleanupSuite) TestDestroyControllerWithHostedUnitsAndContainersNoLonger
 	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
+	giveVotes(c, s.State, changes.Added[1:]...)
 
 	machine, err := s.State.Machine(changes.Added[0])
 	c.Assert(err, jc.ErrorIsNil)
@@ -742,6 +745,7 @@ func (s *CleanupSuite) TestCleanupDestroyControllerMachineWithForceDoesNotWait(c
 	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
+	giveVotes(c, s.State, changes.Added[1:]...)
 
 	machine, err := s.State.Machine(changes.Added[0])
 	c.Assert(err, jc.ErrorIsNil)

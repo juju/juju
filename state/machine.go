@@ -709,10 +709,13 @@ func (m *Machine) evacuateMachineOps(force bool, maxWait time.Duration) ([]txn.O
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops = append(ops,
-			controllerOp,
-			setControllerWantsVoteOp(m.st, m.Id(), false),
-		)
+		votingControllerOps, err := m.otherVotingControllerOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, controllerOp)
+		ops = append(ops, votingControllerOps...)
+		ops = append(ops, setControllerWantsVoteOp(m.st, m.Id(), false))
 	}
 	if !force {
 		// The machine's cleanup also removes its containers, so neither it
@@ -1039,6 +1042,50 @@ func (m *Machine) controllerIDsOp() (txn.Op, error) {
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"controller-ids", controllerIds}},
 	}, nil
+}
+
+// otherVotingControllerOps returns ops asserting that another controller
+// stays Alive with a vote. A Dying controller loses its vote, and the peer
+// grouper can neither keep a primary nor add new voters once no Alive
+// controller has one, so the replica set would never converge.
+func (m *Machine) otherVotingControllerOps() ([]txn.Op, error) {
+	controllerIds, err := m.st.ControllerIds()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading controller info")
+	}
+	for _, id := range controllerIds {
+		if id == m.Id() {
+			continue
+		}
+		controller, err := m.st.Machine(id)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if controller.Life() != Alive {
+			continue
+		}
+		node, err := m.st.ControllerNode(id)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !node.HasVote() {
+			continue
+		}
+		return []txn.Op{{
+			C:      machinesC,
+			Id:     controller.doc.DocID,
+			Assert: isAliveDoc,
+		}, {
+			C:      controllerNodesC,
+			Id:     m.st.docID(id),
+			Assert: bson.D{{"has-vote", true}},
+		}}, nil
+	}
+	return nil, errors.Errorf("controller %s cannot be removed as no other alive controller has a vote", m.Id())
 }
 
 // noContainersOp returns an Op to assert that the machine

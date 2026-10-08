@@ -324,9 +324,11 @@ func (s *cleanupInternalSuite) assertDyingEvacuationWorkflow(c *gc.C, controller
 		c.Assert(err, jc.ErrorIsNil)
 		parent, err = st.Machine(changes.Added[0])
 		c.Assert(err, jc.ErrorIsNil)
-		node, err := st.ControllerNode(parent.Id())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
+		for _, id := range changes.Added {
+			node, err := st.ControllerNode(id)
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(node.SetHasVote(true), jc.ErrorIsNil)
+		}
 	} else {
 		st = s.newState(c)
 		parent, err = st.AddMachine(UbuntuBase("12.10"), JobHostUnits)

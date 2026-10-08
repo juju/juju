@@ -67,6 +67,11 @@ controller_machine_ids() {
 		yq -r '.[] | (.["controller-machines"] // {}) | keys | sort_by(tonumber) | .[]'
 }
 
+controller_machine_ids_without_vote() {
+	juju show-controller --format=json |
+		yq -r '.[] | (.["controller-machines"] // {}) | with_entries(select(.value["ha-status"] != "ha-enabled")) | keys | sort_by(tonumber) | .[]'
+}
+
 controller_machine_count() {
 	juju show-controller --format=json |
 		yq -r '.[] | (.["controller-machines"] // {}) | length'
@@ -114,11 +119,20 @@ run_remove_controller_machine() {
 	prepare_controller_for_removal
 	expected=$(controller_machine_count)
 	while [[ ${expected} -gt 1 ]]; do
-		machine_id=$(controller_machine_ids | tail -n 1)
+		# Removing the only controller with a vote is refused, so remove
+		# one without a vote when there is one.
+		machine_id=$(controller_machine_ids_without_vote | tail -n 1)
+		if [[ -z ${machine_id} ]]; then
+			machine_id=$(controller_machine_ids | tail -n 1)
+		fi
 		juju remove-machine -m controller "${machine_id}" --no-prompt
 		expected=$((expected - 1))
 		wait_for_controller_machine_count "${expected}"
 		wait_for_machine_removed "${machine_id}"
+		if [[ ${expected} -eq 2 ]]; then
+			# The peer grouper keeps an odd number of voters.
+			wait_for_ha 1
+		fi
 	done
 
 	assert_controller_instance_ids
