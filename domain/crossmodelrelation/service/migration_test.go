@@ -521,6 +521,22 @@ func (s *migrationSuite) TestImportRemoteApplicationConsumersMultipleOfferConnec
 	c.Check(second.RelationUUID, tc.Equals, "6049aa01-76c9-462d-8440-964a6e26aac0")
 }
 
+func (s *migrationSuite) TestImportRemoteApplicationConsumersMultipleOfferConnectionsInvalidUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	input := []RemoteApplicationConsumerImport{
+		newMultiOfferConnectionImport(c, "mysql", "cfa46843-ebf2-4fff-8519-c1fb5a9816f0", "6049aa01-76c9-462d-8440-964a6e26aac0"),
+		newMultiOfferConnectionImport(c, "postgres", "cfa46843-ebf2-4fff-8519-c1fb5a9816f1", "6049aa01-76c9-462d-8440-964a6e26aac1"),
+	}
+	input[1].Units = []string{multiOfferConnProxyName}
+	offererAppUUID := tc.Must(c, coreapplication.NewUUID).String()
+	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), "mysql").
+		Return(offererAppUUID, nil)
+
+	err := s.service(c).ImportRemoteApplicationConsumers(c.Context(), input)
+	c.Assert(err, tc.ErrorMatches,
+		`rewriting synthetic unit names onto "remote-.*": parsing unit name "`+multiOfferConnProxyName+`": invalid unit name: "`+multiOfferConnProxyName+`"`)
+}
+
 func (s *migrationSuite) TestImportRelationNetworks(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

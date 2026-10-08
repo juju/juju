@@ -238,6 +238,10 @@ func matchConsumerProxyEndpoints(
 		return errors.Errorf("relation %q has key %q, not %q", arg.UUID, found, arg.Key)
 	}
 
+	if len(arg.Endpoints) != len(endpoints) {
+		return nil, mismatch()
+	}
+
 	matched := make([]bool, len(endpoints))
 	resolved := make([]relation.Endpoint, len(arg.Endpoints))
 	exact := 0
@@ -322,7 +326,7 @@ func (s *MigrationService) importConsumerProxyEndpoint(
 
 	unitSettings := ep.UnitSettings
 	if ep.ConsumerProxy && endpoint.ApplicationName != ep.ApplicationName {
-		unitSettings, err = rewriteUnitSettings(
+		unitSettings, err = domainmodelmigration.RewriteUnitSettings(
 			ep.UnitSettings, ep.ApplicationName, endpoint.ApplicationName)
 		if err != nil {
 			return errors.Errorf("rewriting unit settings of %q onto %q: %w",
@@ -389,28 +393,6 @@ func (s *MigrationService) importEndpointData(
 		}
 	}
 	return nil
-}
-
-// rewriteUnitSettings re-keys unit settings from the old application name
-// onto the new one, with the shared
-// domain/modelmigration/modelmigration.RewriteUnitName rule: the
-// crossmodelrelation domain import renames the synthetic units of an
-// additional offer connection with the same rule, so the re-keyed
-// settings address units that exist.
-func rewriteUnitSettings(
-	settings map[string]map[string]any,
-	oldApplicationName, newApplicationName string,
-) (map[string]map[string]any, error) {
-	out := make(map[string]map[string]any, len(settings))
-	for unitName, unitSettings := range settings {
-		rewritten, err := domainmodelmigration.RewriteUnitName(
-			unitName, oldApplicationName, newApplicationName)
-		if err != nil {
-			return nil, err
-		}
-		out[rewritten] = unitSettings
-	}
-	return out, nil
 }
 
 // ExportRelations returns all relation information to be exported for the

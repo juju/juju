@@ -660,4 +660,19 @@ SELECT relation_id FROM relation WHERE uuid = ?`, offer.relationUUID2).Scan(&rel
 		syntheticUnit + ":request": "keep-unit-data",
 	})
 	c.Check(data2.units, tc.SameContents, []string{"postgres/0", syntheticUnit})
+
+	// Replaying only the relation import preserves the data of both
+	// connections, including the renamed proxy's settings and scope.
+	replay := coremodelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	relationmigration.RegisterImport(replay, clock.WallClock, loggertesting.WrapCheckLog(c))
+	c.Assert(replay.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+	for relationUUID, before := range map[string]relationData{
+		offer.relationUUID1: data1,
+		offer.relationUUID2: data2,
+	} {
+		after := readRelationData(c, runner, relationUUID)
+		c.Check(after.appSettings, tc.DeepEquals, before.appSettings)
+		c.Check(after.unitSettings, tc.DeepEquals, before.unitSettings)
+		c.Check(after.units, tc.SameContents, before.units)
+	}
 }

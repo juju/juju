@@ -334,7 +334,7 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 			}
 			syntheticAppName = application.RemoteApplicationNameFromUUID(synthAppUUID)
 			syntheticApplicationUUID = synthAppUUID.String()
-			rApp.Units, err = rewriteUnitNames(rApp.Units, rApp.Name, syntheticAppName)
+			rApp.Units, err = domainmodelmigration.RewriteUnitNames(rApp.Units, rApp.Name, syntheticAppName)
 			if err != nil {
 				return internalerrors.Errorf("rewriting synthetic unit names onto %q: %w",
 					syntheticAppName, err)
@@ -354,28 +354,6 @@ func (s *MigrationService) ImportRemoteApplicationConsumers(ctx context.Context,
 	}
 
 	return nil
-}
-
-// rewriteUnitNames renames the units belonging to the old application
-// name onto the new one, with the shared
-// domain/modelmigration/modelmigration.RewriteUnitName rule: the relation
-// domain import re-keys the unit settings of the relation of an
-// additional offer connection with the same rule, so the two stay in
-// lockstep.
-func rewriteUnitNames(
-	unitNames []string,
-	oldApplicationName, newApplicationName string,
-) ([]string, error) {
-	out := make([]string, len(unitNames))
-	for i, unitName := range unitNames {
-		rewritten, err := domainmodelmigration.RewriteUnitName(
-			unitName, oldApplicationName, newApplicationName)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = rewritten
-	}
-	return out, nil
 }
 
 // ImportRelationNetworks adds the relation networks being migrated to the

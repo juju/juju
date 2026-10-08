@@ -147,6 +147,45 @@ func UniqueRemoteOfferApplications(remoteApps []description.RemoteApplication) (
 	return unique, nil
 }
 
+// RewriteUnitSettings re-keys unit settings from the old application name
+// onto the new one using RewriteUnitName. Settings belonging to other
+// applications pass through unchanged. The input map is not modified;
+// the per-unit settings maps are shared with the result.
+func RewriteUnitSettings(
+	settings map[string]map[string]any,
+	oldApplicationName, newApplicationName string,
+) (map[string]map[string]any, error) {
+	out := make(map[string]map[string]any, len(settings))
+	for unitName, unitSettings := range settings {
+		rewritten, err := RewriteUnitName(
+			unitName, oldApplicationName, newApplicationName)
+		if err != nil {
+			return nil, err
+		}
+		out[rewritten] = unitSettings
+	}
+	return out, nil
+}
+
+// RewriteUnitNames rewrites unit names from the old application name onto
+// the new one using RewriteUnitName, preserving their order. Names belonging
+// to other applications pass through unchanged. The input slice is not modified.
+func RewriteUnitNames(
+	unitNames []string,
+	oldApplicationName, newApplicationName string,
+) ([]string, error) {
+	out := make([]string, len(unitNames))
+	for i, unitName := range unitNames {
+		rewritten, err := RewriteUnitName(
+			unitName, oldApplicationName, newApplicationName)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = rewritten
+	}
+	return out, nil
+}
+
 // RewriteUnitName rewrites a unit name belonging to the old application
 // name onto the new application name. Unit names are in the form
 // "<application name>/<unit number>"; names belonging to other

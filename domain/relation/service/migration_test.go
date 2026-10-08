@@ -280,6 +280,102 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsR
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsFewerEndpoints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationEndpoints(relUUID, key.EndpointIdentifiers())
+
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: "wordpress",
+			EndpointName:    "db",
+		}},
+	}})
+	c.Assert(err, tc.ErrorMatches,
+		`relation ".*" has key "wordpress:db remote-13ea:db", not "wordpress:db remote-13ea:db"`)
+}
+
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsMoreEndpoints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationEndpoints(relUUID, key.EndpointIdentifiers())
+
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: "wordpress",
+			EndpointName:    "db",
+		}, {
+			ApplicationName: "remote-13ea",
+			EndpointName:    "db",
+			ConsumerProxy:   true,
+		}, {
+			ApplicationName: "remote-cafe",
+			EndpointName:    "db",
+			ConsumerProxy:   true,
+		}},
+	}})
+	c.Assert(err, tc.ErrorMatches,
+		`relation ".*" has key "wordpress:db remote-13ea:db", not "wordpress:db remote-13ea:db"`)
+}
+
+func (s *migrationServiceSuite) TestMatchConsumerProxyEndpointsPrefersExactMatch(c *tc.C) {
+	// Exercise the matcher with multiple proxy candidates and an exact
+	// anchor. The renamed candidate is scanned before the exact one.
+	endpoints := []relation.Endpoint{{
+		ApplicationName: "remote-f00d", Name: "db",
+	}, {
+		ApplicationName: "remote-13ea", Name: "db",
+	}, {
+		ApplicationName: "wordpress", Name: "db",
+	}}
+	arg := relation.ImportRelationSettingsAndUnitsArg{
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: "remote-13ea", EndpointName: "db", ConsumerProxy: true,
+		}, {
+			ApplicationName: "remote-f00d", EndpointName: "db", ConsumerProxy: true,
+		}, {
+			ApplicationName: "wordpress", EndpointName: "db",
+		}},
+	}
+
+	resolved, err := matchConsumerProxyEndpoints(arg, endpoints)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(resolved, tc.DeepEquals, []relation.Endpoint{endpoints[1], endpoints[0], endpoints[2]})
+}
+
+func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsInvalidProxyUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	key := corerelationtesting.GenNewKey(c, "wordpress:db remote-13ea:db")
+	renamedKey := corerelationtesting.GenNewKey(c, "wordpress:db remote-f00d:db")
+	relUUID := tc.Must(c, corerelation.NewUUID)
+	s.expectGetRelationEndpoints(relUUID, renamedKey.EndpointIdentifiers())
+	s.expectGetApplicationUUIDByName(c, "remote-f00d")
+
+	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), relation.ImportRelationSettingsAndUnitsArgs{{
+		UUID: relUUID,
+		Key:  key,
+		Endpoints: []relation.ImportEndpoint{{
+			ApplicationName: "remote-13ea",
+			EndpointName:    "db",
+			ConsumerProxy:   true,
+			UnitSettings: map[string]map[string]any{
+				"remote-13ea": {"request": "keep-unit-data"},
+			},
+		}, {
+			ApplicationName: "wordpress",
+			EndpointName:    "db",
+		}},
+	}})
+	c.Assert(err, tc.ErrorMatches,
+		`importing "remote-13ea" endpoint data for relation ".*": rewriting unit settings of "remote-13ea" onto "remote-f00d": parsing unit name "remote-13ea": invalid unit name: "remote-13ea"`)
+}
+
 // A consumer proxy endpoint whose name matches no endpoint of the relation
 // fails the import: the relation found by UUID is not the relation the data
 // was exported for.
@@ -432,6 +528,9 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsU
 			UnitSettings: map[string]map[string]any{
 				"remote-13ea/0": unitSettings,
 			},
+		}, {
+			ApplicationName: ep[0].ApplicationName,
+			EndpointName:    ep[0].EndpointName,
 		}},
 	}}
 
@@ -443,6 +542,9 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsU
 		coreunittesting.GenNewName(c, "remote-13ea/0"), converted).
 		Return(internal.SubordinateUnitStatusHistoryData{},
 			relationerrors.RelationUnitAlreadyExists)
+
+	otherAppID := s.expectGetApplicationUUIDByName(c, ep[0].ApplicationName)
+	s.expectSetRelationApplicationSettings(relUUID, otherAppID, nil)
 
 	// Act
 	err := s.service.ImportConsumerProxyRelationSettingsAndUnits(c.Context(), args)
@@ -473,6 +575,9 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsS
 			UnitSettings: map[string]map[string]any{
 				"remote-13ea/0": unitSettings,
 			},
+		}, {
+			ApplicationName: ep[0].ApplicationName,
+			EndpointName:    ep[0].EndpointName,
 		}},
 	}}
 
@@ -509,6 +614,9 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsS
 			ApplicationName:     ep[0].ApplicationName,
 			EndpointName:        ep[0].EndpointName,
 			ApplicationSettings: map[string]any{"password": "keep-me"},
+		}, {
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
 		}},
 	}}
 
@@ -542,6 +650,9 @@ func (s *migrationServiceSuite) TestImportConsumerProxyRelationSettingsAndUnitsA
 			ApplicationName:     ep[0].ApplicationName,
 			EndpointName:        ep[0].EndpointName,
 			ApplicationSettings: map[string]any{"password": "keep-me"},
+		}, {
+			ApplicationName: ep[1].ApplicationName,
+			EndpointName:    ep[1].EndpointName,
 		}},
 	}}
 
