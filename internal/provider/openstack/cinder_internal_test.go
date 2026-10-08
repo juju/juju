@@ -26,7 +26,7 @@ func (s *cinderConfigSuite) TestNewCinderConfigEmpty(c *tc.C) {
 }
 
 func (s *cinderConfigSuite) TestNewCinderConfigVolumeType(c *tc.C) {
-	cfg, err := newCinderConfig(map[string]interface{}{
+	cfg, err := newCinderConfig(map[string]any{
 		"volume-type": "Ceph",
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -34,7 +34,7 @@ func (s *cinderConfigSuite) TestNewCinderConfigVolumeType(c *tc.C) {
 }
 
 func (s *cinderConfigSuite) TestNewCinderConfigFull(c *tc.C) {
-	cfg, err := newCinderConfig(map[string]interface{}{
+	cfg, err := newCinderConfig(map[string]any{
 		"volume-type": "Ceph",
 		"disk-bus":    "scsi",
 		"tag":         "root",
@@ -48,7 +48,7 @@ func (s *cinderConfigSuite) TestNewCinderConfigFull(c *tc.C) {
 }
 
 func (s *cinderConfigSuite) TestNewCinderConfigInvalidDiskBus(c *tc.C) {
-	_, err := newCinderConfig(map[string]interface{}{
+	_, err := newCinderConfig(map[string]any{
 		"disk-bus": "pcie",
 	})
 	c.Assert(err, tc.ErrorMatches, "validating Cinder storage config: .*")

@@ -481,7 +481,7 @@ func (s *WatcherSuite) TestActionNotifiedAgainAfterCompletion(c *tc.C) {
 	s.uniterClient.unit.actionWatcher.changes <- []string{"an-action"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for action notification")
 	runOp := operationmocks.NewMockOperation(ctrl)
-	opFactory.EXPECT().NewAction(c.Context(),"an-action").Return(runOp, nil)
+	opFactory.EXPECT().NewAction(c.Context(), "an-action").Return(runOp, nil)
 	runOp.EXPECT().Commit(c.Context(), state).Return(&state, nil)
 	op, err := actionResolver.NextOp(c.Context(), localState, s.watcher.Snapshot(), opFactory)
 	c.Assert(err, tc.ErrorIsNil)

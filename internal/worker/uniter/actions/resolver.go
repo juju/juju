@@ -46,7 +46,6 @@ func (r *actionsResolver) NextOp(
 		r.logger.Debugf(ctx, "no next action from pending=%v", remoteState.ActionsPending)
 	}
 
-
 	defer func() {
 		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
 			if localState.Step == operation.Pending && localState.ActionId != nil {

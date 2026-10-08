@@ -3450,7 +3450,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceWithPoolAttrs(c
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 		RootDisk: &storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "Ceph",
 				"disk-bus":    "scsi",
 				"tag":         "root",
@@ -3491,7 +3491,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceWithPoolName(c 
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 		RootDisk: &storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"volume-type": "Ceph",
 				"disk-bus":    "scsi",
 				"tag":         "root",
@@ -3532,7 +3532,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceDiskBusOnly(c *
 		ControllerUUID: s.ControllerUUID,
 		Constraints:    cons,
 		RootDisk: &storage.VolumeParams{
-			Attributes: map[string]interface{}{
+			Attributes: map[string]any{
 				"disk-bus": "scsi",
 			},
 		},
