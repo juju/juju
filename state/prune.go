@@ -289,9 +289,18 @@ func deleteInBatches(
 		chunkSize++
 		if childChunk != nil {
 			if idStr, ok := parentId.(string); ok {
-				_, localParentId, ok := splitDocID(idStr)
+				modelUUID, localParentId, ok := splitDocID(idStr)
 				if ok {
-					childChunk.RemoveAll(bson.D{{childField, localParentId}})
+					// The child reference field holds the *local* parent
+					// id, which is only unique within a model, so the
+					// model-uuid must be included. This both prevents
+					// deleting children belonging to other models and
+					// allows the {model-uuid, <childField>} index to be
+					// used rather than a full collection scan.
+					childChunk.RemoveAll(bson.D{
+						{"model-uuid", modelUUID},
+						{childField, localParentId},
+					})
 				}
 			}
 		}
