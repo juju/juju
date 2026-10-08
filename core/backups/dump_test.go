@@ -120,6 +120,13 @@ func (s *dumpSuite) TestStageDumpsOversized(c *tc.C) {
 	// The YAML encoder adds a trailing newline to the dump.
 	c.Check(size > 10, tc.IsTrue)
 
+	// A dump of exactly the limit is not oversized: the bound is
+	// exclusive, matching the recovery reader's read limit.
+	name, size, err = staging.Oversized(size)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "")
+	c.Check(size, tc.Equals, int64(0))
+
 	name, size, err = staging.Oversized(1 << 20)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "")

@@ -134,6 +134,57 @@ func (s *filesSuite) TestGetFilesToBackUpUnreadableSSHKeys(c *tc.C) {
 		filepath.Join(rootDir, backups.SSHDir, "authorized_keys")), tc.IsFalse)
 }
 
+// TestGetFilesToBackUpUnreadableOptionalFile pins the scoping of the
+// permission tolerance: only the host's authorized_keys lookup is
+// tolerated. A permission error on one of Juju's own data-dir files —
+// trust material for disaster recovery — still fails the backup.
+func (s *filesSuite) TestGetFilesToBackUpUnreadableOptionalFile(c *tc.C) {
+	if os.Geteuid() == 0 {
+		c.Skip("permission checks do not apply to root")
+	}
+	rootDir := c.MkDir()
+	dataDir := filepath.Join(rootDir, relDataDir)
+	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")
+	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
+	s.writeFile(c, filepath.Join(dataDir, "system-identity"), "ssh key")
+	c.Assert(os.Chmod(dataDir, 0o000), tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) {
+		_ = os.Chmod(dataDir, 0o755)
+	})
+
+	_, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
+		DataDir: relDataDir,
+	})
+	c.Assert(err, tc.ErrorMatches, "stat .*system-identity: permission denied")
+}
+
+// TestGetFilesToBackUpUnreadableSymlinkTarget proves that an intact
+// symlink whose target cannot be stat'ed — rather than merely absent —
+// fails the backup instead of being silently dropped as if it dangled.
+func (s *filesSuite) TestGetFilesToBackUpUnreadableSymlinkTarget(c *tc.C) {
+	if os.Geteuid() == 0 {
+		c.Skip("permission checks do not apply to root")
+	}
+	rootDir := c.MkDir()
+	dataDir := filepath.Join(rootDir, relDataDir)
+	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")
+	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
+	restricted := filepath.Join(dataDir, "tools", "restricted")
+	s.writeFile(c, filepath.Join(restricted, "target"), "target")
+	c.Assert(os.Symlink("restricted/target",
+		filepath.Join(dataDir, "tools", "link")), tc.ErrorIsNil)
+	c.Assert(os.Chmod(restricted, 0o000), tc.ErrorIsNil)
+	s.AddCleanup(func(*tc.C) {
+		_ = os.Chmod(restricted, 0o755)
+	})
+
+	_, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
+		DataDir: relDataDir,
+	})
+	c.Assert(err, tc.ErrorMatches,
+		`cannot walk ".*tools": stat .*link: permission denied`)
+}
+
 func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)

@@ -7,18 +7,21 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/semversion"
-	domainrecovery "github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/recovery"
 )
 
@@ -185,26 +188,11 @@ func (s *validateSuite) TestValidateArchiveRejectsDuplicateModelUUID(c *tc.C) {
 }
 
 func (s *validateSuite) TestValidateArchiveCAASWorkloadInventory(c *tc.C) {
-	files := validFiles()
-	// Turn workload-a into a CAAS model on the kubernetes cloud and
-	// give it one archived application with a unit and a volume.
-	files["juju-backup/dump/controller.yaml"] = []byte(controllerDump(
-		modelRow(testControllerModelUUID, "controller", "cloud-lxd"),
-		modelRow(testModelAUUID, "workload-a", "cloud-k8s"),
+	// Give the CAAS workload model one archived application with a unit
+	// and a volume.
+	files := caasFiles(caasModelDump(
+		[2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"},
 	))
-	// workload-b is gone from the controller dump; its dump file must go
-	// too or the inventory cross-check fails.
-	delete(files, "juju-backup/dump/models/"+testModelBUUID+".yaml")
-	// controllerDump hardcodes model_type_id 0; patch the one workload
-	// row to caas (1).
-	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
-		string(files["juju-backup/dump/controller.yaml"]),
-		"uuid: "+testModelAUUID+"\n    name: workload-a\n    cloud_uuid: cloud-k8s\n    model_type_id: 0",
-		"uuid: "+testModelAUUID+"\n    name: workload-a\n    cloud_uuid: cloud-k8s\n    model_type_id: 1", 1))
-	files["juju-backup/dump/models/"+testModelAUUID+".yaml"] = []byte(
-		caasModelDump(
-			[2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"},
-		))
 	path, sum := writeArchive(c, files)
 
 	info, err := recovery.ValidateArchive(c.Context(), path, sum)
@@ -217,13 +205,7 @@ func (s *validateSuite) TestValidateArchiveCAASWorkloadInventory(c *tc.C) {
 			c.Check(m.Applications, tc.HasLen, 0)
 		}
 	}
-	var workload *domainrecovery.ModelInfo
-	for i := range info.Models {
-		if info.Models[i].UUID == testModelAUUID {
-			workload = &info.Models[i]
-		}
-	}
-	c.Assert(workload, tc.NotNil)
+	workload := findModel(c, info, testModelAUUID)
 	c.Assert(workload.Applications, tc.HasLen, 1)
 	app := workload.Applications[0]
 	c.Check(app.Name, tc.Equals, "gitlab")
@@ -233,35 +215,342 @@ func (s *validateSuite) TestValidateArchiveCAASWorkloadInventory(c *tc.C) {
 }
 
 func (s *validateSuite) TestValidateArchiveCAASInventorySkipsDeadEntities(c *tc.C) {
-	files := validFiles()
-	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
-		controllerDump(
-			modelRow(testControllerModelUUID, "controller", "cloud-lxd"),
-			modelRow(testModelAUUID, "workload-a", "cloud-k8s"),
-		),
-		"uuid: "+testModelAUUID+"\n    name: workload-a\n    cloud_uuid: cloud-k8s\n    model_type_id: 0",
-		"uuid: "+testModelAUUID+"\n    name: workload-a\n    cloud_uuid: cloud-k8s\n    model_type_id: 1", 1))
-	// workload-b is gone from the controller dump; drop its dump file.
-	delete(files, "juju-backup/dump/models/"+testModelBUUID+".yaml")
 	deadDump := strings.Replace(caasModelDump(
 		[2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"},
 	), "life_id: 0", "life_id: 2", 1)
-	files["juju-backup/dump/models/"+testModelAUUID+".yaml"] = []byte(deadDump)
+	files := caasFiles(deadDump)
 	path, sum := writeArchive(c, files)
 
 	info, err := recovery.ValidateArchive(c.Context(), path, sum)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var workload *domainrecovery.ModelInfo
-	for i := range info.Models {
-		if info.Models[i].UUID == testModelAUUID {
-			workload = &info.Models[i]
-		}
-	}
 	// The only application is dead: it is a pending removal in the
 	// recovery summary, not substrate to verify.
-	c.Assert(workload, tc.NotNil)
+	workload := findModel(c, info, testModelAUUID)
 	c.Check(workload.Applications, tc.HasLen, 0)
+}
+
+// TestValidateArchiveCreatedByBackup is the producer-consumer round
+// trip: an archive written by the real backup Create — staged manifest,
+// directory entries, hex checksum recorded in the metadata — must pass
+// recovery validation, so a layout or manifest-format drift in the
+// producer fails here instead of making every new backup unrecoverable.
+func (s *validateSuite) TestValidateArchiveCreatedByBackup(c *tc.C) {
+	destDir := c.MkDir()
+	dataFile := filepath.Join(c.MkDir(), "jujud")
+	c.Assert(os.WriteFile(dataFile, []byte("agent binary"), 0o644), tc.ErrorIsNil)
+
+	meta := corebackups.NewMetadata(time.Date(2026, time.October, 8, 12, 0, 0, 0, time.UTC))
+	meta.Origin = corebackups.Origin{
+		Model:    testControllerModelUUID,
+		Machine:  "0",
+		Hostname: "myhost",
+		Version:  semversion.MustParse("4.1.0"),
+	}
+	meta.Controller = corebackups.ControllerMetadata{
+		UUID:    testControllerUUID,
+		HANodes: 1,
+	}
+	filename, err := corebackups.Create(meta, corebackups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{dataFile},
+		DumpEntries: []corebackups.DumpEntry{{
+			Name: "controller.yaml",
+			Reader: strings.NewReader(controllerDump(
+				modelRow(testControllerModelUUID, "controller", "cloud-lxd"),
+				modelRow(testModelAUUID, "workload-a", "cloud-lxd"),
+			)),
+		}, {
+			Name:   "models/" + testControllerModelUUID + ".yaml",
+			Reader: strings.NewReader("payload: {}\n"),
+		}, {
+			Name:   "models/" + testModelAUUID + ".yaml",
+			Reader: strings.NewReader("payload: {}\n"),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The checksum recorded in the metadata during creation is the
+	// operator-supplied trust anchor for validation.
+	info, err := recovery.ValidateArchive(c.Context(), filename, meta.Checksum())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
+	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
+	c.Check(info.ControllerModelUUID, tc.Equals, testControllerModelUUID)
+	c.Check(info.Checksum, tc.Equals, meta.Checksum())
+	c.Check(meta.ChecksumFormat(), tc.Equals, corebackups.ChecksumFormatSHA256)
+	c.Check(info.CloudType, tc.Equals, "lxd")
+	c.Assert(info.Models, tc.HasLen, 2)
+	family, err := info.ModelFamily()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(family, tc.Equals, "iaas")
+}
+
+func (s *validateSuite) TestValidateArchiveNoControllerRow(c *tc.C) {
+	files := dumpOnlyFiles(rawControllerDump("", validCloudRows(),
+		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/dump/controller.yaml records no controller row")
+}
+
+// The CA-material branch matters most among the controller row checks:
+// a regression there means bootstrapping a replacement controller with
+// empty CA material.
+func (s *validateSuite) TestValidateArchiveMissingCAMaterial(c *tc.C) {
+	row := "  - uuid: " + testControllerUUID + "\n" +
+		"    model_uuid: " + testControllerModelUUID + "\n"
+	files := dumpOnlyFiles(rawControllerDump(row, validCloudRows(),
+		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/dump/controller.yaml records no controller CA material")
+}
+
+func (s *validateSuite) TestValidateArchiveControllerModelUUIDMismatch(c *tc.C) {
+	row := "  - uuid: " + testControllerUUID + "\n" +
+		"    model_uuid: deadbeef00-aaaa-2222-3333-444455556666\n" +
+		"    ca_cert: source-ca-cert\n" +
+		"    ca_private_key: source-ca-key\n"
+	files := dumpOnlyFiles(rawControllerDump(row, validCloudRows(),
+		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		"controller model mismatch: metadata records .*, controller row records .*")
+}
+
+func (s *validateSuite) TestValidateArchiveUnknownCloudUUID(c *tc.C) {
+	files := dumpOnlyFiles(rawControllerDump(validControllerRow(), validCloudRows(),
+		rawModelRow(testControllerModelUUID, "controller", "cloud-gone", "0")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`model "controller" references unknown cloud "cloud-gone"`)
+}
+
+func (s *validateSuite) TestValidateArchiveUnknownModelType(c *tc.C) {
+	files := dumpOnlyFiles(rawControllerDump(validControllerRow(), validCloudRows(),
+		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "9")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`model "controller" has unknown model type`)
+}
+
+func (s *validateSuite) TestValidateArchiveUnknownCloudType(c *tc.C) {
+	clouds := "  - uuid: cloud-lxd\n    name: lxd\n    cloud_type_id: 9\n"
+	files := dumpOnlyFiles(rawControllerDump(validControllerRow(), clouds,
+		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`model "controller" has unknown cloud type`)
+}
+
+func (s *validateSuite) TestValidateArchiveNoModels(c *tc.C) {
+	files := dumpOnlyFiles(rawControllerDump(validControllerRow(), validCloudRows(), ""))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/dump/controller.yaml records no models")
+}
+
+func (s *validateSuite) TestValidateArchiveControllerModelNotInModelTable(c *tc.C) {
+	files := dumpOnlyFiles(rawControllerDump(validControllerRow(), validCloudRows(),
+		rawModelRow(testModelAUUID, "workload-a", "cloud-lxd", "0")))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`controller model ".*" not found in juju-backup/dump/controller.yaml`)
+}
+
+// The dying(1)-included / dead(2)-excluded boundary decides which
+// workload objects the preflight reports as surviving substrate: dying
+// objects still exist in the cluster, dead ones are pending removal.
+func (s *validateSuite) TestValidateArchiveCAASInventoryLifeBoundary(c *tc.C) {
+	for i, test := range []struct {
+		about      string
+		anchor     string
+		life       int
+		wantUnits  []string
+		wantClaims []string
+	}{{
+		about:      "dying unit still counted",
+		anchor:     "name: gitlab/0\n    life_id: 0",
+		life:       1,
+		wantUnits:  []string{"gitlab/0"},
+		wantClaims: []string{"gitlab-111111-0"},
+	}, {
+		about:  "dead unit dropped, its volume unattributed",
+		anchor: "name: gitlab/0\n    life_id: 0",
+		life:   2,
+	}, {
+		about:      "dying filesystem still counted",
+		anchor:     "filesystem_id: gitlab-vol\n    life_id: 0",
+		life:       1,
+		wantUnits:  []string{"gitlab/0"},
+		wantClaims: []string{"gitlab-111111-0"},
+	}, {
+		about:     "dead filesystem dropped",
+		anchor:    "filesystem_id: gitlab-vol\n    life_id: 0",
+		life:      2,
+		wantUnits: []string{"gitlab/0"},
+	}, {
+		about:      "dying attachment still counted",
+		anchor:     "net_node_uuid: node-gitlab\n    life_id: 0",
+		life:       1,
+		wantUnits:  []string{"gitlab/0"},
+		wantClaims: []string{"gitlab-111111-0"},
+	}, {
+		about:     "dead attachment dropped",
+		anchor:    "net_node_uuid: node-gitlab\n    life_id: 0",
+		life:      2,
+		wantUnits: []string{"gitlab/0"},
+	}} {
+		c.Logf("%d: %s", i, test.about)
+		dump := strings.Replace(
+			caasModelDump([2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"}),
+			test.anchor,
+			strings.Replace(test.anchor, "life_id: 0", fmt.Sprintf("life_id: %d", test.life), 1),
+			1)
+		path, sum := writeArchive(c, caasFiles(dump))
+
+		info, err := recovery.ValidateArchive(c.Context(), path, sum)
+		c.Assert(err, tc.ErrorIsNil)
+		workload := findModel(c, info, testModelAUUID)
+		c.Assert(workload.Applications, tc.HasLen, 1)
+		app := workload.Applications[0]
+		c.Check(app.Units, tc.DeepEquals, test.wantUnits, tc.Commentf(test.about))
+		c.Check(app.FilesystemProviderIDs, tc.DeepEquals, test.wantClaims, tc.Commentf(test.about))
+	}
+}
+
+// A metadata.json of exactly the reader's bound must still pass; one
+// byte over it must fail the read.
+func (s *validateSuite) TestValidateArchiveMetadataSizeBoundary(c *tc.C) {
+	// maxMetadataSize is 4 MiB; pad the metadata's Notes to land the
+	// file exactly on it.
+	const maxMetadata = 4 << 20
+	meta := metadataJSON("4.1.0")
+	pad := strings.Repeat("a", maxMetadata-len(meta))
+	padded := strings.Replace(meta, `"Notes":"",`, `"Notes":"`+pad+`",`, 1)
+	c.Assert(len(padded), tc.Equals, maxMetadata)
+
+	files := validFiles()
+	files["juju-backup/metadata.json"] = []byte(padded)
+	path, sum := writeArchive(c, files)
+
+	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
+
+	files = validFiles()
+	files["juju-backup/metadata.json"] = []byte(
+		strings.Replace(meta, `"Notes":"",`, `"Notes":"`+pad+`a",`, 1))
+	path, sum = writeArchive(c, files)
+
+	_, err = recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		`reading "juju-backup/metadata.json": file exceeds 4194304 bytes`)
+}
+
+// The reader checks cancellation per entry: a cancelled context must
+// surface before the checksum stage.
+func (s *validateSuite) TestValidateArchiveCancelled(c *tc.C) {
+	path, _ := writeArchive(c, validFiles())
+
+	ctx, cancel := context.WithCancel(c.Context())
+	cancel()
+	// The wrong expected checksum would fail at the checksum stage;
+	// the cancellation must surface first.
+	_, err := recovery.ValidateArchive(ctx, path, "deadbeef")
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+}
+
+// Model dumps must sit directly under dump/models/: an empty or nested
+// model name is not a dump the inventory can attribute.
+func (s *validateSuite) TestValidateArchiveUnexpectedModelDumpPath(c *tc.C) {
+	for _, name := range []string{
+		"juju-backup/dump/models/.yaml",
+		"juju-backup/dump/models/sub/x.yaml",
+	} {
+		c.Logf("path %q", name)
+		files := validFiles()
+		files[name] = []byte("payload: {}\n")
+		path, _ := writeArchive(c, files)
+
+		_, err := recovery.ValidateArchive(c.Context(), path, "")
+		c.Check(err, tc.ErrorMatches, "unexpected model dump path .*",
+			tc.Commentf("path %q", name))
+	}
+}
+
+func (s *validateSuite) TestValidateArchiveMetadataMissingAgentVersion(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/metadata.json"] = []byte(strings.Replace(
+		metadataJSON("4.1.0"), `"Version":"4.1.0",`, ``, 1))
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches,
+		"juju-backup/metadata.json does not record the source agent version")
+}
+
+func (s *validateSuite) TestValidateArchiveMetadataMalformedJSON(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/metadata.json"] = []byte("{")
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches, "parsing juju-backup/metadata.json: .*")
+}
+
+func (s *validateSuite) TestValidateArchiveControllerDumpMalformedYAML(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/dump/controller.yaml"] = []byte("payload: {\n")
+	path, sum := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	c.Assert(err, tc.ErrorMatches, "parsing juju-backup/dump/controller.yaml: .*")
+}
+
+// A manifest entry whose kind recovery does not recognise is a
+// component recovery cannot account for; the writer never emits one —
+// its classifier fails on unknown paths instead.
+func (s *validateSuite) TestValidateArchiveManifestRejectsUnknownKind(c *tc.C) {
+	files := validFiles()
+	// The entry records the correct digest, so only the unrecognised
+	// kind fails the archive.
+	rootTar := files["juju-backup/root.tar"]
+	sum := sha256.Sum256(rootTar)
+	manifest := corebackups.NewManifest([]corebackups.ManifestEntry{{
+		Path:   "juju-backup/root.tar",
+		Kind:   "dump",
+		Size:   int64(len(rootTar)),
+		SHA256: hex.EncodeToString(sum[:]),
+	}})
+	reader, err := manifest.AsJSONBuffer()
+	c.Assert(err, tc.ErrorIsNil)
+	manifestJSON, err := io.ReadAll(reader)
+	c.Assert(err, tc.ErrorIsNil)
+	files["juju-backup/manifest.json"] = manifestJSON
+	path, _ := writeArchive(c, files)
+
+	_, err = recovery.ValidateArchive(c.Context(), path, "")
+	c.Assert(err, tc.ErrorMatches,
+		`juju-backup/manifest.json lists "juju-backup/root.tar" with unrecognised kind "dump"`)
 }
 
 func (s *validateSuite) TestValidateArchiveWithManifest(c *tc.C) {

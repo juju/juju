@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/semversion"
+	domainlife "github.com/juju/juju/domain/life"
 	domainrecovery "github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/errors"
 )
@@ -251,27 +252,31 @@ func buildArchiveInfo(meta *corebackups.Metadata, payload *controllerDumpPayload
 
 // modelDumpInventory mirrors the model-dump tables the substrate
 // inventory reads. Unknown tables and fields are ignored.
+//
+// Life filtering excludes only dead rows: dying entities still exist
+// in the cluster, so they count as surviving substrate the preflight
+// must account for.
 type modelDumpInventory struct {
 	Application []struct {
-		UUID   string `yaml:"uuid"`
-		Name   string `yaml:"name"`
-		LifeID int64  `yaml:"life_id"`
+		UUID   string          `yaml:"uuid"`
+		Name   string          `yaml:"name"`
+		LifeID domainlife.Life `yaml:"life_id"`
 	} `yaml:"application"`
 	Unit []struct {
-		Name            string `yaml:"name"`
-		LifeID          int64  `yaml:"life_id"`
-		ApplicationUUID string `yaml:"application_uuid"`
-		NetNodeUUID     string `yaml:"net_node_uuid"`
+		Name            string          `yaml:"name"`
+		LifeID          domainlife.Life `yaml:"life_id"`
+		ApplicationUUID string          `yaml:"application_uuid"`
+		NetNodeUUID     string          `yaml:"net_node_uuid"`
 	} `yaml:"unit"`
 	StorageFilesystem []struct {
-		UUID       string `yaml:"uuid"`
-		ProviderID string `yaml:"provider_id"`
-		LifeID     int64  `yaml:"life_id"`
+		UUID       string          `yaml:"uuid"`
+		ProviderID string          `yaml:"provider_id"`
+		LifeID     domainlife.Life `yaml:"life_id"`
 	} `yaml:"storage_filesystem"`
 	StorageFilesystemAttachment []struct {
-		StorageFilesystemUUID string `yaml:"storage_filesystem_uuid"`
-		NetNodeUUID           string `yaml:"net_node_uuid"`
-		LifeID                int64  `yaml:"life_id"`
+		StorageFilesystemUUID string          `yaml:"storage_filesystem_uuid"`
+		NetNodeUUID           string          `yaml:"net_node_uuid"`
+		LifeID                domainlife.Life `yaml:"life_id"`
 	} `yaml:"storage_filesystem_attachment"`
 }
 
@@ -292,7 +297,7 @@ func inventoryFromModelDump(data []byte) ([]domainrecovery.ApplicationInfo, erro
 	// resolving which application each attached volume belongs to.
 	unitAppByNode := make(map[string]string, len(inv.Unit))
 	for _, u := range inv.Unit {
-		if u.LifeID == 2 || u.NetNodeUUID == "" {
+		if u.LifeID == domainlife.Dead || u.NetNodeUUID == "" {
 			continue
 		}
 		unitAppByNode[u.NetNodeUUID] = u.ApplicationUUID
@@ -302,14 +307,14 @@ func inventoryFromModelDump(data []byte) ([]domainrecovery.ApplicationInfo, erro
 	// cluster, so it is the name the substrate check must verify.
 	filesystemClaim := make(map[string]string, len(inv.StorageFilesystem))
 	for _, fs := range inv.StorageFilesystem {
-		if fs.ProviderID == "" || fs.LifeID == 2 {
+		if fs.ProviderID == "" || fs.LifeID == domainlife.Dead {
 			continue
 		}
 		filesystemClaim[fs.UUID] = fs.ProviderID
 	}
 	claimsByApp := make(map[string][]string)
 	for _, att := range inv.StorageFilesystemAttachment {
-		if att.LifeID == 2 {
+		if att.LifeID == domainlife.Dead {
 			continue
 		}
 		claim, ok := filesystemClaim[att.StorageFilesystemUUID]
@@ -325,7 +330,7 @@ func inventoryFromModelDump(data []byte) ([]domainrecovery.ApplicationInfo, erro
 	for _, app := range inv.Application {
 		// Dead applications are recorded in the recovery summary as
 		// pending removals; their substrate is not checked.
-		if app.UUID == "" || app.Name == "" || app.LifeID == 2 {
+		if app.UUID == "" || app.Name == "" || app.LifeID == domainlife.Dead {
 			continue
 		}
 		info := domainrecovery.ApplicationInfo{
@@ -334,7 +339,7 @@ func inventoryFromModelDump(data []byte) ([]domainrecovery.ApplicationInfo, erro
 			FilesystemProviderIDs: claimsByApp[app.UUID],
 		}
 		for _, u := range inv.Unit {
-			if u.ApplicationUUID == app.UUID && u.LifeID != 2 {
+			if u.ApplicationUUID == app.UUID && u.LifeID != domainlife.Dead {
 				info.Units = append(info.Units, u.Name)
 			}
 		}

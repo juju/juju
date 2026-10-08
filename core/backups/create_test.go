@@ -250,6 +250,32 @@ func (s *createSuite) TestCreateEmptyDumpEntryName(c *tc.C) {
 	}
 }
 
+// TestCreateUnknownDumpEntryName pins the writer to the two canonical
+// dump names: an archive can never carry a dump the recovery reader
+// rejects as unrecognised.
+func (s *createSuite) TestCreateUnknownDumpEntryName(c *tc.C) {
+	for _, name := range []string{
+		"other.yaml",
+		"models/.yaml",
+		"models/sub/x.yaml",
+		"models/controller.yaml/extra.yaml",
+	} {
+		_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+			DestinationDir: c.MkDir(),
+			Clock:          clock.WallClock,
+			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+			DumpEntries: []backups.DumpEntry{{
+				Name:   name,
+				Reader: strings.NewReader("data"),
+			}},
+		})
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid,
+			tc.Commentf("name %q", name))
+		c.Check(err, tc.ErrorMatches, `entry name ".*" is not a canonical dump name: not valid`,
+			tc.Commentf("name %q", name))
+	}
+}
+
 func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 	destDir := filepath.Join(c.MkDir(), "missing")
 	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{

@@ -191,8 +191,9 @@ func checkDestinationDir(destinationDir string) error {
 	return nil
 }
 
-// checkDumpEntryName ensures the entry name is not empty, is relative
-// and stays within the archive's dump directory.
+// checkDumpEntryName ensures the entry name is one of the two canonical
+// dump names — "controller.yaml" or "models/<model-uuid>.yaml" — so the
+// writer only ever emits dumps the recovery reader recognises.
 func checkDumpEntryName(name string) error {
 	cleaned := path.Clean(name)
 	// path.Clean maps both "" and "." (and "./", ...) to ".", which
@@ -207,7 +208,17 @@ func checkDumpEntryName(name string) error {
 			"entry name %q escapes the root directory: %w",
 			name, coreerrors.NotValid)
 	}
-	return nil
+	if cleaned == "controller.yaml" {
+		return nil
+	}
+	model := strings.TrimSuffix(strings.TrimPrefix(cleaned, "models/"), ".yaml")
+	if strings.HasPrefix(cleaned, "models/") && strings.HasSuffix(cleaned, ".yaml") &&
+		model != "" && !strings.Contains(model, "/") {
+		return nil
+	}
+	return errors.Errorf(
+		"entry name %q is not a canonical dump name: %w",
+		name, coreerrors.NotValid)
 }
 
 // writeAll writes the contents of source to the named file, creating
@@ -289,7 +300,10 @@ func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]Manifes
 			return nil, errors.Capture(err)
 		}
 		archivePath := canonicalDumpDir + "/" + entry.Name
-		kind, modelUUID := ClassifyManifestPath(archivePath)
+		kind, modelUUID, err := ClassifyManifestPath(archivePath)
+		if err != nil {
+			return nil, errors.Errorf("dump entry %q: %w", entry.Name, err)
+		}
 		manifest = append(manifest, ManifestEntry{
 			Path:      archivePath,
 			Kind:      kind,

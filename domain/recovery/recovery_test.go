@@ -45,6 +45,14 @@ func (s *recoverySuite) TestModelFamily(c *tc.C) {
 		"source controller has mixed model types: model .workload. is caas, expected iaas")
 }
 
+// TestModelFamilyEmptyModels pins the guard against an empty inventory:
+// ModelFamily is a public preflight gate and must error, not panic.
+func (s *recoverySuite) TestModelFamilyEmptyModels(c *tc.C) {
+	info := &recovery.ArchiveInfo{}
+	_, err := info.ModelFamily()
+	c.Assert(err, tc.ErrorMatches, "archive records no models")
+}
+
 func (s *recoverySuite) TestCheckProviderFamily(c *tc.C) {
 	info := &recovery.ArchiveInfo{CloudType: "lxd"}
 	c.Check(info.CheckProviderFamily("lxd"), tc.ErrorIsNil)

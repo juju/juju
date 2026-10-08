@@ -5,6 +5,8 @@ package backups_test
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"os"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/core/model"
 )
 
 type createSuite struct {
@@ -189,6 +192,63 @@ Downloaded to backup.tgz
 `[1:]
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, tc.Equals, "backup.tgz")
+}
+
+// TestUnverifiableChecksumFormat verifies that a controller reporting a
+// checksum format this client cannot verify — an older controller still
+// recording SHA-1 — keeps the downloaded archive with a warning instead
+// of condemning it as corrupt on a certain mismatch.
+func (s *createSuite) TestUnverifiableChecksumFormat(c *tc.C) {
+	client := s.setDownload()
+	client.metaresult.ChecksumFormat = "SHA-1, base64 encoded"
+	client.metaresult.Checksum = "dGhpcyBpcyBub3QgYSBzaGEyNTYgc3Vt"
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorIsNil)
+	client.CheckCalls(c, "Create")
+
+	c.Check(cmdtesting.Stderr(ctx), tc.Equals, `
+WARNING controller reported checksum format "SHA-1, base64 encoded"; the downloaded archive could not be verified
+Downloaded to juju-backup-00010101-000000.tar.gz
+`[1:])
+	// The archive is kept under its plain name, never renamed corrupt.
+	s.filename = "juju-backup-00010101-000000.tar.gz"
+	c.Cleanup(func() { s.filename = "" })
+	s.checkArchive(c)
+	_, err = os.Stat(s.filename + ".corrupt")
+	c.Check(err, tc.Satisfies, os.IsNotExist)
+}
+
+// TestChecksumUppercase verifies that the checksum comparison tolerates
+// hex case: an uppercase SHA-256 checksum still verifies the download.
+func (s *createSuite) TestChecksumUppercase(c *tc.C) {
+	client := s.setDownload()
+	sum := sha256.Sum256([]byte(s.data))
+	lower := hex.EncodeToString(sum[:])
+	client.metaresult.Checksum = strings.ToUpper(lower)
+	s.expectedOut = strings.Replace(MetaResultString, lower, strings.ToUpper(lower), 1)
+
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorIsNil)
+	client.CheckCalls(c, "Create")
+	s.checkDownload(c, ctx)
+}
+
+// TestCreateOnContainerController pins the enablement of create-backup
+// on container controllers: the command used to refuse non-IAAS
+// controller models outright.
+func (s *createSuite) TestCreateOnContainerController(c *tc.C) {
+	models := s.store.Models["arthur"]
+	details := models.Models["admin/controller"]
+	details.ModelType = model.CAAS
+	models.Models["admin/controller"] = details
+	s.store.Models["arthur"] = models
+
+	client := s.setDownload()
+	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+	c.Assert(err, tc.ErrorIsNil)
+	client.CheckCalls(c, "Create")
+	s.checkDownload(c, ctx)
 }
 
 func (s *createSuite) TestChecksumMismatch(c *tc.C) {

@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -31,9 +32,6 @@ const (
 	ManifestKindControllerDump ManifestEntryKind = "controller-dump"
 	// ManifestKindModelDump is a model database dump.
 	ManifestKindModelDump ManifestEntryKind = "model-dump"
-	// ManifestKindDump is a database dump the classifier does not
-	// recognise; recovery rejects archives carrying one.
-	ManifestKindDump ManifestEntryKind = "dump"
 )
 
 // ManifestEntry records one archive component: its path inside the
@@ -93,23 +91,28 @@ func NewManifestJSONReader(in io.Reader) (*Manifest, error) {
 }
 
 // ClassifyManifestPath returns the manifest kind for a canonical
-// archive path, and the model UUID for model dumps.
-func ClassifyManifestPath(archivePath string) (ManifestEntryKind, string) {
+// archive path, and the model UUID for model dumps. Any path outside
+// the known archive components is an error: the archive carries nothing
+// the writer cannot account for.
+func ClassifyManifestPath(archivePath string) (ManifestEntryKind, string, error) {
 	canonical := NewCanonicalArchivePaths()
 	switch archivePath {
 	case canonical.MetadataFile:
-		return ManifestKindMetadata, ""
+		return ManifestKindMetadata, "", nil
 	case canonical.FilesBundle:
-		return ManifestKindFilesBundle, ""
+		return ManifestKindFilesBundle, "", nil
 	case path.Join(canonical.DBDumpDir, "controller.yaml"):
-		return ManifestKindControllerDump, ""
+		return ManifestKindControllerDump, "", nil
 	}
 	const modelDumpPrefix = contentDir + "/" + dbDumpDir + "/models/"
+	model := strings.TrimSuffix(
+		strings.TrimPrefix(archivePath, modelDumpPrefix), ".yaml")
 	if strings.HasPrefix(archivePath, modelDumpPrefix) &&
-		strings.HasSuffix(archivePath, ".yaml") {
-		model := strings.TrimSuffix(
-			strings.TrimPrefix(archivePath, modelDumpPrefix), ".yaml")
-		return ManifestKindModelDump, model
+		strings.HasSuffix(archivePath, ".yaml") &&
+		model != "" && !strings.Contains(model, "/") {
+		return ManifestKindModelDump, model, nil
 	}
-	return ManifestKindDump, ""
+	return "", "", errors.Errorf(
+		"archive path %q is not a known component: %w",
+		archivePath, coreerrors.NotValid)
 }

@@ -126,9 +126,15 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 					// unit's tools directory is wiped and recreated;
 					// a disaster-recovery snapshot must not fail on
 					// them, and recovery never installs archived tools
-					// anyway.
+					// anyway. Only a missing target is skipped: any
+					// other stat failure — an unreadable target, a
+					// link loop — still fails the backup rather than
+					// silently dropping an intact symlink.
 					if _, err := os.Stat(path); err != nil {
-						return nil
+						if errors.Is(err, os.ErrNotExist) {
+							return nil
+						}
+						return err
 					}
 					finalBackupFiles = append(finalBackupFiles, path)
 				}

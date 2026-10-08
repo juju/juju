@@ -132,6 +132,9 @@ func (i *ArchiveInfo) CheckAgentVersion(current semversion.Number) error {
 // every model in the archive. A source controller with mixed model types
 // is unsupported and rejected.
 func (i *ArchiveInfo) ModelFamily() (string, error) {
+	if len(i.Models) == 0 {
+		return "", errors.New("archive records no models")
+	}
 	family := i.Models[0].ModelType
 	for _, m := range i.Models[1:] {
 		if m.ModelType != family {
