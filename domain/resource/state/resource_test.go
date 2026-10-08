@@ -1804,8 +1804,6 @@ func (s *resourceSuite) TestVerifyApplicationExistsForResourceMissingResource(c 
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-// TestGetResourceNameAndTypeFile verifies that the resource name and file type
-// are returned for a file resource.
 // TestGetResourceTypeMultipleResources verifies that each resource gets its
 // own type when the charm has resources of different types.
 func (s *resourceSuite) TestGetResourceTypeMultipleResources(c *tc.C) {
@@ -1859,6 +1857,8 @@ func (s *resourceSuite) insertImageAndFileResources(c *tc.C) (coreresource.UUID,
 	return coreresource.UUID(image.UUID), coreresource.UUID(file.UUID)
 }
 
+// TestGetResourceNameAndTypeFile verifies that the resource name and file type
+// are returned for a file resource.
 func (s *resourceSuite) TestGetResourceNameAndTypeFile(c *tc.C) {
 	// Arrange: insert a file resource.
 	resID := "resource-id"
