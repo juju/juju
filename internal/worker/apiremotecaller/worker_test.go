@@ -151,6 +151,63 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithNoServerError(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesWorkersWhenNoPeerAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	ch := make(chan struct{})
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	s.controllerNodeService.EXPECT().WatchControllerPeerAddresses(gomock.Any()).Return(watcher, nil)
+
+	done := make(chan struct{})
+	s.finished["1"] = make(chan struct{})
+	gomock.InOrder(
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(map[string][]string{
+			"0": {"192.168.0.1"},
+			"1": {"192.168.0.17"},
+		}, nil),
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func([]string) {
+			close(done)
+		}),
+		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForPeers(gomock.Any()).Return(nil, controllernodeerrors.EmptyAPIAddresses),
+	)
+
+	w := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote worker to start")
+	}
+
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to finish")
+	}
+	select {
+	case <-s.finished["1"]:
+		// Wait for the runner to remove the stopped worker.
+		time.Sleep(100 * time.Millisecond)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for remote worker to stop")
+	}
+
+	s.ensureChanged(c)
+	c.Check(w.runner.WorkerNames(), tc.DeepEquals, []string{})
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *WorkerSuite) TestWorkerAPIServerChangesWhilstMatchingOrigin(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

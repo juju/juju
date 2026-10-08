@@ -228,12 +228,10 @@ func (w *remoteWorker) loop() error {
 			// Get the latest API addresses for all controller nodes.
 			servers, err := w.cfg.ControllerNodeService.GetAPIAddressesByControllerIDForPeers(ctx)
 			if errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
-				// There should be at least one controller address available
-				// (itself), so if we get an empty addresses error then we can't
-				// proceed. Yet we shouldn't stop the worker coming up, so we
-				// log the error and continue to wait for the next change.
+				// An empty peer address list is authoritative. Reconcile it
+				// below so that remote workers for removed peers are stopped.
 				w.cfg.Logger.Warningf(ctx, "no API addresses available for remote workers: %v", err)
-				continue
+				servers = nil
 			} else if err != nil {
 				return errors.Trace(err)
 			}
