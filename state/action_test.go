@@ -1552,7 +1552,7 @@ func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
 // one model must not remove tasks belonging to another model's operation that
 // happens to share the same local id.
 func (s *ActionPruningSuite) TestPruneOperationsDoesNotRemoveOtherModelTasks(c *gc.C) {
-	clock := testclock.NewClock(time.Now())
+	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
@@ -1576,6 +1576,23 @@ func (s *ActionPruningSuite) TestPruneOperationsDoesNotRemoveOtherModelTasks(c *
 	state.PrimeOperations(c, expired, unit, numOperationEntries, tasksPerOperation)
 	state.PrimeOperations(c, expired, otherUnit, numOperationEntries, tasksPerOperation)
 
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	otherOps, err := otherModel.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	operationIDs := make(map[string]bool)
+	for _, op := range ops {
+		operationIDs[op.Id()] = true
+	}
+	var overlappingIDs []string
+	for _, op := range otherOps {
+		if operationIDs[op.Id()] {
+			overlappingIDs = append(overlappingIDs, op.Id())
+		}
+	}
+	c.Assert(len(overlappingIDs) > 0, jc.IsTrue,
+		gc.Commentf("regression test requires overlapping local operation ids between models"))
+
 	var stop <-chan struct{}
 	err = state.PruneOperations(stop, s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1583,15 +1600,14 @@ func (s *ActionPruningSuite) TestPruneOperationsDoesNotRemoveOtherModelTasks(c *
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
-	ops, err := s.Model.AllOperations()
+	ops, err = s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 0)
 
 	otherActions, err := otherUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherActions, gc.HasLen, numOperationEntries*tasksPerOperation)
-	otherOps, err := otherModel.AllOperations()
+	otherOps, err = otherModel.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(otherOps, gc.HasLen, numOperationEntries)
 }
-

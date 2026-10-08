@@ -306,7 +306,15 @@ func deleteInBatches(
 						{"model-uuid", modelUUID},
 						{childField, localParentId},
 					})
+				} else {
+					logger.Warningf(
+						"pruning %s: invalid parent id %v; %s children may be orphaned",
+						coll.Name, parentId, childColl.Name)
 				}
+			} else {
+				logger.Warningf(
+					"pruning %s: invalid parent id %v; %s children may be orphaned",
+					coll.Name, parentId, childColl.Name)
 			}
 		}
 		if chunkSize == historyPruneBatchSize {
