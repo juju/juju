@@ -4,10 +4,12 @@
 package machine
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/juju/tc"
 	ssh "github.com/tailscale/gliderssh"
@@ -112,6 +114,42 @@ func (s *machineSuite) TestSessionHandlerPropagatesCommandExitCode(c *tc.C) {
 	var exitErr *gossh.ExitError
 	c.Assert(errors.As(err, &exitErr), tc.IsTrue)
 	c.Check(exitErr.ExitStatus(), tc.Equals, 3)
+}
+
+func (s *machineSuite) TestSessionHandlerProxiesShellWithoutPTY(c *tc.C) {
+	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A session with no PTY and no command must request a shell on the
+	// machine, mirroring OpenSSH behaviour, so that commands piped on
+	// stdin are executed.
+	machine := startSSHTestServer(c, &ssh.Server{Handler: func(session ssh.Session) {
+		c.Check(session.RawCommand(), tc.Equals, "")
+		// Read the commands piped on stdin, as a machine shell would.
+		line, _ := bufio.NewReader(session).ReadString('\n')
+		_, _ = io.WriteString(session, "received: "+line)
+	}})
+
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c), common.NoopMetrics{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
+
+	client, err := controller.client()
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer session.Close()
+
+	var stdout bytes.Buffer
+	session.Stdout = &stdout
+	session.Stdin = strings.NewReader("echo through stdin\n")
+
+	c.Assert(session.Shell(), tc.ErrorIsNil)
+	c.Assert(session.Wait(), tc.ErrorIsNil)
+	c.Check(stdout.String(), tc.Equals, "received: echo through stdin\n")
 }
 
 func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
