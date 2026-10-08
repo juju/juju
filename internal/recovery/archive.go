@@ -231,6 +231,17 @@ func checkManifest(data []byte, digests map[string]entryDigest) error {
 			return errors.Errorf("%s lists %q twice", manifestPath, f.Path)
 		}
 		listed[f.Path] = struct{}{}
+		switch f.Kind {
+		case corebackups.ManifestKindMetadata,
+			corebackups.ManifestKindFilesBundle,
+			corebackups.ManifestKindControllerDump,
+			corebackups.ManifestKindModelDump:
+		default:
+			// A component kind recovery does not recognise is one it
+			// cannot account for; backup creation never writes one.
+			return errors.Errorf("%s lists %q with unrecognised kind %q",
+				manifestPath, f.Path, f.Kind)
+		}
 		if f.Kind == corebackups.ManifestKindModelDump &&
 			f.Path != modelDumpDir+f.ModelUUID+".yaml" {
 			return errors.Errorf(

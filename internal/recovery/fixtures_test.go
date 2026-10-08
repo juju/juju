@@ -19,6 +19,7 @@ import (
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
+	domainrecovery "github.com/juju/juju/domain/recovery"
 )
 
 const (
@@ -137,6 +138,96 @@ func modelRow(uuid, name, cloudUUID string) [3]string {
 	return [3]string{uuid, name, cloudUUID}
 }
 
+// rawControllerDump renders a controller database dump from raw YAML
+// table rows. The lookup tables are fixed: cloud type 1 is "lxd", 2 is
+// "kubernetes"; model type 0 is "iaas", 1 is "caas".
+func rawControllerDump(controllerRows, cloudRows, modelRows string) string {
+	var out strings.Builder
+	out.WriteString("version: 4.1.0\npayload:\n")
+	if controllerRows != "" {
+		out.WriteString("  controller:\n" + controllerRows)
+	}
+	if cloudRows != "" {
+		out.WriteString("  cloud:\n" + cloudRows)
+	}
+	out.WriteString("  cloud_type:\n" +
+		"  - id: 1\n    type: lxd\n" +
+		"  - id: 2\n    type: kubernetes\n" +
+		"  model_type:\n" +
+		"  - id: 0\n    type: iaas\n" +
+		"  - id: 1\n    type: caas\n")
+	if modelRows != "" {
+		out.WriteString("  model:\n" + modelRows)
+	}
+	return out.String()
+}
+
+// validControllerRow renders the standard controller table row with CA
+// material, matching the identities metadataJSON records.
+func validControllerRow() string {
+	return "  - uuid: " + testControllerUUID + "\n" +
+		"    model_uuid: " + testControllerModelUUID + "\n" +
+		"    ca_cert: source-ca-cert\n" +
+		"    ca_private_key: source-ca-key\n"
+}
+
+// validCloudRows renders the standard cloud table: lxd and kubernetes.
+func validCloudRows() string {
+	return "  - uuid: cloud-lxd\n    name: lxd\n    cloud_type_id: 1\n" +
+		"  - uuid: cloud-k8s\n    name: myk8s\n    cloud_type_id: 2\n"
+}
+
+// rawModelRow renders one model table row with an explicit model type.
+func rawModelRow(uuid, name, cloudUUID, modelTypeID string) string {
+	return "  - uuid: " + uuid + "\n" +
+		"    name: " + name + "\n" +
+		"    cloud_uuid: " + cloudUUID + "\n" +
+		"    model_type_id: " + modelTypeID + "\n"
+}
+
+// dumpOnlyFiles returns a minimal archive file set with the given
+// controller dump: enough to reach buildArchiveInfo, whose rejection
+// branches fire before the model-dump inventory cross-check.
+func dumpOnlyFiles(controllerYAML string) map[string][]byte {
+	return map[string][]byte{
+		"juju-backup/metadata.json":        []byte(metadataJSON("4.1.0")),
+		"juju-backup/dump/controller.yaml": []byte(controllerYAML),
+		"juju-backup/root.tar":             []byte("blobs"),
+	}
+}
+
+// caasFiles returns a valid archive file set whose workload-a model is
+// CAAS on the kubernetes cloud and carries the given model dump.
+func caasFiles(modelDump string) map[string][]byte {
+	files := validFiles()
+	// Turn workload-a into a CAAS model on the kubernetes cloud:
+	// controllerDump hardcodes model_type_id 0, patch the one workload
+	// row to caas (1).
+	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(
+		controllerDump(
+			modelRow(testControllerModelUUID, "controller", "cloud-lxd"),
+			modelRow(testModelAUUID, "workload-a", "cloud-k8s"),
+		),
+		"uuid: "+testModelAUUID+"\n    name: workload-a\n    cloud_uuid: cloud-k8s\n    model_type_id: 0",
+		"uuid: "+testModelAUUID+"\n    name: workload-a\n    cloud_uuid: cloud-k8s\n    model_type_id: 1", 1))
+	// workload-b is gone from the controller dump; its dump file must go
+	// too or the inventory cross-check fails.
+	delete(files, "juju-backup/dump/models/"+testModelBUUID+".yaml")
+	files["juju-backup/dump/models/"+testModelAUUID+".yaml"] = []byte(modelDump)
+	return files
+}
+
+// findModel returns the archive summary's entry for modelUUID.
+func findModel(c *tc.C, info *domainrecovery.ArchiveInfo, modelUUID string) *domainrecovery.ModelInfo {
+	for i := range info.Models {
+		if info.Models[i].UUID == modelUUID {
+			return &info.Models[i]
+		}
+	}
+	c.Fatalf("model %q not in summary", modelUUID)
+	return nil
+}
+
 // makeArchive renders a gzipped tar archive from the named files.
 func makeArchive(c *tc.C, files map[string][]byte) []byte {
 	var buf bytes.Buffer
@@ -203,7 +294,8 @@ func withManifest(c *tc.C, files map[string][]byte) map[string][]byte {
 	for _, name := range names {
 		data := files[name]
 		sum := sha256.Sum256(data)
-		kind, modelUUID := corebackups.ClassifyManifestPath(name)
+		kind, modelUUID, err := corebackups.ClassifyManifestPath(name)
+		c.Assert(err, tc.ErrorIsNil)
 		entries = append(entries, corebackups.ManifestEntry{
 			Path:      name,
 			Kind:      kind,

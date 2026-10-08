@@ -32,9 +32,11 @@ request, and nothing is kept on the controller once the request ends.
 The archive is verified against the recorded checksum before the
 download is considered complete; if verification fails, the corrupt
 archive is kept locally under a ".corrupt" suffix for inspection and
-the backup must be created again. An interrupted transfer leaves no
-archive on either side: re-run the command to create the backup
-again.
+the backup must be created again. When the controller records its
+checksum in a format this client cannot verify (an older controller),
+the archive is kept with a warning instead. An interrupted transfer
+leaves no archive on either side: re-run the command to create the
+backup again.
 
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
@@ -126,7 +128,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 
 	filename := c.decideFilename(c.Filename, result.Started)
-	if err := c.writeArchive(archive, result.Checksum, filename); err != nil {
+	if err := c.writeArchive(ctx, archive, result.Checksum, result.ChecksumFormat, filename); err != nil {
 		return errors.Trace(err)
 	}
 	// Print the metadata only after the archive is verified and
@@ -149,10 +151,13 @@ func (c *createCommand) decideFilename(filename string, timestamp time.Time) str
 
 // writeArchive streams the archive into archiveFilename, hashing it
 // along the way, and verifies the received bytes against the recorded
-// checksum. An incomplete transfer leaves no partial file behind; a
-// checksum mismatch keeps the corrupt archive under a ".corrupt"
-// suffix for inspection.
-func (c *createCommand) writeArchive(stream io.Reader, checksum, archiveFilename string) error {
+// checksum. Verification only applies when the controller reports the
+// current checksum format: an older controller records a SHA-1 checksum
+// this client cannot verify, so its archive is kept with a warning
+// rather than condemned as corrupt on a certain mismatch. An incomplete
+// transfer leaves no partial file behind; a checksum mismatch keeps
+// the corrupt archive under a ".corrupt" suffix for inspection.
+func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksum, checksumFormat, archiveFilename string) error {
 	archive, err := c.Filesystem().Create(archiveFilename)
 	if err != nil {
 		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
@@ -176,6 +181,12 @@ func (c *createCommand) writeArchive(stream io.Reader, checksum, archiveFilename
 			return errors.Annotatef(copyErr, "while copying to local archive file %v", archiveFilename)
 		}
 		return errors.Annotatef(closeErr, "while closing local archive file %v", archiveFilename)
+	}
+	if checksumFormat != backups.ChecksumFormatSHA256 {
+		fmt.Fprintf(ctx.Stderr,
+			"WARNING controller reported checksum format %q; the downloaded archive could not be verified\n",
+			checksumFormat)
+		return nil
 	}
 	if !strings.EqualFold(hex.EncodeToString(hasher.Sum(nil)), checksum) {
 		// Keep the corrupt archive under a suffix so the operator can
