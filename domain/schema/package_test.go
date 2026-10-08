@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/database/schema"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package schema -destination fs_mock_test.go github.com/juju/juju/domain/schema ReadFileDirFS
@@ -135,6 +136,39 @@ AND    changed = ?`, nsID, changed)
 	c.Assert(count, tc.Equals, 1)
 
 	s.clearChangeEvents(c, nsID, changed)
+}
+
+// newNetNode creates a new net node in the model. The net node is not
+// associated with any machine or units.
+func (s *schemaBaseSuite) newNetNode(c *tc.C) string {
+	nodeUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		"INSERT INTO net_node VALUES (?)",
+		nodeUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return nodeUUID.String()
+}
+
+// newMachine creates a machine in the model on the supplied net node,
+// returning the machine UUID.
+func (s *schemaBaseSuite) newMachine(
+	c *tc.C,
+	nodeUUID string,
+) string {
+	machineUUID, err := uuid.NewUUID()
+	c.Assert(err, tc.ErrorIsNil)
+	name := "mfoo-" + machineUUID.String()
+
+	_, err = s.DB().Exec(`
+INSERT INTO machine (uuid, name, net_node_uuid, life_id) VALUES (?, ?, ?, 0)`,
+		machineUUID.String(), name, nodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID.String()
 }
 
 func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {

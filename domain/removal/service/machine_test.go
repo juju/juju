@@ -58,6 +58,73 @@ func (s *machineSuite) TestRemoveMachineNoForceSuccess(c *tc.C) {
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveMachineNoForceIgnoresWaitForCascadedJobs ensures that a
+// non-forced machine removal ignores the wait duration for the whole
+// cascade: the cascaded units and machines are scheduled immediately,
+// not at now+wait.
+func (s *machineSuite) TestRemoveMachineNoForceIgnoresWaitForCascadedJobs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when).MinTimes(1)
+
+	exp := s.modelState.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), false).Return(internal.CascadedMachineLives{
+		MachineUUIDs: []string{"some-container-id"},
+		UnitUUIDs:    []string{"some-unit-id"},
+	}, nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-container-id", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveMachine(c.Context(), mUUID, false, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+// TestRemoveMachineForceWaitSchedulesCascadedJobsImmediatelyAndAfterWait
+// ensures that a forced machine removal with a wait duration schedules
+// the cascaded units and machines twice, like the machine itself: a
+// normal removal job scheduled immediately, and a forced one scheduled
+// after the wait duration.
+func (s *machineSuite) TestRemoveMachineForceWaitSchedulesCascadedJobsImmediatelyAndAfterWait(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mUUID := machinetesting.GenUUID(c)
+
+	when := time.Now()
+	// The machine job is scheduled twice, and so are the cascaded
+	// unit and container jobs.
+	s.clock.EXPECT().Now().Return(when).Times(6)
+
+	exp := s.modelState.EXPECT()
+	exp.MachineExists(gomock.Any(), mUUID.String()).Return(true, nil)
+	exp.EnsureMachineNotAliveCascade(gomock.Any(), mUUID.String(), true).Return(internal.CascadedMachineLives{
+		MachineUUIDs: []string{"some-container-id"},
+		UnitUUIDs:    []string{"some-unit-id"},
+	}, nil)
+
+	// The machine's own jobs: the first normal removal scheduled
+	// immediately, the forced removal scheduled after the wait duration.
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// The cascaded unit jobs follow the same pattern.
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", true, when.UTC().Add(time.Minute)).Return(nil)
+
+	// So do the cascaded container jobs.
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-container-id", false, when.UTC()).Return(nil)
+	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-container-id", true, when.UTC().Add(time.Minute)).Return(nil)
+
+	jobUUID, err := s.newService(c).RemoveMachine(c.Context(), mUUID, true, time.Minute)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
 func (s *machineSuite) TestRemoveMachineForceNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -406,6 +473,11 @@ func (s *machineSuite) TestExecuteJobForMachineStillAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
 }
 
+// TestExecuteJobForMachineInstanceDying ensures a non-dead instance is
+// retried as an incomplete job: the EntityNotDead gate chains the
+// RemovalJobIncomplete sentinel, so ExecuteJob reports success and the
+// removal worker keeps the job for the next poll instead of restarting
+// the job worker with an error.
 func (s *machineSuite) TestExecuteJobForMachineInstanceDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -415,8 +487,9 @@ func (s *machineSuite) TestExecuteJobForMachineInstanceDying(c *tc.C) {
 	exp.GetMachineLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 	exp.GetInstanceLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
 
+	// The job is retained and retried quietly; ExecuteJob returns nil.
 	err := s.newService(c).ExecuteJob(c.Context(), j)
-	c.Assert(err, tc.ErrorIs, removalerrors.EntityNotDead)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *machineSuite) TestExecuteJobForMachineInstanceStillAlive(c *tc.C) {
