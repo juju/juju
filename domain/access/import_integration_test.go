@@ -21,6 +21,7 @@ import (
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/modelmigration"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/domain/access/state"
@@ -90,11 +91,15 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 
 func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 	// Arrange
+	s.seedEveryoneExternalUser(c)
 	modelmigration.RegisterOfferAccessImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	// Arrange: add users on which offer permissions are set.
 	joeUserUUID := s.addUserToController(c, "joe", permission.LoginAccess)
 	simonUserUUID := s.addUserToController(c, "simon", permission.LoginAccess)
+	externalUser, err := user.NewName("existing@external")
+	c.Assert(err, tc.ErrorIsNil)
+	s.addExternalUserToController(c, externalUser, "Existing external user")
 
 	// Arrange: set up the import data
 	desc := description.NewModel(description.ModelArgs{
@@ -107,13 +112,15 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 		Name:     appName,
 		CharmURL: "ch:foo-1",
 	})
+	app.SetStatus(description.StatusArgs{Value: "active"})
 	offerOneUUID := tc.Must(c, uuid.NewUUID).String()
 	offerOneName := "foo"
 	app.AddOffer(description.ApplicationOfferArgs{
-		OfferUUID:       offerOneUUID,
-		OfferName:       offerOneName,
-		Endpoints:       map[string]string{"db": "db"},
-		ApplicationName: appName,
+		OfferUUID:              offerOneUUID,
+		OfferName:              offerOneName,
+		Endpoints:              map[string]string{"db": "db"},
+		ApplicationName:        appName,
+		ApplicationDescription: "Database",
 		ACL: map[string]string{
 			"admin": "admin",
 			"joe":   "consume",
@@ -123,17 +130,22 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 	offerTwoUUID := tc.Must(c, uuid.NewUUID).String()
 	offerTwoName := "agent"
 	app.AddOffer(description.ApplicationOfferArgs{
-		OfferUUID:       offerTwoUUID,
-		OfferName:       offerTwoName,
-		Endpoints:       map[string]string{"cos-agent": "cos-agent"},
-		ApplicationName: appName,
+		OfferUUID:              offerTwoUUID,
+		OfferName:              offerTwoName,
+		Endpoints:              map[string]string{"cos-agent": "cos-agent"},
+		ApplicationName:        appName,
+		ApplicationDescription: "Monitoring agent",
 		ACL: map[string]string{
 			"simon": "admin",
 		},
 	})
+	data, err := description.Serialize(desc)
+	c.Assert(err, tc.ErrorIsNil)
+	desc, err = description.Deserialize(data)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	err = s.coordinator.Perform(c.Context(), s.scope, desc)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -145,6 +157,16 @@ func (s *importSuite) TestOfferPermissionImport(c *tc.C) {
 		{GrantTo: simonUserUUID, GrantOn: offerOneUUID, AccessType: "read"},
 		{GrantTo: simonUserUUID, GrantOn: offerTwoUUID, AccessType: "admin"},
 	})
+
+	unknownUser, err := user.NewName("unknown@external")
+	c.Assert(err, tc.ErrorIsNil)
+	for _, offerUUID := range []string{offerOneUUID, offerTwoUUID} {
+		for _, subject := range []user.Name{externalUser, unknownUser} {
+			_, err := s.svc.ReadUserAccessLevelForTarget(c.Context(), subject,
+				permission.ID{ObjectType: permission.Offer, Key: offerUUID})
+			c.Check(err, tc.ErrorIs, accesserrors.AccessNotFound)
+		}
+	}
 }
 
 func (s *importSuite) TestOfferPermissionRollback(c *tc.C) {
