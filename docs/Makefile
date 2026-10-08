@@ -7,6 +7,7 @@
 
 SPHINX_DIR       ?= .sphinx
 SPHINX_OPTS      ?= -c . -d $(SPHINX_DIR)/.doctrees -j auto
+SPHINX_PREVIEW_OPTS ?= -D llms_txt_enabled=0
 SPHINX_BUILD     ?= $(DOCS_VENVDIR)/bin/sphinx-build
 SPHINX_HOST      ?= 127.0.0.1
 SPHINX_PORT      ?= 8000
@@ -119,13 +120,13 @@ run: install convert-excalidraw-to-svg autogenerate-docs
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py" \
-	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
+	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) $(SPHINX_PREVIEW_OPTS)
 
 run-go: install convert-excalidraw-to-svg regenerate-docs
 	. $(DOCS_VENV); $(DOCS_VENVDIR)/bin/sphinx-autobuild -b dirhtml --host $(SPHINX_HOST) --port $(SPHINX_PORT) \
 	 --pre-build "bash scripts/convert-excalidraw-to-svg-recursively.sh" \
 	 --pre-build "python3 scripts/autogenerate-docs.py --force" \
-	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS)
+	 "$(DOCS_SOURCEDIR)" "$(DOCS_BUILDDIR)" $(SPHINX_OPTS) $(SPHINX_PREVIEW_OPTS)
 
 # Does not depend on $(DOCS_BUILDDIR) to rebuild properly at every run.
 html: install convert-excalidraw-to-svg autogenerate-docs

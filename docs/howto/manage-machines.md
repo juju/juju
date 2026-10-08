@@ -275,7 +275,7 @@ See more: {ref}`command-juju-exec`
 (access-a-machine-via-ssh)=
 ## Access a machine via SSH
 
-There are two ways you can connect to a Juju machine: via `juju ssh` or via a standard SSH client. The former is more secure as it allows access solely from a Juju user with `admin` model access.
+There are two ways you can connect to a Juju machine: via `juju ssh` or via a standard SSH client.
 
 ### Use the `juju ssh` command
 
@@ -291,8 +291,6 @@ Then, to initiate an SSH session or execute a command on a Juju machine (or cont
 juju ssh 0 echo hello
 ```
 
-By passing further arguments and options, you can also run this on behalf of a different qualified user (other than the current user) or pass a private SSH key instead.
-
 ```{ibnote}
 See more: {ref}`command-juju-ssh`
 ```
@@ -305,13 +303,15 @@ First, make sure you've added a public SSH key for your user to the target model
 If you are the model creator, you already have `admin` access for the model. If you are not the model creator, see {ref}`manage-users` and {ref}`user-access-levels` for how to gain `admin` access to a model and {ref}`manage-ssh-keys` for how to add your SSH key to the model.
 ```
 
-Alternatively, for direct access using a standard SSH client, it is also possible to add the key to an individual machine using standard methods (manually copying a key to the `authorized_keys` file or by way of a command such as `ssh-import-id` in the case of Ubuntu).
-
-Then, to connect to a machine via the OpenSSH client, use the OpenSSH `ssh` command followed by `<user account>@<machine IP address`, where the default user account added to a Juju machine, to which public SSH keys added by `add-ssa-key` or `import-ssh-key`, is `ubuntu`. For example, for a machine with an IP address of `10.149.29.143`, do the following:
+Use the `juju ssh --show-command <target>` command to print the OpenSSH command that can be used to connect to the machine/unit. This also works with the `juju scp` command.
+The output will resemble the following,
 
 ```text
-ssh ubuntu@10.149.29.143
+ssh -o "ProxyCommand=ssh -W %h:%p -p 17022 admin@10.123.10.2" ubuntu@0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local
 ```
+
+The underlying command performs the same operation as `juju ssh`. It connects to the controller's SSH server, which by default, runs on
+port 17022 and sends the virtual hostname `0.b7bfa07e-f564-4a79-88ac-173da5521a0c.juju.local` before establishing a second SSH connection for the final host. See {ref}`juju-ssh` for a full explanation on how `juju ssh` works.
 
 ```{ibnote}
 See more: [OpenSSH](https://www.openssh.com/)
