@@ -670,6 +670,50 @@ ORDER BY address.controller_id, address.priority, address.address
 	return returnStrings, nil
 }
 
+// GetAllAPIAddressesForCertificates returns the union of client and peer
+// addresses in one database snapshot. An empty result is valid when neither
+// projection contains an address.
+func (st *State) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+WITH certificate_addresses AS (
+    SELECT client.address AS address
+    FROM controller_client_address AS client
+    WHERE client.address != ''
+    UNION
+    SELECT peer.address AS address
+    FROM controller_peer_address AS peer
+    WHERE peer.address != ''
+)
+SELECT certificate.address AS &controllerAPIAddressStr.address
+FROM certificate_addresses AS certificate
+ORDER BY certificate.address
+`, controllerAPIAddressStr{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var result []controllerAPIAddressStr
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting controller certificate addresses: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	addresses := make([]string, len(result))
+	for i, address := range result {
+		addresses[i] = address.Address
+	}
+	return addresses, nil
+}
+
 // GetControllerIDs returns the list of controller IDs from the controller node
 // records.
 func (st *State) GetControllerIDs(ctx context.Context) ([]string, error) {
