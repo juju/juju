@@ -92,26 +92,7 @@ func (s *Service) RemoveRelation(
 		return "", errors.Errorf("relation %q: %w", relUUID, err)
 	}
 
-	var jUUID removal.UUID
-
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the relation if the normal destruction
-			// workflows complete within the wait duration.
-			if _, err := s.relationScheduleRemoval(ctx, relUUID, false, 0); err != nil {
-				return jUUID, errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of relation %q", relUUID.String())
-			wait = 0
-		}
-	}
-
-	jUUID, err = s.relationScheduleRemoval(ctx, relUUID, force, wait)
+	jUUID, err := s.scheduleWithForceWait(ctx, relUUID, force, wait, s.relationScheduleRemoval)
 	return jUUID, errors.Capture(err)
 }
 

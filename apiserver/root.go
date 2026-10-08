@@ -921,6 +921,11 @@ func (ctx *facadeContext) DomainServices() services.DomainServices {
 	return ctx.r.domainServices
 }
 
+// EphemeralProviderFactory returns the factory for untracked providers.
+func (ctx *facadeContext) EphemeralProviderFactory() providertracker.EphemeralProviderFactory {
+	return ctx.r.ephemeralProviderFactory
+}
+
 // Tracer returns the tracer for the current model.
 func (ctx *facadeContext) Tracer() trace.Tracer {
 	return ctx.r.tracer

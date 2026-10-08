@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 
@@ -244,6 +245,74 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 			job.RemovalType, job.EntityUUID, err)
 	}
 
+	return nil
+}
+
+// normalizeWait returns the wait duration to use when scheduling
+// removal jobs for the entity with the input UUID: the wait only
+// applies to forced removals, so it is reset to zero for non-forced
+// removals. Removal paths that schedule further jobs with the wait
+// after their own call must normalize it first, so the wait cannot leak
+// into the cascaded scheduling.
+func (s *Service) normalizeWait[U ~string](ctx context.Context, uuid U, force bool, wait time.Duration) time.Duration {
+	if force || wait <= 0 {
+		return wait
+	}
+	s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of %q", uuid)
+	return 0
+}
+
+// scheduleWithForceWait schedules a removal job for the entity with
+// the input UUID, applying the force/wait qualification shared by the
+// removal paths:
+//
+//   - when force and wait are both supplied, a normal removal job is
+//     scheduled immediately, causing the earliest removal of the entity
+//     if the normal destruction workflows complete within the wait
+//     duration, followed by the (force, wait) job;
+//   - when force is not supplied, the wait duration is ignored and
+//     reset to zero.
+//
+// Scheduling is delegated to the schedule function. Both scheduling
+// attempts are made even if the first one fails: removal jobs are
+// idempotent and self-clean once their entity has been removed. The
+// returned error joins the immediate failure, wrapped with its context,
+// with the qualified failure; the returned job UUID is that of the
+// (force, wait) job.
+func (s *Service) scheduleWithForceWait[U ~string](
+	ctx context.Context,
+	uuid U,
+	force bool,
+	wait time.Duration,
+	schedule func(context.Context, U, bool, time.Duration) (removal.UUID, error),
+) (removal.UUID, error) {
+	wait = s.normalizeWait(ctx, uuid, force, wait)
+	var immediateErr error
+	if force && wait > 0 {
+		if _, immediateErr = schedule(ctx, uuid, false, 0); immediateErr != nil {
+			immediateErr = errors.Errorf("scheduling immediate removal of %q: %w", uuid, immediateErr)
+		}
+	}
+	jobUUID, err := schedule(ctx, uuid, force, wait)
+	return jobUUID, errors.Join(immediateErr, err)
+}
+
+// scheduleCascaded schedules removal jobs for the cascaded entities
+// with the input UUIDs, applying the same force/wait qualification as
+// scheduleWithForceWait to each of them. The first scheduling failure
+// is returned.
+func (s *Service) scheduleCascaded[U ~string](
+	ctx context.Context,
+	uuids []string,
+	force bool,
+	wait time.Duration,
+	schedule func(context.Context, U, bool, time.Duration) (removal.UUID, error),
+) error {
+	for _, uuid := range uuids {
+		if _, err := s.scheduleWithForceWait(ctx, U(uuid), force, wait, schedule); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

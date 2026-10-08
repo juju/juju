@@ -10,7 +10,6 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -122,24 +120,10 @@ func (s *Service) RemoveUnit(
 		s.logger.Errorf(ctx, "revoking leadership for unit %q: %v", unitUUID, err)
 	}
 
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the unit if the normal destruction
-			// workflows complete within the the wait duration.
-			if _, err := s.unitScheduleRemoval(ctx, unitUUID, false, 0); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
-			wait = 0
-		}
-	}
-
-	unitJobUUID, err := s.unitScheduleRemoval(ctx, unitUUID, force, wait)
+	// Normalize the wait here so the cascaded scheduling below cannot
+	// see a non-forced wait.
+	wait = s.normalizeWait(ctx, unitUUID, force, wait)
+	unitJobUUID, err := s.scheduleWithForceWait(ctx, unitUUID, force, wait, s.unitScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	} else if cascaded.IsEmpty() {
@@ -150,114 +134,37 @@ func (s *Service) RemoveUnit(
 
 	if cascaded.MachineUUID != nil {
 		s.logger.Infof(ctx, "unit was the last one on machine %q, scheduling removal", *cascaded.MachineUUID)
-		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(*cascaded.MachineUUID), force, wait); err != nil {
+		if err := s.scheduleCascaded(ctx, []string{*cascaded.MachineUUID}, force, wait, s.machineScheduleRemoval); err != nil {
 			return "", errors.Capture(err)
 		}
 	}
 
-	for _, a := range cascaded.StorageAttachmentUUIDs {
-		if force && wait > 0 {
-			if _, err := s.storageAttachmentScheduleRemoval(
-				ctx, storage.StorageAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.storageAttachmentScheduleRemoval(
-			ctx, storage.StorageAttachmentUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.StorageAttachmentUUIDs, force, wait, s.storageAttachmentScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.FileSystemAttachmentUUIDs {
-		if force && wait > 0 {
-			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.FileSystemAttachmentUUIDs, force, wait, s.filesystemAttachmentScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.VolumeAttachmentUUIDs {
-		if force && wait > 0 {
-			if _, err := s.volumeAttachmentScheduleRemoval(
-				ctx, storage.VolumeAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeAttachmentScheduleRemoval(
-			ctx, storage.VolumeAttachmentUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.VolumeAttachmentUUIDs, force, wait, s.volumeAttachmentScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.VolumeAttachmentPlanUUIDs {
-		if force && wait > 0 {
-			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.VolumeAttachmentPlanUUIDs, force, wait, s.volumeAttachmentPlanScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.FileSystemUUIDs {
-		if force && wait > 0 {
-			if _, err := s.filesystemScheduleRemoval(
-				ctx, storage.FilesystemUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.filesystemScheduleRemoval(
-			ctx, storage.FilesystemUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.FileSystemUUIDs, force, wait, s.filesystemScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.VolumeUUIDs {
-		if force && wait > 0 {
-			if _, err := s.volumeScheduleRemoval(
-				ctx, storage.VolumeUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeScheduleRemoval(
-			ctx, storage.VolumeUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.VolumeUUIDs, force, wait, s.volumeScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.StorageInstanceUUIDs {
-		if force && wait > 0 {
-			if _, err := s.storageInstanceScheduleRemoval(
-				ctx, storage.StorageInstanceUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.storageInstanceScheduleRemoval(
-			ctx, storage.StorageInstanceUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.StorageInstanceUUIDs, force, wait, s.storageInstanceScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	return unitJobUUID, nil
