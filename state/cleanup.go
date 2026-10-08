@@ -1762,7 +1762,9 @@ func (st *State) cleanupContainers(machine *Machine, force, forceDying bool, max
 				return err
 			}
 		}
-		if container.Life() != Dead {
+		// Without force, a Dead container is left for the provisioner to
+		// stop its instance and remove it.
+		if !force || container.Life() != Dead {
 			return errors.Errorf(
 				"waiting for container %s to be removed from %s",
 				containerId, machine.Id(),

@@ -377,7 +377,9 @@ func (s *cleanupInternalSuite) assertDyingEvacuationWorkflow(c *gc.C, controller
 	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 	c.Assert(child.Refresh(), jc.ErrorIsNil)
 	c.Assert(child.Life(), gc.Equals, Dying)
+	// The provisioner stops the container's instance and removes it.
 	c.Assert(child.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(child.Remove(), jc.ErrorIsNil)
 	if controller && !earlyHandoff {
 		node, err := st.ControllerNode(parent.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1147,7 +1149,9 @@ func (s *cleanupInternalSuite) TestCleanupContainersWaitsForDyingContainerWithou
 	c.Assert(child.Refresh(), jc.ErrorIsNil)
 	c.Check(child.Life(), gc.Equals, Dying)
 
+	// The provisioner stops the container's instance and removes it.
 	c.Assert(child.EnsureDead(), jc.ErrorIsNil)
+	c.Assert(child.Remove(), jc.ErrorIsNil)
 	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
 	c.Assert(child.Refresh(), jc.Satisfies, errors.IsNotFound)
 	c.Assert(parent.Refresh(), jc.ErrorIsNil)
@@ -1155,6 +1159,34 @@ func (s *cleanupInternalSuite) TestCleanupContainersWaitsForDyingContainerWithou
 	needsCleanup, err := st.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(needsCleanup, jc.IsFalse)
+}
+
+func (s *cleanupInternalSuite) TestCleanupContainersLeavesDeadContainerToProvisionerWithoutForce(c *gc.C) {
+	st := s.newState(c)
+	parent, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	child, err := st.AddMachineInsideMachine(MachineTemplate{
+		Base: UbuntuBase("12.10"),
+		Jobs: []MachineJob{JobHostUnits},
+	}, parent.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(parent.DestroyWithParams(false, true, 0), jc.ErrorIsNil)
+
+	err = st.cleanupEvacuateMachineInternal(parent.Id(), false, false, 0)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"waiting for container %s to be removed from %s",
+		child.Id(), parent.Id(),
+	))
+	c.Assert(child.Refresh(), jc.ErrorIsNil)
+	c.Check(child.Life(), gc.Equals, Dead)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Dying)
+
+	// The provisioner stops the container's instance and removes it.
+	c.Assert(child.Remove(), jc.ErrorIsNil)
+	c.Assert(st.cleanupEvacuateMachineInternal(parent.Id(), false, false, 0), jc.ErrorIsNil)
+	c.Assert(parent.Refresh(), jc.ErrorIsNil)
+	c.Check(parent.Life(), gc.Equals, Dead)
 }
 
 func (s *cleanupInternalSuite) TestCleanupContainersContinuesAfterMissingContainerWithoutForce(c *gc.C) {
@@ -1200,6 +1232,10 @@ func (s *cleanupInternalSuite) testCleanupContainersContinuesAfterMissingContain
 	c.Check(parent.Life(), gc.Equals, Dying)
 
 	c.Assert(dyingChild.EnsureDead(), jc.ErrorIsNil)
+	if !force {
+		// The provisioner stops the container's instance and removes it.
+		c.Assert(dyingChild.Remove(), jc.ErrorIsNil)
+	}
 	c.Assert(st.cleanupEvacuateMachineInternal(parent.Id(), force, force, 0), jc.ErrorIsNil)
 	c.Assert(dyingChild.Refresh(), jc.Satisfies, errors.IsNotFound)
 	_, err = missingChild.Containers()
