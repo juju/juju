@@ -45,7 +45,13 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 func setupShellOrCommand(userSession ssh.Session, machineSession *gossh.Session) error {
 	pty, windowChanges, hasPTY := userSession.Pty()
 	if !hasPTY {
-		return machineSession.Start(userSession.RawCommand())
+		if command := userSession.RawCommand(); command != "" {
+			return machineSession.Start(command)
+		}
+		// With no command specified, a shell is requested on the machine,
+		// mirroring OpenSSH behaviour. The shell executes any commands it
+		// reads from stdin, so piped input is still honoured.
+		return machineSession.Shell()
 	}
 
 	if err := machineSession.RequestPty(pty.Term, pty.Window.Height, pty.Window.Width, pty.Modes); err != nil {
