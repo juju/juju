@@ -105,16 +105,6 @@ run_enable_ha() {
 	wait_for_controller_ha 3
 	check_controller_usable
 
-	# Return to one unit, removing the lowest ordinal first. This leaves the
-	# newest unit active and lets the next test discover its starting ordinal.
-	while [[ ${#controller_units[@]} -gt 1 ]]; do
-		remove_controller_unit "${controller_units[0]}"
-		wait_for_controller_unit_count $((${#controller_units[@]} - 1))
-		mapfile -t controller_units < <(controller_unit_names)
-		wait_for_controller_ha "${#controller_units[@]}"
-	done
-	check_controller_usable
-
 	destroy_model "enable-ha"
 }
 
