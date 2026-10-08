@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/mitchellh/mapstructure"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
@@ -103,59 +105,29 @@ func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
 }
 
-const retryableProxyError = "etcdserver: leader changed"
+const (
+	retryableProxyError        = "etcdserver: leader changed"
+	forwardingPortsErrorPrefix = "forwarding ports:"
+	maxProxyConnectionAttempts = 3
+	proxyConnectionRetryDelay  = time.Second
+)
 
-// isRetryableProxyError deliberately matches the current etcd leader-change
-// message because this is the transient error addressed by #21324.
+// isRetryableProxyError matches the transient etcd leader-change error.
+// Kubernetes returns server-side errors as StatusError. The forwarding ports
+// prefix is checked because client-go's port-forwarding path formats the
+// server error as "forwarding ports: <error>".
 func isRetryableProxyError(err error) bool {
-	if !strings.Contains(err.Error(), retryableProxyError) {
+	if err == nil {
 		return false
 	}
 
-	if apierrors.IsInternalError(err) {
-		return true
+	cause := errors.Cause(err)
+	if apierrors.IsInternalError(cause) {
+		return strings.Contains(cause.Error(), retryableProxyError)
 	}
 
-	if _, ok := err.(*url.Error); ok {
-		return true
-	}
-
-	return strings.Contains(err.Error(), "forwarding ports:")
-}
-
-// retryProxyConnection retries only the transient Kubernetes leader-change
-// error. Each attempt creates a fresh tunnel because tunnels are single-use
-// for port forwarding. Three attempts with a one-second delay are sufficient
-// to allow a transient etcd leader change to settle without adding significant
-// delay to normal failures.
-func retryProxyConnection(ctx context.Context, connect func(context.Context) error) error {
-	const (
-		maxAttempts = 3
-		retryDelay  = time.Second
-	)
-	var err error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		err = connect(ctx)
-		if err == nil {
-			return nil
-		}
-
-		if !isRetryableProxyError(err) {
-			return errors.Trace(err)
-		}
-
-		if attempt == maxAttempts {
-			break
-		}
-
-		select {
-		case <-ctx.Done():
-			return errors.Trace(ctx.Err())
-		case <-time.After(retryDelay):
-		}
-	}
-
-	return errors.Trace(err)
+	return strings.HasPrefix(err.Error(), forwardingPortsErrorPrefix) &&
+		strings.Contains(err.Error(), retryableProxyError)
 }
 
 func (p *Proxier) Start(ctx context.Context) (err error) {
@@ -163,27 +135,47 @@ func (p *Proxier) Start(ctx context.Context) (err error) {
 		err = errors.Annotate(err, "connecting k8s proxy")
 	}()
 
-	err = retryProxyConnection(ctx, func(ctx context.Context) error {
-		tunnel, tunnelErr := kubernetes.NewTunnelForConfig(
-			&p.restConfig,
-			kubernetes.TunnelKindServices,
-			p.config.Namespace,
-			p.config.Service,
-			p.config.RemotePort,
-		)
-		if tunnelErr != nil {
-			return errors.Trace(tunnelErr)
-		}
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			tunnel, tunnelErr := kubernetes.NewTunnelForConfig(
+				&p.restConfig,
+				kubernetes.TunnelKindServices,
+				p.config.Namespace,
+				p.config.Service,
+				p.config.RemotePort,
+			)
+			if tunnelErr != nil {
+				return errors.Trace(tunnelErr)
+			}
 
-		p.tunnel = tunnel
+			p.tunnel = tunnel
 
-		err := tunnel.ForwardPort(ctx)
-		if err != nil {
-			tunnel.Close()
-		}
-		return err
+			if err := tunnel.ForwardPort(ctx); err != nil {
+				tunnel.Close()
+				return err
+			}
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !isRetryableProxyError(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("k8s proxy connection attempt %d failed: %v", attempt, err)
+		},
+		Attempts: maxProxyConnectionAttempts,
+		Delay:    proxyConnectionRetryDelay,
+		Clock:    clock.WallClock,
+		Stop:     ctx.Done(),
 	})
+
 	if err != nil {
+		if retry.IsRetryStopped(err) {
+			return errors.Trace(ctx.Err())
+		}
+		if retry.IsAttemptsExceeded(err) {
+			err = retry.LastError(err)
+		}
+
 		urlErr, ok := errors.Cause(err).(*url.Error)
 		if !ok {
 			return errors.Trace(err)
