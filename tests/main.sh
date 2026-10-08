@@ -308,6 +308,8 @@ cleanup() {
 		echo "==> Tests Removed: ${TEST_DIR}"
 	fi
 
+	rm -rf "${CREDS_DIR}"
+
 	echo "==> TEST COMPLETE"
 }
 
@@ -342,6 +344,14 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+
+# Scratch directory for cloud CLI credentials written by test setup
+# helpers (e.g. setup_gcloudcli_credential). Kept outside TEST_DIR so
+# these are never swept into archive_logs' artifact tarball and never
+# retained alongside TEST_DIR when a failed run is kept around for
+# debugging.
+CREDS_DIR=$(mktemp -d)
+export CREDS_DIR
 
 run_test() {
 	TEST_CURRENT=${1}

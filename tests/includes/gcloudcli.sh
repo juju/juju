@@ -1,9 +1,20 @@
 setup_gcloudcli_credential() {
+	: "${CREDS_DIR:?CREDS_DIR must be set}"
+
 	if ! command -v gcloud >/dev/null 2>&1; then
 		if ! sudo snap install google-cloud-cli --classic; then
 			echo "Error: failed to install google-cloud-cli snap" >&2
 		fi
 	fi
+
+	# Isolate the gcloud CLI config under CREDS_DIR instead of the
+	# developer's real ~/.config/gcloud, so a test run never clobbers
+	# real gcloud state. CREDS_DIR lives outside TEST_DIR and is removed
+	# unconditionally in main.sh's cleanup, regardless of test result, so
+	# these credentials are never archived and never retained alongside
+	# a kept TEST_DIR.
+	export CLOUDSDK_CONFIG="${CREDS_DIR}/gcloud"
+	mkdir -p "${CLOUDSDK_CONFIG}"
 
 	# Check if an account is already active
 	if [[ "$(gcloud config get account 2>&1)" != "(unset)" ]]; then
