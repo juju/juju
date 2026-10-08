@@ -8,7 +8,6 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	"github.com/juju/juju/core/relation"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	"github.com/juju/juju/core/trace"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
@@ -91,24 +90,10 @@ func (s *Service) RemoveRemoteApplicationOfferer(
 		return "", errors.Errorf("remote application offerer %q: %w", remoteAppOffererUUID, err)
 	}
 
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the remote application offerer if the normal
-			// destruction workflows complete within the wait duration.
-			if _, err := s.remoteApplicationOffererScheduleRemoval(ctx, remoteAppOffererUUID, false, 0); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of remote application offerer %q", remoteAppOffererUUID)
-			wait = 0
-		}
-	}
-
-	appJobUUID, err := s.remoteApplicationOffererScheduleRemoval(ctx, remoteAppOffererUUID, force, wait)
+	// Normalize the wait here so the cascaded scheduling below cannot
+	// see a non-forced wait.
+	wait = s.normalizeWait(ctx, remoteAppOffererUUID, force, wait)
+	appJobUUID, err := s.scheduleWithForceWait(ctx, remoteAppOffererUUID, force, wait, s.remoteApplicationOffererScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -117,10 +102,8 @@ func (s *Service) RemoveRemoteApplicationOfferer(
 		return appJobUUID, nil
 	}
 
-	for _, r := range cascaded.RelationUUIDs {
-		if _, err := s.relationScheduleRemoval(ctx, relation.UUID(r), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.RelationUUIDs, force, wait, s.relationScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	return appJobUUID, nil
