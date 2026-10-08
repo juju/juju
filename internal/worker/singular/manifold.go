@@ -108,3 +108,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 	}
 }
+
+// NotPrimaryControllerFlagManifold exposes the inverse of the singular
+// primary-controller flag. Its lifetime follows the source flag manifold.
+func NotPrimaryControllerFlagManifold(primaryControllerFlagName string) dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{primaryControllerFlagName},
+		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+			var primaryControllerFlag engine.Flag
+			if err := getter.Get(primaryControllerFlagName, &primaryControllerFlag); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return engine.NewStaticFlagWorker(!primaryControllerFlag.Check()), nil
+		},
+		Output: engine.FlagOutput,
+	}
+}
