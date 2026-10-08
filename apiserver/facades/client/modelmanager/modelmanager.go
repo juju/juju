@@ -956,29 +956,16 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
 
-	checkWritePermission := func(tag names.ModelTag) bool {
-		if m.isAdmin {
-			return true
-		}
-		if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, tag); err == nil {
-			return true
-		}
-		if err := m.authorizer.HasPermission(ctx, permission.WriteAccess, tag); err == nil {
-			return true
-		}
-		return false
-	}
-
 	getModelInfo := func(arg params.Entity) (params.ModelInfo, error) {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		canWrite := checkWritePermission(tag)
-		if !canWrite {
-			// If the logged in user does not have at least read permission, we return an error.
-			if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); err != nil {
-				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+		access := permission.AdminAccess
+		if !m.isAdmin {
+			access, err = m.authorizer.RequireAccess(ctx, permission.ReadAccess, tag)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
 			}
 		}
 
@@ -1003,7 +990,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			}
 			modelInfo.CloudCredentialValidity = new(!cred.Invalid)
 		}
-		if !canWrite {
+		if !access.EqualOrGreaterModelAccessThan(permission.WriteAccess) {
 			return modelInfo, nil
 		}
 

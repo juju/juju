@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -580,6 +581,20 @@ func (s *userManagerSuite) TestModelUsersInfo(c *tc.C) {
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, tc.DeepEquals, expected)
+}
+
+// TestModelUsersInfoNoAccessReturnsAuthorizerError asserts that a caller
+// with no access to the model gets the authorizer's permission error.
+func (s *userManagerSuite) TestModelUsersInfoNoAccessReturnsAuthorizerError(c *tc.C) {
+	controllerModelTag := names.NewModelTag(s.ApiServerSuite.ControllerModelUUID())
+	// The fake authorizer grants this user no access to the model.
+	s.setAPIUserAndAuth(c, "nobody")
+	defer s.setUpAPI(c).Finish()
+
+	_, err := s.api.ModelUserInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: controllerModelTag.String(),
+	}}})
+	c.Check(err, tc.ErrorIs, authentication.ErrorEntityMissingPermission)
 }
 
 // ByUserName implements sort.Interface for []params.ModelUserInfoResult based on

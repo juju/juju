@@ -166,15 +166,10 @@ func providerSchema(c *tc.C, providerType string) configschema.Fields {
 }
 
 func (s *cloudSuite) TestClouds(c *tc.C) {
-	bruce := names.NewUserTag("bruce")
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants add-model access on my-cloud based on the username.
+	bruce := names.NewUserTag("add-model-cloud-my-cloud")
 	defer s.setup(c, bruce).Finish()
-
-	cloudPermissionService := s.cloudAccessService.EXPECT()
-
-	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
-		user.NameFromTag(bruce), permission.ID{ObjectType: permission.Cloud, Key: "my-cloud"}).Return(permission.AddModelAccess, nil)
-	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
-		user.NameFromTag(bruce), permission.ID{ObjectType: permission.Cloud, Key: "your-cloud"}).Return(permission.NoAccess, nil)
 
 	backend := s.cloudService.EXPECT()
 	backend.ListAll(gomock.Any()).Return([]jujucloud.Cloud{
@@ -256,7 +251,9 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *tc.C) {
 }
 
 func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
-	fredTag := names.NewUserTag("fred")
+	// The caller's only grant is authorizer-derived: the fake authorizer
+	// grants add-model access on my-cloud based on the username.
+	fredTag := names.NewUserTag("add-model-cloud-my-cloud")
 	ctrl := s.setup(c, fredTag)
 	defer ctrl.Finish()
 
@@ -265,10 +262,11 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 		ObjectType: permission.Cloud,
 		Key:        "my-cloud",
 	}
-	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(), user.NameFromTag(fredTag),
-		permID).Return(permission.AddModelAccess, nil)
+	// The caller has a local permission row under their own name, plus
+	// another user they must not see.
+	callerName := user.NameFromTag(fredTag)
 	userPerm := []permission.UserAccess{
-		{UserName: usertesting.GenNewName(c, "fred"), DisplayName: "display-fred", Access: permission.AddModelAccess},
+		{UserName: callerName, DisplayName: "display-fred", Access: permission.AddModelAccess},
 		{UserName: usertesting.GenNewName(c, "mary"), DisplayName: "display-mary", Access: permission.AdminAccess},
 	}
 	cloudPermissionService.ReadAllUserAccessForTarget(gomock.Any(), permID).Return(userPerm,
@@ -297,13 +295,30 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *tc.C) {
 					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
 				},
 				Users: []params.CloudUserInfo{
-					{UserName: "fred", DisplayName: "display-fred", Access: "add-model"},
+					{UserName: callerName.Name(), DisplayName: "display-fred", Access: "add-model"},
 				},
 			},
 		}, {
 			Error: &params.Error{Message: `"machine-0" is not a valid cloud tag`},
 		},
 	})
+}
+
+// TestCloudInfoNoAccessDenied asserts that CloudInfo rejects a caller with
+// no access to the cloud, resolved via the authorizer, before ever
+// consulting the local user list.
+func (s *cloudSuite) TestCloudInfoNoAccessDenied(c *tc.C) {
+	// The fake authorizer grants this user no access to my-cloud.
+	ctrl := s.setup(c, names.NewUserTag("nobody"))
+	defer ctrl.Finish()
+
+	result, err := s.api.CloudInfo(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "cloud-my-cloud",
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Result, tc.IsNil)
+	c.Check(result.Results[0].Error, tc.ErrorMatches, "permission denied")
 }
 
 func (s *cloudSuite) TestCloudInfoNotFound(c *tc.C) {

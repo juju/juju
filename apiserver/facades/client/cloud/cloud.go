@@ -130,16 +130,17 @@ func NewCloudAPI(
 	}, nil
 }
 
-func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user user.Name, access permission.Access) (bool, error) {
-	id := permission.ID{ObjectType: permission.Cloud, Key: cloud}
-	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user, id)
-	if errors.Is(err, errors.NotFound) {
-		return false, nil
-	}
-	if err != nil {
+// canAccessCloud reports whether the caller has at least the requested
+// access on the cloud. Access is resolved through the authorizer so that
+// external (JWT) callers, whose grants live outside the controller's
+// local tables, are answered from their token, not a local permission row.
+func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, access permission.Access) (bool, error) {
+	cloudTag := names.NewCloudTag(cloud)
+	err := api.authorizer.HasPermission(ctx, access, cloudTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	}
-	return perm.EqualOrGreaterCloudAccessThan(access), nil
+	return err == nil, nil
 }
 
 // Clouds returns the definitions of all clouds supported by the controller
@@ -161,7 +162,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	for _, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, user.NameFromTag(api.apiUser), permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, permission.AddModelAccess)
 			if err != nil {
 				return result, err
 			}
@@ -194,7 +195,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 		}
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), permission.AddModelAccess)
 			if err != nil {
 				return nil, err
 			}
@@ -253,12 +254,13 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		return nil, errors.Trace(err)
 	}
 	isAdmin := err == nil
-	// If not a controller admin, check for cloud admin.
+
 	if !isAdmin {
-		isAdmin, err = api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AdminAccess)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		access, err := api.authorizer.RequireAccess(ctx, permission.AddModelAccess, tag)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		isAdmin = access == permission.AdminAccess
 	}
 
 	aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
@@ -288,12 +290,6 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 			Access:      string(perm.Access),
 		}
 		info.Users = append(info.Users, userInfo)
-	}
-
-	if len(info.Users) == 0 {
-		// No users, which means the authenticated user doesn't
-		// have access to the cloud.
-		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
 	return &info, nil
 }
@@ -858,7 +854,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 		}
 		// Ensure user has permission to remove the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AdminAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), permission.AdminAccess)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
