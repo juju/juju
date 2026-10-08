@@ -64,9 +64,9 @@ func Archive(w io.Writer, dir string) error {
 		logger.Debugf(context.TODO(), "adding entry: %#v", h)
 		// ignore local umask
 		if isExecutable(fi) {
-			h.Mode = 0755
+			h.Mode = 0o755
 		} else {
-			h.Mode = 0644
+			h.Mode = 0o644
 		}
 		err = tarw.WriteHeader(h)
 		if err != nil {
@@ -117,7 +117,7 @@ func tarHeader(i os.FileInfo) *tar.Header {
 		Typeflag:   tar.TypeReg,
 		Name:       i.Name(),
 		Size:       i.Size(),
-		Mode:       int64(i.Mode() & 0777),
+		Mode:       int64(i.Mode() & 0o777),
 		ModTime:    epoch,
 		AccessTime: epoch,
 		ChangeTime: epoch,
@@ -129,7 +129,7 @@ func tarHeader(i os.FileInfo) *tar.Header {
 // isExecutable returns whether the given info
 // represents a regular file executable by (at least) the user.
 func isExecutable(i os.FileInfo) bool {
-	return i.Mode()&(0100|os.ModeType) == 0100
+	return i.Mode()&(0o100|os.ModeType) == 0o100
 }
 
 // closeErrorCheck means that we can ensure that
@@ -269,13 +269,9 @@ func copyExistingJujus(ctx context.Context, dir string) error {
 	return nil
 }
 
-func buildJujus(ctx context.Context, dir string) error {
-	logger.Infof(ctx, "building jujuagentd")
-
-	// Determine if we are in tree of juju and if to prefer
-	// vendor or readonly mod deps.
+// FindJujuSourceRoot locates the juju source tree root via 'go list'.
+var FindJujuSourceRoot = func() (string, error) {
 	var lastErr error
-	var cmdDir string
 	for _, m := range []string{"-mod=vendor", "-mod=readonly"} {
 		var stdout, stderr bytes.Buffer
 		cmd := exec.Command("go", "list", "-json", m, "github.com/juju/juju")
@@ -298,12 +294,17 @@ func buildJujus(ctx context.Context, dir string) error {
 				jujuversion.Current.String(), jujuversion.GitCommit, err)
 			continue
 		}
-		lastErr = nil
-		cmdDir = pkg.Root
-		break
+		return pkg.Root, nil
 	}
-	if lastErr != nil {
-		return lastErr
+	return "", lastErr
+}
+
+func buildJujus(ctx context.Context, dir string) error {
+	logger.Infof(ctx, "building jujuagentd")
+
+	cmdDir, err := FindJujuSourceRoot()
+	if err != nil {
+		return err
 	}
 
 	// Build binaries.
@@ -404,7 +405,7 @@ func bundleTools(
 		}
 		forceVersion = getForceVersion(tvers.Number)
 		logger.Debugf(ctx, "forcing %sversion to %s", officialMsg, forceVersion)
-		if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0o666); err != nil {
 			return semversion.Binary{}, semversion.Number{}, false, "", err
 		}
 	}

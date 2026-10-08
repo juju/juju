@@ -14,6 +14,7 @@ definitive source is the code.
 | `CONTROLLER_CHARM_CHANNEL`    | The channel to pull the controller charm from (CaaS only).                         |
 | `CONTROLLER_CHARM_PATH_CAAS`  | The Charmhub charm name to pull the controller charm from (CaaS only).             |
 | `CONTROLLER_CHARM_PATH_IAAS`  | Path to a locally built controller charm to use (IaaS only).                       |
+| `CONTROLLER_SNAP_PATH`        | Path to a prebuilt controller snap to bootstrap with (IaaS only). Set by CI; unset locally so bootstrap builds it. |
 | `KILL_CONTROLLER`             | If `'true'`, controllers will be forcibly killed during teardown.                  |
 | `MODEL_ARCH`                  | Will be set as a model constraint on newly added models.                           |
 | `OPERATOR_IMAGE_ACCOUNT`      | Passed as the value of `--config caas-image-repo` when bootstrapping.              |

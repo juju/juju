@@ -39,11 +39,8 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	_ "github.com/juju/juju/internal/provider/all"         // Import the providers.
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
-	"github.com/juju/juju/internal/worker/dbaccessor"
-	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
@@ -264,15 +261,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 
-	jujud.Register(agentcmd.NewBootstrapCommand())
-
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
 	// AgentConf should be split up to follow suit.
 	agentConf := agentconf.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
-		dbaccessor.NewTrackedDBWorker,
 		func(mt model.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == model.CAAS {
 				return upgrades.PreUpgradeStepsCAAS
@@ -283,18 +277,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		"",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
-
-	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
-		agentConf,
-		dbaccessor.NewTrackedDBWorker,
-	)
-	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
-
-	dbReplModeMachineAgentFactory := agentcmd.DBReplMachineAgentFactoryFn(
-		agentConf,
-		dbreplaccessor.NewTrackedDBWorker,
-	)
-	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplModeMachineAgentFactory, agentConf, agentConf))
 
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 

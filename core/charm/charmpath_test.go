@@ -145,3 +145,14 @@ func (s *charmPathSuite) TestFindsSymlinks(c *tc.C) {
 	c.Assert(ch.(*charm.CharmArchive).Path, tc.Equals, linkPath)
 	c.Assert(url, tc.DeepEquals, charm.MustParseURL("local:dummy-1"))
 }
+
+func (s *charmPathSuite) TestIsLocalCharmPath(c *tc.C) {
+	c.Check(corecharm.IsLocalCharmPath("/tmp/controller.charm"), tc.IsTrue)
+	c.Check(corecharm.IsLocalCharmPath("./controller.charm"), tc.IsTrue)
+	c.Check(corecharm.IsLocalCharmPath("../controller.charm"), tc.IsTrue)
+	c.Check(corecharm.IsLocalCharmPath("controller.charm"), tc.IsFalse)
+	c.Check(corecharm.IsLocalCharmPath("ch:juju-controller"), tc.IsFalse)
+	// An empty path means no charm was specified, so the caller resolves
+	// the charm from charmhub; it is not a local charm path.
+	c.Check(corecharm.IsLocalCharmPath(""), tc.IsFalse)
+}

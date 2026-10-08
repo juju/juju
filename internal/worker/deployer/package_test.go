@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
@@ -25,13 +26,16 @@ type BaseSuite struct {
 func (s *BaseSuite) InitializeCurrentToolsDir(c *tc.C, dataDir string) {
 	// Initialize the tools directory for the agent.
 	// This should be <DataDir>/tools/<version>-<series>-<arch>.
-	current := coretesting.CurrentVersion()
-	toolsDir := tools.SharedToolsDir(dataDir, current)
+	s.InitializeToolsDir(c, dataDir, coretesting.CurrentVersion())
+}
+
+func (s *BaseSuite) InitializeToolsDir(c *tc.C, dataDir string, vers semversion.Binary) {
+	toolsDir := tools.SharedToolsDir(dataDir, vers)
 	// Make that directory.
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, tc.ErrorIsNil)
 	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
-	testTools := coretools.Tools{Version: current, URL: "http://testing.invalid/tools"}
+	testTools := coretools.Tools{Version: vers, URL: "http://testing.invalid/tools"}
 	data, err := json.Marshal(testTools)
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(toolsPath, data, 0644)

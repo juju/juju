@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/jujuagentd/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/environs"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	caasprovider "github.com/juju/juju/internal/provider/kubernetes"
@@ -107,6 +109,26 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 		return errors.Trace(err)
 	}
 	return m.ReadConfig(m.Tag().String())
+}
+
+func copyFile(dest, source string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return errors.Trace(err)
+	}
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 // NewModelCommand creates a new ModelCommand instance properly initialized
@@ -198,7 +220,7 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
 		Agent:                  agent.APIHostPortsSetter{Agent: m},
 		AgentConfigChanged:     m.configChangedVal,
-		NewContainerBrokerFunc: caas.New,
+		NewContainerBrokerFunc: newContainerBroker,
 		Port:                   port,
 		LogSource:              m.bufferedLogger.Logs(),
 		ServiceName:            svcName,
@@ -226,4 +248,20 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 	}
 
 	return e, nil
+}
+
+// newContainerBroker opens the model operator's CAAS broker directly from
+// the kubernetes provider. Unlike caas.New, it does not consult the global
+// provider registry, which the machine agent does not populate; any
+// registry-based lookup would work only as a side effect of the provider
+// package's own init registration.
+func newContainerBroker(
+	ctx context.Context,
+	args environs.OpenParams,
+	invalidator environs.CredentialInvalidator,
+) (caas.Broker, error) {
+	if args.Cloud.Type != caasconstants.CAASProviderType {
+		return nil, errors.NotSupportedf("cloud type %q", args.Cloud.Type)
+	}
+	return caasprovider.Provider().Open(ctx, args, invalidator)
 }

@@ -324,9 +324,12 @@ pre_bootstrap() {
 	if [[ ${BUILD_AGENT:-} == true ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --build-agent"
 	else
-		# In CI tests, both Build and OfficialBuild are set.
-		# Juju confuses when it needs to decide the operator image tag to use.
-		# So we need to explicitly set the agent version for CI tests.
+		# Snap based controllers (all providers except k8s) take the
+		# authoritative agent version from the controller snap and reject
+		# --agent-version, even when CI pins JUJU_VERSION to the built
+		# client version. Only k8s bootstraps pass the flag; there a
+		# build-tagged CI client otherwise confuses operator image tag
+		# selection.
 		if [[ -n ${JUJU_VERSION:-} ]]; then
 			version=${JUJU_VERSION}
 		else
@@ -338,7 +341,21 @@ pre_bootstrap() {
 			extra_opts="--config juju-db-snap-channel=4.4/stable"
 		fi
 
-		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --agent-version=${version} ${extra_opts:-}"
+		local agent_version_opts
+		if [[ ${BOOTSTRAP_PROVIDER:-} == "k8s" ]]; then
+			agent_version_opts="--agent-version=${version}"
+		fi
+
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} ${agent_version_opts:-} ${extra_opts:-}"
+	fi
+
+	# Snap based controllers (all providers except k8s) bootstrap from a
+	# controller snap. CI exports CONTROLLER_SNAP_PATH pointing at the snap
+	# shipped in the build payload; test runners have no toolchain to build
+	# one. Leave it unset locally so bootstrap builds the snap from source
+	# itself when the client is newer than the published store snap.
+	if [[ ${BOOTSTRAP_PROVIDER:-} != "k8s" && -n ${CONTROLLER_SNAP_PATH:-} ]]; then
+		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=${CONTROLLER_SNAP_PATH}"
 	fi
 
 	if [[ -n ${SHORT_GIT_COMMIT:-} ]]; then

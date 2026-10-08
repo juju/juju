@@ -42,6 +42,7 @@ On each machine, agents (`jujuagentd` on machines, `containeragent` on Kubernete
 - {ref}`hook`
 - {ref}`hook-command`
 - {ref}`jujuc`
+- {ref}`jujud`
 - {ref}`pebble`
 
 ## Users

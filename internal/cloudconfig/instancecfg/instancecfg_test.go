@@ -4,6 +4,8 @@
 package instancecfg_test
 
 import (
+	"os"
+	"path/filepath"
 	stdtesting "testing"
 	"time"
 
@@ -141,6 +143,65 @@ func (*instancecfgSuite) TestCharmDir(c *tc.C) {
 	c.Assert(icfg.CharmDir(), tc.Equals, "/path/to/datadir/charms")
 }
 
+func (*instancecfgSuite) TestSetControllerSnapEmpty(c *tc.C) {
+	icfg := &instancecfg.InstanceConfig{
+		Bootstrap: &instancecfg.BootstrapConfig{},
+	}
+	err := icfg.SetControllerSnap("", "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(icfg.Bootstrap.ControllerSnapPath, tc.Equals, "")
+	c.Check(icfg.Bootstrap.ControllerSnapAssertPath, tc.Equals, "")
+}
+
+func (*instancecfgSuite) TestSetControllerSnapSnapOnly(c *tc.C) {
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	err := os.WriteFile(snapPath, []byte("snap"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	icfg := &instancecfg.InstanceConfig{
+		Bootstrap: &instancecfg.BootstrapConfig{},
+	}
+	err = icfg.SetControllerSnap(snapPath, "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(icfg.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
+	c.Check(icfg.Bootstrap.ControllerSnapAssertPath, tc.Equals, "")
+}
+
+func (*instancecfgSuite) TestSetControllerSnapWithAssert(c *tc.C) {
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
+	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
+
+	icfg := &instancecfg.InstanceConfig{
+		Bootstrap: &instancecfg.BootstrapConfig{},
+	}
+	err := icfg.SetControllerSnap(snapPath, assertPath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(icfg.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
+	c.Check(icfg.Bootstrap.ControllerSnapAssertPath, tc.Equals, assertPath)
+}
+
+func (*instancecfgSuite) TestSetControllerSnapMissingSnapFile(c *tc.C) {
+	icfg := &instancecfg.InstanceConfig{
+		Bootstrap: &instancecfg.BootstrapConfig{},
+	}
+	err := icfg.SetControllerSnap("/nonexistent/jujud.snap", "")
+	c.Assert(err, tc.ErrorMatches, `unable to set local controller snap \(at /nonexistent/jujud.snap\):.*`)
+}
+
+func (*instancecfgSuite) TestSetControllerSnapMissingAssertFile(c *tc.C) {
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
+
+	icfg := &instancecfg.InstanceConfig{
+		Bootstrap: &instancecfg.BootstrapConfig{},
+	}
+	err := icfg.SetControllerSnap(snapPath, "/nonexistent/jujud.assert")
+	c.Assert(err, tc.ErrorMatches, `unable to set local controller snap assert \(at /nonexistent/jujud.assert\):.*`)
+}
+
 func (*instancecfgSuite) TestAgentConfigLogParams(c *tc.C) {
 	icfg := instancecfg.InstanceConfig{
 		APIInfo: &api.Info{
@@ -156,10 +217,10 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *tc.C) {
 		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
 		DataDir:       "/path/to/datadir/",
 	}
-	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
+	cfg, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(config.AgentLogfileMaxSizeMB(), tc.Equals, 123)
-	c.Assert(config.AgentLogfileMaxBackups(), tc.Equals, 7)
+	c.Assert(cfg.AgentLogfileMaxSizeMB(), tc.Equals, 123)
+	c.Assert(cfg.AgentLogfileMaxBackups(), tc.Equals, 7)
 }
 
 // TestAgentConfigLokiConfig verifies that the Loki endpoint and CA cert set on

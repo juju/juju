@@ -35,6 +35,7 @@ type ControllerStartupValues struct {
 	CACert                string
 	ControllerCert        string
 	ControllerPrivateKey  string
+	SharedAgentDir        string
 }
 
 // ControllerStartupValuesProvider provides controller-local startup values for
@@ -116,7 +117,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			controllerID := startupValues.ControllerID
-			configPath := path.Join(startupValues.DataDir, "agents", "controller-"+controllerID, "controller.conf")
+			configPath := path.Join(startupValues.SharedAgentDir, "controller.conf")
 			controllerConf := controllerConfigReader{configPath: configPath}
 
 			var controllerConfigWatcher controlleragentconfig.ConfigWatcher

@@ -187,7 +187,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(
 		loggertesting.WrapCheckLog(c),
-		api, broker, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
+		api, broker, modelUUID, "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	for range n {
@@ -211,7 +211,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerWatchErrorContainsSh
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
+		api, &dummyBroker{}, modelUUID, "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = worker.Wait()
@@ -232,7 +232,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
+		api, &dummyBroker{}, modelUUID, "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Trigger one update cycle which will return an error.
@@ -260,7 +260,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerCACertErrorContainsS
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, errorConfigProvider{}, &mockTracingService{})
+		api, &dummyBroker{}, modelUUID, "/var/log/juju", coretesting.ControllerTag, errorConfigProvider{}, &mockTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	changed <- struct{}{}
@@ -287,7 +287,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerTracingErrorContains
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, errorTracingService{})
+		api, &dummyBroker{}, modelUUID, "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{}, errorTracingService{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	changed <- struct{}{}

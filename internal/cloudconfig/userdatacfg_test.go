@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
@@ -33,11 +32,13 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	charmtesting "github.com/juju/juju/domain/deployment/charm/testing"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -175,6 +176,18 @@ func (cfg *testInstanceConfig) setControllerCharm(path string) *testInstanceConf
 	return cfg
 }
 
+func (cfg *testInstanceConfig) setControllerSnap(snapPath, assertPath string) *testInstanceConfig {
+	cfg.Bootstrap.ControllerSnapPath = snapPath
+	cfg.Bootstrap.ControllerSnapAssertPath = assertPath
+	return cfg
+}
+
+func (cfg *testInstanceConfig) setControllerSnapStore(revision int, expectedVersion string) *testInstanceConfig {
+	cfg.Bootstrap.ControllerSnapRevision = revision
+	cfg.Bootstrap.ControllerSnapExpectedVersion = expectedVersion
+	return cfg
+}
+
 // maybeSetModelConfig sets the Config field to the given envConfig, if not
 // nil, and the instance config is for a bootstrap machine.
 func (cfg *testInstanceConfig) maybeSetModelConfig(envConfig *config.Config) *testInstanceConfig {
@@ -274,7 +287,9 @@ func minimalModelConfig(c *tc.C) *config.Config {
 var cloudinitTests = []cloudinitTest{
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig(jammy, 0).setEnableOSUpdateAndUpgrade(false, false),
+		cfg: makeBootstrapConfig(jammy, 0).
+			setControllerSnapStore(42, "4.0.1").
+			setEnableOSUpdateAndUpgrade(false, false),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -285,7 +300,9 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig(jammy, 0).setEnableOSUpdateAndUpgrade(true, false),
+		cfg: makeBootstrapConfig(jammy, 0).
+			setControllerSnapStore(42, "4.0.1").
+			setEnableOSUpdateAndUpgrade(true, false),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -296,7 +313,9 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig(jammy, 0).setEnableOSUpdateAndUpgrade(false, true),
+		cfg: makeBootstrapConfig(jammy, 0).
+			setControllerSnapStore(42, "4.0.1").
+			setEnableOSUpdateAndUpgrade(false, true),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -307,7 +326,9 @@ var cloudinitTests = []cloudinitTest{
 
 	// Test that cloudinit respects update/upgrade settings.
 	{
-		cfg:          makeBootstrapConfig(jammy, 0).setEnableOSUpdateAndUpgrade(true, true),
+		cfg: makeBootstrapConfig(jammy, 0).
+			setControllerSnapStore(42, "4.0.1").
+			setEnableOSUpdateAndUpgrade(true, true),
 		inexactMatch: true,
 		// We're just checking for apt-flags. We don't much care if
 		// the script matches.
@@ -318,7 +339,7 @@ var cloudinitTests = []cloudinitTest{
 
 	// jammy controller
 	{
-		cfg:               makeBootstrapConfig(jammy, 0),
+		cfg:               makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1"),
 		inexactMatch:      true,
 		setEnvConfig:      true,
 		upgradedToVersion: "1.2.3",
@@ -338,22 +359,27 @@ echo 'Fetching Juju agent version.*
 .* curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz'.*
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
+tar zxf \$bin/tools.tar.gz -C \$bin --no-same-owner
 echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
-install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
-echo '.*' > '/var/lib/juju/bootstrap-params'
-echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+mkdir -p '/var/lib/juju/snap'
+.* snap download 'jujud' --revision=42 --basename='jujud'
+snap ack '/var/lib/juju/snap/jujud\.assert'
+snap install '/var/lib/juju/snap/jujud\.snap'
+snap connect jujud:network
+snap connect jujud:network-bind
+snap stop jujud --disable
+set -e\\nmkdir -p -m 700 '/var/snap/jujud/common/\.snap-init'.*snap run jujud\.bootstrap-state --timeout '10m0s'
+snap start jujud --enable
 /sbin/remove-juju-services
 `,
 	},
 
 	// jammy controller with build in version
 	{
-		cfg:               makeBootstrapConfig(jammy, 123),
+		cfg:               makeBootstrapConfig(jammy, 123).setControllerSnapStore(42, "4.0.1"),
 		inexactMatch:      true,
 		setEnvConfig:      true,
 		upgradedToVersion: "1.2.3.123",
@@ -373,15 +399,20 @@ echo 'Fetching Juju agent version.*
 curl .* --retry 10 -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3\.123-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
+tar zxf \$bin/tools.tar.gz -C \$bin --no-same-owner
 echo -n '{"version":"1\.2\.3\.123-ubuntu-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3\.123-ubuntu-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 cat > '/var/lib/juju/agents/machine-0/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
-install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
-echo '.*' > '/var/lib/juju/bootstrap-params'
-echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+mkdir -p '/var/lib/juju/snap'
+.* snap download 'jujud' --revision=42 --basename='jujud'
+snap ack '/var/lib/juju/snap/jujud\.assert'
+snap install '/var/lib/juju/snap/jujud\.snap'
+snap connect jujud:network
+snap connect jujud:network-bind
+snap stop jujud --disable
+set -e\\nmkdir -p -m 700 '/var/snap/jujud/common/\.snap-init'.*snap run jujud\.bootstrap-state --timeout '10m0s'
+snap start jujud --enable
 `,
 	},
 
@@ -406,7 +437,7 @@ echo 'Fetching Juju agent version.*
 .* curl -sSf --connect-timeout 20 --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64'.*
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-ubuntu-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-tar zxf \$bin/tools.tar.gz -C \$bin
+tar zxf \$bin/tools.tar.gz -C \$bin --no-same-owner
 echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.invalid:54321/deadbeef-0bad-400d-8000-4b1d0d06f00d/tools/1\.2\.3-ubuntu-amd64","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
@@ -443,33 +474,33 @@ curl .* --noproxy "\*" --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.t
 
 	// empty bootstrap constraints.
 	{
-		cfg: makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1").mutate(func(cfg *testInstanceConfig) {
 			cfg.Bootstrap.BootstrapMachineConstraints = constraints.Value{}
 		}),
 		setEnvConfig:      true,
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
-		expectScripts: `
-echo '.*bootstrap-machine-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
-`,
+		expectScripts: fmt.Sprintf(`
+echo '.*bootstrap-machine-constraints: {}.*' > '%s'
+`, stagedBootstrapParamsRegex),
 	},
 
 	// empty environ constraints.
 	{
-		cfg: makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1").mutate(func(cfg *testInstanceConfig) {
 			cfg.Bootstrap.ModelConstraints = constraints.Value{}
 		}),
 		setEnvConfig:      true,
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
-		expectScripts: `
-echo '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
-`,
+		expectScripts: fmt.Sprintf(`
+echo '.*model-constraints: {}.*' > '%s'
+`, stagedBootstrapParamsRegex),
 	},
 
 	// custom image metadata (at bootstrap).
 	{
-		cfg: makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1").mutate(func(cfg *testInstanceConfig) {
 			cfg.Bootstrap.CustomImageMetadata = []*imagemetadata.ImageMetadata{{
 				Id:         "image-id",
 				Storage:    "ebs",
@@ -482,14 +513,14 @@ echo '.*model-constraints: {}.*' > '/var/lib/juju/bootstrap-params'
 		setEnvConfig:      true,
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
-		expectScripts: `
-echo '.*custom-image-metadata:.*us-east1.*.*' > '/var/lib/juju/bootstrap-params'
-`,
+		expectScripts: fmt.Sprintf(`
+echo '.*custom-image-metadata:.*us-east1.*.*' > '%s'
+`, stagedBootstrapParamsRegex),
 	},
 
 	// custom image metadata signing key.
 	{
-		cfg: makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg: makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1").mutate(func(cfg *testInstanceConfig) {
 			cfg.PublicImageSigningKey = "publickey"
 		}),
 		setEnvConfig:      true,
@@ -533,10 +564,23 @@ func checkEnvConfig(c *tc.C, cfg *config.Config, scripts []string) {
 	c.Assert(cfg.AllAttrs(), tc.DeepEquals, args.ControllerModelConfig.AllAttrs())
 }
 
+// stagedBootstrapParamsPath is the cloud-init staging path where the bootstrap
+// parameters file is written before jujud.init consumes it. It is derived from
+// the shared snap staging directory so tests do not duplicate the literal.
+var stagedBootstrapParamsPath = path.Join(
+	cloudconfig.SnapInitStagingDir,
+	controllerruntimeconfig.FileNameBootstrapParams,
+)
+
+// stagedBootstrapParamsRegex is stagedBootstrapParamsPath quoted for use in a
+// regular expression.
+var stagedBootstrapParamsRegex = regexp.QuoteMeta(stagedBootstrapParamsPath)
+
 func getStateInitializationParams(c *tc.C, scripts []string) instancecfg.StateInitializationParams {
 	var args instancecfg.StateInitializationParams
 	c.Assert(scripts, tc.Not(tc.HasLen), 0)
-	re := regexp.MustCompile(`echo '(?s:(.+))' > '/var/lib/juju/bootstrap-params'`)
+	re := regexp.MustCompile(`install -D -m 600 /dev/null '` +
+		stagedBootstrapParamsRegex + `'\necho '(?s:(.+?))' > '` + stagedBootstrapParamsRegex + `'`)
 	for _, s := range scripts {
 		m := re.FindStringSubmatch(s)
 		if m == nil {
@@ -634,6 +678,26 @@ func checkCloudInitWithContent(c *tc.C, cfg *testInstanceConfig, expectedScripts
 	assertScriptMatch(c, scripts, expectedScripts, false)
 }
 
+// renderedScripts renders the cloud-init for cfg and returns the run scripts
+// joined by newlines, for assertions that inspect the whole command set.
+func (s *cloudinitSuite) renderedScripts(c *tc.C, cfg *testInstanceConfig) string {
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	return strings.Join(getScripts(configKeyValues), "\n")
+}
+
 func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *tc.C) {
 	tmpDir := c.MkDir()
 	controllerCharmPath := filepath.Join(tmpDir, "controller.charm")
@@ -647,7 +711,9 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *tc.C) {
 	err = ch.ArchiveToPath(controllerCharmPath)
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg := makeBootstrapConfig(jammy, 0).setControllerCharm(controllerCharmPath)
+	cfg := makeBootstrapConfig(jammy, 0).
+		setControllerCharm(controllerCharmPath).
+		setControllerSnapStore(42, "4.0.1")
 	base64Content := base64.StdEncoding.EncodeToString(content)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`if [ ! -e %s ]; then
 chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
@@ -673,7 +739,9 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *tc.C) {
 	content, err := os.ReadFile(controllerCharmPath)
 	c.Assert(err, tc.ErrorIsNil)
 
-	cfg := makeBootstrapConfig(jammy, 0).setControllerCharm(controllerCharmPath)
+	cfg := makeBootstrapConfig(jammy, 0).
+		setControllerCharm(controllerCharmPath).
+		setControllerSnapStore(42, "4.0.1")
 	base64Content := base64.StdEncoding.EncodeToString(content)
 	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`if [ ! -e %s ]; then
 chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
@@ -682,6 +750,269 @@ install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
 echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 `, "'/var/lib/juju/agents/machine-0/agent.conf'", base64Content))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapOnly(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, "")
+	base64Content := base64.StdEncoding.EncodeToString(snapContent)
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+
+	// The full dangerous-install sequence must appear in order.
+	uploadScript := regexp.QuoteMeta(fmt.Sprintf(`install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+snap install --dangerous %[1]s`,
+		snapFile, base64Content,
+	))
+	checkCloudInitWithContent(c, cfg, uploadScript, "")
+
+	// The cloud-init output must also include the connection, disable, init,
+	// bootstrap-state, cleanup, and start commands.
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	scripts := getScripts(configKeyValues)
+	allScripts := strings.Join(scripts, "\n")
+
+	// Connections for pre-daemon apps.
+	c.Check(allScripts, tc.Contains, "snap connect jujud:network")
+	c.Check(allScripts, tc.Contains, "snap connect jujud:network-bind")
+	// Service management.
+	c.Check(allScripts, tc.Contains, "snap stop jujud --disable")
+	c.Check(allScripts, tc.Contains, "snap run jujud.init")
+	c.Check(allScripts, tc.Contains, cloudconfig.SnapInitStagingDir)
+	c.Check(allScripts, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(allScripts, tc.Contains, "rm -rf")
+	c.Check(allScripts, tc.Contains, "snap start jujud --enable")
+	// The legacy jujuagentd bootstrap-state must NOT appear.
+	c.Check(allScripts, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+	// No controller agent.conf must be written.
+	c.Check(allScripts, tc.Not(tc.Contains), "agents/controller-0/agent.conf")
+
+	// The handoff must run in order: install, init, bootstrap-state, start.
+	assertOrderedSnapHandoff(c, allScripts, "snap install --dangerous")
+}
+
+// TestCloudInitWithLocalControllerSnapAndExpectedVersion verifies that the
+// dangerous install path includes a ControllerSnapExpectedVersion shell check
+// when the expected version is set.
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndExpectedVersion(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
+		cfg.Bootstrap.ControllerSnapPath = snapPath
+	})
+	base64Content := base64.StdEncoding.EncodeToString(snapContent)
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+snap install --dangerous %[1]s
+installed_version=$(snap list 'jujud' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected '4.0.1', got $installed_version"; exit 1)`,
+		snapFile, base64Content,
+	))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndCharm(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "jujud.snap")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerCharmPath := filepath.Join(dir, "controller.charm")
+	ch := testcharms.Repo.CharmDir("juju-controller")
+	err = ch.ArchiveToPath(controllerCharmPath)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).
+		setControllerCharm(controllerCharmPath).
+		setControllerSnap(snapPath, "")
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	scripts := getScripts(configKeyValues)
+	allScripts := strings.Join(scripts, "\n")
+
+	c.Check(allScripts, tc.Contains, "Staging controller charm into snap data")
+	c.Check(allScripts, tc.Contains, "charm_src='/var/lib/juju/charms/controller.charm'")
+	c.Check(allScripts, tc.Contains, `install -D -m 0644 "$charm_src" "$snap_data/charms/controller.charm"`)
+	c.Check(allScripts, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(allScripts, tc.Not(tc.Contains), "selecting releases")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndAssert(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	assertContent := []byte("fake snap assert content")
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "jujud.snap")
+	assertPath := filepath.Join(dir, "jujud.assert")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+	err = os.WriteFile(assertPath, assertContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, assertPath)
+	base64Snap := base64.StdEncoding.EncodeToString(snapContent)
+	base64Assert := base64.StdEncoding.EncodeToString(assertContent)
+	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
+	assertFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapAssertArchive)
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
+install -D -m 644 /dev/null '%s'
+echo -n %s | base64 -d > '%[1]s'
+install -D -m 644 /dev/null '%[3]s'
+echo -n %s | base64 -d > '%[3]s'
+snap ack %[3]s
+snap install %[1]s`,
+		snapFile, base64Snap, assertFile, base64Assert,
+	))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+
+	// The asserted install must hand off to jujud in order and never use the
+	// legacy command.
+	assertOrderedSnapHandoff(c, s.renderedScripts(c, cfg), "snap ack")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapDownloadsRevision(c *tc.C) {
+	// A store-based source mode pins the exact revision the client resolved;
+	// the machine downloads that revision itself during provisioning, then
+	// acknowledges and installs the downloaded file.
+	cfg := makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1")
+
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
+mkdir -p '/var/lib/juju/snap'
+(cd '/var/lib/juju/snap' && snap download 'jujud' --revision=42 --basename='jujud')
+snap ack '/var/lib/juju/snap/jujud.assert'
+snap install '/var/lib/juju/snap/jujud.snap'
+installed_version=$(snap list 'jujud' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected '4.0.1', got $installed_version"; exit 1`))
+	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+
+	// The downloaded revision must be installed from the file, and the
+	// resolved version must be asserted against the installed snap.
+	all := s.renderedScripts(c, cfg)
+	c.Check(all, tc.Contains, "snap download 'jujud' --revision=42 --basename='jujud'")
+	c.Check(all, tc.Contains, "snap install '/var/lib/juju/snap/jujud.snap'")
+	c.Check(all, tc.Contains, "installed_version=$(snap list 'jujud'")
+	c.Check(all, tc.Contains, `test "$installed_version" = '4.0.1'`)
+
+	// A store install still routes through the snap-based bootstrap handoff
+	// (not the legacy jujuagentd path).
+	c.Check(all, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(all, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+
+	// The download must complete before the ordered init/bootstrap/start
+	// handoff.
+	assertOrderedSnapHandoff(c, all, "snap download 'jujud' --revision=42")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnapNoVersionAssertion(c *tc.C) {
+	// Without a resolved expected version, the download/ack/install sequence
+	// still runs but no post-install version assertion is emitted.
+	cfg := makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "")
+
+	all := s.renderedScripts(c, cfg)
+	c.Check(all, tc.Contains, "snap download 'jujud' --revision=42 --basename='jujud'")
+	c.Check(all, tc.Not(tc.Contains), "installed_version=$(")
+}
+
+// assertOrderedSnapHandoff asserts that the rendered cloud-init runs the snap
+// bootstrap handoff in the required order: the source-specific install command
+// completes before jujud.init, which runs inside the trap-protected staging
+// script before jujud.bootstrap-state, which runs before the daemon is
+// started. It also asserts the legacy jujuagentd bootstrap-state command is
+// absent.
+func assertOrderedSnapHandoff(c *tc.C, allScripts, installMarker string) {
+	installIdx := strings.Index(allScripts, installMarker)
+	initIdx := strings.Index(allScripts, "snap run jujud.init")
+	bootstrapIdx := strings.Index(allScripts, "snap run jujud.bootstrap-state --timeout '10m0s'")
+	startIdx := strings.Index(allScripts, "snap start jujud --enable")
+	trapIdx := strings.Index(allScripts, "trap 'rm -rf")
+
+	c.Check(installIdx, tc.GreaterThan, -1)
+	c.Check(initIdx, tc.GreaterThan, -1)
+	c.Check(bootstrapIdx, tc.GreaterThan, -1)
+	c.Check(startIdx, tc.GreaterThan, -1)
+	c.Check(trapIdx, tc.GreaterThan, -1)
+
+	c.Check(installIdx < initIdx, tc.IsTrue)
+	c.Check(initIdx < bootstrapIdx, tc.IsTrue)
+	c.Check(trapIdx < bootstrapIdx, tc.IsTrue)
+	c.Check(bootstrapIdx < startIdx, tc.IsTrue)
+
+	c.Check(allScripts, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+}
+
+func (s *cloudinitSuite) TestCloudInitSupportedSnapSourcesOrderedHandoff(c *tc.C) {
+	for _, t := range []struct {
+		name    string
+		cfg     func(*tc.C) *testInstanceConfig
+		install string
+	}{
+		{
+			name: "local-dangerous",
+			cfg: func(c *tc.C) *testInstanceConfig {
+				snapPath := filepath.Join(c.MkDir(), "jujud.snap")
+				err := os.WriteFile(snapPath, []byte("fake snap binary content"), 0644)
+				c.Assert(err, tc.ErrorIsNil)
+				return makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, "")
+			},
+			install: "snap install --dangerous",
+		},
+		{
+			name: "local-asserted",
+			cfg: func(c *tc.C) *testInstanceConfig {
+				dir := c.MkDir()
+				snapPath := filepath.Join(dir, "jujud.snap")
+				assertPath := filepath.Join(dir, "jujud.assert")
+				err := os.WriteFile(snapPath, []byte("fake snap binary content"), 0644)
+				c.Assert(err, tc.ErrorIsNil)
+				err = os.WriteFile(assertPath, []byte("fake snap assert content"), 0644)
+				c.Assert(err, tc.ErrorIsNil)
+				return makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, assertPath)
+			},
+			install: "snap ack",
+		},
+		{
+			name: "store-revision",
+			cfg: func(c *tc.C) *testInstanceConfig {
+				return makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1")
+			},
+			install: "snap download 'jujud' --revision=42",
+		},
+	} {
+		c.Logf("source: %s", t.name)
+		all := s.renderedScripts(c, t.cfg(c))
+		assertOrderedSnapHandoff(c, all, t.install)
+	}
 }
 
 func (*cloudinitSuite) TestCloudInitConfigure(c *tc.C) {
@@ -764,33 +1095,6 @@ test-key:
   - test line one
 `[1:]
 
-func (*cloudinitSuite) bootstrapConfigScripts(c *tc.C) []string {
-	loggo.GetLogger("").SetLogLevel(loggo.INFO)
-	envConfig := minimalModelConfig(c)
-	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
-	rendered := instConfig.render()
-	cloudcfg, err := cloudinit.New(rendered.Base.OS)
-	c.Assert(err, tc.ErrorIsNil)
-	udata, err := cloudconfig.NewUserdataConfig(&rendered, cloudcfg)
-
-	c.Assert(err, tc.ErrorIsNil)
-	err = udata.Configure()
-	c.Assert(err, tc.ErrorIsNil)
-	data, err := cloudcfg.RenderYAML()
-	c.Assert(err, tc.ErrorIsNil)
-	configKeyValues := make(map[any]any)
-	err = goyaml.Unmarshal(data, &configKeyValues)
-	c.Assert(err, tc.ErrorIsNil)
-
-	scripts := getScripts(configKeyValues)
-	for i, script := range scripts {
-		if strings.Contains(script, "bootstrap") {
-			c.Logf("scripts[%d]: %q", i, script)
-		}
-	}
-	return scripts
-}
-
 func (s *cloudinitSuite) TestCloudInitPreruncmdError(c *tc.C) {
 	environConfig := minimalModelConfig(c)
 	environConfig, err := environConfig.Apply(map[string]any{
@@ -825,19 +1129,6 @@ postruncmd:
 	c.Assert(err, tc.ErrorIsNil)
 	err = udata.Configure()
 	c.Assert(err, tc.ErrorMatches, `invalid postruncmd: .* got list containing float64`)
-}
-
-func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *tc.C) {
-	scripts := s.bootstrapConfigScripts(c)
-	expected := "jujuagentd bootstrap-state .* --show-log"
-	assertScriptMatch(c, scripts, expected, false)
-}
-
-func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
-	s.SetFeatureFlags("special", "foo")
-	scripts := s.bootstrapConfigScripts(c)
-	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujuagentd bootstrap-state .*"
-	assertScriptMatch(c, scripts, expected, false)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
@@ -1108,12 +1399,15 @@ func (*cloudinitSuite) createInstanceConfig(c *tc.C, environConfig *config.Confi
 	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, machineNonce,
 		imagemetadata.ReleasedStream, jammy, apiInfo)
 	c.Assert(err, tc.ErrorIsNil)
-	instanceConfig.SetTools(tools.List{
+
+	err = instanceConfig.SetTools(tools.List{
 		&tools.Tools{
 			Version: semversion.MustParseBinary("2.3.4-ubuntu-amd64"),
 			URL:     "http://tools.testing.invalid/2.3.4-ubuntu-amd64.tgz",
 		},
 	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	err = instancecfg.FinishInstanceConfig(instanceConfig, environConfig)
 	c.Assert(err, tc.ErrorIsNil)
 	return instanceConfig
@@ -1201,7 +1495,7 @@ DefaultEnvironment="http_proxy=http://user@10.0.0.1" "HTTP_PROXY=http://user@10.
 
 // Ensure the bootstrap curl which fetch tools respects the proxy settings
 func (s *cloudinitSuite) TestProxyArgsAddedToCurlCommand(c *tc.C) {
-	instcfg := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(
+	instcfg := makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1").maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
 	instcfg.JujuProxySettings = proxy.Settings{
@@ -1348,7 +1642,7 @@ func (*cloudinitSuite) TestSetUbuntuUserJammy(c *tc.C) {
 }
 
 func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *tc.C) {
-	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(
+	instConfig := makeBootstrapConfig(jammy, 0).setControllerSnapStore(42, "4.0.1").maybeSetModelConfig(
 		minimalModelConfig(c),
 	).render()
 	instConfig.Bootstrap.InitialSSHHostKeys = instancecfg.SSHHostKeys{{

@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	jujuclock "github.com/juju/clock"
@@ -202,7 +203,8 @@ func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
 	command.clock = jujuclock.WallClock
 	command.CanClearCurrentModel = true
-	return modelcmd.Wrap(command,
+	return modelcmd.Wrap(
+		command,
 		modelcmd.WrapSkipModelFlags,
 		modelcmd.WrapSkipDefaultModel,
 	)
@@ -222,6 +224,7 @@ type bootstrapCommand struct {
 	BootstrapBase           string
 	BootstrapImage          string
 	BuildAgent              bool
+	BuildSnap               bool
 	MetadataSource          string
 	Placement               string
 	KeepBrokenEnvironment   bool
@@ -244,6 +247,14 @@ type bootstrapCommand struct {
 	ControllerCharmPath       string
 	ControllerCharmChannelStr string
 	ControllerCharmChannel    charm.Channel
+
+	ControllerSnapPath       string
+	ControllerSnapAssertPath string
+	ControllerSnapChannelStr string
+	ControllerSnapChannel    charm.Channel
+	ControllerSnapRevision   string
+	ControllerSnapStoreURL   string
+	ControllerSnapStoreMode  bool
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
@@ -352,6 +363,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires `--bootstrap-constraints` specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
+	f.BoolVar(&c.BuildSnap, "build-snap", false, "Build local controller snap before bootstrapping")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "Local path to use as agent and/or image metadata source")
 	f.StringVar(&c.Placement, "to", "", "Placement directive indicating an instance to bootstrap")
 	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false,
@@ -374,6 +386,16 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
+
+	f.StringVar(&c.ControllerSnapPath, "controller-snap-path", "", "Path to a locally built controller snap")
+	f.StringVar(&c.ControllerSnapAssertPath, "controller-snap-assert-path", "", "Path to a snap assertion file for the controller snap")
+	f.StringVar(&c.ControllerSnapChannelStr, "controller-snap-channel",
+		"",
+		"The channel to install the controller snap from"+
+			" (store installs; not used in local-snap mode; defaults to <major>.<minor>/edge)")
+	f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision (store installs; not used in local-snap mode)")
+	f.StringVar(&c.ControllerSnapStoreURL, "controller-snap-store-url", "",
+		"URL of the snap store the client uses to resolve the controller snap channel/revision (overrides the default)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -406,6 +428,41 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("controller charm channel %q", c.ControllerCharmChannelStr)
 	}
 
+	if c.ControllerSnapAssertPath != "" {
+		// --controller-snap-assert-path requires --controller-snap-path. When only
+		// --build-snap is set without an explicit path, this combination is
+		// rejected because there is no snap path to associate the assertion with.
+		// When both --build-snap and --controller-snap-path are set, the
+		// combination is rejected in Run().
+		if c.BuildSnap && c.ControllerSnapPath == "" {
+			return errors.New("--controller-snap-assert-path requires --controller-snap-path; " +
+				"it cannot be used with --build-snap")
+		}
+
+		_, err := c.Filesystem().Stat(c.ControllerSnapAssertPath)
+		if err != nil {
+			return errors.Annotatef(err, "--controller-snap-assert-path %q cannot be read", c.ControllerSnapAssertPath)
+		}
+	}
+
+	if c.ControllerSnapChannelStr != "" {
+		c.ControllerSnapChannel, err = parseControllerCharmChannel(c.ControllerSnapChannelStr)
+		if err != nil {
+			return errors.NotValidf("controller snap channel %q", c.ControllerSnapChannelStr)
+		}
+	}
+
+	// Verify ControllerSnapRevision is an integer greater than 0
+	if c.ControllerSnapRevision != "" {
+		rev, err := strconv.Atoi(c.ControllerSnapRevision)
+		if err != nil {
+			return errors.NotValidf("controller snap revision %q is not a number", c.ControllerSnapRevision)
+		}
+		if rev <= 0 {
+			return errors.NotValidf("controller snap revision %q is not a positive integer", c.ControllerSnapRevision)
+		}
+	}
+
 	if c.showClouds && c.showRegionsForCloud != "" {
 		return errors.New("--clouds and --regions can't be used together")
 	}
@@ -415,15 +472,44 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.showRegionsForCloud != "" {
 		return cmd.CheckEmpty(args)
 	}
+	if c.AgentVersionParam != "" && c.BuildSnap {
+		return errors.New("--agent-version and --build-snap can't be used together")
+	}
 	if c.AgentVersionParam != "" && c.BuildAgent {
 		return errors.New("--agent-version and --build-agent can't be used together")
+	}
+
+	// Controller-snap source-mode contract: a store mode (channel or revision)
+	// is mutually exclusive with a local snap path, and channel and revision
+	// are mutually exclusive. Store modes no longer force --build-agent;
+	// the snap version is the authoritative anchor for tool selection.
+	isStoreMode := !c.ControllerSnapChannel.Empty() || c.ControllerSnapRevision != ""
+	if isStoreMode {
+		if c.ControllerSnapPath != "" {
+			return errors.New("--controller-snap-path cannot be used with --controller-snap-channel" +
+				" or --controller-snap-revision")
+		}
+		if c.BuildSnap {
+			return errors.New("--build-snap cannot be used with --controller-snap-channel or --controller-snap-revision")
+		}
+		if c.ControllerSnapRevision != "" && !c.ControllerSnapChannel.Empty() {
+			return errors.New("--controller-snap-channel and --controller-snap-revision cannot be used together")
+		}
+		if c.ControllerSnapAssertPath != "" {
+			return errors.New("--controller-snap-assert-path cannot be used with --controller-snap-channel" +
+				" or --controller-snap-revision")
+		}
+		if c.AgentVersionParam != "" || c.AutoUpgrade {
+			return errors.New("--agent-version and --auto-upgrade cannot be used with a store-based controller snap;" +
+				" the snap version is the authoritative bootstrap version")
+		}
 	}
 
 	// Parse the placement directive. Bootstrap currently only
 	// supports provider-specific placement directives.
 	if c.Placement != "" {
 		_, err = instance.ParsePlacement(c.Placement)
-		if err != instance.ErrPlacementScopeMissing {
+		if !errors.Is(err, instance.ErrPlacementScopeMissing) {
 			// We only support unscoped placement directives for bootstrap.
 			return errors.Errorf("unsupported bootstrap placement directive %q", c.Placement)
 		}
@@ -504,7 +590,8 @@ type BootstrapInterface interface {
 type bootstrapFuncs struct{}
 
 func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron,
-	args bootstrap.BootstrapParams) error {
+	args bootstrap.BootstrapParams,
+) error {
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
@@ -533,12 +620,14 @@ var (
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
 
-var ambiguousDetectedCredentialError = errors.New(`
+var ambiguousDetectedCredentialError = errors.New(
+	`
 more than one credential detected
 run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
-var ambiguousCredentialError = errors.New(`
+var ambiguousCredentialError = errors.New(
+	`
 more than one credential is available
 specify a credential using the --credential argument`[1:],
 )
@@ -594,6 +683,11 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	cloud, provider, err := c.cloud(ctx)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && c.BuildSnap {
+		return errors.NotSupportedf("--build-snap when bootstrapping a k8s controller")
 	}
 
 	// If region is specified by the user, validate it here.
@@ -658,13 +752,73 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Trace(err)
 	}
 
-	isCAASController = jujucloud.CloudIsCAAS(cloud)
+	if isCAASController && (c.ControllerSnapPath != "" ||
+		c.ControllerSnapAssertPath != "" ||
+		!c.ControllerSnapChannel.Empty() ||
+		c.ControllerSnapRevision != "" ||
+		c.ControllerSnapStoreURL != "" ||
+		c.BuildSnap) {
+		return errors.NotSupportedf("controller-snap flags when bootstrapping a Kubernetes controller")
+	}
+
+	if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
+		bootstrapCfg.bootstrap.ControllerExternalName != "" ||
+		len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
+		return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
+			bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
+	}
+
 	if !isCAASController {
-		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
-			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
-			len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
-			return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
-				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
+		// --build-snap and --controller-snap-path are mutually exclusive
+		// local source modes; the artifact source must be unambiguous.
+		if c.BuildSnap && c.ControllerSnapPath != "" {
+			return errors.New("--build-snap and --controller-snap-path cannot be used together")
+		}
+
+		// All snap source modes use the snap as the version anchor;
+		// --agent-version would silently detach the agent tools from the
+		// selected snap and is rejected for every mode that supplies a
+		// controller snap.
+		if (c.ControllerSnapPath != "" || c.BuildSnap) && c.AgentVersionParam != "" {
+			return errors.New("--agent-version cannot be used with a controller snap;" +
+				" the snap version is the authoritative bootstrap version")
+		}
+
+		// Determine the controller-snap source mode:
+		//   - local path:   --controller-snap-path
+		//   - local build:  --build-snap
+		//   - channel:      --controller-snap-channel
+		//   - pinned rev:   --controller-snap-revision
+		//   - default:      no snap source flag -> store channel mode,
+		//                    resolving the default latest/edge channel
+		isStoreMode := !c.ControllerSnapChannel.Empty() || c.ControllerSnapRevision != ""
+		isLocalBuild := c.BuildSnap
+		if !isStoreMode && !isLocalBuild && c.ControllerSnapPath == "" {
+			// No snap source flag was given: default to resolving the snap
+			// from the store's default channel.
+			isStoreMode = true
+		}
+
+		if isStoreMode {
+			// The default-store case (no explicit snap flags) is
+			// determined here; Init only rejects --agent-version and
+			// --auto-upgrade for explicit channel/revision inputs.
+			if c.AgentVersionParam != "" || c.AutoUpgrade {
+				return errors.New("--agent-version and --auto-upgrade cannot be used with a store-based controller snap;" +
+					" the snap version is the authoritative bootstrap version")
+			}
+			c.ControllerSnapStoreMode = true
+		} else if isLocalBuild {
+			ctx.Infof("Building controller snap from local source...")
+			builtPath, err := bootstrap.BuildControllerSnap(ctx, ctx.Stdout, ctx.Stderr)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c.ControllerSnapPath = builtPath
+		} else if c.ControllerSnapPath != "" {
+			if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
+				return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
+			}
 		}
 	}
 
@@ -688,14 +842,16 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		if oldCurrentController != "" {
 			if err := store.SetCurrentController(oldCurrentController); err != nil {
-				logger.Errorf(context.TODO(),
+				logger.Errorf(
+					context.TODO(),
 					"cannot reset current controller to %q: %v",
 					oldCurrentController, err,
 				)
 			}
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Errorf(context.TODO(),
+			logger.Errorf(
+				context.TODO(),
 				"cannot destroy newly created controller %q details: %v",
 				c.controllerName, err,
 			)
@@ -850,6 +1006,12 @@ to create a new model to deploy %sworkloads.
 		StoragePools:                  bootstrapCfg.storagePools,
 		ControllerCharmPath:           c.ControllerCharmPath,
 		ControllerCharmChannel:        c.ControllerCharmChannel,
+		ControllerSnapPath:            c.ControllerSnapPath,
+		ControllerSnapAssertPath:      c.ControllerSnapAssertPath,
+		ControllerSnapChannel:         c.ControllerSnapChannel,
+		ControllerSnapRevision:        c.ControllerSnapRevision,
+		ControllerSnapStoreURL:        c.ControllerSnapStoreURL,
+		ControllerSnapStoreMode:       c.ControllerSnapStoreMode,
 		DialOpts: environs.BootstrapDialOpts{
 			IdentityFiles:  bootstrapSSHKeyFiles,
 			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
@@ -971,7 +1133,9 @@ See %s.`[1:], "`juju kill-controller`")
 	if len(testingOptionsStr) > 0 {
 		opts, err := keyvalues.Parse(
 			strings.Split(
-				strings.ReplaceAll(testingOptionsStr, " ", ""), ","), false)
+				strings.ReplaceAll(testingOptionsStr, " ", ""), ",",
+			), false,
+		)
 		if err != nil {
 			return errors.Annotatef(err, "invalid JUJU_AGENT_TESTING_OPTIONS env value %q", testingOptionsStr)
 		}
@@ -990,7 +1154,6 @@ See %s.`[1:], "`juju kill-controller`")
 			ctx.Infof("Bootstrap to Kubernetes cluster identified as %s",
 				cloud.HostCloudRegion)
 		}
-
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
@@ -1013,12 +1176,16 @@ See %s.`[1:], "`juju kill-controller`")
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
+	tryAPIFunc := common.TryAPI
+	if !isCAASController {
+		tryAPIFunc = common.TryAPIAndCheckAgents
+	}
 	return waitForAgentInitialisation(
 		bootstrapCtx,
 		&c.ModelCommandBase,
 		isCAASController,
 		c.controllerName,
-		common.TryAPI,
+		tryAPIFunc,
 	)
 }
 
@@ -1056,7 +1223,8 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	} else {
 		// This should never happen.
 		return errors.New(
-			"supplied BootstrapEnviron implements neither environs.InstanceBroker nor caas.ServiceGetterSetter")
+			"supplied BootstrapEnviron implements neither environs.InstanceBroker nor caas.ServiceGetterSetter",
+		)
 	}
 
 	var proxier proxy.Proxier
@@ -1232,7 +1400,8 @@ func (c *bootstrapCommand) detectCloud(
 			c.Region = ""
 		}
 	} else if err != nil {
-		return fail(errors.Annotatef(err,
+		return fail(errors.Annotatef(
+			err,
 			"detecting regions for %q cloud provider",
 			c.Cloud,
 		))
@@ -1321,7 +1490,8 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(),
+	logger.Debugf(
+		context.TODO(),
 		"authenticating with region %q and credential %q (%v)",
 		regionName, creds.name, creds.credential.Label,
 	)
@@ -1352,7 +1522,6 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	bootstrapConfigs,
 	error,
 ) {
-
 	controllerModelUUID, err := uuid.NewUUID()
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
@@ -1633,7 +1802,8 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 	if !common.IsChooseCloudRegionError(err) {
 		return err
 	}
-	_, _ = fmt.Fprintf(ctx.GetStderr(),
+	_, _ = fmt.Fprintf(
+		ctx.GetStderr(),
 		"%s\n\nSpecify an alternative region, or try %q.\n",
 		err, "juju update-public-clouds",
 	)

@@ -6,6 +6,7 @@ package kubernetes_test
 import (
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/kubernetes"
@@ -120,6 +122,25 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		return controllerStacker
 	}
+}
+
+func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLoggingSettings(c *tc.C) {
+	controllerStacker := s.controllerStackerGetter()
+	content := controllerStacker.GetControllerRuntimeConfigContent(c)
+	c.Check(strings.Contains(content, "logging-config: <root>=WARNING;juju.bootstrap=INFO"), tc.IsTrue)
+	c.Check(strings.Contains(content, "logging-override: juju.bootstrap=TRACE"), tc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLokiSettings(c *tc.C) {
+	insecure := true
+	controllerStacker := s.controllerStackerGetter()
+	controllerStacker.SetControllerAgentLokiConfig("https://loki.example.com/loki/api/v1/push", pointer.String("loki-ca-cert"), &insecure, "test-org")
+
+	content := controllerStacker.GetControllerRuntimeConfigContent(c)
+	c.Check(strings.Contains(content, "lokiendpoint: https://loki.example.com/loki/api/v1/push"), tc.IsTrue)
+	c.Check(strings.Contains(content, "lokicacert: loki-ca-cert"), tc.IsTrue)
+	c.Check(strings.Contains(content, "lokiinsecureskipverify: true"), tc.IsTrue)
+	c.Check(strings.Contains(content, "lokiorgid: test-org"), tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *tc.C) {
@@ -322,10 +343,13 @@ func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C)
 	c.Assert(apiServer.Args, tc.HasLen, 2)
 
 	startup := apiServer.Args[1]
-	c.Check(startup, tc.Contains, "mkdir -p $JUJU_DATA_DIR/charms")
-	c.Check(startup, tc.Contains, "until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done")
-	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
-	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf ||")
+	c.Check(startup, tc.Contains, "mkdir -p $JUJU_CONTROLLER_DIR/charms")
+	c.Check(startup, tc.Contains, "until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done")
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s")
+	c.Check(startup, tc.Not(tc.Contains), "$JUJU_TOOLS_DIR/jujuagentd bootstrap-state")
+	c.Check(startup, tc.Not(tc.Contains), "test -e $JUJU_CONTROLLER_DIR/agents/controller-0/agent.conf ||")
+	c.Check(startup, tc.Contains, "test -e $JUJU_CONTROLLER_DIR/system-identity")
+	c.Check(startup, tc.Not(tc.Contains), "agents/controller-")
 }
 
 func (s *bootstrapSuite) TestIsLocalControllerCharmPath(c *tc.C) {
@@ -373,13 +397,13 @@ func (s *bootstrapSuite) TestUploadLocalControllerCharm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(execClient.execCommands, tc.DeepEquals, [][]string{
-		{"mkdir", "-p", "/var/lib/juju/charms"},
-		{"chmod", "0644", "/var/lib/juju/charms/controller.charm.uploading"},
-		{"mv", "-f", "/var/lib/juju/charms/controller.charm.uploading", "/var/lib/juju/charms/controller.charm"},
+		{"mkdir", "-p", "/var/lib/juju/controller/charms"},
+		{"chmod", "0644", "/var/lib/juju/controller/charms/controller.charm.uploading"},
+		{"mv", "-f", "/var/lib/juju/controller/charms/controller.charm.uploading", "/var/lib/juju/controller/charms/controller.charm"},
 	})
 	c.Assert(execClient.copyParams, tc.HasLen, 1)
 	c.Check(execClient.copyParams[0].Src.Path, tc.Equals, "/tmp/controller.charm")
-	c.Check(execClient.copyParams[0].Dest.Path, tc.Equals, "/var/lib/juju/charms/controller.charm.uploading")
+	c.Check(execClient.copyParams[0].Dest.Path, tc.Equals, "/var/lib/juju/controller/charms/controller.charm.uploading")
 	c.Check(execClient.copyParams[0].Dest.PodName, tc.Equals, s.pcfg.GetPodName())
 	c.Check(execClient.copyParams[0].Dest.ContainerName, tc.Equals, "api-server")
 }
@@ -766,10 +790,11 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Data: map[string]string{
-			"bootstrap-params":           string(bootstrapParamsContent),
-			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
-			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
-			"controller-nonce-0":         controllerStacker.GetControllerNonce(),
+			"bootstrap-params":               string(bootstrapParamsContent),
+			"controller-agent.conf":          controllerStacker.GetControllerAgentConfigContent(c),
+			"controller-unit-agent.conf":     controllerStacker.GetControllerUnitAgentConfigContent(c),
+			"controller-nonce-0":             controllerStacker.GetControllerNonce(),
+			controllerruntimeconfig.Filename: controllerStacker.GetControllerRuntimeConfigContent(c),
 		},
 	}
 
@@ -980,21 +1005,31 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 				`
 export JUJU_DATA_DIR=/var/lib/juju
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
+export JUJU_CONTROLLER_DIR=/var/lib/juju/controller
+export JUJU_BOOTSTRAP_PARAMS_PATH=/var/lib/juju/bootstrap-params
 
 mkdir -p $JUJU_TOOLS_DIR
+cp /opt/jujud $JUJU_TOOLS_DIR/jujud
 cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf; then mkdir -p $JUJU_DATA_DIR/charms; until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_DATA_DIR/agents/controller-${controller_id}/agent.conf"; do sleep 1; done; fi
+export JUJU_BOOTSTRAP_PARAMS_PATH="$JUJU_DATA_DIR/bootstrap-params"; controller_id="${HOSTNAME##*-}"; if [ "${controller_id}" = "0" ]; then if ! test -e $JUJU_CONTROLLER_DIR/system-identity; then mkdir -p $JUJU_CONTROLLER_DIR/charms; until test -e $JUJU_CONTROLLER_DIR/charms/controller.charm; do sleep 1; done; JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_CONTROLLER_DIR --debug --timeout 10m0s; fi; else until test -e "$JUJU_CONTROLLER_DIR/runtime.conf"; do sleep 1; done; fi
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
-summary: jujuagentd service
+cat > /var/lib/pebble/default/layers/001-controller.yaml <<'EOF'
+summary: split controller services
 services:
     jujuagentd:
-        summary: Juju controller agent
+        summary: Juju machine agent
         startup: enabled
         override: replace
-        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
+        command: /bin/sh -c 'machine_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujuagentd machine --data-dir "$JUJU_DATA_DIR" --machine-id "${machine_id}" --log-to-stderr --debug'
+        environment:
+            JUJU_DEV_FEATURE_FLAGS: developer-mode
+    jujud:
+        summary: Juju controller
+        startup: enabled
+        override: replace
+        command: /bin/sh -c 'controller_id="${HOSTNAME##*-}"; exec $JUJU_TOOLS_DIR/jujud controller --data-dir "$JUJU_CONTROLLER_DIR" --controller-id "${controller_id}" --log-to-stderr --debug'
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 
@@ -1126,17 +1161,24 @@ if [ "${controller_id}" = "0" ]; then
     if [ ! -e "/var/lib/juju/template-agent.conf" ]; then
         cp "/var/lib/juju-controller-bootstrap/controller-unit-agent.conf" "/var/lib/juju/template-agent.conf"
     fi
-    controller_dir="/var/lib/juju/agents/controller-0"
-    controller_template="${controller_dir}/template-agent.conf"
-    if [ ! -e "${controller_template}" ]; then
-        mkdir -p "${controller_dir}"
-        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${controller_template}"
-        chmod 600 "${controller_template}"
+    machine_conf_dir="/var/lib/juju/agents/machine-0"
+    controller_conf_dir="/var/lib/juju/controller"
+    mkdir -p "${machine_conf_dir}"
+    mkdir -p "${controller_conf_dir}"
+    if [ ! -e "${machine_conf_dir}/agent.conf" ]; then
+        cp "/var/lib/juju-controller-bootstrap/controller-agent.conf" "${machine_conf_dir}/agent.conf"
+        chmod 600 "${machine_conf_dir}/agent.conf"
+    fi
+    if [ ! -e "${controller_conf_dir}/runtime.conf" ]; then
+        cp "/var/lib/juju-controller-bootstrap/runtime.conf" "${controller_conf_dir}/runtime.conf"
+    fi
+    if [ -e "/var/lib/juju/bootstrap-params" ]; then
+        cp "/var/lib/juju/bootstrap-params" "${controller_conf_dir}/bootstrap-params"
     fi
 fi
 seed_nonce="/var/lib/juju-controller-bootstrap/controller-nonce-${controller_id}"
 if [ -e "${seed_nonce}" ]; then
-    cp "${seed_nonce}" "/var/lib/juju/nonce.txt"
+    cp "${seed_nonce}" "/var/lib/juju/controller/nonce.txt"
 fi
 `},
 		Env: []core.EnvVar{
@@ -1409,6 +1451,35 @@ fi
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
+}
+
+func (s *bootstrapSuite) TestSplitControllerPebbleLayer(c *tc.C) {
+	controllerCmd := "$JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr"
+	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --machine-id 0 --log-to-stderr"
+	env := map[string]string{"JUJU_DEV_FEATURE_FLAGS": "developer-mode"}
+
+	layer, err := kubernetes.SplitControllerPebbleLayer(controllerCmd, machineCmd, env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content := string(layer)
+	c.Check(strings.Contains(content, "summary: split controller services"), tc.IsTrue)
+	c.Check(strings.Contains(content, "jujud controller"), tc.IsTrue)
+	c.Check(strings.Contains(content, "jujuagentd machine"), tc.IsTrue)
+	c.Check(strings.Contains(content, "machine-agent-only"), tc.IsFalse)
+	c.Check(strings.Contains(content, "startup: enabled"), tc.IsTrue)
+	c.Check(strings.Contains(content, "override: replace"), tc.IsTrue)
+	c.Check(strings.Contains(content, "JUJU_DEV_FEATURE_FLAGS: developer-mode"), tc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestSplitControllerPebbleLayerNoEnv(c *tc.C) {
+	controllerCmd := "$JUJU_TOOLS_DIR/jujud controller --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr"
+	machineCmd := "$JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --machine-id 0 --log-to-stderr"
+
+	layer, err := kubernetes.SplitControllerPebbleLayer(controllerCmd, machineCmd, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content := string(layer)
+	c.Check(strings.Contains(content, "environment:"), tc.IsFalse)
 }
 
 func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {

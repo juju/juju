@@ -6,6 +6,7 @@ package introspection
 import (
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/juju/tc"
@@ -44,4 +45,20 @@ func (s *profileSuite) TestLinux(c *tc.C) {
 	content, err := os.ReadFile(profileFilename(dir))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(content), tc.Equals, shellFuncs)
+}
+
+func (s *profileSuite) TestNoControllerSpecificHelpers(c *tc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip("testing linux")
+	}
+	dir := c.MkDir()
+	err := WriteProfileFunctions(dir)
+	c.Assert(err, tc.ErrorIsNil)
+
+	content, err := os.ReadFile(profileFilename(dir))
+	c.Assert(err, tc.ErrorIsNil)
+	script := string(content)
+
+	c.Check(strings.Contains(script, "juju_controller_agent_name"), tc.IsFalse)
+	c.Check(strings.Contains(script, "juju_db_repl"), tc.IsFalse)
 }
