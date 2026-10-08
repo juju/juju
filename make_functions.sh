@@ -107,8 +107,8 @@ elf_needed_sonames() {
 # Dqlite shared libraries come from the controller snap (built by
 # snaps/jujud/snapcraft.yaml, via the smart jujud-snap-build flow), never
 # from a source-built binary linked against host libraries. The snap
-# payload's lib/ tree carries the primed libdqlite, libuv and libsqlite3
-# soname links and real files; soname links are preserved as links so the
+# payload's lib/ tree carries the primed libdqlite and libuv soname
+# links and real files; soname links are preserved as links so the
 # loader resolves them by soname the same way it does inside the snap.
 # Sonames the image base provides (see base_libs) are staged as they are
 # found - the completeness of the staged closure is verified separately by
