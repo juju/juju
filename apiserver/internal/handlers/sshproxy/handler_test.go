@@ -4,6 +4,7 @@
 package sshproxy
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -93,6 +94,35 @@ func (s *HandlerSuite) TestHijackAcceptsUpgradeAmongMultipleConnectionTokens(c *
 	}()
 	c.Assert(res.err, tc.ErrorIsNil)
 	c.Assert(res.conn, tc.NotNil)
+}
+
+func (s *HandlerSuite) TestHijackPreservesBufferedProtocolBytes(c *tc.C) {
+	srv, results := serveHijack(coresshproxy.RelayUpgradeToken)
+	defer srv.Close()
+
+	client, err := net.Dial("tcp", srv.Listener.Addr().String())
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	const banner = "SSH-2.0-client\r\n"
+	request := "GET / HTTP/1.1\r\n" +
+		"Host: " + srv.Listener.Addr().String() + "\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Upgrade: " + coresshproxy.RelayUpgradeToken + "\r\n\r\n" +
+		banner
+	n, err := client.Write([]byte(request))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(n, tc.Equals, len(request))
+
+	res := waitHijackResult(c, results)
+	c.Assert(res.err, tc.ErrorIsNil)
+	c.Assert(res.conn, tc.NotNil)
+	defer func() { _ = res.conn.Close() }()
+	c.Assert(res.conn.SetReadDeadline(time.Now().Add(longWait)), tc.ErrorIsNil)
+	buf := make([]byte, len(banner))
+	n, err = io.ReadFull(res.conn, buf)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(buf[:n]), tc.Equals, banner)
 }
 
 func (s *HandlerSuite) TestHijackRejectsMissingUpgradeToken(c *tc.C) {

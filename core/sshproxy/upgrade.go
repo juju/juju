@@ -56,17 +56,21 @@ func PerformUpgrade(req *http.Request, conn net.Conn) (net.Conn, error) {
 		if err != nil {
 			return nil, errors.Errorf("reading buffered bytes: %w", err)
 		}
-		return &prefixConn{Conn: conn, prefix: append([]byte(nil), prefix...)}, nil
+		return NewPrefixConn(conn, prefix), nil
 	}
 	return conn, nil
 }
 
-// prefixConn wraps a net.Conn, serving a prefix of already-read bytes before
-// reading from the underlying connection. This preserves bytes a bufio.Reader
-// consumed past an HTTP response head.
+// prefixConn reads prefix before reading from the underlying connection.
 type prefixConn struct {
 	net.Conn
 	prefix []byte
+}
+
+// NewPrefixConn returns a connection serving prefix before reading from
+// conn. The prefix is copied, so the caller may reuse the slice.
+func NewPrefixConn(conn net.Conn, prefix []byte) net.Conn {
+	return &prefixConn{Conn: conn, prefix: append([]byte(nil), prefix...)}
 }
 
 // Read first drains the prefix, then reads from the underlying connection.

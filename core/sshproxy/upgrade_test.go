@@ -115,7 +115,7 @@ func (s *UpgradeSuite) TestPrefixConnReadDrainsPrefixThenUnderlying(c *tc.C) {
 	defer client.Close()
 	defer server.Close()
 
-	pc := &prefixConn{Conn: client, prefix: []byte("abc")}
+	pc := NewPrefixConn(client, []byte("abc"))
 
 	buf := make([]byte, 2)
 	n, err := pc.Read(buf)
@@ -158,7 +158,7 @@ func (s *UpgradeSuite) TestPrefixConnCloseWriteDelegates(c *tc.C) {
 	defer server.Close()
 
 	hc := &halfCloseConn{Conn: client}
-	pc := &prefixConn{Conn: hc}
+	pc := NewPrefixConn(hc, nil).(interface{ CloseWrite() error })
 
 	c.Assert(pc.CloseWrite(), tc.ErrorIsNil)
 	c.Check(hc.closedWrite, tc.IsTrue)
@@ -171,6 +171,6 @@ func (s *UpgradeSuite) TestPrefixConnCloseWriteNoop(c *tc.C) {
 
 	// net.Pipe's Conn does not implement CloseWrite; CloseWrite must be a
 	// harmless no-op rather than panicking or erroring.
-	pc := &prefixConn{Conn: client}
+	pc := NewPrefixConn(client, nil).(interface{ CloseWrite() error })
 	c.Assert(pc.CloseWrite(), tc.ErrorIsNil)
 }
