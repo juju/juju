@@ -68,3 +68,11 @@ func (s *exportGeneratorSuite) TestAffectedNullableTypes(c *tc.C) {
 		NotNull: true,
 	}), tc.IsFalse)
 }
+
+// TestExcludedModelExportTables checks that operational tables are
+// excluded from the generated model export, and model tables are not.
+func (s *exportGeneratorSuite) TestExcludedModelExportTables(c *tc.C) {
+	c.Check(isExcludedModelExportTable("log_transfer_progress"), tc.IsTrue)
+	c.Check(isExcludedModelExportTable("sqlite_sequence"), tc.IsTrue)
+	c.Check(isExcludedModelExportTable("machine"), tc.IsFalse)
+}

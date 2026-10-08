@@ -5,15 +5,11 @@ package migrationtarget
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
-	"github.com/vallerion/rscanner"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -94,6 +90,11 @@ type ModelMigrationService interface {
 
 	// ModelMigrationMode returns the current migration mode for the model.
 	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+
+	// LastLogTransferTime returns the time of the last log record received
+	// by the logtransfer endpoint for the model. The zero time is returned
+	// if no logs have been transferred.
+	LastLogTransferTime(ctx context.Context) (time.Time, error)
 }
 
 // ModelAgentService provides access to the Juju agent version for the model.
@@ -215,7 +216,6 @@ type API struct {
 
 	requiredMigrationFacadeVersions facades.FacadeVersions
 
-	logDir string
 	logger corelogger.Logger
 }
 
@@ -235,7 +235,6 @@ func NewAPI(
 	modelMigrationServiceGetter ModelMigrationServiceGetter,
 	removalServiceGetter RemoveServiceGetter,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
-	logDir string,
 	logger corelogger.Logger,
 ) (*API, error) {
 	return &API{
@@ -253,7 +252,6 @@ func NewAPI(
 		removalServiceGetter:            removalServiceGetter,
 		authorizer:                      authorizer,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
-		logDir:                          logDir,
 		logger:                          logger,
 	}, nil
 }
@@ -435,10 +433,12 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	return nil
 }
 
-// LatestLogTime returns the time of the most recent log record
-// received by the logtransfer endpoint. This can be used as the start
-// point for streaming logs from the source if the transfer was
-// interrupted.
+// LatestLogTime returns the timestamp of the latest record received through
+// the migration log-transfer endpoint. The source controller uses it as the
+// resume point for an interrupted transfer.
+//
+// Agent records written directly to the target logsink do not advance this
+// checkpoint.
 //
 // Log messages are assumed to be sent in time order (which is how
 // debug-log emits them). If that isn't the case then this mechanism
@@ -450,65 +450,20 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	if err != nil {
 		return time.Time{}, errors.Errorf("cannot parse model tag: %w", err)
 	}
-	modelUUID := tag.Id()
+	modelUUID := coremodel.UUID(tag.Id())
 
-	// Look up the last line in the log file and get the timestamp.
-	// TODO (stickupkid): This should come from the logsink directly, to
-	// prevent unfettered access.
-	logFile := filepath.Join(api.logDir, "logsink.log")
-
-	f, err := os.Open(logFile)
-	if err != nil && !os.IsNotExist(err) {
-		return time.Time{}, errors.Errorf(
-			"cannot open %q log file %q: %w",
-			modelUUID,
-			logFile,
-			err,
-		)
-	} else if err != nil {
-		return time.Time{}, nil
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	fs, err := f.Stat()
+	modelMigrationService, err := api.modelMigrationServiceGetter(ctx, modelUUID)
 	if err != nil {
 		return time.Time{}, errors.Errorf(
-			"cannot interrogate %q log file %q: %w",
-			modelUUID,
-			logFile,
-			err,
-		)
+			"cannot get model migration service for model %q: %w", modelUUID, err)
 	}
-	scanner := rscanner.NewScanner(f, fs.Size())
 
-	var lastTimestamp time.Time
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
-		logRecord, err := unmarshalLine(line)
-		if err != nil {
-			return time.Time{}, errors.Errorf(
-				"cannot unmarshal log line %q: %w", line, err,
-			)
-		} else if logRecord.ModelUUID != modelUUID {
-			continue
-		}
-		lastTimestamp = logRecord.Time
-		break
+	lastTime, err := modelMigrationService.LastLogTransferTime(ctx)
+	if err != nil {
+		return time.Time{}, errors.Errorf(
+			"cannot get last log transfer time for model %q: %w", modelUUID, err)
 	}
-	return lastTimestamp, nil
-}
-
-func unmarshalLine(line []byte) (corelogger.LogRecord, error) {
-	var logRecord corelogger.LogRecord
-	if err := json.Unmarshal(line, &logRecord); err != nil {
-		return logRecord, errors.Errorf("cannot unmarshal log line %q: %w", line, err)
-	}
-	return logRecord, nil
+	return lastTime, nil
 }
 
 // AdoptResources asks the cloud provider to update the controller
