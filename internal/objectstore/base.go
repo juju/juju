@@ -80,25 +80,21 @@ type response struct {
 	err    error
 }
 
-// deliverResponse sends resp to the request's response channel, unless
+// sendResponse sends resp to the request's response channel, unless
 // the caller has gone away or the worker is dying. A response carrying a
 // reader that cannot be delivered has the reader closed: the caller is
 // gone, so nobody else would ever close it.
-// It reports whether the worker can continue processing requests.
-func deliverResponse(dying <-chan struct{}, req request, resp response) bool {
+func sendResponse(dying <-chan struct{}, req request, resp response) {
 	select {
 	case <-dying:
 		if resp.reader != nil {
 			_ = resp.reader.Close()
 		}
-		return false
 	case <-req.ctx.Done():
 		if resp.reader != nil {
 			_ = resp.reader.Close()
 		}
-		return true
 	case req.response <- resp:
-		return true
 	}
 }
 

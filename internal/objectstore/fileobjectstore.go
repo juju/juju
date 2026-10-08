@@ -481,52 +481,42 @@ func (t *fileObjectStore) loop() error {
 			case opGet:
 				reader, digest, err := t.get(reqCtx, req.path, RemoteFallback)
 
-				if !deliverResponse(t.catacomb.Dying(), req, response{
+				sendResponse(t.catacomb.Dying(), req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}) {
-					return t.catacomb.ErrDying()
-				}
+				})
 
 			case opGetBySHA256:
 				reader, digest, err := t.getBySHA256(reqCtx, req.sha256)
 
-				if !deliverResponse(t.catacomb.Dying(), req, response{
+				sendResponse(t.catacomb.Dying(), req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}) {
-					return t.catacomb.ErrDying()
-				}
+				})
 
 			case opGetBySHA256Prefix:
 				reader, digest, err := t.getBySHA256Prefix(reqCtx, req.sha256, RemoteFallback)
 
-				if !deliverResponse(t.catacomb.Dying(), req, response{
+				sendResponse(t.catacomb.Dying(), req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}) {
-					return t.catacomb.ErrDying()
-				}
+				})
 
 			case opPut:
 				uuid, err := t.put(reqCtx, req.path, req.reader, req.size, req.hashValidator)
 
-				if !deliverResponse(t.catacomb.Dying(), req, response{
+				sendResponse(t.catacomb.Dying(), req, response{
 					uuid: uuid,
 					err:  err,
-				}) {
-					return t.catacomb.ErrDying()
-				}
+				})
 
 			case opRemove:
-				if !deliverResponse(t.catacomb.Dying(), req, response{
+				sendResponse(t.catacomb.Dying(), req, response{
 					err: t.remove(reqCtx, req.path),
-				}) {
-					return t.catacomb.ErrDying()
-				}
+				})
 			default:
 				return errors.Errorf("unknown request type %d", req.op)
 			}

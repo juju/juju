@@ -4,16 +4,11 @@
 package export
 
 import (
+	"github.com/juju/juju/core/database"
 	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/internal/errors"
 )
-
-// ControllerObjectStoreNamespace is the namespace the controller
-// database's objects live under in the object store and in a backup
-// archive. A model's namespace is its model UUID; the controller model
-// is a separate namespace from this one.
-const ControllerObjectStoreNamespace = "controller"
 
 // ObjectInventoryEntry identifies one object referenced by a database
 // export. Objects are keyed by (Namespace, SHA384): multiple logical
@@ -39,7 +34,7 @@ type ObjectInventoryEntry struct {
 }
 
 // ControllerObjectInventory extracts the object inventory referenced by
-// a controller export, namespaced to [ControllerObjectStoreNamespace].
+// a controller export, namespaced to [database.ControllerNS].
 // One entry is produced per distinct SHA-384.
 func ControllerObjectInventory(export ControllerExport) ([]ObjectInventoryEntry, error) {
 	payload, ok := export.Payload.(*ctrlv4_1_0.ControllerExport)
@@ -57,7 +52,7 @@ func ControllerObjectInventory(export ControllerExport) ([]ObjectInventoryEntry,
 		}
 		seen[row.Sha384] = struct{}{}
 		entries = append(entries, ObjectInventoryEntry{
-			Namespace: ControllerObjectStoreNamespace,
+			Namespace: database.ControllerNS,
 			SHA256:    row.Sha256,
 			SHA384:    row.Sha384,
 			Size:      row.Size,

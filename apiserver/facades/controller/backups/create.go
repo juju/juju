@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -224,7 +225,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		if err != nil {
 			// A file that cannot be stat'ed contributes nothing to the
 			// estimate, which then understates what the archive needs.
-			// That is not fatal here: bundling opens every one of these
+			// That is not fatal here: archiving opens every one of these
 			// files, so one that is really gone fails Create with a
 			// clear error. Log it so an understated space check, and the
 			// disk-full failure it can turn into, is diagnosable.
@@ -238,10 +239,12 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 
 	// Each inventoried object is streamed into the archive through its
 	// namespace's object store, identified by its exported full SHA-256.
+	// The prefix lookup accepts a full hash and repairs missing local blobs
+	// from other controller nodes for file-based stores.
 	// Stores are resolved lazily and cached per namespace, so models
 	// with no objects never touch the object store.
 	stores := map[string]ReadObjectStore{
-		domainexport.ControllerObjectStoreNamespace: c.controllerObjectStore,
+		database.ControllerNS: c.controllerObjectStore,
 	}
 	objectEntries := make([]corebackups.ObjectEntry, 0, len(inventory))
 	for _, item := range inventory {
@@ -261,7 +264,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 					}
 					stores[item.Namespace] = store
 				}
-				r, _, err := store.GetBySHA256(ctx, item.SHA256)
+				r, _, err := store.GetBySHA256Prefix(ctx, item.SHA256)
 				return r, errors.Capture(err)
 			},
 		})

@@ -630,6 +630,16 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixAndFileFound(c *tc.C
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFallback(c *tc.C) {
+	s.testGetMetadataBySHA256PrefixRemoteFallback(c, false)
+}
+
+// A backup uses the full exported hash as its prefix. It must still repair
+// objects missing from the local controller node.
+func (s *fileObjectStoreSuite) TestGetMetadataBySHA256FullPrefixRemoteFallback(c *tc.C) {
+	s.testGetMetadataBySHA256PrefixRemoteFallback(c, true)
+}
+
+func (s *fileObjectStoreSuite) testGetMetadataBySHA256PrefixRemoteFallback(c *tc.C, fullHash bool) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -642,6 +652,9 @@ func (s *fileObjectStoreSuite) TestGetMetadataBySHA256PrefixFoundNoFileRemoteFal
 	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
 	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
 	hashPrefix := hash256[:7]
+	if fullHash {
+		hashPrefix = hash256
+	}
 
 	hints := []string{"1"}
 

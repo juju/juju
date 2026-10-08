@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/database"
 	domainexport "github.com/juju/juju/domain/export"
 	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	"github.com/juju/juju/domain/export/types/latest"
@@ -40,8 +41,8 @@ func (s *objectInventorySuite) TestControllerObjectInventory(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(entries, tc.DeepEquals, []domainexport.ObjectInventoryEntry{
-		{Namespace: domainexport.ControllerObjectStoreNamespace, SHA256: "sha256-a", SHA384: "sha384-a", Size: 10},
-		{Namespace: domainexport.ControllerObjectStoreNamespace, SHA256: "sha256-b", SHA384: "sha384-b", Size: 20},
+		{Namespace: database.ControllerNS, SHA256: "sha256-a", SHA384: "sha384-a", Size: 10},
+		{Namespace: database.ControllerNS, SHA256: "sha256-b", SHA384: "sha384-b", Size: 20},
 	})
 }
 

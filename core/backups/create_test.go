@@ -109,7 +109,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(storedMeta.FormatVersion, tc.Equals, int64(2))
 
-	// root.tar bundles the files with the leading slash stripped.
+	// root.tar archives the files with the leading slash stripped.
 	rootEntries, _ := s.tarEntries(c,
 		strings.NewReader(contents["juju-backup/root.tar"]))
 	c.Check(rootEntries.Contains(strings.TrimPrefix(file1, "/")), tc.IsTrue)
@@ -359,7 +359,7 @@ func (s *createSuite) TestCreateObjectEntryHashMismatch(c *tc.C) {
 			},
 		}},
 	})
-	c.Assert(err, tc.ErrorMatches, `object ".*" in namespace "controller": SHA-256 mismatch.*`)
+	c.Assert(err, tc.ErrorMatches, `object ".*" in namespace "controller": SHA-384 mismatch.*`)
 
 	// A failed archive build leaves no partial archive behind.
 	entries, err := os.ReadDir(destDir)

@@ -63,7 +63,10 @@ type ControllerNodeLister interface {
 // ReadObjectStore is the subset of the object store used to stream
 // objects into the backup archive.
 type ReadObjectStore interface {
-	GetBySHA256(ctx context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error)
+	// GetBySHA256Prefix opens an object whose SHA-256 starts with the given
+	// prefix, retrieving missing local blobs from other controller nodes.
+	// The caller must close the returned reader.
+	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error)
 }
 
 // ObjectStoreForModelFunc returns the object store for a given model

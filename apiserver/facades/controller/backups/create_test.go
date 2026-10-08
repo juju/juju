@@ -24,6 +24,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -417,7 +418,7 @@ func (s *backupsSuite) TestCreateWithObjects(c *tc.C) {
 		byNamespace[entry.Namespace] = entry
 	}
 
-	controllerEntry, ok := byNamespace[domainexport.ControllerObjectStoreNamespace]
+	controllerEntry, ok := byNamespace[database.ControllerNS]
 	c.Assert(ok, tc.IsTrue)
 	c.Check(controllerEntry.SHA256, tc.Equals, controllerSHA256Hex)
 	c.Check(controllerEntry.SHA384, tc.Equals, controllerSHA384Hex)
@@ -728,7 +729,7 @@ type stubObjectStore struct {
 	objects map[string][]byte
 }
 
-func (s *stubObjectStore) GetBySHA256(_ context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
+func (s *stubObjectStore) GetBySHA256Prefix(_ context.Context, sha256 string) (io.ReadCloser, objectstore.Digest, error) {
 	content, ok := s.objects[sha256]
 	if !ok {
 		return nil, objectstore.Digest{}, objectstoreerrors.ObjectNotFound
