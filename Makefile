@@ -121,7 +121,7 @@ CGO_LDFLAGS ?=
 
 # The dynamically linked jujud resolves its runtime shared-library closure
 # from the operator image's /opt/lib (see caas/Dockerfile). The rpath is
-# absolute because the CAAS startup scripts copy jujud from /opt into
+# absolute because the K8s startup scripts copy jujud from /opt into
 # $JUJU_TOOLS_DIR before launch, so $ORIGIN-relative paths do not resolve.
 # It must produce DT_RPATH (--disable-new-dtags), not DT_RUNPATH: RUNPATH
 # on the executable is not searched when resolving the staged libraries'
@@ -893,7 +893,7 @@ image-check: $(image_check_prereq)
 .PHONY: image-check-build
 image-check-build: jujud-snap-build
 ## image-check-build: Build the agent binaries and stage the snap payload for the operator image
-	@$(MAKE) --no-print-directory go-agent-build
+	@$(MAKE) --no-print-directory go-agent-build-no-cgo
 	@$(STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD) "$(GOOS)/$(GOARCH)"
 
 .PHONY: image-check-build-skip
