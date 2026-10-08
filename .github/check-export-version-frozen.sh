@@ -4,7 +4,8 @@
 # godoc): a payload version is frozen once its release ships, and the
 # generated surface stamped with it may never be regenerated in place.
 #
-# A version is released when upstream tag v<version> exists. The frozen
+# A version is frozen when a stable upstream release on its line reaches
+# that version, even if its own-numbered tag was skipped. The frozen
 # content is anchored to the latest release on that version's line: a
 # release line cannot ship a schema change without moving its entry
 # first, so the latest line release carries, byte for byte, the format
@@ -33,58 +34,97 @@ if [[ ${#entries[@]} -eq 0 ]]; then
   echo "invalid exportVersionStrings shape (0 entries); see $VERSION_FILE godoc"
   exit 1
 fi
+if grep -qE '^[[:space:]]*(var[[:space:]]+)?controllerExportVersionStrings[[:space:]]*=' \
+    "$VERSION_FILE" && [[ ${#controller_entries[@]} -eq 0 ]]; then
+  echo "invalid controllerExportVersionStrings shape (0 entries); see $VERSION_FILE godoc"
+  exit 1
+fi
 own=${entries[-1]}
 
-released() {
-  git ls-remote --exit-code --tags "$UPSTREAM" "refs/tags/v$1" >/dev/null 2>&1
-}
+# Query once so a failed upstream request cannot masquerade as an unreleased
+# version, and all comparisons use the same release-tag snapshot.
+if ! release_refs=$(git ls-remote --tags --refs "$UPSTREAM" 'refs/tags/v*'); then
+  echo "could not query upstream release tags; refusing to skip the freeze check" >&2
+  exit 1
+fi
 
 declare -A anchor_for=()
-# latest_release prints the newest numeric tag on a version line, or
-# nothing when the line has not shipped yet.
+declare -A commit_for=()
+# Cache the newest numeric release on a version line, or an empty string
+# when it has no stable releases. Call directly so the cache survives.
 latest_release() {
   local line=$1
   if [[ ! ${anchor_for[$line]+set} ]]; then
-    anchor_for[$line]=$(
-      git ls-remote --tags "$UPSTREAM" "refs/tags/v$line.*" 2>/dev/null |
-        awk '{print $2}' | grep -E "^refs/tags/v${line}\.[0-9]+$" |
-        sed -E 's|refs/tags/v||' | sort -V | tail -1 || true
-    )
+    if ! anchor_for[$line]=$(
+      awk '{print $2}' <<<"$release_refs" |
+        sed -nE "s|^refs/tags/v(${line//./\\.}\.[0-9]+)$|\\1|p" |
+        sort -V | tail -1
+    ); then
+      echo "could not determine the latest release on line $line" >&2
+      return 1
+    fi
   fi
-  printf '%s' "${anchor_for[$line]}"
+  return 0
 }
 
-# check_frozen <version> <own|non-own> <pathspec>... compares the
-# stamped files at HEAD against the latest release of the version's
-# line. Unreleased versions and lines without releases pass vacuously.
+# check_frozen <model|controller> <version> <own|non-own> <pathspec>...
+# compares the stamped files at HEAD against the latest release on the
+# version's line. Only a successful tag query can skip an unreleased version.
 check_frozen() {
-  local version=$1 ownership=$2
-  shift 2
-  if ! released "$version"; then
-    echo "freeze check vacuous: $version is not released (no tag v$version)"
-    return 0
-  fi
+  local kind=$1 version=$2 ownership=$3
+  shift 3
   local line=${version%.*} anchor
-  anchor=$(latest_release "$line")
+  if ! latest_release "$line"; then
+    return 1
+  fi
+  anchor=${anchor_for[$line]}
+  # A schema stamped with an older version cannot become mutable just
+  # because that exact release tag is missing. Only future versions skip.
   if [[ -z $anchor ]]; then
-    echo "freeze check vacuous: line $line has no released version to anchor to"
+    echo "$kind freeze check vacuous: $version is not released (no stable release on line $line)"
     return 0
   fi
-  git fetch --quiet --depth=1 "$UPSTREAM" "refs/tags/v$anchor"
-  # --diff-filter=MR: only content the release actually shipped. Files
-  # added or deleted against the anchor (path relocations, superseded
-  # entries) are the version-list and sync checks' business.
+  local first
+  if ! first=$(printf '%s\n' "$version" "$anchor" | sort -V | head -1); then
+    echo "could not compare payload and release versions on line $line" >&2
+    return 1
+  fi
+  if [[ $first != "$version" ]]; then
+    echo "$kind freeze check vacuous: $version is not released (latest release is v$anchor)"
+    return 0
+  fi
+  if [[ ! ${commit_for[$line]+set} ]]; then
+    if ! git fetch --quiet --depth=1 "$UPSTREAM" "refs/tags/v$anchor"; then
+      echo "could not fetch release v$anchor" >&2
+      return 1
+    fi
+    if ! commit_for[$line]=$(git rev-parse --verify 'FETCH_HEAD^{commit}'); then
+      echo "could not resolve release v$anchor" >&2
+      return 1
+    fi
+  fi
+  # Every difference under a listed, released version is a violation,
+  # including additions and deletions. Superseded versions are not checked
+  # once their entries move. Disable rename detection to check both paths.
   local offenders
-  offenders=$(git diff --name-only --diff-filter=MR FETCH_HEAD HEAD -- "$@")
+  if ! offenders=$(git diff --name-only --no-renames \
+      "${commit_for[$line]}" HEAD -- "$@"); then
+    echo "could not compare $kind payload $version with release v$anchor" >&2
+    return 1
+  fi
   if [[ -n $offenders ]]; then
     echo "*****"
-    echo "payload version $version is released (tag v$version exists) and frozen,"
+    echo "$kind payload version $version is frozen by release v$anchor,"
     echo "but the generated surface below was changed in place instead of matching"
     echo "what release v$anchor shipped:"
     echo "$offenders"
     if [[ $ownership == own ]]; then
-      echo "Move the own entry of exportVersionStrings (or controllerExportVersion-"
-      echo "Strings) in $VERSION_FILE to the current dev version and run"
+      local array=exportVersionStrings
+      if [[ $kind == controller ]]; then
+        array=controllerExportVersionStrings
+      fi
+      echo "Move the own entry of $array in $VERSION_FILE"
+      echo "to the current dev version and run"
       echo "\`go generate ./generate/export\`; never regenerate a released payload"
       echo "version in place. See the $VERSION_FILE godoc."
     else
@@ -95,22 +135,24 @@ check_frozen() {
     echo "*****"
     return 1
   fi
-  echo "frozen OK: $version matches release v$anchor"
+  echo "$kind frozen OK: $version matches release v$anchor"
 }
 
 fail=0
 for v in "${entries[@]}"; do
   paths=(domain/export/types/v"${v//./_}")
+  ownership=non-own
   if [[ $v == "$own" ]]; then
+    ownership=own
     # The unversioned model-pass files carry the own version's schema.
     paths+=(
-      domain/export/state/model
+      domain/export/state/model/export.go
+      domain/export/state/model/export_test.go
       domain/export/service/export.go
       domain/export/service/export_test.go
     )
   fi
-  check_frozen "$v" "$( [[ $v == "$own" ]] && echo own || echo non-own )" \
-    "${paths[@]}" || fail=1
+  check_frozen model "$v" "$ownership" "${paths[@]}" || fail=1
 done
 
 controller_own=""
@@ -119,15 +161,17 @@ if [[ ${#controller_entries[@]} -gt 0 ]]; then
 fi
 for v in "${controller_entries[@]}"; do
   paths=(domain/export/types/controller/v"${v//./_}")
+  ownership=non-own
   if [[ $v == "$controller_own" ]]; then
+    ownership=own
     paths+=(
-      domain/export/state/controller
+      domain/export/state/controller/export.go
+      domain/export/state/controller/export_test.go
       domain/export/service/controller_export.go
       domain/export/service/controller_export_test.go
     )
   fi
-  check_frozen "$v" "$( [[ $v == "$controller_own" ]] && echo own || echo non-own )" \
-    "${paths[@]}" || fail=1
+  check_frozen controller "$v" "$ownership" "${paths[@]}" || fail=1
 done
 
 exit $fail
