@@ -363,19 +363,22 @@ trap 'exit 143' TERM
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
 
 # Scratch directory for cloud CLI credentials written by test setup
-# helpers (e.g. setup_awscli_credential). Kept outside TEST_DIR so these
-# are never swept into archive_logs' artifact tarball and never retained
-# alongside TEST_DIR when a failed run is kept around for debugging.
+# helpers (e.g. setup_awscli_credential, setup_gcloudcli_credential).
+# Kept outside TEST_DIR so these are never swept into archive_logs'
+# artifact tarball and never retained alongside TEST_DIR when a failed
+# run is kept around for debugging.
 CREDS_DIR=$(mktemp -d)
 export CREDS_DIR
 
-# Exported here, not inside setup_awscli_credential, so that
-# cleanup_funcs registered via add_clean_func (which run from cleanup()
-# in this parent shell, not the suite's subshell) also see them when
-# tearing down AWS resources the suite created.
+# Exported here, not inside the credential helpers, so that cleanup_funcs
+# registered via add_clean_func (which run from cleanup() in this parent
+# shell, not the suite's subshell) also see them when tearing down cloud
+# resources the suite created.
 export AWS_DEFAULT_PROFILE=default
 export AWS_SHARED_CREDENTIALS_FILE="${CREDS_DIR}/aws/credentials"
 export AWS_CONFIG_FILE="${CREDS_DIR}/aws/config"
+export CLOUDSDK_CONFIG="${CREDS_DIR}/gcloud"
+mkdir -p "${CLOUDSDK_CONFIG}"
 
 run_test() {
 	TEST_CURRENT=${1}
