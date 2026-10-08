@@ -1,0 +1,610 @@
+# Suite manifest for LLM-driven CI test selection.
+#
+# Single source of truth for:
+#   - provider the suite bootstraps against (matches tests/main.sh -p)
+#   - gh_eligible: can run on our GH self-hosted runners (lxd / microk8s only)
+#   - already_required: suite is already covered by a separate CI workflow
+#     (context-tests.yml → smoke.yml runs it on every PR; postgresql-k8s.yml
+#     runs it on release-branch pushes). The selector never picks or
+#     must-runs it, so it never doubles a runner slot.
+#   - description: hand-curated, <=40 words, phrased as *observable behavior
+#     the suite verifies end-to-end* (this becomes the LLM question criteria)
+#   - keywords: quick recall signal for the selection prompt
+#   - paths: globs whose specificity feeds the ranking. A glob used by
+#     one suite (precise ownership) scores 1.0; one shared by N suites
+#     (a hub like internal/worker/uniter/**) scores 1/N. The top
+#     max_runs suites by (static specificity + threshold-passing LLM
+#     p(yes)) run; the rest are trimmed and shown in the PR comment.
+#
+# Selection policy lives in tests/tools/select_suites.py; eval harness in
+# tests/tools/eval_selector.py. When adding a suite under tests/suites/,
+# add an entry here or tests/tools unit tests will fail.
+#
+# Tuned defaults for the LLM layer. `threshold` gates the LLM lift:
+# p(yes) at/above it is added to the static score; below it the answer
+# adds nothing, so an LLM-only pick needs real confidence and cannot
+# fill runner slots from a docs-only PR.
+threshold: 0.6
+# Hard ceiling on suites executed per PR: the top max_runs ranked suites
+# run, the rest are trimmed and reported. Protects the runner pool.
+max_runs: 6
+
+suites:
+  actions:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      juju run-action end to end: action params validation, running actions
+      on units and machines, action output and error status, running hooks
+      triggered by actions.
+    keywords: [action, run-action, action params, operator]
+    paths:
+      - cmd/juju/action/**
+      - core/operation/**
+      - domain/application/state/actions.go
+      - internal/worker/uniter/actions/**
+      - internal/worker/uniter/**
+      - apiserver/facades/client/action/**
+      - apiserver/facades/agent/uniter/**
+  agents:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Machine and unit agent lifecycle: charm revision updater bumps updated
+      charm revision and unit agent restarts to run the new charm.
+    keywords: [agent, charmrevisionupdater, revision, restart]
+    paths:
+      - internal/worker/charmrevisioner/**
+      - internal/upgradesteps/**
+      - internal/worker/upgradestepsagent/**
+      - internal/worker/upgradestepscontroller/**
+      - agent/**
+  appdata:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Application data integrity: app and unit tags, annotations and settings
+      survive restarts and scaling; juju show-unit shows expected application
+      data.
+    keywords: [application data, tags, annotations, settings]
+    paths:
+      - domain/application/**
+      - domain/unitstate/**
+      - internal/worker/uniter/**
+      - domain/relation/**
+      - domain/annotation/**
+  authorized_keys:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      SSH key management: juju add-ssh-key / authorize-key propagate keys to
+      machines, ssh into machines and units works, keys removed on model
+      teardown.
+    keywords: [ssh, authorized_keys, add-ssh-key, sshkeys]
+    paths:
+      - cmd/juju/sshkeys/**
+      - domain/keymanager/**
+      - apiserver/facades/client/keymanager/**
+  bootstrap:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Controller bootstrap: bootstrap against simplestreams with a custom
+      agent stream succeeds, controller becomes available and reachable.
+    keywords: [bootstrap, simplestreams, agent stream, controller]
+    paths:
+      - environs/bootstrap/**
+      - environs/**
+      - internal/bootstrap/**
+      - scripts/simplestreams/**
+  caasadmission:
+    provider: k8s
+    gh_eligible: true
+    description: >
+      K8s admission webhook for controllers: adding models to a K8s cluster
+      and removing the controller model; webhook does not block or chicken-egg
+      controller operations.
+    keywords: [admission, webhook, caas, model operator]
+    paths:
+      - internal/worker/caasadmission/**
+      - caas/**
+      - internal/provider/kubernetes/**
+  charmhub:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Charmhub client commands: juju find/info/download interact with
+      charmhub and return correct charm metadata, revisions and download
+    keywords: [charmhub, find, info, download, charm]
+    paths:
+      - cmd/juju/charmhub/**
+      - internal/charmhub/**
+      - internal/downloader/**
+  ck:
+    provider: maas
+    gh_eligible: false
+    description: >
+      Deploying Canonical Kubernetes (CK) bundle on the provider cloud and
+      adding it as a Juju cloud.
+    keywords: [ck, canonical-kubernetes, k8s cloud, bundle]
+    paths: []
+  cli:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Core CLI on a live controller: display-clouds, local charm deploy,
+      model-config, model-defaults, model-constraints, unregister,
+      disable-command blocks, juju diff-bundle.
+    keywords: [cli, model-config, model-defaults, constraints, block, diff-bundle]
+    paths:
+      - cmd/juju/**
+      - internal/configschema/**
+      - domain/modelconfig/**
+      - domain/modeldefaults/**
+      - domain/constraints/**
+      - domain/blockcommand/**
+      - internal/bundle/**
+  cloud_azure:
+    provider: azure
+    gh_eligible: false
+    description: >
+      Azure cloud specifics: managed identity auth, storage account types for
+      controllers and models.
+    keywords: [azure, managed identity, storage account]
+    paths: []
+  cloud_gce:
+    provider: gce
+    gh_eligible: false
+    description: >
+      GCE cloud specifics: pro images, GPU instances, storage pools, root disk
+      sources, service-account credentials.
+    keywords: [gce, gpu, pro image, storage pool, credential]
+    paths: []
+  cmr:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Cross-model relations: juju offer/consume, offer permissions and
+      find/find-non-admin, relation data across models, offer removal,
+      cross-model secrets.
+    keywords: [offer, consume, cross-model, cmr, remote application]
+    paths:
+      - core/crossmodel/**
+      - domain/crossmodelrelation/**
+      - cmd/juju/crossmodel/**
+      - internal/worker/remoterelationconsumer/**
+      - apiserver/facades/controller/crossmodelrelations/**
+      - apiserver/facades/controller/crossmodelsecrets/**
+      # blast-radius: CMR rides on plain relation machinery, network
+      # binding/addressing, and application/unit lifecycle.
+      - domain/relation/**
+      - internal/worker/uniter/relation/**
+      - domain/network/**
+      - core/network/**
+      - domain/application/**
+      - domain/unitstate/**
+      - domain/deployment/**
+  constraints:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Placement constraints: instance types, CPU/mem/disk constraints on model
+      and application, errors on unsupported constraint combinations.
+    keywords: [constraints, instance-type, cores, mem, root-disk]
+    paths:
+      - domain/constraints/**
+      - core/constraints/**
+      - internal/provider/**
+  controller:
+    provider: ec2
+    gh_eligible: false
+    description: >
+      Controller operations on public clouds: controller metrics, enable-ha
+      scaling to three nodes, query tracing config, restricting controller
+      access.
+    keywords: [controller, enable-ha, ha, metrics, tracing, access]
+    paths:
+      - domain/controller/**
+      - domain/controllerupgrader/**
+      - cmd/juju/controller/**
+  controllercharm:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Controller charm lifecycle: deploying a controller charm, prometheus
+      controller integration and charm upgrades of the controller itself.
+    keywords: [controller charm, prometheus, controller upgrade]
+    paths:
+      - domain/controller/**
+      - internal/worker/upgradestepscontroller/**
+  coslite:
+    provider: k8s
+    gh_eligible: false
+    description: >
+      Deploying the cos-lite observability bundle on a K8s cloud and exposing
+      dashboards.
+    keywords: [cos-lite, observability, bundle, k8s]
+    paths: []
+  credential:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Cloud credentials: juju add-credential / remove-credential on the
+      controller and model, credential validation errors.
+    keywords: [credential, add-credential, clouds, credentials]
+    paths:
+      - domain/credential/**
+      - cmd/juju/cloud/**
+      - cloud/**
+      - internal/worker/credentialvalidator/**
+  dashboard:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Juju dashboard: juju dashboard enable/serve, the dashboard application
+      deploys and serves the UI.
+    keywords: [dashboard, ui, assets]
+    paths:
+      - cmd/juju/dashboard/**
+      - apiserver/facades/client/controller/**
+  deploy:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Deploying charms, bundles and local charms on LXD: revisions, channels,
+      default bases, CMR overlays in bundles, deploy errors and retries.
+    keywords: [deploy, bundle, charm, revision, base, overlay, channel]
+    paths:
+      - cmd/juju/application/**
+      - cmd/juju/application/deployer/**
+      - internal/bundle/**
+      - domain/deployment/**
+      - internal/downloader/**
+      - internal/charmhub/**
+      # blast-radius: deploy touches app lifecycle + endpoint/network setup.
+      - domain/application/**
+      - domain/network/**
+      - core/network/**
+  deploy_aks:
+    provider: k8s
+    gh_eligible: false
+    description: >
+      Deploying charms onto an AKS-hosted K8s cloud.
+    keywords: [aks, azure, caas deploy]
+    paths: []
+  deploy_caas:
+    provider: k8s
+    gh_eligible: true
+    description: >
+      Deploying charms on Kubernetes: workload specs, operator lifecycle,
+      unit scale up/down on K8s, pods reflect Juju application state.
+    keywords: [caas, k8s, deploy, pod, operator, sidecar]
+    paths:
+      - internal/provider/kubernetes/**
+      - caas/**
+      - domain/application/**
+      - cmd/juju/caas/**
+      # blast-radius: CAAS deploy wires relations + endpoints.
+      - domain/relation/**
+      - domain/network/**
+  examples:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Example/test-charm smoke paths used as templates by other suites;
+      exercises basic deploy and hook patterns.
+    keywords: [examples, test charms]
+    paths: []
+  firewall:
+    provider: ec2
+    gh_eligible: false
+    description: >
+      Firewall rules and juju expose on public clouds: ssh access restricted
+      by expose rules, exposed endpoints in bundles, rule changes propagate.
+    keywords: [firewall, expose, ssh access, rules]
+    paths:
+      - internal/worker/firewaller/**
+      - internal/worker/caasfirewaller/**
+      - apiserver/facades/controller/firewaller/**
+      - domain/network/**
+  hooks:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Hook lifecycle: dispatch script routes hook events, start hook fires
+      again after machine reboot, hooks see correct environment.
+    keywords: [hooks, dispatch, reboot, start hook]
+    paths:
+      - internal/worker/uniter/**
+      - internal/worker/reboot/**
+  hooktools:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Hook tools available to charms: relation-* / status-set / storage-*
+      and other jujuc commands behave correctly inside hooks.
+    keywords: [hook tools, jujuc, relation-get, status-set, storage-get]
+    paths:
+      - internal/worker/uniter/runner/**
+      - internal/worker/uniter/runner/jujuc/**
+  kubeflow:
+    provider: k8s
+    gh_eligible: false
+    description: >
+      Deploying the kubeflow bundle on K8s (long-running, deprecated infra).
+    keywords: [kubeflow, bundle, k8s]
+    paths: []
+  machine:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Machine management: juju show-machine provisioning info, machine logs,
+      add-machine/remove-machine lifecycle.
+    keywords: [machine, add-machine, show-machine, provisioning]
+    paths:
+      - domain/machine/**
+      - cmd/juju/machine/**
+      - internal/worker/machiner/**
+  model:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Model lifecycle: model config, multi-model operations, model metrics,
+      destroy-model with force, model status output.
+    keywords: [model, model-config, destroy-model, status, metrics]
+    paths:
+      - domain/model/**
+      - domain/modelconfig/**
+      - cmd/juju/model/**
+      - domain/status/**
+      # blast-radius: model status aggregates app/relation/network data.
+      - domain/application/**
+      - domain/relation/**
+      - domain/network/**
+      - domain/machine/**
+      - cmd/juju/status/**
+  network:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Network health on a deployed model: connectivity between units and
+      controller, endpoint addresses.
+    keywords: [network, connectivity, endpoints]
+    paths:
+      - domain/network/**
+      - core/network/**
+      - internal/worker/firewaller/**
+      - internal/worker/caasfirewaller/**
+      - apiserver/facades/controller/firewaller/**
+  ovs_maas:
+    provider: maas
+    gh_eligible: false
+    description: >
+      Open vSwitch netplan configuration rendered on MAAS machines.
+    keywords: [ovs, netplan, maas, bridge]
+    paths: []
+  refresh:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      juju refresh: upgrading a charm to a new revision/channel, switching
+      charm, refresh rollback on failure, hooks run post-refresh.
+    keywords: [refresh, upgrade-charm, switch, channel]
+    paths:
+      - cmd/juju/application/refresh.go
+      - domain/upgrade/**
+      - internal/upgrades/**
+      - internal/upgradesteps/**
+  relations:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Relations between applications: data exchange via relation-get/put,
+      departing unit data cleanup, relation list, relation model-settings,
+      recursive subordinate units.
+    keywords: [relation, relate, relation data, subordinate, departing unit]
+    paths:
+      - domain/relation/**
+      - internal/worker/uniter/relation/**
+      - cmd/juju/application/integrate.go
+      - apiserver/facades/agent/uniter/**
+      # blast-radius: shared relation plumbing with CMR + app/unit state.
+      - domain/crossmodelrelation/**
+      - domain/application/**
+      - domain/unitstate/**
+      - domain/network/**
+      - core/network/**
+  resources:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Charm resources: upload/attach/refresh resources, container resources on
+      K8s, empty resources, resource visibility in hooks and status.
+    keywords: [resource, attach-resource, pod-spec, oci image]
+    paths:
+      - domain/resource/**
+      - domain/containerimageresourcestore/**
+      - cmd/juju/resource/**
+      - core/resources/**
+      - internal/resource/**
+  secrets_iaas:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Juju secrets on machines: add/grant/rotate/remove secrets, secret
+      backends incl. vault, peer and owner secret rows, drain on unit removal,
+      obsolete revisions, non-leader owned secrets, hook commit semantics.
+    keywords: [secret, secrets, vault, grant, rotate, drain, backend]
+    paths:
+      - core/secrets/**
+      - domain/secret/**
+      - domain/secretbackend/**
+      - internal/secrets/**
+      - cmd/juju/secrets/**
+      - cmd/juju/secretbackends/**
+      - internal/worker/uniter/secrets/**
+      - internal/worker/secret*/**
+      - apiserver/facades/agent/secrets*/**
+      - apiserver/facades/client/secrets/**
+      - apiserver/facades/controller/usersecrets*/**
+      - apiserver/facades/controller/crossmodelsecrets/**
+  secrets_k8s:
+    provider: k8s
+    gh_eligible: true
+    description: >
+      Juju secrets on Kubernetes: add/grant secrets backed by K8s secrets,
+      user secrets, drain on remove-unit, parallel secret adds, secrets across
+      CMR offers.
+    keywords: [secret, k8s secret, user secret, drain, rbac, offer]
+    paths:
+      - core/secrets/**
+      - domain/secret/**
+      - internal/secrets/**
+      - cmd/juju/secrets/**
+      - internal/provider/kubernetes/**
+      - internal/worker/uniter/secrets/**
+      - internal/worker/secrets*/**
+      - apiserver/facades/agent/secrets*/**
+      - apiserver/facades/client/secrets/**
+  sidecar:
+    provider: k8s
+    gh_eligible: true
+    description: >
+      Sidecar (k8s) charms: deploy/remove and force-remove applications,
+      pebble notices and checks drive hooks, credential-get, rootless
+      deployments.
+    keywords: [sidecar, pebble, notices, checks, rootless, k8s]
+    paths:
+      - internal/worker/uniter/runner/context/**
+      - internal/worker/uniter/**
+      - internal/provider/kubernetes/**
+      - caas/**
+  smoke:
+    provider: lxd
+    gh_eligible: true
+    already_required: true
+    description: >
+      End-to-end smoke on LXD: build and deploy a local charm, status
+      settles, basic model operations work.
+    keywords: [smoke, deploy, build, status]
+    paths:
+      - cmd/juju/**
+      - internal/worker/uniter/**
+  smoke_k8s:
+    provider: k8s
+    gh_eligible: true
+    already_required: true
+    description: >
+      End-to-end smoke on microk8s: deploy an application, destroy the
+      controller cleanly.
+    keywords: [smoke, k8s, deploy, destroy]
+    paths:
+      - cmd/juju/**
+      - internal/provider/kubernetes/**
+  smoke_k8s_psql:
+    provider: k8s
+    gh_eligible: true
+    already_required: true
+    description: >
+      Bootstrap with an external PostgreSQL/psql datasource and deploy
+      postgresql-operator end to end.
+    keywords: [postgresql, psql, external database, dqlite alternative]
+    paths:
+      - internal/database/**
+      - domain/schema/**
+      - core/database/**
+  spaces_ec2:
+    provider: ec2
+    gh_eligible: false
+    description: >
+      Network spaces on EC2: machines in spaces, juju bind, upgrade-charm
+      with bind settings.
+    keywords: [spaces, bind, subnet, ec2]
+    paths: []
+  spaces_gce:
+    provider: gce
+    gh_eligible: false
+    description: >
+      Network spaces on GCE: machines in spaces.
+    keywords: [spaces, subnet, gce]
+    paths: []
+  static_analysis:
+    provider: none
+    gh_eligible: true
+    description: >
+      Repo hygiene checks: copyright headers, go doc/lint, shellcheck and
+      python lint of tests, schema and DDL checks.
+    keywords: [static analysis, lint, shellcheck, schema]
+    paths:
+      - tests/suites/static_analysis/**
+  storage:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Storage on machines: charm storage add/detach/remove, model storage
+      blocks at limit, filesystem storage, persistent storage across unit
+      removal.
+    keywords: [storage, filesystem, volume, detach, persistent]
+    paths:
+      - domain/storage/**
+      - internal/worker/storageprovisioner/**
+      - internal/worker/storageregistry/**
+      - cmd/juju/storage/**
+      - core/storage/**
+      # blast-radius: storage attach/detach drives unit lifecycle.
+      - domain/application/**
+      - domain/unitstate/**
+      - internal/worker/uniter/**
+  storage_k8s:
+    provider: k8s
+    gh_eligible: true
+    description: >
+      Storage on K8s: import filesystems, attach/detach PVCs, add-unit with
+      existing PVC races, destroy model with detached storage.
+    keywords: [storage, pvc, pv, import-filesystem, k8s]
+    paths:
+      - domain/storage/**
+      - internal/worker/storageprovisioner/**
+      - internal/provider/kubernetes/**
+  tla:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      Object store (TLA/legacy) drainer and integration with the controller.
+    keywords: [tla, objectstore, drainer]
+    paths:
+      - domain/objectstore/**
+      - internal/objectstore/**
+      - internal/worker/objectstore*/**
+  unmanaged:
+    provider: ec2
+    gh_eligible: false
+    description: >
+      Unmanaged (bring-your-own-machine) deployments and spaces on them.
+    keywords: [unmanaged, add-machine ssh, spaces]
+    paths: []
+  upgrade:
+    provider: lxd
+    gh_eligible: false
+    description: >
+      juju upgrade-controller across released versions served by test
+      simplestreams, agent upgrade compatibility matrix.
+    keywords: [upgrade-controller, agent upgrade, simplestreams, version]
+    paths:
+      - internal/upgrades/**
+      - domain/upgrade/**
+      - cmd/juju/commands/upgradecontroller.go
+      - internal/worker/upgradesteps*/**
+      - scripts/simplestreams/**
+  user:
+    provider: lxd
+    gh_eligible: true
+    description: >
+      User management: add/remove users, login with password, register,
+      permission errors for non-admin users.
+    keywords: [user, login, register, permission, acl]
+    paths:
+      - domain/access/**
+      - core/permission/**
+      - cmd/juju/user/**
+      - apiserver/facades/client/usermanager/**
