@@ -85,9 +85,9 @@ type State interface {
 	// node. Peer addresses always have a controller identity.
 	GetAPIAddressesForPeers(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
-	// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
-	// scope, including shared endpoints. Addresses include port numbers.
-	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
+	// GetAllAPIAddressesForCertificates returns the union of client and peer
+	// addresses with ports, including shared client addresses.
+	GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error)
 }
 
 // Service provides the API for working with controller nodes.
@@ -462,23 +462,28 @@ func (s *Service) GetAPIAddressesByControllerIDForPeers(ctx context.Context) (ma
 	return result, nil
 }
 
-// GetAllCloudLocalAPIAddresses returns cloud-local client addresses, including
-// shared endpoints. It strips the API ports stored in state, returning bare IP
-// addresses or hostnames for consumers such as certificate maintenance.
-func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
-	addrs, err := s.st.GetAllCloudLocalAPIAddresses(ctx)
+// GetAllAPIAddressesForCertificates returns the union of the published client
+// and peer addresses, stripped of their API ports for certificate SANs.
+func (s *Service) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
+	addrs, err := s.st.GetAllAPIAddressesForCertificates(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	returnAddrs := make([]string, len(addrs))
-	for i, addr := range addrs {
+
+	result := make([]string, 0, len(addrs))
+	seen := make(map[string]struct{}, len(addrs))
+	for _, addr := range addrs {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
-			return nil, errors.Capture(err)
+			return nil, errors.Errorf("splitting controller certificate address %q: %w", addr, err)
 		}
-		returnAddrs[i] = host
+		if _, ok := seen[host]; ok {
+			continue
+		}
+		seen[host] = struct{}{}
+		result = append(result, host)
 	}
-	return returnAddrs, nil
+	return result, nil
 }
 
 // WatcherFactory instances return watchers for a given namespace and UUID.
@@ -566,6 +571,20 @@ func (s *WatchableService) WatchControllerPeerAddresses(ctx context.Context) (wa
 		ctx,
 		"controller peer addresses watcher",
 		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerPeerAddresses(), changestream.All),
+	)
+}
+
+// WatchControllerAddressesForCertificates watches the client and peer address
+// projections used to select controller certificate SANs.
+func (s *WatchableService) WatchControllerAddressesForCertificates(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"controller client and peer addresses watcher",
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerPeerAddresses(), changestream.All),
+		eventsource.NamespaceFilter(s.st.NamespaceForWatchControllerClientAddresses(), changestream.All),
 	)
 }
 

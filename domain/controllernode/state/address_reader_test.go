@@ -138,18 +138,27 @@ func (s *stateSuite) TestGetAPIAddressesAfterReplacement(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
 }
 
-func (s *stateSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
-	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
-	s.insertProjectedAddress(c, "controller_agent_address", "0", "10.0.0.9:17070", network.ScopeCloudLocal, 0)
-	_, err := s.state.GetAllCloudLocalAPIAddresses(c.Context())
-	c.Assert(err, tc.ErrorIs, controllernodeerrors.EmptyAPIAddresses)
-	s.insertProjectedAddress(c, "controller_client_address", "0", "10.0.0.1:17070", network.ScopeCloudLocal, 0)
-	s.insertProjectedAddress(c, "controller_client_address", "", "10.0.0.2:17070", network.ScopeCloudLocal, 0)
-	s.insertProjectedAddress(c, "controller_client_address", "0", "10.0.0.3:17070", network.ScopePublic, 0)
-	s.insertProjectedAddress(c, "controller_client_address", "0", "127.0.0.1:17070", network.ScopeMachineLocal, 0)
-	addresses, err := s.state.GetAllCloudLocalAPIAddresses(c.Context())
+func (s *stateSuite) TestGetAllAPIAddressesForCertificates(c *tc.C) {
+	addresses, err := s.state.GetAllAPIAddressesForCertificates(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(addresses, tc.SameContents, []string{"10.0.0.1:17070", "10.0.0.2:17070"})
+	c.Check(addresses, tc.HasLen, 0)
+
+	c.Assert(s.state.AddDqliteNodeID(c.Context(), "0"), tc.ErrorIsNil)
+	s.insertProjectedAddress(c, "controller_agent_address", "0", "agent.example.test:17070", network.ScopePublic, 0)
+	s.insertProjectedAddress(c, "controller_client_address", "", "", network.ScopePublic, 0)
+	s.insertProjectedAddress(c, "controller_peer_address", "0", "", network.ScopePublic, 0)
+	s.insertProjectedAddress(c, "controller_client_address", "", "api.example.test:17070", network.ScopePublic, 0)
+	s.insertProjectedAddress(c, "controller_client_address", "0", "10.0.0.1:17070", network.ScopeCloudLocal, 0)
+	s.insertProjectedAddress(c, "controller_peer_address", "0", "[2001:db8::1]:17070", network.ScopeMachineLocal, 0)
+	s.insertProjectedAddress(c, "controller_peer_address", "0", "10.0.0.1:17070", network.ScopeCloudLocal, 1)
+
+	addresses, err = s.state.GetAllAPIAddressesForCertificates(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, []string{
+		"10.0.0.1:17070",
+		"[2001:db8::1]:17070",
+		"api.example.test:17070",
+	})
 }
 
 func (s *stateSuite) insertProjectedAddress(c *tc.C, table, controllerID, address string, scope network.Scope, priority int) controllernode.APIAddress {

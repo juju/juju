@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -95,4 +96,37 @@ func (s *serviceSuite) TestSharedClientAddressesAreNotNamedFallback(c *tc.C) {
 	byController, err := svc.GetAPIAddressesByControllerIDForClients(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(byController, tc.DeepEquals, map[string][]string{})
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForCertificates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	s.state.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{
+		"api.example.test:17070",
+		"10.0.0.1:17070",
+		"[2001:db8::1]:17070",
+		"10.0.0.1:17070",
+	}, nil)
+
+	addresses, err := svc.GetAllAPIAddressesForCertificates(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, []string{"api.example.test", "10.0.0.1", "2001:db8::1"})
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForCertificatesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	s.state.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAllAPIAddressesForCertificates(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *serviceSuite) TestGetAllAPIAddressesForCertificatesMissingPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	s.state.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"10.0.0.1"}, nil)
+
+	_, err := svc.GetAllAPIAddressesForCertificates(c.Context())
+	c.Assert(err, tc.ErrorMatches, `splitting controller certificate address "10.0.0.1": .*missing port.*`)
 }

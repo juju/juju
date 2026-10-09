@@ -619,6 +619,7 @@ ORDER BY address.controller_id, address.priority, address.address
 	}
 	var addresses []controllerAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		addresses = nil
 		err := tx.Query(ctx, stmt).GetAll(&addresses)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return controllernodeerrors.EmptyAPIAddresses
@@ -632,19 +633,30 @@ ORDER BY address.controller_id, address.priority, address.address
 	return decodeAPIAddresses(addresses), nil
 }
 
-// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
-// scope, including shared endpoints. Addresses include port numbers.
-func (st *State) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
+// GetAllAPIAddressesForCertificates returns the union of client and peer
+// addresses in one database snapshot. An empty result is valid when neither
+// projection contains an address. Agent-only addresses are excluded because
+// Juju agents verify this certificate against the pinned "juju-apiserver" name,
+// which is added to every certificate independently of published addresses.
+func (st *State) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
 	stmt, err := st.Prepare(`
-SELECT address.address AS &controllerAPIAddressStr.address
-FROM controller_client_address AS address
-WHERE address.scope = 'local-cloud'
-ORDER BY address.controller_id, address.priority, address.address
+WITH certificate_addresses AS (
+    SELECT client.address AS address
+    FROM controller_client_address AS client
+    WHERE client.address != ''
+    UNION
+    SELECT peer.address AS address
+    FROM controller_peer_address AS peer
+    WHERE peer.address != ''
+)
+SELECT certificate.address AS &controllerAPIAddressStr.address
+FROM certificate_addresses AS certificate
+ORDER BY certificate.address
 `, controllerAPIAddressStr{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -652,22 +664,20 @@ ORDER BY address.controller_id, address.priority, address.address
 
 	var result []controllerAPIAddressStr
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return controllernodeerrors.EmptyAPIAddresses
-		} else if err != nil {
-			return errors.Errorf("getting all cloud local api addresses for controller nodes: %w", err)
+		result = nil
+		if err := tx.Query(ctx, stmt).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting controller certificate addresses: %w", err)
 		}
-		return err
+		return nil
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	returnStrings := make([]string, 0, len(result))
-	for i := range result {
-		returnStrings = append(returnStrings, result[i].Address)
+	addresses := make([]string, len(result))
+	for i, address := range result {
+		addresses[i] = address.Address
 	}
-	return returnStrings, nil
+	return addresses, nil
 }
 
 // GetControllerIDs returns the list of controller IDs from the controller node
@@ -689,6 +699,7 @@ WHERE life_id < 2
 
 	var controllerIDs []controllerID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		controllerIDs = nil
 		err := tx.Query(ctx, stmt).GetAll(&controllerIDs)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return controllernodeerrors.EmptyControllerIDs

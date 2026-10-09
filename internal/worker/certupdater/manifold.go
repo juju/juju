@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/internal/services"
 )
 
-// ControllerDomainServices is an interface that defines the
-// controller domain services required by the api address setter.
+// ControllerDomainServices defines the controller domain services required by
+// the certificate updater.
 type ControllerDomainServices interface {
 	// ControllerNode returns the controller node service.
 	ControllerNode() ControllerNodeService
