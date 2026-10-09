@@ -69,11 +69,11 @@ type UnitState interface {
 	// is returned.
 	InsertMigratingCAASUnits(context.Context, coreapplication.UUID, ...application.ImportCAASUnitArg) error
 
-	// RegisterCAASUnit registers the specified CAAS application unit. The
+	// RegisterCAASUnit attaches a pod to the specified reserved CAAS unit. The
 	// following errors can be expected:
 	// [applicationerrors.ApplicationNotAlive] when the application is not alive
-	// [applicationerrors.UnitAlreadyExists] when the unit exists
-	// [applicationerrors.UnitNotAssigned] when the unit was not assigned
+	// [applicationerrors.UnitAlreadyExists] when the unit is dead
+	// [applicationerrors.UnitNotAssigned] when the unit is absent or leaving
 	RegisterCAASUnit(context.Context, string, application.RegisterCAASUnitArg) error
 
 	// UpdateCAASUnit updates the k8s pod for specified unit,
@@ -905,6 +905,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 	units []AddUnitArg,
 	storageDirectives []applicationinternal.StorageDirective,
 	constraints constraints.Constraints,
+	reserved []caasUnitIdentity,
 ) ([]application.AddCAASUnitArg, error) {
 	args := make([]application.AddCAASUnitArg, len(units))
 	for i, u := range units {
@@ -913,18 +914,19 @@ func (s *ProviderService) makeCAASUnitArgs(
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
 
-		unitUUID, err := coreunit.NewUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"generating new unit uuid for caas unit: %w", err,
-			)
-		}
-
-		netNodeUUID, err := domainnetwork.NewNetNodeUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"making new net node uuid for caas unit: %w", err,
-			)
+		var unitUUID coreunit.UUID
+		var netNodeUUID domainnetwork.NetNodeUUID
+		if len(reserved) > i && reserved[i].unitUUID != "" {
+			unitUUID, netNodeUUID = reserved[i].unitUUID, reserved[i].netNodeUUID
+		} else {
+			unitUUID, err = coreunit.NewUUID()
+			if err != nil {
+				return nil, errors.Errorf("generating new unit uuid for caas unit: %w", err)
+			}
+			netNodeUUID, err = domainnetwork.NewNetNodeUUID()
+			if err != nil {
+				return nil, errors.Errorf("making new net node uuid for caas unit: %w", err)
+			}
 		}
 
 		// Get existing storage instance information for attaching to this unit.

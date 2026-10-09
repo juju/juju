@@ -377,6 +377,7 @@ type MockStateMockRecorder struct {
 	deleteAppHasK8sResourcesEntryExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
 	deleteK8sServiceAddressesExpects                          []*gomock.Call2_1[context.Context, string, error]
 	endpointsExistExpects                                     []*gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
+	ensureApplicationUnitSequenceAtLeastExpects                []*gomock.Call3_1[context.Context, string, uint64, error]
 	getAddressesHashExpects                                   []*gomock.Call3_2[context.Context, application.UUID, string, string, error]
 	getAllEndpointBindingsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]string, error]
 	getAllExposedEndpointsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]application0.ExposedEndpoint, error]
@@ -397,6 +398,7 @@ type MockStateMockRecorder struct {
 	getApplicationNameExpects                                 []*gomock.Call2_2[context.Context, application.UUID, string, error]
 	getApplicationScaleStateExpects                           []*gomock.Call2_2[context.Context, application.UUID, application0.ScaleState, error]
 	getApplicationTrustSettingExpects                         []*gomock.Call2_2[context.Context, application.UUID, bool, error]
+	getApplicationUnitSequenceExpects                          []*gomock.Call2_3[context.Context, string, uint64, bool, error]
 	getApplicationUUIDAndNameByUnitNameExpects                []*gomock.Call2_3[context.Context, unit.Name, application.UUID, string, error]
 	getApplicationUUIDByNameExpects                           []*gomock.Call2_2[context.Context, string, application.UUID, error]
 	getApplicationUUIDByUnitNameExpects                       []*gomock.Call2_2[context.Context, unit.Name, application.UUID, error]
@@ -524,6 +526,40 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
+
+// GetApplicationUnitSequence mocks base method.
+func (m *MockState) GetApplicationUnitSequence(ctx context.Context, name string) (uint64, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getApplicationUnitSequenceExpects, m.ctrl, m, "GetApplicationUnitSequence", ctx, name)
+}
+
+// GetApplicationUnitSequence indicates an expected call.
+func (mr *MockStateMockRecorder) GetApplicationUnitSequence(ctx, name any) *MockStateGetApplicationUnitSequenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[context.Context, string, uint64, bool, error](mr.mock.ctrl.T, mr.mock, "GetApplicationUnitSequence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.getApplicationUnitSequenceExpects = append(mr.getApplicationUnitSequenceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+type MockStateGetApplicationUnitSequenceCall = gomock.Call2_3[context.Context, string, uint64, bool, error]
+
+// EnsureApplicationUnitSequenceAtLeast mocks base method.
+func (m *MockState) EnsureApplicationUnitSequenceAtLeast(ctx context.Context, name string, ordinal uint64) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.ensureApplicationUnitSequenceAtLeastExpects, m.ctrl, m, "EnsureApplicationUnitSequenceAtLeast", ctx, name, ordinal)
+}
+
+// EnsureApplicationUnitSequenceAtLeast indicates an expected call.
+func (mr *MockStateMockRecorder) EnsureApplicationUnitSequenceAtLeast(ctx, name, ordinal any) *MockStateEnsureApplicationUnitSequenceAtLeastCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, uint64, error](mr.mock.ctrl.T, mr.mock, "EnsureApplicationUnitSequenceAtLeast", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(ordinal))
+	mr.ensureApplicationUnitSequenceAtLeastExpects = append(mr.ensureApplicationUnitSequenceAtLeastExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+type MockStateEnsureApplicationUnitSequenceAtLeastCall = gomock.Call3_1[context.Context, string, uint64, error]
 
 // AddCAASUnits mocks base method.
 func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 application.UUID, arg2 ...application0.AddCAASUnitArg) ([]unit.Name, error) {

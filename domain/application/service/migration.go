@@ -5,6 +5,9 @@ package service
 
 import (
 	"context"
+	"math"
+	"strconv"
+	"strings"
 
 	"github.com/juju/clock"
 
@@ -12,6 +15,7 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
@@ -20,12 +24,19 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/ipaddress"
+	domainlife "github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationState is the state required for migrating applications.
 type MigrationState interface {
+	// GetApplicationUnitSequence returns the imported unit ordinal high-water
+	// mark, or false when the sequence is absent.
+	GetApplicationUnitSequence(context.Context, string) (uint64, bool, error)
+	// EnsureApplicationUnitSequenceAtLeast advances that high-water mark.
+	EnsureApplicationUnitSequenceAtLeast(context.Context, string, uint64) error
 	// GetSpaceUUIDByName returns the UUID of the space with the given name.
 	// It returns an error satisfying [networkerrors.SpaceNotFound] if the provided
 	//
@@ -289,7 +300,173 @@ func (s *MigrationService) ImportCAASApplication(ctx context.Context, name strin
 		return errors.Errorf("creating unit args: %w", err)
 	}
 
-	return s.st.InsertMigratingCAASUnits(ctx, args.UUID, unitArgs...)
+	if err := s.st.InsertMigratingCAASUnits(ctx, args.UUID, unitArgs...); err != nil {
+		return errors.Capture(err)
+	}
+	return s.ReconcileImportedCAASUnits(ctx, name, false)
+}
+
+// ReconcileImportedCAASUnits restores pending unit identities and the ordinal
+// high-water mark before a migrated Kubernetes application can be provisioned.
+// explicitStart is true for same-level imports, which carry start_ordinal.
+func (s *MigrationService) ReconcileImportedCAASUnits(ctx context.Context, name string, explicitStart bool) error {
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, name)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	unitLives, err := s.st.GetAllUnitLifeForApplication(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	podIDs, err := s.st.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	last, hasSequence, err := s.st.GetApplicationUnitSequence(ctx, name)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	aliveMin, aliveMax, aliveCount := -1, -1, 0
+	for unitName, unitLife := range unitLives {
+		parsed, err := coreunit.NewName(unitName)
+		if err != nil || parsed.Application() != name {
+			return errors.Errorf("invalid imported unit name %q for application %q", unitName, name)
+		}
+		ordinal := parsed.Number()
+		if !hasSequence || uint64(ordinal) > last {
+			last, hasSequence = uint64(ordinal), true
+		}
+		if unitLife == int(domainlife.Alive) {
+			aliveCount++
+			if aliveMin < 0 || ordinal < aliveMin {
+				aliveMin = ordinal
+			}
+			if ordinal > aliveMax {
+				aliveMax = ordinal
+			}
+		}
+	}
+	for _, providerID := range podIDs {
+		prefix, ordinalText, ok := strings.Cut(providerID, name+"-")
+		if !ok || prefix != "" {
+			continue
+		}
+		ordinal, err := strconv.Atoi(ordinalText)
+		if err != nil || ordinal < 0 {
+			continue
+		}
+		if !hasSequence || uint64(ordinal) > last {
+			last, hasSequence = uint64(ordinal), true
+		}
+	}
+
+	target := scaleState.Scale
+	if scaleState.Scaling {
+		target = scaleState.ScaleTarget
+	}
+	if target < 0 || scaleState.StartOrdinal < 0 {
+		return errors.Errorf("invalid imported scale range for application %q", name)
+	}
+	start := scaleState.StartOrdinal
+	if aliveMin >= 0 && !explicitStart {
+		start = aliveMin
+	} else if aliveMin < 0 && hasSequence && target == 0 {
+		if last >= math.MaxInt {
+			return errors.Errorf("unit sequence exhausted for application %q", name)
+		}
+		if start <= int(last) {
+			start = int(last) + 1
+		}
+	} else if aliveMin < 0 && hasSequence && !explicitStart && target > 0 &&
+		last >= uint64(target-1) {
+		// Legacy exports have no start ordinal. With no registered units,
+		// recover the most recent target range from the sequence.
+		start = int(last) - target + 1
+	}
+	if target > math.MaxInt-start {
+		return errors.Errorf("imported scale range overflows for application %q", name)
+	}
+	if target > 0 {
+		floor := uint64(start + target - 1)
+		if !hasSequence || floor > last {
+			last, hasSequence = floor, true
+		}
+	} else if scaleState.StartOrdinal > 0 {
+		floor := uint64(scaleState.StartOrdinal - 1)
+		if !hasSequence || floor > last {
+			last, hasSequence = floor, true
+		}
+	}
+	if hasSequence {
+		if err := s.st.EnsureApplicationUnitSequenceAtLeast(ctx, name, last); err != nil {
+			return errors.Errorf("reconciling unit sequence for application %q: %w", name, err)
+		}
+	}
+	if start != scaleState.StartOrdinal {
+		if err := s.st.SetApplicationScalingStateWithStart(
+			ctx, name, scaleState.ScaleTarget, start, scaleState.Scaling,
+		); err != nil {
+			return errors.Errorf("restoring ordinal range for application %q: %w", name, err)
+		}
+	}
+
+	appLife, err := s.st.GetApplicationLife(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if appLife != domainlife.Alive || target == 0 || aliveCount > target ||
+		(aliveMin >= 0 && aliveMax-aliveMin+1 > target) {
+		return nil
+	}
+	now := new(s.clock.Now().UTC())
+	reservations := make([]application.AddCAASUnitArg, 0, target-aliveCount)
+	for ordinal := start; ordinal < start+target; ordinal++ {
+		unitName, err := coreunit.NewNameFromParts(name, ordinal)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if unitLife, exists := unitLives[unitName.String()]; exists {
+			if unitLife != int(domainlife.Alive) {
+				return errors.Errorf("imported unit %q is leaving inside the requested range", unitName)
+			}
+			continue
+		}
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		reservations = append(reservations, application.AddCAASUnitArg{
+			AddUnitArg: application.AddUnitArg{
+				UnitUUID:    unitUUID,
+				NetNodeUUID: netNodeUUID,
+				UnitStatusArg: application.UnitStatusArg{
+					AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
+						Status: status.UnitAgentStatusAllocating, Since: now,
+					},
+					WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
+						Status: status.WorkloadStatusWaiting, Message: corestatus.MessageInstallingAgent, Since: now,
+					},
+				},
+			},
+			ReservedName: unitName,
+		})
+	}
+	if len(reservations) == 0 {
+		return nil
+	}
+	if _, err := s.st.AddCAASUnits(ctx, appUUID, reservations...); err != nil {
+		return errors.Errorf("materialising imported units for application %q: %w", name, err)
+	}
+	return nil
 }
 
 // ImportIAASApplication imports the specified IAAS application and units

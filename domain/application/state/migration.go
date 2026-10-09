@@ -17,6 +17,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
@@ -312,6 +314,57 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 			}
 		}
 		return nil
+	})
+}
+
+type importedUnitSequence struct {
+	Namespace string `db:"namespace"`
+	Value     uint64 `db:"value"`
+}
+
+// GetApplicationUnitSequence returns the last allocated unit ordinal. A
+// missing sequence is distinct from one that has allocated ordinal zero.
+func (st *State) GetApplicationUnitSequence(ctx context.Context, appName string) (uint64, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return 0, false, errors.Capture(err)
+	}
+	arg := importedUnitSequence{
+		Namespace: domainsequence.MakePrefixNamespace(application.ApplicationSequenceNamespace, appName).String(),
+	}
+	stmt, err := st.Prepare(`
+SELECT s.value AS &importedUnitSequence.value
+FROM sequence AS s
+WHERE s.namespace = $importedUnitSequence.namespace
+`, arg)
+	if err != nil {
+		return 0, false, errors.Capture(err)
+	}
+	var found bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		found = false
+		arg.Value = 0
+		if err := tx.Query(ctx, stmt, arg).Get(&arg); errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		found = true
+		return nil
+	})
+	return arg.Value, found, errors.Capture(err)
+}
+
+// EnsureApplicationUnitSequenceAtLeast preserves the highest ordinal seen in
+// imported scale state, unit identities, or pod identities.
+func (st *State) EnsureApplicationUnitSequenceAtLeast(ctx context.Context, appName string, ordinal uint64) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	namespace := domainsequence.MakePrefixNamespace(application.ApplicationSequenceNamespace, appName)
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return sequencestate.EnsureAtLeast(ctx, st, tx, namespace, ordinal)
 	})
 }
 
