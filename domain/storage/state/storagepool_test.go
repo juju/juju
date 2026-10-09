@@ -231,6 +231,21 @@ func (s *storagePoolStateSuite) TestReplaceStoragePoolNotFound(c *tc.C) {
 	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
+func (s *storagePoolStateSuite) TestReplaceStoragePoolProviderUnused(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "unused", "ebs", domainstorage.Attrs{"type": "fast"})
+	replacement := domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "unused",
+		Provider: "lxd",
+		Attrs:    domainstorage.Attrs{"pool": "default"},
+	}
+	st := NewState(s.TxnRunnerFactory())
+	c.Assert(st.ReplaceStoragePool(c.Context(), replacement), tc.ErrorIsNil)
+	pool, err := st.GetStoragePool(c.Context(), poolUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pool, tc.DeepEquals, replacement)
+}
+
 // TestSetModelStoragePoolsEmptyArgs tests that supplying no arguments results
 // in a no-op with no error.
 func (s *storagePoolStateSuite) TestSetModelStoragePoolsEmptyArgs(c *tc.C) {
@@ -581,14 +596,64 @@ func (s *storagePoolStateSuite) TestDeleteStoragePoolModelDefault(c *tc.C) {
 	_, err := s.DB().ExecContext(c.Context(),
 		"INSERT INTO model_storage_pool (storage_kind_id, storage_pool_uuid) VALUES (0, ?)", poolUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
-	s.assertPoolDeletionInUse(c, poolUUID)
+	s.assertPoolInUse(c, poolUUID)
+}
+
+func (s *storagePoolStateSuite) TestStoragePoolInUseModelConfigBlock(c *tc.C) {
+	s.assertStoragePoolModelConfigInUse(c, "storage-default-block-source")
+}
+
+func (s *storagePoolStateSuite) TestStoragePoolInUseModelConfigFilesystem(c *tc.C) {
+	s.assertStoragePoolModelConfigInUse(c, "storage-default-filesystem-source")
+}
+
+func (s *storagePoolStateSuite) assertStoragePoolModelConfigInUse(c *tc.C, key string) {
+	poolUUID := s.newStoragePool(c, "used", "ebs", domainstorage.Attrs{"type": "fast"})
+	_, err := s.DB().ExecContext(c.Context(),
+		"INSERT INTO model_config (key, value) VALUES (?, 'used')", key)
+	c.Assert(err, tc.ErrorIsNil)
+	s.assertPoolInUse(c, poolUUID)
+	var value string
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT value FROM model_config WHERE key = ?", key).Scan(&value)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(value, tc.Equals, "used")
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"DELETE FROM model_config WHERE key = ?", key)
+	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory())
+	c.Assert(st.ReplaceStoragePool(c.Context(), domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "used",
+		Provider: "lxd",
+	}), tc.ErrorIsNil)
+	c.Assert(st.DeleteStoragePool(c.Context(), "used"), tc.ErrorIsNil)
+}
+
+func (s *storagePoolStateSuite) TestStoragePoolUnusedUnrelatedModelConfig(c *tc.C) {
+	poolUUID := s.newStoragePool(c, "unused", "ebs", domainstorage.Attrs{"type": "fast"})
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO model_config (key, value)
+VALUES ('storage-default-block-source', 'other'),
+       ('storage-default-filesystem-source', 'other'),
+       ('unrelated', 'unused')
+`)
+	c.Assert(err, tc.ErrorIsNil)
+	st := NewState(s.TxnRunnerFactory())
+	c.Assert(st.ReplaceStoragePool(c.Context(), domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "unused",
+		Provider: "lxd",
+	}), tc.ErrorIsNil)
+	c.Assert(st.DeleteStoragePool(c.Context(), "unused"), tc.ErrorIsNil)
 }
 
 func (s *storagePoolStateSuite) TestDeleteStoragePoolStorageInstance(c *tc.C) {
 	poolUUID := s.newStoragePool(c, "used", "ebs", map[string]string{"type": "fast"})
 	charmUUID := s.newCharm(c)
 	s.newBlockStorageInstanceForCharmWithPool(c, charmUUID, poolUUID, "data")
-	s.assertPoolDeletionInUse(c, poolUUID)
+	s.assertPoolInUse(c, poolUUID)
 }
 
 func (s *storagePoolStateSuite) TestDeleteStoragePoolApplicationDirective(c *tc.C) {
@@ -622,12 +687,12 @@ VALUES (?, ?, 'data', ?, 100, 1)
 `, appUUID.String(), charmUUID.String(), poolUUID.String())
 	}
 	c.Assert(err, tc.ErrorIsNil)
-	s.assertPoolDeletionInUse(c, poolUUID)
+	s.assertPoolInUse(c, poolUUID)
 }
 
 func (s *storagePoolStateSuite) TestDeleteStoragePoolOperatorStorage(c *tc.C) {
 	poolUUID := s.setupOperatorStoragePool(c, "caas", true)
-	s.assertPoolDeletionInUse(c, poolUUID)
+	s.assertPoolInUse(c, poolUUID)
 }
 
 func (s *storagePoolStateSuite) TestDeleteStoragePoolOperatorStorageNoApplications(c *tc.C) {
@@ -660,13 +725,29 @@ VALUES (?, ?, 'test', 'test', ?, 'test', 'test')
 	return poolUUID
 }
 
-func (s *storagePoolStateSuite) assertPoolDeletionInUse(c *tc.C, poolUUID domainstorage.StoragePoolUUID) {
+func (s *storagePoolStateSuite) assertPoolInUse(c *tc.C, poolUUID domainstorage.StoragePoolUUID) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.DeleteStoragePool(c.Context(), "used")
-	c.Assert(err, tc.ErrorIs, domainstorageerrors.StoragePoolInUse)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolInUse)
+	replacement := domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "used",
+		Provider: "lxd",
+		Attrs:    domainstorage.Attrs{"pool": "default"},
+	}
+	err = st.ReplaceStoragePool(c.Context(), replacement)
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolInUse)
 	pool, err := st.GetStoragePool(c.Context(), poolUUID)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pool.Provider, tc.Equals, "ebs")
 	c.Check(pool.Attrs, tc.DeepEquals, domainstorage.Attrs{"type": "fast"})
+
+	replacement.Provider = "ebs"
+	replacement.Attrs = domainstorage.Attrs{"type": "slow"}
+	c.Assert(st.ReplaceStoragePool(c.Context(), replacement), tc.ErrorIsNil)
+	pool, err = st.GetStoragePool(c.Context(), poolUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pool, tc.DeepEquals, replacement)
 }
 
 //func (s *storagePoolStateSuite) TestListStoragePools(c *tc.C) {

@@ -42,6 +42,8 @@ type StoragePoolState interface {
 	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
 	// The following errors can be expected:
 	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	// - [domainstorageerrors.StoragePoolInUse] if changing a referenced pool's
+	// provider.
 	ReplaceStoragePool(ctx context.Context, pool domainstorage.StoragePool) error
 
 	// ListStoragePools returns the storage pools including default storage pools.
@@ -345,6 +347,8 @@ func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string)
 // The following errors can be expected:
 // - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
 // - [domainstorageerrors.StoragePoolNameInvalid] if the pool name is not valid.
+// - [domainstorageerrors.StoragePoolInUse] if changing a referenced pool's
+// provider.
 func (s *StoragePoolService) ReplaceStoragePool(
 	ctx context.Context,
 	name string,

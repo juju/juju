@@ -55,6 +55,7 @@ func (s *poolUpdateSuite) TestUpdatePoolErrors(c *tc.C) {
 		code string
 	}{
 		{domainstorageerrors.StoragePoolNotFound, params.CodeNotFound},
+		{domainstorageerrors.StoragePoolInUse, params.CodeNotValid},
 		{domainstorageerrors.StoragePoolNameInvalid, params.CodeNotValid},
 		{domainstorageerrors.ProviderTypeInvalid, params.CodeNotValid},
 		{domainstorageerrors.ProviderTypeNotFound, params.CodeNotFound},

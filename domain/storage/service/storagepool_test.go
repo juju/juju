@@ -112,6 +112,52 @@ func (s *storagePoolServiceSuite) TestDeleteStoragePoolNotFound(c *tc.C) {
 	c.Check(svc.DeleteStoragePool(c.Context(), "missing"), tc.ErrorIs, domainstorageerrors.StoragePoolNotFound)
 }
 
+func (s *storagePoolServiceSuite) TestReplaceStoragePoolInUse(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	s.registry.Providers["lxd"] = s.storageProvider
+	s.storageProvider.EXPECT().ValidateConfig(gomock.Any()).Return(nil)
+	s.state.EXPECT().GetStoragePoolUUID(c.Context(), "used").Return(poolUUID, nil)
+	s.state.EXPECT().ReplaceStoragePool(c.Context(), domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "used",
+		Provider: "lxd",
+		Attrs:    domainstorage.Attrs{"pool": "default"},
+	}).Return(domainstorageerrors.StoragePoolInUse)
+	svc := StoragePoolService{
+		st:             s.state,
+		registryGetter: registryGetter{s.registry},
+	}
+	err := svc.ReplaceStoragePool(c.Context(), "used", "lxd", map[string]any{"pool": "default"})
+	c.Check(err, tc.ErrorIs, domainstorageerrors.StoragePoolInUse)
+	c.Check(err, tc.ErrorMatches, `replacing storage pool "used": storage pool is in use`)
+}
+
+func (s *storagePoolServiceSuite) TestReplaceStoragePoolRetainsProvider(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	s.registry.Providers["ebs"] = s.storageProvider
+	s.storageProvider.EXPECT().ValidateConfig(gomock.Any()).Return(nil)
+	s.state.EXPECT().GetStoragePoolUUID(c.Context(), "used").Return(poolUUID, nil)
+	s.state.EXPECT().GetStoragePool(c.Context(), poolUUID).Return(domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "used",
+		Provider: "ebs",
+	}, nil)
+	s.state.EXPECT().ReplaceStoragePool(c.Context(), domainstorage.StoragePool{
+		UUID:     poolUUID.String(),
+		Name:     "used",
+		Provider: "ebs",
+		Attrs:    domainstorage.Attrs{"type": "fast"},
+	}).Return(nil)
+	svc := StoragePoolService{
+		st:             s.state,
+		registryGetter: registryGetter{s.registry},
+	}
+	err := svc.ReplaceStoragePool(c.Context(), "used", "", map[string]any{"type": "fast"})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestCreateStoragePool is a happy bath test for
 // [StoragePoolService.CreateStoragePool].
 func (s *storagePoolServiceSuite) TestCreateStoragePool(c *tc.C) {

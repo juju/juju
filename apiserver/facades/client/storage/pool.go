@@ -49,6 +49,8 @@ type StoragePoolService interface {
 	// provider when none is supplied. It returns
 	// [domainstorageerrors.StoragePoolNotFound] if the pool does not exist or
 	// [domainstorageerrors.StoragePoolNameInvalid] if its name is invalid.
+	// Changing the provider of a referenced pool returns
+	// [domainstorageerrors.StoragePoolInUse].
 	ReplaceStoragePool(context.Context, string, internalstorage.ProviderType, map[string]any) error
 }
 
