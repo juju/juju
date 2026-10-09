@@ -18,7 +18,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
-	corestatus "github.com/juju/juju/core/status"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -34,6 +33,8 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/port"
+	domainsequence "github.com/juju/juju/domain/sequence"
+	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -92,9 +93,8 @@ WHERE uuid = $unitUUID.uuid
 	return domainlife.Life(lifeAndNetNode.LifeID), lifeAndNetNode.NetNodeID, nil
 }
 
-// GetCAASUnitRegistered checks if a caas unit by the provided name is already
-// registered in the model. False is returned when no unit exists, otherwise
-// the units existing uuid and netnode uuid is returned.
+// GetCAASUnitRegistered checks whether a CAAS unit identity exists. A reserved
+// unit need not have registered its pod yet.
 func (st *State) GetCAASUnitRegistered(
 	ctx context.Context,
 	uName coreunit.Name,
@@ -514,7 +514,9 @@ func (st *State) AddIAASUnits(
 }
 
 // AddCAASUnits adds the specified units to the application.
-//   - If any of the units already exists [applicationerrors.UnitAlreadyExists] is returned.
+//   - An existing Alive reserved unit is retained, with missing storage
+//     completed before its pod starts. A leaving reserved unit returns
+//     [applicationerrors.UnitAlreadyExists].
 //   - If the application is not alive, [applicationerrors.ApplicationNotAlive] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound] is returned.
 func (st *State) AddCAASUnits(
@@ -540,13 +542,51 @@ func (st *State) AddCAASUnits(
 			return errors.Errorf("getting application %q charm uuid: %w", appUUID, err)
 		}
 
+		appName, err := st.getApplicationName(ctx, tx, appUUID.String())
+		if err != nil {
+			return errors.Capture(err)
+		}
+		var highestReserved int = -1
 		for _, arg := range args {
-			unitName, err := st.insertCAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
+			if arg.ReservedName != "" {
+				if arg.ReservedName.Application() != appName {
+					return errors.Errorf("reserved unit %q belongs to another application", arg.ReservedName)
+				}
+				if arg.ReservedName.Number() > highestReserved {
+					highestReserved = arg.ReservedName.Number()
+				}
+				unitLife, err := st.getLifeForUnitName(ctx, tx, arg.ReservedName)
+				if err == nil {
+					if unitLife != domainlife.Alive {
+						return errors.Errorf("reserved unit %q is not alive: %w", arg.ReservedName, applicationerrors.UnitAlreadyExists)
+					}
+					if err := st.completeCAASUnitStorage(ctx, tx, charmUUID, arg); err != nil {
+						return errors.Errorf("completing reserved unit %q storage: %w", arg.ReservedName, err)
+					}
+					continue
+				} else if !errors.Is(err, applicationerrors.UnitNotFound) {
+					return errors.Capture(err)
+				}
+			}
+
+			var unitName string
+			if arg.ReservedName == "" {
+				unitName, err = st.insertCAASUnit(ctx, tx, appUUID.String(), charmUUID, arg)
+			} else {
+				unitName = arg.ReservedName.String()
+				_, err = st.insertCAASUnitWithName(ctx, tx, appUUID.String(), charmUUID, unitName, arg)
+			}
 			if err != nil {
 				return errors.Errorf("inserting unit %q: %w ", unitName, err)
 			}
 
 			txnUnitNames = append(txnUnitNames, coreunit.Name(unitName))
+		}
+		if highestReserved >= 0 {
+			namespace := domainsequence.MakePrefixNamespace(application.ApplicationSequenceNamespace, appName)
+			if err := sequencestate.EnsureAtLeast(ctx, st, tx, namespace, uint64(highestReserved)); err != nil {
+				return errors.Errorf("advancing unit sequence: %w", err)
+			}
 		}
 
 		unitNames = txnUnitNames
@@ -855,11 +895,11 @@ func makeK8sPodArg(k8sPod application.K8sPodParams) *application.K8sPod {
 	return result
 }
 
-// RegisterCAASUnit registers the specified CAAS application unit.
+// RegisterCAASUnit attaches a pod to the specified reserved CAAS unit.
 // The following errors can be expected:
 // - [applicationerrors.ApplicationNotAlive] when the application is not alive
-// - [applicationerrors.UnitAlreadyExists] when the unit exists
-// - [applicationerrors.UnitNotAssigned] when the unit was not assigned
+// - [applicationerrors.UnitAlreadyExists] when the unit is dead
+// - [applicationerrors.UnitNotAssigned] when the unit is absent or leaving
 func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg application.RegisterCAASUnitArg) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -879,27 +919,6 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	}
 	k8sPod := makeK8sPodArg(k8sPodParams)
 
-	now := new(st.clock.Now().UTC())
-	addUnitArg := application.AddCAASUnitArg{
-		AddUnitArg: application.AddUnitArg{
-			CreateUnitStorageArg: arg.CreateUnitStorageArg,
-			UnitUUID:             arg.UnitUUID,
-			NetNodeUUID:          arg.NetNodeUUID,
-			UnitStatusArg: application.UnitStatusArg{
-				AgentStatus: &status.StatusInfo[status.UnitAgentStatusType]{
-					Status: status.UnitAgentStatusAllocating,
-					Since:  now,
-				},
-				WorkloadStatus: &status.StatusInfo[status.WorkloadStatusType]{
-					Status:  status.WorkloadStatusWaiting,
-					Message: corestatus.MessageInstallingAgent,
-					Since:   now,
-				},
-			},
-		},
-		K8sPod: k8sPod,
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 		if err != nil {
@@ -909,44 +928,17 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		} else if appDetails.IsApplicationSynthetic {
 			return errors.Errorf("registering unit for synthetic application %q", appName)
 		}
-		appUUID := appDetails.UUID
-
 		unitLife, err := st.getLifeForUnitName(ctx, tx, arg.UnitName)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
-			appScale, err := st.getApplicationScaleState(ctx, tx, appUUID)
-			if err != nil {
-				return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
-			}
-
-			if appScale.Scaling {
-				// While scaling, we use the scaling target.
-				if arg.OrderedId < appScale.StartOrdinal || arg.OrderedId >= appScale.StartOrdinal+appScale.ScaleTarget {
-					return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
-				}
-			} else {
-				return errors.Errorf("unrequired unit %s is not assigned", arg.UnitName).Add(applicationerrors.UnitNotAssigned)
-			}
-
-			uuid, err := st.insertCAASUnitWithName(
-				ctx, tx, appUUID, appDetails.CharmUUID, arg.UnitName.String(), addUnitArg,
-			)
-			if err != nil {
-				return errors.Errorf("inserting new caas application %s: %w", arg.UnitName, err)
-			}
-
-			err = st.setUnitPassword(ctx, tx, uuid, application.PasswordInfo{
-				PasswordHash:  arg.PasswordHash,
-				HashAlgorithm: application.HashAlgorithmSHA256,
-			})
-			if err != nil {
-				return errors.Errorf("setting password for unit %q: %w", arg.UnitName, err)
-			}
-
+			return errors.Errorf("unit %q was not reserved: %w", arg.UnitName, applicationerrors.UnitNotAssigned)
 		} else if err != nil {
 			return errors.Errorf("checking unit life %q: %w", arg.UnitName, err)
 		}
 		if unitLife == domainlife.Dead {
-			return errors.Errorf("dead unit %q already exists", arg.UnitName).Add(applicationerrors.UnitAlreadyExists)
+			return errors.Errorf("dead unit %q already exists: %w", arg.UnitName, applicationerrors.UnitAlreadyExists)
+		}
+		if unitLife != domainlife.Alive {
+			return errors.Errorf("unit %q is leaving: %w", arg.UnitName, applicationerrors.UnitNotAssigned)
 		}
 
 		// Unit already exists and is not dead. Update the k8s pod.
@@ -1067,14 +1059,25 @@ func (st *State) insertCAASUnitWithName(
 	if err != nil {
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
 	}
+	if err := st.insertCAASUnitStorage(ctx, tx, charmUUID, unitName, args); err != nil {
+		return "", errors.Capture(err)
+	}
+	return unitUUID, nil
+}
+
+func (st *State) insertCAASUnitStorage(
+	ctx context.Context, tx *sqlair.TX, charmUUID, unitName string,
+	args application.AddCAASUnitArg,
+) error {
+	unitUUID := args.UnitUUID.String()
 
 	// This checks that any existing Storage Instances being used as part of
 	// creating this new unit exist and are alive.
-	err = st.checkStorageInstancesExistAndAlive(
+	err := st.checkStorageInstancesExistAndAlive(
 		ctx, tx, args.AddUnitArg.CreateUnitStorageArg.ExistingStorageInstanceUUIDsToCheck,
 	)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"checking existing Storage Instances exist and are alive: %w", err,
 		)
 	}
@@ -1088,7 +1091,7 @@ func (st *State) insertCAASUnitWithName(
 		args.AddUnitArg.CreateUnitStorageArg.StorageInstanceAttachmentCheckArgs,
 	)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"checking pre condition for existing storage instance attachments: %w",
 			err,
 		)
@@ -1098,7 +1101,7 @@ func (st *State) insertCAASUnitWithName(
 		ctx, tx, unitUUID, charmUUID, args.StorageDirectives,
 	)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"inserting storage directives for unit %q: %w", unitName, err,
 		)
 	}
@@ -1107,7 +1110,7 @@ func (st *State) insertCAASUnitWithName(
 		ctx, tx, args.StorageInstances,
 	)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"inserting storage instances for unit %q: %w", unitName, err,
 		)
 	}
@@ -1119,14 +1122,14 @@ func (st *State) insertCAASUnitWithName(
 		args.StorageToAttach,
 	)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"inserting storage attachments for unit %q: %w", unitName, err,
 		)
 	}
 
 	err = st.insertUnitStorageOwnership(ctx, tx, unitUUID, args.StorageToOwn)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"inserting storage ownership for unit %q: %w", unitName, err,
 		)
 	}
@@ -1137,13 +1140,67 @@ func (st *State) insertCAASUnitWithName(
 		ctx, tx, args.StorageInstanceCharmNameSetArgs,
 	)
 	if err != nil {
-		return "", errors.Errorf(
+		return errors.Errorf(
 			"updating storage instance charm name for new unit %q: %w",
 			unitName, err,
 		)
 	}
 
-	return unitUUID, nil
+	return nil
+}
+
+// completeCAASUnitStorage fills in storage for a pending unit materialised by
+// migration. A retry must keep the unit and any imported storage unchanged.
+func (st *State) completeCAASUnitStorage(
+	ctx context.Context, tx *sqlair.TX, charmUUID string,
+	args application.AddCAASUnitArg,
+) error {
+	if args.UnitUUID == "" || args.NetNodeUUID == "" {
+		return nil
+	}
+	unit, err := st.getUnitDetails(ctx, tx, args.ReservedName.String())
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if unit.UnitUUID != args.UnitUUID.String() || unit.NetNodeID != args.NetNodeUUID.String() {
+		// A concurrent reservation has won. Its identity and storage are not
+		// replaceable by the arguments prepared for a different unit.
+		return nil
+	}
+
+	input := unitUUID{UnitUUID: unit.UnitUUID}
+	var existing countResult
+	stmt, err := st.Prepare(`
+WITH existing_storage AS (
+    SELECT usd.unit_uuid AS unit_uuid
+    FROM unit_storage_directive AS usd
+    WHERE usd.unit_uuid = $unitUUID.uuid
+    UNION ALL
+    SELECT suo.unit_uuid AS unit_uuid
+    FROM storage_unit_owner AS suo
+    WHERE suo.unit_uuid = $unitUUID.uuid
+    UNION ALL
+    SELECT sa.unit_uuid AS unit_uuid
+    FROM storage_attachment AS sa
+    WHERE sa.unit_uuid = $unitUUID.uuid
+    UNION ALL
+    SELECT kp.unit_uuid AS unit_uuid
+    FROM k8s_pod AS kp
+    WHERE kp.unit_uuid = $unitUUID.uuid
+)
+SELECT COUNT(*) AS &countResult.count
+FROM existing_storage AS es
+`, input, existing)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, stmt, input).Get(&existing); err != nil {
+		return errors.Capture(err)
+	}
+	if existing.Count != 0 {
+		return nil
+	}
+	return st.insertCAASUnitStorage(ctx, tx, charmUUID, args.ReservedName.String(), args)
 }
 
 // UpdateCAASUnit updates the k8s pod for specified unit,
