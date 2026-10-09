@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ const (
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupApplication                   cleanupKind = "application"
+	cleanupRemoteApplication             cleanupKind = "remoteApplication"
 	cleanupForceApplication              cleanupKind = "forceApplication"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
@@ -231,6 +233,8 @@ func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) 
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(doc.Prefix, args, secretContentDeleter)
+		case cleanupRemoteApplication:
+			err = st.cleanupRemoteApplication(doc.Prefix, args)
 		case cleanupForceApplication:
 			err = st.cleanupForceApplication(doc.Prefix, args, secretContentDeleter)
 		case cleanupUnitsForDyingApplication:
@@ -708,6 +712,48 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	return err
 }
 
+// cleanupRemoteApplication checks if all references to a dying remote
+// application or consumer proxy have been removed, and if so, removes it.
+func (st *State) cleanupRemoteApplication(name string, cleanupArgs []bson.Raw) (err error) {
+	app, err := st.RemoteApplication(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Nothing to do, the remote application is already gone.
+			logger.Tracef("cleanupRemoteApplication(%s): remote application already gone", name)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if app.Life() == Alive && !app.IsConsumerProxy() {
+		return errors.BadRequestf("cleanupRemoteApplication requested for a remote application (%s) that is still alive", name)
+	}
+	// Count the relations that reference the remote application rather
+	// than trusting its relationcount, which may be stale.
+	refCount, err := countRelationsForApplication(st, name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if refCount > 0 {
+		// this is considered a no-op because whatever is currently referencing the remote application
+		// should queue up a new cleanup once it stops
+		logger.Tracef("cleanupRemoteApplication(%s) called, but it still has %d relations", name, refCount)
+		return nil
+	}
+	force := false
+	if n := len(cleanupArgs); n != 1 {
+		return errors.Errorf("expected 1 argument, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	}
+	op := app.DestroyOperation(force)
+	err = st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors cleaning up remote application %v: %v", name, op.Errors)
+	}
+	return err
+}
+
 // cleanupForceApplication forcibly removes the application.
 func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) (err error) {
 	logger.Debugf("force destroy application: %v", applicationName)
@@ -759,10 +805,15 @@ func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw, secret
 	if err := st.removeOffersForDyingModel(); err != nil {
 		return err
 	}
-	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
+	force := args.Force != nil && *args.Force
+	err = st.removeRemoteApplicationsForDyingModel(args)
+	if err != nil && !force {
 		return err
 	}
-	return st.removeApplicationsForDyingModel(args, secretContentDeleter)
+	if appErr := st.removeApplicationsForDyingModel(args, secretContentDeleter); appErr != nil {
+		return appErr
+	}
+	return err
 }
 
 func (st *State) removeApplicationsForDyingModel(args DestroyModelParams, secretContentDeleter SecretContentDeleter) (err error) {
@@ -815,18 +866,38 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	defer closer()
 	remoteApp := RemoteApplication{st: st}
 	sel := bson.D{{"life", Alive}}
+	force := args.Force != nil && *args.Force
+	if force {
+		sel = nil
+	}
 	iter := remoteApps.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading remote application document")
 
-	force := args.Force != nil && *args.Force
+	var firstErr error
+	var failed []string
 	for iter.Next(&remoteApp.doc) {
-		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
+		errs, destroyErr := remoteApp.DestroyWithForce(force, args.MaxWait)
 		if len(errs) != 0 {
 			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
 		}
-		if err != nil {
-			return errors.Trace(err)
+		if destroyErr != nil {
+			if !force {
+				return errors.Trace(destroyErr)
+			}
+			logger.Warningf("error removing remote application %v for dying model %v: %v",
+				remoteApp.Name(), st.ModelUUID(), destroyErr)
+			if firstErr == nil {
+				firstErr = destroyErr
+			}
+			failed = append(failed, remoteApp.Name())
 		}
+	}
+	if firstErr != nil {
+		// Each failure is logged above, so name the remote applications
+		// that were left and report the first failure.
+		sort.Strings(failed)
+		return errors.Annotatef(firstErr, "cannot remove remote application%s %s",
+			plural(len(failed)), strings.Join(failed, ", "))
 	}
 	return nil
 }
