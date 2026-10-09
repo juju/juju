@@ -41,7 +41,7 @@ import (
 // finalDestinationUser is the user used on the terminating target.
 const finalDestinationUser = "ubuntu"
 
-const openSSHTemplate = `ssh -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
+const openSSHTemplate = `ssh{{if .PTYOptions}} {{.PTYOptions}}{{end}} -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
 `
 
 const openSCPTemplate = `scp -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
@@ -431,7 +431,7 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 		args = []string{"exec", "bash", "--login"}
 	}
 	if p.showCommand {
-		return p.showSSHCommand(ctx.GetStdout(), target, args)
+		return p.showSSHCommand(ctx.GetStdout(), enablePty, target, args)
 	}
 	cmd := ssh.Command(target.userHost(), args, options)
 	cmd.Stdin = ctx.GetStdin()
@@ -463,8 +463,15 @@ func (p *sshJump) copy(ctx Context) error {
 	return ssh.Copy(args, options)
 }
 
-func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []string) error {
+func (p *sshJump) showSSHCommand(w io.Writer, enablePty bool, target *resolvedTarget, args []string) error {
+	ptyOptions := ""
+	// OpenSSH won't allocate a pty unless specified when a command is executed.
+	// We need a pty for interactive commands like shells, top, etc.
+	if enablePty {
+		ptyOptions = "-t"
+	}
 	return p.sshOutputTemplate.Execute(w, map[string]string{
+		"PTYOptions":      ptyOptions,
 		"JumpPort":        strconv.Itoa(p.jumpHostPort),
 		"JumpKey":         quotedJumpKey(p.jumpKey),
 		"JumpUser":        target.via.user,

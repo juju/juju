@@ -255,6 +255,49 @@ func (s *sshJumpSuite) TestSSHShowsJumpCommand(c *tc.C) {
 	c.Check(buffer.String(), tc.Equals, "ssh -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" ubuntu@resolved-target echo \"hello world\"\n")
 }
 
+func (s *sshJumpSuite) TestSSHShowsShellAndPTY(c *tc.C) {
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via:  &resolvedTarget{user: "fred", host: "1.0.0.1"},
+	}
+	outputTemplate, err := template.New("output").Parse(openSSHTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, modelType := range []model.ModelType{model.IAAS, model.CAAS} {
+		for _, enablePTY := range []bool{false, true} {
+			for _, args := range [][]string{nil, {"echo", "hello world"}, {"-t"}} {
+				jump := sshJump{
+					modelType:         modelType,
+					args:              args,
+					jumpHostPort:      17022,
+					showCommand:       true,
+					sshOutputTemplate: outputTemplate,
+				}
+				ctx := cmdtesting.Context(c)
+				c.Assert(jump.ssh(ctx, enablePTY, target), tc.ErrorIsNil)
+
+				expected := "ssh"
+				if enablePTY {
+					expected += " -t"
+				}
+				expected += ` -o "ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1" ubuntu@resolved-target`
+				switch len(args) {
+				case 0:
+					if modelType == model.CAAS {
+						expected += " exec bash --login"
+					}
+				case 1:
+					expected += " -t"
+				case 2:
+					expected += ` echo "hello world"`
+				}
+				c.Check(cmdtesting.Stdout(ctx), tc.Equals, expected+"\n")
+			}
+		}
+	}
+}
+
 func (s *sshJumpSuite) TestSSHShowsJumpKey(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
