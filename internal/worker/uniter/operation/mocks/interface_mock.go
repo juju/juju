@@ -190,7 +190,7 @@ type MockFactoryMockRecorder struct {
 	newAcceptLeadershipExpects   []*gomock.Call0_2[operation.Operation, error]
 	newActionExpects             []*gomock.Call2_2[context.Context, string, operation.Operation, error]
 	newCommandsExpects           []*gomock.Call2_2[operation.CommandArgs, operation.CommandResponseFunc, operation.Operation, error]
-	newFailActionExpects         []*gomock.Call1_2[string, operation.Operation, error]
+	newFailActionExpects         []*gomock.Call2_2[context.Context, string, operation.Operation, error]
 	newInstallExpects            []*gomock.Call1_2[string, operation.Operation, error]
 	newNoOpSecretsRemovedExpects []*gomock.Call2_2[map[string][]int, map[string][]int, operation.Operation, error]
 	newResignLeadershipExpects   []*gomock.Call0_2[operation.Operation, error]
@@ -268,22 +268,22 @@ func (mr *MockFactoryMockRecorder) NewCommands(args, sendResponse any) *MockFact
 type MockFactoryNewCommandsCall = gomock.Call2_2[operation.CommandArgs, operation.CommandResponseFunc, operation.Operation, error]
 
 // NewFailAction mocks base method.
-func (m *MockFactory) NewFailAction(actionId string) (operation.Operation, error) {
+func (m *MockFactory) NewFailAction(ctx context.Context, actionId string) (operation.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.newFailActionExpects, m.ctrl, m, "NewFailAction", actionId)
+	return gomock.Dispatch2_2(&m.recorder.newFailActionExpects, m.ctrl, m, "NewFailAction", ctx, actionId)
 }
 
 // NewFailAction indicates an expected call of NewFailAction.
-func (mr *MockFactoryMockRecorder) NewFailAction(actionId any) *MockFactoryNewFailActionCall {
+func (mr *MockFactoryMockRecorder) NewFailAction(ctx, actionId any) *MockFactoryNewFailActionCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, operation.Operation, error](mr.mock.ctrl.T, mr.mock, "NewFailAction", gomock.EnsureMatcher(actionId))
+	call := gomock.NewCall2_2[context.Context, string, operation.Operation, error](mr.mock.ctrl.T, mr.mock, "NewFailAction", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(actionId))
 	mr.newFailActionExpects = append(mr.newFailActionExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockFactoryNewFailActionCall is the typed call wrapper for NewFailAction.
-type MockFactoryNewFailActionCall = gomock.Call1_2[string, operation.Operation, error]
+type MockFactoryNewFailActionCall = gomock.Call2_2[context.Context, string, operation.Operation, error]
 
 // NewInstall mocks base method.
 func (m *MockFactory) NewInstall(charmURL string) (operation.Operation, error) {

@@ -478,3 +478,54 @@ func newModel() description.Model {
 
 	return m
 }
+
+// TestRewriteUnitSettings checks the re-keying contract: only unit names whose
+// application segment matches the renamed alias are re-keyed. Unit names
+// belonging to a different application pass through unchanged, so a prefix
+// match cannot rename another application's units, and keys that are not
+// valid unit names are an error.
+func (s *relationSuite) TestRewriteUnitSettings(c *tc.C) {
+	settings, err := RewriteUnitSettings(map[string]map[string]any{
+		"second/0": {"token": "keep-me"},
+		"second/1": {"token": "and-me"},
+	}, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]map[string]any{
+		"first/0": {"token": "keep-me"},
+		"first/1": {"token": "and-me"},
+	})
+
+	settings, err = RewriteUnitSettings(map[string]map[string]any{
+		"secondaire/0": {"token": "other-app"},
+	}, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]map[string]any{
+		"secondaire/0": {"token": "other-app"},
+	})
+
+	// A key that is not a valid unit name is an error, rather than being
+	// passed through.
+	_, err = RewriteUnitSettings(map[string]map[string]any{
+		"second": {"token": "no-unit-number"},
+	}, "second", "first")
+	c.Assert(err, tc.ErrorMatches, `parsing unit name "second": invalid unit name: "second"`)
+
+	settings, err = RewriteUnitSettings(nil, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings, tc.DeepEquals, map[string]map[string]any{})
+}
+
+func (s *relationSuite) TestRewriteUnitNames(c *tc.C) {
+	input := []string{"second/1", "secondaire/0", "second/0"}
+	names, err := RewriteUnitNames(input, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{"first/1", "secondaire/0", "first/0"})
+	c.Check(input, tc.DeepEquals, []string{"second/1", "secondaire/0", "second/0"})
+
+	_, err = RewriteUnitNames([]string{"second/0", "second"}, "second", "first")
+	c.Assert(err, tc.ErrorMatches, `parsing unit name "second": invalid unit name: "second"`)
+
+	names, err = RewriteUnitNames(nil, "second", "first")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{})
+}

@@ -113,8 +113,9 @@ func modelPass() generatorPass {
 		ddl:      schema.ModelDDLForVersion(version.Current),
 		versions: export.ExportVersions,
 		// sqlite_sequence is SQLite's own AUTOINCREMENT bookkeeping, not model
-		// data.
-		excludedTables: []string{"sqlite_sequence"},
+		// data. log_transfer_progress holds controller-local transfer state for
+		// model migrations and must not travel with model data.
+		excludedTables: []string{"sqlite_sequence", "log_transfer_progress"},
 		types:          generatedFile{template: "types.tmpl", dir: "domain/export/types", name: "model.go"},
 		state:          generatedFile{template: "state.tmpl", dir: "domain/export/state/model", name: "export.go"},
 		stateTest:      generatedFile{template: "state_test.tmpl", dir: "domain/export/state/model", name: "export_test.go"},

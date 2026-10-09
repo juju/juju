@@ -2507,7 +2507,7 @@ func (st *State) GetResourceNameAndType(ctx context.Context, resourceUUID corere
 SELECT r.charm_resource_name AS &resourceNameAndKind.name,
        crk.name AS &resourceNameAndKind.kind
 FROM   resource AS r
-JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid
+JOIN   charm_resource AS cr ON r.charm_uuid = cr.charm_uuid AND r.charm_resource_name = cr.name
 JOIN   charm_resource_kind AS crk ON cr.kind_id = crk.id
 WHERE  r.uuid = $localUUID.uuid
 `, res, resourceNameAndKind{})

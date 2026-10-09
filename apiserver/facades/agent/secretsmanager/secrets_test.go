@@ -16,6 +16,7 @@ import (
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
@@ -319,6 +320,48 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAcce
 			Revision: 666,
 		}},
 	})
+}
+
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitInSameApplication(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	// The caller authenticates as mariadb/0 and asks about a peer unit in
+	// the same application. The same application guard must let this
+	// through so the consumer lookup runs for mariadb/1.
+	uri := coresecrets.NewURI()
+	s.secretsConsumer.EXPECT().GetSecretConsumerAndLatest(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/1")).Return(
+		&coresecrets.SecretConsumerMetadata{
+			CurrentRevision: 666,
+			Label:           "peer-label",
+		}, 666, nil)
+
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(c.Context(), params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "unit-mariadb/1",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results, tc.DeepEquals, params.SecretConsumerInfoResults{
+		Results: []params.SecretConsumerInfoResult{{
+			Label:    "peer-label",
+			Revision: 666,
+		}},
+	})
+}
+
+func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForOtherApplicationDenied(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	// The caller authenticates as mariadb/0, so naming a consumer in a
+	// different application must be refused before any consumer lookup
+	// runs. No GetSecretConsumerAndLatest expectation is registered, so
+	// the mock controller fails if the read is reached.
+	uri := coresecrets.NewURI()
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(c.Context(), params.GetSecretConsumerInfoArgs{
+		ConsumerTag: "unit-othersql/0",
+		URIs:        []string{uri.String()},
+	})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(results, tc.DeepEquals, params.SecretConsumerInfoResults{})
 }
 
 func (s *SecretsManagerSuite) TestGetSecretMetadata(c *tc.C) {
@@ -997,7 +1040,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 	})
 }
 
-//func (s *SecretsManagerSuite) TestGetConsumerRemoteSecretsRevisionInfo(c *tc.C) {
+// func (s *SecretsManagerSuite) TestGetConsumerRemoteSecretsRevisionInfo(c *tc.C) {
 //	defer s.setup(c).Finish()
 //
 //	uri := coresecrets.NewURI().WithSource("deadbeef-1bad-500d-9000-4b1d0d06f00d")
@@ -1018,7 +1061,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *tc.C) {
 //			Revision: 666,
 //		}},
 //	})
-//}
+// }
 
 func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *tc.C) {
 	ctrl := s.setup(c)

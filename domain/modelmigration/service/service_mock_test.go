@@ -11,6 +11,7 @@ package service
 
 import (
 	context "context"
+	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
 	cloud "github.com/juju/juju/cloud"
@@ -1100,6 +1101,7 @@ type MockModelStateMockRecorder struct {
 	getControllerUUIDExpects                     []*gomock.Call1_2[context.Context, string, error]
 	getCredentialValidationInfoExpects           []*gomock.Call1_2[context.Context, modelmigration0.CredentialValidationInfo, error]
 	getExternalSecretRevisionBackendsExpects     []*gomock.Call1_2[context.Context, map[string]string, error]
+	getLastLogTransferTimeExpects                []*gomock.Call1_2[context.Context, time.Time, error]
 	getMachineInstanceIDExpects                  []*gomock.Call2_2[context.Context, string, string, error]
 	getMachineInstanceIDsExpects                 []*gomock.Call1_2[context.Context, map[string]string, error]
 	getMigrationAgentsExpects                    []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
@@ -1112,6 +1114,7 @@ type MockModelStateMockRecorder struct {
 	getSecretBackendUUIDsInUseExpects            []*gomock.Call1_2[context.Context, []string, error]
 	getSubordinateUnitPrincipalsExpects          []*gomock.Call1_2[context.Context, map[string]string, error]
 	isModelImportingExpects                      []*gomock.Call1_2[context.Context, bool, error]
+	setLastLogTransferTimeExpects                []*gomock.Call2_1[context.Context, time.Time, error]
 	setModelTargetAgentVersionExpects            []*gomock.Call3_1[context.Context, string, string, error]
 }
 
@@ -1234,6 +1237,24 @@ func (mr *MockModelStateMockRecorder) GetExternalSecretRevisionBackends(ctx any)
 
 // MockModelStateGetExternalSecretRevisionBackendsCall is the typed call wrapper for GetExternalSecretRevisionBackends.
 type MockModelStateGetExternalSecretRevisionBackendsCall = gomock.Call1_2[context.Context, map[string]string, error]
+
+// GetLastLogTransferTime mocks base method.
+func (m *MockModelState) GetLastLogTransferTime(ctx context.Context) (time.Time, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getLastLogTransferTimeExpects, m.ctrl, m, "GetLastLogTransferTime", ctx)
+}
+
+// GetLastLogTransferTime indicates an expected call of GetLastLogTransferTime.
+func (mr *MockModelStateMockRecorder) GetLastLogTransferTime(ctx any) *MockModelStateGetLastLogTransferTimeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, time.Time, error](mr.mock.ctrl.T, mr.mock, "GetLastLogTransferTime", gomock.EnsureMatcher(ctx))
+	mr.getLastLogTransferTimeExpects = append(mr.getLastLogTransferTimeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetLastLogTransferTimeCall is the typed call wrapper for GetLastLogTransferTime.
+type MockModelStateGetLastLogTransferTimeCall = gomock.Call1_2[context.Context, time.Time, error]
 
 // GetMachineInstanceID mocks base method.
 func (m *MockModelState) GetMachineInstanceID(ctx context.Context, machineUUID string) (string, error) {
@@ -1450,6 +1471,24 @@ func (mr *MockModelStateMockRecorder) IsModelImporting(ctx any) *MockModelStateI
 
 // MockModelStateIsModelImportingCall is the typed call wrapper for IsModelImporting.
 type MockModelStateIsModelImportingCall = gomock.Call1_2[context.Context, bool, error]
+
+// SetLastLogTransferTime mocks base method.
+func (m *MockModelState) SetLastLogTransferTime(ctx context.Context, lastTime time.Time) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.setLastLogTransferTimeExpects, m.ctrl, m, "SetLastLogTransferTime", ctx, lastTime)
+}
+
+// SetLastLogTransferTime indicates an expected call of SetLastLogTransferTime.
+func (mr *MockModelStateMockRecorder) SetLastLogTransferTime(ctx, lastTime any) *MockModelStateSetLastLogTransferTimeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, time.Time, error](mr.mock.ctrl.T, mr.mock, "SetLastLogTransferTime", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(lastTime))
+	mr.setLastLogTransferTimeExpects = append(mr.setLastLogTransferTimeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateSetLastLogTransferTimeCall is the typed call wrapper for SetLastLogTransferTime.
+type MockModelStateSetLastLogTransferTimeCall = gomock.Call2_1[context.Context, time.Time, error]
 
 // SetModelTargetAgentVersion mocks base method.
 func (m *MockModelState) SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error {

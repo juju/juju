@@ -38,6 +38,7 @@ test_migration() {
 		test_migration_36_cmr_spaces
 		test_migration_36_abort
 		test_migration_36_users_permissions
+		test_migration_36_relation_egress_override
 
 		# Same-version migrations between controllers built from this branch.
 		test_migration_basic

@@ -1362,35 +1362,72 @@ func (s *permissionStateSuite) TestImportOfferAccess(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	s.checkPermissionRowSimplified(c, "123", "bob", offerUUID.String(), corepermission.ConsumeAccess)
-	s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID.String(), corepermission.ReadAccess)
 	s.checkPermissionRowSimplified(c, "456", "sue", offerUUID2.String(), corepermission.AdminAccess)
-	s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID2.String(), corepermission.ReadAccess)
+	s.checkRowCount(c, "v_permission_offer", 2)
+
+	for _, id := range []uuid.UUID{offerUUID, offerUUID2} {
+		_, err := st.ReadUserAccessLevelForTarget(c.Context(),
+			usertesting.GenNewName(c, "outsider@external"),
+			corepermission.ID{ObjectType: corepermission.Offer, Key: id.String()})
+		c.Check(err, tc.ErrorIs, accesserrors.AccessNotFound)
+	}
 }
 
-// TestImportOfferAccessEveryOneOnce tests that if Everyone is included in the
-// import data, we do not attempt to added it again.
-func (s *permissionStateSuite) TestImportOfferAccessEveryOneOnce(c *tc.C) {
+func (s *permissionStateSuite) TestImportOfferAccessEmptyACL(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	// Arrange
-	offerUUID := uuid.MustNewUUID()
-	input := []access.OfferImportAccess{
-		{
+	for _, acl := range []map[string]corepermission.Access{nil, {}} {
+		offerUUID := tc.Must(c, uuid.NewUUID)
+		err := st.ImportOfferAccess(c.Context(), []access.OfferImportAccess{{
+			UUID: offerUUID, Access: acl,
+		}})
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, err = st.ReadUserAccessLevelForTarget(c.Context(),
+			usertesting.GenNewName(c, "outsider@external"),
+			corepermission.ID{ObjectType: corepermission.Offer, Key: offerUUID.String()})
+		c.Check(err, tc.ErrorIs, accesserrors.AccessNotFound)
+	}
+	s.checkRowCount(c, "v_permission_offer", 0)
+}
+
+func (s *permissionStateSuite) TestImportOfferAccessEveryone(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	for _, everyoneAccess := range []corepermission.Access{
+		corepermission.ReadAccess, corepermission.ConsumeAccess,
+	} {
+		offerUUID := tc.Must(c, uuid.NewUUID)
+		err := st.ImportOfferAccess(c.Context(), []access.OfferImportAccess{{
 			UUID: offerUUID,
 			Access: map[string]corepermission.Access{
-				"bob":                                  corepermission.ConsumeAccess,
-				corepermission.EveryoneUserName.Name(): corepermission.ReadAccess,
+				"bob":                                  corepermission.AdminAccess,
+				corepermission.EveryoneUserName.Name(): everyoneAccess,
 			},
-		},
+		}})
+		c.Assert(err, tc.ErrorIsNil)
+		s.checkPermissionRowSimplified(c, "123", "bob", offerUUID.String(), corepermission.AdminAccess)
+		s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID.String(), everyoneAccess)
+
+		obtained, err := st.ReadUserAccessLevelForTarget(c.Context(),
+			usertesting.GenNewName(c, "outsider@external"),
+			corepermission.ID{ObjectType: corepermission.Offer, Key: offerUUID.String()})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(obtained, tc.Equals, everyoneAccess)
 	}
+}
 
-	// Act
-	err := st.ImportOfferAccess(c.Context(), input)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	s.checkPermissionRowSimplified(c, "123", "bob", offerUUID.String(), corepermission.ConsumeAccess)
-	s.checkPermissionRowSimplified(c, "567", corepermission.EveryoneUserName.Name(), offerUUID.String(), corepermission.ReadAccess)
+func (s *permissionStateSuite) TestImportOfferAccessUnknownUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := st.ImportOfferAccess(c.Context(), []access.OfferImportAccess{{
+		UUID: tc.Must(c, uuid.NewUUID),
+		Access: map[string]corepermission.Access{
+			"bob":     corepermission.AdminAccess,
+			"missing": corepermission.ReadAccess,
+		},
+	}})
+	c.Check(err, tc.ErrorIs, accesserrors.UserNotFound)
+	s.checkRowCount(c, "v_permission_offer", 0)
 }
 
 func (s *permissionStateSuite) TestDeletePermissionsByGrantOnUUID(c *tc.C) {
