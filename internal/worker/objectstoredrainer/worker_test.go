@@ -66,7 +66,6 @@ func (s *workerSuite) TestObjectStoreDrainingNotDraining(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timeout waiting for worker to start")
 	}
-
 	workertest.CleanKill(c, w)
 }
 
@@ -563,10 +562,10 @@ func (s *workerSuite) TestRecoverFromCrashDuringSetDrainingPhaseCompleted(c *tc.
 	workertest.CleanKill(c, w2)
 }
 
-func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
+func (s *workerSuite) TestDrainingPhaseErrorKeepsGuardLockedUntilCompletion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	draining := make(chan struct{}, 1)
+	draining := make(chan struct{})
 	phases := make(chan objectstore.Phase, 2)
 	done := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
@@ -588,7 +587,7 @@ func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	// Trigger draining watcher.
+	// On startup after a restart, an error phase must leave the guard locked.
 	phases <- objectstore.PhaseError
 	select {
 	case draining <- struct{}{}:
@@ -596,8 +595,8 @@ func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
 		c.Fatalf("timeout waiting for draining event")
 	}
 
-	// Give the worker time to process. If it didn't crash, it's still alive.
-	// Send another event with PhaseCompleted to verify it kept looping.
+	// Sending the next notification blocks until the worker has processed the
+	// error and returned to watching for changes.
 	phases <- objectstore.PhaseCompleted
 	select {
 	case draining <- struct{}{}:

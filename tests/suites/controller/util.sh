@@ -69,12 +69,15 @@ remove_access_to_api_port() {
 #
 # Returns the region or availability zone of the controller model depends on the model
 region_or_availability_zone() {
+	local machine_id
+	machine_id=${1:-0}
+
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		juju show-model controller --format json | yq -r '.["controller"]["region"]'
 		;;
 	"gce")
-		juju show-machine -m controller 0 --format=json | yq -r '.["machines"]["0"]["hardware"]' | grep -oP 'availability-zone=\K\S+'
+		juju show-machine -m controller "${machine_id}" --format=json | yq -r ".[\"machines\"][\"${machine_id}\"][\"hardware\"]" | grep -oP 'availability-zone=\K\S+'
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
@@ -87,14 +90,17 @@ region_or_availability_zone() {
 #
 # Returns the identifier used to target the controller instance for firewall/security rules.
 instance_network_tag_or_group() {
+	local machine_id
+	machine_id=${1:-0}
+
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"ec2")
 		model_uuid=$(juju show-model controller --format json | yq -r '.["controller"]["model-uuid"]')
-		echo "juju-${model_uuid}-0"
+		echo "juju-${model_uuid}-${machine_id}"
 		;;
 	"gce")
 		machine_info="$(juju list-machines -m controller --format=json)"
-		echo "$(yq -r '.machines["0"]."instance-id"' <<<"$machine_info")"
+		yq -r ".machines[\"${machine_id}\"].\"instance-id\"" <<<"$machine_info"
 		;;
 	*)
 		echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."

@@ -24,9 +24,10 @@ test_controller() {
 
 	test_metrics
 
-	test_enable_ha
 	test_query_tracing
 	test_limit_access
+	#test_limit_access_ha
+	test_enable_ha
 
 	destroy_controller "test-controller"
 }
