@@ -45,17 +45,6 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		return errors.Capture(err)
 	}
 
-	scaleInfo := applicationScale{
-		ApplicationID: args.ApplicationUUID,
-		StartOrdinal:  args.StartOrdinal,
-		Scale:         args.Scale,
-	}
-	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
-	createScaleStmt, err := st.Prepare(createScale, scaleInfo)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
 	platformInfo := applicationPlatform{
 		ApplicationID:  args.ApplicationUUID,
 		OSTypeID:       int(args.Platform.OSType),
@@ -152,9 +141,6 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 		}
 		if err := tx.Query(ctx, createPlatformStmt, platformInfo).Run(); err != nil {
 			return errors.Errorf("inserting platform row for application %q: %w", name, err)
-		}
-		if err := tx.Query(ctx, createScaleStmt, scaleInfo).Run(); err != nil {
-			return errors.Errorf("inserting scale row for application %q: %w", name, err)
 		}
 		if err := st.createApplicationResources(
 			ctx, tx,
@@ -356,7 +342,7 @@ WHERE s.namespace = $importedUnitSequence.namespace
 }
 
 // EnsureApplicationUnitSequenceAtLeast preserves the highest ordinal seen in
-// imported scale state, unit identities, or pod identities.
+// imported unit or pod identities.
 func (st *State) EnsureApplicationUnitSequenceAtLeast(ctx context.Context, appName string, ordinal uint64) error {
 	db, err := st.DB(ctx)
 	if err != nil {

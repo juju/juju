@@ -105,14 +105,6 @@ type applicationDetails struct {
 	IsApplicationSynthetic bool      `db:"is_application_synthetic"`
 }
 
-type applicationScale struct {
-	ApplicationID string `db:"application_uuid"`
-	StartOrdinal  int    `db:"start_ordinal"`
-	Scaling       bool   `db:"scaling"`
-	Scale         int    `db:"scale"`
-	ScaleTarget   int    `db:"scale_target"`
-}
-
 type unitUUID struct {
 	UnitUUID string `db:"uuid"`
 }

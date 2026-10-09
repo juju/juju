@@ -8,6 +8,8 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/constraints"
 	domainstorage "github.com/juju/juju/domain/storage"
 )
 
@@ -85,4 +87,23 @@ type UpdateUnitCharmArg struct {
 	// the arguments required to create new storage for this unit once it has
 	// changed charms.
 	IAASUnitStorage *domainstorage.CreateIAASUnitStorageArg
+}
+
+// CompleteCAASUnitStorageArg contains the storage required to complete an
+// existing pending CAAS unit.
+type CompleteCAASUnitStorageArg struct {
+	ExistingUnitUUID string
+	UnitUUID         string
+	NetNodeUUID      string
+	UnitStorage      domainstorage.CreateUnitStorageArg
+}
+
+// AddCAASUnitArg contains the state arguments required to create a CAAS unit.
+type AddCAASUnitArg struct {
+	UnitUUID    string
+	NetNodeUUID string
+	UnitStorage domainstorage.CreateUnitStorageArg
+	UnitStatus  application.UnitStatusArg
+	Constraints constraints.Constraints
+	K8sPod      *application.K8sPod
 }

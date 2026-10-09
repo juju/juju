@@ -87,20 +87,6 @@ CREATE TABLE operator_status (
     FOREIGN KEY (status_id)
     REFERENCES workload_status_value (id)
 );
-
-
--- Application scale is currently only targeting k8s applications.
-CREATE TABLE application_scale (
-    application_uuid TEXT NOT NULL PRIMARY KEY,
-    scale INT,
-    scale_target INT,
-    scaling BOOLEAN DEFAULT FALSE,
-    start_ordinal INT NOT NULL DEFAULT 0,
-    CONSTRAINT fk_application_endpoint_scale_application
-    FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid)
-);
-
 CREATE TABLE application_exposed_endpoint_space (
     application_uuid TEXT NOT NULL,
     -- NULL application_endpoint_uuid represents the wildcard endpoint.

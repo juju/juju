@@ -1643,6 +1643,15 @@ WITH selected_k8s_service_address AS (
       LIMIT 1
     ) AS address_value
   FROM   k8s_service AS svc
+), alive_unit_scale AS (
+  SELECT u.application_uuid,
+         COUNT(*) AS scale
+  FROM   unit AS u
+  WHERE  u.life_id = 0
+  GROUP BY u.application_uuid
+), model_type AS (
+  SELECT m.type AS type
+  FROM   model AS m
 )
 SELECT
   a.name AS &applicationStatusDetails.name,
@@ -1666,7 +1675,7 @@ SELECT
   c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
   c.version AS &applicationStatusDetails.charm_version,
   c.lxd_profile AS &applicationStatusDetails.lxd_profile,
-  aps.scale AS &applicationStatusDetails.scale,
+  CASE WHEN mt.type = 'caas' THEN COALESCE(aus.scale, 0) ELSE NULL END AS &applicationStatusDetails.scale,
   k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
   svc_addr.address_value AS &applicationStatusDetails.k8s_public_address,
   EXISTS(
@@ -1683,7 +1692,8 @@ JOIN charm_metadata AS cm ON cm.charm_uuid = c.uuid
 LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
 LEFT JOIN selected_k8s_service_address AS svc_addr ON svc_addr.application_uuid = a.uuid
-LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
+LEFT JOIN alive_unit_scale AS aus ON aus.application_uuid = a.uuid
+JOIN model_type AS mt ON 1 = 1
 LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
 LEFT JOIN application_workload_version AS awv ON awv.application_uuid = a.uuid
 WHERE c.source_id < 2

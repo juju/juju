@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -59,7 +60,6 @@ type ProvisioningInfo struct {
 	ImageDetails         coreresource.DockerImageDetails
 	CharmModifiedVersion int
 	Trust                bool
-	Scale                int
 
 	CharmMeta           *charm.Meta
 	Images              map[string]coreresource.DockerImageDetails
@@ -107,10 +107,6 @@ type ApplicationOps interface {
 
 	WaitForTerminated(appName string, app caas.Application,
 		clk clock.Clock) error
-
-	ReconcileDeadUnitScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
-		app caas.Application, facade CAASProvisionerFacade,
-		applicationService ApplicationService, logger logger.Logger) error
 
 	EnsureScale(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, facade CAASProvisionerFacade,
@@ -195,16 +191,6 @@ func (applicationOps) WaitForTerminated(
 	clk clock.Clock,
 ) error {
 	return waitForTerminated(appName, app, clk)
-}
-
-func (applicationOps) ReconcileDeadUnitScale(
-	ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application,
-	facade CAASProvisionerFacade,
-	applicationService ApplicationService,
-	logger logger.Logger,
-) error {
-	return reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, logger)
 }
 
 func (applicationOps) EnsureScale(
@@ -304,9 +290,6 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		Containers:           containers,
 		CharmModifiedVersion: pi.CharmModifiedVersion,
 		Trust:                pi.Trust,
-		// TODO(jneo8): Now units scaling from 0->N follow the same flow.
-		// The provisionInfo.Scale is no longer used, so in theory we
-		// could delete this field. Should investigate refactoring.
 		InitialScale:    0,
 		StorageUniqueID: storageUniqueID,
 	}
@@ -398,16 +381,6 @@ func appDying(
 			return nil
 		}
 		return errors.Annotate(err, "cannot scale dying application to 0")
-	}
-	err = reconcileDeadUnitScale(ctx, appName, appUUID, app, facade, applicationService, logger)
-	if err != nil {
-		if errors.Is(err, applicationerrors.ApplicationNotFound) {
-			// As above: once the application is removed from state there are
-			// no units left to reconcile.
-			logger.Infof(ctx, "application %q no longer in state; skipping dead unit reconcile", appName)
-			return nil
-		}
-		return errors.Annotate(err, "cannot reconcile dead units in dying application")
 	}
 	return nil
 }
@@ -635,94 +608,6 @@ func waitForTerminated(appName string, app caas.Application,
 	return errors.Trace(retry.Call(retryCallArgs))
 }
 
-// reconcileDeadUnitScale is setup to respond to CAAS sidecar units that become
-// dead. It takes stock of the desired scale and dead units outside the retained
-// ordinal range. It removes their Juju unit records before scaling the CAAS
-// provider so peer-relation departure hooks can finish while the pods remain
-// available.
-func reconcileDeadUnitScale(
-	ctx context.Context,
-	appName string, appUUID coreapplication.UUID, app caas.Application,
-	facade CAASProvisionerFacade,
-	applicationService ApplicationService,
-	logger logger.Logger,
-) error {
-	unitNamesAndLives, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
-	if err != nil {
-		return fmt.Errorf("getting units for application %s: %w", appName, err)
-	}
-
-	ps, err := applicationService.GetApplicationScalingState(ctx, appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !ps.Scaling {
-		return nil
-	}
-
-	desiredScale := ps.ScaleTarget
-	threshold := unitRemovalThreshold(unitNamesAndLives, desiredScale)
-
-	unitsToRemove := 0
-	var deadUnits []coreunit.Name
-	for unitName, unitLife := range unitNamesAndLives {
-		if unitName.Number() >= threshold {
-			continue
-		}
-		unitsToRemove++
-		if unitLife == life.Dead {
-			deadUnits = append(deadUnits, unitName)
-		}
-	}
-
-	// Wait for every unit outside the retained range to be dead. A dead unit
-	// still needs its removal job to depart peer relations before its pod can
-	// be stopped; otherwise the remaining units cannot consume that departure.
-	if unitsToRemove != len(deadUnits) {
-		return nil
-	}
-	if len(deadUnits) > 0 {
-		sort.Slice(deadUnits, func(i, j int) bool {
-			return deadUnits[i].Number() < deadUnits[j].Number()
-		})
-		for _, deadUnit := range deadUnits {
-			logger.Infof(ctx, "removing dead unit %s", deadUnit)
-			if err := facade.RemoveUnit(ctx, string(deadUnit)); err != nil && !errors.Is(err, errors.NotFound) {
-				return fmt.Errorf("removing dead unit %q: %w", deadUnit, err)
-			}
-		}
-		return tryAgain
-	}
-
-	if ps.StartOrdinal == 0 || len(unitNamesAndLives) > desiredScale {
-		return nil
-	}
-
-	storageUniqueID := getStorageUniqueID(appUUID)
-	err = ensureScaleWithFsAttachments(
-		ctx, appName, app, desiredScale, ps.StartOrdinal,
-		facade, logger, storageUniqueID)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return fmt.Errorf(
-			"scaling application %q to scale %d: %w",
-			appName,
-			desiredScale,
-			err,
-		)
-	}
-
-	appState, err := app.State()
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return err
-	}
-	// TODO: stop k8s things from mutating the statefulset.
-	if len(appState.Replicas) > desiredScale {
-		return tryAgain
-	}
-
-	return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
-}
-
 // ensureScale determines how and when to scale up or down based on
 // current scale targets that have yet to be met.
 func ensureScale(
@@ -733,151 +618,146 @@ func ensureScale(
 	agentPasswordService AgentPasswordService,
 	logger logger.Logger,
 ) error {
-	var err error
-	var desiredScale int
-	switch appLife {
-	case life.Alive:
-		desiredScale, err = applicationService.GetApplicationScale(ctx, appName)
-		if err != nil {
-			return errors.Annotatef(err, "fetching application %q desired scale", appName)
-		}
-	case life.Dying, life.Dead:
-		desiredScale = 0
-	default:
+	if appLife != life.Alive && appLife != life.Dying && appLife != life.Dead {
 		return errors.NotImplementedf("unknown life %q", appLife)
 	}
-
-	ps, err := applicationService.GetApplicationScalingState(ctx, appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	logger.Debugf(ctx, "updating application %q scale to %d", appName, desiredScale)
-	startedScaling := !ps.Scaling || appLife != life.Alive
-	if startedScaling {
-		err := updateProvisioningState(ctx, appName, true, desiredScale, ps.StartOrdinal, applicationService)
-		if err != nil {
-			return err
-		}
-		ps.Scaling = true
-		ps.ScaleTarget = desiredScale
-	}
-
 	units, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
-	if err != nil {
-		return err
-	}
-	// Determine whether we need to select which units to remove for scale-down.
-	// This triggers when:
-	//   - The app is alive and we're scaling down (desiredScale < len(units))
-	//   - AND either we just started scaling (startedScaling) OR the
-	//     startOrdinal hasn't been advanced yet (ps.StartOrdinal == 0)
-	//
-	// On first detection, we compute the new startOrdinal to shift the
-	// StatefulSet range past the units being removed, preventing stale
-	// ordinals from being reused on subsequent scale-ups.
-	if appLife == life.Alive && desiredScale < len(units) && (startedScaling || ps.StartOrdinal == 0) {
-		startOrdinal := unitRemovalThreshold(units, desiredScale)
-		if err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, desiredScale, startOrdinal, true); err != nil {
-			return errors.Trace(err)
-		}
-		ps.StartOrdinal = startOrdinal
+	if errors.Is(err, applicationerrors.ApplicationNotFound) && appLife != life.Alive {
+		units = map[coreunit.Name]life.Value{}
+	} else if err != nil {
+		return errors.Annotate(err, "getting unit membership")
 	}
 
-	if ps.ScaleTarget >= len(units) {
-		// A pod may start as soon as the StatefulSet is scaled. Reserve the
-		// complete range first so registration cannot race unit creation, even
-		// when a lower ordinal's introduction fails.
-		if appLife == life.Alive {
-			if err := applicationService.ReserveCAASUnits(ctx, appName, ps.StartOrdinal, ps.ScaleTarget); err != nil {
-				return errors.Annotate(err, "reserving CAAS units")
+	var intended []coreunit.Name
+	var leaving []coreunit.Name
+	for unitName, unitLife := range units {
+		if appLife == life.Alive && unitLife == life.Alive {
+			intended = append(intended, unitName)
+		} else {
+			leaving = append(leaving, unitName)
+		}
+	}
+	sort.Slice(intended, func(i, j int) bool { return intended[i].Number() < intended[j].Number() })
+	sort.Slice(leaving, func(i, j int) bool { return leaving[i].Number() < leaving[j].Number() })
+
+	startOrdinal := 0
+	if len(intended) > 0 {
+		startOrdinal = intended[0].Number()
+		for i := 1; i < len(intended); i++ {
+			if intended[i].Number() != intended[i-1].Number()+1 {
+				return errors.Errorf("intended unit range is not contiguous: %q and %q", intended[i-1], intended[i])
 			}
 		}
-		// Reconcile every desired controller ordinal. The persisted nonce is
-		// immutable, so this is safe to repeat during recovery.
-		if ps.ScaleTarget > 0 && appLife == life.Alive {
+	} else {
+		last, hasSequence, err := applicationService.GetApplicationUnitSequence(ctx, appName)
+		if err != nil && !errors.Is(err, applicationerrors.ApplicationNotFound) {
+			return errors.Annotate(err, "getting application unit sequence")
+		}
+		if hasSequence {
+			if last >= uint64(math.MaxInt) {
+				return errors.Errorf("unit ordinal sequence exhausted for application %q", appName)
+			}
+			startOrdinal = int(last) + 1
+		}
+	}
+	desiredScale := len(intended)
+	if desiredScale > math.MaxInt-startOrdinal {
+		return errors.Errorf("unit range overflows for application %q", appName)
+	}
+	logger.Debugf(ctx, "reconciling application %q to unit range [%d,%d)", appName, startOrdinal, startOrdinal+desiredScale)
+
+	if len(leaving) > 0 {
+		var toDestroy []string
+		var dead []coreunit.Name
+		for _, unitName := range leaving {
+			switch units[unitName] {
+			case life.Dead:
+				dead = append(dead, unitName)
+			case life.Alive, life.Dying:
+				toDestroy = append(toDestroy, unitName.String())
+			}
+		}
+		if len(toDestroy) > 0 {
+			if err := facade.DestroyUnits(ctx, toDestroy); err != nil {
+				return errors.Annotate(err, "scheduling unit departures")
+			}
+		}
+		if len(dead) > 0 {
+			for _, unitName := range dead {
+				if err := facade.RemoveUnit(ctx, unitName.String()); err != nil && !errors.Is(err, errors.NotFound) {
+					return errors.Annotatef(err, "removing departed unit %q", unitName)
+				}
+			}
+		}
+		return tryAgain
+	}
+
+	if appLife == life.Alive {
+		if err := applicationService.ReserveCAASUnits(ctx, appName, startOrdinal, desiredScale); err != nil {
+			return errors.Annotate(err, "reserving intended units")
+		}
+		if desiredScale > 0 && agentPasswordService != nil {
 			if isController, err := applicationService.IsControllerApplication(ctx, appUUID); err != nil {
 				return errors.Annotate(err, "checking if controller application")
 			} else if isController {
-				if err := ensureControllerNonces(ctx, ps.StartOrdinal, ps.ScaleTarget, app, agentPasswordService, logger); err != nil {
+				if err := ensureControllerNonces(ctx, startOrdinal, desiredScale, app, agentPasswordService, logger); err != nil {
 					return errors.Annotate(err, "ensuring controller nonces")
 				}
 			}
 		}
+	}
 
-		storageUniqueID := appUUID.String()[:6]
-		err := ensureScaleWithFsAttachments(
-			ctx,
-			appName,
-			app,
-			ps.ScaleTarget,
-			ps.StartOrdinal,
-			facade,
-			logger,
-			storageUniqueID,
-		)
-
+	appState, err := app.State()
+	if err != nil {
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
-			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
-			return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
-		} else if err != nil {
-			return err
+			return nil
 		}
-		if ps.ScaleTarget > len(units) {
-			// The reservations were just inserted. Read them on the next pass.
-			return tryAgain
-		}
-		if appLife == life.Alive {
-			registered, err := applicationService.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
-			if err != nil {
-				return errors.Annotate(err, "getting registered CAAS units")
-			}
-			for ordinal := ps.StartOrdinal; ordinal < ps.StartOrdinal+ps.ScaleTarget; ordinal++ {
-				name, err := coreunit.NewNameFromParts(appName, ordinal)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if registered[name] == "" {
-					return tryAgain
-				}
-			}
-		}
-		err = updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
+		return errors.Annotate(err, "getting provider application state")
+	}
+	if appState.DesiredReplicas != desiredScale || appState.StartOrdinal != startOrdinal {
+		err := ensureScaleWithFsAttachments(
+			ctx, appName, app, desiredScale, startOrdinal,
+			facade, logger, getStorageUniqueID(appUUID),
+		)
 		if err != nil {
-			return err
+			if appLife != life.Alive && errors.Is(err, errors.NotFound) {
+				return nil
+			}
+			return errors.Annotatef(err, "scaling application %q to range [%d,%d)", appName, startOrdinal, startOrdinal+desiredScale)
 		}
-		if ps.ScaleTarget != desiredScale {
-			// if the current scale target doesn't equal the desired scale
-			// we need to rerun this.
-			logger.Debugf(ctx, "application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
-			return tryAgain
-		}
-		return nil
-	}
-
-	threshold := unitRemovalThreshold(units, ps.ScaleTarget)
-	var unitsToDestroy []string
-	for unitName, unitLife := range units {
-		if unitName.Number() >= threshold {
-			continue
-		}
-		if unitLife == life.Alive {
-			unitsToDestroy = append(unitsToDestroy, unitName.String())
-		}
-	}
-	if len(unitsToDestroy) > 0 {
-		if err := facade.DestroyUnits(ctx, unitsToDestroy); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if ps.ScaleTarget != desiredScale {
-		// if the current scale target doesn't equal the desired scale
-		// we need to rerun this.
-		logger.Debugf(ctx, "application %q currently scaling to %d but desired scale is %d", appName, ps.ScaleTarget, desiredScale)
 		return tryAgain
 	}
+	if !hasExactPodRange(appName, appState.Replicas, startOrdinal, desiredScale) {
+		return tryAgain
+	}
+	if appLife == life.Alive && desiredScale > 0 {
+		registered, err := applicationService.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
+		if err != nil {
+			return errors.Annotate(err, "getting registered CAAS units")
+		}
+		for _, unitName := range intended {
+			if registered[unitName] == "" {
+				return tryAgain
+			}
+		}
+	}
 	return nil
+}
+
+func hasExactPodRange(appName string, podNames []string, start, count int) bool {
+	if len(podNames) != count {
+		return false
+	}
+	observed := make(map[string]struct{}, len(podNames))
+	for _, podName := range podNames {
+		observed[podName] = struct{}{}
+	}
+	for ordinal := start; ordinal < start+count; ordinal++ {
+		if _, ok := observed[fmt.Sprintf("%s-%d", appName, ordinal)]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func getStorageUniqueID(appUUID coreapplication.UUID) string {
@@ -920,20 +800,6 @@ func setOperatorStatus(
 		Data:    data,
 		Since:   &now,
 	})
-}
-
-func updateProvisioningState(
-	ctx context.Context,
-	appName string, scaling bool, scaleTarget, startOrdinal int,
-	applicationService ApplicationService,
-) error {
-	err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling)
-	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
-		return tryAgain
-	} else if err != nil {
-		return errors.Annotatef(err, "setting provisiong state for application %q", appName)
-	}
-	return nil
 }
 
 // ensureScaleWithFsAttachments scales an application while ensuring required PVCs are created.
@@ -992,7 +858,6 @@ func provisioningInfo(
 		ImageDetails:         res.ImageDetails,
 		CharmModifiedVersion: res.CharmModifiedVersion,
 		Trust:                res.Trust,
-		Scale:                res.Scale,
 	}
 
 	fsTemplates, err := storageProvisioningService.GetFilesystemTemplatesForApplication(ctx, appUUID)

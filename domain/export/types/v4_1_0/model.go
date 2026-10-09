@@ -190,14 +190,6 @@ type ApplicationResource struct {
 	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
 }
 
-type ApplicationScale struct {
-	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
-	Scale           *int64 `db:"scale" json:"scale" yaml:"scale"`
-	ScaleTarget     *int64 `db:"scale_target" json:"scale_target" yaml:"scale_target"`
-	Scaling         *bool  `db:"scaling" json:"scaling" yaml:"scaling"`
-	StartOrdinal    int64  `db:"start_ordinal" json:"start_ordinal" yaml:"start_ordinal"`
-}
-
 type ApplicationSetting struct {
 	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
 	Trust           *bool  `db:"trust" json:"trust" yaml:"trust"`
@@ -1638,6 +1630,16 @@ type WorkloadStatusValue struct {
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
+// ApplicationScale is accepted only as legacy import data. New exports leave
+// it empty; intended capacity is represented by Alive units.
+type ApplicationScale struct {
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	Scale           *int64 `db:"scale" json:"scale" yaml:"scale"`
+	ScaleTarget     *int64 `db:"scale_target" json:"scale_target" yaml:"scale_target"`
+	Scaling         *bool  `db:"scaling" json:"scaling" yaml:"scaling"`
+	StartOrdinal    int64  `db:"start_ordinal" json:"start_ordinal" yaml:"start_ordinal"`
+}
+
 // ModelExport aggregates all exported model row types.
 type ModelExport struct {
 	AgentBinaryStore                         []AgentBinaryStore                         `json:"agent_binary_store" yaml:"agent_binary_store"`
@@ -1669,7 +1671,6 @@ type ModelExport struct {
 	ApplicationRemoteOffererRelationMacaroon []ApplicationRemoteOffererRelationMacaroon `json:"application_remote_offerer_relation_macaroon" yaml:"application_remote_offerer_relation_macaroon"`
 	ApplicationRemoteOffererStatus           []ApplicationRemoteOffererStatus           `json:"application_remote_offerer_status" yaml:"application_remote_offerer_status"`
 	ApplicationResource                      []ApplicationResource                      `json:"application_resource" yaml:"application_resource"`
-	ApplicationScale                         []ApplicationScale                         `json:"application_scale" yaml:"application_scale"`
 	ApplicationSetting                       []ApplicationSetting                       `json:"application_setting" yaml:"application_setting"`
 	ApplicationStatus                        []ApplicationStatus                        `json:"application_status" yaml:"application_status"`
 	ApplicationStorageDirective              []ApplicationStorageDirective              `json:"application_storage_directive" yaml:"application_storage_directive"`
@@ -1890,4 +1891,5 @@ type ModelExport struct {
 	UnitWorkloadVersion                      []UnitWorkloadVersion                      `json:"unit_workload_version" yaml:"unit_workload_version"`
 	VirtualPortType                          []VirtualPortType                          `json:"virtual_port_type" yaml:"virtual_port_type"`
 	WorkloadStatusValue                      []WorkloadStatusValue                      `json:"workload_status_value" yaml:"workload_status_value"`
+	ApplicationScale                         []ApplicationScale                         `json:"application_scale,omitempty" yaml:"application_scale,omitempty"`
 }

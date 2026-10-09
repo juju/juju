@@ -43,6 +43,9 @@ func (i *Importer) Import(ctx context.Context, payload *latest.ModelExport) erro
 		return nil
 	}
 	sanitized := sanitizeCharmBlobResidency(*payload)
+	if err := ValidatePayload(sanitized); err != nil {
+		return errors.Capture(err)
+	}
 	if err := i.state.Import(ctx, &sanitized); err != nil {
 		return errors.Errorf("importing model-DB payload: %w", err)
 	}
@@ -91,31 +94,17 @@ func sanitizeCharmBlobResidency(payload latest.ModelExport) latest.ModelExport {
 // sanitizeCharmBlobResidency, this has no foreign-key dependency on an
 // excluded table, so it is free to run as a separate, later transaction.
 func (i *Importer) applyPostImportFixups(ctx context.Context, payload latest.ModelExport) error {
-	if err := ValidatePayload(payload); err != nil {
-		return errors.Capture(err)
-	}
 	if err := i.state.MergeModelAgentPassword(ctx, payload.ModelAgent[0]); err != nil {
 		return errors.Errorf("merging model agent password: %w", err)
-	}
-	if len(payload.ApplicationScale) == 0 {
-		return nil
-	}
-	appNames := make(map[string]string, len(payload.Application))
-	for _, app := range payload.Application {
-		appNames[app.UUID] = app.Name
 	}
 	log := internallogger.GetLogger("juju.domain.modelimport")
 	appService := applicationservice.NewMigrationService(
 		applicationstate.NewState(i.modelDB, coremodel.UUID(payload.ModelAgent[0].ModelUUID), clock.WallClock, log),
 		clock.WallClock, log,
 	)
-	for _, scale := range payload.ApplicationScale {
-		name, ok := appNames[scale.ApplicationUUID]
-		if !ok {
-			return errors.Errorf("imported scale has no application %q", scale.ApplicationUUID)
-		}
-		if err := appService.ReconcileImportedCAASUnits(ctx, name, true); err != nil {
-			return errors.Errorf("reconciling imported application %q: %w", name, err)
+	for _, app := range payload.Application {
+		if err := appService.ReconcileImportedCAASUnits(ctx, app.Name); err != nil {
+			return errors.Errorf("reconciling imported application %q: %w", app.Name, err)
 		}
 	}
 	return nil

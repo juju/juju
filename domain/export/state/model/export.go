@@ -21,9 +21,6 @@ type nullableApplication struct {
 type nullableApplicationRemoteOffererStatus struct {
 	UpdatedAtIsNull bool `db:"updated_at_is_null"`
 }
-type nullableApplicationScale struct {
-	ScalingIsNull bool `db:"scaling_is_null"`
-}
 type nullableApplicationSetting struct {
 	TrustIsNull bool `db:"trust_is_null"`
 }
@@ -250,12 +247,6 @@ FROM   "application_remote_offerer_status" AS t`, v4_1_0.ApplicationRemoteOffere
 	stmtApplicationResource, err := sqlair.Prepare(`SELECT &ApplicationResource.* FROM "application_resource"`, v4_1_0.ApplicationResource{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing ApplicationResource statement: %w", err)
-	}
-	stmtApplicationScale, err := sqlair.Prepare(`SELECT &ApplicationScale.*,
-       t."scaling" IS NULL AS &nullableApplicationScale.scaling_is_null
-FROM   "application_scale" AS t`, v4_1_0.ApplicationScale{}, nullableApplicationScale{})
-	if err != nil {
-		return nil, fmt.Errorf("preparing ApplicationScale statement: %w", err)
 	}
 	stmtApplicationSetting, err := sqlair.Prepare(`SELECT &ApplicationSetting.*,
        t."trust" IS NULL AS &nullableApplicationSetting.trust_is_null
@@ -1313,15 +1304,6 @@ FROM   "unit_workload_status" AS t`, v4_1_0.UnitWorkloadStatus{}, nullableUnitWo
 		}
 		if err := tx.Query(ctx, stmtApplicationResource).GetAll(&modelExport.ApplicationResource); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying ApplicationResource (table application_resource): %w", err)
-		}
-		var nullableApplicationScaleRows []nullableApplicationScale
-		if err := tx.Query(ctx, stmtApplicationScale).GetAll(&modelExport.ApplicationScale, &nullableApplicationScaleRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return fmt.Errorf("querying ApplicationScale (table application_scale): %w", err)
-		}
-		for i, nulls := range nullableApplicationScaleRows {
-			if nulls.ScalingIsNull {
-				modelExport.ApplicationScale[i].Scaling = nil
-			}
 		}
 		var nullableApplicationSettingRows []nullableApplicationSetting
 		if err := tx.Query(ctx, stmtApplicationSetting).GetAll(&modelExport.ApplicationSetting, &nullableApplicationSettingRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {

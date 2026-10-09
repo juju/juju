@@ -781,7 +781,6 @@ func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, uni
 				},
 			},
 		},
-		Scale: len(units),
 	}, units)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -799,7 +798,7 @@ func (s *baseSuite) createCAASApplication(c *tc.C, name string, l life.Life, uni
 	return appID
 }
 
-func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Life, scale int) coreapplication.UUID {
+func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Life, _ int) coreapplication.UUID {
 	s.createSubnetForCAASModel(c)
 	state := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
@@ -848,7 +847,6 @@ func (s *baseSuite) createCAASScalingApplication(c *tc.C, name string, l life.Li
 				DownloadSize:       42,
 			},
 		},
-		Scale: scale,
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -887,7 +885,6 @@ func (s *baseSuite) createMigratingApplication(c *tc.C, name string) (coreapplic
 			Revision:      42,
 			Architecture:  architecture.AMD64,
 		},
-		Scale:   1,
 		Channel: channel,
 		Config: map[string]application.AddApplicationConfig{
 			"foo": {
@@ -939,7 +936,6 @@ func (s *baseSuite) assertApplication(
 	name string,
 	platform deployment.Platform,
 	channel *deployment.Channel,
-	scale application.ScaleState,
 	available bool,
 ) {
 	var (
@@ -948,16 +944,10 @@ func (s *baseSuite) assertApplication(
 		gotCharmUUID string
 		gotPlatform  deployment.Platform
 		gotChannel   deployment.Channel
-		gotScale     application.ScaleState
 		gotAvailable bool
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", gotUUID).
-			Scan(&gotScale.Scale, &gotScale.Scaling, &gotScale.ScaleTarget)
 		if err != nil {
 			return err
 		}
@@ -980,7 +970,6 @@ func (s *baseSuite) assertApplication(
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotName, tc.Equals, name)
 	c.Check(gotPlatform, tc.DeepEquals, platform)
-	c.Check(gotScale, tc.DeepEquals, scale)
 	c.Check(gotAvailable, tc.Equals, available)
 
 	// Channel is optional, so we need to check it separately.

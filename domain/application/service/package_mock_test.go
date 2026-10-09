@@ -365,19 +365,20 @@ type MockState struct {
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
 	mock                                                      *MockState
-	addCAASUnitsExpects                                       []*gomock.Call2V_2[context.Context, application.UUID, application0.AddCAASUnitArg, []unit.Name, error]
+	addCAASUnitsExpects                                       []*gomock.Call2V_2[context.Context, string, internal.AddCAASUnitArg, []string, error]
 	addCharmExpects                                           []*gomock.Call4_3[context.Context, charm0.Charm, *charm0.DownloadInfo, bool, charm.ID, charm0.CharmLocator, error]
 	addIAASUnitsExpects                                       []*gomock.Call2V_3[context.Context, application.UUID, application0.AddIAASUnitArg, []unit.Name, []machine.Name, error]
 	addStorageForCAASUnitExpects                              []*gomock.Call4_2[context.Context, unit.UUID, storage.Name, storage0.UnitAddStorageArg, []storage.ID, error]
 	addStorageForIAASUnitExpects                              []*gomock.Call4_2[context.Context, unit.UUID, storage.Name, storage0.IAASUnitAddStorageArg, []storage.ID, error]
 	attachStorageInstanceToUnitExpects                        []*gomock.Call3_1[context.Context, unit.UUID, storage0.AttachStorageInstanceToUnitArg, error]
 	checkApplicationsForMigrationExpects                      []*gomock.Call1_1[context.Context, error]
+	completeCAASUnitStorageExpects                             []*gomock.Call2V_1[context.Context, string, internal.CompleteCAASUnitStorageArg, error]
 	createCAASApplicationExpects                              []*gomock.Call4_2[context.Context, string, application0.AddCAASApplicationArg, []application0.AddCAASUnitArg, application.UUID, error]
 	createIAASApplicationExpects                              []*gomock.Call4_3[context.Context, string, application0.AddIAASApplicationArg, []application0.AddIAASUnitArg, application.UUID, []machine.Name, error]
 	deleteAppHasK8sResourcesEntryExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
 	deleteK8sServiceAddressesExpects                          []*gomock.Call2_1[context.Context, string, error]
 	endpointsExistExpects                                     []*gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
-	ensureApplicationUnitSequenceAtLeastExpects                []*gomock.Call3_1[context.Context, string, uint64, error]
+	ensureApplicationUnitSequenceAtLeastExpects               []*gomock.Call3_1[context.Context, string, uint64, error]
 	getAddressesHashExpects                                   []*gomock.Call3_2[context.Context, application.UUID, string, string, error]
 	getAllEndpointBindingsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]string, error]
 	getAllExposedEndpointsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]application0.ExposedEndpoint, error]
@@ -396,13 +397,12 @@ type MockStateMockRecorder struct {
 	getApplicationLifeExpects                                 []*gomock.Call2_2[context.Context, application.UUID, life.Life, error]
 	getApplicationLifeByNameExpects                           []*gomock.Call2_3[context.Context, string, application.UUID, life.Life, error]
 	getApplicationNameExpects                                 []*gomock.Call2_2[context.Context, application.UUID, string, error]
-	getApplicationScaleStateExpects                           []*gomock.Call2_2[context.Context, application.UUID, application0.ScaleState, error]
 	getApplicationTrustSettingExpects                         []*gomock.Call2_2[context.Context, application.UUID, bool, error]
-	getApplicationUnitSequenceExpects                          []*gomock.Call2_3[context.Context, string, uint64, bool, error]
 	getApplicationUUIDAndNameByUnitNameExpects                []*gomock.Call2_3[context.Context, unit.Name, application.UUID, string, error]
 	getApplicationUUIDByNameExpects                           []*gomock.Call2_2[context.Context, string, application.UUID, error]
 	getApplicationUUIDByUnitNameExpects                       []*gomock.Call2_2[context.Context, unit.Name, application.UUID, error]
 	getApplicationUnitLifeExpects                             []*gomock.Call2V_2[context.Context, string, unit.UUID, map[string]int, error]
+	getApplicationUnitSequenceExpects                         []*gomock.Call2_3[context.Context, string, uint64, bool, error]
 	getApplicationsBoundToSpaceExpects                        []*gomock.Call2_2[context.Context, string, []string, error]
 	getApplicationsForRevisionUpdaterExpects                  []*gomock.Call1_2[context.Context, []application0.RevisionUpdaterApplication, error]
 	getApplicationsWithPendingCharmsFromUUIDsExpects          []*gomock.Call2_2[context.Context, []application.UUID, []application.UUID, error]
@@ -487,7 +487,6 @@ type MockStateMockRecorder struct {
 	namespaceForWatchApplicationExpects                       []*gomock.Call0_1[string]
 	namespaceForWatchApplicationConfigExpects                 []*gomock.Call0_1[string]
 	namespaceForWatchApplicationExposedExpects                []*gomock.Call0_2[string, string]
-	namespaceForWatchApplicationScaleExpects                  []*gomock.Call0_1[string]
 	namespaceForWatchApplicationSettingExpects                []*gomock.Call0_1[string]
 	namespaceForWatchCharmExpects                             []*gomock.Call0_1[string]
 	namespaceForWatchNetNodeAddressExpects                    []*gomock.Call0_1[string]
@@ -498,10 +497,8 @@ type MockStateMockRecorder struct {
 	setApplicationCharmExpects                                []*gomock.Call4_1[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, error]
 	setApplicationConstraintsExpects                          []*gomock.Call3_1[context.Context, application.UUID, constraints0.Constraints, error]
 	setApplicationHasK8sResourcesExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
-	setApplicationScalingStateExpects                         []*gomock.Call4_1[context.Context, string, int, bool, error]
-	setApplicationScalingStateWithStartExpects                []*gomock.Call5_1[context.Context, string, int, int, bool, error]
+	setCAASApplicationUnitScaleExpects                        []*gomock.Call5_2[context.Context, string, int, []string, []internal.AddCAASUnitArg, []string, error]
 	setCharmAvailableExpects                                  []*gomock.Call2_1[context.Context, charm.ID, error]
-	setDesiredApplicationScaleExpects                         []*gomock.Call3_1[context.Context, application.UUID, int, error]
 	setUnitWorkloadVersionExpects                             []*gomock.Call3_1[context.Context, unit.Name, string, error]
 	shouldAllowCharmUpgradeOnErrorExpects                     []*gomock.Call2_2[context.Context, string, bool, error]
 	spacesExistExpects                                        []*gomock.Call2_1[context.Context, set.Strings, error]
@@ -509,7 +506,6 @@ type MockStateMockRecorder struct {
 	unsetApplicationConfigKeysExpects                         []*gomock.Call3_1[context.Context, application.UUID, []string, error]
 	unsetExposeSettingsExpects                                []*gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
 	updateApplicationConfigAndSettingsExpects                 []*gomock.Call4_1[context.Context, application.UUID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg, error]
-	updateApplicationScaleExpects                             []*gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 	updateCAASUnitExpects                                     []*gomock.Call3_1[context.Context, unit.Name, application0.UpdateCAASUnitParams, error]
 	updateUnitCharmExpects                                    []*gomock.Call2_1[context.Context, internal.UpdateUnitCharmArg, error]
 	upsertK8sServiceExpects                                   []*gomock.Call4_1[context.Context, string, string, internal.UpsertK8sServiceArgs, error]
@@ -527,42 +523,8 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// GetApplicationUnitSequence mocks base method.
-func (m *MockState) GetApplicationUnitSequence(ctx context.Context, name string) (uint64, bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_3(&m.recorder.getApplicationUnitSequenceExpects, m.ctrl, m, "GetApplicationUnitSequence", ctx, name)
-}
-
-// GetApplicationUnitSequence indicates an expected call.
-func (mr *MockStateMockRecorder) GetApplicationUnitSequence(ctx, name any) *MockStateGetApplicationUnitSequenceCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_3[context.Context, string, uint64, bool, error](mr.mock.ctrl.T, mr.mock, "GetApplicationUnitSequence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
-	mr.getApplicationUnitSequenceExpects = append(mr.getApplicationUnitSequenceExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-type MockStateGetApplicationUnitSequenceCall = gomock.Call2_3[context.Context, string, uint64, bool, error]
-
-// EnsureApplicationUnitSequenceAtLeast mocks base method.
-func (m *MockState) EnsureApplicationUnitSequenceAtLeast(ctx context.Context, name string, ordinal uint64) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.ensureApplicationUnitSequenceAtLeastExpects, m.ctrl, m, "EnsureApplicationUnitSequenceAtLeast", ctx, name, ordinal)
-}
-
-// EnsureApplicationUnitSequenceAtLeast indicates an expected call.
-func (mr *MockStateMockRecorder) EnsureApplicationUnitSequenceAtLeast(ctx, name, ordinal any) *MockStateEnsureApplicationUnitSequenceAtLeastCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, uint64, error](mr.mock.ctrl.T, mr.mock, "EnsureApplicationUnitSequenceAtLeast", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(ordinal))
-	mr.ensureApplicationUnitSequenceAtLeastExpects = append(mr.ensureApplicationUnitSequenceAtLeastExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-type MockStateEnsureApplicationUnitSequenceAtLeastCall = gomock.Call3_1[context.Context, string, uint64, error]
-
 // AddCAASUnits mocks base method.
-func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 application.UUID, arg2 ...application0.AddCAASUnitArg) ([]unit.Name, error) {
+func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 string, arg2 ...internal.AddCAASUnitArg) ([]string, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2V_2(&m.recorder.addCAASUnitsExpects, m.ctrl, m, "AddCAASUnits", arg0, arg1, arg2...)
 }
@@ -571,14 +533,14 @@ func (m *MockState) AddCAASUnits(arg0 context.Context, arg1 application.UUID, ar
 func (mr *MockStateMockRecorder) AddCAASUnits(arg0, arg1 any, arg2 ...any) *MockStateAddCAASUnitsCall {
 	mr.mock.ctrl.T.Helper()
 	varArgs := gomock.EnsureVariadicMatcher(arg2)
-	call := gomock.NewCall2V_2[context.Context, application.UUID, application0.AddCAASUnitArg, []unit.Name, error](mr.mock.ctrl.T, mr.mock, "AddCAASUnits", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
+	call := gomock.NewCall2V_2[context.Context, string, internal.AddCAASUnitArg, []string, error](mr.mock.ctrl.T, mr.mock, "AddCAASUnits", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
 	mr.addCAASUnitsExpects = append(mr.addCAASUnitsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateAddCAASUnitsCall is the typed call wrapper for AddCAASUnits.
-type MockStateAddCAASUnitsCall = gomock.Call2V_2[context.Context, application.UUID, application0.AddCAASUnitArg, []unit.Name, error]
+type MockStateAddCAASUnitsCall = gomock.Call2V_2[context.Context, string, internal.AddCAASUnitArg, []string, error]
 
 // AddCharm mocks base method.
 func (m *MockState) AddCharm(ctx context.Context, ch charm0.Charm, downloadInfo *charm0.DownloadInfo, requiresSequencing bool) (charm.ID, charm0.CharmLocator, error) {
@@ -689,6 +651,25 @@ func (mr *MockStateMockRecorder) CheckApplicationsForMigration(arg0 any) *MockSt
 // MockStateCheckApplicationsForMigrationCall is the typed call wrapper for CheckApplicationsForMigration.
 type MockStateCheckApplicationsForMigrationCall = gomock.Call1_1[context.Context, error]
 
+// CompleteCAASUnitStorage mocks base method.
+func (m *MockState) CompleteCAASUnitStorage(arg0 context.Context, arg1 string, arg2 ...internal.CompleteCAASUnitStorageArg) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2V_1(&m.recorder.completeCAASUnitStorageExpects, m.ctrl, m, "CompleteCAASUnitStorage", arg0, arg1, arg2...)
+}
+
+// CompleteCAASUnitStorage indicates an expected call of CompleteCAASUnitStorage.
+func (mr *MockStateMockRecorder) CompleteCAASUnitStorage(arg0, arg1 any, arg2 ...any) *MockStateCompleteCAASUnitStorageCall {
+	mr.mock.ctrl.T.Helper()
+	varArgs := gomock.EnsureVariadicMatcher(arg2)
+	call := gomock.NewCall2V_1[context.Context, string, internal.CompleteCAASUnitStorageArg, error](mr.mock.ctrl.T, mr.mock, "CompleteCAASUnitStorage", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), varArgs)
+	mr.completeCAASUnitStorageExpects = append(mr.completeCAASUnitStorageExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateCompleteCAASUnitStorageCall is the typed call wrapper for CompleteCAASUnitStorage.
+type MockStateCompleteCAASUnitStorageCall = gomock.Call2V_1[context.Context, string, internal.CompleteCAASUnitStorageArg, error]
+
 // CreateCAASApplication mocks base method.
 func (m *MockState) CreateCAASApplication(arg0 context.Context, arg1 string, arg2 application0.AddCAASApplicationArg, arg3 []application0.AddCAASUnitArg) (application.UUID, error) {
 	m.ctrl.T.Helper()
@@ -778,6 +759,24 @@ func (mr *MockStateMockRecorder) EndpointsExist(ctx, appUUID, endpoints any) *Mo
 
 // MockStateEndpointsExistCall is the typed call wrapper for EndpointsExist.
 type MockStateEndpointsExistCall = gomock.Call3_1[context.Context, application.UUID, set.Strings, error]
+
+// EnsureApplicationUnitSequenceAtLeast mocks base method.
+func (m *MockState) EnsureApplicationUnitSequenceAtLeast(arg0 context.Context, arg1 string, arg2 uint64) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.ensureApplicationUnitSequenceAtLeastExpects, m.ctrl, m, "EnsureApplicationUnitSequenceAtLeast", arg0, arg1, arg2)
+}
+
+// EnsureApplicationUnitSequenceAtLeast indicates an expected call of EnsureApplicationUnitSequenceAtLeast.
+func (mr *MockStateMockRecorder) EnsureApplicationUnitSequenceAtLeast(arg0, arg1, arg2 any) *MockStateEnsureApplicationUnitSequenceAtLeastCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, uint64, error](mr.mock.ctrl.T, mr.mock, "EnsureApplicationUnitSequenceAtLeast", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	mr.ensureApplicationUnitSequenceAtLeastExpects = append(mr.ensureApplicationUnitSequenceAtLeastExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateEnsureApplicationUnitSequenceAtLeastCall is the typed call wrapper for EnsureApplicationUnitSequenceAtLeast.
+type MockStateEnsureApplicationUnitSequenceAtLeastCall = gomock.Call3_1[context.Context, string, uint64, error]
 
 // GetAddressesHash mocks base method.
 func (m *MockState) GetAddressesHash(ctx context.Context, appUUID application.UUID, netNodeUUID string) (string, error) {
@@ -1103,24 +1102,6 @@ func (mr *MockStateMockRecorder) GetApplicationName(arg0, arg1 any) *MockStateGe
 // MockStateGetApplicationNameCall is the typed call wrapper for GetApplicationName.
 type MockStateGetApplicationNameCall = gomock.Call2_2[context.Context, application.UUID, string, error]
 
-// GetApplicationScaleState mocks base method.
-func (m *MockState) GetApplicationScaleState(arg0 context.Context, arg1 application.UUID) (application0.ScaleState, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getApplicationScaleStateExpects, m.ctrl, m, "GetApplicationScaleState", arg0, arg1)
-}
-
-// GetApplicationScaleState indicates an expected call of GetApplicationScaleState.
-func (mr *MockStateMockRecorder) GetApplicationScaleState(arg0, arg1 any) *MockStateGetApplicationScaleStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, application.UUID, application0.ScaleState, error](mr.mock.ctrl.T, mr.mock, "GetApplicationScaleState", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.getApplicationScaleStateExpects = append(mr.getApplicationScaleStateExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetApplicationScaleStateCall is the typed call wrapper for GetApplicationScaleState.
-type MockStateGetApplicationScaleStateCall = gomock.Call2_2[context.Context, application.UUID, application0.ScaleState, error]
-
 // GetApplicationTrustSetting mocks base method.
 func (m *MockState) GetApplicationTrustSetting(ctx context.Context, appUUID application.UUID) (bool, error) {
 	m.ctrl.T.Helper()
@@ -1211,6 +1192,24 @@ func (mr *MockStateMockRecorder) GetApplicationUnitLife(ctx, appName any, unitUU
 
 // MockStateGetApplicationUnitLifeCall is the typed call wrapper for GetApplicationUnitLife.
 type MockStateGetApplicationUnitLifeCall = gomock.Call2V_2[context.Context, string, unit.UUID, map[string]int, error]
+
+// GetApplicationUnitSequence mocks base method.
+func (m *MockState) GetApplicationUnitSequence(ctx context.Context, appName string) (uint64, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getApplicationUnitSequenceExpects, m.ctrl, m, "GetApplicationUnitSequence", ctx, appName)
+}
+
+// GetApplicationUnitSequence indicates an expected call of GetApplicationUnitSequence.
+func (mr *MockStateMockRecorder) GetApplicationUnitSequence(ctx, appName any) *MockStateGetApplicationUnitSequenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[context.Context, string, uint64, bool, error](mr.mock.ctrl.T, mr.mock, "GetApplicationUnitSequence", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName))
+	mr.getApplicationUnitSequenceExpects = append(mr.getApplicationUnitSequenceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetApplicationUnitSequenceCall is the typed call wrapper for GetApplicationUnitSequence.
+type MockStateGetApplicationUnitSequenceCall = gomock.Call2_3[context.Context, string, uint64, bool, error]
 
 // GetApplicationsBoundToSpace mocks base method.
 func (m *MockState) GetApplicationsBoundToSpace(arg0 context.Context, arg1 string) ([]string, error) {
@@ -2726,24 +2725,6 @@ func (mr *MockStateMockRecorder) NamespaceForWatchApplicationExposed() *MockStat
 // MockStateNamespaceForWatchApplicationExposedCall is the typed call wrapper for NamespaceForWatchApplicationExposed.
 type MockStateNamespaceForWatchApplicationExposedCall = gomock.Call0_2[string, string]
 
-// NamespaceForWatchApplicationScale mocks base method.
-func (m *MockState) NamespaceForWatchApplicationScale() string {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchApplicationScaleExpects, m.ctrl, m, "NamespaceForWatchApplicationScale")
-}
-
-// NamespaceForWatchApplicationScale indicates an expected call of NamespaceForWatchApplicationScale.
-func (mr *MockStateMockRecorder) NamespaceForWatchApplicationScale() *MockStateNamespaceForWatchApplicationScaleCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchApplicationScale")
-	mr.namespaceForWatchApplicationScaleExpects = append(mr.namespaceForWatchApplicationScaleExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateNamespaceForWatchApplicationScaleCall is the typed call wrapper for NamespaceForWatchApplicationScale.
-type MockStateNamespaceForWatchApplicationScaleCall = gomock.Call0_1[string]
-
 // NamespaceForWatchApplicationSetting mocks base method.
 func (m *MockState) NamespaceForWatchApplicationSetting() string {
 	m.ctrl.T.Helper()
@@ -2924,41 +2905,23 @@ func (mr *MockStateMockRecorder) SetApplicationHasK8sResources(ctx, appUUID any)
 // MockStateSetApplicationHasK8sResourcesCall is the typed call wrapper for SetApplicationHasK8sResources.
 type MockStateSetApplicationHasK8sResourcesCall = gomock.Call2_1[context.Context, application.UUID, error]
 
-// SetApplicationScalingState mocks base method.
-func (m *MockState) SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error {
+// SetCAASApplicationUnitScale mocks base method.
+func (m *MockState) SetCAASApplicationUnitScale(arg0 context.Context, arg1 string, arg2 int, arg3 []string, arg4 []internal.AddCAASUnitArg) ([]string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.setApplicationScalingStateExpects, m.ctrl, m, "SetApplicationScalingState", ctx, appName, targetScale, scaling)
+	return gomock.Dispatch5_2(&m.recorder.setCAASApplicationUnitScaleExpects, m.ctrl, m, "SetCAASApplicationUnitScale", arg0, arg1, arg2, arg3, arg4)
 }
 
-// SetApplicationScalingState indicates an expected call of SetApplicationScalingState.
-func (mr *MockStateMockRecorder) SetApplicationScalingState(ctx, appName, targetScale, scaling any) *MockStateSetApplicationScalingStateCall {
+// SetCAASApplicationUnitScale indicates an expected call of SetCAASApplicationUnitScale.
+func (mr *MockStateMockRecorder) SetCAASApplicationUnitScale(arg0, arg1, arg2, arg3, arg4 any) *MockStateSetCAASApplicationUnitScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, string, int, bool, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingState", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(targetScale), gomock.EnsureMatcher(scaling))
-	mr.setApplicationScalingStateExpects = append(mr.setApplicationScalingStateExpects, call)
+	call := gomock.NewCall5_2[context.Context, string, int, []string, []internal.AddCAASUnitArg, []string, error](mr.mock.ctrl.T, mr.mock, "SetCAASApplicationUnitScale", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4))
+	mr.setCAASApplicationUnitScaleExpects = append(mr.setCAASApplicationUnitScaleExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateSetApplicationScalingStateCall is the typed call wrapper for SetApplicationScalingState.
-type MockStateSetApplicationScalingStateCall = gomock.Call4_1[context.Context, string, int, bool, error]
-
-// SetApplicationScalingStateWithStart mocks base method.
-func (m *MockState) SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch5_1(&m.recorder.setApplicationScalingStateWithStartExpects, m.ctrl, m, "SetApplicationScalingStateWithStart", ctx, appName, targetScale, startOrdinal, scaling)
-}
-
-// SetApplicationScalingStateWithStart indicates an expected call of SetApplicationScalingStateWithStart.
-func (mr *MockStateMockRecorder) SetApplicationScalingStateWithStart(ctx, appName, targetScale, startOrdinal, scaling any) *MockStateSetApplicationScalingStateWithStartCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall5_1[context.Context, string, int, int, bool, error](mr.mock.ctrl.T, mr.mock, "SetApplicationScalingStateWithStart", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(targetScale), gomock.EnsureMatcher(startOrdinal), gomock.EnsureMatcher(scaling))
-	mr.setApplicationScalingStateWithStartExpects = append(mr.setApplicationScalingStateWithStartExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateSetApplicationScalingStateWithStartCall is the typed call wrapper for SetApplicationScalingStateWithStart.
-type MockStateSetApplicationScalingStateWithStartCall = gomock.Call5_1[context.Context, string, int, int, bool, error]
+// MockStateSetCAASApplicationUnitScaleCall is the typed call wrapper for SetCAASApplicationUnitScale.
+type MockStateSetCAASApplicationUnitScaleCall = gomock.Call5_2[context.Context, string, int, []string, []internal.AddCAASUnitArg, []string, error]
 
 // SetCharmAvailable mocks base method.
 func (m *MockState) SetCharmAvailable(ctx context.Context, charmID charm.ID) error {
@@ -2977,24 +2940,6 @@ func (mr *MockStateMockRecorder) SetCharmAvailable(ctx, charmID any) *MockStateS
 
 // MockStateSetCharmAvailableCall is the typed call wrapper for SetCharmAvailable.
 type MockStateSetCharmAvailableCall = gomock.Call2_1[context.Context, charm.ID, error]
-
-// SetDesiredApplicationScale mocks base method.
-func (m *MockState) SetDesiredApplicationScale(arg0 context.Context, arg1 application.UUID, arg2 int) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setDesiredApplicationScaleExpects, m.ctrl, m, "SetDesiredApplicationScale", arg0, arg1, arg2)
-}
-
-// SetDesiredApplicationScale indicates an expected call of SetDesiredApplicationScale.
-func (mr *MockStateMockRecorder) SetDesiredApplicationScale(arg0, arg1, arg2 any) *MockStateSetDesiredApplicationScaleCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, application.UUID, int, error](mr.mock.ctrl.T, mr.mock, "SetDesiredApplicationScale", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.setDesiredApplicationScaleExpects = append(mr.setDesiredApplicationScaleExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateSetDesiredApplicationScaleCall is the typed call wrapper for SetDesiredApplicationScale.
-type MockStateSetDesiredApplicationScaleCall = gomock.Call3_1[context.Context, application.UUID, int, error]
 
 // SetUnitWorkloadVersion mocks base method.
 func (m *MockState) SetUnitWorkloadVersion(ctx context.Context, unitName unit.Name, version string) error {
@@ -3121,24 +3066,6 @@ func (mr *MockStateMockRecorder) UpdateApplicationConfigAndSettings(ctx, appUUID
 
 // MockStateUpdateApplicationConfigAndSettingsCall is the typed call wrapper for UpdateApplicationConfigAndSettings.
 type MockStateUpdateApplicationConfigAndSettingsCall = gomock.Call4_1[context.Context, application.UUID, map[string]application0.AddApplicationConfig, application0.UpdateApplicationSettingsArg, error]
-
-// UpdateApplicationScale mocks base method.
-func (m *MockState) UpdateApplicationScale(ctx context.Context, appUUID application.UUID, currentScale, delta int) (int, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.updateApplicationScaleExpects, m.ctrl, m, "UpdateApplicationScale", ctx, appUUID, currentScale, delta)
-}
-
-// UpdateApplicationScale indicates an expected call of UpdateApplicationScale.
-func (mr *MockStateMockRecorder) UpdateApplicationScale(ctx, appUUID, currentScale, delta any) *MockStateUpdateApplicationScaleCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, application.UUID, int, int, int, error](mr.mock.ctrl.T, mr.mock, "UpdateApplicationScale", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(currentScale), gomock.EnsureMatcher(delta))
-	mr.updateApplicationScaleExpects = append(mr.updateApplicationScaleExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateUpdateApplicationScaleCall is the typed call wrapper for UpdateApplicationScale.
-type MockStateUpdateApplicationScaleCall = gomock.Call4_2[context.Context, application.UUID, int, int, int, error]
 
 // UpdateCAASUnit mocks base method.
 func (m *MockState) UpdateCAASUnit(arg0 context.Context, arg1 unit.Name, arg2 application0.UpdateCAASUnitParams) error {

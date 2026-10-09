@@ -183,7 +183,6 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 				DownloadSize:       42,
 			},
 		},
-		Scale: len(units),
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
