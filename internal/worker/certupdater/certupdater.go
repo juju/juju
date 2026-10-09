@@ -6,7 +6,7 @@ package certupdater
 import (
 	"context"
 	"net"
-	"reflect"
+	"slices"
 
 	"github.com/juju/worker/v5"
 
@@ -18,14 +18,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/pki"
 )
-
-// defaultSANAddresses is a list of SAN addresses that will be used when no
-// addresses are found for the controller. This is to ensure that a certificate
-// can be generated even when no addresses are available.
-//
-// Previously, to updating the SAN addresses, these where the addresses that
-// were used to generate the default controller certificate.
-var defaultSANAddresses = []string{"localhost", "juju-apiserver", "anything"}
 
 // ControllerConfigGetter is an interface that returns the controller config.
 type ControllerConfigGetter interface {
@@ -104,11 +96,11 @@ func (c *CertificateUpdater) Handle(ctx context.Context) error {
 	if len(addresses) == 0 {
 		// If there are no addresses, we want to generate a certificate with
 		// some default SAN values, so we don't return an error here.
-		c.logger.Debugf(ctx, "no controller certificate addresses found, using default SAN addresses: %#v", defaultSANAddresses)
-		addresses = defaultSANAddresses
+		c.logger.Debugf(ctx, "no controller certificate addresses found, using default SAN addresses: %#v", controller.DefaultDNSNames)
 	}
+	addresses = append(slices.Clone(addresses), controller.DefaultDNSNames...)
 
-	if c.initialized && reflect.DeepEqual(addresses, c.addresses) {
+	if c.initialized && slices.Equal(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
 		c.logger.Debugf(ctx, "addresses have not changed since last updated cert")
@@ -146,7 +138,7 @@ func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses []
 		c.logger.Debugf(ctx, "commit error: %w", err)
 		return errors.Errorf("generating default controller ip certificate: %w", err)
 	}
-	c.addresses = append([]string{}, addresses...)
+	c.addresses = slices.Clone(addresses)
 	c.initialized = true
 	return nil
 }

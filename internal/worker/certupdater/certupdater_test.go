@@ -4,6 +4,7 @@
 package certupdater
 
 import (
+	"errors"
 	"net"
 	"testing"
 
@@ -76,6 +77,8 @@ func (s *certUpdaterSuite) TestInitialAddress(c *tc.C) {
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("2001:db8::1"))
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
+	s.leafRequest.EXPECT().AddDNSNames("anything")
 	committed := make(chan struct{})
 	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
 		close(committed)
@@ -99,6 +102,8 @@ func (s *certUpdaterSuite) TestInitialAddressAsHostname(c *tc.C) {
 
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddDNSNames("testhost")
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
+	s.leafRequest.EXPECT().AddDNSNames("anything")
 	committed := make(chan struct{})
 	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
 		close(committed)
@@ -123,6 +128,8 @@ func (s *certUpdaterSuite) TestAddressChange(c *tc.C) {
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"3.4.5.6"}, nil)
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("3.4.5.6"))
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver").Times(2)
+	s.leafRequest.EXPECT().AddDNSNames("anything").Times(2)
 	s.leafRequest.EXPECT().Commit().Return(nil, nil)
 
 	// new address
@@ -164,8 +171,8 @@ func (s *certUpdaterSuite) TestEmptyAddressSelectionReplacesCertificate(c *tc.C)
 		close(firstCommit)
 		return nil, nil
 	})
-	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
-	s.leafRequest.EXPECT().AddDNSNames("anything")
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver").Times(2)
+	s.leafRequest.EXPECT().AddDNSNames("anything").Times(2)
 	secondCommit := make(chan struct{})
 	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
 		close(secondCommit)
@@ -184,6 +191,87 @@ func (s *certUpdaterSuite) TestEmptyAddressSelectionReplacesCertificate(c *tc.C)
 func (s *certUpdaterSuite) TestNewCertificateUpdaterValidatesConfig(c *tc.C) {
 	_, err := NewCertificateUpdater(Config{})
 	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *certUpdaterSuite) TestConfigValidateRequiresControllerNodeServiceAndLogger(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	config := Config{Authority: s.authority}
+	err := config.Validate()
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+
+	config.ControllerNodeService = s.controllerNodeService
+	err = config.Validate()
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *certUpdaterSuite) TestHandleReturnsAddressRetrievalError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).
+		Return(nil, errors.New("address service failed"))
+	updater := CertificateUpdater{
+		controllerNodeService: s.controllerNodeService,
+		logger:                loggertesting.WrapCheckLog(c),
+	}
+
+	err := updater.Handle(c.Context())
+	c.Check(err, tc.ErrorMatches, "retrieving controller certificate addresses: address service failed")
+}
+
+func (s *certUpdaterSuite) TestHandleSkipsWhenAddressesAreUnchanged(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	addresses := []string{"4.3.2.1"}
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).
+		Return(addresses, nil)
+	updater := CertificateUpdater{
+		controllerNodeService: s.controllerNodeService,
+		addresses:             []string{"4.3.2.1", "localhost", "juju-apiserver", "anything"},
+		initialized:           true,
+		logger:                loggertesting.WrapCheckLog(c),
+	}
+
+	err := updater.Handle(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *certUpdaterSuite) TestHandleCopiesAddressesBeforeAppendingDefaults(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	addressBacking := make([]string, 1, 4)
+	addressBacking[0] = "4.3.2.1"
+	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).
+		Return(addressBacking[:1], nil)
+	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
+	s.leafRequest.EXPECT().AddIPAddresses(net.ParseIP("4.3.2.1"))
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
+	s.leafRequest.EXPECT().AddDNSNames("anything")
+	s.leafRequest.EXPECT().Commit().Return(nil, nil)
+	updater := CertificateUpdater{
+		authority:             s.authority,
+		controllerNodeService: s.controllerNodeService,
+		logger:                loggertesting.WrapCheckLog(c),
+	}
+
+	err := updater.Handle(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addressBacking[:cap(addressBacking)], tc.DeepEquals, []string{"4.3.2.1", "", "", ""})
+	c.Check(updater.addresses, tc.DeepEquals, []string{"4.3.2.1", "localhost", "juju-apiserver", "anything"})
+}
+
+func (s *certUpdaterSuite) TestUpdateCertificateReturnsCommitError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
+	s.leafRequest.EXPECT().Commit().Return(nil, errors.New("commit failed"))
+	updater := CertificateUpdater{
+		authority: s.authority,
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+
+	err := updater.updateCertificate(c.Context(), nil)
+	c.Check(err, tc.ErrorMatches, "generating default controller ip certificate: commit failed")
 }
 
 func (s *certUpdaterSuite) newUpdater(c *tc.C) worker.Worker {
