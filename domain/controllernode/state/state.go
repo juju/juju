@@ -632,47 +632,11 @@ ORDER BY address.controller_id, address.priority, address.address
 	return decodeAPIAddresses(addresses), nil
 }
 
-// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
-// scope, including shared endpoints. Addresses include port numbers.
-func (st *State) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	stmt, err := st.Prepare(`
-SELECT address.address AS &controllerAPIAddressStr.address
-FROM controller_client_address AS address
-WHERE address.scope = 'local-cloud'
-ORDER BY address.controller_id, address.priority, address.address
-`, controllerAPIAddressStr{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []controllerAPIAddressStr
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return controllernodeerrors.EmptyAPIAddresses
-		} else if err != nil {
-			return errors.Errorf("getting all cloud local api addresses for controller nodes: %w", err)
-		}
-		return err
-	}); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	returnStrings := make([]string, 0, len(result))
-	for i := range result {
-		returnStrings = append(returnStrings, result[i].Address)
-	}
-	return returnStrings, nil
-}
-
 // GetAllAPIAddressesForCertificates returns the union of client and peer
 // addresses in one database snapshot. An empty result is valid when neither
-// projection contains an address.
+// projection contains an address. Agent-only addresses are excluded because
+// Juju agents verify this certificate against the pinned "juju-apiserver" name,
+// which is added to every certificate independently of published addresses.
 func (st *State) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
