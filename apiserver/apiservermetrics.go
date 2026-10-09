@@ -39,6 +39,10 @@ const (
 
 	// MetricLabelVersion is the metric for the Juju Version of the controller
 	MetricLabelVersion = "version"
+
+	// MetricLabelReason defines a reason constant for the SSHRelayRejections
+	// Label
+	MetricLabelReason = "reason"
 )
 
 // MetricAPIConnectionsLabelNames defines a series of labels for the
@@ -94,6 +98,9 @@ type Collector struct {
 	TotalRequests         *prometheus.CounterVec
 	TotalRequestErrors    *prometheus.CounterVec
 	TotalRequestsDuration *prometheus.SummaryVec
+
+	SSHRelaySessionDuration prometheus.Histogram
+	SSHRelayRejections      *prometheus.CounterVec
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -194,6 +201,21 @@ func NewMetricsCollector() *Collector {
 				0.99: 0.001,
 			},
 		}, MetricTotalRequestsLabelNames),
+
+		SSHRelaySessionDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "ssh_relay_session_duration_seconds",
+			Help:      "The time a relayed SSH session remains open.",
+			Buckets:   []float64{1, 10, 60, 300, 600, 3600},
+		}),
+		SSHRelayRejections: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: apiserverMetricsNamespace,
+			Subsystem: apiserverSubsystemNamespace,
+			Name:      "ssh_relay_rejections_total",
+			Help:      "Total number of rejected SSH relay requests.",
+		}, []string{MetricLabelReason}),
+
 		BuildInfo: buildInfo,
 	}
 }
@@ -210,6 +232,8 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.TotalRequests.Describe(ch)
 	c.TotalRequestErrors.Describe(ch)
 	c.TotalRequestsDuration.Describe(ch)
+	c.SSHRelaySessionDuration.Describe(ch)
+	c.SSHRelayRejections.Describe(ch)
 	c.BuildInfo.Describe(ch)
 }
 
@@ -225,5 +249,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.TotalRequests.Collect(ch)
 	c.TotalRequestErrors.Collect(ch)
 	c.TotalRequestsDuration.Collect(ch)
+	c.SSHRelaySessionDuration.Collect(ch)
+	c.SSHRelayRejections.Collect(ch)
 	c.BuildInfo.Collect(ch)
 }
