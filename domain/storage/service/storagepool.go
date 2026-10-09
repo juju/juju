@@ -35,7 +35,8 @@ type StoragePoolState interface {
 
 	// DeleteStoragePool deletes a storage pool with the specified name.
 	// The following errors can be expected:
-	// - [storageerrors.PoolNotFoundError] if a pool with the specified name does not exist.
+	// - [domainstorageerrors.StoragePoolNotFound] if the pool does not exist.
+	// - [domainstorageerrors.StoragePoolInUse] if the pool is still referenced.
 	DeleteStoragePool(ctx context.Context, name string) error
 
 	// ReplaceStoragePool replaces an existing storage pool with the specified configuration.
@@ -328,38 +329,12 @@ func (s *StoragePoolService) validateConfig(ctx context.Context, name string, pr
 
 // DeleteStoragePool deletes a storage pool with the specified name.
 // The following errors can be expected:
-// - [domainstorageerrors.StoragePoolNotFound] if a pool with the specified name does not exist.
+// - [domainstorageerrors.StoragePoolNotFound] if the pool does not exist.
+// - [domainstorageerrors.StoragePoolInUse] if the pool is still referenced.
 func (s *StoragePoolService) DeleteStoragePool(ctx context.Context, name string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// TODO(storage) - check in use when we have storage in dqlite
-	// Below is the code from state that will need to be ported.
-	/*
-		var inUse bool
-		cfg, err := sb.config(context.Background())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		operatorStorage, ok := cfg.AllAttrs()[k8sconstants.OperatorStorageKey]
-		if sb.modelType == ModelTypeCAAS && ok && operatorStorage == poolName {
-			apps, err := sb.allApplications()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			inUse = len(apps) > 0
-		} else {
-			query := bson.D{{"constraints.pool", bson.D{{"$eq", poolName}}}}
-			pools, err := storageCollection.Find(query).Count()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			inUse = pools > 0
-		}
-		if inUse {
-			return errors.Errorf("storage pool %q in use", poolName)
-		}
-	*/
 	if err := s.st.DeleteStoragePool(ctx, name); err != nil {
 		return errors.Errorf("deleting storage pool %q: %w", name, err)
 	}
