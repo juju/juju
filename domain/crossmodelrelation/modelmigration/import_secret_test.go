@@ -50,6 +50,57 @@ func (s *importSecretSuite) newImportOperation(c *tc.C) *importSecretOperation {
 	}
 }
 
+// The relation token recorded for the relation of a grant in the remote
+// entities of the source model is resolved for the grant, so a grant
+// scoped by the relation of an additional offer connection of a legacy
+// consumer proxy can be located by the UUID the relation was imported
+// under, not by its legacy key.
+func (s *importSecretSuite) TestImportSecretResolvesRelationToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:            "remote-app",
+		SourceModelUUID: "source-uuid",
+	})
+	secretID := uuid.MustNewUUID().String()
+	model.AddSecret(description.SecretArgs{
+		ID:    secretID,
+		Owner: names.NewUserTag("admin"),
+		ACL: map[string]description.SecretAccessArgs{
+			"application-remote-app": {
+				Scope: "relation-app:endpoint remote-app:endpoint",
+				Role:  "view",
+			},
+		},
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-app.endpoint#remote-app.endpoint",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	relKey, err := relation.NewKeyFromString("app:endpoint remote-app:endpoint")
+	c.Assert(err, tc.ErrorIsNil)
+	s.importService.EXPECT().ImportGrantedSecrets(gomock.Any(), []service.GrantedSecretImport{
+		{
+			SecretID: secretID,
+			ACLs: []service.GrantedSecretACLImport{
+				{
+					ApplicationName: "remote-app",
+					RelationKey:     relKey,
+					RelationUUID:    "6049aa01-76c9-462d-8440-964a6e26aac2",
+					Role:            secrets.RoleView,
+				},
+			},
+		},
+	}).Return(nil)
+	s.importService.EXPECT().ImportRemoteSecrets(gomock.Any(), gomock.Any()).Return(nil)
+
+	err = s.newImportOperation(c).Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importSecretSuite) TestImportWithSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/description/v12"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database"
@@ -20,6 +21,7 @@ import (
 	machinemigration "github.com/juju/juju/domain/machine/modelmigration"
 	migrationtesting "github.com/juju/juju/domain/modelmigration/testing"
 	relationmigration "github.com/juju/juju/domain/relation/modelmigration"
+	secretmigration "github.com/juju/juju/domain/secret/modelmigration"
 	sequencemigration "github.com/juju/juju/domain/sequence/modelmigration"
 	statusmigration "github.com/juju/juju/domain/status/modelmigration"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -675,4 +677,210 @@ SELECT relation_id FROM relation WHERE uuid = ?`, offer.relationUUID2).Scan(&rel
 		c.Check(after.unitSettings, tc.DeepEquals, before.unitSettings)
 		c.Check(after.units, tc.SameContents, before.units)
 	}
+}
+
+// TestImportLegacyProxyTwoOfferConnectionsRelationNetworks checks the
+// relation networks of a legacy consumer proxy with two offer connections:
+// the networks of the additional connection are located by the relation
+// token, as the relation is represented in the model by a freshly named
+// synthetic application and cannot be located by its legacy key. The admin
+// override egress networks of the source model take precedence over the
+// default ones.
+func (s *importSuite) TestImportLegacyProxyTwoOfferConnectionsRelationNetworks(c *tc.C) {
+	m, offer := legacyTwoConnectionOfferModel()
+	m.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          offer.relationKey1 + ":ingress:default",
+		RelationKey: offer.relationKey1,
+		CIDRS:       []string{"10.0.0.0/24"},
+	})
+	m.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          offer.relationKey1 + ":egress:default",
+		RelationKey: offer.relationKey1,
+		CIDRS:       []string{"192.168.0.0/16"},
+	})
+	m.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          offer.relationKey1 + ":egress:override",
+		RelationKey: offer.relationKey1,
+		CIDRS:       []string{"192.168.1.0/24"},
+	})
+	m.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          offer.relationKey2 + ":ingress:default",
+		RelationKey: offer.relationKey2,
+		CIDRS:       []string{"10.2.0.0/24"},
+	})
+	m.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          offer.relationKey2 + ":egress:default",
+		RelationKey: offer.relationKey2,
+		CIDRS:       []string{"10.1.0.0/16"},
+	})
+
+	_, scope, _ := s.setupCoordinatorScopeAndService(c)
+	coordinator := coremodelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+	)
+	registerLegacyOfferImports(c, coordinator, true)
+	c.Assert(coordinator.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+
+	runner, err := scope.ModelDB()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	readCIDRs := func(table, relationUUID string) []string {
+		var cidrs []string
+		err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			cidrs = nil
+			rows, err := tx.QueryContext(ctx,
+				`SELECT cidr FROM `+table+` WHERE relation_uuid = ?`, relationUUID)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var cidr string
+				if err := rows.Scan(&cidr); err != nil {
+					return err
+				}
+				cidrs = append(cidrs, cidr)
+			}
+			return rows.Err()
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		return cidrs
+	}
+
+	// The first connection imports its networks, with the admin override
+	// egress taking precedence over the default.
+	c.Check(readCIDRs("relation_network_ingress", offer.relationUUID1),
+		tc.SameContents, []string{"10.0.0.0/24"})
+	c.Check(readCIDRs("relation_network_egress", offer.relationUUID1),
+		tc.SameContents, []string{"192.168.1.0/24"})
+
+	// The additional connection imports its networks too, located by the
+	// relation token rather than by its legacy key.
+	c.Check(readCIDRs("relation_network_ingress", offer.relationUUID2),
+		tc.SameContents, []string{"10.2.0.0/24"})
+	c.Check(readCIDRs("relation_network_egress", offer.relationUUID2),
+		tc.SameContents, []string{"10.1.0.0/16"})
+}
+
+// TestImportLegacyProxyTwoOfferConnectionsSecretGrant checks a secret
+// granted to a legacy consumer proxy over its additional offer connection:
+// the grant is located by the relation token, as the relation cannot be
+// located by its legacy key, and is recorded for the synthetic application
+// of the offer connection of the relation, not for the application of the
+// first connection, which keeps the legacy proxy name.
+func (s *importSuite) TestImportLegacyProxyTwoOfferConnectionsSecretGrant(c *tc.C) {
+	m, offer := legacyTwoConnectionOfferModel()
+	secretID := "ed736d84-0007-438c-8c0e-eac6e0d6dadd"
+	m.AddSecret(description.SecretArgs{
+		ID:    secretID,
+		Owner: names.NewApplicationTag("mysql"),
+		Revisions: []description.SecretRevisionArgs{
+			{
+				Number:  1,
+				Created: time.Now().UTC(),
+				Updated: time.Now().UTC(),
+				Content: map[string]string{"token": "s3cr3t"},
+			},
+		},
+		ACL: map[string]description.SecretAccessArgs{
+			"application-" + offer.remoteApp: {
+				Scope: "relation-" + offer.remoteApp + ":db postgres:db",
+				Role:  "view",
+			},
+		},
+		RemoteConsumers: []description.SecretRemoteConsumerArgs{
+			{
+				ID:              "consumer-id",
+				Consumer:        names.NewUnitTag(offer.remoteApp + "/0"),
+				CurrentRevision: 1,
+			},
+		},
+	})
+
+	_, scope, _ := s.setupCoordinatorScopeAndService(c)
+	coordinator := coremodelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+	)
+	logger := loggertesting.WrapCheckLog(c)
+
+	// The secrets domain import resolves the built-in kubernetes backend
+	// of the controller and the model record, neither of which the test
+	// databases seed.
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
+VALUES ('ed736d84-0007-438c-8c0e-eac6e0d6dad3', 'localhost', 1, 'placeholder', true)`); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, activated, cloud_uuid, model_type_id, life_id, name, qualifier)
+VALUES ('ed736d84-0007-438c-8c0e-eac6e0d6dad1', true,
+        'ed736d84-0007-438c-8c0e-eac6e0d6dad3', 0, 1, 'migrated', 'prod')`); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO secret_backend (uuid, name, backend_type_id)
+VALUES ('ed736d84-0007-438c-8c0e-eac6e0d6dadf', 'kubernetes',
+        (SELECT id FROM secret_backend_type WHERE type = 'kubernetes'))`); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO secret_backend (uuid, name, backend_type_id)
+VALUES ('ed736d84-0007-438c-8c0e-eac6e0d6dad0', 'internal',
+        (SELECT id FROM secret_backend_type WHERE type = 'controller'))`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	runner, err := scope.ModelDB()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES ('ed736d84-0007-438c-8c0e-eac6e0d6dad1', 'ed736d84-0007-438c-8c0e-eac6e0d6dad2',
+        'migrated', 'prod', 'iaas', 'localhost', 'lxd')`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	sequencemigration.RegisterImport(coordinator)
+	machinemigration.RegisterImport(coordinator, clock.WallClock, logger)
+	applicationmigration.RegisterImport(coordinator, clock.WallClock, logger)
+	cmrmigration.RegisterImport(coordinator, clock.WallClock, logger)
+	relationmigration.RegisterImport(coordinator, clock.WallClock, logger)
+	// The secrets domain import must run before the cross model relation
+	// secret import, which re-creates the grants of the imported secrets.
+	secretmigration.RegisterImport(coordinator, logger)
+	cmrmigration.RegisterImportSecret(coordinator, clock.WallClock, logger)
+	statusmigration.RegisterImport(coordinator, clock.WallClock, logger)
+	c.Assert(coordinator.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+
+	// The grant is recorded for the synthetic application of the additional
+	// connection, scoped by the relation token of that connection.
+	var subjectUUID, scopeUUID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT subject_uuid, scope_uuid FROM secret_permission
+WHERE secret_id = ? AND scope_uuid = ?`, secretID, offer.relationUUID2).
+			Scan(&subjectUUID, &scopeUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scopeUUID, tc.Equals, offer.relationUUID2)
+
+	var syntheticUUID string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT uuid FROM application WHERE name LIKE 'remote-%' AND name != ?`, offer.remoteApp).
+			Scan(&syntheticUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(subjectUUID, tc.Equals, syntheticUUID)
+
+	// The consumer of the secret is imported as well.
+	var consumers int
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM secret_remote_unit_consumer WHERE secret_id = ?`, secretID).Scan(&consumers)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(consumers, tc.Equals, 1)
 }
