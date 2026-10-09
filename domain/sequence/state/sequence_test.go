@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
@@ -68,6 +69,69 @@ func (s *sequenceSuite) TestSequencePrefixNamespace(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(next, tc.Equals, uint64(1))
+}
+
+func (s *sequenceSuite) TestEnsureAtLeastCreatesSequence(c *tc.C) {
+	namespace := domainsequence.StaticNamespace("reserved")
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		return EnsureAtLeast(ctx, s.state, tx, namespace, 4)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var next uint64
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		next, err = NextValue(ctx, s.state, tx, namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(next, tc.Equals, uint64(5))
+}
+
+func (s *sequenceSuite) TestEnsureAtLeastOnlyAdvances(c *tc.C) {
+	namespace := domainsequence.StaticNamespace("reserved")
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		_, err := NextValue(ctx, s.state, tx, namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, value := range []uint64{0, 7, 7, 3} {
+		err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+			return EnsureAtLeast(ctx, s.state, tx, namespace, value)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	var next uint64
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		next, err = NextValue(ctx, s.state, tx, namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(next, tc.Equals, uint64(8))
+}
+
+func (s *sequenceSuite) TestEnsureAtLeastRollsBackWithTransaction(c *tc.C) {
+	namespace := domainsequence.StaticNamespace("reserved")
+	rollback := errors.New("rollback")
+	err := s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		if err := EnsureAtLeast(ctx, s.state, tx, namespace, 4); err != nil {
+			return err
+		}
+		return rollback
+	})
+	c.Assert(err, tc.ErrorIs, rollback)
+
+	var next uint64
+	err = s.TxnRunner().Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		next, err = NextValue(ctx, s.state, tx, namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(next, tc.Equals, uint64(0))
 }
 
 func (s *sequenceSuite) TestSequenceMultiple(c *tc.C) {
