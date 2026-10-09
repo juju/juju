@@ -785,12 +785,16 @@ func ensureScale(
 	}
 
 	if ps.ScaleTarget >= len(units) {
-		// Reconcile every desired controller ordinal rather than only the
-		// apparent scale-up range. Unit rows can be temporarily missing or
-		// sparse after a failed introduction, while StatefulSet ordinals are
-		// always the contiguous range [startOrdinal, startOrdinal+scaleTarget).
-		// The persisted nonce is immutable, so this is safe to repeat during
-		// recovery.
+		// A pod may start as soon as the StatefulSet is scaled. Reserve the
+		// complete range first so registration cannot race unit creation, even
+		// when a lower ordinal's introduction fails.
+		if appLife == life.Alive {
+			if err := applicationService.ReserveCAASUnits(ctx, appName, ps.StartOrdinal, ps.ScaleTarget); err != nil {
+				return errors.Annotate(err, "reserving CAAS units")
+			}
+		}
+		// Reconcile every desired controller ordinal. The persisted nonce is
+		// immutable, so this is safe to repeat during recovery.
 		if ps.ScaleTarget > 0 && appLife == life.Alive {
 			if isController, err := applicationService.IsControllerApplication(ctx, appUUID); err != nil {
 				return errors.Annotate(err, "checking if controller application")
@@ -820,8 +824,23 @@ func ensureScale(
 			return err
 		}
 		if ps.ScaleTarget > len(units) {
-			// Scaling up must see units created.
+			// The reservations were just inserted. Read them on the next pass.
 			return tryAgain
+		}
+		if appLife == life.Alive {
+			registered, err := applicationService.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
+			if err != nil {
+				return errors.Annotate(err, "getting registered CAAS units")
+			}
+			for ordinal := ps.StartOrdinal; ordinal < ps.StartOrdinal+ps.ScaleTarget; ordinal++ {
+				name, err := coreunit.NewNameFromParts(appName, ordinal)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if registered[name] == "" {
+					return tryAgain
+				}
+			}
 		}
 		err = updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
 		if err != nil {
