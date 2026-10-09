@@ -1037,7 +1037,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	if err := srv.catacomb.Add(tunnelHandler); err != nil {
 		return nil, errors.Trace(err)
 	}
-	sshTunnelHandler := srv.sshTunnelMiddleware(tunnelHandler)
+	sshTunnelHandler := srv.monitoredHandler(srv.sshTunnelMiddleware(tunnelHandler), "ssh-tunnel")
 
 	relayHandler, err := sshproxy.NewRelayHandler(sshproxy.RelayHandlerConfig{
 		Logger:                   logger.Child("sshrelay"),
@@ -1050,7 +1050,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	if err := srv.catacomb.Add(relayHandler); err != nil {
 		return nil, errors.Trace(err)
 	}
-	sshRelayHandler := srv.sshRelayMiddleware(relayHandler)
+	sshRelayHandler := srv.monitoredHandler(srv.sshRelayMiddleware(relayHandler), "ssh-relay")
 
 	// HTTP handler for application offer macaroon authentication.
 	if err := handlerscrossmodel.AddOfferAuthHandlers(srv.shared, srv.shared.offersThirdPartyKeyPair, srv.mux, srv.shared.logger); err != nil {
