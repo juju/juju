@@ -6,8 +6,8 @@ package backups_test
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/base64"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"os"
 
@@ -38,8 +38,8 @@ model UUID:
 machine ID:             
 created on host:        
 
-checksum:              YuLeCCL75ZT/frYSABmKhamUh58= 
-checksum format:        
+checksum:              3d355aabca47fd9136cc478ed30a28086334dcc474a52e990778ad2e664b2259 
+checksum format:       SHA-256, hex encoded 
 size (B):              0 
 stored:                0001-01-01 00:00:00 +0000 UTC 
 started:               0001-01-01 00:00:00 +0000 UTC 
@@ -65,8 +65,9 @@ func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 	c.Chdir(c.MkDir())
 
 	s.metaresult = &params.BackupsMetadataResult{
-		ID:       "backup-id",
-		Filename: "backup-filename",
+		ID:             "backup-id",
+		Filename:       "backup-filename",
+		ChecksumFormat: "SHA-256, hex encoded",
 	}
 	s.data = "<compressed archive data>"
 
@@ -150,8 +151,8 @@ func (c *fakeAPIClient) Create(ctx context.Context, notes string) (params.Backup
 		// The archive checksum matches the streamed data unless the
 		// test set one explicitly.
 		if c.metaresult.Checksum == "" {
-			sum := sha1.Sum([]byte(c.data))
-			c.metaresult.Checksum = base64.StdEncoding.EncodeToString(sum[:])
+			sum := sha256.Sum256([]byte(c.data))
+			c.metaresult.Checksum = hex.EncodeToString(sum[:])
 		}
 	}
 	if c.createHook != nil {

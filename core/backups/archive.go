@@ -22,6 +22,7 @@ const (
 	filesBundle  = "root.tar"
 	dbDumpDir    = "dump"
 	metadataFile = "metadata.json"
+	manifestFile = "manifest.json"
 )
 
 // ArchivePaths holds the paths to the files and directories in a
@@ -45,6 +46,10 @@ type ArchivePaths struct {
 
 	// MetadataFile is the path to the metadata file.
 	MetadataFile string
+
+	// ManifestFile is the path to the content manifest: the index of
+	// the archive's components with their sizes and SHA-256 hashes.
+	ManifestFile string
 }
 
 // NewCanonicalArchivePaths composes a new ArchivePaths with default
@@ -57,6 +62,7 @@ func NewCanonicalArchivePaths() ArchivePaths {
 		FilesBundle:  path.Join(contentDir, filesBundle),
 		DBDumpDir:    path.Join(contentDir, dbDumpDir),
 		MetadataFile: path.Join(contentDir, metadataFile),
+		ManifestFile: path.Join(contentDir, manifestFile),
 	}
 }
 
@@ -71,6 +77,7 @@ func NewNonCanonicalArchivePaths(rootDir string) ArchivePaths {
 		FilesBundle:  filepath.Join(rootDir, contentDir, filesBundle),
 		DBDumpDir:    filepath.Join(rootDir, contentDir, dbDumpDir),
 		MetadataFile: filepath.Join(rootDir, contentDir, metadataFile),
+		ManifestFile: filepath.Join(rootDir, contentDir, manifestFile),
 	}
 }
 

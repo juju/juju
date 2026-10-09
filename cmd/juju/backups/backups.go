@@ -14,7 +14,6 @@ import (
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/backups"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/rpc/params"
@@ -70,14 +69,6 @@ func (c *CommandBase) Init(args []string) error {
 		}
 	})
 	return nil
-}
-
-func (c *CommandBase) validateIaasController(ctx context.Context, cmdName string) error {
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return common.ValidateIaasController(ctx, c.CommandBase, cmdName, controllerName, c.ClientStore())
 }
 
 var newAPIClient = func(ctx context.Context, c *CommandBase) (APIClient, error) {

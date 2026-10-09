@@ -4,14 +4,15 @@
 package backups
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v4/hash"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
@@ -31,13 +32,22 @@ request, and nothing is kept on the controller once the request ends.
 The archive is verified against the recorded checksum before the
 download is considered complete; if verification fails, the corrupt
 archive is kept locally under a ".corrupt" suffix for inspection and
-the backup must be created again. An interrupted transfer leaves no
-archive on either side: re-run the command to create the backup
-again.
+the backup must be created again. When the controller records its
+checksum in a format this client cannot verify (an older controller),
+the archive is kept with a warning instead. An interrupted transfer
+leaves no archive on either side: re-run the command to create the
+backup again.
 
 The model config attribute ` + "`backup-dir`" + ` only serves as scratch space
 during backup creation; no archive is kept there once the command
 finishes.
+
+Each database (the controller database and every model database) is
+exported in its own transaction at a slightly different moment: the
+archive is not a single point-in-time snapshot of the whole controller.
+Create the backup during a quiet window, when models are not being
+deployed, destroyed or upgraded, so that concurrent changes cannot
+produce an inconsistent archive.
 
 Use ` + "`--verbose`" + ` to see extra information about backup.
 `
@@ -97,9 +107,6 @@ func (c *createCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *createCommand) Run(ctx *cmd.Context) error {
-	if err := c.validateIaasController(ctx, c.Info().Name); err != nil {
-		return errors.Trace(err)
-	}
 	client, err := c.NewGetAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -121,7 +128,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	}
 
 	filename := c.decideFilename(c.Filename, result.Started)
-	if err := c.writeArchive(archive, result.Checksum, filename); err != nil {
+	if err := c.writeArchive(ctx, archive, result.Checksum, result.ChecksumFormat, filename); err != nil {
 		return errors.Trace(err)
 	}
 	// Print the metadata only after the archive is verified and
@@ -144,20 +151,23 @@ func (c *createCommand) decideFilename(filename string, timestamp time.Time) str
 
 // writeArchive streams the archive into archiveFilename, hashing it
 // along the way, and verifies the received bytes against the recorded
-// checksum. An incomplete transfer leaves no partial file behind; a
-// checksum mismatch keeps the corrupt archive under a ".corrupt"
-// suffix for inspection.
-func (c *createCommand) writeArchive(stream io.Reader, checksum, archiveFilename string) error {
+// checksum. Verification only applies when the controller reports the
+// current checksum format: an older controller records a SHA-1 checksum
+// this client cannot verify, so its archive is kept with a warning
+// rather than condemned as corrupt on a certain mismatch. An incomplete
+// transfer leaves no partial file behind; a checksum mismatch keeps
+// the corrupt archive under a ".corrupt" suffix for inspection.
+func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksum, checksumFormat, archiveFilename string) error {
 	archive, err := c.Filesystem().Create(archiveFilename)
 	if err != nil {
 		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
 	}
 
-	// The checksum is the base64-encoded SHA-1 sum of the archive as
+	// The checksum is the hex-encoded SHA-256 sum of the archive as
 	// recorded when it was created; hash while streaming so the archive
 	// is only read once.
-	hasher := hash.NewHashingWriter(archive, sha1.New())
-	_, copyErr := io.Copy(hasher, stream)
+	hasher := sha256.New()
+	_, copyErr := io.Copy(io.MultiWriter(archive, hasher), stream)
 	// Close the archive before handling either failure, so that an
 	// incomplete archive can be removed even on platforms that cannot
 	// remove open files.
@@ -172,7 +182,13 @@ func (c *createCommand) writeArchive(stream io.Reader, checksum, archiveFilename
 		}
 		return errors.Annotatef(closeErr, "while closing local archive file %v", archiveFilename)
 	}
-	if hasher.Base64Sum() != checksum {
+	if checksumFormat != backups.ChecksumFormatSHA256 {
+		fmt.Fprintf(ctx.Stderr,
+			"WARNING controller reported checksum format %q; the downloaded archive could not be verified\n",
+			checksumFormat)
+		return nil
+	}
+	if !strings.EqualFold(hex.EncodeToString(hasher.Sum(nil)), checksum) {
 		// Keep the corrupt archive under a suffix so the operator can
 		// inspect the damage, rather than silently removing it.
 		corruptName := archiveFilename + ".corrupt"

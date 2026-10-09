@@ -15,9 +15,7 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -189,27 +187,4 @@ func BootstrapEndpointAddresses(
 		)
 	}
 	return netAddrs, nil
-}
-
-// ValidateIaasController returns an error if the controller
-// is not an IAAS controller.
-func ValidateIaasController(ctx context.Context, c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
-	// Ensure controller model is cached.
-	controllerModel := jujuclient.QualifyModelName(
-		environs.AdminUser, bootstrap.ControllerModelName)
-	_, err := c.ModelUUIDs(ctx, store, controllerName, []string{controllerModel})
-	if err != nil {
-		return errors.Errorf("cannot get controller model uuid: %w", err)
-	}
-
-	details, err := store.ModelByName(controllerName, controllerModel)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if details.ModelType == model.IAAS {
-		return nil
-	}
-	return errors.Errorf(
-		"Juju command %q not supported on container controllers", cmdName,
-	)
 }
