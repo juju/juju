@@ -926,37 +926,6 @@ func (s *serviceSuite) TestGetAPIAddressesForClientsError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	returnAddrs := []string{"9.3.5.2:17070", "3.4.2.5:17070", "[2001:db8::1]:17070", "api.internal:17070"}
-	s.state.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return(returnAddrs, nil)
-
-	// Act
-	obtainedAddrs, err := svc.GetAllCloudLocalAPIAddresses(c.Context())
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedAddrs, tc.DeepEquals, []string{"9.3.5.2", "3.4.2.5", "2001:db8::1", "api.internal"})
-}
-
-func (s *serviceSuite) TestGetAllCloudLocalAPIAddressesError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// Arrange
-	s.state.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	// Act
-	_, err := svc.GetAllCloudLocalAPIAddresses(c.Context())
-
-	// Assert
-	c.Assert(err, tc.ErrorMatches, "boom")
-}
-
 type watchableServiceSuite struct {
 	testhelpers.IsolationSuite
 

@@ -135,12 +135,38 @@ func (s *watcherSuite) TestControllerAddressesForCertificates(c *tc.C) {
 		w.AssertChange()
 	})
 	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "UPDATE controller_client_address SET address = 'updated-api.example.com:17070' WHERE uuid = 'certificate-client'")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "UPDATE controller_client_address SET priority = priority WHERE uuid = 'certificate-client'")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "DELETE FROM controller_client_address WHERE uuid = 'certificate-client'")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
 		s.execAddressSQL(c, "INSERT INTO controller_peer_address (uuid, controller_id, address, scope) VALUES ('certificate-peer', '0', '10.0.0.1:17070', 'local-machine')")
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
 	})
 	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "UPDATE controller_peer_address SET address = '10.0.0.3:17070' WHERE uuid = 'certificate-peer'")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.execAddressSQL(c, "DELETE FROM controller_peer_address WHERE uuid = 'certificate-peer'")
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
 		s.execAddressSQL(c, "INSERT INTO controller_agent_address (uuid, controller_id, address, scope) VALUES ('certificate-agent', '0', '10.0.0.2:17070', 'local-cloud')")
+		s.execAddressSQL(c, "INSERT INTO controller_api_address (controller_id, address, scope) VALUES ('0', 'legacy.example.com:17070', 'public')")
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertNoChange()
 	})

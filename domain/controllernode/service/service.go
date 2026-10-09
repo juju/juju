@@ -85,10 +85,6 @@ type State interface {
 	// node. Peer addresses always have a controller identity.
 	GetAPIAddressesForPeers(ctx context.Context) (map[string]controllernode.APIAddresses, error)
 
-	// GetAllCloudLocalAPIAddresses returns client API addresses with cloud-local
-	// scope, including shared endpoints. Addresses include port numbers.
-	GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error)
-
 	// GetAllAPIAddressesForCertificates returns the union of client and peer
 	// addresses with ports, including shared client addresses.
 	GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error)
@@ -464,25 +460,6 @@ func (s *Service) GetAPIAddressesByControllerIDForPeers(ctx context.Context) (ma
 		result[controllerID] = addrs.Values()
 	}
 	return result, nil
-}
-
-// GetAllCloudLocalAPIAddresses returns cloud-local client addresses, including
-// shared endpoints. It strips the API ports stored in state, returning bare IP
-// addresses or hostnames for consumers such as certificate maintenance.
-func (s *Service) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
-	addrs, err := s.st.GetAllCloudLocalAPIAddresses(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	returnAddrs := make([]string, len(addrs))
-	for i, addr := range addrs {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		returnAddrs[i] = host
-	}
-	return returnAddrs, nil
 }
 
 // GetAllAPIAddressesForCertificates returns the union of the published client

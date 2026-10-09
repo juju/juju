@@ -121,3 +121,12 @@ func (s *serviceSuite) TestGetAllAPIAddressesForCertificatesError(c *tc.C) {
 	_, err := svc.GetAllAPIAddressesForCertificates(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
+
+func (s *serviceSuite) TestGetAllAPIAddressesForCertificatesMissingPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	s.state.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{"10.0.0.1"}, nil)
+
+	_, err := svc.GetAllAPIAddressesForCertificates(c.Context())
+	c.Assert(err, tc.ErrorMatches, `splitting controller certificate address "10.0.0.1": .*missing port.*`)
+}
