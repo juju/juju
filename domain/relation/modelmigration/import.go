@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 
 	"github.com/juju/juju/core/logger"
@@ -113,7 +114,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// cross model relation import, which runs first. Only their data is
 		// imported here.
 		if domainmodelmigration.ContainsRelationEndpointApplicationName(rel, consumerRemoteApplications) {
-			arg, err := i.createConsumerProxyImportArg(rel, relationRemoteEntities)
+			arg, err := i.createConsumerProxyImportArg(rel, relationRemoteEntities, consumerRemoteApplications)
 			if err != nil {
 				return errors.Errorf("setting up remote consumer relation data for import %d: %w", rel.Id(), err)
 			}
@@ -276,7 +277,7 @@ func (i *importOperation) createRemoteImportArg(
 					// The unit settings are keyed by unit name, which embeds
 					// the application name. Re-key the settings so that they
 					// continue to address the units of the renamed endpoint.
-					unitSettings, err = renameUnitSettings(
+					unitSettings, err = domainmodelmigration.RewriteUnitSettings(
 						unitSettings, remoteApp.Name(), primaryApplicationName)
 					if err != nil {
 						return relation.ImportRelationArg{}, errors.Errorf(
@@ -299,33 +300,6 @@ func (i *importOperation) createRemoteImportArg(
 	return arg, nil
 }
 
-// renameUnitSettings re-keys the unit settings so that unit names belonging to
-// the old application name are addressed to the new application name. Unit
-// settings are keyed by unit name, in the form
-// "<application name>/<unit number>". When a remote application alias is
-// renamed during import, its unit settings must follow the rename, otherwise
-// they are left keyed under a unit name that no longer matches the imported
-// endpoint's application name. The re-keyed unit names must match the
-// synthetic units that the crossmodelrelation domain import creates for the
-// renamed remote application; both use the shared
-// domain/modelmigration/modelmigration.RewriteUnitName rule. Keys that are
-// not valid unit names are an error.
-func renameUnitSettings(
-	settings map[string]map[string]any,
-	oldApplicationName, newApplicationName string,
-) (map[string]map[string]any, error) {
-	out := make(map[string]map[string]any, len(settings))
-	for unitName, unitSettings := range settings {
-		rewritten, err := domainmodelmigration.RewriteUnitName(
-			unitName, oldApplicationName, newApplicationName)
-		if err != nil {
-			return nil, err
-		}
-		out[rewritten] = unitSettings
-	}
-	return out, nil
-}
-
 // createConsumerProxyImportArg creates the import argument for the data of a
 // relation of a remote application consumer. The relation itself was
 // imported by the cross model relation import, under the UUID of the
@@ -334,6 +308,7 @@ func renameUnitSettings(
 func (i *importOperation) createConsumerProxyImportArg(
 	rel description.Relation,
 	remoteEntities []domainmodelmigration.RelationRemoteEntity,
+	consumerRemoteApplications set.Strings,
 ) (relation.ImportRelationSettingsAndUnitsArg, error) {
 	key, err := corerelation.NewKeyFromString(rel.Key())
 	if err != nil {
@@ -357,6 +332,7 @@ func (i *importOperation) createConsumerProxyImportArg(
 		arg.Endpoints = append(arg.Endpoints, relation.ImportEndpoint{
 			ApplicationName:     v.ApplicationName(),
 			EndpointName:        v.Name(),
+			ConsumerProxy:       consumerRemoteApplications.Contains(v.ApplicationName()),
 			ApplicationSettings: v.ApplicationSettings(),
 			UnitSettings:        v.AllSettings(),
 		})

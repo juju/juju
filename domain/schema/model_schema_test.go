@@ -142,6 +142,9 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"model_constraint",
 		"model_migrating",
 
+		// Model migration
+		"log_transfer_progress",
+
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",

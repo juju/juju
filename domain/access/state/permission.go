@@ -683,6 +683,8 @@ AND    u.removed = FALSE
 	return result, nil
 }
 
+// ImportOfferAccess imports the supplied offer permissions without adding
+// defaults for subjects absent from the source ACLs.
 func (st *PermissionState) ImportOfferAccess(
 	ctx context.Context,
 	importAccess []access.OfferImportAccess,
@@ -696,7 +698,9 @@ func (st *PermissionState) ImportOfferAccess(
 	for _, imp := range importAccess {
 		userNames = userNames.Union(set.NewStrings(slices.Collect(maps.Keys(imp.Access))...))
 	}
-	userNames.Add(corepermission.EveryoneUserName.String())
+	if userNames.IsEmpty() {
+		return nil
+	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		namesAndUUIDs, err := st.getUserUUIDs(ctx, tx, userNames.Values())
@@ -720,13 +724,8 @@ func (st *PermissionState) ImportOfferAccess(
 
 func encodeOfferPermissions(namesAndUUIDs map[string]string, input []access.OfferImportAccess) ([]dbPermission, error) {
 	var result []dbPermission
-	everyoneUUID := namesAndUUIDs[corepermission.EveryoneUserName.String()]
 	for _, o := range input {
-		var foundEveryoneAccess bool
 		for name, offerAccess := range o.Access {
-			if name == corepermission.EveryoneUserName.String() {
-				foundEveryoneAccess = true
-			}
 			userUUID, ok := namesAndUUIDs[name]
 			if !ok {
 				return nil, errors.Errorf("offer access for %q", name).Add(accesserrors.UserNotFound)
@@ -743,21 +742,6 @@ func encodeOfferPermissions(namesAndUUIDs map[string]string, input []access.Offe
 				ObjectType: corepermission.Offer.String(),
 			})
 		}
-		if foundEveryoneAccess {
-			continue
-		}
-		// In case the Everyone user access was not imported, add now.
-		permissionUUID, err := uuid.NewUUID()
-		if err != nil {
-			return nil, errors.Errorf("offer access new uuid: %w", err)
-		}
-		result = append(result, dbPermission{
-			UUID:       permissionUUID.String(),
-			GrantOn:    o.UUID.String(),
-			GrantTo:    everyoneUUID,
-			AccessType: corepermission.ReadAccess.String(),
-			ObjectType: corepermission.Offer.String(),
-		})
 	}
 	return result, nil
 }

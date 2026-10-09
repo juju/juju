@@ -456,3 +456,223 @@ SELECT cidr FROM relation_network_egress WHERE relation_uuid = ?`); err != nil {
 	c.Check(ingressCIDRs, tc.SameContents, []string{"10.0.0.0/24"})
 	c.Check(egressCIDRs, tc.SameContents, []string{"192.168.1.0/24"})
 }
+
+// legacyTwoConnectionOffer holds the identifiers of the Juju 3.6 offering
+// side built by legacyTwoConnectionOfferModel, so that the test can assert
+// on what the import created.
+type legacyTwoConnectionOffer struct {
+	remoteApp     string
+	remoteUnit    string
+	consumerUUID  string
+	relationUUID1 string
+	relationUUID2 string
+	relationID1   int
+	relationID2   int
+	relationKey1  string
+	relationKey2  string
+	appSettings1  map[string]string
+	unitSettings1 map[string]string
+	unitsInScope1 []string
+}
+
+// legacyTwoConnectionOfferModel returns the model description of an offering
+// model whose consumer proxy relates to two offered applications, as
+// exported by Juju 3.6: one remote application stands in for the consuming
+// application, with one relation and one offer connection per offer. The
+// proxy unit is in the scope of both relations, like in the source model,
+// where the single proxy application holds the units of the consuming
+// application.
+func legacyTwoConnectionOfferModel() (description.Model, legacyTwoConnectionOffer) {
+	offer := legacyTwoConnectionOffer{
+		consumerUUID:  "13ea2791-5e78-40d8-88c5-e9451444b45d",
+		relationUUID1: "6049aa01-76c9-462d-8440-964a6e26aac1",
+		relationUUID2: "6049aa01-76c9-462d-8440-964a6e26aac2",
+		relationID1:   42,
+		relationID2:   43,
+	}
+	offer.remoteApp = "remote-13ea27915e7840d888c5e9451444b45d"
+	offer.remoteUnit = offer.remoteApp + "/0"
+	offer.relationKey1 = offer.remoteApp + ":db mysql:db"
+	offer.relationKey2 = offer.remoteApp + ":db postgres:db"
+	offer.appSettings1 = map[string]string{
+		"mysql:password":              "keep-me",
+		offer.remoteApp + ":database": "keep-me-too",
+	}
+	offer.unitSettings1 = map[string]string{
+		"mysql/0:database-user":       "keep-local-unit-data",
+		offer.remoteUnit + ":request": "keep-unit-data",
+	}
+	offer.unitsInScope1 = []string{"mysql/0", offer.remoteUnit}
+
+	m := description.NewModel(description.ModelArgs{Type: model.IAAS.String()})
+
+	addOfferedApp := func(name, offerUUID, unitName, machineID string) {
+		machine := m.AddMachine(description.MachineArgs{Id: machineID, Base: "ubuntu@24.04"})
+		machine.SetInstance(description.CloudInstanceArgs{InstanceId: "inst-" + machineID})
+		machine.SetStatus(description.StatusArgs{Value: "started", Updated: time.Now().UTC()})
+		machine.Instance().SetStatus(description.StatusArgs{Value: "running", Updated: time.Now().UTC()})
+		a := m.AddApplication(description.ApplicationArgs{Name: name, CharmURL: "ch:" + name + "-1"})
+		unit := a.AddUnit(description.UnitArgs{Name: unitName, Machine: machineID})
+		unit.SetAgentStatus(description.StatusArgs{Value: "idle", Updated: time.Now().UTC()})
+		unit.SetWorkloadStatus(description.StatusArgs{Value: "active", Updated: time.Now().UTC()})
+		a.SetCharmOrigin(description.CharmOriginArgs{
+			Source: "charm-hub", ID: "deadbeef", Hash: "deadbeef2", Revision: 1,
+			Channel: "latest/stable", Platform: "amd64/ubuntu/20.04",
+		})
+		a.SetCharmMetadata(description.CharmMetadataArgs{
+			Name: name,
+			Provides: map[string]description.CharmMetadataRelation{
+				"db": migrationtesting.Relation{Name_: "db", Role_: "provider", InterfaceName_: "db", Scope_: "global"},
+			},
+		})
+		a.SetCharmManifest(description.CharmManifestArgs{Bases: []description.CharmManifestBase{
+			migrationtesting.ManifestBase{Name_: "ubuntu", Channel_: "stable", Architectures_: []string{"amd64"}},
+		}})
+		a.AddOffer(description.ApplicationOfferArgs{
+			OfferUUID: offerUUID, OfferName: name,
+			ApplicationName: name, Endpoints: map[string]string{"db": "db"},
+		})
+	}
+	addOfferedApp("mysql", "cfa46843-ebf2-4fff-8519-c1fb5a9816f1", "mysql/0", "0")
+	addOfferedApp("postgres", "cfa46843-ebf2-4fff-8519-c1fb5a9816f2", "postgres/0", "1")
+
+	rapp := m.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name: offer.remoteApp, IsConsumerProxy: true,
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+	})
+	rapp.AddEndpoint(description.RemoteEndpointArgs{
+		Name: "db", Role: "requirer", Interface: "db",
+	})
+
+	addRelation := func(id int, key, offerer, offererUnit string) {
+		rel := m.AddRelation(description.RelationArgs{Id: id, Key: key})
+		ep := rel.AddEndpoint(description.EndpointArgs{
+			ApplicationName: offerer, Name: "db", Role: "provider", Interface: "db",
+		})
+		ep.SetApplicationSettings(map[string]any{"password": "keep-me"})
+		ep.SetUnitSettings(offererUnit, map[string]any{
+			"database-user": "keep-local-unit-data",
+		})
+		ep = rel.AddEndpoint(description.EndpointArgs{
+			ApplicationName: offer.remoteApp, Name: "db",
+			Role: "requirer", Interface: "db",
+		})
+		ep.SetApplicationSettings(map[string]any{"database": "keep-me-too"})
+		ep.SetUnitSettings(offer.remoteUnit, map[string]any{
+			"request": "keep-unit-data",
+		})
+		rel.SetStatus(description.StatusArgs{Value: "joined", Updated: time.Now().UTC()})
+	}
+	addRelation(offer.relationID1, offer.relationKey1, "mysql", "mysql/0")
+	addRelation(offer.relationID2, offer.relationKey2, "postgres", "postgres/0")
+
+	m.AddRemoteEntity(description.RemoteEntityArgs{
+		ID: "application-" + offer.remoteApp, Token: offer.consumerUUID,
+	})
+	m.AddRemoteEntity(description.RemoteEntityArgs{
+		ID: "relation-" + offer.remoteApp + ".db#mysql.db", Token: offer.relationUUID1,
+	})
+	m.AddRemoteEntity(description.RemoteEntityArgs{
+		ID: "relation-" + offer.remoteApp + ".db#postgres.db", Token: offer.relationUUID2,
+	})
+	m.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f1", RelationID: offer.relationID1,
+		RelationKey:     offer.relationKey1,
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+	m.AddOfferConnection(description.OfferConnectionArgs{
+		OfferUUID: "cfa46843-ebf2-4fff-8519-c1fb5a9816f2", RelationID: offer.relationID2,
+		RelationKey:     offer.relationKey2,
+		SourceModelUUID: "4ddd6454-931d-4278-8779-b0b7208994d9",
+		UserName:        "admin",
+	})
+
+	m.SetSequence("relation", offer.relationID2+1)
+	return m, offer
+}
+
+// TestImportLegacyProxyTwoOfferConnections checks the offering side of a
+// legacy consumer proxy that relates to two offered applications: the first
+// connection keeps the identity of the legacy proxy, and the additional
+// connection is represented by a freshly named synthetic application. The
+// relation data of both relations is imported: the application settings of
+// the additional connection are written against its synthetic application,
+// and the settings and scope membership of the proxy unit follow the
+// synthetic units of that application.
+func (s *importSuite) TestImportLegacyProxyTwoOfferConnections(c *tc.C) {
+	m, offer := legacyTwoConnectionOfferModel()
+
+	_, scope, _ := s.setupCoordinatorScopeAndService(c)
+	coordinator := coremodelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+	)
+	registerLegacyOfferImports(c, coordinator, false)
+	c.Assert(coordinator.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+
+	runner, err := scope.ModelDB()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The first connection keeps the identity of the legacy consumer proxy:
+	// its relation data is keyed by the legacy proxy name.
+	var relationID1 int
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT relation_id FROM relation WHERE uuid = ?`, offer.relationUUID1).Scan(&relationID1)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationID1, tc.Equals, offer.relationID1)
+
+	data1 := readRelationData(c, runner, offer.relationUUID1)
+	c.Check(data1.appSettings, tc.DeepEquals, offer.appSettings1)
+	c.Check(data1.unitSettings, tc.DeepEquals, offer.unitSettings1)
+	c.Check(data1.units, tc.SameContents, offer.unitsInScope1)
+
+	// The additional connection is represented by a freshly named synthetic
+	// application, the only other remote application of the model.
+	var syntheticName string
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT name FROM application WHERE name LIKE 'remote-%' AND name != ?`, offer.remoteApp).Scan(&syntheticName)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var relationID2 int
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT relation_id FROM relation WHERE uuid = ?`, offer.relationUUID2).Scan(&relationID2)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationID2, tc.Equals, offer.relationID2)
+
+	// The relation data of the additional connection follows the synthetic
+	// application: the application settings are written against it, and the
+	// proxy unit enters the scope of the relation as its renamed synthetic
+	// unit, with its settings.
+	syntheticUnit := syntheticName + "/0"
+	data2 := readRelationData(c, runner, offer.relationUUID2)
+	c.Check(data2.appSettings, tc.DeepEquals, map[string]string{
+		"postgres:password":         "keep-me",
+		syntheticName + ":database": "keep-me-too",
+	})
+	c.Check(data2.unitSettings, tc.DeepEquals, map[string]string{
+		"postgres/0:database-user": "keep-local-unit-data",
+		syntheticUnit + ":request": "keep-unit-data",
+	})
+	c.Check(data2.units, tc.SameContents, []string{"postgres/0", syntheticUnit})
+
+	// Replaying only the relation import preserves the data of both
+	// connections, including the renamed proxy's settings and scope.
+	replay := coremodelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	relationmigration.RegisterImport(replay, clock.WallClock, loggertesting.WrapCheckLog(c))
+	c.Assert(replay.Perform(c.Context(), scope, m), tc.ErrorIsNil)
+	for relationUUID, before := range map[string]relationData{
+		offer.relationUUID1: data1,
+		offer.relationUUID2: data2,
+	} {
+		after := readRelationData(c, runner, relationUUID)
+		c.Check(after.appSettings, tc.DeepEquals, before.appSettings)
+		c.Check(after.unitSettings, tc.DeepEquals, before.unitSettings)
+		c.Check(after.units, tc.SameContents, before.units)
+	}
+}

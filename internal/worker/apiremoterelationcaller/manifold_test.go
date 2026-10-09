@@ -25,6 +25,7 @@ import (
 	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
@@ -147,6 +148,7 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectError(c *tc.C) {
 		Addrs:          []string{"7.7.7.7:1234"},
 		CACert:         "test-ca-cert",
 		ControllerUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		ModelUUIDs:     []string{"test-model-uuid"},
 	})
 
 	var called uint64
@@ -226,6 +228,7 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorFailsUpdate(
 		Addrs:          []string{"7.7.7.7:1234"},
 		CACert:         "test-ca-cert",
 		ControllerUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		ModelUUIDs:     []string{"test-model-uuid"},
 	}).Return(errors.NotFound)
 
 	var called uint64
@@ -255,6 +258,46 @@ func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorFailsUpdate(
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(conn == s.connection, tc.IsTrue)
+}
+
+func (s *connectionSuite) TestGetConnectionForModelWithRedirectErrorInvalidControllerTag(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := model.UUID("test-model-uuid")
+	var logs int
+	s.logger = loggertesting.WrapCheckLog(loggertesting.RecordLog(func(string, ...any) {
+		logs++
+	}))
+
+	var called uint64
+	getter := s.newConnectionGetter(c, func(apiInfo *api.Info) (api.Connection, error) {
+		defer func() { called++ }()
+
+		c.Assert(apiInfo.Tag, tc.Equals, connectionTag)
+
+		if called == 0 {
+			// A redirect without a controller tag cannot be persisted;
+			// Domain services must not be fetched.
+			return nil, &api.RedirectError{
+				Servers: []network.MachineHostPorts{
+					network.NewMachineHostPorts(1234, "7.7.7.7"),
+				},
+				CACert: "test-ca-cert",
+			}
+		}
+
+		// Ensure we followed the redirect and created a new connection.
+		c.Assert(apiInfo.Addrs, tc.DeepEquals, []string{"7.7.7.7:1234"})
+
+		return s.connection, nil
+	})
+	conn, err := getter.GetConnectionForModel(c.Context(), modelUUID, api.Info{
+		Tag: names.NewUserTag("test-tag"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conn == s.connection, tc.IsTrue)
+	c.Check(called, tc.Equals, uint64(2))
+	c.Check(logs, tc.Equals, 0)
 }
 
 func (s *connectionSuite) newConnectionGetter(c *tc.C, fn func(*api.Info) (api.Connection, error)) *connectionGetter {

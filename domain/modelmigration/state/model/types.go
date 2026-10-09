@@ -3,11 +3,20 @@
 
 package model
 
+import "time"
+
 // modelInfo represents the model's read only information from the model table
 // in the model database.
 type modelInfo struct {
 	// ControllerUUID is the controllers unique id.
 	ControllerUUID string `db:"controller_uuid"`
+}
+
+// logTransferTime represents the log-transfer checkpoint row for this model.
+// The table holds at most one row, enforced by a unique index.
+type logTransferTime struct {
+	UUID     string    `db:"uuid"`
+	LastTime time.Time `db:"last_time"`
 }
 
 // modelType represents the model's deployment type.

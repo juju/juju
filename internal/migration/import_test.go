@@ -389,8 +389,9 @@ func (s *controllerImportSuite) TestRemoveOnAbortImportCleansSuccessfulImport(c 
 	for _, row := range importedRows {
 		want := 1
 		if row.name == "permissions" {
-			// Bootstrap also grants the model owner admin access.
-			want = 3
+			// Offer ACL import preserves only source ACLs; it does not
+			// synthesize read access for everyone@external.
+			want = 2
 		}
 		c.Check(s.rowCount(c, row.query, row.args...), tc.Equals, want,
 			tc.Commentf("%s before abort", row.name))
