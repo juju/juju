@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -48,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 	k8swatcher "github.com/juju/juju/internal/provider/kubernetes/watcher"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 var logger = internallogger.GetLogger("juju.kubernetes.provider")
@@ -391,10 +393,12 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	}
 	// All good, no existing controller found on the cluster.
 	// The namespace will be set to controller-name in newcontrollerStack.
-
-	// do validation on storage class.
-	_, err = k.validateControllerWorkloadStorage(ctx)
-	return errors.Trace(err)
+	//
+	// Note: no storage class validation happens here. The storage class for
+	// the controller's persistent volume claim can only be resolved in
+	// Bootstrap, which has access to the storage pools scheduled for
+	// creation in the controller model.
+	return nil
 }
 
 // ValidateProviderForNewModel is part of the [environs.ModelResources] interface.
@@ -434,15 +438,100 @@ func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo 
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) validateControllerWorkloadStorage(ctx context.Context) (string, error) {
-	md, err := k.GetClusterMetadata(ctx, "")
+// resolveControllerStorageClass returns the name of the Kubernetes storage
+// class to use for the controller stack's persistent volume claim. The
+// storage class is resolved in the following order:
+//
+//  1. the storage pool nominated by the model config
+//     [config.StorageDefaultFilesystemSourceKey] key, if that pool is
+//     scheduled for creation in the controller model via
+//     [environs.BootstrapParams.StoragePools] and defines a
+//     [constants.StorageClass] attribute;
+//  2. the single storage pool scheduled for creation in the controller
+//     model that uses the Kubernetes storage provider and defines a
+//     [constants.StorageClass] attribute;
+//  3. storage class discovery against the cluster, using the same
+//     preference rules as add-k8s.
+//
+// A nominated storage class that does not exist on the cluster is reported
+// as a [environs.NominatedStorageNotFound] error.
+func (k *kubernetesClient) resolveControllerStorageClass(
+	ctx context.Context,
+	args environs.BootstrapParams,
+) (string, error) {
+	// A default filesystem source nominated in model config takes
+	// precedence, but only pools scheduled for creation in the controller
+	// model (bootstrap params) can be resolved here. Pools seeded by the
+	// model itself, such as the default "kubernetes" pool, define no
+	// storage class; storage provisioned from those is bound at
+	// provisioning time using the cluster's default storage class, which
+	// discovery below resolves.
+	var nominatedStorageClass string
+	if defaultSource, ok := k.Config().StorageDefaultFilesystemSource(); ok {
+		nominatedStorageClass = storageClassForPool(
+			args.StoragePools, defaultSource,
+		)
+	}
+	if nominatedStorageClass == "" {
+		// Either no default source is nominated, or it names a pool that
+		// cannot identify a storage class. If the user scheduled a
+		// Kubernetes storage pool for the controller model, the storage
+		// class it defines is unambiguous.
+		nominatedStorageClass = storageClassFromPools(args.StoragePools)
+	}
+
+	// GetClusterMetadata validates a nominated class against the cluster
+	// and, when there is no nomination, discovers a storage class using
+	// the add-k8s preference rules.
+	md, err := k.GetClusterMetadata(ctx, nominatedStorageClass)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if md.WorkloadStorageClass == nil || md.WorkloadStorageClass.Name == "" {
-		return "", errors.NewNotValid(nil, "controller storage class not identified")
+		return "", errors.NewNotValid(nil, `controller storage class not identified.
+Juju could not find a Kubernetes storage class for the controller's
+persistent volume claim. Record one with add-k8s --storage=<name>, or
+bootstrap with --storage-pool name=<pool>,type=kubernetes,storage-class=<name>`)
 	}
 	return md.WorkloadStorageClass.Name, nil
+}
+
+// storageClassForPool returns the storage class defined by the named pool
+// scheduled for creation via [environs.BootstrapParams.StoragePools], or an
+// empty string if the pool is unknown or defines no storage class.
+func storageClassForPool(pools map[string]internalstorage.Attrs, poolName string) string {
+	pool, ok := pools[poolName]
+	if !ok {
+		return ""
+	}
+	if poolType, _ := pool[corestorage.BootstrapStoragePoolTypeKey].(string); poolType != string(constants.StorageProviderType) {
+		return ""
+	}
+	storageClass, _ := pool[constants.StorageClass].(string)
+	return storageClass
+}
+
+// storageClassFromPools returns the storage class defined by the pools
+// scheduled for creation via [environs.BootstrapParams.StoragePools] that
+// use the Kubernetes storage provider, provided all such pools that define
+// a storage class agree on the same one. An empty string is returned when
+// no pool defines a storage class, or when the classes are ambiguous.
+func storageClassFromPools(pools map[string]internalstorage.Attrs) string {
+	var found string
+	for poolName := range pools {
+		storageClass := storageClassForPool(pools, poolName)
+		switch {
+		case storageClass == "":
+			continue
+		case found == "":
+			found = storageClass
+		case found != storageClass:
+			// More than one distinct storage class across the pools;
+			// which one to use for the controller is ambiguous.
+			return ""
+		}
+	}
+	return found
 }
 
 // Bootstrap deploys a controller into k8s cluster.
@@ -451,8 +540,10 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, args environ
 		return nil, errors.NotSupportedf("set base for bootstrapping to kubernetes")
 	}
 
-	// Validate workload storage is available to the controller.
-	storageClass, err := k.validateControllerWorkloadStorage(ctx)
+	// Resolve the storage class to use for the controller's persistent
+	// volume claim, including any storage class derived from the storage
+	// pools scheduled for creation in the controller model.
+	storageClass, err := k.resolveControllerStorageClass(ctx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
