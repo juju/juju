@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -819,9 +820,11 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]any{},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"A"},
+				Config: map[string]any{
+					k8sconstants.WorkloadStorageKey: "workload-sc",
+				},
+				RegionConfig:   cloud.RegionConfig(nil),
+				CACertificates: []string{"A"},
 			},
 		},
 	)
@@ -861,6 +864,10 @@ func (s *addCAASSuite) assertAddCloudResult(
 	_, region, err := cloud.SplitHostCloudRegion(cloudRegion)
 	c.Assert(err, tc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
+	expectedConfig := map[string]any{}
+	if workloadStorage != "" {
+		expectedConfig[k8sconstants.WorkloadStorageKey] = workloadStorage
+	}
 	expectedCloudToAdd := cloud.Cloud{
 		Name:             "myk8s",
 		HostCloudRegion:  cloudRegion,
@@ -870,7 +877,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 		Endpoint:         "https://1.1.1.1:8888",
 		IdentityEndpoint: "",
 		StorageEndpoint:  "",
-		Config:           map[string]any{},
+		Config:           expectedConfig,
 		RegionConfig:     cloud.RegionConfig(nil),
 		CACertificates:   []string{"A"},
 	}
@@ -1086,6 +1093,9 @@ func (s *addCAASSuite) TestLocalOnly(c *tc.C) {
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: cloudRegion,
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "workload-sc"},
+		},
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 
@@ -1095,7 +1105,7 @@ func (s *addCAASSuite) TestLocalOnly(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		expected := `k8s substrate "myk8s" added as cloud "myk8s".You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
 		c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), tc.Equals, expected)
-	}, cloudRegion, "", testData{client: true})
+	}, cloudRegion, "workload-sc", testData{client: true})
 }
 
 func mockStdinPipe(content string) (*os.File, error) {
@@ -1252,7 +1262,9 @@ func (s *addCAASSuite) assertStoreClouds(c *tc.C, hostCloud string) {
 				Regions: []cloud.Region{
 					{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"},
 				},
-				Config:         map[string]any{},
+				Config: map[string]any{
+					k8sconstants.WorkloadStorageKey: "workload-sc",
+				},
 				RegionConfig:   cloud.RegionConfig(nil),
 				CACertificates: []string{"A"},
 			},
@@ -1332,9 +1344,11 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]any{},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"A"},
+				Config: map[string]any{
+					k8sconstants.WorkloadStorageKey: "workload-sc",
+				},
+				RegionConfig:   cloud.RegionConfig(nil),
+				CACertificates: []string{"A"},
 			},
 		},
 	)
@@ -1387,9 +1401,11 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *tc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]any{},
-				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"A"},
+				Config: map[string]any{
+					k8sconstants.WorkloadStorageKey: "workload-sc",
+				},
+				RegionConfig:   cloud.RegionConfig(nil),
+				CACertificates: []string{"A"},
 			},
 		},
 	)

@@ -1422,6 +1422,35 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		storagePools[poolName] = storagePoolAttrs
 	}
 
+	// If the Kubernetes cloud has a workload storage class recorded (see
+	// add-k8s --storage) and the user has not configured the controller
+	// model's storage themselves, schedule a storage pool for the
+	// recorded class and make it the controller model's default
+	// filesystem source. This provisions both the controller's
+	// persistent volume claim and any charm storage in the controller
+	// model from the recorded class.
+	if workloadStorageClass := workloadStorageClassForBootstrap(cloud, userConfigAttrs); cloud.Type == jujucloud.CloudTypeKubernetes &&
+		workloadStorageClass != "" &&
+		len(storagePools) == 0 &&
+		!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.Config) {
+		poolName := workloadStorageClass
+		if reservedStoragePoolName(poolName) {
+			poolName = "k8s-" + poolName
+		}
+		storagePools = map[string]storage.Attrs{
+			poolName: {
+				corestorage.BootstrapStoragePoolNameKey: poolName,
+				corestorage.BootstrapStoragePoolTypeKey: string(k8sconstants.StorageProviderType),
+				k8sconstants.StorageClass:               workloadStorageClass,
+			},
+		}
+		// The default filesystem source is deliberately set for the
+		// controller model only and not added to the inherited controller
+		// attributes: the scheduled pool exists in the controller model
+		// alone and must not become a default for hosted models.
+		combinedConfig[config.StorageDefaultFilesystemSourceKey] = poolName
+	}
+
 	bootstrapConfigAttrs := make(map[string]any)
 	controllerConfigAttrs := make(map[string]any)
 	// Based on the attribute names in clouds.yaml, create
@@ -1568,6 +1597,42 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		storagePools:             storagePools,
 	}
 	return configs, nil
+}
+
+// workloadStorageClassForBootstrap returns the Kubernetes storage class
+// recorded on the cloud for provisioning workload storage, honouring an
+// override supplied with a --config workload-storage attribute. An empty
+// string is returned if no class is recorded.
+func workloadStorageClassForBootstrap(cloud jujucloud.Cloud, userConfigAttrs map[string]any) string {
+	if class, ok := userConfigAttrs[bootstrap.WorkloadStorageKey].(string); ok && class != "" {
+		return class
+	}
+	class, _ := cloud.Config[bootstrap.WorkloadStorageKey].(string)
+	return class
+}
+
+// defaultFilesystemSourceConfigured reports whether the default filesystem
+// source has been nominated in any of the supplied bootstrap config
+// buckets, meaning the user has taken control of default charm storage
+// themselves.
+func defaultFilesystemSourceConfigured(attrMaps ...map[string]any) bool {
+	for _, attrs := range attrMaps {
+		if source, ok := attrs[config.StorageDefaultFilesystemSourceKey]; ok {
+			if class, ok := source.(string); ok && class != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// reservedStoragePoolName reports whether the supplied storage pool name
+// collides with one of the default pools Juju seeds in every model, which
+// the pool scheduled for the controller model must not shadow.
+func reservedStoragePoolName(name string) bool {
+	return name == string(k8sconstants.StorageProviderType) ||
+		name == string(k8sconstants.StorageProviderTypeRootfs) ||
+		name == string(k8sconstants.StorageProviderTypeTmpfs)
 }
 
 // runInteractive queries the user about bootstrap config interactively at the
