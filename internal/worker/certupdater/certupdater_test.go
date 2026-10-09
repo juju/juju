@@ -37,7 +37,8 @@ func TestCertUpdaterSuite(t *testing.T) {
 func (s *certUpdaterSuite) TestWorkerCleanKill(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectWatchers()
+	changes := make(chan struct{}, 1)
+	s.expectWatcherWithChanges(changes)
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{}, nil)
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
 	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
@@ -271,7 +272,7 @@ func (s *certUpdaterSuite) TestUpdateCertificateReturnsCommitError(c *tc.C) {
 	}
 
 	err := updater.updateCertificate(c.Context(), nil)
-	c.Check(err, tc.ErrorMatches, "generating default controller ip certificate: commit failed")
+	c.Check(err, tc.ErrorMatches, "generating controller certificate: commit failed")
 }
 
 func (s *certUpdaterSuite) newUpdater(c *tc.C) worker.Worker {
@@ -298,12 +299,6 @@ func (s *certUpdaterSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
-}
-
-func (s *certUpdaterSuite) expectWatchers() {
-	changes := make(chan struct{}, 1)
-	changes <- struct{}{}
-	s.controllerNodeService.EXPECT().WatchControllerAddressesForCertificates(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(changes), nil)
 }
 
 func (s *certUpdaterSuite) expectWatcherWithChanges(changes chan struct{}) {
