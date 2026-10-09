@@ -105,6 +105,10 @@ type ApplicationService interface {
 	// life values for the given application.
 	GetAllUnitLifeForApplication(context.Context, coreapplication.UUID) (map[unit.Name]life.Value, error)
 
+	// ReserveCAASUnits commits every intended unit in a StatefulSet ordinal
+	// range before the provider is allowed to start those pods.
+	ReserveCAASUnits(context.Context, string, int, int) error
+
 	// GetApplicationName returns the application name for the given application
 	// UUID.
 	GetApplicationName(ctx context.Context, id coreapplication.UUID) (string, error)
