@@ -27,6 +27,7 @@ import (
 	domainexport "github.com/juju/juju/domain/export"
 	environsconfig "github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/recovery"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -451,6 +452,38 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 
 	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorMatches, ".*not a directory")
+}
+
+func (s *backupsSuite) TestCreateOversizedDumpCleansUpStaging(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		// The controller dump is already staged when this payload is
+		// marshalled. Extend it sparsely to exercise the size check
+		// without exporting or allocating a gigabyte of test data.
+		Payload: yamlMarshalFunc(func() (any, error) {
+			files, err := filepath.Glob(filepath.Join(backupDir, "juju-backup-dump-*", "controller.yaml"))
+			c.Assert(err, tc.ErrorIsNil)
+			c.Assert(files, tc.HasLen, 1)
+			return nil, os.Truncate(files[0], recovery.MaxDumpSize+1)
+		}),
+	}, nil)
+
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, `database dump "controller.yaml" is .* bytes, exceeding .* recovery limit:.*`)
+	s.assertNoArchive(c, backupDir)
+}
+
+type yamlMarshalFunc func() (any, error)
+
+func (f yamlMarshalFunc) MarshalYAML() (any, error) {
+	return f()
 }
 
 // TestCreateNoModels verifies that a controller with no model namespaces

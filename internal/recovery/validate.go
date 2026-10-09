@@ -6,6 +6,7 @@ package recovery
 import (
 	"bytes"
 	"context"
+	"os"
 
 	"gopkg.in/yaml.v3"
 
@@ -65,25 +66,32 @@ type controllerDumpEnvelope struct {
 // the archive's SHA-256 checksum (hex): the expected value always comes
 // from the operator, never from inside the archive.
 //
-// Validation is offline and read-only: it runs on the bootstrap client
-// before anything is provisioned.
+// Validation is offline and runs before anything is provisioned. Model
+// dumps are staged in temporary files that are removed before returning.
 func ValidateArchive(ctx context.Context, archivePath, expectedSHA256 string) (*domainrecovery.ArchiveInfo, error) {
-	_, info, err := ReadArchive(ctx, archivePath, expectedSHA256)
-	return info, err
+	contents, info, err := ReadArchive(ctx, archivePath, expectedSHA256)
+	if err != nil {
+		return nil, err
+	}
+	if err := contents.Close(); err != nil {
+		return nil, errors.Errorf("cleaning up staged recovery dumps: %w", err)
+	}
+	return info, nil
 }
 
 // ReadArchive reads and validates the backup archive at archivePath and
 // returns both the extracted contents — metadata and database dumps —
 // and the validated summary. The agent-side recovery stage consumes the
 // contents; the offline preflight consumes the summary alone via
-// [ValidateArchive].
+// [ValidateArchive]. The caller must Close the contents once consumed.
 func ReadArchive(ctx context.Context, archivePath, expectedSHA256 string) (*ArchiveContents, *domainrecovery.ArchiveInfo, error) {
 	contents, checksum, size, err := readArchive(ctx, archivePath, expectedSHA256)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
-	info, err := parseArchiveInfo(contents)
+	info, err := parseArchiveInfo(ctx, contents)
 	if err != nil {
+		_ = contents.Close()
 		return nil, nil, errors.Capture(err)
 	}
 	info.Checksum = checksum
@@ -93,7 +101,7 @@ func ReadArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 
 // parseArchiveInfo builds the archive summary from extracted contents:
 // metadata, controller dump and the model dump inventory.
-func parseArchiveInfo(contents *ArchiveContents) (*domainrecovery.ArchiveInfo, error) {
+func parseArchiveInfo(ctx context.Context, contents *ArchiveContents) (*domainrecovery.ArchiveInfo, error) {
 	meta, err := corebackups.NewMetadataJSONReader(bytes.NewReader(contents.Metadata))
 	if err != nil {
 		return nil, errors.Errorf("parsing %s: %w", metadataPath, err)
@@ -108,7 +116,7 @@ func parseArchiveInfo(contents *ArchiveContents) (*domainrecovery.ArchiveInfo, e
 		return nil, errors.Errorf("parsing %s: %w", controllerDumpPath, err)
 	}
 
-	info, err := buildArchiveInfo(meta, &dump.Payload, contents.ModelDumps)
+	info, err := buildArchiveInfo(ctx, meta, &dump.Payload, contents.ModelDumps)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -117,7 +125,7 @@ func parseArchiveInfo(contents *ArchiveContents) (*domainrecovery.ArchiveInfo, e
 
 // buildArchiveInfo resolves clouds and model types from the controller
 // dump and cross-checks the model dump inventory against the model table.
-func buildArchiveInfo(meta *corebackups.Metadata, payload *controllerDumpPayload, modelDumps map[string][]byte) (*domainrecovery.ArchiveInfo, error) {
+func buildArchiveInfo(ctx context.Context, meta *corebackups.Metadata, payload *controllerDumpPayload, modelDumps map[string]string) (*domainrecovery.ArchiveInfo, error) {
 	cloudTypes := make(map[int64]string)
 	for _, ct := range payload.CloudType {
 		if ct.ID != nil {
@@ -241,7 +249,7 @@ func buildArchiveInfo(meta *corebackups.Metadata, payload *controllerDumpPayload
 		if mi.ModelType != "caas" || mi.UUID == info.ControllerModelUUID {
 			continue
 		}
-		apps, err := inventoryFromModelDump(modelDumps[mi.UUID])
+		apps, err := inventoryFromModelDump(ctx, modelDumps[mi.UUID])
 		if err != nil {
 			return nil, errors.Errorf("model %q: %w", mi.Name, err)
 		}
@@ -284,11 +292,17 @@ type modelDumpInventory struct {
 // one CAAS model: its alive applications, their alive units, and the
 // persistent volume claim names recorded by alive storage filesystems.
 // A claim name is attributed to the application whose unit attaches it.
-func inventoryFromModelDump(data []byte) ([]domainrecovery.ApplicationInfo, error) {
+func inventoryFromModelDump(ctx context.Context, filename string) ([]domainrecovery.ApplicationInfo, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, errors.Errorf("opening dump: %w", err)
+	}
+	defer func() { _ = file.Close() }()
+
 	var envelope struct {
 		Payload modelDumpInventory `yaml:"payload"`
 	}
-	if err := yaml.Unmarshal(data, &envelope); err != nil {
+	if err := yaml.NewDecoder(contextReader{ctx: ctx, reader: file}).Decode(&envelope); err != nil {
 		return nil, errors.Errorf("decoding dump: %w", err)
 	}
 	inv := envelope.Payload

@@ -182,6 +182,13 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	if err != nil {
 		return nil, "", nil, errors.Capture(err)
 	}
+	// Close cleans up the staged dumps on return. Its error is only logged:
+	// it must not mask the Create result.
+	defer func() {
+		if err := staging.Close(); err != nil {
+			c.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
+		}
+	}()
 	// Recovery rejects any dump larger than its read bound: fail the
 	// backup now instead of producing an archive that cannot be
 	// recovered.
@@ -193,13 +200,6 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 				"the archive could never be recovered",
 			name, size, recovery.MaxDumpSize)
 	}
-	// Close cleans up the staged dumps on return. Its error is only logged:
-	// it must not mask the Create result.
-	defer func() {
-		if err := staging.Close(); err != nil {
-			c.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
-		}
-	}()
 	expected, err := staging.Size()
 	if err != nil {
 		return nil, "", nil, errors.Capture(err)

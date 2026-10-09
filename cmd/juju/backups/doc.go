@@ -26,7 +26,7 @@
 // a single point-in-time snapshot of the whole controller; create backups
 // during a quiet window (see the create-backup help).
 
-// To recover an archive, bootstrap a fresh replacement controller with:
-//   juju bootstrap <cloud> <name> --recovery <archive> --recovery-sha256 <hex>
+// Recovery tooling for bootstrapping a fresh replacement controller from
+// an archive is planned. The bootstrap command does not yet support it.
 
 package backups
