@@ -309,6 +309,10 @@ cleanup() {
 		echo "==> Tests Removed: ${TEST_DIR}"
 	fi
 
+	if [[ -n ${CREDS_DIR:-} ]]; then
+		rm -rf "${CREDS_DIR}"
+	fi
+
 	echo "==> TEST COMPLETE"
 }
 
@@ -343,6 +347,21 @@ trap cleanup EXIT HUP INT TERM
 
 # Setup test directory
 TEST_DIR=$(mktemp -d tmp.XXX | xargs -I % echo "$(pwd)/%")
+
+# Scratch directory for cloud CLI credentials written by test setup
+# helpers (e.g. setup_awscli_credential). Kept outside TEST_DIR so these
+# are never swept into archive_logs' artifact tarball and never retained
+# alongside TEST_DIR when a failed run is kept around for debugging.
+CREDS_DIR=$(mktemp -d)
+export CREDS_DIR
+
+# Exported here, not inside setup_awscli_credential, so that
+# cleanup_funcs registered via add_clean_func (which run from cleanup()
+# in this parent shell, not the suite's subshell) also see them when
+# tearing down AWS resources the suite created.
+export AWS_DEFAULT_PROFILE=default
+export AWS_SHARED_CREDENTIALS_FILE="${CREDS_DIR}/aws/credentials"
+export AWS_CONFIG_FILE="${CREDS_DIR}/aws/config"
 
 run_test() {
 	TEST_CURRENT=${1}
