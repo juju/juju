@@ -19,6 +19,14 @@ import (
 	"github.com/juju/juju/internal/pki"
 )
 
+// defaultSANAddresses is a list of SAN addresses that will be used when no
+// addresses are found for the controller. This is to ensure that a certificate
+// can be generated even when no addresses are available.
+//
+// Previously, to updating the SAN addresses, these where the addresses that
+// were used to generate the default controller certificate.
+var defaultSANAddresses = []string{"localhost", "juju-apiserver", "anything"}
+
 // ControllerConfigGetter is an interface that returns the controller config.
 type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
@@ -92,6 +100,12 @@ func (c *CertificateUpdater) Handle(ctx context.Context) error {
 	addresses, err := c.controllerNodeService.GetAllAPIAddressesForCertificates(ctx)
 	if err != nil {
 		return errors.Errorf("retrieving controller certificate addresses: %w", err)
+	}
+	if len(addresses) == 0 {
+		// If there are no addresses, we want to generate a certificate with
+		// some default SAN values, so we don't return an error here.
+		c.logger.Debugf(ctx, "no controller certificate addresses found, using default SAN addresses: %#v", defaultSANAddresses)
+		addresses = defaultSANAddresses
 	}
 
 	if c.initialized && reflect.DeepEqual(addresses, c.addresses) {

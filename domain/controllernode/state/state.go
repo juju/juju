@@ -699,6 +699,7 @@ ORDER BY certificate.address
 
 	var result []controllerAPIAddressStr
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = nil
 		if err := tx.Query(ctx, stmt).GetAll(&result); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting controller certificate addresses: %w", err)
 		}

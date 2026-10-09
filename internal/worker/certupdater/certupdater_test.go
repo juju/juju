@@ -39,6 +39,8 @@ func (s *certUpdaterSuite) TestWorkerCleanKill(c *tc.C) {
 	s.expectWatchers()
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForCertificates(gomock.Any()).Return([]string{}, nil)
 	s.authority.EXPECT().LeafRequestForGroup(pki.ControllerIPLeafGroup).Return(s.leafRequest)
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
+	s.leafRequest.EXPECT().AddDNSNames("anything")
 	committed := make(chan struct{})
 	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
 		close(committed)
@@ -162,6 +164,8 @@ func (s *certUpdaterSuite) TestEmptyAddressSelectionReplacesCertificate(c *tc.C)
 		close(firstCommit)
 		return nil, nil
 	})
+	s.leafRequest.EXPECT().AddDNSNames("juju-apiserver")
+	s.leafRequest.EXPECT().AddDNSNames("anything")
 	secondCommit := make(chan struct{})
 	s.leafRequest.EXPECT().Commit().DoAndReturn(func() (pki.Leaf, error) {
 		close(secondCommit)
