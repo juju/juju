@@ -6,6 +6,8 @@ package kubernetes_test
 import (
 	"context"
 	"crypto/rand"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -120,6 +122,268 @@ func (s *providerSuite) checkEnsureSecretAccessToken(c *tc.C, consumer, appNameL
 
 func (s *providerSuite) expectEnsureControllerModelSecretAccessToken(unit string, owned, read []string, roleAlreadyExists bool) {
 
+}
+
+// loopbackEndpoints are recorded cloud endpoints that must be patched to
+// the in-cluster address even for a cross-controller consumer, because
+// loopback is never reachable from a remote consumer.
+var loopbackEndpoints = []string{
+	"https://127.0.0.1:16443",
+	"https://localhost:16443",
+	"https://LOCALHOST:16443",
+	"https://127.0.0.2:16443",
+	"https://127.1.2.3:16443",
+	"https://[::1]:16443",
+	"localhost:16443",
+	"127.0.0.1:16443",
+}
+
+// notLoopbackEndpoints look loopback-adjacent but are routable addresses
+// and must be handed to cross-controller consumers unchanged.
+var notLoopbackEndpoints = []string{
+	"https://192.168.1.15:16443",
+	"https://128.0.0.1:16443",
+	"https://localhost.example.com:16443",
+}
+
+func (s *providerSuite) assertRestrictedConfigWithTag(c *tc.C, accessor secrets.Accessor, appNameLabel string, isControllerCloud, sameController bool, endpoint string) {
+	defer s.setupK8s(c)()
+	ctx := c.Context()
+
+	consumer := accessor.String()
+	ownedURI := secrets.NewURI()
+	readURI := secrets.NewURI()
+
+	// The provider substitutes the in-cluster address, simulated here with
+	// the KUBERNETES_SERVICE_HOST/PORT env vars, which the rest of the
+	// test environment does not set.
+	oldHost, oldPort := os.Getenv("KUBERNETES_SERVICE_HOST"), os.Getenv("KUBERNETES_SERVICE_PORT")
+	os.Setenv("KUBERNETES_SERVICE_HOST", "8.6.8.6")
+	os.Setenv("KUBERNETES_SERVICE_PORT", "8888")
+	c.Cleanup(func() {
+		os.Setenv("KUBERNETES_SERVICE_HOST", oldHost)
+		os.Setenv("KUBERNETES_SERVICE_PORT", oldPort)
+	})
+
+	// The controller cloud config prefers the in-cluster credential, which
+	// does not exist in the test environment and must be faked.
+	oldInClusterConfig := kubernetes.InClusterConfig
+	kubernetes.InClusterConfig = func() (*rest.Config, error) {
+		return &rest.Config{
+			Host: "https://8.6.8.6:8888",
+			TLSClientConfig: rest.TLSClientConfig{
+				CAFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+			},
+			BearerToken: "token",
+		}, nil
+	}
+	c.Cleanup(func() {
+		kubernetes.InClusterConfig = oldInClusterConfig
+	})
+
+	p, err := provider.Provider(kubernetes.BackendType)
+	c.Assert(err, tc.ErrorIsNil)
+	cfg := s.backendConfig()
+	if isControllerCloud {
+		cfg.Config["prefer-incluster-address"] = true
+	}
+	if endpoint != "" {
+		cfg.Config["endpoint"] = endpoint
+	}
+	adminCfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig:  cfg,
+	}
+	issuedTokenUUID := "some-uuid"
+	backendCfg, err := p.RestrictedConfig(
+		ctx,
+		adminCfg, sameController, false,
+		issuedTokenUUID, accessor,
+		[]string{ownedURI.ID},
+		provider.SecretRevisions{ownedURI.ID: set.NewStrings(ownedURI.Name(1))},
+		provider.SecretRevisions{readURI.ID: set.NewStrings(readURI.Name(1), readURI.Name(2))},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.tokens, tc.HasLen, 1)
+	wantEndpoint := cfg.Config["endpoint"]
+	isLoopback := false
+	for _, e := range loopbackEndpoints {
+		if wantEndpoint == e {
+			isLoopback = true
+			break
+		}
+	}
+	if isControllerCloud && (sameController || isLoopback) {
+		wantEndpoint = "https://8.6.8.6:8888"
+	}
+	expected := &provider.BackendConfig{
+		BackendType: kubernetes.BackendType,
+		Config: map[string]any{
+			"ca-certs":  []string{"cert-data"},
+			"endpoint":  wantEndpoint,
+			"namespace": s.namespace,
+			"token":     s.tokens[0],
+		},
+	}
+	c.Assert(backendCfg, tc.DeepEquals, expected)
+
+	roles, err := s.k8sClient.RbacV1().Roles(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	mc := tc.NewMultiChecker()
+	mc.AddExpr(`_[_].ObjectMeta.Annotations["secrets.juju.is/expire-at"]`, tc.Satisfies, func(s string) bool {
+		i, err := strconv.Atoi(s)
+		if !c.Check(err, tc.ErrorIsNil) {
+			return false
+		}
+		return i > int(time.Now().Unix())
+	})
+	c.Check(roles.Items, mc, []rbacv1.Role{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "juju-secret-consumer-" + issuedTokenUUID,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       appNameLabel,
+				"model.juju.is/name":           "fred",
+				"secrets.juju.is/consumer":     consumer,
+				"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+				"secrets.juju.is/model-name":   "fred",
+			},
+			Annotations: map[string]string{
+				"controller.juju.is/id":     coretesting.ControllerTag.Id(),
+				"model.juju.is/id":          coretesting.ModelTag.Id(),
+				"secrets.juju.is/expire-at": "",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{{
+			Verbs:         []string{"get", "list"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"namespaces"},
+			ResourceNames: []string{"test"},
+		}, {
+			Verbs:         []string{"get", "patch", "update", "replace", "delete"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{ownedURI.Name(1), ownedURI.Name(2)},
+		}, {
+			Verbs:         []string{"get"},
+			APIGroups:     []string{"*"},
+			Resources:     []string{"secrets"},
+			ResourceNames: []string{readURI.Name(1), readURI.Name(2)},
+		}},
+	}})
+
+	roleBindings, err := s.k8sClient.RbacV1().RoleBindings(s.namespace).List(
+		ctx, metav1.ListOptions{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(roleBindings.Items, mc, []rbacv1.RoleBinding{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "juju-secret-consumer-" + issuedTokenUUID,
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       appNameLabel,
+				"model.juju.is/name":           "fred",
+				"secrets.juju.is/consumer":     consumer,
+				"secrets.juju.is/model-id":     coretesting.ModelTag.Id(),
+				"secrets.juju.is/model-name":   "fred",
+			},
+			Annotations: map[string]string{
+				"controller.juju.is/id":     coretesting.ControllerTag.Id(),
+				"model.juju.is/id":          coretesting.ModelTag.Id(),
+				"secrets.juju.is/expire-at": "",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Name:     "juju-secret-consumer-" + issuedTokenUUID,
+			Kind:     "Role",
+		},
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      "juju-secret-consumer-" + issuedTokenUUID,
+			Namespace: s.namespace,
+		}},
+	}})
+}
+
+func (s *providerSuite) TestRestrictedConfigWithUnitTag(c *tc.C) {
+	s.assertRestrictedConfigWithTag(c,
+		secrets.Accessor{
+			Kind: secrets.UnitAccessor,
+			ID:   "gitlab/0",
+		}, "gitlab", false, false, "")
+}
+
+func (s *providerSuite) TestRestrictedConfigWithModelTag(c *tc.C) {
+	s.assertRestrictedConfigWithTag(c,
+		secrets.Accessor{
+			Kind: secrets.ModelAccessor,
+			ID:   coretesting.ModelTag.Id(),
+		}, coretesting.ModelTag.Id(), false, false, "")
+}
+
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloud(c *tc.C) {
+	s.assertRestrictedConfigWithTag(c,
+		secrets.Accessor{
+			Kind: secrets.UnitAccessor,
+			ID:   "gitlab/0",
+		}, "gitlab", true, true, "")
+}
+
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentController(c *tc.C) {
+	s.assertRestrictedConfigWithTag(c,
+		secrets.Accessor{
+			Kind: secrets.UnitAccessor,
+			ID:   "gitlab/0",
+		}, "gitlab", true, false, "")
+}
+
+// TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackEndpoint
+// checks that a loopback endpoint recorded for the controller cloud (e.g. the
+// built-in microk8s cloud records https://127.0.0.1:16443) is patched to the
+// in-cluster address even when the secret consumer is on a different
+// controller, because loopback is never reachable from a remote consumer.
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackEndpoint(c *tc.C) {
+	s.assertRestrictedConfigWithTag(c,
+		secrets.Accessor{
+			Kind: secrets.UnitAccessor,
+			ID:   "gitlab/0",
+		}, "gitlab", true, false, "https://127.0.0.1:16443")
+}
+
+// TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackVariants
+// checks that every form of loopback endpoint (any address in 127.0.0.0/8,
+// ::1, or "localhost" in any case) recorded for the controller cloud is
+// patched to the in-cluster address for a cross-controller consumer.
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentControllerLoopbackVariants(c *tc.C) {
+	for _, endpoint := range loopbackEndpoints {
+		c.Logf("testing endpoint %q", endpoint)
+		s.assertRestrictedConfigWithTag(c,
+			secrets.Accessor{
+				Kind: secrets.UnitAccessor,
+				ID:   "gitlab/0",
+			}, "gitlab", true, false, endpoint)
+	}
+}
+
+// TestRestrictedConfigWithTagWithControllerCloudDifferentControllerNotLoopbackVariants
+// checks that routable endpoints that merely look loopback-adjacent (an
+// address just outside 127.0.0.0/8 or a hostname with a localhost prefix)
+// are handed to cross-controller consumers unchanged.
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentControllerNotLoopbackVariants(c *tc.C) {
+	for _, endpoint := range notLoopbackEndpoints {
+		c.Logf("testing endpoint %q", endpoint)
+		s.assertRestrictedConfigWithTag(c,
+			secrets.Accessor{
+				Kind: secrets.UnitAccessor,
+				ID:   "gitlab/0",
+			}, "gitlab", true, false, endpoint)
+	}
 }
 
 func (s *providerSuite) TestCleanupModel(c *tc.C) {
