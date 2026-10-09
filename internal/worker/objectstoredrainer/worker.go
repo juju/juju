@@ -55,8 +55,8 @@ type NewHashFileSystemAccessorFunc func(namespace, rootDir string, logger logger
 // DrainingService provides access to the object store for draining
 // operations.
 type DrainingService interface {
-	// GetDrainingPhase returns the current active draining phase of the
-	// object store.
+	// GetDrainingPhase returns the current draining phase, including an
+	// inferred error phase when a backend remains dying.
 	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
 
 	// GetDrainingPhaseInfo returns the current active draining phase info of

@@ -64,6 +64,10 @@ type dbGetPhaseInfo struct {
 	ActiveBackendUUID string `db:"active_backend_uuid"`
 }
 
+type dbBackendCount struct {
+	Count int `db:"count"`
+}
+
 type dbSetPhaseInfo struct {
 	// UUID is the uuid for the phase info.
 	UUID string `db:"uuid"`

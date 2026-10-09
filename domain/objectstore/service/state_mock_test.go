@@ -251,6 +251,7 @@ type MockDrainingStateMockRecorder struct {
 	getMetadataBySHA256Expects             []*gomock.Call2_2[context.Context, string, objectstore.Metadata, error]
 	getMetadataBySHA256PrefixExpects       []*gomock.Call2_2[context.Context, string, objectstore.Metadata, error]
 	getObjectStoreBackendExpects           []*gomock.Call2_2[context.Context, string, objectstore0.BackendInfo, error]
+	hasDyingObjectStoreBackendExpects      []*gomock.Call1_2[context.Context, bool, error]
 	initialWatchBackendTableExpects        []*gomock.Call0_2[string, string]
 	initialWatchDrainingTableExpects       []*gomock.Call0_1[string]
 	initialWatchStatementExpects           []*gomock.Call0_2[string, string]
@@ -417,6 +418,24 @@ func (mr *MockDrainingStateMockRecorder) GetObjectStoreBackend(ctx, uuid any) *M
 
 // MockDrainingStateGetObjectStoreBackendCall is the typed call wrapper for GetObjectStoreBackend.
 type MockDrainingStateGetObjectStoreBackendCall = gomock.Call2_2[context.Context, string, objectstore0.BackendInfo, error]
+
+// HasDyingObjectStoreBackend mocks base method.
+func (m *MockDrainingState) HasDyingObjectStoreBackend(ctx context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.hasDyingObjectStoreBackendExpects, m.ctrl, m, "HasDyingObjectStoreBackend", ctx)
+}
+
+// HasDyingObjectStoreBackend indicates an expected call of HasDyingObjectStoreBackend.
+func (mr *MockDrainingStateMockRecorder) HasDyingObjectStoreBackend(ctx any) *MockDrainingStateHasDyingObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, bool, error](mr.mock.ctrl.T, mr.mock, "HasDyingObjectStoreBackend", gomock.EnsureMatcher(ctx))
+	mr.hasDyingObjectStoreBackendExpects = append(mr.hasDyingObjectStoreBackendExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDrainingStateHasDyingObjectStoreBackendCall is the typed call wrapper for HasDyingObjectStoreBackend.
+type MockDrainingStateHasDyingObjectStoreBackendCall = gomock.Call1_2[context.Context, bool, error]
 
 // InitialWatchBackendTable mocks base method.
 func (m *MockDrainingState) InitialWatchBackendTable() (string, string) {

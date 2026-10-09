@@ -14,7 +14,6 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -505,10 +504,8 @@ func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
-		UUID:  uuid.String(),
 		Phase: phase.String(),
 	}, nil)
 
@@ -522,6 +519,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseNotFoundReturnsUnknown(c *tc.
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
 		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
 
 	p, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -536,6 +534,18 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
 
 	_, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
+func (s *drainingServiceSuite) TestGetDrainingPhaseErrorFromDyingBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(true, nil)
+
+	phase, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, objectstore.PhaseError)
 }
 
 func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
