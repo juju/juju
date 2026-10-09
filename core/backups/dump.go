@@ -94,8 +94,9 @@ func (s *DumpStaging) Close() error {
 // StageDumps marshals each dump into a temporary directory inside dir and
 // returns the staging handle holding the resulting entries. The caller must
 // create dir beforehand and must keep the handle open until the dumps have
-// been archived, then Close it.
-func StageDumps(ctx context.Context, dir string, dumps []NamedDump) (*DumpStaging, error) {
+// been archived, then Close it. It is a variable so tests can wrap the
+// staging, mirroring [Create].
+var StageDumps = func(ctx context.Context, dir string, dumps []NamedDump) (*DumpStaging, error) {
 	stagingDir, err := os.MkdirTemp(dir, "juju-backup-dump-")
 	if err != nil {
 		return nil, errors.Capture(err)

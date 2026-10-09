@@ -43,8 +43,7 @@ const (
 	// maxMetadataSize bounds the metadata read from an archive.
 	maxMetadataSize = 4 << 20
 
-	// maxDumpSize bounds a single database dump held in memory while
-	// validating an archive.
+	// maxDumpSize bounds a single database dump read from an archive.
 	maxDumpSize = 1 << 30
 )
 
@@ -54,9 +53,10 @@ const (
 // archive that no recovery can load.
 const MaxDumpSize = maxDumpSize
 
-// ArchiveContents holds the files extracted while streaming an archive:
-// the metadata and the database dumps. The object blob bundle is
-// streamed through the checksum but never held in memory.
+// ArchiveContents holds the files extracted while streaming an archive.
+// Model dumps are staged on disk; the object blob bundle is streamed
+// through the checksum but never stored. Close must be called once the
+// contents have been consumed to remove the staged dumps.
 type ArchiveContents struct {
 	// Metadata is the archive's metadata.json provenance record.
 	Metadata []byte
@@ -69,8 +69,11 @@ type ArchiveContents struct {
 	// ControllerDump is the controller database dump, YAML.
 	ControllerDump []byte
 
-	// ModelDumps holds one dump per model, keyed by model UUID.
-	ModelDumps map[string][]byte
+	// ModelDumps holds the path of each staged dump, keyed by model UUID.
+	// The files are private to this archive and remain until Close.
+	ModelDumps map[string]string
+
+	stagingDir string
 }
 
 // readArchive streams archivePath once, computing the archive's SHA-256
@@ -94,8 +97,22 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 	if err != nil {
 		return nil, "", 0, errors.Errorf("reading archive: %w", err)
 	}
+	defer func() { _ = gz.Close() }()
 
-	contents := &ArchiveContents{ModelDumps: make(map[string][]byte)}
+	stagingDir, err := os.MkdirTemp("", "juju-recovery-dump-")
+	if err != nil {
+		return nil, "", 0, errors.Errorf("creating recovery workspace: %w", err)
+	}
+	contents := &ArchiveContents{
+		ModelDumps: make(map[string]string),
+		stagingDir: stagingDir,
+	}
+	completed := false
+	defer func() {
+		if !completed {
+			_ = contents.Close()
+		}
+	}()
 	seen := make(map[string]struct{})
 	digests := make(map[string]entryDigest)
 	tr := tar.NewReader(gz)
@@ -147,8 +164,18 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 			if model == "" || strings.Contains(model, "/") {
 				return nil, "", 0, errors.Errorf("unexpected model dump path %q", name)
 			}
-			limit = maxDumpSize
-			store = func(b []byte) { contents.ModelDumps[model] = b }
+			// Check the declared size before staging. The tar reader
+			// exposes at most this entry's declared number of bytes.
+			if hdr.Size > maxDumpSize {
+				return nil, "", 0, errors.Errorf("reading %q: file exceeds %d bytes", name, maxDumpSize)
+			}
+			filename, digest, err := stageModelDump(ctx, stagingDir, tr)
+			if err != nil {
+				return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
+			}
+			contents.ModelDumps[model] = filename
+			digests[name] = digest
+			continue
 		default:
 			// root.tar and anything else is hashed but not held.
 			hasher := sha256.New()
@@ -188,7 +215,51 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 	if err != nil {
 		return nil, "", 0, errors.Capture(err)
 	}
+	completed = true
 	return contents, checksum, stat.Size(), nil
+}
+
+// Close removes the staged model dumps. It is safe to call more than once.
+func (c *ArchiveContents) Close() error {
+	return errors.Capture(os.RemoveAll(c.stagingDir))
+}
+
+// stageModelDump streams one model dump to a private staging file while
+// computing the digest used to check the manifest. It closes the file
+// before returning, so the number of open files is independent of the
+// number of models.
+func stageModelDump(ctx context.Context, dir string, reader io.Reader) (string, entryDigest, error) {
+	file, err := os.CreateTemp(dir, "model-*.yaml")
+	if err != nil {
+		return "", entryDigest{}, errors.Capture(err)
+	}
+	defer func() { _ = file.Close() }()
+	hasher := sha256.New()
+	size, err := io.Copy(io.MultiWriter(file, hasher), contextReader{ctx: ctx, reader: reader})
+	if err != nil {
+		return "", entryDigest{}, errors.Capture(err)
+	}
+	if err := file.Close(); err != nil {
+		return "", entryDigest{}, errors.Capture(err)
+	}
+	return file.Name(), entryDigest{
+		size:   size,
+		sha256: hex.EncodeToString(hasher.Sum(nil)),
+	}, nil
+}
+
+// contextReader checks cancellation between reads from a local file or
+// archive entry. It owns neither the reader nor its lifetime.
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
 }
 
 // readLimited reads r fully, failing when it holds more than limit bytes.

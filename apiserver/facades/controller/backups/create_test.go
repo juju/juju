@@ -36,6 +36,7 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/recovery"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -572,6 +573,40 @@ func (s *backupsSuite) TestCreateStageDumpsFailure(c *tc.C) {
 
 	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
 	c.Assert(err, tc.ErrorMatches, ".*not a directory")
+}
+
+func (s *backupsSuite) TestCreateOversizedDumpCleansUpStaging(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backupDir := c.MkDir()
+	s.expectFilesToBackUp(c, backupDir)
+	s.expectModelConfig(c, backupDir)
+	s.expectControllerExport()
+	s.controller.EXPECT().GetModelNamespaces(gomock.Any()).Return([]string{s.modelUUID}, nil)
+	s.modelServices.EXPECT().Export().Return(s.modelExport)
+	s.modelExport.EXPECT().Export(gomock.Any()).Return(&domainexport.ModelExport{
+		Payload: &modelv4_1_0.ModelExport{},
+	}, nil)
+
+	// Extend the staged controller dump sparsely once staging completes,
+	// exercising the size check without exporting or allocating a
+	// gigabyte of test data.
+	stageDumps := corebackups.StageDumps
+	s.PatchValue(&corebackups.StageDumps, func(ctx context.Context, dir string, dumps []corebackups.NamedDump) (*corebackups.DumpStaging, error) {
+		staging, err := stageDumps(ctx, dir, dumps)
+		if err != nil {
+			return nil, err
+		}
+		files, err := filepath.Glob(filepath.Join(dir, "juju-backup-dump-*", "controller.yaml"))
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(files, tc.HasLen, 1)
+		c.Assert(os.Truncate(files[0], recovery.MaxDumpSize+1), tc.ErrorIsNil)
+		return staging, nil
+	})
+
+	_, _, _, err := s.newCreator(c, s.modelServicesFor()).Create(c.Context(), "")
+	c.Check(err, tc.ErrorMatches, `database dump "controller.yaml" is .* bytes, exceeding .* recovery limit:.*`)
+	s.assertNoArchive(c, backupDir)
 }
 
 // TestCreateNoModels verifies that a controller with no model namespaces
