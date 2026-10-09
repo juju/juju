@@ -6,6 +6,7 @@ package modelmanager
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,6 +17,7 @@ import (
 	commonmodel "github.com/juju/juju/apiserver/common/model"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -23,6 +25,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
 	coreuser "github.com/juju/juju/core/user"
@@ -33,6 +36,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -68,14 +72,16 @@ type ModelManagerAPI struct {
 	getBlockChecker BlockCheckerGetter
 
 	// Services required by the model manager.
-	accessService        AccessService
-	domainServicesGetter DomainServicesGetter
-	applicationService   ApplicationService
-	credentialService    CredentialService
-	modelService         ModelService
-	modelDefaultsService ModelDefaultsService
-	secretBackendService SecretBackendService
-	removalService       RemovalService
+	accessService            AccessService
+	domainServicesGetter     DomainServicesGetter
+	applicationService       ApplicationService
+	credentialService        CredentialService
+	cloudService             CloudService
+	ephemeralProviderFactory providertracker.EphemeralProviderFactory
+	modelService             ModelService
+	modelDefaultsService     ModelDefaultsService
+	secretBackendService     SecretBackendService
+	removalService           RemovalService
 
 	store objectstore.ObjectStore
 
@@ -104,15 +110,17 @@ func NewModelManagerAPI(
 		apiUser:         apiUser,
 		isAdmin:         isAdmin,
 
-		domainServicesGetter: services.DomainServicesGetter,
-		credentialService:    services.CredentialService,
-		modelService:         services.ModelService,
-		modelDefaultsService: services.ModelDefaultsService,
-		accessService:        services.AccessService,
-		secretBackendService: services.SecretBackendService,
-		removalService:       services.RemovalService,
-		applicationService:   services.ApplicationService,
-		store:                services.ObjectStore,
+		domainServicesGetter:     services.DomainServicesGetter,
+		credentialService:        services.CredentialService,
+		cloudService:             services.CloudService,
+		ephemeralProviderFactory: services.EphemeralProviderFactory,
+		modelService:             services.ModelService,
+		modelDefaultsService:     services.ModelDefaultsService,
+		accessService:            services.AccessService,
+		secretBackendService:     services.SecretBackendService,
+		removalService:           services.RemovalService,
+		applicationService:       services.ApplicationService,
+		store:                    services.ObjectStore,
 
 		controllerUUID:      controllerUUID,
 		controllerModelUUID: controllerModelUUID,
@@ -270,6 +278,13 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	}
 	creationArgs.AdminUsers = []coreuser.UUID{userUUID}
 
+	if err := m.preflightModelProvider(ctx, args, creationArgs); err != nil {
+		return result, internalerrors.Errorf(
+			"opening provider for new model %s/%s: %w",
+			qualifier, args.Name, err,
+		)
+	}
+
 	// Create the model in the controller database.
 	modelUUID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
 	switch {
@@ -345,6 +360,64 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	}
 
 	return modelInfo, nil
+}
+
+func (m *ModelManagerAPI) preflightModelProvider(
+	ctx context.Context,
+	args params.ModelCreateArgs,
+	creationArgs model.GlobalModelCreationArgs,
+) error {
+	cloudInfo, err := m.cloudService.Cloud(ctx, creationArgs.Cloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if cloudInfo == nil {
+		return errors.NotValidf("nil cloud %q", creationArgs.Cloud)
+	}
+
+	var cloudCredential *cloud.Credential
+	if !creationArgs.Credential.IsZero() {
+		cred, err := m.credentialService.CloudCredential(ctx, creationArgs.Credential)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cloudCredential = &cred
+	}
+
+	cloudSpec, err := cloudspec.MakeCloudSpec(
+		*cloudInfo, creationArgs.CloudRegion, cloudCredential,
+	)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	modelUUID, err := coremodel.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelConfigAttrs := make(map[string]any, len(args.Config)+3)
+	maps.Copy(modelConfigAttrs, args.Config)
+	modelConfigAttrs[config.NameKey] = args.Name
+	modelConfigAttrs[config.UUIDKey] = modelUUID.String()
+	modelConfigAttrs[config.TypeKey] = cloudInfo.Type
+	modelConfig, err := config.New(config.UseDefaults, modelConfigAttrs)
+	if err != nil {
+		return errors.Annotate(err, "creating model config for provider preflight")
+	}
+
+	modelType := coremodel.IAAS
+	if cloud.CloudTypeIsCAAS(cloudInfo.Type) {
+		modelType = coremodel.CAAS
+	}
+	_, err = m.ephemeralProviderFactory.EphemeralProviderFromConfig(
+		ctx, providertracker.EphemeralProviderConfig{
+			ModelType:      modelType,
+			ModelConfig:    modelConfig,
+			CloudSpec:      cloudSpec,
+			ControllerUUID: m.controllerUUID,
+		},
+	)
+	return errors.Trace(err)
 }
 
 // createModelInfo establishes a new model within the model database.

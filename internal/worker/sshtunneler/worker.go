@@ -22,20 +22,6 @@ import (
 	"github.com/juju/juju/internal/sshtunneler"
 )
 
-// TunnelTracker is the interface exposed by the worker for creating,
-// authenticating and pushing reverse SSH tunnels. It is implemented by
-// [sshtunneler.Tracker].
-type TunnelTracker interface {
-	// RequestTunnel requests a reverse SSH tunnel to a model-specific machine
-	// and blocks until the tunnel is established or the context is cancelled.
-	RequestTunnel(ctx context.Context, req sshtunneler.RequestArgs) (*gossh.Client, error)
-	// PushTunnel publishes an established network connection for the tunnel
-	// identified by tunnelID, on behalf of the named machine. The machine
-	// name must match the machine the tunnel was requested for. The
-	// returned channel is closed when the pushed connection is closed.
-	PushTunnel(ctx context.Context, tunnelID, machineName string, conn net.Conn) (<-chan struct{}, error)
-}
-
 // SSHModelService provides model-scoped SSH connection-request operations
 // needed by the tunnel tracker.
 type SSHModelService interface {

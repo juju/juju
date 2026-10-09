@@ -5,13 +5,13 @@ package apiaddresssetter
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"strconv"
-	"time"
 
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
@@ -20,15 +20,14 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
-	networkerrors "github.com/juju/juju/domain/network/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
-	internalworker "github.com/juju/juju/internal/worker"
 )
 
 // ControllerConfigService is an interface for getting the controller config.
 type ControllerConfigService interface {
-	// ControllerConfig returns the config values for the controller.
-	ControllerConfig(ctx context.Context) (controller.Config, error)
+	// GetManagementSpaceAndAPIPort returns the management space and API port.
+	GetManagementSpaceAndAPIPort(ctx context.Context) (network.SpaceName, int, error)
 
 	// WatchControllerConfig returns a watcher that returns keys for any changes
 	// to controller config.
@@ -41,71 +40,49 @@ type ControllerNodeService interface {
 	// controller nodes.
 	WatchControllerNodes(ctx context.Context) (watcher.NotifyWatcher, error)
 
-	// GetControllerIDs returns the list of controller IDs from the controller node
-	// records.
+	// GetControllerIDs returns the IDs of alive or dying controller nodes.
 	GetControllerIDs(ctx context.Context) ([]string, error)
 
-	// SetAPIAddresses publishes client and agent addresses for the provided
-	// controller IDs, selecting agent addresses using the management space.
-	//
-	// The following errors can be expected:
-	// - [controllernodeerrors.NotFound] if the controller node does not exist.
+	// SetAPIAddresses publishes the selected API addresses.
 	SetAPIAddresses(ctx context.Context, args controllernode.SetAPIAddressArgs) error
 }
 
-// ApplicationService is an interface for the application domain service.
-type ApplicationService interface {
-	// WatchUnitAddresses watches for changes to the addresses of the specified
-	// unit.
-	// This notifies on any changes to the unit addresses and it is up to the
-	// caller to determine if the addresses they're interested in have changed.
-	WatchUnitAddresses(ctx context.Context, unitName unit.Name) (watcher.NotifyWatcher, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
+// NetworkService provides controller network address selections.
 type NetworkService interface {
-	// GetControllerAPIAddresses returns the preferred addresses which can be
-	// used as API addresses for the specified unit, honouring the management
-	// space when one is configured. Local-machine scoped addresses will not be
-	// returned.
-	//
-	// The following errors may be returned:
-	// - [uniterrors.UnitNotFound] if the unit does not exist
-	// - [network.NoAddressError] if the unit has no api address associated
-	GetControllerAPIAddresses(
-		ctx context.Context,
-		unitName unit.Name,
-		managementSpace *network.SpaceInfo,
-	) (network.SpaceAddresses, error)
-	// SpaceByName returns a space from state that matches the input name. If the
-	// space is not found, an error is returned matching
-	// [github.com/juju/juju/domain/network/errors.SpaceNotFound].
-	SpaceByName(ctx context.Context, name network.SpaceName) (*network.SpaceInfo, error)
+	// GetControllerClientAddresses returns addresses selected for ordinary
+	// client discovery. Machine addresses are associated with controller units;
+	// Kubernetes Service addresses are returned as shared endpoints.
+	GetControllerClientAddresses(ctx context.Context, names []unit.Name) (domainnetwork.ControllerAddressSelection, error)
+
+	// GetControllerAgentAddresses returns addresses selected for ordinary
+	// agent discovery. Machine address selection honours the management space,
+	// while Kubernetes returns shared Service endpoints and ignores
+	// management-space policy.
+	GetControllerAgentAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName) (domainnetwork.ControllerAddressSelection, error)
+
+	// GetControllerPeerAddresses returns addresses grouped by controller unit.
+	// Peer addresses are never shared. Machine address selection honours the
+	// management space; Kubernetes selection uses controller pod addresses.
+	GetControllerPeerAddresses(ctx context.Context, names []unit.Name, managementSpace network.SpaceName) (domainnetwork.ControllerAddressSelection, error)
+
+	// WatchControllerNetwork watches all controller-model network facts that
+	// can change client, agent or peer selections. Its initial event must be
+	// consumed before reading addresses.
+	WatchControllerNetwork(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
-// apiAddressSetterWorker is a worker which sets the API addresses for the
-// controller, watching for changes both in the controller node's ip addresses
-// and the controller config (the juju-mgmt-space key) to filter the addresses
-// based on the management space.
+// apiAddressSetterWorker publishes controller API addresses from authoritative
+// controller, configuration and network sources.
 type apiAddressSetterWorker struct {
 	catacomb catacomb.Catacomb
-
-	config Config
-
-	// controllerNodeAddressChanges is a channel that is used to signal back
-	// to the main worker that the controller node addresses have changed.
-	controllerNodeAddressChanges chan struct{}
-	runner                       *worker.Runner
+	config   Config
 }
 
 // Config holds the configuration for the api address setter worker.
 type Config struct {
 	ControllerConfigService ControllerConfigService
-	ApplicationService      ApplicationService
 	ControllerNodeService   ControllerNodeService
 	NetworkService          NetworkService
-	APIPort                 int
 	Logger                  logger.Logger
 }
 
@@ -114,17 +91,11 @@ func (config Config) Validate() error {
 	if config.ControllerConfigService == nil {
 		return errors.New("nil ControllerConfigService not valid").Add(coreerrors.NotValid)
 	}
-	if config.ApplicationService == nil {
-		return errors.New("nil ApplicationService not valid").Add(coreerrors.NotValid)
-	}
 	if config.ControllerNodeService == nil {
 		return errors.New("nil ControllerNodeService not valid").Add(coreerrors.NotValid)
 	}
 	if config.NetworkService == nil {
 		return errors.New("nil NetworkService not valid").Add(coreerrors.NotValid)
-	}
-	if config.APIPort <= 0 {
-		return errors.New("non-positive APIPort not valid").Add(coreerrors.NotValid)
 	}
 	if config.Logger == nil {
 		return errors.New("nil Logger not valid").Add(coreerrors.NotValid)
@@ -139,24 +110,11 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Capture(err)
 	}
 
-	runner, err := worker.NewRunner(worker.RunnerParams{
-		Name:    "apiaddresssetter",
-		IsFatal: func(error) bool { return false },
-		Logger:  internalworker.WrapLogger(config.Logger),
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	w := &apiAddressSetterWorker{
-		config:                       config,
-		controllerNodeAddressChanges: make(chan struct{}),
-		runner:                       runner,
-	}
+	w := &apiAddressSetterWorker{config: config}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "apiaddresssetter",
 		Site: &w.catacomb,
 		Work: w.loop,
-		Init: []worker.Worker{w.runner},
 	}); err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -176,227 +134,203 @@ func (w *apiAddressSetterWorker) Wait() error {
 func (w *apiAddressSetterWorker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	controllerNodeChanges, err := w.watchForControllerNodeChanges(ctx)
+	nodeWatcher, err := w.config.ControllerNodeService.WatchControllerNodes(ctx)
 	if err != nil {
+		return errors.Errorf("watching controller nodes: %w", err)
+	}
+	if err := w.catacomb.Add(nodeWatcher); err != nil {
+		return errors.Capture(err)
+	}
+	configWatcher, err := w.config.ControllerConfigService.WatchControllerConfig(ctx)
+	if err != nil {
+		return errors.Errorf("watching controller config: %w", err)
+	}
+	if err := w.catacomb.Add(configWatcher); err != nil {
+		return errors.Capture(err)
+	}
+	networkWatcher, err := w.config.NetworkService.WatchControllerNetwork(ctx)
+	if err != nil {
+		return errors.Errorf("watching controller network: %w", err)
+	}
+	if err := w.catacomb.Add(networkWatcher); err != nil {
 		return errors.Capture(err)
 	}
 
-	configChanges, err := w.watchForConfigChanges(ctx)
-	if err != nil {
-		return errors.Capture(err)
+	if err := w.consumeInitialNotify(nodeWatcher.Changes(), "controller node"); err != nil {
+		return err
+	}
+	if err := w.consumeInitialStrings(configWatcher.Changes(), "controller config"); err != nil {
+		return err
+	}
+	if err := w.consumeInitialNotify(networkWatcher.Changes(), "controller network"); err != nil {
+		return err
 	}
 
+	if err := w.reconcile(ctx); err != nil {
+		return errors.Capture(err)
+	}
 	for {
-		w.config.Logger.Tracef(ctx, "waiting for controller nodes or addresses changes")
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-
-		case <-controllerNodeChanges:
-			// A controller was added or removed.
-			w.config.Logger.Tracef(ctx, "<-controllerNodeAddressChanges")
-			changed, err := w.updateControllerNodes(ctx)
-			if err != nil {
-				return errors.Capture(err)
+		case _, ok := <-nodeWatcher.Changes():
+			if !ok {
+				return errors.New("controller node watcher closed")
 			}
-			if !changed {
-				continue
+		case _, ok := <-configWatcher.Changes():
+			if !ok {
+				return errors.New("controller config watcher closed")
 			}
-			w.config.Logger.Tracef(ctx, "controller node added or removed")
-
-		case <-w.controllerNodeAddressChanges:
-			// One of the controller nodes addresses have changed.
-			w.config.Logger.Tracef(ctx, "<-w.controllerNodeAddressChanges")
-
-		case <-configChanges:
-			// Controller config has changed.
-			w.config.Logger.Tracef(ctx, "<-w.configChanges")
-
-			if len(w.runner.WorkerNames()) == 0 {
-				w.config.Logger.Errorf(ctx, "no controller information, ignoring config change")
-				continue
+		case _, ok := <-networkWatcher.Changes():
+			if !ok {
+				return errors.New("controller network watcher closed")
 			}
 		}
 
-		w.updateAPIAddressesAfterControllerRefresh(ctx)
-	}
-}
-
-// updateAPIAddressesAfterControllerRefresh updates the tracked controllers'
-// addresses. A controller can be removed between a watcher event and this
-// update, so refresh the tracker set and retry once when the state rejects the
-// stale controller ID.
-func (w *apiAddressSetterWorker) updateAPIAddressesAfterControllerRefresh(ctx context.Context) {
-	err := w.updateAPIAddresses(ctx)
-	if err == nil {
-		return
-	} else if !errors.Is(err, controllernodeerrors.NotFound) {
-		w.config.Logger.Errorf(ctx, "cannot update api addresses: %v", err)
-		return
-	}
-
-	w.config.Logger.Debugf(ctx, "controller node removed while updating api addresses")
-	if _, err := w.updateControllerNodes(ctx); err != nil {
-		w.config.Logger.Errorf(ctx, "cannot refresh controller nodes: %v", err)
-		return
-	}
-	if err := w.updateAPIAddresses(ctx); err != nil {
-		if errors.Is(err, controllernodeerrors.NotFound) {
-			w.config.Logger.Debugf(ctx, "controller node removed while retrying api address update")
-			return
+		if err := w.reconcile(ctx); err != nil {
+			return errors.Capture(err)
 		}
-		w.config.Logger.Errorf(ctx, "cannot update api addresses after controller refresh: %v", err)
 	}
 }
 
-// watchForControllerChanges starts a watcher for changes to controller nodes.
-// It returns a channel which will receive events if any of the watchers fires.
-func (w *apiAddressSetterWorker) watchForControllerNodeChanges(ctx context.Context) (<-chan struct{}, error) {
-	watcher, err := w.config.ControllerNodeService.WatchControllerNodes(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
+func (w *apiAddressSetterWorker) consumeInitialNotify(ch <-chan struct{}, name string) error {
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case _, ok := <-ch:
+		if !ok {
+			return errors.Errorf("%s watcher closed", name)
+		}
+		return nil
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return watcher.Changes(), nil
 }
 
-// watchForConfigChanges starts a watcher for changes to controller config.
-// It returns a channel which will receive events if the watcher fires.
-func (w *apiAddressSetterWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
-	watcher, err := w.config.ControllerConfigService.WatchControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
+func (w *apiAddressSetterWorker) consumeInitialStrings(ch <-chan []string, name string) error {
+	select {
+	case <-w.catacomb.Dying():
+		return w.catacomb.ErrDying()
+	case _, ok := <-ch:
+		if !ok {
+			return errors.Errorf("%s watcher closed", name)
+		}
+		return nil
 	}
-	if err := w.catacomb.Add(watcher); err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	return watcher.Changes(), nil
 }
 
-// updateControllerNodes updates the current list of tracked controller nodes,
-// as well as starting and stopping trackers for them as they are added and
-// removed.
-func (w *apiAddressSetterWorker) updateControllerNodes(ctx context.Context) (bool, error) {
+// reconcile keeps the client, agent and peer API address projections in sync
+// with controller membership, controller config and unit network addresses.
+//
+// The projections are derived data, pre-selected and ordered so readers and
+// watchers do not need to reapply policy. Because their sources change
+// independently, reconcile recomputes and writes all projections as one
+// snapshot. This keeps them consistent, removes obsolete rows and repairs
+// missed events. An unchanged snapshot is a no-op.
+func (w *apiAddressSetterWorker) reconcile(ctx context.Context) error {
 	controllerIDs, err := w.config.ControllerNodeService.GetControllerIDs(ctx)
-	if err != nil {
-		return false, errors.Errorf("cannot get controller IDs: %w", err)
-	}
-	controllers := make(map[string]string)
-	for _, controllerID := range controllerIDs {
-		controllers[controllerID] = controllerID
-	}
-
-	w.config.Logger.Debugf(ctx, "controller nodes: %#v", controllerIDs)
-
-	var changed bool
-	// Stop controller tracker that no longer correspond to controller nodes.
-	workerNames := w.runner.WorkerNames()
-	for _, controllerID := range workerNames {
-		if _, isRemoved := controllers[controllerID]; !isRemoved {
-			if err := w.stopAndRemoveTracker(ctx, controllerID); err != nil {
-				return false, errors.Capture(err)
-			}
-			changed = true
-		}
-	}
-
-	// Start trackers for new nodes.
-	for _, controllerID := range controllerIDs {
-		if err := w.runner.StartWorker(ctx, controllerID, func(ctx context.Context) (worker.Worker, error) {
-			id, err := strconv.Atoi(controllerID)
-			if err != nil {
-				return nil, errors.Errorf("invalid controller ID %q: %w", controllerID, err)
-			}
-			unitName, err := unit.NewNameFromParts(application.ControllerApplicationName, id)
-			if err != nil {
-				return nil, errors.Errorf("invalid unit name for controller %q: %w", controllerID, err)
-			}
-			tracker, err := newControllerTracker(
-				unitName, w.config.ApplicationService,
-				w.controllerNodeAddressChanges,
-				w.config.Logger.Child("controllertracker"),
-			)
-			if err != nil {
-				return nil, errors.Capture(err)
-			}
-			return tracker, nil
-		}); errors.Is(err, coreerrors.AlreadyExists) {
-			continue
-		} else if err != nil {
-			return false, errors.Errorf("failed to start tracker for controller node %q: %w", controllerID, err)
-		}
-
-		w.config.Logger.Debugf(ctx, "found new controller %q", controllerID)
-		changed = true
-	}
-
-	return changed, nil
-}
-
-func (w *apiAddressSetterWorker) stopAndRemoveTracker(ctx context.Context, controllerID string) error {
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
-	defer cancel()
-
-	// Stop tracker since it's no longer required.
-	w.config.Logger.Debugf(ctx, "stopping tracker for controller node %q", controllerID)
-	if err := w.runner.StopAndRemoveWorker(controllerID, ctx.Done()); errors.Is(err, context.DeadlineExceeded) {
-		return errors.Errorf("failed to stop tracker for controller node %q: timed out", controllerID)
+	if errors.Is(err, controllernodeerrors.EmptyControllerIDs) {
+		// No controller nodes are alive or dying, so clear the published
+		// addresses. Also, it's possible to have shared addresses, and we must
+		// be able to set those addresses without any controller nodes.
+		controllerIDs = nil
 	} else if err != nil {
-		return errors.Errorf("failed to stop tracker for controller node %q: %w", controllerID, err)
+		return errors.Errorf("getting controller IDs: %w", err)
 	}
 
-	return nil
-}
+	controllerUnitNames := make(map[string]unit.Name, len(controllerIDs))
 
-// updateAPIAddresses updates the API addresses for each tracked controller.
-func (w *apiAddressSetterWorker) updateAPIAddresses(ctx context.Context) error {
-	if len(w.runner.WorkerNames()) == 0 {
+	// Convert controller IDs to unit names, which are used to look up network
+	// selections.
+	for _, controllerID := range controllerIDs {
+		unitNumber, err := strconv.Atoi(controllerID)
+		if err != nil {
+			return errors.Errorf("invalid controller ID %q: %w", controllerID, err)
+		}
+		name, err := unit.NewNameFromParts(application.ControllerApplicationName, unitNumber)
+		if err != nil {
+			return errors.Errorf("creating unit name for controller %q: %w", controllerID, err)
+		}
+		controllerUnitNames[controllerID] = name
+	}
+
+	// Collect the unit names in a slice for use with the network service.
+	names := slices.Collect(maps.Values(controllerUnitNames))
+
+	managementSpace, apiPort, err := w.config.ControllerConfigService.GetManagementSpaceAndAPIPort(ctx)
+	if err != nil {
+		return errors.Errorf("getting management space and API port: %w", err)
+	}
+
+	// These selections could be fetched in one network service call, but doing
+	// so would significantly complicate the distinct selection paths for each
+	// audience.
+
+	// Get the client addresses, which are used for ordinary client discovery.
+	// Machine addresses are grouped by controller unit; Kubernetes Service
+	// addresses are shared.
+	clients, err := w.config.NetworkService.GetControllerClientAddresses(ctx, names)
+	if err != nil {
+		return errors.Errorf("getting controller client addresses: %w", err)
+	}
+
+	// Get the agent addresses, which are used for ordinary agent discovery. The
+	// management space is used for machine address selection, but ignored for
+	// Kubernetes Service selection.
+	agents, err := w.config.NetworkService.GetControllerAgentAddresses(ctx, names, managementSpace)
+	if err != nil {
+		return errors.Errorf("getting controller agent addresses: %w", err)
+	}
+
+	// Get the peer addresses, which are used for controller-to-controller
+	// communication. The management space is used for machine address selection,
+	// but ignored for Kubernetes pod address selection.
+	peers, err := w.config.NetworkService.GetControllerPeerAddresses(ctx, names, managementSpace)
+	if err != nil {
+		return errors.Errorf("getting controller peer addresses: %w", err)
+	}
+
+	// Build the API address set for each controller node, which includes the
+	// client, agent and peer addresses. The client and agent addresses are
+	// shared for Kubernetes selection, but not for machine selection.
+	addresses := make(map[string]controllernode.APIAddressSet, len(controllerIDs))
+	hasClientAddresses := len(clients.Shared) > 0
+	hasAgentAddresses := len(agents.Shared) > 0
+	for _, controllerID := range controllerIDs {
+		controllerUnitName, ok := controllerUnitNames[controllerID]
+		if !ok {
+			return errors.Errorf("controller ID %q has no unit name", controllerID)
+		}
+		name := controllerUnitName
+		hasClientAddresses = hasClientAddresses || len(clients.ByUnit[name]) > 0
+		hasAgentAddresses = hasAgentAddresses || len(agents.ByUnit[name]) > 0
+		addresses[controllerID] = controllernode.APIAddressSet{
+			Clients: slices.Clone(clients.ByUnit[name]),
+			Agents:  slices.Clone(agents.ByUnit[name]),
+			Peers:   slices.Clone(peers.ByUnit[name]),
+		}
+	}
+	if len(controllerIDs) > 0 && (!hasClientAddresses || !hasAgentAddresses) {
+		// Bootstrap publishes provider addresses before machine network facts
+		// exist. Keep that usable snapshot until runtime discovery can replace
+		// both client and agent endpoints.
+		w.config.Logger.Warningf(ctx, "not publishing incomplete controller API address discovery")
 		return nil
 	}
 
-	cfg, err := w.config.ControllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	mgmtSpace, err := w.config.NetworkService.SpaceByName(ctx, cfg.JujuManagementSpace())
-	if err != nil && !errors.Is(err, networkerrors.SpaceNotFound) {
-		// If the space is not found, we can ignore it, since that case is
-		// handled by the controller node domain in `SetAPIAddresses`.
-		return errors.Capture(err)
-	}
-
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace:    mgmtSpace,
-		APIAddresses: make(map[string]network.SpaceHostPorts),
-	}
-
-	for _, controllerID := range w.runner.WorkerNames() {
-		unitNumber, err := strconv.Atoi(controllerID)
-		if err != nil {
-			return errors.Capture(err)
+	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, controllernode.SetAPIAddressArgs{
+		APIPort:   apiPort,
+		Addresses: addresses,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: slices.Clone(clients.Shared),
+			Agents:  slices.Clone(agents.Shared),
+		},
+	}); err != nil {
+		// Do not retry here. The state transaction already handles retries, and
+		// returning this error restarts the worker so it reconciles with fresh
+		// controller membership.
+		if errors.Is(err, controllernodeerrors.StaleControllerMembership) {
+			w.config.Logger.Infof(ctx, "controller membership changed while publishing API addresses: %v", err)
 		}
-		unitName, err := unit.NewNameFromParts(application.ControllerApplicationName, unitNumber)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		addrs, err := w.config.NetworkService.GetControllerAPIAddresses(ctx, unitName, mgmtSpace)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		hostPorts := network.SpaceAddressesWithPort(addrs, w.config.APIPort)
-		if len(hostPorts) == 0 {
-			w.config.Logger.Errorf(ctx, "no public address for controller %q", controllerID)
-			continue
-		}
-		args.APIAddresses[controllerID] = hostPorts
-	}
-	if err := w.config.ControllerNodeService.SetAPIAddresses(ctx, args); err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("publishing API addresses: %w", err)
 	}
 	return nil
 }

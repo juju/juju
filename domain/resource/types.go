@@ -64,10 +64,13 @@ type SetRepositoryResourcesArgs struct {
 }
 
 // StateSetRepositoryResourcesArgs holds repository resource updates and the
-// replacement UUIDs generated for them by the service.
+// replacement and removal job UUIDs generated for them by the service.
 type StateSetRepositoryResourcesArgs struct {
 	SetRepositoryResourcesArgs
+	// ReplacementUUIDs contains resource UUIDs keyed by resource name.
 	ReplacementUUIDs map[string]string
+	// RemovalJobUUIDs contains removal job UUIDs keyed by resource name.
+	RemovalJobUUIDs map[string]string
 }
 
 // StoreResourceArgs holds the arguments for resource storage methods.
@@ -171,6 +174,9 @@ type StateUpdateUploadResourceArgs struct {
 	ResourceUUID string
 	// NewResourceUUID is the unique identifier of the replacement resource.
 	NewResourceUUID string
+	// RemovalJobUUID is the unique identifier of the job that will remove the
+	// replaced resource once it is no longer in use.
+	RemovalJobUUID string
 }
 
 // ImportResourcesArgs are the arguments for SetResource.

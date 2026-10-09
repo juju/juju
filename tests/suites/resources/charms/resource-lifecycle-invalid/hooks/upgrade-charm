@@ -1,0 +1,5 @@
+#!/bin/bash
+
+set -o errexit
+
+status-set active "invalid lifecycle fixture"

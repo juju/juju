@@ -61,45 +61,47 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 	return result, err
 }
 
-// GetControllerConfigValue returns the value for a single controller config
-// key. The boolean is false when the key is not set, so callers can fall back
-// to the key's default rather than reading the whole controller config.
-func (st *State) GetControllerConfigValue(ctx context.Context, key string) (string, bool, error) {
+// GetControllerConfigValues returns values for the requested controller config
+// keys. Keys that are not set are omitted.
+func (st *State) GetControllerConfigValues(ctx context.Context, keys []string) (map[string]string, error) {
+	result := make(map[string]string, len(keys))
+	if len(keys) == 0 {
+		return result, nil
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
+	queryKeys := StringSlice(keys)
 	stmt, err := st.Prepare(`
-SELECT &KeyValue.*
-FROM v_controller_config
-WHERE key = $KeyValue.key`, KeyValue{})
+SELECT controller_config.key AS &KeyValue.key,
+       controller_config.value AS &KeyValue.value
+FROM v_controller_config AS controller_config
+WHERE controller_config.key IN ($StringSlice[:])`, KeyValue{}, queryKeys)
 	if err != nil {
-		return "", false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	var (
-		kv    KeyValue
-		found bool
-	)
+	var keyValues []KeyValue
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		kv = KeyValue{}
-		found = false
-
-		err := tx.Query(ctx, stmt, KeyValue{Key: key}).Get(&kv)
+		err := tx.Query(ctx, stmt, queryKeys).GetAll(&keyValues)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
 			return errors.Capture(err)
 		}
-		found = true
 		return nil
 	})
 	if err != nil {
-		return "", false, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
-	return kv.Value, found, nil
+	for _, kv := range keyValues {
+		result[kv.Key] = kv.Value
+	}
+	return result, nil
 }
 
 // UpdateControllerConfig allows changing some of the configuration

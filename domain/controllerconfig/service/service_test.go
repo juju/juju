@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
@@ -121,12 +122,17 @@ func (s *serviceSuite) TestControllerConfigNewConfigError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `unable to create controller config: .*`)
 }
 
-// TestGetSSHServerPort asserts the port is read from the single config key
+// TestGetSSHServerPort asserts the port is read from the relevant config keys
 // rather than the whole controller config.
 func (s *serviceSuite) TestGetSSHServerPort(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("2223", true, nil)
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), []string{
+		controller.SSHServerPort,
+		controller.APIPort,
+	}).Return(map[string]string{
+		controller.SSHServerPort: "2223",
+	}, nil)
 
 	port, err := NewService(s.state).GetSSHServerPort(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -138,7 +144,7 @@ func (s *serviceSuite) TestGetSSHServerPort(c *tc.C) {
 func (s *serviceSuite) TestGetSSHServerPortDefault(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("", false, nil)
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{}, nil)
 
 	port, err := NewService(s.state).GetSSHServerPort(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -150,7 +156,9 @@ func (s *serviceSuite) TestGetSSHServerPortDefault(c *tc.C) {
 func (s *serviceSuite) TestGetSSHServerPortInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("not-a-port", true, nil)
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		controller.SSHServerPort: "not-a-port",
+	}, nil)
 
 	_, err := NewService(s.state).GetSSHServerPort(c.Context())
 	c.Assert(err, tc.ErrorMatches, `parsing SSH server port "not-a-port": .*`)
@@ -160,10 +168,58 @@ func (s *serviceSuite) TestGetSSHServerPortInvalid(c *tc.C) {
 func (s *serviceSuite) TestGetSSHServerPortStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("", false, errors.New("boom"))
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(nil, errors.New("boom"))
 
 	_, err := NewService(s.state).GetSSHServerPort(c.Context())
 	c.Assert(err, tc.ErrorMatches, "getting SSH server port: boom")
+}
+
+func (s *serviceSuite) TestGetManagementSpaceAndAPIPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), []string{
+		controller.JujuManagementSpace,
+		controller.APIPort,
+	}).Return(map[string]string{
+		controller.JujuManagementSpace: "management",
+		controller.APIPort:             "17071",
+	}, nil)
+
+	managementSpace, apiPort, err := NewService(s.state).GetManagementSpaceAndAPIPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(managementSpace, tc.Equals, network.SpaceName("management"))
+	c.Check(apiPort, tc.Equals, 17071)
+}
+
+func (s *serviceSuite) TestGetManagementSpaceAndAPIPortDefaults(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{}, nil)
+
+	managementSpace, apiPort, err := NewService(s.state).GetManagementSpaceAndAPIPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(managementSpace, tc.Equals, network.SpaceName(""))
+	c.Check(apiPort, tc.Equals, controller.DefaultAPIPort)
+}
+
+func (s *serviceSuite) TestGetManagementSpaceAndAPIPortInvalidPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		controller.APIPort: "not-a-port",
+	}, nil)
+
+	_, _, err := NewService(s.state).GetManagementSpaceAndAPIPort(c.Context())
+	c.Assert(err, tc.ErrorMatches, `parsing API port "not-a-port": .*`)
+}
+
+func (s *serviceSuite) TestGetManagementSpaceAndAPIPortStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(nil, errors.New("boom"))
+
+	_, _, err := NewService(s.state).GetManagementSpaceAndAPIPort(c.Context())
+	c.Assert(err, tc.ErrorMatches, "getting management space and API port: boom")
 }
 
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {

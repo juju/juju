@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/backups"           // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/block"             // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
@@ -65,6 +64,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
+	"github.com/juju/juju/apiserver/facades/controller/backups" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"

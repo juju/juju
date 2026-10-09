@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+retained_path="$(resource-get retained)"
+removed_path="$(resource-get removed)"
+
+retained_digest="$(sha256sum "${retained_path}" | awk '{print $1}')"
+removed_digest="$(sha256sum "${removed_path}" | awk '{print $1}')"
+status-set active "retained=${retained_digest} removed=${removed_digest}"

@@ -86,7 +86,6 @@ func (s *TunnelHandlerSuite) TestValidateRejectsMissingDependencies(c *tc.C) {
 
 func (s *TunnelHandlerSuite) TestServeHTTPMissingAuthenticatedMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	tracker := NewMockTunnelTracker(ctrl)
 
 	handler := newTunnelHandler(c, tracker)
@@ -100,7 +99,6 @@ func (s *TunnelHandlerSuite) TestServeHTTPMissingAuthenticatedMachine(c *tc.C) {
 
 func (s *TunnelHandlerSuite) TestServeHTTPMissingTunnelID(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	tracker := NewMockTunnelTracker(ctrl)
 
 	handler := newTunnelHandler(c, tracker)
@@ -134,7 +132,6 @@ func dialTunnel(c *tc.C, addr, tunnelID string) (net.Conn, *http.Response) {
 
 func (s *TunnelHandlerSuite) TestServeHTTPPushTunnelErrorClosesConn(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	tracker := NewMockTunnelTracker(ctrl)
 	tracker.EXPECT().PushTunnel(gomock.Any(), "tunnel-0", "0", gomock.Any()).Return(nil, errors.New("push failed"))
 
@@ -157,7 +154,6 @@ func (s *TunnelHandlerSuite) TestServeHTTPPushTunnelErrorClosesConn(c *tc.C) {
 
 func (s *TunnelHandlerSuite) TestServeHTTPBlocksUntilTunnelDone(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	tracker := NewMockTunnelTracker(ctrl)
 
 	pushed := make(chan net.Conn, 1)
@@ -194,7 +190,6 @@ func (s *TunnelHandlerSuite) TestServeHTTPBlocksUntilTunnelDone(c *tc.C) {
 
 func (s *TunnelHandlerSuite) TestServeHTTPClosesConnOnKill(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	tracker := NewMockTunnelTracker(ctrl)
 
 	pushed := make(chan net.Conn, 1)
@@ -234,7 +229,6 @@ func (s *TunnelHandlerSuite) TestServeHTTPClosesConnOnKill(c *tc.C) {
 
 func (s *TunnelHandlerSuite) TestServeHTTPRejectsWrongMachine(c *tc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	tracker := NewMockTunnelTracker(ctrl)
 	// The tracker enforces the binding. A mismatch surfaces as a push
 	// error, which closes the connection.

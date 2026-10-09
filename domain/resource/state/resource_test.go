@@ -29,6 +29,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -884,6 +885,10 @@ func (s *resourceSuite) TestSetRepositoryResource(c *tc.C) {
 		"not-polled-1": coreresourcetesting.GenResourceUUID(c).String(),
 		"polled-1":     coreresourcetesting.GenResourceUUID(c).String(),
 	}
+	removalJobUUIDs := map[string]string{
+		"not-polled-1": tc.Must(c, removal.NewUUID).String(),
+		"polled-1":     tc.Must(c, removal.NewUUID).String(),
+	}
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		resourcesToCheck := make([]resourceData, 0, len(notPolled)+len(alreadyPolled))
@@ -936,6 +941,7 @@ VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 			LastPolled: now,
 		},
 		ReplacementUUIDs: replacementUUIDs,
+		RemovalJobUUIDs:  removalJobUUIDs,
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Act) failed to execute TestSetRepositoryResource: %v", errors.ErrorStack(err)))
 
@@ -1027,6 +1033,20 @@ AND    r.state_id = 1`, s.constants.fakeApplicationUUID1)
 		"not-polled-id-2",
 		"polled-id-2",
 	})
+
+	for name, jobUUID := range removalJobUUIDs {
+		var removalTypeID uint64
+		var entityUUID string
+		err := s.DB().QueryRowContext(c.Context(), `
+SELECT removal_type_id, entity_uuid FROM removal WHERE uuid = ?`, jobUUID).
+			Scan(&removalTypeID, &entityUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(removalTypeID, tc.Equals, uint64(removal.ResourceJob))
+		c.Check(entityUUID, tc.Equals, map[string]string{
+			"not-polled-1": "not-polled-id-1",
+			"polled-1":     "polled-id-1",
+		}[name])
+	}
 }
 
 // TestSetRepositoryResourceUnknownResource validates that attempting to set
@@ -2520,6 +2540,7 @@ UPDATE application SET charm_uuid = ? WHERE uuid = ?`,
 	args := resource.StateUpdateUploadResourceArgs{
 		ResourceUUID:    originalUUID.String(),
 		NewResourceUUID: coreresourcetesting.GenResourceUUID(c).String(),
+		RemovalJobUUID:  tc.Must(c, removal.NewUUID).String(),
 	}
 
 	// Act: update resource to expect upload.
@@ -2535,6 +2556,7 @@ UPDATE application SET charm_uuid = ? WHERE uuid = ?`,
 
 	// The old resource and its blob remain available to lagging units.
 	s.checkResourceImageStore(c, originalUUID, "file-store-uuid")
+	s.checkResourceRemovalJob(c, args.RemovalJobUUID, originalUUID.String())
 }
 
 func (s *resourceSuite) checkResourceCharm(c *tc.C, resourceUUID coreresource.UUID, expectedCharmUUID string) {
@@ -2589,6 +2611,7 @@ func (s *resourceSuite) TestUpdateUploadResourceFileStore(c *tc.C) {
 	args := resource.StateUpdateUploadResourceArgs{
 		ResourceUUID:    originalUUID.String(),
 		NewResourceUUID: coreresourcetesting.GenResourceUUID(c).String(),
+		RemovalJobUUID:  tc.Must(c, removal.NewUUID).String(),
 	}
 
 	// Act: update resource to expect upload.
@@ -2603,6 +2626,18 @@ func (s *resourceSuite) TestUpdateUploadResourceFileStore(c *tc.C) {
 
 	// The old resource and its blob remain available to lagging units.
 	s.checkResourceFileStore(c, originalUUID, "object-store-uuid")
+	s.checkResourceRemovalJob(c, args.RemovalJobUUID, originalUUID.String())
+}
+
+func (s *resourceSuite) checkResourceRemovalJob(c *tc.C, jobUUID, resourceUUID string) {
+	var removalTypeID uint64
+	var entityUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT removal_type_id, entity_uuid FROM removal WHERE uuid = ?`, jobUUID).
+		Scan(&removalTypeID, &entityUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalTypeID, tc.Equals, uint64(removal.ResourceJob))
+	c.Check(entityUUID, tc.Equals, resourceUUID)
 }
 
 // TestDeleteResourcesAddedBeforeApplication tests the happy path for

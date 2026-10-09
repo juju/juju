@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -27,9 +28,9 @@ type State interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(context.Context) (map[string]string, error)
 
-	// GetControllerConfigValue returns the value for a single controller config
-	// key. The boolean is false when the key is not set.
-	GetControllerConfigValue(ctx context.Context, key string) (string, bool, error)
+	// GetControllerConfigValues returns values for the requested controller
+	// config keys. Keys that are not set are omitted.
+	GetControllerConfigValues(ctx context.Context, keys []string) (map[string]string, error)
 
 	// UpdateControllerConfig updates the controller config.
 	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error
@@ -107,16 +108,21 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 }
 
 // GetSSHServerPort returns the port the controller SSH jump server listens on.
-// It reads only the single config key rather than building the whole
-// controller config, falling back to the default port when unset.
+// It reads only the relevant config keys rather than building the whole
+// controller config. The API port is included to enforce that the two ports do
+// not match. The SSH port falls back to its default when unset.
 func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	value, ok, err := s.st.GetControllerConfigValue(ctx, controller.SSHServerPort)
+	values, err := s.st.GetControllerConfigValues(ctx, []string{
+		controller.SSHServerPort,
+		controller.APIPort,
+	})
 	if err != nil {
 		return 0, errors.Errorf("getting SSH server port: %w", err)
 	}
+	value, ok := values[controller.SSHServerPort]
 	if !ok {
 		return controller.DefaultSSHServerPort, nil
 	}
@@ -124,7 +130,53 @@ func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, errors.Errorf("parsing SSH server port %q: %w", value, err)
 	}
+	if port <= 0 {
+		return 0, errors.Errorf("non-positive SSH server port: %w", coreerrors.NotValid)
+	}
+
+	apiPort := controller.DefaultAPIPort
+	if value := values[controller.APIPort]; value != "" {
+		apiPort, err = strconv.Atoi(value)
+		if err != nil {
+			return 0, errors.Errorf("parsing API port %q: %w", value, err)
+		}
+	}
+	if port == apiPort {
+		return 0, errors.Errorf("SSH server port matches API port: %w", coreerrors.NotValid)
+	}
 	return port, nil
+}
+
+// GetManagementSpaceAndAPIPort returns the management space and API port
+// without constructing the complete controller configuration.
+func (s *Service) GetManagementSpaceAndAPIPort(ctx context.Context) (network.SpaceName, int, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	values, err := s.st.GetControllerConfigValues(ctx, []string{
+		controller.JujuManagementSpace,
+		controller.APIPort,
+	})
+	if err != nil {
+		return "", 0, errors.Errorf("getting management space and API port: %w", err)
+	}
+
+	apiPort := controller.DefaultAPIPort
+	if value := values[controller.APIPort]; value != "" {
+		apiPort, err = strconv.Atoi(value)
+		if err != nil {
+			return "", 0, errors.Errorf("parsing API port %q: %w", value, err)
+		}
+	}
+
+	managementSpace := network.SpaceName(values[controller.JujuManagementSpace])
+	if managementSpace != "" {
+		if err := managementSpace.Validate(); err != nil {
+			return "", 0, errors.Errorf("validating management space: %w", err)
+		}
+	}
+
+	return managementSpace, apiPort, nil
 }
 
 // UpdateControllerConfig updates the controller config.

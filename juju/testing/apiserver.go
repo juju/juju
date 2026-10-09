@@ -26,6 +26,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
+	gliderssh "github.com/tailscale/gliderssh"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/virtualhostname"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/credential"
@@ -223,17 +225,17 @@ func (s *ApiServerSuite) setupControllerModel(c *tc.C, controllerCfg controller.
 	domainServices := s.ControllerDomainServices(c)
 
 	// Set the api host ports in state.
+	address := network.SpaceAddress{MachineAddress: network.MachineAddress{
+		Value: "localhost",
+		Type:  network.AddressType("hostname"),
+	}}
 	apiAddrArgs := controllernode.SetAPIAddressArgs{
-		MgmtSpace: nil,
-		APIAddresses: map[string]network.SpaceHostPorts{
+		APIPort: apiPort,
+		Addresses: map[string]controllernode.APIAddressSet{
 			"0": {
-				network.SpaceHostPort{
-					SpaceAddress: network.SpaceAddress{MachineAddress: network.MachineAddress{
-						Value: "localhost",
-						Type:  network.AddressType("hostname"),
-					}},
-					NetPort: network.NetPort(apiPort),
-				},
+				Clients: network.SpaceAddresses{address},
+				Agents:  network.SpaceAddresses{address},
+				Peers:   network.SpaceAddresses{address},
 			},
 		},
 	}
@@ -551,7 +553,7 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		ControllerUUID:             coretesting.ControllerTag.Id(),
 		ControllerModelUUID:        coremodel.UUID(coretesting.ModelTag.Id()),
 		WatcherRegistryGetter:      &stubWatcherRegistryGetter{},
-		SSHTunnelConfig:            apiserver.SSHTunnelConfig{TunnelTracker: &noopTunnelTracker{}},
+		SSHProxyConfig:             apiserver.SSHProxyConfig{TunnelTracker: &noopTunnelTracker{}, ServerFactory: &noopServerFactory{}},
 	}
 }
 
@@ -561,6 +563,12 @@ func (*noopTunnelTracker) PushTunnel(context.Context, string, string, net.Conn) 
 	ch := make(chan struct{})
 	close(ch)
 	return ch, nil
+}
+
+type noopServerFactory struct{}
+
+func (*noopServerFactory) New(context.Context, virtualhostname.Info) (*gliderssh.Server, error) {
+	return nil, errors.New("relay endpoint not supported in tests")
 }
 
 type stubDBGetter struct {

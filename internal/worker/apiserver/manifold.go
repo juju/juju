@@ -28,9 +28,10 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/jwtparser"
 	"github.com/juju/juju/internal/services"
+	internalTunneler "github.com/juju/juju/internal/sshtunneler"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
-	workerTunneler "github.com/juju/juju/internal/worker/sshtunneler"
+	"github.com/juju/juju/internal/worker/sshserver"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 )
@@ -92,6 +93,7 @@ type ManifoldConfig struct {
 	ObjectStoreName    string
 	JWTParserName      string
 	SSHTunnelerName    string
+	SSHServerName      string
 
 	// Clock is the clock used for timekeeping within the manifold.
 	Clock clock.Clock
@@ -171,6 +173,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.SSHTunnelerName == "" {
 		return errors.NotValidf("empty SSHTunnelerName")
 	}
+	if config.SSHServerName == "" {
+		return errors.NotValidf("empty SSHServerName")
+	}
 	if config.ProviderTrackerName == "" {
 		return errors.NotValidf("empty ProviderTrackerName")
 	}
@@ -210,6 +215,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LogSinkName,
 			config.JWTParserName,
 			config.SSHTunnelerName,
+			config.SSHServerName,
 			config.WatcherRegistryName,
 			config.ProviderTrackerName,
 		},
@@ -328,8 +334,16 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var tunnelTracker workerTunneler.TunnelTracker
+	var tunnelTracker *internalTunneler.Tracker
 	if err := getter.Get(config.SSHTunnelerName, &tunnelTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Fetch the terminating server factory from the sshserver worker's
+	// manifold output. Relay authorization happens in the relay handler
+	// using the verified JWT.
+	var serverFactory *sshserver.TerminatingServerFactory
+	if err := getter.Get(config.SSHServerName, &serverFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -366,8 +380,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		ModelService:                      modelService,
 		WatcherRegistryGetter:             watcherRegistryGetter,
 		EphemeralProviderFactory:          providerFactory,
-		SSHTunnel: &apiserver.SSHTunnelConfig{
+		SSHProxy: &apiserver.SSHProxyConfig{
 			TunnelTracker: tunnelTracker,
+			ServerFactory: serverFactory,
 		},
 	})
 	if err != nil {

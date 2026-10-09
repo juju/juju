@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/sshclient"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -42,6 +43,7 @@ func (s *publicHostKeySuite) newFacade(c *tc.C) (*sshclient.Facade, *gomock.Cont
 	facade, err := sshclient.InternalFacade(
 		coretesting.ControllerTag,
 		coretesting.ModelTag,
+		model.IAAS,
 		nil, // ApplicationService, unused by PublicHostKeyForTarget.
 		nil, // MachineService, unused.
 		nil, // NetworkService, unused.

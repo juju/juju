@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/internal/migration"
@@ -81,6 +82,9 @@ type MultiModelContext interface {
 
 	// ObjectStoreForModel returns the object store for a given model uuid.
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
+
+	// EphemeralProviderFactory returns a factory for creating ephemeral providers.
+	EphemeralProviderFactory() providertracker.EphemeralProviderFactory
 }
 
 // ModelContext exposes useful capabilities to a Facade for a given model.

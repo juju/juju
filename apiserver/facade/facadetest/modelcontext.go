@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testing"
 )
@@ -20,6 +21,7 @@ type MultiModelContext struct {
 	DomainServicesForModelFunc_ func(model.UUID) services.DomainServices
 	DomainServicesForModel_     services.DomainServices
 	ObjectStoreForModel_        objectstore.ObjectStore
+	EphemeralProviderFactory_   providertracker.EphemeralProviderFactory
 }
 
 // DomainServicesForModel returns the services factory for a given model uuid.
@@ -33,6 +35,11 @@ func (c MultiModelContext) DomainServicesForModel(ctx context.Context, uuid mode
 // ObjectStoreForModel returns the object store for a given model uuid.
 func (c MultiModelContext) ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
 	return c.ObjectStoreForModel_, nil
+}
+
+// EphemeralProviderFactory returns the factory for untracked providers.
+func (c MultiModelContext) EphemeralProviderFactory() providertracker.EphemeralProviderFactory {
+	return c.EphemeralProviderFactory_
 }
 
 // ControllerModelUUID returns the UUID of the controller model.

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -16,7 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
-	"github.com/juju/juju/internal/database/pragma"
+	"github.com/juju/juju/internal/errors"
 )
 
 // BootstrapNodeManager is an interface for managing the bootstrap of a Dqlite
@@ -64,84 +63,31 @@ func BootstrapDqlite(
 	logger logger.Logger,
 	opts ...BootstrapOpt,
 ) error {
-	dir, err := mgr.EnsureDataDir()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	address, ok := bootstrapAddresses.OneMatchingScope(network.ScopeMatchCloudLocal)
-	if !ok {
-		return errors.NotFoundf("Dqlite bootstrap address")
-	}
-	bindAddress := address.Value
-	tlsOpt, err := mgr.WithTLSOption()
-	if err != nil {
-		return errors.Annotate(err, "generating TLS option")
-	}
-	options := []app.Option{
-		mgr.WithLogFuncOption(),
-		mgr.WithAddressOption(bindAddress),
-		tlsOpt,
-	}
-
-	dqlite, err := app.New(dir, options...)
-	if err != nil {
-		return errors.Annotate(err, "creating Dqlite app")
-	}
-	defer func() {
-		if err := dqlite.Close(); err != nil {
-			logger.Errorf(ctx, "closing Dqlite: %v", err)
+	return errors.Capture(WithDqlite(ctx, mgr, bootstrapAddresses, logger, func(ctx context.Context, session *DqliteSession) error {
+		controller, err := session.OpenDatabase(ctx, coredatabase.ControllerNS, schema.ControllerDDL())
+		if err != nil {
+			return errors.Errorf("running controller migration: %w", err)
 		}
-	}()
 
-	if err := dqlite.Ready(ctx); err != nil {
-		return errors.Annotatef(err, "waiting for Dqlite readiness")
-	}
-
-	controller, err := runMigration(
-		ctx, dqlite, coredatabase.ControllerNS, schema.ControllerDDL(),
-		controllerBootstrapInit(bindAddress), logger,
-	)
-	if err != nil {
-		return errors.Annotate(err, "running controller migration")
-	}
-
-	model, err := runMigration(ctx, dqlite, uuid.String(), schema.ModelDDL(), emptyInit, logger)
-	if err != nil {
-		return errors.Annotate(err, "running model migration")
-	}
-
-	for i, op := range opts {
-		if err := op(ctx, controller, model); err != nil {
-			return errors.Annotatef(err, "running bootstrap operation at index %d", i)
+		// The controller node must exist before the seed operations run,
+		// as it is required for referential integrity.
+		if err := InsertControllerNodeID(ctx, controller, session.NodeID(), session.BindAddress()); err != nil {
+			return errors.Errorf("inserting controller node ID: %w", err)
 		}
-	}
 
-	return nil
-}
+		model, err := session.OpenDatabase(ctx, uuid.String(), schema.ModelDDL())
+		if err != nil {
+			return errors.Errorf("running model migration: %w", err)
+		}
 
-func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema Schema, init bootstrapInit, logger logger.Logger) (coredatabase.TxnRunner, error) {
-	db, err := dqlite.Open(ctx, namespace)
-	if err != nil {
-		return nil, errors.Annotatef(err, "opening database for namespace %q", namespace)
-	}
+		for i, op := range opts {
+			if err := op(ctx, controller, model); err != nil {
+				return errors.Errorf("running bootstrap operation at index %d: %w", i, err)
+			}
+		}
 
-	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
-		return nil, errors.Annotatef(err, "setting foreign keys pragma for namespace %q", namespace)
-	}
-
-	runner := &txnRunner{db: db}
-
-	migration := NewDBMigration(runner, logger, schema)
-	if err := migration.Apply(ctx); err != nil {
-		return nil, errors.Annotatef(err, "creating database with namespace %q schema", namespace)
-	}
-
-	if err := init(ctx, runner, dqlite); err != nil {
-		return nil, errors.Annotatef(err, "running init for database with namespace %q", namespace)
-	}
-
-	return runner, nil
+		return nil
+	}))
 }
 
 // InsertControllerNodeID inserts the node ID of the controller node
@@ -150,20 +96,16 @@ func InsertControllerNodeID(
 	ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64, bindAddress string,
 ) error {
 	q := `
--- TODO (manadart 2023-06-06): At the time of writing, 
--- we have not yet modelled machines. 
--- Accordingly, the controller ID remains the ID of the machine, 
--- but it should probably become a UUID once machines have one.
 INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
 VALUES ('0', ?, ?);`
 	return runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		result, err := tx.ExecContext(ctx, q, nodeID, bindAddress)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		affected, err := result.RowsAffected()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Capture(err)
 		}
 		if affected != 1 {
 			return errors.Errorf("expected 1 row affected, got %d", affected)
@@ -181,34 +123,13 @@ type txnRunner struct {
 }
 
 func (r *txnRunner) Txn(ctx context.Context, f func(context.Context, *sqlair.TX) error) error {
-	return errors.Trace(Txn(ctx, sqlair.NewDB(r.db), f))
+	return errors.Capture(Txn(ctx, sqlair.NewDB(r.db), f))
 }
 
 func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
-	return errors.Trace(StdTxn(ctx, r.db, f))
+	return errors.Capture(StdTxn(ctx, r.db, f))
 }
 
 func (r *txnRunner) Dying() <-chan struct{} {
 	return make(<-chan struct{})
-}
-
-// bootstrapInit is a type for describing a bootstrap operation that
-// initialises a database.
-type bootstrapInit = func(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error
-
-// controllerBootstrapInit is used to initialise the controller database with
-// a controller node ID. The controller node ID is required to be present in
-// the controller_node table as this is used for referential integrity.
-func controllerBootstrapInit(bindAddress string) bootstrapInit {
-	return func(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
-		if err := InsertControllerNodeID(ctx, runner, dqlite.ID(), bindAddress); err != nil {
-			return errors.Annotatef(err, "inserting controller node ID")
-		}
-		return nil
-	}
-}
-
-// emptyInit is a BootstrapInit type that does nothing.
-func emptyInit(context.Context, coredatabase.TxnRunner, *app.App) error {
-	return nil
 }

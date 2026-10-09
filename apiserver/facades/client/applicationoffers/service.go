@@ -97,6 +97,7 @@ type RemovalService interface {
 // ControllerService defines the interface for interacting with the controller
 // domain.
 type ControllerService interface {
-	// GetControllerInfo returns the controller information.
+	// GetControllerInfo returns controller information with API addresses
+	// selected for clients.
 	GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error)
 }

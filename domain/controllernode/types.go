@@ -5,6 +5,7 @@ package controllernode
 
 import (
 	"context"
+	"net"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -16,24 +17,35 @@ import (
 	"github.com/juju/juju/internal/logger"
 )
 
-// SetAPIAddressArgs represents the arguments for the SetAPIAddress
-// method.
+// SetAPIAddressArgs contains the selected addresses to publish. Addresses are
+// keyed by controller ID, while SharedAddresses contains endpoints that can
+// reach any controller. Empty named and shared sets form an authoritative empty
+// snapshot.
 type SetAPIAddressArgs struct {
-	MgmtSpace *network.SpaceInfo
-	// APIAddresses maps a controller ID to its SpaceHostPorts.
-	APIAddresses map[string]network.SpaceHostPorts
+	APIPort         int
+	Addresses       map[string]APIAddressSet
+	SharedAddresses SharedAPIAddressSet
 }
 
-// APIAddress represents one of the API addresses, accessible for clients
-// and/or agents.
+// APIAddressSet contains addresses selected for each routing audience.
+type APIAddressSet struct {
+	Clients network.SpaceAddresses
+	Agents  network.SpaceAddresses
+	Peers   network.SpaceAddresses
+}
+
+// SharedAPIAddressSet contains controller-agnostic discovery addresses.
+type SharedAPIAddressSet struct {
+	Clients network.SpaceAddresses
+	Agents  network.SpaceAddresses
+}
+
+// APIAddress represents a published API address.
 type APIAddress struct {
 	// UUID identifies a published address. Existing rows retain their UUID.
 	UUID string
 	// Address is the address of the API represented as "host:port" string.
 	Address string
-	// IsAgent selects addresses for the agent projection when publishing.
-	// It is not populated when reading a projection.
-	IsAgent bool
 	// Scope is the address scope.
 	Scope network.Scope
 	// Priority is the preference order within the controller's addresses.
@@ -42,6 +54,25 @@ type APIAddress struct {
 }
 
 type APIAddresses []APIAddress
+
+// Values returns address strings in published priority order.
+func (addrs APIAddresses) Values() []string {
+	result := make([]string, len(addrs))
+	for i, address := range addrs {
+		result[i] = address.Address
+	}
+	return result
+}
+
+// APIAddressProjection contains encoded addresses for each routing audience.
+type APIAddressProjection struct {
+	Clients APIAddresses
+	Agents  APIAddresses
+	Peers   APIAddresses
+}
+
+// APIAddressProjections is a complete projection keyed by controller ID.
+type APIAddressProjections map[string]APIAddressProjection
 
 // PrioritizedForScope orders the APIAddresses by best match for the input scope
 // matching function and returns them in string form, e.g. "192.168.0.54:17070".
@@ -55,35 +86,22 @@ func (addrs APIAddresses) PrioritizedForScope(getMatcher ScopeMatchFunc) []strin
 	return out
 }
 
-// ToHostPortsNoMachineLocal transforms APIAddresses into network HostPorts,
-// not including machine local scoped.
-func (addrs APIAddresses) ToHostPortsNoMachineLocal() (network.HostPorts, error) {
+// ToHostPorts transforms APIAddresses into network HostPorts, retaining the
+// published scope and order.
+func (addrs APIAddresses) ToHostPorts() (network.HostPorts, error) {
 	result := make(network.HostPorts, 0, len(addrs))
 	for _, addr := range addrs {
-		if addr.Scope == network.ScopeMachineLocal {
-			continue
+		host, portString, err := net.SplitHostPort(addr.Address)
+		if err != nil {
+			return nil, errors.Errorf("parsing %q: %w", addr.Address, err)
 		}
-		var addrValue string
-		var portValue network.NetPort
-		ip, err := netip.ParseAddrPort(addr.Address)
-		if err == nil {
-			addrValue = ip.Addr().String()
-			portValue = network.NetPort(ip.Port())
-		} else {
-			parts := strings.Split(addr.Address, ":")
-			addrValue = parts[0]
-			if len(parts) < 2 {
-				break
-			}
-			port, err := strconv.Atoi(parts[1])
-			if err != nil {
-				return nil, errors.Errorf("parsing %q: %w", addr.Address, err)
-			}
-			portValue = network.NetPort(port)
+		port, err := strconv.Atoi(portString)
+		if err != nil {
+			return nil, errors.Errorf("parsing port in %q: %w", addr.Address, err)
 		}
 		result = append(result, network.MachineHostPort{
-			MachineAddress: network.NewMachineAddress(addrValue, network.WithScope(addr.Scope)),
-			NetPort:        portValue,
+			MachineAddress: network.NewMachineAddress(host, network.WithScope(addr.Scope)),
+			NetPort:        network.NetPort(port),
 		})
 	}
 	return result, nil
@@ -213,14 +231,14 @@ func (addrs APIAddresses) ToNoProxyString() string {
 		if addr.Scope == network.ScopeMachineLocal || addr.Scope == network.ScopeLinkLocal {
 			continue
 		}
-		addrPort, err := netip.ParseAddrPort(addr.Address)
+		host, _, err := net.SplitHostPort(addr.Address)
 		if err != nil {
-			// This shouldn't happen, but log it just in case.
 			logger.GetLogger("juju.services.controllernode").Errorf(
 				context.Background(),
 				"parsing address and port %q for proxy string: %w", addr.Address, err)
+			continue
 		}
-		noProxySet.Add(addrPort.Addr().String())
+		noProxySet.Add(host)
 	}
 	return strings.Join(noProxySet.SortedValues(), ",")
 }

@@ -22,18 +22,8 @@ type CreateCommand struct {
 	*createCommand
 }
 
-type DownloadCommand struct {
-	*downloadCommand
-}
-
 func NewCreateCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CreateCommand) {
 	c := &createCommand{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &CreateCommand{c}
-}
-
-func NewDownloadCommandForTest(store jujuclient.ClientStore) (cmd.Command, *DownloadCommand) {
-	c := &downloadCommand{}
-	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &DownloadCommand{c}
 }

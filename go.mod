@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.27.1
+go 1.27.2
 
 require (
 	cloud.google.com/go/compute v1.65.0
@@ -76,7 +76,6 @@ require (
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
 	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
-	github.com/juju/testing v1.2.1
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v5 v5.0.0
@@ -111,12 +110,12 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/time v0.15.0
-	golang.org/x/tools v0.49.0
+	golang.org/x/tools v0.51.0
 	google.golang.org/api v0.289.0
 	google.golang.org/grpc v1.83.2
 	gopkg.in/errgo.v1 v1.0.1
@@ -223,6 +222,7 @@ require (
 	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/loggo/v2 v2.2.0 // indirect
 	github.com/juju/mgo/v2 v2.0.3 // indirect
+	github.com/juju/testing v1.2.1 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
@@ -291,7 +291,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.28.0 // indirect
 	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260811182544-a038080d80e5 // indirect
+	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto v0.0.0-20260319201613-d00831a3d3e7 // indirect

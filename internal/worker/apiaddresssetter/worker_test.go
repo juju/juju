@@ -6,20 +6,18 @@ package apiaddresssetter
 import (
 	"context"
 	stdtesting "testing"
-	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"github.com/juju/testing"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/controllernode"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
+	domainnetwork "github.com/juju/juju/domain/network"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -27,7 +25,6 @@ import (
 type workerSuite struct {
 	testhelpers.IsolationSuite
 
-	applicationService      *MockApplicationService
 	controllerNodeService   *MockControllerNodeService
 	networkService          *MockNetworkService
 	controllerConfigService *MockControllerConfigService
@@ -41,535 +38,636 @@ func TestWorkerSuite(t *stdtesting.T) {
 
 func (s *workerSuite) setUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
-	s.applicationService = NewMockApplicationService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
-
-	c.Cleanup(func() {
-		s.applicationService = nil
-		s.controllerConfigService = nil
-		s.controllerNodeService = nil
-		s.networkService = nil
-	})
-
 	return ctrl
 }
 
-func (s *workerSuite) TestWorkerCleanKill(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	nodeWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
-	// We use the consume of the initial event as a sync point to decide
-	// whether the worker has started. This channel is then used to stop
-	// waiting for the worker to start.
-	notifyInitialConfigConsumed := make(chan struct{})
-	// Send an initial change to the (mocked) controller config watcher.
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[[]string], error) {
-		ch := make(chan []string)
-		go func() {
-			defer close(notifyInitialConfigConsumed)
-
-			select {
-			case ch <- []string{}:
-			case <-c.Context().Done():
-				return
-			}
-		}()
-		return watchertest.NewMockStringsWatcher(ch), nil
-	})
-
-	cfg := Config{
+func (s *workerSuite) config(c *tc.C) Config {
+	return Config{
 		ControllerConfigService: s.controllerConfigService,
-		ApplicationService:      s.applicationService,
 		ControllerNodeService:   s.controllerNodeService,
 		NetworkService:          s.networkService,
-		APIPort:                 17070,
 		Logger:                  loggertesting.WrapCheckLog(c),
 	}
-	w, err := New(cfg)
-	defer workertest.DirtyKill(c, w)
-	c.Assert(err, tc.ErrorIsNil)
-
-	select {
-	case <-notifyInitialConfigConsumed:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for worker to start")
-	}
-	workertest.CleanKill(c, w)
 }
 
-// TestNewControllerNode tests that when there is an event on the controller
-// node watcher (i.e. a new controller node is added or removed), the worker
-// will start tracking the new controller node, and since we mock a new
-// controller being added, the worker should also update the api address for
-// the new controller.
-func (s *workerSuite) TestNewControllerNode(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	// Mock the controller node watcher.
-	nodeCh := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
-
-	cfgCh := make(chan []string)
-	cfgWatcher := watchertest.NewMockStringsWatcher(cfgCh)
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(cfgWatcher, nil)
-
-	// Starts the controller tracker for the new node.
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
-	// Updates the API addresses for the new node.
-	addrs := network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1/24",
-			},
-			SpaceID: "space0",
-		},
-	}
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuManagementSpace: "space0",
-	}, nil)
-	sp := &network.SpaceInfo{
-		ID: "space0",
-	}
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp).Return(addrs, nil)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil)
-	// Synchronization point to ensure the worker processes the event.
-	sync := make(chan struct{})
-	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": hostPorts,
-		},
-	}
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		close(sync)
-		return nil
-	})
-
-	cfg := Config{
-		ControllerConfigService: s.controllerConfigService,
-		ApplicationService:      s.applicationService,
-		ControllerNodeService:   s.controllerNodeService,
-		NetworkService:          s.networkService,
-		APIPort:                 17070,
-		Logger:                  loggertesting.WrapCheckLog(c),
-	}
-	w, err := New(cfg)
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	// Simulate a new controller node event.
-	select {
-	case nodeCh <- struct{}{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out sending controller node event")
-	}
-
-	// Wait for the worker to process the event.
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for API address update")
-	}
-
-	workertest.CleanKill(c, w)
+func (s *workerSuite) expectWatchers(
+	nodeCh <-chan struct{}, configCh <-chan []string, networkCh <-chan struct{},
+) {
+	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).
+		Return(watchertest.NewMockNotifyWatcher(nodeCh), nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).
+		Return(watchertest.NewMockStringsWatcher(configCh), nil)
+	s.networkService.EXPECT().WatchControllerNetwork(gomock.Any()).
+		Return(watchertest.NewMockNotifyWatcher(networkCh), nil)
 }
 
-func (s *workerSuite) TestRemovedControllerNodeRefreshesBeforeRetryingAPIAddresses(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	nodeCh := make(chan struct{})
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(nodeCh), nil)
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
-
-	refreshed := make(chan struct{})
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).DoAndReturn(func(context.Context) ([]string, error) {
-		close(refreshed)
-		return nil, nil
-	})
-	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
-
-	sp := &network.SpaceInfo{ID: "space0"}
-	addrs := network.SpaceAddresses{{
-		MachineAddress: network.MachineAddress{Value: "10.0.0.1/24"},
-		SpaceID:        "space0",
-	}}
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuManagementSpace: "space0",
-	}, nil)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil)
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp).Return(addrs, nil)
+func (s *workerSuite) expectEmptyReconcile(c *tc.C, published chan<- controllernode.SetAPIAddressArgs) {
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), []unit.Name(nil)).
+		Return(domainnetwork.ControllerAddressSelection{}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), []unit.Name(nil), network.SpaceName("")).
+		Return(domainnetwork.ControllerAddressSelection{}, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), []unit.Name(nil), network.SpaceName("")).
+		Return(domainnetwork.ControllerAddressSelection{}, nil)
 	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": network.SpaceAddressesWithPort(addrs, 17070),
-		},
-	}).Return(controllernodeerrors.NotFound)
-
-	w, err := New(Config{
-		ControllerConfigService: s.controllerConfigService,
-		ApplicationService:      s.applicationService,
-		ControllerNodeService:   s.controllerNodeService,
-		NetworkService:          s.networkService,
-		APIPort:                 17070,
-		Logger:                  loggertesting.WrapCheckLog(c),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case nodeCh <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("sending controller node event: %v", c.Context().Err())
-	}
-	select {
-	case <-refreshed:
-	case <-c.Context().Done():
-		c.Fatalf("waiting for controller-node refresh: %v", c.Context().Err())
-	}
-
-	workertest.CheckAlive(c, w)
-	workertest.CleanKill(c, w)
-}
-
-// TestUnchangedControllerNodes tests that when the controller node watcher
-// fires but the set of controller nodes does not change, we do not trigger a
-// full API address update.
-func (s *workerSuite) TestUnchangedControllerNodes(c *tc.C) {
-	defer s.setUpMocks(c).Finish()
-
-	// Mock the controller node watcher.
-	nodeCh := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
-
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
-
-	// We expect two controller node events with the same node list.
-	secondEventProcessed := make(chan struct{})
-	count := 0
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).DoAndReturn(func(context.Context) ([]string, error) {
-		count++
-		if count == 2 {
-			close(secondEventProcessed)
+		APIPort:   17070,
+		Addresses: map[string]controllernode.APIAddressSet{},
+	}).DoAndReturn(func(_ context.Context, args controllernode.SetAPIAddressArgs) error {
+		select {
+		case published <- args:
+			return nil
+		case <-c.Context().Done():
+			return c.Context().Err()
 		}
-		return []string{"1"}, nil
-	}).Times(2)
-
-	// Tracker should only be started once for the new node.
-	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil).Times(1)
-
-	// API addresses should only be updated for the first (actual) change.
-	addrs := network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1/24",
-			},
-			SpaceID: "space0",
-		},
-	}
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuManagementSpace: "space0",
-	}, nil).Times(1)
-	sp := &network.SpaceInfo{
-		ID: "space0",
-	}
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp).Return(addrs, nil).Times(1)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp, nil).Times(1)
-
-	sync := make(chan struct{})
-	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": hostPorts,
-		},
-	}
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		close(sync)
-		return nil
-	}).Times(1)
-
-	cfg := Config{
-		ControllerConfigService: s.controllerConfigService,
-		ApplicationService:      s.applicationService,
-		ControllerNodeService:   s.controllerNodeService,
-		NetworkService:          s.networkService,
-		APIPort:                 17070,
-		Logger:                  loggertesting.WrapCheckLog(c),
-	}
-	w, err := New(cfg)
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.DirtyKill(c, w)
-
-	// First event adds the node and triggers one API address update.
-	select {
-	case nodeCh <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("sending controller node event: %v", c.Context().Err())
-	}
-	select {
-	case <-sync:
-	case <-c.Context().Done():
-		c.Fatalf("waiting for API address update: %v", c.Context().Err())
-	}
-
-	// Second event has unchanged node membership; no API address update expected.
-	select {
-	case nodeCh <- struct{}{}:
-	case <-c.Context().Done():
-		c.Fatalf("sending unchanged controller node event: %v", c.Context().Err())
-	}
-	select {
-	case <-secondEventProcessed:
-	case <-c.Context().Done():
-		c.Fatalf("waiting for unchanged controller node event processing: %v", c.Context().Err())
-	}
-
-	workertest.CheckAlive(c, w)
-	workertest.CleanKill(c, w)
+	})
 }
 
-// TestConfigChange tests that when the controller config changes, the worker
-// will update the api addresses for the controller.
-func (s *workerSuite) TestConfigChange(c *tc.C) {
+type reconcileExpectation struct {
+	controllerIDs   []string
+	managementSpace network.SpaceName
+	apiPort         int
+	clients         domainnetwork.ControllerAddressSelection
+	agents          domainnetwork.ControllerAddressSelection
+	peers           domainnetwork.ControllerAddressSelection
+	addresses       map[string]controllernode.APIAddressSet
+}
+
+func (s *workerSuite) expectReconcile(
+	c *tc.C,
+	expectation reconcileExpectation,
+	published chan<- controllernode.SetAPIAddressArgs,
+) {
+	names := make([]unit.Name, len(expectation.controllerIDs))
+	for i, controllerID := range expectation.controllerIDs {
+		names[i] = unit.Name("controller/" + controllerID)
+	}
+
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).
+		Return(expectation.controllerIDs, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).
+		Return(expectation.managementSpace, expectation.apiPort, nil)
+
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), gomock.InAnyOrder(names)).
+		Return(expectation.clients, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(
+		gomock.Any(), gomock.InAnyOrder(names), expectation.managementSpace,
+	).Return(expectation.agents, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(
+		gomock.Any(), gomock.InAnyOrder(names), expectation.managementSpace,
+	).Return(expectation.peers, nil)
+
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort:   expectation.apiPort,
+		Addresses: expectation.addresses,
+	}).DoAndReturn(func(_ context.Context, args controllernode.SetAPIAddressArgs) error {
+		select {
+		case published <- args:
+			return nil
+		case <-c.Context().Done():
+			return c.Context().Err()
+		}
+	})
+}
+
+func (s *workerSuite) TestConsumesAllInitialEventsBeforeReading(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	// Mock the controller node watcher.
 	nodeCh := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
+	configCh := make(chan []string)
+	networkCh := make(chan struct{})
+	s.expectWatchers(nodeCh, configCh, networkCh)
+	published := make(chan controllernode.SetAPIAddressArgs, 1)
+	s.expectEmptyReconcile(c, published)
 
-	cfgCh := make(chan []string)
-	cfgWatcher := watchertest.NewMockStringsWatcher(cfgCh)
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(cfgWatcher, nil)
-
-	// Starts the controller tracker for the new node.
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(watchertest.NewMockNotifyWatcher(make(chan struct{})), nil)
-
-	// Updates the API addresses for the new node.
-	addrs := network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1",
-			},
-			SpaceID: "space0",
-		},
-	}
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuManagementSpace: "space0",
-	}, nil)
-	sp0 := &network.SpaceInfo{
-		ID: "space0",
-	}
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp0).Return(addrs, nil)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp0, nil)
-	// Synchronization point to ensure the worker processes the event.
-	sync := make(chan struct{})
-	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp0,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": hostPorts,
-		},
-	}
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		close(sync)
-		return nil
-	})
-
-	// Expected calls after the controller config change.
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuManagementSpace: "space1",
-	}, nil)
-	sp1 := &network.SpaceInfo{
-		ID: "space1",
-	}
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp1).Return(addrs, nil)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space1")).Return(sp1, nil)
-	args2 := controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp1,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": hostPorts,
-		},
-	}
-	// Synchronization point to ensure the worker processes the config event.
-	cfgSync := make(chan struct{})
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args2).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		close(cfgSync)
-		return nil
-	})
-
-	cfg := Config{
-		ControllerConfigService: s.controllerConfigService,
-		ApplicationService:      s.applicationService,
-		ControllerNodeService:   s.controllerNodeService,
-		NetworkService:          s.networkService,
-		APIPort:                 17070,
-		Logger:                  loggertesting.WrapCheckLog(c),
-	}
-	w, err := New(cfg)
+	w, err := New(s.config(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Simulate a new controller node event.
 	select {
 	case nodeCh <- struct{}{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out sending controller node event")
+	case <-c.Context().Done():
+		c.Fatalf("sending initial controller node notification: %v", c.Context().Err())
 	}
 
-	// Wait for the worker to process the initial (new node) event.
 	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for API address update")
+	case configCh <- nil:
+	case <-c.Context().Done():
+		c.Fatalf("sending initial controller config notification: %v", c.Context().Err())
 	}
 
-	// Now we can trigger the config change on the cfgWatcher channel, and sync
-	// on the second set api addresses call.
 	select {
-	case cfgCh <- []string{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out sending controller config change")
+	case networkCh <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending initial controller network notification: %v", c.Context().Err())
 	}
 
-	// Wait for the worker to process the config event.
 	select {
-	case <-cfgSync:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for API address update after config change")
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for initial publication: %v", c.Context().Err())
 	}
 
 	workertest.CleanKill(c, w)
 }
 
-// TestNodeAddressChange tests that when the controller node address changes,
-// the worker will update the api addresses for the controller.
-func (s *workerSuite) TestNodeAddressChange(c *tc.C) {
+func (s *workerSuite) TestPublishesAllIAASAudiences(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(c), initialConfig(c), initialNotify(c))
+
+	controller1 := unit.Name("controller/1")
+	controller2 := unit.Name("controller/2")
+	names := []unit.Name{controller1, controller2}
+	clients1, clients2 := address("client-1"), address("client-2")
+	agents1, agents2 := address("agent-1"), address("agent-2")
+	peers1, peers2 := address("peer-1"), address("peer-2")
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"2", "1"}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName("management"), 17071, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), gomock.InAnyOrder(names)).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller1: clients1, controller2: clients2},
+	}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), gomock.InAnyOrder(names), network.SpaceName("management")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller1: agents1, controller2: agents2},
+	}, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), gomock.InAnyOrder(names), network.SpaceName("management")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller1: peers1, controller2: peers2},
+	}, nil)
+	published := make(chan struct{})
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17071,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"1": {Clients: clients1, Agents: agents1, Peers: peers1},
+			"2": {Clients: clients2, Agents: agents2, Peers: peers2},
+		},
+	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		close(published)
+		return nil
+	})
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for publication: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestControllerConfigChangeRepublishesAddresses(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	// Mock the controller node watcher.
-	nodeCh := make(chan struct{})
-	nodeWatcher := watchertest.NewMockNotifyWatcher(nodeCh)
-	s.controllerNodeService.EXPECT().WatchControllerNodes(gomock.Any()).Return(nodeWatcher, nil)
+	nodeCh := initialNotify(c)
+	configCh := initialConfig(c)
+	networkCh := initialNotify(c)
 
-	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(watchertest.NewMockStringsWatcher(make(chan []string)), nil)
+	s.expectWatchers(nodeCh, configCh, networkCh)
 
-	// Starts the controller tracker for the new node.
-	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"1"}, nil)
-	addrCh := make(chan struct{})
+	controller0 := unit.Name("controller/0")
+	clients := address("client")
+	initialAgents := address("initial-agent")
+	initialPeers := address("initial-peer")
+	updatedAgents := address("updated-agent")
+	updatedPeers := address("updated-peer")
 
-	netNodeAddressWatcher := watchertest.NewMockNotifyWatcher(addrCh)
-	s.applicationService.EXPECT().WatchUnitAddresses(gomock.Any(), unit.Name("controller/1")).Return(netNodeAddressWatcher, nil)
+	published := make(chan controllernode.SetAPIAddressArgs, 2)
 
-	// Updates the API addresses for the new node.
-	addrs := network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.0.0.1/24",
-			},
-			SpaceID: "space0",
-		}, {
-			MachineAddress: network.MachineAddress{
-				Value: "2001:DB8::/32",
-			},
-			SpaceID: "space0",
+	s.expectReconcile(c, reconcileExpectation{
+		controllerIDs:   []string{"0"},
+		managementSpace: "initial",
+		apiPort:         17070,
+		clients: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients},
 		},
-	}
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.JujuManagementSpace: "space0",
-	}, nil).MaxTimes(2)
-	sp0 := &network.SpaceInfo{
-		ID: "space0",
-	}
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp0).Return(addrs, nil)
-	s.networkService.EXPECT().SpaceByName(gomock.Any(), network.SpaceName("space0")).Return(sp0, nil).MaxTimes(2)
-	// Synchronization point to ensure the worker processes the event.
-	sync := make(chan struct{})
-	hostPorts := network.SpaceAddressesWithPort(addrs, 17070)
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp0,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": hostPorts,
+		agents: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: initialAgents},
 		},
-	}
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		close(sync)
-		return nil
-	})
-	// Expected calls after the controller node address change.
-	newAddrs := network.SpaceAddresses{
-		{
-			MachineAddress: network.MachineAddress{
-				Value: "192.168.0.1",
-			},
-			SpaceID: "space0",
+		peers: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: initialPeers},
 		},
-	}
-	s.networkService.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.Name("controller/1"), sp0).Return(newAddrs, nil)
-	// Synchronization point to ensure the worker processes the config event.
-	addrSync := make(chan struct{})
-	newHP := network.SpaceAddressesWithPort(newAddrs, 17070)
-	args2 := controllernode.SetAPIAddressArgs{
-		MgmtSpace: sp0,
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"1": newHP,
+		addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: clients, Agents: initialAgents, Peers: initialPeers},
 		},
-	}
-	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), args2).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
-		close(addrSync)
-		return nil
-	})
+	}, published)
 
-	cfg := Config{
-		ControllerConfigService: s.controllerConfigService,
-		ApplicationService:      s.applicationService,
-		ControllerNodeService:   s.controllerNodeService,
-		NetworkService:          s.networkService,
-		APIPort:                 17070,
-		Logger:                  loggertesting.WrapCheckLog(c),
-	}
-	w, err := New(cfg)
+	s.expectReconcile(c, reconcileExpectation{
+		controllerIDs:   []string{"0"},
+		managementSpace: "updated",
+		apiPort:         17071,
+		clients: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients},
+		},
+		agents: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: updatedAgents},
+		},
+		peers: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: updatedPeers},
+		},
+		addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: clients, Agents: updatedAgents, Peers: updatedPeers},
+		},
+	}, published)
+
+	w, err := New(s.config(c))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Simulate a new controller node event.
+	waitForPublication(c, published)
+
 	select {
-	case nodeCh <- struct{}{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out sending controller node event")
+	case configCh <- []string{"juju-mgmt-space", "api-port"}:
+	case <-c.Context().Done():
+		c.Fatalf("sending controller config notification: %v", c.Context().Err())
 	}
 
-	// Wait for the worker to process the initial (new node) event.
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for API address update")
-	}
-
-	// Now we can trigger the node address change on the watcher, and sync
-	// on the second set api addresses call.
-	select {
-	case addrCh <- struct{}{}:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out sending controller node address change")
-	}
-
-	// Wait for the worker to process the new addrs event.
-	select {
-	case <-addrSync:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for API address update after address change")
-	}
+	waitForPublication(c, published)
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNetworkChangeRepublishesAddresses(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	nodeCh := initialNotify(c)
+	configCh := initialConfig(c)
+	networkCh := initialNotify(c)
+
+	s.expectWatchers(nodeCh, configCh, networkCh)
+
+	controller0 := unit.Name("controller/0")
+	initialClients := address("initial-client")
+	initialAgents := address("initial-agent")
+	initialPeers := address("initial-peer")
+	updatedClients := address("updated-client")
+	updatedAgents := address("updated-agent")
+	updatedPeers := address("updated-peer")
+
+	published := make(chan controllernode.SetAPIAddressArgs, 2)
+
+	s.expectReconcile(c, reconcileExpectation{
+		controllerIDs:   []string{"0"},
+		managementSpace: "management",
+		apiPort:         17070,
+		clients: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: initialClients},
+		},
+		agents: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: initialAgents},
+		},
+		peers: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: initialPeers},
+		},
+		addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: initialClients, Agents: initialAgents, Peers: initialPeers},
+		},
+	}, published)
+
+	s.expectReconcile(c, reconcileExpectation{
+		controllerIDs:   []string{"0"},
+		managementSpace: "management",
+		apiPort:         17070,
+		clients: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: updatedClients},
+		},
+		agents: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: updatedAgents},
+		},
+		peers: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: updatedPeers},
+		},
+		addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: updatedClients, Agents: updatedAgents, Peers: updatedPeers},
+		},
+	}, published)
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	waitForPublication(c, published)
+
+	select {
+	case networkCh <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending controller network notification: %v", c.Context().Err())
+	}
+
+	waitForPublication(c, published)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestControllerMembershipChangeRepublishesAddresses(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	nodeCh := initialNotify(c)
+	configCh := initialConfig(c)
+	networkCh := initialNotify(c)
+
+	s.expectWatchers(nodeCh, configCh, networkCh)
+
+	controller0 := unit.Name("controller/0")
+	controller1 := unit.Name("controller/1")
+	clients0, clients1 := address("client-0"), address("client-1")
+	agents0, agents1 := address("agent-0"), address("agent-1")
+	peers0, peers1 := address("peer-0"), address("peer-1")
+
+	published := make(chan controllernode.SetAPIAddressArgs, 2)
+
+	s.expectReconcile(c, reconcileExpectation{
+		controllerIDs: []string{"0"},
+		apiPort:       17070,
+		clients: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients0},
+		},
+		agents: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: agents0},
+		},
+		peers: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: peers0},
+		},
+		addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: clients0, Agents: agents0, Peers: peers0},
+		},
+	}, published)
+
+	s.expectReconcile(c, reconcileExpectation{
+		controllerIDs: []string{"0", "1"},
+		apiPort:       17070,
+		clients: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients0, controller1: clients1},
+		},
+		agents: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: agents0, controller1: agents1},
+		},
+		peers: domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: peers0, controller1: peers1},
+		},
+		addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: clients0, Agents: agents0, Peers: peers0},
+			"1": {Clients: clients1, Agents: agents1, Peers: peers1},
+		},
+	}, published)
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	waitForPublication(c, published)
+
+	select {
+	case nodeCh <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending controller node notification: %v", c.Context().Err())
+	}
+
+	waitForPublication(c, published)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestPublishesCAASSharedEndpoints(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(c), initialConfig(c), initialNotify(c))
+
+	sharedClients := address("public-service")
+	sharedAgents := address("local-service")
+	peer := address("pod-address")
+	controller0 := unit.Name("controller/0")
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), []unit.Name{controller0}).Return(domainnetwork.ControllerAddressSelection{Shared: sharedClients}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), []unit.Name{controller0}, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{Shared: sharedAgents}, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), []unit.Name{controller0}, network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: peer},
+	}, nil)
+	published := make(chan struct{})
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: sharedClients,
+			Agents:  sharedAgents,
+		},
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Peers: peer},
+		},
+	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		close(published)
+		return nil
+	})
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for shared publication: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestPreservesSuccessfulEmptySharedSelection(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(c), initialConfig(c), initialNotify(c))
+
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, controllernodeerrors.EmptyControllerIDs)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), []unit.Name(nil)).Return(domainnetwork.ControllerAddressSelection{
+		Shared: network.SpaceAddresses{},
+	}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), []unit.Name(nil), network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{}, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), []unit.Name(nil), network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{}, nil)
+	published := make(chan struct{})
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort:   17070,
+		Addresses: map[string]controllernode.APIAddressSet{},
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: network.SpaceAddresses{},
+		},
+	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		close(published)
+		return nil
+	})
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for empty shared publication: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestSourceFailureStopsWorker(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(c), initialConfig(c), initialNotify(c))
+
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return(nil, errors.New("boom"))
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorMatches, "getting controller IDs: boom")
+}
+
+func (s *workerSuite) TestMissingPeerAddressesPublishesAuthoritativeEmptySet(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(c), initialConfig(c), initialNotify(c))
+
+	controller0 := unit.Name("controller/0")
+	controller1 := unit.Name("controller/1")
+	names := []unit.Name{controller0, controller1}
+	clients0, clients1 := address("client-0"), address("client-1")
+	agents0, agents1 := address("agent-0"), address("agent-1")
+	peers1 := address("peer-1")
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0", "1"}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), gomock.InAnyOrder(names)).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: clients0, controller1: clients1},
+	}, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), gomock.InAnyOrder(names), network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller0: agents0, controller1: agents1},
+	}, nil)
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), gomock.InAnyOrder(names), network.SpaceName("")).Return(domainnetwork.ControllerAddressSelection{
+		ByUnit: map[unit.Name]network.SpaceAddresses{controller1: peers1},
+	}, nil)
+	published := make(chan struct{})
+	s.controllerNodeService.EXPECT().SetAPIAddresses(gomock.Any(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: clients0, Agents: agents0},
+			"1": {Clients: clients1, Agents: agents1, Peers: peers1},
+		},
+	}).DoAndReturn(func(context.Context, controllernode.SetAPIAddressArgs) error {
+		close(published)
+		return nil
+	})
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for publication with empty peer addresses: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestEmptyDiscoveryAddressesPreserveBootstrapAddresses(c *tc.C) {
+	s.assertIncompleteDiscoveryPreservesBootstrap(c,
+		domainnetwork.ControllerAddressSelection{},
+		domainnetwork.ControllerAddressSelection{})
+}
+
+func (s *workerSuite) TestMissingClientDiscoveryPreservesBootstrapAddresses(c *tc.C) {
+	controller0 := unit.Name("controller/0")
+	s.assertIncompleteDiscoveryPreservesBootstrap(c,
+		domainnetwork.ControllerAddressSelection{},
+		domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: address("agent")},
+		})
+}
+
+func (s *workerSuite) TestMissingAgentDiscoveryPreservesBootstrapAddresses(c *tc.C) {
+	controller0 := unit.Name("controller/0")
+	s.assertIncompleteDiscoveryPreservesBootstrap(c,
+		domainnetwork.ControllerAddressSelection{
+			ByUnit: map[unit.Name]network.SpaceAddresses{controller0: address("client")},
+		},
+		domainnetwork.ControllerAddressSelection{})
+}
+
+func (s *workerSuite) assertIncompleteDiscoveryPreservesBootstrap(
+	c *tc.C,
+	clients, agents domainnetwork.ControllerAddressSelection,
+) {
+	defer s.setUpMocks(c).Finish()
+	s.expectWatchers(initialNotify(c), initialConfig(c), initialNotify(c))
+
+	controller0 := unit.Name("controller/0")
+	names := []unit.Name{controller0}
+	s.controllerNodeService.EXPECT().GetControllerIDs(gomock.Any()).Return([]string{"0"}, nil)
+	s.controllerConfigService.EXPECT().GetManagementSpaceAndAPIPort(gomock.Any()).Return(network.SpaceName(""), 17070, nil)
+	s.networkService.EXPECT().GetControllerClientAddresses(gomock.Any(), names).Return(clients, nil)
+	s.networkService.EXPECT().GetControllerAgentAddresses(gomock.Any(), names, network.SpaceName("")).Return(agents, nil)
+	reconciled := make(chan struct{})
+	s.networkService.EXPECT().GetControllerPeerAddresses(gomock.Any(), names, network.SpaceName("")).DoAndReturn(
+		func(context.Context, []unit.Name, network.SpaceName) (domainnetwork.ControllerAddressSelection, error) {
+			close(reconciled)
+			return domainnetwork.ControllerAddressSelection{}, nil
+		},
+	)
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-reconciled:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for empty discovery reconciliation: %v", c.Context().Err())
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestWatcherClosureStopsWorker(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+	networkCh := initialNotify(c)
+	s.expectWatchers(initialNotify(c), initialConfig(c), networkCh)
+	published := make(chan controllernode.SetAPIAddressArgs, 1)
+	s.expectEmptyReconcile(c, published)
+
+	w, err := New(s.config(c))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for initial publication: %v", c.Context().Err())
+	}
+	close(networkCh)
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorMatches, "controller network watcher closed")
+}
+
+func waitForPublication(c *tc.C, published <-chan controllernode.SetAPIAddressArgs) {
+	select {
+	case <-published:
+	case <-c.Context().Done():
+		c.Fatalf("waiting for API address publication: %v", c.Context().Err())
+	}
+}
+
+func initialNotify(c *tc.C) chan struct{} {
+	ch := make(chan struct{}, 1)
+	select {
+	case ch <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("sending initial notification: %v", c.Context().Err())
+	}
+	return ch
+}
+
+func initialConfig(c *tc.C) chan []string {
+	ch := make(chan []string, 1)
+	select {
+	case ch <- nil:
+	case <-c.Context().Done():
+		c.Fatalf("sending initial config notification: %v", c.Context().Err())
+	}
+	return ch
+}
+
+func address(value string) network.SpaceAddresses {
+	return network.SpaceAddresses{{
+		MachineAddress: network.MachineAddress{Value: value},
+	}}
 }

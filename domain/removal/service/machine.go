@@ -10,13 +10,11 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/trace"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
-	"github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -94,24 +92,10 @@ func (s *Service) RemoveMachine(
 		return "", errors.Errorf("machine %q: %w", machineUUID, err)
 	}
 
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the unit if the normal destruction
-			// workflows complete within the the wait duration.
-			if _, err := s.machineScheduleRemoval(ctx, machineUUID, false, 0); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal")
-			wait = 0
-		}
-	}
-
-	machineJobUUID, err := s.machineScheduleRemoval(ctx, machineUUID, force, wait)
+	// Normalize the wait here so the cascaded scheduling below cannot
+	// see a non-forced wait.
+	wait = s.normalizeWait(ctx, machineUUID, force, wait)
+	machineJobUUID, err := s.scheduleWithForceWait(ctx, machineUUID, force, wait, s.machineScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -121,121 +105,40 @@ func (s *Service) RemoveMachine(
 		return machineJobUUID, nil
 	}
 
-	for _, u := range cascaded.UnitUUIDs {
-		if _, err := s.unitScheduleRemoval(ctx, unit.UUID(u), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.UnitUUIDs, force, wait, s.unitScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, m := range cascaded.MachineUUIDs {
-		if _, err := s.machineScheduleRemoval(ctx, machine.UUID(m), force, wait); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.MachineUUIDs, force, wait, s.machineScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.StorageAttachmentUUIDs {
-		if force && wait > 0 {
-			if _, err := s.storageAttachmentScheduleRemoval(
-				ctx, storage.StorageAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.storageAttachmentScheduleRemoval(
-			ctx, storage.StorageAttachmentUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.StorageAttachmentUUIDs, force, wait, s.storageAttachmentScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.FileSystemAttachmentUUIDs {
-		if force && wait > 0 {
-			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.FileSystemAttachmentUUIDs, force, wait, s.filesystemAttachmentScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.VolumeAttachmentUUIDs {
-		if force && wait > 0 {
-			if _, err := s.volumeAttachmentScheduleRemoval(
-				ctx, storage.VolumeAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeAttachmentScheduleRemoval(
-			ctx, storage.VolumeAttachmentUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.VolumeAttachmentUUIDs, force, wait, s.volumeAttachmentScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.VolumeAttachmentPlanUUIDs {
-		if force && wait > 0 {
-			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.VolumeAttachmentPlanUUIDs, force, wait, s.volumeAttachmentPlanScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.FileSystemUUIDs {
-		if force && wait > 0 {
-			if _, err := s.filesystemScheduleRemoval(
-				ctx, storage.FilesystemUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.filesystemScheduleRemoval(
-			ctx, storage.FilesystemUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.FileSystemUUIDs, force, wait, s.filesystemScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.VolumeUUIDs {
-		if force && wait > 0 {
-			if _, err := s.volumeScheduleRemoval(
-				ctx, storage.VolumeUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeScheduleRemoval(
-			ctx, storage.VolumeUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.VolumeUUIDs, force, wait, s.volumeScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
-	for _, a := range cascaded.StorageInstanceUUIDs {
-		if force && wait > 0 {
-			if _, err := s.storageInstanceScheduleRemoval(
-				ctx, storage.StorageInstanceUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.storageInstanceScheduleRemoval(
-			ctx, storage.StorageInstanceUUID(a), force, wait,
-		); err != nil {
-			return "", errors.Capture(err)
-		}
+	if err := s.scheduleCascaded(ctx, cascaded.StorageInstanceUUIDs, force, wait, s.storageInstanceScheduleRemoval); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	return machineJobUUID, nil
@@ -344,10 +247,13 @@ func (s *Service) processMachineRemovalJob(ctx context.Context, job removal.Job)
 	}
 
 	// This instance hasn't yet been marked as dead, so we will not delete it
-	// yet if not forced.
+	// yet if not forced. The removal job incomplete sentinel is chained so
+	// the job is retried quietly by the removal worker, like the dependents
+	// gates of DeleteMachine.
 	if !job.Force && l != life.Dead {
 		return errors.Errorf("machine instance %q is not dead", job.EntityUUID).
-			Add(removalerrors.EntityNotDead)
+			Add(removalerrors.EntityNotDead).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
 	// Do this before we delete the machine, so that we can release any

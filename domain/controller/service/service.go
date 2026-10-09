@@ -29,7 +29,8 @@ type State interface {
 	// GetCACert returns the controller CA certificate.
 	GetCACert(ctx context.Context) (string, error)
 
-	// GetControllerInfo returns information about the current controller.
+	// GetControllerInfo returns the controller identity, CA certificate, public
+	// DNS address and API addresses selected for clients.
 	GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error)
 }
 
@@ -80,7 +81,8 @@ func (s *Service) GetCACert(ctx context.Context) (string, error) {
 	return cert, errors.Capture(err)
 }
 
-// GetControllerInfo returns information about the current controller.
+// GetControllerInfo returns the controller identity, CA certificate, public DNS
+// address and API addresses selected for clients.
 func (s *Service) GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

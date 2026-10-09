@@ -1231,7 +1231,7 @@ func (s *baseSuite) selectDistinctValues(c *tc.C, field, table string) []string 
 				obtained = append(obtained, *val)
 			}
 		}
-		return nil
+		return rows.Err()
 	})
 	c.Assert(err, tc.IsNil, tc.Commentf("fetching distinct %q from table %q", field, table))
 	return obtained

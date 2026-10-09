@@ -3,7 +3,7 @@ series: focal
 applications:
   juju-qa-test:
     charm: juju-qa-test
-    channel: latest/stable
+    channel: 2.0/edge
     revision: 31
     resources:
       foo-file: 2

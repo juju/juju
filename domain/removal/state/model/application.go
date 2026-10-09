@@ -679,8 +679,8 @@ WHERE application_uuid = $entityUUID.uuid
 	return nil
 }
 
-// deleteOrphanedResources deletes resources that are associated to a charm_uuid,
-// and are not associated with any application_resource.
+// deleteOrphanedResources deletes resources associated with a charm UUID that
+// are not referenced by an application, pending application, or unit.
 func (st *State) deleteOrphanedResources(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
 	// If the charm UUID is empty, we can skip the deletion.
 	if charmUUID == "" {
@@ -690,15 +690,24 @@ func (st *State) deleteOrphanedResources(ctx context.Context, tx *sqlair.TX, cha
 
 	resourceIDs := []entityUUID{}
 	stmt, err := st.Prepare(`
-WITH
-application_resources AS (
-	SELECT resource_uuid
-	FROM application_resource
+SELECT r.uuid AS &entityUUID.uuid
+FROM   resource AS r
+WHERE  r.charm_uuid = $entityUUID.uuid
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   application_resource AS ar
+    WHERE  ar.resource_uuid = r.uuid
 )
-SELECT uuid AS &entityUUID.uuid
-FROM resource
-WHERE charm_uuid = $entityUUID.uuid
-AND uuid NOT IN application_resources
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   pending_application_resource AS par
+    WHERE  par.resource_uuid = r.uuid
+)
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   unit_resource AS ur
+    WHERE  ur.resource_uuid = r.uuid
+)
 `, entityUUID{})
 	if err != nil {
 		return errors.Capture(err)
@@ -945,6 +954,21 @@ WHERE resource_uuid IN ($resourceUUIDs[:])
 		return errors.Errorf("getting object store UUIDs for resource: %w", err)
 	}
 
+	getContainerImageStorageKeysStmt, err := st.Prepare(`
+SELECT store_storage_key AS &containerImageStorageKey.storage_key
+FROM   resource_image_store
+WHERE  resource_uuid IN ($resourceUUIDs[:])
+`, containerImageStorageKey{}, resourceUUIDsRec)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var containerImageStorageKeys []containerImageStorageKey
+	err = tx.Query(ctx, getContainerImageStorageKeysStmt, resourceUUIDsRec).GetAll(&containerImageStorageKeys)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("getting container image storage keys for resource: %w", err)
+	}
+
 	for _, table := range []string{
 		"DELETE FROM pending_application_resource WHERE resource_uuid IN ($resourceUUIDs[:])",
 		"DELETE FROM resource_retrieved_by WHERE resource_uuid IN ($resourceUUIDs[:])",
@@ -966,6 +990,11 @@ WHERE resource_uuid IN ($resourceUUIDs[:])
 			return errors.Errorf("deleting object store entry: %w", err)
 		}
 	}
+	for _, storageKey := range containerImageStorageKeys {
+		if err := st.deleteContainerImageMetadataIfUnused(ctx, tx, storageKey.StorageKey); err != nil {
+			return errors.Errorf("deleting container image metadata: %w", err)
+		}
+	}
 
 	deleteResourceStmt, err := st.Prepare(`
 DELETE FROM resource
@@ -980,6 +1009,27 @@ WHERE uuid IN ($resourceUUIDs[:])
 	}
 
 	return nil
+}
+
+func (st *State) deleteContainerImageMetadataIfUnused(
+	ctx context.Context,
+	tx *sqlair.TX,
+	storageKey string,
+) error {
+	key := containerImageStorageKey{StorageKey: storageKey}
+	stmt, err := st.Prepare(`
+DELETE FROM resource_container_image_metadata_store
+WHERE  storage_key = $containerImageStorageKey.storage_key
+AND    NOT EXISTS (
+    SELECT 1
+    FROM   resource_image_store AS ris
+    WHERE  ris.store_storage_key = $containerImageStorageKey.storage_key
+)
+`, key)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, stmt, key).Run())
 }
 
 func (st *State) deleteFromObjectStoreIfUnused(ctx context.Context, tx *sqlair.TX, objectStoreUUID string) error {

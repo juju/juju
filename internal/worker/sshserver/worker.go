@@ -50,7 +50,7 @@ type ServerWrapperWorkerConfig struct {
 	Logger                  logger.Logger
 	Authenticator           Authenticator
 	Authorizer              Authorizer
-	ProxyFactory            ProxyFactory
+	ServerFactory           *TerminatingServerFactory
 	Metrics                 *Collector
 }
 
@@ -77,8 +77,8 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.Authorizer == nil {
 		return errors.NotValidf("Authorizer is required")
 	}
-	if c.ProxyFactory == nil {
-		return errors.NotValidf("ProxyFactory is required")
+	if c.ServerFactory == nil {
+		return errors.NotValidf("ServerFactory is required")
 	}
 	return nil
 }
@@ -121,6 +121,13 @@ func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, er
 	}
 
 	return w, nil
+}
+
+// TerminatingServerFactory returns the factory that builds per-destination
+// terminating SSH servers, exposed through the manifold output for the
+// apiserver's relay endpoint.
+func (ssw *serverWrapperWorker) TerminatingServerFactory() *TerminatingServerFactory {
+	return ssw.config.ServerFactory
 }
 
 // Kill implements worker.Worker.
@@ -183,7 +190,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		SSHService:               ssw.config.SSHService,
 		Authenticator:            ssw.config.Authenticator,
 		Authorizer:               ssw.config.Authorizer,
-		ProxyFactory:             ssw.config.ProxyFactory,
+		ServerFactory:            ssw.config.ServerFactory,
 		Metrics:                  ssw.config.Metrics,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
