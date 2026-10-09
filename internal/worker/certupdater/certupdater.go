@@ -136,7 +136,7 @@ func (c *CertificateUpdater) updateCertificate(ctx context.Context, addresses []
 
 	if _, err := request.Commit(); err != nil {
 		c.logger.Debugf(ctx, "commit error: %w", err)
-		return errors.Errorf("generating default controller ip certificate: %w", err)
+		return errors.Errorf("generating controller certificate: %w", err)
 	}
 	c.addresses = slices.Clone(addresses)
 	c.initialized = true
