@@ -84,6 +84,8 @@ type response struct {
 // the caller has gone away or the worker is dying. A response carrying a
 // reader that cannot be delivered has the reader closed: the caller is
 // gone, so nobody else would ever close it.
+// Responses carrying readers must use an unbuffered channel so sending
+// transfers ownership to a waiting caller.
 func sendResponse(dying <-chan struct{}, req request, resp response) {
 	select {
 	case <-dying:

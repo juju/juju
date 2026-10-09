@@ -22,6 +22,7 @@ import (
 	utilstar "github.com/juju/utils/v4/tar"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -390,8 +391,10 @@ func objectEntryArchivePath(dataDir string, entry ObjectEntry) string {
 }
 
 // checkObjectEntries validates the object entries before the archive is
-// built. A duplicated (namespace, SHA-384) pair would produce a duplicate
-// path in the archive, which is a verification failure point on restore.
+// built. Namespaces and hashes must have their expected formats so they
+// cannot change the archive path layout. A duplicated (namespace, SHA-384)
+// pair would produce a duplicate path in the archive, which is a
+// verification failure point on restore.
 func checkObjectEntries(entries []ObjectEntry, dataDir string) error {
 	if len(entries) == 0 {
 		return nil
@@ -407,6 +410,14 @@ func checkObjectEntries(entries []ObjectEntry, dataDir string) error {
 	for _, entry := range entries {
 		if entry.Namespace == "" || entry.SHA384 == "" || entry.Source == nil {
 			return errors.Errorf("incomplete object entry: %w", coreerrors.NotValid)
+		}
+		if entry.Namespace != "controller" && coremodel.UUID(entry.Namespace).Validate() != nil {
+			return errors.Errorf("invalid object namespace %q: %w",
+				entry.Namespace, coreerrors.NotValid)
+		}
+		if len(entry.SHA384) != sha512.Size384*2 || strings.Trim(entry.SHA384, "0123456789abcdef") != "" {
+			return errors.Errorf("invalid SHA-384 %q in namespace %q: %w",
+				entry.SHA384, entry.Namespace, coreerrors.NotValid)
 		}
 		if entry.Size < 0 {
 			return errors.Errorf("object %q in namespace %q: negative size %d: %w",

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -494,66 +495,99 @@ func (s *fileObjectStoreSuite) TestGetQueuedReadAbandonedOnCancel(c *tc.C) {
 }
 
 func (s *fileObjectStoreSuite) TestGetQueuedReadClosesReaderOnLateDelivery(c *tc.C) {
+	s.testQueuedReadClosesReaderOnLateDelivery(c, opGet)
+}
+
+func (s *fileObjectStoreSuite) TestGetBySHA256QueuedReadClosesReaderOnLateDelivery(c *tc.C) {
+	s.testQueuedReadClosesReaderOnLateDelivery(c, opGetBySHA256)
+}
+
+func (s *fileObjectStoreSuite) TestGetBySHA256PrefixQueuedReadClosesReaderOnLateDelivery(c *tc.C) {
+	s.testQueuedReadClosesReaderOnLateDelivery(c, opGetBySHA256Prefix)
+}
+
+func (s *fileObjectStoreSuite) testQueuedReadClosesReaderOnLateDelivery(c *tc.C, op opType) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
 	ch := s.expectWatch()
 
-	reader := newCloseTrackingReader("some content")
-	size := int64(len("some content"))
-
-	hash384 := "66b3707eaed3f7f4c6f084e4ba7aaa95f0412c3d9fd91475fc454b93ed8b7cd9d33cc1821e517b52d338f8d8d6908cb9"
-	hash256 := "290f493c44f5d63d06b374d0a5abd292fae38b92cab2fae5efefe1b0e9347f56"
-
-	started := make(chan struct{})
-	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+	size, hash384, hash256 := s.createFile(c, s.filePath(path, "inferi"), "foo", "some content")
+	file, err := os.Open(filepath.Join(s.filePath(path, "inferi"), hash384))
+	c.Assert(err, tc.ErrorIsNil)
+	defer file.Close()
+	reader := &closeTrackingFile{File: file, closed: make(chan struct{})}
+	metadata := objectstore.Metadata{
 		SHA384: hash384,
 		SHA256: hash256,
 		Path:   "foo",
-		Size:   12,
-	}, nil).Times(2)
-	s.service.EXPECT().GetControllerIDHints(gomock.Any(), hash384).Return([]string{}, nil)
-	s.remote.EXPECT().Retrieve(gomock.Any(), hash256, []string{}).
-		DoAndReturn(func(ctx context.Context, _ string, _ []string) (io.ReadCloser, int64, error) {
-			close(started)
-			// Outlast the caller, then deliver a real reader. The loop
-			// must close it because the caller has gone away.
-			<-ctx.Done()
-			return reader, size, nil
-		})
-	// The persist, claim and controller-ID hint are all skipped: withLock
-	// short-circuits on the cancelled context, and the loop closes the
-	// fetched reader because the caller has gone away.
+		Size:   size,
+	}
+	// Force the optimistic lookup to fail so the read is queued.
+	switch op {
+	case opGet:
+		gomock.InOrder(
+			s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound),
+			s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(metadata, nil),
+		)
+	case opGetBySHA256:
+		gomock.InOrder(
+			s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound),
+			s.service.EXPECT().GetMetadataBySHA256(gomock.Any(), hash256).Return(metadata, nil),
+		)
+	case opGetBySHA256Prefix:
+		gomock.InOrder(
+			s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hash256[:7]).Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound),
+			s.service.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), hash256[:7]).Return(metadata, nil),
+		)
+	}
+	s.service.EXPECT().GetMetadata(gomock.Any(), "barrier").Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
 
 	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.expectStartup(c, ch)
 
+	started := make(chan struct{})
+	returnReader := make(chan struct{})
+	store.(*fileObjectStore).fs = fileSystemFunc(func(name string) (fs.File, error) {
+		c.Check(name, tc.Equals, hash384)
+		close(started)
+		// Return an open file only after the caller has abandoned the read.
+		<-returnReader
+		return reader, nil
+	})
+
 	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
 	errChan := make(chan error, 1)
 	go func() {
-		_, _, err := store.Get(ctx, "foo")
+		var err error
+		switch op {
+		case opGet:
+			_, _, err = store.Get(ctx, "foo")
+		case opGetBySHA256:
+			_, _, err = store.GetBySHA256(ctx, hash256)
+		case opGetBySHA256Prefix:
+			_, _, err = store.GetBySHA256Prefix(ctx, hash256[:7])
+		}
 		errChan <- err
 	}()
 
-	// Cancel only once the queued read has started, so the reader is
-	// produced after the caller has left.
-	select {
-	case <-started:
-	case <-c.Context().Done():
-		c.Fatalf("queued read did not start")
-	}
+	<-started
 	cancel()
+	c.Assert(<-errChan, tc.ErrorIs, context.Canceled)
+	close(returnReader)
 
+	// Processing a subsequent request proves sendResponse has finished and
+	// the abandoned read has not blocked the worker loop.
+	err = store.Remove(c.Context(), "barrier")
+	c.Assert(err, tc.ErrorIs, domainobjectstoreerrors.ErrNotFound)
 	select {
-	case err := <-errChan:
-		c.Assert(err, tc.ErrorIs, context.Canceled)
-	case <-c.Context().Done():
-		c.Fatalf("queued get was not abandoned after caller cancellation")
+	case <-reader.closed:
+	default:
+		c.Errorf("expected abandoned reader to be closed")
 	}
-
-	s.expectRemoteReaderClosed(c, reader)
 
 	workertest.CleanKill(c, store)
 }
@@ -1472,6 +1506,22 @@ func (s *fileObjectStoreSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	return ctrl
+}
+
+type fileSystemFunc func(string) (fs.File, error)
+
+func (f fileSystemFunc) Open(name string) (fs.File, error) {
+	return f(name)
+}
+
+type closeTrackingFile struct {
+	fs.File
+	closed chan struct{}
+}
+
+func (f *closeTrackingFile) Close() error {
+	defer close(f.closed)
+	return f.File.Close()
 }
 
 type closeTrackingReader struct {

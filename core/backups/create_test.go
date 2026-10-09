@@ -485,6 +485,7 @@ func (s *createSuite) TestCreateObjectEntrySourceError(c *tc.C) {
 }
 
 func (s *createSuite) TestCreateDuplicateObjectEntry(c *tc.C) {
+	sha384hex := strings.Repeat("a", sha512.Size384*2)
 	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: c.MkDir(),
 		DataDir:        "/var/lib/juju",
@@ -492,15 +493,78 @@ func (s *createSuite) TestCreateDuplicateObjectEntry(c *tc.C) {
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 		ObjectEntries: []backups.ObjectEntry{{
 			Namespace: "controller",
-			SHA384:    "abc",
+			SHA384:    sha384hex,
 			Source:    func(ctx context.Context) (io.ReadCloser, error) { return nil, nil },
 		}, {
 			Namespace: "controller",
-			SHA384:    "abc",
+			SHA384:    sha384hex,
 			Source:    func(ctx context.Context) (io.ReadCloser, error) { return nil, nil },
 		}},
 	})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `duplicate object entry ".*" in namespace "controller":.*`)
+}
+
+func (s *createSuite) TestCreateObjectEntryInvalidNamespace(c *tc.C) {
+	for _, namespace := range []string{
+		".",
+		"..",
+		"../../x",
+		"/controller",
+		"controller/../controller",
+		`controller\x`,
+		"model",
+		"deadbeef0bad400d80004b1d0d06f00d",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00g",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00d/..",
+	} {
+		s.testCreateInvalidObjectEntry(c, namespace,
+			strings.Repeat("a", sha512.Size384*2))
+	}
+}
+
+func (s *createSuite) TestCreateObjectEntryInvalidSHA384(c *tc.C) {
+	for _, sha384hex := range []string{
+		".",
+		"..",
+		"../../x",
+		"/x",
+		`..\..\x`,
+		strings.Repeat("a", sha512.Size384*2-1),
+		strings.Repeat("a", sha512.Size384*2+1),
+		strings.Repeat("g", sha512.Size384*2),
+		strings.Repeat("A", sha512.Size384*2),
+		strings.Repeat("a", sha512.Size384*2-1) + "/",
+		strings.Repeat("a", sha512.Size384*2-1) + `\`,
+		strings.Repeat("a", sha512.Size384*2-1) + "\x00",
+	} {
+		s.testCreateInvalidObjectEntry(c, "controller", sha384hex)
+	}
+}
+
+func (s *createSuite) testCreateInvalidObjectEntry(c *tc.C, namespace, sha384hex string) {
+	destDir := c.MkDir()
+	sourceOpened := false
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: namespace,
+			SHA384:    sha384hex,
+			Source: func(context.Context) (io.ReadCloser, error) {
+				sourceOpened = true
+				return io.NopCloser(strings.NewReader("")), nil
+			},
+		}},
+	})
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid,
+		tc.Commentf("namespace %q, SHA-384 %q", namespace, sha384hex))
+	c.Check(sourceOpened, tc.IsFalse)
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
 }
 
 func (s *createSuite) TestCreateObjectEntryMissingDataDir(c *tc.C) {

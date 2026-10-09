@@ -272,7 +272,7 @@ func (t *fileObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix st
 	}
 
 	// Sequence the get request with the put and remove requests.
-	response := make(chan response, 1)
+	response := make(chan response)
 	select {
 	case <-ctx.Done():
 		return nil, objectstore.Digest{}, ctx.Err()
