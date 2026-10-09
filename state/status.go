@@ -539,7 +539,7 @@ func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string)
 
 	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
 	deleted, err := deleteInBatches(
-		stop,
+		stop, mb.clock(),
 		history.Writeable().Underlying(), nil, "", iter,
 		logFormat, loggo.DEBUG,
 		noEarlyFinish,

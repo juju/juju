@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
@@ -72,6 +73,7 @@ func pruneCollectionAndChildren(stop <-chan struct{}, mb modelBackend, maxHistor
 
 const historyPruneBatchSize = 1000
 const historyPruneProgressSeconds = 15
+const historyPruneMaxDelay = 5 * time.Second
 
 type doneCheck func() (bool, error)
 
@@ -147,14 +149,14 @@ func (p *collectionPruner) pruneByAge(stop <-chan struct{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	started := p.st.clock().Now()
+	logger.Infof("%s age pruning (%s): removing rows older than %s", p.coll.Name, modelName, t.Format(time.RFC3339))
 	logTemplate := fmt.Sprintf("%s age pruning (%s): %%d rows deleted", p.coll.Name, modelName)
-	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, logTemplate, loggo.INFO, noEarlyFinish)
+	deleted, err := deleteInBatches(stop, p.st.clock(), p.coll, p.childColl, p.parentRefField, iter, logTemplate, loggo.INFO, noEarlyFinish)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if deleted > 0 {
-		logger.Debugf("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
-	}
+	logger.Infof("%s age pruning (%s) finished: %d rows deleted in %s", p.coll.Name, modelName, deleted, p.st.clock().Now().Sub(started))
 	return errors.Trace(iter.Close())
 }
 
@@ -212,6 +214,8 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 	if toDelete <= 0 {
 		return nil
 	}
+	started := p.st.clock().Now()
+	logger.Infof("%s size pruning: removing up to %d rows (estimated) to reach %d MiB", p.coll.Name, toDelete, p.maxSize)
 
 	// If age field is set, add a filter which
 	// excludes those items where the age field
@@ -237,7 +241,7 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 	defer func() { _ = iter.Close() }()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
-	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
+	deleted, err := deleteInBatches(stop, p.st.clock(), p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
 		// Check that we still need to delete more
 		collKB, err := getCollectionKB(p.coll)
 		if err != nil {
@@ -253,12 +257,13 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 
-	logger.Infof("%s size pruning finished: %d rows deleted", p.coll.Name, deleted)
+	logger.Infof("%s size pruning finished: %d rows deleted in %s", p.coll.Name, deleted, p.st.clock().Now().Sub(started))
 	return errors.Trace(iter.Close())
 }
 
 func deleteInBatches(
 	stop <-chan struct{},
+	clk clock.Clock,
 	coll *mgo.Collection,
 	childColl *mgo.Collection,
 	childField string,
@@ -276,7 +281,7 @@ func deleteInBatches(
 		childChunk = childColl.Bulk()
 	}
 
-	lastUpdate := time.Now()
+	lastUpdate := clk.Now()
 	deleted := 0
 	for iter.Next(&doc) {
 		select {
@@ -289,13 +294,31 @@ func deleteInBatches(
 		chunkSize++
 		if childChunk != nil {
 			if idStr, ok := parentId.(string); ok {
-				_, localParentId, ok := splitDocID(idStr)
+				modelUUID, localParentId, ok := splitDocID(idStr)
 				if ok {
-					childChunk.RemoveAll(bson.D{{childField, localParentId}})
+					// The child reference field holds the *local* parent
+					// id, which is only unique within a model, so the
+					// model-uuid must be included. This both prevents
+					// deleting children belonging to other models and
+					// allows the {model-uuid, <childField>} index to be
+					// used rather than a full collection scan.
+					childChunk.RemoveAll(bson.D{
+						{"model-uuid", modelUUID},
+						{childField, localParentId},
+					})
+				} else {
+					logger.Warningf(
+						"pruning %s: invalid parent id %v; %s children may be orphaned",
+						coll.Name, parentId, childColl.Name)
 				}
+			} else {
+				logger.Warningf(
+					"pruning %s: invalid parent id %v; %s children may be orphaned",
+					coll.Name, parentId, childColl.Name)
 			}
 		}
 		if chunkSize == historyPruneBatchSize {
+			batchStarted := clk.Now()
 			_, err := chunk.Run()
 			// NotFound indicates that records were already deleted.
 			if err != nil && err != mgo.ErrNotFound {
@@ -315,6 +338,8 @@ func deleteInBatches(
 				childChunk = childColl.Bulk()
 			}
 
+			batchDuration := clk.Now().Sub(batchStarted)
+
 			// Check that we still need to delete more
 			done, err := shouldStop()
 			if err != nil {
@@ -324,7 +349,11 @@ func deleteInBatches(
 				return deleted, nil
 			}
 
-			now := time.Now()
+			if waitAfterPruneBatch(stop, clk, batchDuration) {
+				return deleted, nil
+			}
+
+			now := clk.Now()
 			if now.Sub(lastUpdate) >= historyPruneProgressSeconds*time.Second {
 				logger.Logf(logLevel, logTemplate, deleted)
 				lastUpdate = now
@@ -349,6 +378,26 @@ func deleteInBatches(
 	}
 
 	return deleted + chunkSize, nil
+}
+
+// waitAfterPruneBatch gives replicas breathing room for half the deletion
+// time, capped to avoid long pauses. It reports whether pruning was stopped.
+func waitAfterPruneBatch(stop <-chan struct{}, clk clock.Clock, batchDuration time.Duration) bool {
+	delay := batchDuration / 2
+	if delay > historyPruneMaxDelay {
+		delay = historyPruneMaxDelay
+	}
+	if delay <= 0 {
+		return false
+	}
+	timer := clk.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-stop:
+		return true
+	case <-timer.Chan():
+		return false
+	}
 }
 
 func noEarlyFinish() (bool, error) {

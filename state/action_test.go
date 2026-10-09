@@ -1547,3 +1547,67 @@ func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
 	c.Assert(actions, gc.HasLen, tasksPerOperation*numCurrentOperationEntries)
 	c.Assert(ops, gc.HasLen, numCurrentOperationEntries)
 }
+
+// Operation ids are only unique within a model, so pruning the operations of
+// one model must not remove tasks belonging to another model's operation that
+// happens to share the same local id.
+func (s *ActionPruningSuite) TestPruneOperationsDoesNotRemoveOtherModelTasks(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+	otherFactory := factory.NewFactory(otherSt, s.StatePool)
+	otherApp := otherFactory.MakeApplication(c, nil)
+	otherUnit := otherFactory.MakeUnit(c, &factory.UnitParams{Application: otherApp})
+	otherModel, err := otherSt.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	const numOperationEntries = 5
+	const tasksPerOperation = 3
+	const ageOfExpired = 10 * time.Hour
+	expired := clock.Now().Add(-1 * ageOfExpired)
+
+	// Both models allocate operation ids from their own sequence, so the
+	// local operation ids overlap.
+	state.PrimeOperations(c, expired, unit, numOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, expired, otherUnit, numOperationEntries, tasksPerOperation)
+
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	otherOps, err := otherModel.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	operationIDs := make(map[string]bool)
+	for _, op := range ops {
+		operationIDs[op.Id()] = true
+	}
+	var overlappingIDs []string
+	for _, op := range otherOps {
+		if operationIDs[op.Id()] {
+			overlappingIDs = append(overlappingIDs, op.Id())
+		}
+	}
+	c.Assert(len(overlappingIDs) > 0, jc.IsTrue,
+		gc.Commentf("regression test requires overlapping local operation ids between models"))
+
+	var stop <-chan struct{}
+	err = state.PruneOperations(stop, s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 0)
+
+	otherActions, err := otherUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(otherActions, gc.HasLen, numOperationEntries*tasksPerOperation)
+	otherOps, err = otherModel.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(otherOps, gc.HasLen, numOperationEntries)
+}
