@@ -598,6 +598,40 @@ func (s *DeploySuite) TestCommitInterruptedHook_ResolvedUpgrade(c *gc.C) {
 	s.testCommitInterruptedHook(c, (operation.Factory).NewResolvedUpgrade)
 }
 
+func (s *DeploySuite) TestCommitInterruptedUpdateStatusHook_Upgrade(c *gc.C) {
+	// An update-status hook interrupted mid-run is recorded as queued
+	// rather than pending, so that the hook is re-run after restart
+	// instead of being treated as a hook failure. A charm upgrade run
+	// in the meantime must preserve that queued hook step.
+	callbacks := NewDeployCommitCallbacks(nil)
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		Deployer:  deployer,
+		Callbacks: callbacks,
+		Logger:    loggo.GetLogger("test"),
+	})
+
+	op, err := factory.NewUpgrade("ch:quantal/x-0")
+	c.Assert(err, jc.ErrorIsNil)
+	queued := operation.Queued
+	newState, err := op.Commit(operation.State{
+		Kind:     operation.Upgrade,
+		Step:     operation.Done,
+		Hook:     &hook.Info{Kind: hooks.UpdateStatus},
+		HookStep: &queued,
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(newState, gc.DeepEquals, &operation.State{
+		Kind:     operation.RunHook,
+		Step:     operation.Pending,
+		Hook:     &hook.Info{Kind: hooks.UpdateStatus},
+		HookStep: &queued,
+	})
+}
+
 func (s *DeploySuite) testDoesNotNeedGlobalMachineLock(c *gc.C, newDeploy newDeploy) {
 	deployer := &MockDeployer{
 		MockNotifyRevert:   &MockNoArgs{},
