@@ -75,9 +75,9 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *tc.C) {
 }
 
 func (*ConfigSuite) TestKubernetesStorageAttributesAreBootstrapOnly(c *tc.C) {
-	/* A Kubernetes cloud's recorded storage classes must be bootstrap
-	   attributes so they are routed out of model config, and must be
-	   accepted by NewConfig when a cloud definition supplies them. */
+	// A Kubernetes cloud's recorded storage classes must be bootstrap
+	// attributes so they are routed out of model config, and must be
+	// accepted by NewConfig when a cloud definition supplies them.
 	for _, key := range []string{
 		bootstrap.WorkloadStorageKey,
 		bootstrap.OperatorStorageKey,

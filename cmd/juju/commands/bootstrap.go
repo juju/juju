@@ -1429,26 +1429,27 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	// filesystem source. This provisions both the controller's
 	// persistent volume claim and any charm storage in the controller
 	// model from the recorded class.
-	if workloadStorageClass := workloadStorageClassForBootstrap(cloud, userConfigAttrs); cloud.Type == jujucloud.CloudTypeKubernetes &&
-		workloadStorageClass != "" &&
-		len(storagePools) == 0 &&
-		!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.Config) {
-		poolName := workloadStorageClass
-		if reservedStoragePoolName(poolName) {
-			poolName = "k8s-" + poolName
+	if cloud.Type == jujucloud.CloudTypeKubernetes {
+		if workloadStorageClass := workloadStorageClassForBootstrap(cloud, userConfigAttrs); workloadStorageClass != "" &&
+			len(storagePools) == 0 &&
+			!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.Config) {
+			poolName := workloadStorageClass
+			if reservedStoragePoolName(poolName) {
+				poolName = "k8s-" + poolName
+			}
+			storagePools = map[string]storage.Attrs{
+				poolName: {
+					corestorage.BootstrapStoragePoolNameKey: poolName,
+					corestorage.BootstrapStoragePoolTypeKey: string(k8sconstants.StorageProviderType),
+					k8sconstants.StorageClass:               workloadStorageClass,
+				},
+			}
+			// The default filesystem source is deliberately set for the
+			// controller model only and not added to the inherited controller
+			// attributes: the scheduled pool exists in the controller model
+			// alone and must not become a default for hosted models.
+			combinedConfig[config.StorageDefaultFilesystemSourceKey] = poolName
 		}
-		storagePools = map[string]storage.Attrs{
-			poolName: {
-				corestorage.BootstrapStoragePoolNameKey: poolName,
-				corestorage.BootstrapStoragePoolTypeKey: string(k8sconstants.StorageProviderType),
-				k8sconstants.StorageClass:               workloadStorageClass,
-			},
-		}
-		// The default filesystem source is deliberately set for the
-		// controller model only and not added to the inherited controller
-		// attributes: the scheduled pool exists in the controller model
-		// alone and must not become a default for hosted models.
-		combinedConfig[config.StorageDefaultFilesystemSourceKey] = poolName
 	}
 
 	bootstrapConfigAttrs := make(map[string]any)

@@ -114,10 +114,10 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
 }
 
 func (s *cloudSuite) TestFinalizeCloudNoWorkloadStorageClass(c *tc.C) {
-	/* FinalizeCloud does not fail when the cluster reports no workload
-	   storage class: bootstrap can still resolve the controller's storage
-	   class from the storage pools scheduled for the controller model, and
-	   an unresolvable bootstrap fails later with a more specific message. */
+	// FinalizeCloud does not fail when the cluster reports no workload
+	// storage class: bootstrap can still resolve the controller's storage
+	// class from the storage pools scheduled for the controller model, and
+	// an unresolvable bootstrap fails later with a more specific message.
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{
 			{
@@ -162,9 +162,9 @@ func (s *cloudSuite) TestFinalizeCloudNoWorkloadStorageClass(c *tc.C) {
 }
 
 func (s *cloudSuite) TestFinalizeCloudNominatedStorageClassNotFound(c *tc.C) {
-	/* A storage class recorded on the cloud that is no longer on the
-	   cluster does not fail FinalizeCloud: the recorded class is replaced
-	   by one discovered on the cluster. */
+	// A storage class recorded on the cloud that is no longer on the
+	// cluster does not fail FinalizeCloud: the recorded class is replaced
+	// by one discovered on the cluster.
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{
 			{
@@ -227,10 +227,10 @@ func (s *cloudSuite) TestFinalizeCloudNominatedStorageClassNotFound(c *tc.C) {
 }
 
 func (s *cloudSuite) TestFinalizeCloudKeepsStaleNominatedStorageClass(c *tc.C) {
-	/* When neither the class recorded on the cloud nor cluster discovery
-	   yields a storage class, the recorded value is kept on the cloud so
-	   that a later unresolvable bootstrap failure names the class needing
-	   attention. */
+	// When neither the class recorded on the cloud nor cluster discovery
+	// yields a storage class, the recorded value is kept on the cloud so
+	// that a later unresolvable bootstrap failure names the class needing
+	// attention.
 	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
 		[]storagev1.StorageClass{
 			{

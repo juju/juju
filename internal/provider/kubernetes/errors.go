@@ -33,8 +33,8 @@ func (e ClusterQueryError) Unwrap() error {
 
 // IsClusterQueryError returns true if err is a ClusterQueryError.
 func IsClusterQueryError(err error) bool {
-	_, ok := err.(ClusterQueryError)
-	return ok
+	var e ClusterQueryError
+	return errors.As(err, &e)
 }
 
 // NoRecommendedStorageError represents when Juju is unable to determine which storage a cluster uses (or should use)

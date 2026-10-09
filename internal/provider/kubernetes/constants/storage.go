@@ -35,13 +35,15 @@ const (
 	// Kubernetes cloud, including the persistent volume claim backing the
 	// controller. It is a bootstrap-only attribute: add-k8s records it on
 	// the cloud and bootstrap consumes it when creating the default
-	// storage pool for the controller model.
+	// storage pool for the controller model. The same value is registered
+	// in environs/bootstrap for routing cloud attributes at bootstrap.
 	WorkloadStorageKey = "workload-storage"
 
 	// OperatorStorageKey was the 3.x cloud config attribute used to record
 	// the storage class for operator (podspec) storage. Operator storage is
 	// no longer supported. The key is retained only so 3.x cloud definitions
-	// are routed (and ignored) rather than leaking into model config.
+	// are routed (and ignored) rather than leaking into model config. The
+	// same value is registered in environs/bootstrap for the same reason.
 	OperatorStorageKey = "operator-storage"
 )
 

@@ -22,7 +22,6 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/internal/configschema"
 	"github.com/juju/juju/internal/pki"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalssh "github.com/juju/juju/internal/ssh"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -82,16 +81,18 @@ const (
 	// including the persistent volume claim backing the controller, for a
 	// Kubernetes cloud. It is a bootstrap-only attribute: add-k8s records
 	// it on the cloud and bootstrap consumes it when creating the default
-	// storage pool for the controller model. The canonical definition
-	// lives with the other Kubernetes storage constants.
-	WorkloadStorageKey = k8sconstants.WorkloadStorageKey
+	// storage pool for the controller model. The same value is defined,
+	// with the Kubernetes provider context, in
+	// internal/provider/kubernetes/constants.
+	WorkloadStorageKey = "workload-storage"
 
 	// OperatorStorageKey was the 3.x cloud config attribute used to record
-	// the storage class for operator (podspec) storage. Operator storage
-	// is no longer supported; the key is registered here only so 3.x cloud
+	// the storage class for operator (podspec) storage. Operator storage is
+	// no longer supported; the key is registered here only so 3.x cloud
 	// definitions are routed (and ignored) rather than leaking into model
-	// config.
-	OperatorStorageKey = k8sconstants.OperatorStorageKey
+	// config. The same value is defined in
+	// internal/provider/kubernetes/constants.
+	OperatorStorageKey = "operator-storage"
 )
 
 const (

@@ -511,10 +511,11 @@ func storageClassForPool(pools map[string]internalstorage.Attrs, poolName string
 	return storageClass
 }
 
-// storageClassFromPools returns the storage class of the single pool
+// storageClassFromPools returns the storage class defined by the pools
 // scheduled for creation via [environs.BootstrapParams.StoragePools] that
-// uses the Kubernetes storage provider and defines a storage class, or an
-// empty string if there is no such unambiguous pool.
+// use the Kubernetes storage provider, provided all such pools that define
+// a storage class agree on the same one. An empty string is returned when
+// no pool defines a storage class, or when the classes are ambiguous.
 func storageClassFromPools(pools map[string]internalstorage.Attrs) string {
 	var found string
 	for poolName := range pools {

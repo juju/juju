@@ -216,7 +216,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 					// failing bootstrap here, keeping the stale recorded
 					// class so that a later unresolvable bootstrap failure
 					// names the class that needs fixing.
-					logger.Warningf(context.TODO(),
+					logger.Warningf(ctx,
 						"workload storage class %q recorded on k8s cloud %q not found on the cluster",
 						nominatedStorageClass, cld.Name)
 					clusterMetadata, err = broker.GetClusterMetadata(ctx, "")
@@ -241,13 +241,11 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		if !errors.As(err, &notFoundPreferred) {
 			return cld, errors.Trace(err)
 		}
-		logger.Warningf(context.TODO(),
+		logger.Warningf(ctx,
 			"unable to determine a workload storage class for k8s cloud %q: %v",
 			cld.Name, err)
-		cld = updatedCloud
-	} else {
-		cld = updatedCloud
 	}
+	cld = updatedCloud
 
 	if cld.HostCloudRegion == "" {
 		cld.HostCloudRegion = k8s.K8sCloudOther
