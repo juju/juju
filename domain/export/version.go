@@ -40,7 +40,8 @@ import (
 //     regenerate types under an already-released version. Unreleased
 //     entries may be regenerated freely. Non-own entries are NOT frozen:
 //     they follow their source branch as that line's latest format moves
-//     (the CI sync check enforces this).
+//     (CI enforces the freeze via .github/check-export-version-frozen.sh
+//     and the sync via .github/check-export-version-sync.sh).
 //
 // To bump: move this branch's entry (or append it on a target branch),
 // then run `go generate` from generate/export. On a target branch also

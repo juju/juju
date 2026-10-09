@@ -134,10 +134,12 @@ jobs:
               - '.github/workflows/ddl.yml'
             check-export-version:
               - 'domain/schema/model/sql/**'
+              - 'domain/schema/controller/sql/**'
               - 'domain/export/**'
               - 'domain/modelimport/**'
               - 'generate/export/**'
               - '.github/workflows/export-version.yml'
+              - '.github/check-export-version-*.sh'
             check-smoke:
               - '**.go'
               - 'go.mod'
@@ -225,6 +227,7 @@ jobs:
       - client
       - migrate
       - ddl
+      - export-version
       - terraform
       - upgrade
       - smoke
@@ -247,6 +250,7 @@ jobs:
               && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
               && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
               && ${{ needs.ddl.result == 'success' || needs.ddl.result == 'skipped' }} \
+              && ${{ needs.export-version.result == 'success' || needs.export-version.result == 'skipped' }} \
               && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
               && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }} \
               && ${{ needs.smoke.result == 'success' || needs.smoke.result == 'skipped' }}; then

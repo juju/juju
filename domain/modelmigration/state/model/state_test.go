@@ -6,6 +6,7 @@ package model
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -560,6 +561,52 @@ func (s *migrationSuite) TestSetModelTargetAgentVersionDifferentVersion(c *tc.C)
 
 	err := st.SetModelTargetAgentVersion(c.Context(), "6.6.6", toVersion)
 	c.Assert(err, tc.ErrorMatches, `.*expected current version "6.6.6"`)
+}
+
+// TestGetLastLogTransferTimeNoEntry tests that the zero time is returned
+// when no logs have been transferred for the model.
+func (s *migrationSuite) TestGetLastLogTransferTimeNoEntry(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), s.modelUUID)
+
+	lastTime, err := st.GetLastLogTransferTime(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lastTime, tc.Equals, time.Time{})
+}
+
+// TestSetLastLogTransferTimeMonotonic tests that the checkpoint row is
+// keyed by the model uuid, advances monotonically, and holds a single row.
+func (s *migrationSuite) TestSetLastLogTransferTimeMonotonic(c *tc.C) {
+	first := time.Date(2026, 9, 27, 6, 23, 24, 0, time.UTC)
+	second := time.Date(2026, 9, 27, 7, 45, 10, 0, time.UTC)
+
+	st := New(s.TxnRunnerFactory(), s.modelUUID)
+
+	err := st.SetLastLogTransferTime(c.Context(), first)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.SetLastLogTransferTime(c.Context(), second)
+	c.Assert(err, tc.ErrorIsNil)
+
+	retrieved, err := st.GetLastLogTransferTime(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(retrieved, tc.Equals, second)
+
+	err = st.SetLastLogTransferTime(c.Context(), first)
+	c.Assert(err, tc.ErrorIsNil)
+	retrieved, err = st.GetLastLogTransferTime(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(retrieved, tc.Equals, second)
+
+	var rowUUID string
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT uuid FROM log_transfer_progress").Scan(&rowUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rowUUID, tc.Equals, s.modelUUID.String())
+
+	var count int
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM log_transfer_progress").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
 }
 
 // TestGetRelationValidationDataEmpty verifies a model with no relations

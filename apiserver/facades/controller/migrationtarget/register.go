@@ -170,7 +170,6 @@ func makeFacade(
 		modelMigrationServiceGetter,
 		removalServiceGetter,
 		facadeVersions,
-		ctx.LogDir(),
 		ctx.Logger().Child("migrationtarget"),
 	)
 }

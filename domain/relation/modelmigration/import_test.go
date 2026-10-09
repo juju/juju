@@ -114,6 +114,7 @@ func (s *importSuite) TestImportConsumerRemoteRelationData(c *tc.C) {
 		Endpoints: []relation.ImportEndpoint{{
 			ApplicationName:     eps[0].ApplicationName,
 			EndpointName:        eps[0].EndpointName,
+			ConsumerProxy:       true,
 			ApplicationSettings: map[string]any{},
 			UnitSettings:        map[string]map[string]any{},
 		}, {
@@ -256,6 +257,7 @@ func (s *importSuite) TestImportConsumerRemoteRelationDataWithOtherRelations(c *
 		Endpoints: []relation.ImportEndpoint{{
 			ApplicationName:     eps0[0].ApplicationName,
 			EndpointName:        eps0[0].EndpointName,
+			ConsumerProxy:       true,
 			ApplicationSettings: map[string]any{},
 			UnitSettings:        map[string]map[string]any{},
 		}, {
@@ -467,6 +469,7 @@ func (s *importSuite) TestImportConsumerProxyAndOffererRemoteRelation(c *tc.C) {
 		}, {
 			ApplicationName:     "dummy-sink",
 			EndpointName:        "source",
+			ConsumerProxy:       true,
 			ApplicationSettings: map[string]any{},
 			UnitSettings:        map[string]map[string]any{},
 		}},

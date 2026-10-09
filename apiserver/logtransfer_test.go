@@ -4,9 +4,11 @@
 package apiserver
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
@@ -17,6 +19,8 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelmigration"
+	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -218,4 +222,126 @@ func (s *migrationLogTransferSuite) TestWriteLogStampsMigratedModel(c *tc.C) {
 
 	tc.Assert(c, len(writer.records), tc.Equals, 1)
 	tc.Check(c, writer.records[0].ModelUUID, tc.Equals, modelUUID.String())
+}
+
+type logWriterFunc func([]corelogger.LogRecord) error
+
+func (f logWriterFunc) Log(records []corelogger.LogRecord) error {
+	return f(records)
+}
+
+type recordingDomainServicesGetter struct {
+	modelUUID coremodel.UUID
+	err       error
+}
+
+func (g *recordingDomainServicesGetter) ServicesForModel(
+	_ context.Context, modelUUID coremodel.UUID,
+) (services.DomainServices, error) {
+	g.modelUUID = modelUUID
+	return nil, g.err
+}
+
+type migrationLoggingStrategySuite struct{}
+
+func TestMigrationLoggingStrategySuite(t *testing.T) {
+	tc.Run(t, &migrationLoggingStrategySuite{})
+}
+
+func (s *migrationLoggingStrategySuite) newStrategy(
+	c *tc.C,
+	setter func(context.Context, time.Time) error,
+	writer corelogger.LogWriter,
+) *migrationLoggingStrategy {
+	return &migrationLoggingStrategy{
+		recordLogWriter:        writer,
+		setLastLogTransferTime: setter,
+		modelUUID:              coremodel.UUID("7220fe1f-96c8-4c1e-ba1a-9d0000000000"),
+		requestContext:         c.Context(),
+	}
+}
+
+func (s *migrationLoggingStrategySuite) recordAt(t time.Time) params.LogRecord {
+	return params.LogRecord{
+		Time:    t,
+		Entity:  "unit-foo/0",
+		Level:   "INFO",
+		Module:  "juju.worker",
+		Message: "a log message",
+	}
+}
+
+func (s *migrationLoggingStrategySuite) TestInitUsesMigrationModelHeader(c *tc.C) {
+	expectedModelUUID := coremodel.UUID("7220fe1f-96c8-4c1e-ba1a-9d0000000000")
+	getter := &recordingDomainServicesGetter{err: internalerrors.New("stop")}
+	ctxt := httpContext{srv: &Server{shared: &sharedServerContext{
+		domainServicesGetter: getter,
+	}}}
+	req := httptest.NewRequest("GET", "/migrate/logtransfer", nil)
+	req.Header.Set(params.MigrationModelHTTPHeader, expectedModelUUID.String())
+	req.Header.Set(params.JujuClientVersion, "5.0.0")
+	req = req.WithContext(httpcontext.SetContextModelUUID(
+		req.Context(), coremodel.UUID("controller-model-uuid"),
+	))
+
+	err := new(migrationLoggingStrategy).init(ctxt, req)
+	c.Assert(err, tc.ErrorIs, getter.err)
+	c.Check(getter.modelUUID, tc.Equals, expectedModelUUID)
+}
+
+func (s *migrationLoggingStrategySuite) TestWriteLogTracksEveryPeriod(c *tc.C) {
+	var tracked []time.Time
+	strategy := s.newStrategy(c, func(_ context.Context, t time.Time) error {
+		tracked = append(tracked, t)
+		return nil
+	}, logWriterFunc(func([]corelogger.LogRecord) error { return nil }))
+
+	base := time.Date(2026, 9, 27, 6, 23, 24, 0, time.UTC)
+	for _, t := range []time.Time{
+		base,
+		base.Add(time.Minute),
+		base.Add(2 * time.Minute),
+	} {
+		c.Assert(strategy.WriteLog(s.recordAt(t)), tc.ErrorIsNil)
+	}
+
+	c.Assert(tracked, tc.DeepEquals, []time.Time{
+		base,
+		base.Add(2 * time.Minute),
+	})
+}
+
+func (s *migrationLoggingStrategySuite) TestWriteLogDoesNotTrackZeroTime(c *tc.C) {
+	tracked := false
+	strategy := s.newStrategy(c, func(context.Context, time.Time) error {
+		tracked = true
+		return nil
+	}, logWriterFunc(func([]corelogger.LogRecord) error { return nil }))
+
+	err := strategy.WriteLog(s.recordAt(time.Time{}))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tracked, tc.IsFalse)
+}
+
+func (s *migrationLoggingStrategySuite) TestWriteLogFailureDoesNotTrack(c *tc.C) {
+	expected := internalerrors.New("boom")
+	tracked := false
+	strategy := s.newStrategy(c, func(context.Context, time.Time) error {
+		tracked = true
+		return nil
+	}, logWriterFunc(func([]corelogger.LogRecord) error { return expected }))
+
+	err := strategy.WriteLog(s.recordAt(time.Now()))
+	c.Assert(err, tc.ErrorIs, expected)
+	c.Check(tracked, tc.IsFalse)
+}
+
+func (s *migrationLoggingStrategySuite) TestTrackingFailureFailsWrite(c *tc.C) {
+	expected := internalerrors.New("boom")
+	strategy := s.newStrategy(c, func(context.Context, time.Time) error {
+		return expected
+	}, logWriterFunc(func([]corelogger.LogRecord) error { return nil }))
+
+	err := strategy.WriteLog(s.recordAt(time.Now()))
+	c.Assert(err, tc.ErrorIs, expected)
 }

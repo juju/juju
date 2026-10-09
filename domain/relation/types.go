@@ -316,6 +316,13 @@ type ImportEndpoint struct {
 	ApplicationName string
 	// The application's endpoint name for this end of the relation.
 	EndpointName string
+	// ConsumerProxy is true when the endpoint belongs to a legacy consumer
+	// proxy application. The cross model relation import represents every
+	// additional offer connection of such an application with a freshly
+	// named synthetic application, so the endpoint is located in the
+	// relation by endpoint name, and its application and units are
+	// resolved from the relation rather than by the legacy proxy name.
+	ConsumerProxy bool
 	// UnitSettings is a map by unit name containing a map of key value pairs
 	// comprising that unit's settings.
 	UnitSettings map[string]map[string]any

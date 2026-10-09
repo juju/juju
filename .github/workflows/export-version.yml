@@ -21,6 +21,9 @@ jobs:
           go-version-file: "go.mod"
           cache: false
 
+      - name: Check released versions frozen
+        run: ./.github/check-export-version-frozen.sh
+
       - name: Check freshness
         run: ./.github/check-export-version-freshness.sh
 
