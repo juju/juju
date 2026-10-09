@@ -472,7 +472,8 @@ func (k *kubernetesClient) Bootstrap(ctx environs.BootstrapContext, args environ
 			return errors.Trace(err)
 		}
 
-		logger.Debugf(ctx, "controller pod config: \n%+v", pcfg)
+		logger.Debugf(ctx, "controller pod config: name %q, id %q, version %v",
+			pcfg.ControllerName, pcfg.ControllerId, pcfg.JujuVersion)
 
 		// we use controller name to name controller namespace in bootstrap time.
 		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {

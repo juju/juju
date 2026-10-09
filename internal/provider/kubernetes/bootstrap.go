@@ -721,7 +721,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 		spec.SetAnnotations(controllerSvcSpec.Annotations.ToMap())
 	}
 
-	logger.Debugf(context.TODO(), "creating controller service: \n%+v", spec)
+	logger.Debugf(ctx, "creating controller service %q", svcName)
 	if _, err := c.broker.ensureK8sService(ctx, spec); err != nil {
 		return errors.Trace(err)
 	}
@@ -800,7 +800,7 @@ func (c *controllerStack) createControllerHeadlessService(ctx context.Context) e
 		},
 	}
 
-	logger.Debugf(ctx, "creating controller headless service: \n%+v", spec)
+	logger.Debugf(ctx, "creating controller headless service %q", svcName)
 	if _, err := c.broker.ensureK8sService(ctx, spec); err != nil {
 		return errors.Trace(err)
 	}
@@ -864,7 +864,7 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams(ctx context.C
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef(context.TODO(), "bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
+	logger.Tracef(context.TODO(), "marshalled bootstrap params: %d bytes", len(bootstrapParamsFileContent))
 
 	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
@@ -872,7 +872,7 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams(ctx context.C
 	}
 	cm.Data[cloudconfig.FileNameBootstrapParams] = string(bootstrapParamsFileContent)
 
-	logger.Tracef(context.TODO(), "creating bootstrap-params configmap: \n%+v", cm)
+	logger.Tracef(context.TODO(), "creating bootstrap-params configmap %q", cm.Name)
 
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
 	c.addCleanUp(func() {
@@ -887,13 +887,13 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef(context.TODO(), "controller agentConfig file content: \n%s", string(agentConfigFileContent))
+	logger.Tracef(context.TODO(), "rendered controller agent config: %d bytes", len(agentConfigFileContent))
 
 	unitAgentConfigFileContent, err := c.unitAgentConfig.Render()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Tracef(context.TODO(), "controller unit agentConfig file content: \n%s", string(unitAgentConfigFileContent))
+	logger.Tracef(context.TODO(), "rendered controller unit agent config: %d bytes", len(unitAgentConfigFileContent))
 
 	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
@@ -903,7 +903,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
 	cm.Data[constants.ControllerNonceConfigMapKey(0)] = c.nonce
 
-	logger.Tracef(context.TODO(), "ensuring agent.conf configmap: \n%+v", cm)
+	logger.Tracef(context.TODO(), "ensuring agent.conf configmap %q", cm.Name)
 	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
 	c.addCleanUp(func() {
 		logger.Debugf(context.TODO(), "deleting %q template-agent.conf", cm.Name)
@@ -1047,7 +1047,8 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 		return errors.Trace(err)
 	}
 
-	logger.Tracef(context.TODO(), "creating controller statefulset: \n%+v", controllerStatefulSet)
+	logger.Tracef(context.TODO(), "creating controller statefulset %q with %d replicas",
+		controllerStatefulSet.Name, numberOfPods)
 	c.addCleanUp(func() {
 		logger.Debugf(ctx, "deleting %q statefulset", controllerStatefulSet.Name)
 		if err := c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name); err != nil {
