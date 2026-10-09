@@ -1539,6 +1539,9 @@ func (a *app) State() (caas.ApplicationState, error) {
 			return caas.ApplicationState{}, errors.Errorf("missing replicas")
 		}
 		state.DesiredReplicas = int(*ss.Spec.Replicas)
+		if ss.Spec.Ordinals != nil {
+			state.StartOrdinal = int(ss.Spec.Ordinals.Start)
+		}
 	case caas.DeploymentStateless:
 		d := resources.NewDeployment(a.client.AppsV1().Deployments(a.namespace), a.namespace, a.name, nil)
 		err := d.Get(context.TODO())

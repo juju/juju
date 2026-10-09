@@ -23,8 +23,6 @@ type Deltas interface {
 	ApplicationAgent(ctx context.Context, src []v4_0_12.ApplicationAgent, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationAgent, error)
 	// ApplicationPlatform: struct shape changed in 4.1.0.
 	ApplicationPlatform(ctx context.Context, src []v4_0_12.ApplicationPlatform, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationPlatform, error)
-	// ApplicationScale: struct shape changed in 4.1.0.
-	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
 	// CharmConfig: struct shape changed in 4.1.0.
 	CharmConfig(ctx context.Context, src []v4_0_12.CharmConfig, model *v4_0_12.ModelExport) ([]v4_1_0.CharmConfig, error)
 	// CharmContainerMount: struct shape changed in 4.1.0.
@@ -59,6 +57,8 @@ type Deltas interface {
 	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
+	// ApplicationScale: struct shape changed in 4.1.0.
+	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1210,10 +1210,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationPlatform delta: %w", err)
 		}
 
-		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale, &src); err != nil {
-			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
-		}
-
 		if dst.CharmConfig, err = d.CharmConfig(ctx, src.CharmConfig, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("CharmConfig delta: %w", err)
 		}
@@ -1280,6 +1276,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("UnitResource delta: %w", err)
+		}
+
+		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {

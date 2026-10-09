@@ -514,7 +514,6 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 				},
 				Channel: channel,
 			},
-			Scale: 1,
 		},
 		units,
 	)
@@ -593,7 +592,6 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 				},
 				Channel: channel,
 			},
-			Scale: 1,
 		},
 		units,
 	)
@@ -657,7 +655,6 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 				},
 				Channel: channel,
 			},
-			Scale: 1,
 		},
 		units,
 	)
@@ -722,7 +719,6 @@ func (s *applicationCreateStorageSuite) TestCreateCAASApplicationStorageInstance
 				},
 				Channel: channel,
 			},
-			Scale: 1,
 		},
 		units,
 	)

@@ -38,7 +38,6 @@ type ProvisionerApplicationService interface {
 	IsCharmAvailable(ctx context.Context, locator applicationcharm.CharmLocator) (bool, error)
 	GetApplicationUUIDByName(ctx context.Context, name string) (coreapplication.UUID, error)
 	GetApplicationConstraints(ctx context.Context, id coreapplication.UUID) (constraints.Value, error)
-	GetApplicationScale(ctx context.Context, appName string) (int, error)
 	GetApplicationCharmOrigin(ctx context.Context, name string) (corecharm.Origin, error)
 	GetCharmModifiedVersion(ctx context.Context, id coreapplication.UUID) (int, error)
 	GetApplicationTrustSetting(ctx context.Context, appName string) (bool, error)
@@ -167,11 +166,6 @@ func (s *provisionerFacadeShim) ProvisioningInfo(ctx context.Context, appName st
 
 	caCert, _ := cfg.CACert()
 
-	scale, err := s.appSvc.GetApplicationScale(ctx, appName)
-	if err != nil {
-		return provisionertypes.ProvisioningInfo{}, errors.Annotatef(err, "getting application scale for %q", appName)
-	}
-
 	origin, err := s.appSvc.GetApplicationCharmOrigin(ctx, appName)
 	if err != nil {
 		return provisionertypes.ProvisioningInfo{}, errors.Annotatef(err, "getting charm origin for %q", appName)
@@ -219,7 +213,6 @@ func (s *provisionerFacadeShim) ProvisioningInfo(ctx context.Context, appName st
 		ImageDetails:         convertToDockerImageDetails(docker.ConvertToResourceImageDetails(imageRepoDetails), modelImagePath),
 		CharmModifiedVersion: charmModifiedVersion,
 		Trust:                trustSetting,
-		Scale:                scale,
 	}, nil
 }
 
@@ -311,7 +304,8 @@ func (s *provisionerFacadeShim) DestroyUnits(ctx context.Context, unitNames []st
 		} else if err != nil {
 			return errors.Annotatef(err, "getting unit UUID for %q", unitName)
 		}
-
+		// Retry even if a unit job already exists: its dependent removal jobs
+		// may not have been scheduled before the previous attempt failed.
 		_, err = s.removalSvc.RemoveUnit(ctx, unitUUID, false, false, 0)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			continue

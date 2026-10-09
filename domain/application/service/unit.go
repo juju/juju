@@ -44,7 +44,11 @@ type UnitState interface {
 
 	// AddCAASUnits adds the specified units to the application, returning their
 	// names.
-	AddCAASUnits(context.Context, coreapplication.UUID, ...application.AddCAASUnitArg) ([]coreunit.Name, error)
+	AddCAASUnits(context.Context, string, ...applicationinternal.AddCAASUnitArg) ([]string, error)
+
+	// CompleteCAASUnitStorage completes storage for the specified existing CAAS
+	// units. It does not create units.
+	CompleteCAASUnitStorage(context.Context, string, ...applicationinternal.CompleteCAASUnitStorageArg) error
 
 	// GetCAASUnitRegistered checks if a caas unit by the provided name is
 	// already registered in the model. False is returned when no unit exists,

@@ -148,15 +148,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Errorf("importing application settings: %w", err)
 		}
 
-		scaleState := application.ScaleState{
-			Scale: app.DesiredScale(),
-		}
-
-		if provisioningState := app.ProvisioningState(); provisioningState != nil {
-			scaleState.Scaling = provisioningState.Scaling()
-			scaleState.ScaleTarget = provisioningState.ScaleTarget()
-		}
-
 		endpointBindings, err := i.importEndpointBindings(app, model.Spaces())
 		if err != nil {
 			return errors.Errorf("importing endpoint bindings: %w", err)
@@ -216,7 +207,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			err = i.service.ImportCAASApplication(ctx, app.Name(), service.ImportCAASApplicationArgs{
 				ImportApplicationArgs: args,
 				Units:                 unitArgs,
-				ScaleState:            scaleState,
+				LegacyDesiredScale:    app.DesiredScale(),
 			})
 
 		case coremodel.IAAS:

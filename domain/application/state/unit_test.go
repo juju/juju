@@ -46,6 +46,17 @@ type unitStateSuite struct {
 	state *State
 }
 
+func scalarCAASUnitArg(arg application.AddCAASUnitArg) applicationinternal.AddCAASUnitArg {
+	return applicationinternal.AddCAASUnitArg{
+		UnitUUID:    arg.UnitUUID.String(),
+		NetNodeUUID: arg.NetNodeUUID.String(),
+		UnitStorage: arg.CreateUnitStorageArg,
+		UnitStatus:  arg.UnitStatusArg,
+		Constraints: arg.Constraints,
+		K8sPod:      arg.K8sPod,
+	}
+}
+
 func TestUnitStateSuite(t *stdtesting.T) {
 	tc.Run(t, &unitStateSuite{})
 }
@@ -241,24 +252,36 @@ func (s *unitStateSuite) TestUpdateCAASUnitStatuses(c *tc.C) {
 	)
 }
 
-func (s *unitStateSuite) reserveCAASUnit(c *tc.C, appUUID coreapplication.UUID, name coreunit.Name) {
-	_, err := s.state.AddCAASUnits(c.Context(), appUUID, application.AddCAASUnitArg{
-		AddUnitArg: application.AddUnitArg{
-			UnitUUID:    tc.Must(c, coreunit.NewUUID),
-			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
-		},
-		ReservedName: name,
+func (s *unitStateSuite) addCAASUnit(c *tc.C, appUUID coreapplication.UUID) coreunit.Name {
+	names, err := s.state.AddCAASUnits(c.Context(), appUUID.String(), applicationinternal.AddCAASUnitArg{
+		UnitUUID:    tc.Must(c, coreunit.NewUUID).String(),
+		NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(names, tc.HasLen, 1)
+	return coreunit.Name(names[0])
+}
+
+func (s *unitStateSuite) TestCompleteCAASUnitStorageDoesNotCreateUnit(c *tc.C) {
+	appUUID := s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+
+	unitName := coreunit.Name("bar/0")
+	err := s.state.CompleteCAASUnitStorage(c.Context(), appUUID.String(), applicationinternal.CompleteCAASUnitStorageArg{
+		ExistingUnitUUID: tc.Must(c, coreunit.NewUUID).String(),
+		UnitUUID:         tc.Must(c, coreunit.NewUUID).String(),
+		NetNodeUUID:      tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+
+	var unitCount int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM unit WHERE name = ?", unitName).Scan(&unitCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitCount, tc.Equals, 0)
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	appUUID := s.createCAASScalingApplication(c, "bar", life.Alive, 1)
-	s.reserveCAASUnit(c, appUUID, "bar/0")
-
-	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
-	c.Assert(err, tc.ErrorIsNil)
+	s.addCAASUnit(c, appUUID)
 
 	p := application.RegisterCAASUnitArg{
 		UnitUUID:     tc.Must(c, coreunit.NewUUID),
@@ -270,7 +293,7 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 		OrderedScale: true,
 		OrderedId:    0,
 	}
-	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	err := s.state.RegisterCAASUnit(c.Context(), "bar", p)
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.assertCAASUnit(c, "bar/0", "passwordhash", "10.6.6.6/8", []string{"0"})
@@ -278,19 +301,16 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 
 func (s *unitStateSuite) TestFailedMiddlePodIntroductionLeavesReservedUnit(c *tc.C) {
 	appUUID := s.createCAASScalingApplication(c, "bar", life.Alive, 3)
-	args := make([]application.AddCAASUnitArg, 3)
-	for ordinal := range args {
-		args[ordinal] = application.AddCAASUnitArg{
-			AddUnitArg: application.AddUnitArg{
-				UnitUUID:    tc.Must(c, coreunit.NewUUID),
-				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
-			},
-			ReservedName: coreunit.Name(fmt.Sprintf("bar/%d", ordinal)),
+	args := make([]applicationinternal.AddCAASUnitArg, 3)
+	for i := range args {
+		args[i] = applicationinternal.AddCAASUnitArg{
+			UnitUUID:    tc.Must(c, coreunit.NewUUID).String(),
+			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
 		}
 	}
-	names, err := s.state.AddCAASUnits(c.Context(), appUUID, args...)
+	names, err := s.state.AddCAASUnits(c.Context(), appUUID.String(), args...)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(names, tc.DeepEquals, []coreunit.Name{"bar/0", "bar/1", "bar/2"})
+	c.Check(names, tc.DeepEquals, []string{"bar/0", "bar/1", "bar/2"})
 
 	fqdn := "already-assigned.example.com"
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -327,25 +347,18 @@ func (s *unitStateSuite) TestFailedMiddlePodIntroductionLeavesReservedUnit(c *tc
 	c.Check(pods, tc.Equals, 1)
 	c.Check(pending, tc.Equals, 1)
 
-	names, err = s.state.AddCAASUnits(c.Context(), appUUID, args...)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(names, tc.HasLen, 0)
-	names, err = s.state.AddCAASUnits(c.Context(), appUUID, application.AddCAASUnitArg{
-		AddUnitArg: application.AddUnitArg{
-			UnitUUID:    tc.Must(c, coreunit.NewUUID),
-			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
-		},
+	names, err = s.state.AddCAASUnits(c.Context(), appUUID.String(), applicationinternal.AddCAASUnitArg{
+		UnitUUID:    tc.Must(c, coreunit.NewUUID).String(),
+		NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(names, tc.DeepEquals, []coreunit.Name{"bar/3"})
+	c.Check(names, tc.DeepEquals, []string{"bar/3"})
 }
 
 func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
 	appUUID := s.createCAASScalingApplication(c, "bar", life.Alive, 2)
-	s.reserveCAASUnit(c, appUUID, "bar/1")
-
-	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "bar", 2, 1, true)
-	c.Assert(err, tc.ErrorIsNil)
+	s.addCAASUnit(c, appUUID)
+	s.addCAASUnit(c, appUUID)
 
 	newArg := func(name coreunit.Name, ordinal int) application.RegisterCAASUnitArg {
 		return application.RegisterCAASUnitArg{
@@ -360,11 +373,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
 		}
 	}
 
-	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/1", 1))
+	err := s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/1", 1))
 	c.Assert(err, tc.ErrorIsNil)
-
-	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/0", 0))
-	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 
 	err = s.state.RegisterCAASUnit(c.Context(), "bar", newArg("bar/3", 3))
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
@@ -372,11 +382,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitOrdinalRange(c *tc.C) {
 
 func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
 	appUUID := s.createCAASScalingApplication(c, "bar", life.Alive, 1)
-	s.reserveCAASUnit(c, appUUID, "bar/0")
-
-	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
-	c.Assert(err, tc.ErrorIsNil)
+	s.addCAASUnit(c, appUUID)
 
 	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
 	p := application.RegisterCAASUnitArg{
@@ -390,7 +396,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
 		OrderedId:    0,
 		FQDN:         &fqdn,
 	}
-	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	err := s.state.RegisterCAASUnit(c.Context(), "bar", p)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The FQDN is persisted as a local-cloud fqdn_address row linked to the
@@ -419,15 +425,12 @@ WHERE  u.name = ?`, "bar/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
 // error rather than silently reused: a given pod FQDN identifies one unit.
 func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
 	appUUID := s.createCAASScalingApplication(c, "bar", life.Alive, 1)
-	s.reserveCAASUnit(c, appUUID, "bar/0")
-
-	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
-	c.Assert(err, tc.ErrorIsNil)
+	s.addCAASUnit(c, appUUID)
 
 	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
 
 	// Seed a pre-existing fqdn_address row with the same address.
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx,
 			"INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)",
 			"existing-fqdn-uuid", fqdn, 1,
@@ -528,10 +531,6 @@ func (s *unitStateSuite) TestRegisterCAASUnitErrorNotScaling(c *tc.C) {
 func (s *unitStateSuite) TestRegisterCAASUnitErrorOutsideTargetScale(c *tc.C) {
 	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 
-	// Allow scaling.
-	err := s.state.SetApplicationScalingState(c.Context(), "foo", 1, true)
-	c.Assert(err, tc.ErrorIsNil)
-
 	// Try to create a unit with a higher ordinal number than the desired scale.
 	p := application.RegisterCAASUnitArg{
 		UnitName:     "foo/2",
@@ -542,7 +541,7 @@ func (s *unitStateSuite) TestRegisterCAASUnitErrorOutsideTargetScale(c *tc.C) {
 		OrderedScale: true,
 		OrderedId:    2,
 	}
-	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	err := s.state.RegisterCAASUnit(c.Context(), "foo", p)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 
 	// Assert the unit does not exist.
@@ -688,18 +687,8 @@ func (s *unitStateSuite) TestRegisterCAASUnitApplicationNotAlive(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
-func (s *unitStateSuite) TestRegisterCAASUnitExceedsScale(c *tc.C) {
-	appUUID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-UPDATE application_scale
-SET scale = ?, scale_target = ?
-WHERE application_uuid = ?`, 1, 3, appUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
+func (s *unitStateSuite) TestRegisterCAASUnitUnreservedIdentity(c *tc.C) {
+	s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	p := application.RegisterCAASUnitArg{
 		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "foo/2",
@@ -711,22 +700,14 @@ WHERE application_uuid = ?`, 1, 3, appUUID)
 		OrderedId:    2,
 	}
 
-	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	err := s.state.RegisterCAASUnit(c.Context(), "foo", p)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
-func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleWhileScalingWithoutError(c *tc.C) {
+func (s *unitStateSuite) TestRegisterCAASUnitCanAttachReservedPendingIdentity(c *tc.C) {
 	appUUID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
-	s.reserveCAASUnit(c, appUUID, "foo/2")
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-UPDATE application_scale
-SET scaling = ?, scale = ?, scale_target = ?
-WHERE application_uuid = ?`, true, 1, 3, appUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
+	s.addCAASUnit(c, appUUID)
+	s.addCAASUnit(c, appUUID)
 
 	p := application.RegisterCAASUnitArg{
 		UnitUUID:     tc.Must(c, coreunit.NewUUID),
@@ -739,22 +720,12 @@ WHERE application_uuid = ?`, true, 1, 3, appUUID)
 		OrderedId:    2,
 	}
 
-	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	err := s.state.RegisterCAASUnit(c.Context(), "foo", p)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *unitStateSuite) TestRegisterCAASUnitExceedsScaleTarget(c *tc.C) {
-	appUUID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
-
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-UPDATE application_scale
-SET scaling = ?, scale = ?, scale_target = ?
-WHERE application_uuid = ?`, true, 3, 1, appUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
+func (s *unitStateSuite) TestRegisterCAASUnitCannotAttachUnreservedIdentity(c *tc.C) {
+	s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	p := application.RegisterCAASUnitArg{
 		UnitUUID:     tc.Must(c, coreunit.NewUUID),
 		UnitName:     "foo/2",
@@ -766,7 +737,7 @@ WHERE application_uuid = ?`, true, 3, 1, appUUID)
 		OrderedId:    2,
 	}
 
-	err = s.state.RegisterCAASUnit(c.Context(), "foo", p)
+	err := s.state.RegisterCAASUnit(c.Context(), "foo", p)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 }
 
@@ -970,11 +941,11 @@ func (s *unitStateSuite) TestAddCAASUnits(c *tc.C) {
 		},
 	}
 
-	unitNames, err := s.state.AddCAASUnits(c.Context(), appID, u)
+	unitNames, err := s.state.AddCAASUnits(c.Context(), appID.String(), scalarCAASUnitArg(u))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(unitNames, tc.HasLen, 1)
 	unitName := unitNames[0]
-	c.Check(unitName, tc.Equals, coreunit.Name("foo/0"))
+	c.Check(unitName, tc.Equals, "foo/0")
 
 	var unitUUID string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1015,32 +986,35 @@ INSERT INTO charm_storage (charm_uuid, name, description, storage_kind_id,
 VALUES (?, 'data', 'data', 1, false, false, 1, 1, 1024, '/')`, charmID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitName := coreunit.Name("foo/4")
 	placeholder := application.AddCAASUnitArg{
-		AddUnitArg:   application.AddUnitArg{UnitUUID: unitID, NetNodeUUID: netNodeID},
-		ReservedName: unitName,
+		AddUnitArg: application.AddUnitArg{UnitUUID: unitID, NetNodeUUID: netNodeID},
 	}
-	created, err := s.state.AddCAASUnits(c.Context(), appID, placeholder)
+	created, err := s.state.AddCAASUnits(c.Context(), appID.String(), scalarCAASUnitArg(placeholder))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(created, tc.DeepEquals, []coreunit.Name{unitName})
+	c.Assert(created, tc.HasLen, 1)
+	unitName := created[0]
 
 	storageID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
-	complete := placeholder
-	complete.StorageDirectives = []domainstorage.DirectiveArg{{
+	complete := applicationinternal.CompleteCAASUnitStorageArg{
+		ExistingUnitUUID: unitID.String(),
+		UnitUUID:         unitID.String(),
+		NetNodeUUID:      netNodeID.String(),
+		UnitStorage:      placeholder.CreateUnitStorageArg,
+	}
+	complete.UnitStorage.StorageDirectives = []domainstorage.DirectiveArg{{
 		Name: "data", PoolUUID: poolID, Size: 1024, Count: 1,
 	}}
-	complete.StorageInstances = []domainstorage.CreateUnitStorageInstanceArg{{
+	complete.UnitStorage.StorageInstances = []domainstorage.CreateUnitStorageInstanceArg{{
 		UUID: storageID, CharmName: "foo", Kind: domainstorage.StorageKindFilesystem,
 		Name: "data", RequestSizeMiB: 1024, StoragePoolUUID: poolID,
 	}}
-	complete.StorageToAttach = []domainstorage.CreateUnitStorageAttachmentArg{{
+	complete.UnitStorage.StorageToAttach = []domainstorage.CreateUnitStorageAttachmentArg{{
 		UUID: tc.Must(c, domainstorage.NewStorageAttachmentUUID), StorageInstanceUUID: storageID,
 	}}
-	complete.StorageToOwn = []domainstorage.StorageInstanceUUID{storageID}
+	complete.UnitStorage.StorageToOwn = []domainstorage.StorageInstanceUUID{storageID}
 	for range 2 {
-		created, err = s.state.AddCAASUnits(c.Context(), appID, complete)
+		err = s.state.CompleteCAASUnitStorage(c.Context(), appID.String(), complete)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(created, tc.HasLen, 0)
 	}
 
 	for _, table := range []string{"unit_storage_directive", "storage_unit_owner", "storage_attachment"} {
@@ -1053,7 +1027,7 @@ VALUES (?, 'data', 'data', 1, false, false, 1, 1, 1024, '/')`, charmID)
 	}
 	var gotUnitID string
 	err = s.DB().QueryRowContext(c.Context(),
-		"SELECT uuid FROM unit WHERE name = ?", unitName.String(),
+		"SELECT uuid FROM unit WHERE name = ?", unitName,
 	).Scan(&gotUnitID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotUnitID, tc.Equals, unitID.String())
@@ -1134,7 +1108,7 @@ SELECT charm_uuid FROM application WHERE uuid = ?
 		},
 	}
 
-	_, err = s.state.AddCAASUnits(c.Context(), appID, u)
+	_, err = s.state.AddCAASUnits(c.Context(), appID.String(), scalarCAASUnitArg(u))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 

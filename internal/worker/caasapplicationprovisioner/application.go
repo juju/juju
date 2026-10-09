@@ -212,14 +212,6 @@ func (a *appWorker) loop() error {
 	var replicaChanges watcher.NotifyChannel
 	var lastReportedStatus UpdateStatusState
 
-	appScaleWatcher, err := a.applicationService.WatchApplicationScale(ctx, name)
-	if err != nil {
-		return errors.Annotatef(err, "creating application %q scale watcher", name)
-	}
-	if err := a.catacomb.Add(appScaleWatcher); err != nil {
-		return errors.Annotatef(err, "failed to watch for application %q scale changes", name)
-	}
-
 	appSettingsWatcher, err := a.applicationService.WatchApplicationSettings(ctx, name)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q trust watcher", name)
@@ -244,7 +236,6 @@ func (a *appWorker) loop() error {
 		scaleTries          int
 		trustChan           <-chan time.Time
 		trustTries          int
-		reconcileDeadChan   <-chan time.Time
 		stateAppChangedChan <-chan time.Time
 	)
 	const (
@@ -255,6 +246,12 @@ func (a *appWorker) loop() error {
 	// shouldRefresh lives outside the loop so routeToDeadCleanup and the
 	// case bodies share one flag; the loop resets it on every iteration.
 	shouldRefresh := true
+	queueScale := func() {
+		if scaleChan == nil {
+			scaleTries = 0
+			scaleChan = a.clock.After(0)
+		}
+	}
 
 	// routeToDeadCleanup arms the dead cleanup path. handleChange re-reads
 	// the application life on entry and maps a missing application to
@@ -278,17 +275,9 @@ func (a *appWorker) loop() error {
 
 		if initial {
 			initial = false
-			ps, err := a.applicationService.GetApplicationScalingState(ctx, name)
-			// A forced removal can delete the rows mid-read; the zero
-			// scaling state skips this block and the Dead path below
-			// removes the k8s resources.
-			if err != nil && !appRemovedFromState(err) {
-				return errors.Trace(err)
-			}
-			if ps.Scaling {
-				scaleChan = a.clock.After(0)
-				reconcileDeadChan = a.clock.After(0)
-			}
+			// Reconcile from current unit intent on every worker start; no
+			// durable scaling flag is needed to recover interrupted work.
+			queueScale()
 		}
 		switch appLife {
 		case life.Alive:
@@ -363,15 +352,6 @@ func (a *appWorker) loop() error {
 	for {
 		shouldRefresh = true
 		select {
-		case _, ok := <-appScaleWatcher.Changes():
-			if !ok {
-				return fmt.Errorf("application %q scale watcher closed channel", name)
-			}
-			if scaleChan == nil {
-				scaleTries = 0
-				scaleChan = a.clock.After(0)
-			}
-			shouldRefresh = false
 		case <-scaleChan:
 			if !ready {
 				scaleChan = a.clock.After(retryDelay)
@@ -455,28 +435,8 @@ func (a *appWorker) loop() error {
 			if !ok {
 				return fmt.Errorf("application %q units watcher closed channel", name)
 			}
-			if reconcileDeadChan == nil {
-				reconcileDeadChan = a.clock.After(0)
-			}
+			queueScale()
 			shouldRefresh = false
-		case <-reconcileDeadChan:
-			err := a.ops.ReconcileDeadUnitScale(ctx, name, a.appUUID, app,
-				a.facade, a.applicationService, a.logger)
-			if errors.Is(err, errors.NotFound) {
-				reconcileDeadChan = a.clock.After(retryDelay)
-				shouldRefresh = false
-			} else if errors.Is(err, tryAgain) {
-				reconcileDeadChan = a.clock.After(retryDelay)
-				shouldRefresh = false
-			} else if appRemovedFromState(err) {
-				// Run the dead cleanup path so k8s resources are removed.
-				routeToDeadCleanup()
-				reconcileDeadChan = nil
-			} else if err != nil {
-				return fmt.Errorf("reconciling dead unit scale: %w", err)
-			} else {
-				reconcileDeadChan = nil
-			}
 		case <-a.catacomb.Dying():
 			return a.catacomb.ErrDying()
 		case <-appProvisionChanges:
@@ -521,6 +481,7 @@ func (a *appWorker) loop() error {
 			} else if err != nil {
 				return errors.Trace(err)
 			}
+			queueScale()
 		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
 			lastReportedStatus, err = a.ops.UpdateState(
@@ -533,12 +494,13 @@ func (a *appWorker) loop() error {
 			} else if err != nil {
 				return errors.Trace(err)
 			}
+			queueScale()
 		case <-refreshTimer.Chan():
 			// Force refresh of application status.
 		case reportRequest := <-a.engineReportRequest:
 			// Respond to engine reports.
 			var reportErrors []string
-			ps, err := a.applicationService.GetApplicationScalingState(reportRequest.ctx, name)
+			scale, err := a.applicationService.GetApplicationScale(reportRequest.ctx, name)
 			if err != nil {
 				reportErrors = append(reportErrors, err.Error())
 			}
@@ -546,8 +508,7 @@ func (a *appWorker) loop() error {
 				"application-uuid": a.appUUID,
 				"application-name": name,
 				"application-life": a.life,
-				"scale-target":     ps.ScaleTarget,
-				"scaling":          ps.Scaling,
+				"scale":            scale,
 				"report-error":     reportErrors,
 			}
 			select {
