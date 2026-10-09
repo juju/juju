@@ -7,6 +7,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
@@ -252,7 +253,7 @@ func (s *sshJumpSuite) TestSSHShowsJumpCommand(c *tc.C) {
 	sshCtx.EXPECT().GetStdout().Return(buffer)
 
 	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Equals, "ssh -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" ubuntu@resolved-target echo \"hello world\"\n")
+	c.Check(buffer.String(), tc.Equals, "ssh -o 'ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1' ubuntu@resolved-target echo \"hello world\"\n")
 }
 
 func (s *sshJumpSuite) TestSSHShowsJumpKey(c *tc.C) {
@@ -278,7 +279,7 @@ func (s *sshJumpSuite) TestSSHShowsJumpKey(c *tc.C) {
 	sshCtx.EXPECT().GetStdout().Return(buffer)
 
 	c.Assert(jump.ssh(sshCtx, false, target), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Contains, "-o IdentitiesOnly=yes -i '/tmp/custom key' -W")
+	c.Check(buffer.String(), tc.Contains, `-o IdentitiesOnly=yes -i '\''/tmp/custom key'\'' -W`)
 }
 
 func (*sshJumpSuite) TestDefaultSSHIdentityFilesIncludesSecurityKeys(c *tc.C) {
@@ -330,7 +331,7 @@ func (s *sshJumpSuite) TestCopyShowsJumpCommand(c *tc.C) {
 
 	buffer := bytes.NewBuffer(nil)
 	c.Assert(jump.showSCPCommand(buffer, target, []string{"local file", "ubuntu@machine-0:/remote path"}), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" \"local file\" \"ubuntu@machine-0:/remote path\"\n")
+	c.Check(buffer.String(), tc.Equals, "scp -o 'ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1' \"local file\" \"ubuntu@machine-0:/remote path\"\n")
 }
 
 func (s *sshJumpSuite) TestCopyShowsJumpCommandQuotesJumpKey(c *tc.C) {
@@ -345,7 +346,74 @@ func (s *sshJumpSuite) TestCopyShowsJumpCommandQuotesJumpKey(c *tc.C) {
 
 	buffer := bytes.NewBuffer(nil)
 	c.Assert(jump.showSCPCommand(buffer, target, []string{"local", "ubuntu@machine-0:/remote"}), tc.ErrorIsNil)
-	c.Check(buffer.String(), tc.Contains, "-i '/tmp/custom key' -W")
+	c.Check(buffer.String(), tc.Contains, `-i '\''/tmp/custom key'\'' -W`)
+}
+
+func (s *sshJumpSuite) TestShownJumpCommandsPreserveKey(c *tc.C) {
+	script := "#!/bin/sh\nprintf '%s\\000' \"$@\"\n"
+	for _, name := range []string{"ssh", "scp"} {
+		c.Assert(os.WriteFile(filepath.Join(s.binDir, name), []byte(script), 0700), tc.ErrorIsNil)
+	}
+	sshTemplate, err := template.New("ssh").Parse(openSSHTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+	scpTemplate, err := template.New("scp").Parse(openSCPTemplate)
+	c.Assert(err, tc.ErrorIsNil)
+	target := &resolvedTarget{
+		user: finalDestinationUser,
+		host: "resolved-target",
+		via:  &resolvedTarget{user: "fred", host: "1.0.0.1"},
+	}
+
+	for _, key := range []string{
+		"",
+		"/tmp/custom-key",
+		"/tmp/custom key",
+		"/tmp/user's-key",
+		"'quoted'",
+		"/tmp/user's \"custom\" key",
+		`/tmp/back\slash`,
+		"/tmp/$HOME-$(printf expanded)",
+		"/tmp/`printf expanded`",
+		"/tmp/line\nbreak",
+	} {
+		for _, copy := range []bool{false, true} {
+			jump := sshJump{
+				jumpKey:           key,
+				jumpHostPort:      17022,
+				sshOutputTemplate: sshTemplate,
+				scpOutputTemplate: scpTemplate,
+			}
+			var command bytes.Buffer
+			if copy {
+				err = jump.showSCPCommand(&command, target, []string{"local", "ubuntu@resolved-target:/remote"})
+			} else {
+				err = jump.showSSHCommand(&command, target, nil)
+			}
+			c.Assert(err, tc.ErrorIsNil)
+
+			output, err := exec.CommandContext(c.Context(), "/bin/sh", "-c", command.String()).Output()
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("key %q, copy %t", key, copy))
+			args := strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+			c.Assert(len(args) >= 3, tc.IsTrue)
+			c.Check(args[0], tc.Equals, "-o")
+			c.Assert(strings.HasPrefix(args[1], "ProxyCommand="), tc.IsTrue)
+			if copy {
+				c.Check(args[2:], tc.DeepEquals, []string{"local", "ubuntu@resolved-target:/remote"})
+			} else {
+				c.Check(args[2:], tc.DeepEquals, []string{"ubuntu@resolved-target"})
+			}
+
+			proxy := strings.TrimPrefix(args[1], "ProxyCommand=")
+			output, err = exec.CommandContext(c.Context(), "/bin/sh", "-c", proxy).Output()
+			c.Assert(err, tc.ErrorIsNil, tc.Commentf("key %q, copy %t", key, copy))
+			proxyArgs := strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+			expected := []string{"-W", "%h:%p", "-p", "17022", "fred@1.0.0.1"}
+			if key != "" {
+				expected = append([]string{"-o", "IdentitiesOnly=yes", "-i", key}, expected...)
+			}
+			c.Check(proxyArgs, tc.DeepEquals, expected, tc.Commentf("key %q, copy %t", key, copy))
+		}
+	}
 }
 
 func (s *sshJumpSuite) TestCopyShowsJumpCommandThroughCopy(c *tc.C) {
@@ -375,7 +443,7 @@ func (s *sshJumpSuite) TestCopyShowsJumpCommandThroughCopy(c *tc.C) {
 
 	ctx := cmdtesting.Context(c)
 	c.Assert(jump.copy(ctx), tc.ErrorIsNil)
-	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "scp -o \"ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1\" foo.txt ubuntu@machine-0:/tmp/foo.txt\n")
+	c.Check(cmdtesting.Stdout(ctx), tc.Equals, "scp -o 'ProxyCommand=ssh -W %h:%p -p 17022 fred@1.0.0.1' foo.txt ubuntu@machine-0:/tmp/foo.txt\n")
 }
 
 func (*sshJumpSuite) TestCopyShowCommandRequiresRemoteTarget(c *tc.C) {

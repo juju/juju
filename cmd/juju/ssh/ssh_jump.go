@@ -24,6 +24,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
+	"github.com/kballard/go-shellquote"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
@@ -41,11 +42,13 @@ import (
 // finalDestinationUser is the user used on the terminating target.
 const finalDestinationUser = "ubuntu"
 
-const openSSHTemplate = `ssh -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
+const openSSHTemplate = `ssh -o {{.ProxyCommand}} {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
 `
 
-const openSCPTemplate = `scp -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
+const openSCPTemplate = `scp -o {{.ProxyCommand}} {{.Args}}
 `
+
+const proxyCommandTemplate = `ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUserHost}}`
 
 const minSSHJumpFacadeVersion = 6
 
@@ -464,11 +467,12 @@ func (p *sshJump) copy(ctx Context) error {
 }
 
 func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []string) error {
+	proxyCommand, err := p.quotedProxyCommand(target)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return p.sshOutputTemplate.Execute(w, map[string]string{
-		"JumpPort":        strconv.Itoa(p.jumpHostPort),
-		"JumpKey":         quotedJumpKey(p.jumpKey),
-		"JumpUser":        target.via.user,
-		"JumpHost":        target.via.host,
+		"ProxyCommand":    proxyCommand,
 		"DestinationUser": target.user,
 		"VirtualHostname": target.host,
 		"Args":            utils.CommandString(args...),
@@ -476,26 +480,37 @@ func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []str
 }
 
 func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args []string) error {
+	proxyCommand, err := p.quotedProxyCommand(proxyTarget)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return p.scpOutputTemplate.Execute(w, map[string]string{
-		"JumpPort": strconv.Itoa(p.jumpHostPort),
-		"JumpKey":  quotedJumpKey(p.jumpKey),
-		"JumpUser": proxyTarget.via.user,
-		"JumpHost": proxyTarget.via.host,
-		"Args":     utils.CommandString(args...),
+		"ProxyCommand": proxyCommand,
+		"Args":         utils.CommandString(args...),
 	})
 }
 
-// shellQuote returns a POSIX shell-quoted argument. The result is embedded in
-// ProxyCommand and therefore evaluated by the SSH client's shell.
-func shellQuote(arg string) string {
-	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-}
-
-func quotedJumpKey(key string) string {
-	if key == "" {
-		return ""
+func (p *sshJump) quotedProxyCommand(target *resolvedTarget) (string, error) {
+	proxyTemplate, err := template.New("proxy-command").Parse(proxyCommandTemplate)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return shellQuote(key)
+	jumpKey := p.jumpKey
+	if jumpKey != "" {
+		jumpKey = shellquote.Join(jumpKey)
+	}
+	var command bytes.Buffer
+	err = proxyTemplate.Execute(&command, map[string]string{
+		"JumpKey":      jumpKey,
+		"JumpPort":     strconv.Itoa(p.jumpHostPort),
+		"JumpUserHost": shellquote.Join(target.via.userHost()),
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Arguments are quoted for SSH's shell in the template; quote the complete
+	// option for the shell running the displayed command.
+	return shellquote.Join("ProxyCommand=" + command.String()), nil
 }
 
 func (p *sshJump) copyCAAS(ctx Context) error {
