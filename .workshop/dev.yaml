@@ -1,0 +1,5 @@
+name: dev
+base: ubuntu@24.04
+sdks:
+  - name: go
+    channel: "1.27"
