@@ -6,25 +6,33 @@ package modelimport
 import (
 	"context"
 
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
 	"github.com/juju/juju/internal/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // Importer applies a transformed, target-version model-DB payload to the model
 // database. The transformed payload's rows already match the target schema by
 // construction, so the importer bulk-inserts every content table directly.
 type Importer struct {
-	state *importstate.State
+	state   *importstate.State
+	modelDB database.TxnRunnerFactory
 }
 
 // NewImporter returns an [Importer] that writes into the model database
 // reachable through the given transaction-runner factory.
 func NewImporter(modelDB database.TxnRunnerFactory) *Importer {
 	return &Importer{
-		state: importstate.NewState(modelDB),
+		state:   importstate.NewState(modelDB),
+		modelDB: modelDB,
 	}
 }
 
@@ -88,6 +96,27 @@ func (i *Importer) applyPostImportFixups(ctx context.Context, payload latest.Mod
 	}
 	if err := i.state.MergeModelAgentPassword(ctx, payload.ModelAgent[0]); err != nil {
 		return errors.Errorf("merging model agent password: %w", err)
+	}
+	if len(payload.ApplicationScale) == 0 {
+		return nil
+	}
+	appNames := make(map[string]string, len(payload.Application))
+	for _, app := range payload.Application {
+		appNames[app.UUID] = app.Name
+	}
+	log := internallogger.GetLogger("juju.domain.modelimport")
+	appService := applicationservice.NewMigrationService(
+		applicationstate.NewState(i.modelDB, coremodel.UUID(payload.ModelAgent[0].ModelUUID), clock.WallClock, log),
+		clock.WallClock, log,
+	)
+	for _, scale := range payload.ApplicationScale {
+		name, ok := appNames[scale.ApplicationUUID]
+		if !ok {
+			return errors.Errorf("imported scale has no application %q", scale.ApplicationUUID)
+		}
+		if err := appService.ReconcileImportedCAASUnits(ctx, name, true); err != nil {
+			return errors.Errorf("reconciling imported application %q: %w", name, err)
+		}
 	}
 	return nil
 }
