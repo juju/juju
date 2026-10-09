@@ -409,24 +409,38 @@ func (s *ProviderService) AddCAASUnits(
 		return nil, errors.Errorf("pre-checking instances: %w", err)
 	}
 
-	unitNames, err := s.st.AddCAASUnits(ctx, appUUID, args...)
+	stateArgs := make([]applicationinternal.AddCAASUnitArg, len(args))
+	for i, arg := range args {
+		stateArgs[i] = applicationinternal.AddCAASUnitArg{
+			UnitUUID:    arg.UnitUUID.String(),
+			NetNodeUUID: arg.NetNodeUUID.String(),
+			UnitStorage: arg.CreateUnitStorageArg,
+			UnitStatus:  arg.UnitStatusArg,
+			Constraints: arg.Constraints,
+			K8sPod:      arg.K8sPod,
+		}
+	}
+	unitNames, err := s.st.AddCAASUnits(ctx, appUUID.String(), stateArgs...)
 	if err != nil {
 		return nil, errors.Errorf("adding CAAS units to application %q: %w", appName, err)
 	}
+	coreUnitNames := transform.Slice(unitNames, func(name string) coreunit.Name {
+		return coreunit.Name(name)
+	})
 
-	for i, name := range unitNames {
+	for i, name := range coreUnitNames {
 		arg := args[i]
 		if err := s.recordUnitStatusHistory(ctx, name, arg.UnitStatusArg); err != nil {
 			return nil, errors.Errorf("recording status history: %w", err)
 		}
 	}
 
-	return unitNames, nil
+	return coreUnitNames, nil
 }
 
-// ReserveCAASUnits ensures every ordinal in the StatefulSet range has an
-// Alive unit before Kubernetes is asked to start its pod. Existing identities
-// are retained; storage is completed for pending imported units when needed.
+// ReserveCAASUnits completes storage for every existing Alive unit in the
+// StatefulSet range before Kubernetes is asked to start its pod. Scale changes
+// create the identities; reconciliation must not recreate a removed ordinal.
 func (s *ProviderService) ReserveCAASUnits(
 	ctx context.Context, appName string, startOrdinal, scale int,
 ) error {
@@ -464,18 +478,22 @@ func (s *ProviderService) ReserveCAASUnits(
 		}
 		if exists {
 			reserved[i] = caasUnitIdentity{unitUUID: unitUUID, netNodeUUID: netNodeUUID}
+		} else {
+			return errors.Errorf("reserved unit %q is no longer present: %w", name, applicationerrors.UnitNotAssigned)
 		}
 	}
 	args, err := s.makeCAASUnitArgs(ctx, units, storageDirectives, cons, reserved)
 	if err != nil {
 		return errors.Errorf("making CAAS unit args: %w", err)
 	}
+	completeArgs := make([]applicationinternal.CompleteCAASUnitStorageArg, len(args))
 	for i := range args {
-		name, err := coreunit.NewNameFromParts(appName, startOrdinal+i)
-		if err != nil {
-			return errors.Capture(err)
+		completeArgs[i] = applicationinternal.CompleteCAASUnitStorageArg{
+			ExistingUnitUUID: reserved[i].unitUUID.String(),
+			UnitUUID:         args[i].UnitUUID.String(),
+			NetNodeUUID:      args[i].NetNodeUUID.String(),
+			UnitStorage:      args[i].CreateUnitStorageArg,
 		}
-		args[i].ReservedName = name
 	}
 	origin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
 	if err != nil {
@@ -487,18 +505,8 @@ func (s *ProviderService) ReserveCAASUnits(
 	if err := s.precheckInstances(ctx, origin.Platform, preCheckArgs); err != nil {
 		return errors.Errorf("pre-checking instances: %w", err)
 	}
-	inserted, err := s.st.AddCAASUnits(ctx, appUUID, args...)
-	if err != nil {
-		return errors.Errorf("reserving CAAS units for application %q: %w", appName, err)
-	}
-	for _, name := range inserted {
-		index := name.Number() - startOrdinal
-		if index < 0 || index >= len(args) {
-			return errors.Errorf("unexpected reserved unit %q", name)
-		}
-		if err := s.recordUnitStatusHistory(ctx, name, args[index].UnitStatusArg); err != nil {
-			return errors.Errorf("recording status history: %w", err)
-		}
+	if err := s.st.CompleteCAASUnitStorage(ctx, appUUID.String(), completeArgs...); err != nil {
+		return errors.Errorf("completing CAAS unit storage for application %q: %w", appName, err)
 	}
 	return nil
 }
@@ -541,15 +549,7 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 	if err != nil {
 		return false, errors.Capture(err)
 	}
-	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	scaleInfo, err := s.st.GetApplicationScaleState(ctx, appID)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	if unitNum >= scaleInfo.Scale || unitNum >= appState.DesiredReplicas {
+	if unitNum < appState.StartOrdinal || unitNum >= appState.StartOrdinal+appState.DesiredReplicas {
 		restart = false
 	}
 	return restart, nil
@@ -846,7 +846,6 @@ func (s *ProviderService) makeCAASApplicationArg(
 	}
 	addCAASApplicationArg := application.AddCAASApplicationArg{
 		BaseAddApplicationArg: arg,
-		Scale:                 len(units),
 	}
 
 	storageDirectives := storage.MakeStorageDirectiveFromApplicationArg(

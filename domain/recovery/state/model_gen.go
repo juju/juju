@@ -365,17 +365,6 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			},
 		})
 	}
-	if dump.Present["application_scale"] {
-		tables = append(tables, replayTable{
-			name:      "application_scale",
-			deleteSQL: `DELETE FROM "application_scale" AS t`,
-			insertSQL: `INSERT INTO "application_scale" ("application_uuid", "scale", "scale_target", "scaling", "start_ordinal") SELECT $ApplicationScale.application_uuid AS "application_uuid", $ApplicationScale.scale AS "scale", $ApplicationScale.scale_target AS "scale_target", $ApplicationScale.scaling AS "scaling", $ApplicationScale.start_ordinal AS "start_ordinal"`,
-			sample:    exporttypes.ApplicationScale{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationScale, nil)
-			},
-		})
-	}
 	if dump.Present["application_setting"] {
 		tables = append(tables, replayTable{
 			name:      "application_setting",

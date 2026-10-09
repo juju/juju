@@ -845,6 +845,9 @@ func (s *importSuite) TestCAASApplication(c *tc.C) {
 	})
 	app := setupMinimalApplication(desc)
 	app.SetDesiredScale(3)
+	for _, name := range []string{"foo/0", "foo/1", "foo/2"} {
+		app.AddUnit(description.UnitArgs{Name: name, Type: string(model.CAAS)})
+	}
 	desc.SetSequence("application-foo", 3)
 
 	sequencemodelmigration.RegisterImport(s.coordinator)
@@ -893,6 +896,18 @@ func (s *importSuite) TestCAASApplication(c *tc.C) {
 	c.Check(highWater, tc.Equals, 2)
 }
 
+func (s *importSuite) TestCAASApplicationRejectsUnmaterialisedScale(c *tc.C) {
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.CAAS),
+	})
+	app := setupMinimalApplication(desc)
+	app.SetDesiredScale(1)
+
+	applicationmodelmigration.RegisterImport(s.coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := s.coordinator.Perform(c.Context(), s.scope, desc)
+	c.Check(err, tc.ErrorMatches, ".*scale request is not materialised.*")
+}
+
 func (s *importSuite) TestImportCAASUnit(c *tc.C) {
 	desc := description.NewModel(description.ModelArgs{
 		Type: string(model.CAAS),
@@ -902,6 +917,7 @@ func (s *importSuite) TestImportCAASUnit(c *tc.C) {
 		Name:     "foo",
 		CharmURL: "ch:foo-1",
 	})
+	app.SetDesiredScale(2)
 	app.SetCharmOrigin(description.CharmOriginArgs{
 		Source:   "charm-hub",
 		ID:       "deadbeef",
