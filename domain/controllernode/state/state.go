@@ -619,6 +619,7 @@ ORDER BY address.controller_id, address.priority, address.address
 	}
 	var addresses []controllerAddress
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		addresses = nil
 		err := tx.Query(ctx, stmt).GetAll(&addresses)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return controllernodeerrors.EmptyAPIAddresses
@@ -698,6 +699,7 @@ WHERE life_id < 2
 
 	var controllerIDs []controllerID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		controllerIDs = nil
 		err := tx.Query(ctx, stmt).GetAll(&controllerIDs)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return controllernodeerrors.EmptyControllerIDs
