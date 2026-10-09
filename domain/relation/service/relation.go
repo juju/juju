@@ -24,6 +24,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/domain/status"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -56,17 +57,33 @@ type State interface {
 	// by ep1 and ep2 and returns the created endpoints.
 	AddRelation(ctx context.Context, ep1, ep2 relation.CandidateEndpointIdentifier, cidrs ...string) (relation.Endpoint, relation.Endpoint, error)
 
+	// GetSubordinateUnitCreationInfo returns the information required to
+	// make the storage arguments for a subordinate unit, including the
+	// storage directives of the subordinate application, and true, if
+	// entering scope of the given relation with the given unit would create
+	// one. If no subordinate unit would be created, false is returned.
+	GetSubordinateUnitCreationInfo(
+		ctx context.Context,
+		relationUUID corerelation.UUID,
+		unitName unit.Name,
+	) (internal.SubordinateUnitCreationInfo, bool, error)
+
 	// EnterScope indicates that the provided unit has joined the relation. When
 	// the unit has already entered its relation scope, EnterScope will report
 	// success but make no changes to state. The unit's settings are created in
 	// the relation according to the supplied map.
 	// Returns [relationerrors.RelationUnitAlreadyExists] if the unit is already
 	// in the relation.
+	//
+	// If entering scope creates a subordinate unit, its storage is provisioned
+	// using the supplied storage arguments. Zero-value storage arguments mean
+	// that no storage is provisioned.
 	EnterScope(
 		ctx context.Context,
 		relationUUID corerelation.UUID,
 		unitName unit.Name,
 		settings map[string]string,
+		subordinateStorageArgs internal.SubordinateUnitStorageArgs,
 	) (internal.SubordinateUnitStatusHistoryData, error)
 
 	// SetRelationRemoteApplicationAndUnitSettings will set the application and
@@ -253,12 +270,13 @@ type LeadershipService struct {
 // the underlying state.
 func NewLeadershipService(
 	st State,
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider,
 	leaderEnsurer leadership.Ensurer,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service:       NewService(st, statusHistory, logger),
+		Service:       NewService(st, storagePoolProvider, statusHistory, logger),
 		leaderEnsurer: leaderEnsurer,
 	}
 }
@@ -374,19 +392,22 @@ type Service struct {
 	st     State
 	logger logger.Logger
 
-	statusHistory StatusHistory
+	statusHistory       StatusHistory
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider
 }
 
 // NewService returns a new service reference wrapping the input state.
 func NewService(
 	st State,
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *Service {
 	return &Service{
-		st:            st,
-		logger:        logger,
-		statusHistory: statusHistory,
+		st:                  st,
+		logger:              logger,
+		statusHistory:       statusHistory,
+		storagePoolProvider: storagePoolProvider,
 	}
 }
 
@@ -449,7 +470,8 @@ func (s *Service) ApplicationRelationsInfo(
 // report success but make no changes to state, nor trigger a subordinate unit.
 //
 // If there is a subordinate application related to the unit entering scope that
-// needs a subordinate unit created, then the subordinate unit will be created.
+// needs a subordinate unit created, then the subordinate unit will be created,
+// with its storage provisioned using the application's storage directives.
 //
 // The following error types can be expected to be returned:
 //   - [relationerrors.PotentialRelationUnitNotValid] if the unit entering
@@ -477,6 +499,15 @@ func (s *Service) EnterScope(
 		return errors.Capture(err)
 	}
 
+	// If entering scope of the relation creates a subordinate unit, make the
+	// storage arguments for it before entering scope. The checks to create a
+	// subordinate unit are repeated when entering scope, so the storage
+	// arguments are only used if a subordinate unit is actually created.
+	subordinateStorageArgs, err := s.makeSubordinateStorageArgs(ctx, relationUUID, unitName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Enter the unit into the relation scope.
 	warning := func(key string) {
 		s.logger.Warningf(ctx, "dropping empty value for key %q in unit %q settings of relation %q",
@@ -487,6 +518,7 @@ func (s *Service) EnterScope(
 		relationUUID,
 		unitName,
 		ensureNoEmptySettingsValues(warning, settings),
+		subordinateStorageArgs,
 	)
 	if errors.Is(err, relationerrors.RelationUnitAlreadyExists) {
 		return nil
@@ -504,6 +536,62 @@ func (s *Service) EnterScope(
 	}
 
 	return nil
+}
+
+// makeSubordinateStorageArgs returns the storage arguments to use when
+// entering scope of the given relation with the given unit creates a
+// subordinate unit. If no subordinate unit will be created, zero storage
+// arguments are returned.
+//
+// The subordinate unit's storage arguments are made with the storage
+// provisioning package, from the storage directives of the subordinate
+// application read by the state, using the machine net node of the principal
+// unit that will host the subordinate unit. The pool provider is optional:
+// services wired without one, such as the migration import service, may enter
+// scope of relations that do not create subordinate units, but return an
+// error if entering scope would create one.
+//
+// The pre-read races with state changes in the reverse direction too: if
+// it returns false but the authoritative in-transaction checks create a
+// subordinate unit anyway, that unit is created with zero-value storage
+// arguments and no storage is provisioned — the behaviour before
+// subordinate storage was supported. This direction is accepted; guarding
+// it would require making the storage arguments inside the relation
+// transaction, nesting transactions.
+func (s *Service) makeSubordinateStorageArgs(
+	ctx context.Context,
+	relationUUID corerelation.UUID,
+	unitName unit.Name,
+) (internal.SubordinateUnitStorageArgs, error) {
+	creationInfo, createSubordinate, err := s.st.GetSubordinateUnitCreationInfo(ctx, relationUUID, unitName)
+	if err != nil {
+		return internal.SubordinateUnitStorageArgs{}, errors.Errorf(
+			"getting subordinate unit creation info: %w", err)
+	}
+	if !createSubordinate {
+		return internal.SubordinateUnitStorageArgs{}, nil
+	}
+	if s.storagePoolProvider == nil {
+		return internal.SubordinateUnitStorageArgs{}, errors.New(
+			"storage pool provider not configured")
+	}
+
+	unitStorageArgs, iaasUnitStorageArgs, err := domainstorageprovisioning.MakeNewUnitStorageArgs(
+		ctx,
+		s.storagePoolProvider,
+		creationInfo.MachineNetNodeUUID,
+		creationInfo.StorageDirectives,
+	)
+	if err != nil {
+		return internal.SubordinateUnitStorageArgs{}, errors.Errorf(
+			"making storage arguments for subordinate unit of application %q: %w",
+			creationInfo.SubordinateApplicationUUID, err)
+	}
+
+	return internal.SubordinateUnitStorageArgs{
+		UnitStorageArgs:     unitStorageArgs,
+		IAASUnitStorageArgs: iaasUnitStorageArgs,
+	}, nil
 }
 
 // recordUnitStatusHistory records the initial status history for the unit

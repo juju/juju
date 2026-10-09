@@ -4,9 +4,13 @@
 package internal
 
 import (
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
 	domainapplication "github.com/juju/juju/domain/application"
+	domainnetwork "github.com/juju/juju/domain/network"
 	domainrelation "github.com/juju/juju/domain/relation"
+	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 )
 
 // WatcherRelationUnitsData contains data returned by the
@@ -45,4 +49,35 @@ type SubordinateUnitStatusHistoryData struct {
 // new subordinate unit is available, false otherwise.
 func (s SubordinateUnitStatusHistoryData) SubordinateCreated() bool {
 	return s.UnitName != ""
+}
+
+// SubordinateUnitCreationInfo contains the information required to make the
+// storage arguments for a subordinate unit that would be created when a unit
+// enters scope of a container scoped relation.
+type SubordinateUnitCreationInfo struct {
+	// SubordinateApplicationUUID is the UUID of the subordinate application
+	// that the new subordinate unit belongs to.
+	SubordinateApplicationUUID application.UUID
+
+	// MachineNetNodeUUID is the net node UUID of the machine that hosts the
+	// principal unit. Storage for the new subordinate unit is attached to
+	// this net node.
+	MachineNetNodeUUID domainnetwork.NetNodeUUID
+
+	// StorageDirectives are the storage directives set for the subordinate
+	// application. The storage arguments for the new subordinate unit are
+	// made from these directives.
+	StorageDirectives []domainstorageprovisioning.StorageDirective
+}
+
+// SubordinateUnitStorageArgs contains the storage arguments to use when
+// creating a new IAAS subordinate unit.
+type SubordinateUnitStorageArgs struct {
+	// UnitStorageArgs describes the storage directives, instances and
+	// attachments to create for the subordinate unit.
+	UnitStorageArgs domainstorage.CreateUnitStorageArg
+
+	// IAASUnitStorageArgs describes the machine ownership of the storage
+	// entities created for the subordinate unit.
+	IAASUnitStorageArgs domainstorage.CreateIAASUnitStorageArg
 }

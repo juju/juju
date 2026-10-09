@@ -167,24 +167,6 @@ func NewService(st State, storagePoolProvider StoragePoolProvider, logger logger
 	}
 }
 
-// StorageKindFromCharmStorageType provides a mapping from charm storage
-// type to storage kind.
-func StorageKindFromCharmStorageType(
-	storageType charm.StorageType,
-) (domainstorage.StorageKind, error) {
-	switch storageType {
-	case charm.StorageBlock:
-		return domainstorage.StorageKindBlock, nil
-	case charm.StorageFilesystem:
-		return domainstorage.StorageKindFilesystem, nil
-	default:
-		return -1, errors.Errorf(
-			"no mapping exists from charm storage type %q to storage kind",
-			storageType,
-		)
-	}
-}
-
 // MakeRegisterExistingCAASUnitStorageArg is responsible for constructing the
 // storage arguments for registering an existing caas unit in the model. This
 // ends up being a set of arguments that are making sure eventual consistency
@@ -649,61 +631,6 @@ func makeStorageAttachmentArgFromInstanceComposition(
 	return rval, nil
 }
 
-// makeStorageAttachmentArgFromCreateStorageInstance builds the attachment
-// arguments for a newly created storage instance. It maps the instance's
-// filesystem and volume details into a composition and delegates attachment
-// argument creation to [makeStorageAttachmentArgFromInstanceComposition].
-func makeStorageAttachmentArgFromCreateStorageInstance(
-	netNodeUUID domainnetwork.NetNodeUUID,
-	storageInstance domainstorage.CreateUnitStorageInstanceArg,
-) (domainstorage.CreateUnitStorageAttachmentArg, error) {
-	uuid, err := domainstorage.NewStorageAttachmentUUID()
-	if err != nil {
-		return domainstorage.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-			"generating new storage attachment uuid: %w", err,
-		)
-	}
-
-	rval := domainstorage.CreateUnitStorageAttachmentArg{
-		StorageInstanceUUID: storageInstance.UUID,
-		UUID:                uuid,
-	}
-
-	if storageInstance.Filesystem != nil {
-		uuid, err := domainstorage.NewFilesystemAttachmentUUID()
-		if err != nil {
-			return domainstorage.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-				"generating new filesystem attachment uuid: %w", err,
-			)
-		}
-
-		rval.FilesystemAttachment = &domainstorage.CreateUnitStorageFilesystemAttachmentArg{
-			FilesystemUUID: storageInstance.Filesystem.UUID,
-			NetNodeUUID:    netNodeUUID,
-			ProvisionScope: storageInstance.Filesystem.ProvisionScope,
-			UUID:           uuid,
-		}
-	}
-
-	if storageInstance.Volume != nil {
-		uuid, err := domainstorage.NewVolumeAttachmentUUID()
-		if err != nil {
-			return domainstorage.CreateUnitStorageAttachmentArg{}, errors.Errorf(
-				"generating new volume attachment uuid: %w", err,
-			)
-		}
-
-		rval.VolumeAttachment = &domainstorage.CreateUnitStorageVolumeAttachmentArg{
-			VolumeUUID:     storageInstance.Volume.UUID,
-			NetNodeUUID:    netNodeUUID,
-			ProvisionScope: storageInstance.Volume.ProvisionScope,
-			UUID:           uuid,
-		}
-	}
-
-	return rval, nil
-}
-
 // MakeUnitStorageArgs creates the storage arguments required for a unit in
 // the model. This func looks at the set of directives for the unit and the
 // existing storage available. From this any new instances that need to be
@@ -737,10 +664,10 @@ func (s *Service) MakeUnitStorageArgs(
 	// rvalToOwn is the list of storage instance uuid's that the unit must own.
 	rvalToOwn := make([]domainstorage.StorageInstanceUUID, 0, len(storageDirectives))
 
-	// We create a cahced storage pool provider for the scope of this operation.
+	// We create a cached storage pool provider for the scope of this operation.
 	// This exists to reduce load on the controller potentially requesting the
 	// same storage pool provider over and over again.
-	storagePoolProvider := cachedStoragePoolProvider{
+	storagePoolProvider := domainstorageprov.CachedStoragePoolProvider{
 		Cache:               map[domainstorage.StoragePoolUUID]storage.Provider{},
 		StoragePoolProvider: s.storagePoolProvider,
 	}
@@ -776,7 +703,7 @@ func (s *Service) MakeUnitStorageArgs(
 
 		toUse := min(len(existingStorageInstances), maxCount)
 		addCount := sd.Count - min(sd.Count, uint32(toUse)) // We don't want count to underflow.
-		instArgs, err := makeUnitStorageInstancesFromDirective(
+		instArgs, err := domainstorageprov.MakeUnitStorageInstancesFromDirective(
 			ctx,
 			addCount,
 			storagePoolProvider,
@@ -793,7 +720,7 @@ func (s *Service) MakeUnitStorageArgs(
 		rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 		rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 		for _, inst := range instArgs {
-			storageAttachArg, err := makeStorageAttachmentArgFromCreateStorageInstance(
+			storageAttachArg, err := domainstorageprov.MakeStorageAttachmentArgFromCreateStorageInstance(
 				attachNetNodeUUID, inst,
 			)
 
@@ -846,42 +773,10 @@ func (s *Service) MakeUnitStorageArgs(
 // MakeIAASUnitStorageArgs returns [domainstorage.CreateIAASUnitStorageArg] that
 // complement the unit storage arguments provided for IAAS units.
 func (s Service) MakeIAASUnitStorageArgs(
-	_ context.Context,
+	ctx context.Context,
 	storageInst []domainstorage.CreateUnitStorageInstanceArg,
 ) (domainstorage.CreateIAASUnitStorageArg, error) {
-	var arg domainstorage.CreateIAASUnitStorageArg
-	for _, v := range storageInst {
-		// TODO(storage): refactor this to use the storage instance composition
-		// calculated from the storageprovisioning domain.
-		var comp domainstorageprov.StorageInstanceComposition
-		if v.Filesystem != nil {
-			comp.FilesystemRequired = true
-			comp.FilesystemProvisionScope = v.Filesystem.ProvisionScope
-		}
-		if v.Volume != nil {
-			comp.VolumeRequired = true
-			comp.VolumeProvisionScope = v.Volume.ProvisionScope
-		}
-		s, err := domainstorageprov.CalculateStorageInstanceOwnershipScope(
-			comp)
-		if err != nil {
-			return domainstorage.CreateIAASUnitStorageArg{}, errors.Errorf(
-				"calculating storage ownership for storage instance %q: %w",
-				v.UUID, err,
-			)
-		}
-		if s != domainstorageprov.OwnershipScopeMachine {
-			continue
-		}
-		if v.Filesystem != nil {
-			arg.FilesystemsToOwn = append(arg.FilesystemsToOwn,
-				v.Filesystem.UUID)
-		}
-		if v.Volume != nil {
-			arg.VolumesToOwn = append(arg.VolumesToOwn, v.Volume.UUID)
-		}
-	}
-	return arg, nil
+	return domainstorageprov.MakeIAASUnitStorageArgs(ctx, storageInst)
 }
 
 // MakeUnitAddStorageArgs creates the storage arguments required to
@@ -910,12 +805,12 @@ func (s *Service) MakeUnitAddStorageArgs(
 	// We create a cached storage pool provider for the scope of this operation.
 	// This exists to reduce load on the controller potentially requesting the
 	// same storage pool provider over and over again.
-	storagePoolProvider := cachedStoragePoolProvider{
+	storagePoolProvider := domainstorageprov.CachedStoragePoolProvider{
 		Cache:               map[domainstorage.StoragePoolUUID]storage.Provider{},
 		StoragePoolProvider: s.storagePoolProvider,
 	}
 
-	instArgs, err := makeUnitStorageInstancesFromDirective(
+	instArgs, err := domainstorageprov.MakeUnitStorageInstancesFromDirective(
 		ctx,
 		addCount,
 		storagePoolProvider,
@@ -937,7 +832,7 @@ func (s *Service) MakeUnitAddStorageArgs(
 	rvalInstances = slices.Grow(rvalInstances, len(instArgs))
 	rvalToOwn = slices.Grow(rvalToOwn, len(instArgs))
 	for _, inst := range instArgs {
-		storageAttachArg, err := makeStorageAttachmentArgFromCreateStorageInstance(
+		storageAttachArg, err := domainstorageprov.MakeStorageAttachmentArgFromCreateStorageInstance(
 			domainnetwork.NetNodeUUID(attachNetNodeUUID), inst,
 		)
 
@@ -957,99 +852,6 @@ func (s *Service) MakeUnitAddStorageArgs(
 		StorageToAttach:  rvalToAttach,
 		StorageToOwn:     rvalToOwn,
 	}, nil
-}
-
-// makeUnitStorageInstancesFromDirective is responsible for taking a storage
-// directive and creating a set of storage instance args that are capable of
-// fulfilling the requirements of the directive.
-// The directive provides storage defaults including count, but here the
-// caller is specifying the actual count to use.
-func makeUnitStorageInstancesFromDirective(
-	ctx context.Context,
-	count uint32,
-	storagePoolProvider StoragePoolProvider,
-	directive internal.StorageDirective,
-) ([]domainstorage.CreateUnitStorageInstanceArg, error) {
-	// Early exit if no storage instances are to be created. Save's a lot of
-	// busy work that goes unused.
-	if count == 0 {
-		return nil, nil
-	}
-
-	storageKind, err := StorageKindFromCharmStorageType(directive.CharmStorageType)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	provider, err := storagePoolProvider.GetProviderForPool(
-		ctx, directive.PoolUUID,
-	)
-	if err != nil {
-		return nil, errors.Errorf(
-			"getting storage provider for storage directive pool %q: %w",
-			directive.PoolUUID, err,
-		)
-	}
-
-	composition, err := domainstorageprov.CalculateStorageInstanceComposition(
-		storageKind, provider,
-	)
-	if err != nil {
-		return nil, errors.Errorf(
-			"calculating storage entity composition for directive: %w", err,
-		)
-	}
-
-	rval := make([]domainstorage.CreateUnitStorageInstanceArg, 0, count)
-	for range count {
-		uuid, err := domainstorage.NewStorageInstanceUUID()
-		if err != nil {
-			return nil, errors.Errorf(
-				"new storage instance uuid: %w", err,
-			)
-		}
-
-		instArg := domainstorage.CreateUnitStorageInstanceArg{
-			CharmName:       directive.CharmMetadataName,
-			Kind:            storageKind,
-			Name:            directive.Name,
-			RequestSizeMiB:  directive.Size,
-			StoragePoolUUID: directive.PoolUUID,
-			UUID:            uuid,
-		}
-
-		if composition.FilesystemRequired {
-			u, err := domainstorage.NewFilesystemUUID()
-			if err != nil {
-				return nil, errors.Errorf(
-					"generating new storage filesystem uuid: %w", err,
-				)
-			}
-
-			instArg.Filesystem = &domainstorage.CreateUnitStorageFilesystemArg{
-				UUID:           u,
-				ProvisionScope: composition.FilesystemProvisionScope,
-			}
-		}
-
-		if composition.VolumeRequired {
-			u, err := domainstorage.NewVolumeUUID()
-			if err != nil {
-				return nil, errors.Errorf(
-					"generating new storage volume uuid: %w", err,
-				)
-			}
-
-			instArg.Volume = &domainstorage.CreateUnitStorageVolumeArg{
-				UUID:           u,
-				ProvisionScope: composition.VolumeProvisionScope,
-			}
-		}
-
-		rval = append(rval, instArg)
-	}
-
-	return rval, nil
 }
 
 // MakeAttachStorageInstanceToUnitArg builds the arguments required to attach an

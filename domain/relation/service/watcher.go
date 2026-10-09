@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/relation/internal"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -134,13 +135,14 @@ type WatchableService struct {
 // NewWatchableService returns a new watchable service reference wrapping the input state.
 func NewWatchableService(
 	st State,
+	storagePoolProvider domainstorageprovisioning.StoragePoolProvider,
 	watcherFactory WatcherFactory,
 	leaderEnsurer leadership.Ensurer,
 	statusHistory StatusHistory,
 	logger logger.Logger,
 ) *WatchableService {
 	return &WatchableService{
-		LeadershipService: NewLeadershipService(st, leaderEnsurer, statusHistory, logger),
+		LeadershipService: NewLeadershipService(st, storagePoolProvider, leaderEnsurer, statusHistory, logger),
 		watcherFactory:    watcherFactory,
 	}
 }
