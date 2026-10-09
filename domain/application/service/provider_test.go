@@ -2662,6 +2662,64 @@ func (s *providerServiceSuite) TestAddCAASUnitsEmptyConstraints(c *tc.C) {
 	c.Check(unitNames[0], tc.Equals, coreunit.Name("foo/0"))
 }
 
+func (s *providerServiceSuite) TestReserveCAASUnitsUsesExplicitOrdinals(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	setAddUnitNoopStorageExpects(c, s.state, s.storageService)
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), coreunit.Name("ubuntu/2")).Return(false, coreunit.UUID(""), domainnetwork.NetNodeUUID(""), nil)
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), coreunit.Name("ubuntu/3")).Return(false, coreunit.UUID(""), domainnetwork.NetNodeUUID(""), nil)
+	s.expectEmptyUnitConstraints(c, appUUID)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+
+	var names []coreunit.Name
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ coreapplication.UUID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
+			for _, arg := range args {
+				c.Check(arg.K8sPod, tc.IsNil)
+				names = append(names, arg.ReservedName)
+			}
+			return nil, nil
+		},
+	)
+
+	err := s.service.ReserveCAASUnits(c.Context(), "ubuntu", 2, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []coreunit.Name{"ubuntu/2", "ubuntu/3"})
+}
+
+func (s *providerServiceSuite) TestReserveCAASUnitsKeepsImportedIdentity(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	s.storageService.EXPECT().GetApplicationStorageDirectives(gomock.Any(), appUUID).Return(nil, nil)
+	s.state.EXPECT().GetStorageAttachInfoForStorageInstances(gomock.Any(), gomock.Any()).Return(nil, nil)
+	s.storageService.EXPECT().MakeUnitStorageArgs(gomock.Any(), netNodeUUID, gomock.Any(), gomock.Any(), gomock.Any()).Return(domainstorage.CreateUnitStorageArg{}, nil)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "ubuntu").Return(appUUID, nil)
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), coreunit.Name("ubuntu/2")).Return(true, unitUUID, netNodeUUID, nil)
+	s.state.EXPECT().GetApplicationCharmOrigin(gomock.Any(), appUUID).Return(application.CharmOrigin{}, nil)
+	s.expectEmptyUnitConstraints(c, appUUID)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().AddCAASUnits(gomock.Any(), appUUID, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ coreapplication.UUID, args ...application.AddCAASUnitArg) ([]coreunit.Name, error) {
+			c.Assert(args, tc.HasLen, 1)
+			c.Check(args[0].UnitUUID, tc.Equals, unitUUID)
+			c.Check(args[0].NetNodeUUID, tc.Equals, netNodeUUID)
+			c.Check(args[0].ReservedName, tc.Equals, coreunit.Name("ubuntu/2"))
+			return nil, nil
+		},
+	)
+
+	err := s.service.ReserveCAASUnits(c.Context(), "ubuntu", 2, 1)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *providerServiceSuite) TestAddCAASUnitsAppConstraints(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

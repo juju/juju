@@ -82,6 +82,11 @@ type ProviderService struct {
 	st                      State
 }
 
+type caasUnitIdentity struct {
+	unitUUID    coreunit.UUID
+	netNodeUUID domainnetwork.NetNodeUUID
+}
+
 // NewProviderService returns a new Service for interacting with a models state.
 func NewProviderService(
 	st State,
@@ -387,7 +392,7 @@ func (s *ProviderService) AddCAASUnits(
 	}
 
 	args, err := s.makeCAASUnitArgs(
-		ctx, units, storageDirectives, cons,
+		ctx, units, storageDirectives, cons, nil,
 	)
 	if err != nil {
 		return nil, errors.Errorf("making CAAS unit args: %w", err)
@@ -417,6 +422,85 @@ func (s *ProviderService) AddCAASUnits(
 	}
 
 	return unitNames, nil
+}
+
+// ReserveCAASUnits ensures every ordinal in the StatefulSet range has an
+// Alive unit before Kubernetes is asked to start its pod. Existing identities
+// are retained; storage is completed for pending imported units when needed.
+func (s *ProviderService) ReserveCAASUnits(
+	ctx context.Context, appName string, startOrdinal, scale int,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !application.IsValidApplicationName(appName) || startOrdinal < 0 || scale < 0 {
+		return errors.Errorf("invalid application unit range for %q", appName)
+	}
+	if scale == 0 {
+		return nil
+	}
+	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
+	if err != nil {
+		return errors.Errorf("getting application %q id: %w", appName, err)
+	}
+	cons, err := s.makeApplicationConstraints(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("making application %q constraints: %w", appName, err)
+	}
+	storageDirectives, err := s.storageService.GetApplicationStorageDirectives(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application %q storage directives: %w", appName, err)
+	}
+	units := make([]AddUnitArg, scale)
+	reserved := make([]caasUnitIdentity, scale)
+	for i := range units {
+		name, err := coreunit.NewNameFromParts(appName, startOrdinal+i)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		exists, unitUUID, netNodeUUID, err := s.st.GetCAASUnitRegistered(ctx, name)
+		if err != nil {
+			return errors.Errorf("getting reserved unit %q: %w", name, err)
+		}
+		if exists {
+			reserved[i] = caasUnitIdentity{unitUUID: unitUUID, netNodeUUID: netNodeUUID}
+		}
+	}
+	args, err := s.makeCAASUnitArgs(ctx, units, storageDirectives, cons, reserved)
+	if err != nil {
+		return errors.Errorf("making CAAS unit args: %w", err)
+	}
+	for i := range args {
+		name, err := coreunit.NewNameFromParts(appName, startOrdinal+i)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		args[i].ReservedName = name
+	}
+	origin, err := s.st.GetApplicationCharmOrigin(ctx, appUUID)
+	if err != nil {
+		return errors.Errorf("getting application platform: %w", err)
+	}
+	preCheckArgs := transform.Slice(args, func(arg application.AddCAASUnitArg) application.AddUnitArg {
+		return arg.AddUnitArg
+	})
+	if err := s.precheckInstances(ctx, origin.Platform, preCheckArgs); err != nil {
+		return errors.Errorf("pre-checking instances: %w", err)
+	}
+	inserted, err := s.st.AddCAASUnits(ctx, appUUID, args...)
+	if err != nil {
+		return errors.Errorf("reserving CAAS units for application %q: %w", appName, err)
+	}
+	for _, name := range inserted {
+		index := name.Number() - startOrdinal
+		if index < 0 || index >= len(args) {
+			return errors.Errorf("unexpected reserved unit %q", name)
+		}
+		if err := s.recordUnitStatusHistory(ctx, name, args[index].UnitStatusArg); err != nil {
+			return errors.Errorf("recording status history: %w", err)
+		}
+	}
+	return nil
 }
 
 // CAASUnitTerminating should be called by the CAASUnitTerminationWorker when
@@ -471,12 +555,8 @@ func (s *ProviderService) CAASUnitTerminating(ctx context.Context, unitNameStr s
 	return restart, nil
 }
 
-// RegisterCAASUnit creates or updates the specified application unit in a caas
-// model, returning an error satisfying
-//
-// The following errors may occur:
-// - [applicationerrors.ApplicationNotFound] if the application doesn't
-// exist. If the unit life is Dead, an error satisfying
+// RegisterCAASUnit attaches a Kubernetes pod to a reserved application unit.
+// An unreserved or departing unit is not assigned to a pod.
 func (s *ProviderService) RegisterCAASUnit(
 	ctx context.Context,
 	params application.RegisterCAASUnitParams,
@@ -488,7 +568,7 @@ func (s *ProviderService) RegisterCAASUnit(
 		return "", "", errors.Errorf("provider id %w", coreerrors.NotValid)
 	}
 
-	appUUID, err := s.st.GetApplicationUUIDByName(ctx, params.ApplicationName)
+	_, err := s.st.GetApplicationUUIDByName(ctx, params.ApplicationName)
 	if err != nil {
 		return "", "", errors.Capture(err)
 	}
@@ -528,20 +608,8 @@ func (s *ProviderService) RegisterCAASUnit(
 			unitName, err,
 		)
 	}
-
 	if !isRegistered {
-		unitUUID, err = coreunit.NewUUID()
-		if err != nil {
-			return "", "", errors.Errorf(
-				"generating new unit %q uuid: %w", unitName, err,
-			)
-		}
-		unitNetNodeUUID, err = domainnetwork.NewNetNodeUUID()
-		if err != nil {
-			return "", "", errors.Errorf(
-				"generating new unit %q net node: %w", unitName, err,
-			)
-		}
+		return "", "", errors.Errorf("unit %q was not reserved: %w", unitName, applicationerrors.UnitNotAssigned)
 	}
 
 	registerArgs.UnitUUID = unitUUID
@@ -579,16 +647,9 @@ func (s *ProviderService) RegisterCAASUnit(
 		registerArgs.FQDN = &caasUnit.FQDN
 	}
 
-	var storageArg domainstorage.RegisterUnitStorageArg
-	if isRegistered {
-		storageArg, err = s.storageService.MakeRegisterExistingCAASUnitStorageArg(
-			ctx, unitUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
-		)
-	} else {
-		storageArg, err = s.storageService.MakeRegisterNewCAASUnitStorageArg(
-			ctx, appUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
-		)
-	}
+	storageArg, err := s.storageService.MakeRegisterExistingCAASUnitStorageArg(
+		ctx, unitUUID, unitNetNodeUUID, caasUnit.FilesystemInfo,
+	)
 	if err != nil {
 		return "", "", errors.Errorf(
 			"making storage registration arg for caas unit %q: %w",
@@ -794,7 +855,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 		arg.StorageDirectives,
 	)
 	unitArgs, err := s.makeCAASUnitArgs(
-		ctx, units, storageDirectives, cons,
+		ctx, units, storageDirectives, cons, nil,
 	)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)

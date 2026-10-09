@@ -15,6 +15,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
 )
@@ -83,13 +84,14 @@ func (*registerCAASUnitSuite) storageChecker() *tc.MultiChecker {
 	return mc
 }
 
-// TestRegisterNewCAASUnit tests the happy path of registering a new CAAS unit
-// into the model.
-func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
+// TestRegisterReservedCAASUnit attaches the first pod to a reserved unit.
+func (s *registerCAASUnitSuite) TestRegisterReservedCAASUnit(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitNetNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
 	storageArg := s.makeStorageArg(c)
 
 	app := NewMockApplication(ctrl)
@@ -104,16 +106,17 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 	}}, nil)
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
-		false, "", "", nil,
+		true, unitUUID, unitNetNodeUUID, nil,
 	)
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").
 		Return(appUUID, nil)
-	s.storageService.EXPECT().MakeRegisterNewCAASUnitStorageArg(
-		gomock.Any(), appUUID, gomock.Any(), gomock.Any(),
+	s.storageService.EXPECT().MakeRegisterExistingCAASUnitStorageArg(
+		gomock.Any(), unitUUID, unitNetNodeUUID, gomock.Any(),
 	).Return(storageArg, nil).AnyTimes()
 
 	arg := application.RegisterCAASUnitArg{
-		UnitUUID:               tc.Must(c, coreunit.NewUUID),
+		UnitUUID:               unitUUID,
+		NetNodeUUID:            unitNetNodeUUID,
 		UnitName:               "foo/666",
 		PasswordHash:           "secret",
 		ProviderID:             "foo-666",
@@ -143,8 +146,6 @@ func (s *registerCAASUnitSuite) TestRegisterNewCAASUnit(c *tc.C) {
 
 	mc := tc.NewMultiChecker()
 	mc.AddExpr(`_.PasswordHash`, tc.Ignore)
-	mc.AddExpr(`_.UnitUUID`, tc.IsNonZeroUUID)
-	mc.AddExpr(`_.NetNodeUUID`, tc.IsNonZeroUUID)
 	mc.AddExpr(`_.RegisterUnitStorageArg`, s.storageChecker(), tc.ExpectedValue)
 	c.Assert(gotRCA, mc, arg)
 	c.Assert(unitName.String(), tc.Equals, "foo/666")
@@ -257,7 +258,7 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	s.caasProvider.EXPECT().Application("foo", caas.DeploymentStateful).Return(app)
 
 	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), gomock.Any()).Return(
-		false, "", "", nil,
+		true, tc.Must(c, coreunit.NewUUID), tc.Must(c, domainnetwork.NewNetNodeUUID), nil,
 	).AnyTimes()
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(
 		appUUID, nil,
@@ -269,4 +270,18 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitApplicationNoPods(c *tc.C) {
 	}
 	_, _, err := s.service.RegisterCAASUnit(c.Context(), p)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+func (s *registerCAASUnitSuite) TestRegisterCAASUnitRequiresReservation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetCAASUnitRegistered(gomock.Any(), coreunit.Name("foo/1")).Return(false, "", "", nil)
+
+	_, _, err := s.service.RegisterCAASUnit(c.Context(), application.RegisterCAASUnitParams{
+		ApplicationName: "foo",
+		ProviderID:      "foo-1",
+	})
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAssigned)
 }

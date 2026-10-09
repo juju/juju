@@ -207,6 +207,9 @@ type K8sPodAddress struct {
 type AddCAASUnitArg struct {
 	AddUnitArg
 	K8sPod *K8sPod
+	// ReservedName identifies a unit reserved before its pod is started. An
+	// empty name retains sequence-based allocation for existing callers.
+	ReservedName coreunit.Name
 }
 
 // AddUnitArg contains parameters for adding a unit to state.
