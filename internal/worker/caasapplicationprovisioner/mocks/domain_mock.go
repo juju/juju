@@ -47,6 +47,7 @@ type MockApplicationServiceMockRecorder struct {
 	getCharmByApplicationUUIDExpects           []*gomock.Call2_3[context.Context, application.UUID, charm0.Charm, charm.CharmLocator, error]
 	getUnitLifeExpects                         []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
 	isControllerApplicationExpects             []*gomock.Call2_2[context.Context, application.UUID, bool, error]
+	reserveCAASUnitsExpects                    []*gomock.Call4_1[context.Context, string, int, int, error]
 	setApplicationHasK8sResourcesExpects       []*gomock.Call2_1[context.Context, application.UUID, error]
 	setApplicationScalingStateExpects          []*gomock.Call4_1[context.Context, string, int, bool, error]
 	setApplicationScalingStateWithStartExpects []*gomock.Call5_1[context.Context, string, int, int, bool, error]
@@ -141,6 +142,24 @@ func (mr *MockApplicationServiceMockRecorder) GetAllUnitLifeForApplication(arg0,
 
 // MockApplicationServiceGetAllUnitLifeForApplicationCall is the typed call wrapper for GetAllUnitLifeForApplication.
 type MockApplicationServiceGetAllUnitLifeForApplicationCall = gomock.Call2_2[context.Context, application.UUID, map[unit.Name]life.Value, error]
+
+// ReserveCAASUnits mocks base method.
+func (m *MockApplicationService) ReserveCAASUnits(ctx context.Context, name string, start, scale int) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.reserveCAASUnitsExpects, m.ctrl, m, "ReserveCAASUnits", ctx, name, start, scale)
+}
+
+// ReserveCAASUnits indicates an expected call of ReserveCAASUnits.
+func (mr *MockApplicationServiceMockRecorder) ReserveCAASUnits(ctx, name, start, scale any) *MockApplicationServiceReserveCAASUnitsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, int, int, error](mr.mock.ctrl.T, mr.mock, "ReserveCAASUnits", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(start), gomock.EnsureMatcher(scale))
+	mr.reserveCAASUnitsExpects = append(mr.reserveCAASUnitsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceReserveCAASUnitsCall is the typed call wrapper for ReserveCAASUnits.
+type MockApplicationServiceReserveCAASUnitsCall = gomock.Call4_1[context.Context, string, int, int, error]
 
 // GetApplicationLife mocks base method.
 func (m *MockApplicationService) GetApplicationLife(ctx context.Context, id application.UUID) (life.Value, error) {

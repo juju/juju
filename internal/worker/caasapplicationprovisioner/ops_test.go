@@ -791,6 +791,7 @@ func (s *OpsSuite) TestEnsureScaleControllerReusesPersistedNonce(c *tc.C) {
 			ScaleTarget: 2,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "controller", 0, 2).Return(nil),
 		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appID).Return(true, nil),
 		agentPasswordService.EXPECT().EnsureControllerNodeNonce(gomock.Any(), "0", gomock.Any()).Return("controller-0-nonce", nil),
 		app.EXPECT().EnsureControllerNonce(gomock.Any(), 0, "controller-0-nonce").Return(nil),
@@ -803,6 +804,62 @@ func (s *OpsSuite) TestEnsureScaleControllerReusesPersistedNonce(c *tc.C) {
 
 	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "controller", appID, app,
 		life.Alive, facade, applicationService, agentPasswordService, s.logger)
+	c.Assert(err, tc.ErrorMatches, `try again`)
+}
+
+func (s *OpsSuite) TestEnsureScaleDoesNotStartPodsWhenReservationFails(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	units := map[unit.Name]life.Value{"test/0": life.Alive}
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(3, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{
+			Scaling: true, ScaleTarget: 3,
+		}, nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 0, 3).Return(errors.New("reservation failed")),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+		life.Alive, facade, applicationService, nil, s.logger)
+	c.Assert(err, tc.ErrorMatches, `.*reservation failed`)
+}
+
+func (s *OpsSuite) TestEnsureScaleWaitsForMiddlePodRegistration(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive, "test/1": life.Alive, "test/2": life.Alive,
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetApplicationScale(gomock.Any(), "test").Return(3, nil),
+		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{
+			Scaling: true, ScaleTarget: 3,
+		}, nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 0, 3).Return(nil),
+		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appID).Return(false, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), appID.String()[:6]).Return(nil),
+		app.EXPECT().Scale(gomock.Any(), 3).Return(nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).Return(map[unit.Name]string{
+			"test/0": "test-0", "test/2": "test-2",
+		}, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+		life.Alive, facade, applicationService, nil, s.logger)
 	c.Assert(err, tc.ErrorMatches, `try again`)
 }
 
@@ -829,6 +886,7 @@ func (s *OpsSuite) TestEnsureScaleControllerReconcilesSparseOrdinals(c *tc.C) {
 			ScaleTarget: 3,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "controller", 0, 3).Return(nil),
 		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appID).Return(true, nil),
 		agentPasswordService.EXPECT().EnsureControllerNodeNonce(gomock.Any(), "0", gomock.Any()).Return("controller-0-nonce", nil),
 		app.EXPECT().EnsureControllerNonce(gomock.Any(), 0, "controller-0-nonce").Return(nil),
@@ -869,6 +927,7 @@ func (s *OpsSuite) TestEnsureScaleControllerReconcilesNonceAfterUnitIntroduction
 			ScaleTarget: 2,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "controller", 0, 2).Return(nil),
 		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appID).Return(true, nil),
 		agentPasswordService.EXPECT().EnsureControllerNodeNonce(gomock.Any(), "0", gomock.Any()).Return("controller-0-nonce", nil),
 		app.EXPECT().EnsureControllerNonce(gomock.Any(), 0, "controller-0-nonce").Return(nil),
@@ -877,6 +936,9 @@ func (s *OpsSuite) TestEnsureScaleControllerReconcilesNonceAfterUnitIntroduction
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "controller").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(gomock.Any(), 2).Return(nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).Return(map[unit.Name]string{
+			"controller/0": "controller-0", "controller/1": "controller-1",
+		}, nil),
 		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "controller", 0, 0, false).Return(nil),
 	)
 
@@ -1188,6 +1250,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 			ScaleTarget: 2,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 0, 2).Return(nil),
 		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(false, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisioningInfo, nil),
 		app.EXPECT().EnsurePVCs([]storage.KubernetesFilesystemParams{{
@@ -1196,6 +1259,9 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 			Provider:    "kubernetes",
 		}}, gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(gomock.Any(), 2).Return(nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appUUID).Return(map[unit.Name]string{
+			"test/0": "test-0", "test/1": "test-1",
+		}, nil),
 		applicationService.EXPECT().SetApplicationScalingStateWithStart(gomock.Any(), "test", 0, 0, false).Return(nil),
 	)
 
@@ -1237,6 +1303,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 			ScaleTarget: 2,
 		}, nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 0, 2).Return(nil),
 		applicationService.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(false, nil),
 		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisioningInfo, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).
