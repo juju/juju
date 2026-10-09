@@ -583,7 +583,6 @@ func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
 		defer close(done)
 		return nil
 	})
-	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)

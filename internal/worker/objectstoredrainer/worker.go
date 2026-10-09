@@ -302,9 +302,6 @@ func (w *Worker) loop() error {
 				continue
 			} else if phase == objectstore.PhaseError {
 				w.logger.Errorf(ctx, "object store is in an error state, manual intervention required")
-				if err := w.guard.Lockdown(ctx); err != nil {
-					return errors.Errorf("failed to keep guard locked: %v", err)
-				}
 				continue
 			}
 
