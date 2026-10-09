@@ -285,7 +285,6 @@ func (h *bundleHandler) makeModel(
 //     and if they do, resolve the implicitness in order to compare
 //     with relations in the model.
 func (h *bundleHandler) resolveCharmsAndEndpoints() error {
-	deployedApps := set.NewStrings()
 
 	for _, name := range h.applications.SortedValues() {
 		spec := h.data.Applications[name]
@@ -293,7 +292,6 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 
 		var cons constraints.Value
 		if app != nil {
-			deployedApps.Add(name)
 
 			if h.isLocalCharm(spec.Charm) {
 				logger.Debugf("%s exists in model uses a local charm, replacing with %q", name, app.Charm)
@@ -301,10 +299,8 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 				spec.Charm = app.Charm
 				continue
 			}
-			// If the charm matches, don't bother resolving.
-			if spec.Charm == app.Charm {
-				continue
-			}
+			// Resolve the charm even when it matches the existing application so
+			// that its origin is registered for subsequent changes.
 
 			var err error
 			cons, err = constraints.Parse(app.Constraints)
