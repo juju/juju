@@ -126,7 +126,7 @@ CGO_LDFLAGS ?=
 # It must produce DT_RPATH (--disable-new-dtags), not DT_RUNPATH: RUNPATH
 # on the executable is not searched when resolving the staged libraries'
 # own dependencies, while RPATH is consulted for the whole process.
-CGO_RPATH = -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib'
+CGO_RPATH = -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib,-rpath,$$ORIGIN/../lib'
 
 # If .git directory is missing, we are building out of an archive, otherwise report
 # if the tree that is checked out is dirty (modified) or clean.
@@ -495,7 +495,7 @@ cover-test:
 .PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests:
-## run-tests: Run the unit tests
+## run-tests: Run the unit tests (requires make install-dqlite-dependencies)
 	$(eval OS = $(shell go env GOOS))
 	$(eval ARCH = $(shell go env GOARCH))
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
@@ -535,7 +535,7 @@ test-packages:
 .PHONY: run-go-tests
 run-go-tests: EXTRA_BUILD_TAGS += dqlite libsqlite3
 run-go-tests:
-## run-go-tests: Run the unit tests
+## run-go-tests: Run the unit tests (requires make install-dqlite-dependencies)
 	$(eval OS = $(shell go env GOOS))
 	$(eval ARCH = $(shell go env GOARCH))
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))

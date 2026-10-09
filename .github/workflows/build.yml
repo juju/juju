@@ -36,10 +36,12 @@ jobs:
 
       # jujud is a native CGO build on every linux entry and links against
       # the host's Dqlite libraries (ppa:dqlite/dev); darwin does not build
-      # jujud (the agent platform lists filter it to linux).
+      # jujud (the agent platform lists filter it to linux). Only the CGO
+      # link-time deps are needed; the full install-dependencies set (snaps,
+      # squashfs-tools) is not required for a build-only workflow.
       - name: "Install dependencies"
         if: matrix.platform.os == 'linux'
-        run: make install-dependencies
+        run: make install-dqlite-dependencies
 
       - name: "Build"
         run: |

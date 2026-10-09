@@ -81,16 +81,20 @@ operator_image_lib_dir() {
     echo "${BUILD_DIR}/$(echo "$1" | sed 's/\//_/g')/lib"
 }
 
-# Sonames provided by the Ubuntu base image are never staged into the
-# image's /opt/lib: the image's own runtime must not be shadowed, and
-# staging them would only duplicate what the base already resolves. The
-# list covers the glibc family and the loader (libc6 and the loader come
-# from the base image), plus liblz4 and libsqlite3: the controller snap
-# does not bundle liblz4 (it comes from the snap's core26 base) and the
-# published operator image's Ubuntu base carries both (verified against
-# public.ecr.aws/ubuntu/ubuntu:24.04). Everything else in the jujud
-# closure must be staged into _build/<os>_<arch>/lib/, or the image build
-# fails.
+# The require_operator_image_libs verification step skips sonames that
+# the Ubuntu base image already provides (glibc, the loader, liblz4, and
+# libsqlite3): these are excluded from the NEEDED closure walk so an
+# absent base library does not fail the build. The controller snap may
+# still bundle and stage some of these (e.g. libsqlite3 for Dqlite
+# version compatibility), which the staging loop copies unconditionally;
+# when the snap's library shadows the base image the operator's RPATH
+# favours the staged copy. The list covers the glibc family and the
+# loader (libc6 and the loader come from the base image), plus liblz4
+# (the controller snap does not bundle it; it comes from the snap's
+# core26 base) and libsqlite3 (the published operator image's Ubuntu 24.04
+# base carries it, verified against public.ecr.aws/ubuntu/ubuntu:24.04).
+# Everything else in the jujud closure must be resolved in the staged
+# _build/<os>_<arch>/lib/, or the image build fails.
 base_libs='^(ld-linux|ld64|libc\.so|libm\.so|libpthread|libdl|librt|libresolv|libgcc_s\.so|liblz4\.so|libsqlite3\.so)'
 
 # elf_needed_sonames echoes the NEEDED shared-library sonames of an ELF
@@ -402,7 +406,7 @@ install_dqlite_dev_packages() {
         echo "install-dqlite-dependencies: ${dev_pkg} is not installed after apt-get install" >&2
         exit 1
     fi
-    upstream=$(printf '%s' "${installed}" | sed -E 's/[~+].*$//')
+    upstream=$(printf '%s' "${installed}" | sed -E 's/[-+~].*$//')
     if [ "${upstream}" != "${version}" ]; then
         echo "install-dqlite-dependencies: ${dev_pkg} resolved to ${installed} but the snap pins ${pin}." >&2
         echo "Raise the snap's dqlite source-commit pin to the PPA version, or install the exact" >&2
