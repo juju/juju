@@ -42,7 +42,7 @@ func (s StateShim) ControllerHost(id string) (ControllerHost, error) {
 }
 
 func (s StateShim) RemoveControllerReference(c ControllerNode) error {
-	return s.State.RemoveControllerReference(c)
+	return s.State.RemoveControllerReference(c.Id())
 }
 
 func (s StateShim) Space(name string) (Space, error) {
