@@ -54,7 +54,11 @@ backends:
           launch_args+=(--vm)
       else
           echo "KVM is unavailable; using a nested LXD container"
-          launch_args+=(-c security.nesting=true)
+          # The nested LXD daemon must be able to create AppArmor profiles
+          # for Juju's unprivileged controller containers. The runner is
+          # disposable, and the test system remains isolated by its LXD host.
+          launch_args+=(-c security.nesting=true -c security.privileged=true)
+          launch_args+=(-c raw.lxc=lxc.apparmor.profile=unconfined)
       fi
 
       lxc launch "${launch_args[@]}" \
