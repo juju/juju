@@ -1364,6 +1364,75 @@ func (s *applicationServiceSuite) TestSetApplicationScaleNegative(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ScaleChangeInvalid)
 }
 
+func (s *applicationServiceSuite) TestSetApplicationScaleAboveKubernetesMaximum(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", math.MaxInt32+1)
+	c.Assert(err, tc.ErrorMatches, "application scale 2147483648 not valid")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScaleChangeInvalid)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScalingStateWithRange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetApplicationScalingStateWithRange(
+		gomock.Any(), "foo", 2, 3, 5, true,
+	).Return(nil)
+
+	err := s.service.SetApplicationScalingStateWithRange(
+		c.Context(), "foo", 2, 3, 5, true)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScalingStateRejectsZeroTargetForNonEmptyRange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{
+		StartOrdinal: 1,
+		EndOrdinal:   2,
+	}, nil)
+
+	err := s.service.SetApplicationScalingState(c.Context(), "foo", 0, true)
+	c.Check(err, tc.ErrorMatches,
+		`ordinal window \[1,2\) not valid for zero scale target`)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScalingStateWithRangeInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tests := []struct {
+		target       int
+		startOrdinal int
+		endOrdinal   int
+		match        string
+	}{
+		{target: -1, match: `scale target -1 not valid`},
+		{target: math.MaxInt32 + 1, match: `scale target 2147483648 not valid`},
+		{target: 1, startOrdinal: -1, match: `ordinal window \[-1,0\) not valid`},
+		{target: 1, startOrdinal: 2, endOrdinal: 1, match: `ordinal window \[2,1\) not valid`},
+		{
+			target:       1,
+			startOrdinal: math.MaxInt32,
+			endOrdinal:   math.MaxInt32 + 1,
+			match:        `ordinal window \[2147483647,2147483648\) not valid`,
+		},
+		{
+			startOrdinal: 1,
+			endOrdinal:   2,
+			match:        `ordinal window \[1,2\) not valid for zero scale target`,
+		},
+	}
+
+	for _, test := range tests {
+		err := s.service.SetApplicationScalingStateWithRange(
+			c.Context(), "foo", test.target, test.startOrdinal,
+			test.endOrdinal, true)
+		c.Check(err, tc.ErrorMatches, test.match)
+	}
+}
+
 func (s *applicationServiceSuite) TestChangeApplicationScaleUp(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1376,6 +1445,19 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleUp(c *tc.C) {
 	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", 2)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newScale, tc.Equals, 5)
+}
+
+func (s *applicationServiceSuite) TestChangeApplicationScaleAboveKubernetesMaximum(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{
+		Scale: math.MaxInt32,
+	}, nil)
+
+	_, err := s.service.ChangeApplicationScale(c.Context(), "foo", 1)
+	c.Check(err, tc.ErrorIs, applicationerrors.ScaleChangeInvalid)
 }
 
 func (s *applicationServiceSuite) TestChangeApplicationScaleDownNonController(c *tc.C) {

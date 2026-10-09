@@ -178,6 +178,8 @@ func (st *State) CreateCAASApplication(
 
 	scaleInfo := applicationScale{
 		ApplicationID: appUUIDStr,
+		StartOrdinal:  args.StartOrdinal,
+		EndOrdinal:    args.EndOrdinal,
 		Scale:         args.Scale,
 	}
 	createScale := `INSERT INTO application_scale (*) VALUES ($applicationScale.*)`
@@ -565,6 +567,7 @@ WHERE  application_uuid = $applicationScale.application_uuid
 	}
 	return application.ScaleState{
 		StartOrdinal: appScale.StartOrdinal,
+		EndOrdinal:   appScale.EndOrdinal,
 		Scaling:      appScale.Scaling,
 		Scale:        appScale.Scale,
 		ScaleTarget:  appScale.ScaleTarget,
@@ -972,14 +975,17 @@ func (st *State) SetApplicationScalingState(ctx context.Context, appName string,
 		}
 		return st.setApplicationScalingState(
 			ctx, tx, upsertStmt, appName, targetScale,
-			scaleState.StartOrdinal, scaling)
+			scaleState.StartOrdinal, scaleState.EndOrdinal, scaling)
 	})
 	return errors.Capture(err)
 }
 
-// SetApplicationScalingStateWithStart updates the scale state and desired
-// StatefulSet start ordinal of a CAAS application.
-func (st *State) SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error {
+// SetApplicationScalingStateWithRange updates the scale state and committed
+// StatefulSet ordinal window of a CAAS application.
+func (st *State) SetApplicationScalingStateWithRange(
+	ctx context.Context, appName string, targetScale, startOrdinal, endOrdinal int,
+	scaling bool,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -991,7 +997,8 @@ func (st *State) SetApplicationScalingStateWithStart(ctx context.Context, appNam
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.setApplicationScalingState(
-			ctx, tx, upsertStmt, appName, targetScale, startOrdinal, scaling)
+			ctx, tx, upsertStmt, appName, targetScale, startOrdinal, endOrdinal,
+			scaling)
 	})
 	return errors.Capture(err)
 }
@@ -1001,13 +1008,14 @@ UPDATE application_scale
 SET    scale = $applicationScale.scale,
        scaling = $applicationScale.scaling,
        scale_target = $applicationScale.scale_target,
-       start_ordinal = $applicationScale.start_ordinal
+       start_ordinal = $applicationScale.start_ordinal,
+       end_ordinal = $applicationScale.end_ordinal
 WHERE  application_uuid = $applicationScale.application_uuid
 `
 
 func (st *State) setApplicationScalingState(
 	ctx context.Context, tx *sqlair.TX, upsertStmt *sqlair.Statement,
-	appName string, targetScale, startOrdinal int, scaling bool,
+	appName string, targetScale, startOrdinal, endOrdinal int, scaling bool,
 ) error {
 	appDetails, err := st.getApplicationDetails(ctx, tx, appName)
 	if err != nil {
@@ -1023,6 +1031,9 @@ func (st *State) setApplicationScalingState(
 
 	var scale int
 	if scaling {
+		if currentScaleState.Scaling && currentScaleState.ScaleTarget != targetScale {
+			return applicationerrors.ScalingStateInconsistent
+		}
 		switch appDetails.LifeID {
 		case life.Alive:
 			// if starting a scale, ensure we are scaling to the same target.
@@ -1038,11 +1049,14 @@ func (st *State) setApplicationScalingState(
 	} else {
 		// Make sure to leave the scale value unchanged.
 		scale = currentScaleState.Scale
+		// A target has meaning only while a scale operation is in progress.
+		targetScale = 0
 	}
 
 	scaleDetailsToUpdate := applicationScale{
 		ApplicationID: appDetails.UUID,
 		StartOrdinal:  startOrdinal,
+		EndOrdinal:    endOrdinal,
 		Scaling:       scaling,
 		Scale:         scale,
 		ScaleTarget:   targetScale,
