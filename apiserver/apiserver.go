@@ -1043,6 +1043,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		Logger:                   logger.Child("sshrelay"),
 		ServerFactory:            srv.sshProxyConfig.ServerFactory,
 		MaxConcurrentConnections: srv.shared.sshMaxConcurrentConnections,
+		SessionDuration:          srv.metricsCollector.SSHRelaySessionDuration,
+		Rejections:               srv.metricsCollector.SSHRelayRejections,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
