@@ -6,7 +6,7 @@ run_migrate_authorized_keys() {
 	# record the controller made before this test
 	to_controller=$BOOTSTRAPPED_JUJU_CTRL_NAME
 
-	export BOOTSTRAP_RESUSE=false
+	BOOTSTRAP_REUSE=false \
 	bootstrap "migrate-keys" "$log_file"
 	from_controller=$BOOTSTRAPPED_JUJU_CTRL_NAME
 
@@ -17,6 +17,13 @@ run_migrate_authorized_keys() {
 
 	juju add-ssh-key "$(cat ${key_file_pub})"
 	check_contains "$(juju ssh-keys)" "$fingerprint"
+
+	# Wait for the bootstrap machine's instance status to be reported as
+	# running before migrating. The instance poller only confirms the
+	# instance status a short time after bootstrap, and the migration
+	# source precheck rejects controllers whose machines do not have
+	# instance status running.
+	wait_for_instance_status "0" "running" "${from_controller}:controller"
 
 	juju migrate "migrate-keys" "${to_controller}"
 

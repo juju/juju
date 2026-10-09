@@ -119,7 +119,6 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 			return s.removalService, nil
 		},
 		facades.FacadeVersions{},
-		c.MkDir(),
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, tc.ErrorIsNil)

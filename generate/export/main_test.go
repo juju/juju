@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/juju/tc"
@@ -48,4 +49,17 @@ func (s *generatorSuite) TestAffectedNullableTypes(c *tc.C) {
 	}
 	c.Check(isAffectedNullableType(column{Type: "TEXT"}), tc.IsFalse)
 	c.Check(isAffectedNullableType(column{Type: "BOOLEAN", NotNull: true}), tc.IsFalse)
+}
+
+// TestExcludedModelExportTables checks that operational tables are
+// excluded from the generated model export, and model tables are not.
+func (s *generatorSuite) TestExcludedModelExportTables(c *tc.C) {
+	c.Check(slices.Contains(modelPass().excludedTables, "log_transfer_progress"), tc.IsTrue)
+	c.Check(slices.Contains(modelPass().excludedTables, "sqlite_sequence"), tc.IsTrue)
+	c.Check(slices.Contains(modelPass().excludedTables, "machine"), tc.IsFalse)
+
+	// The controller backup is a faithful snapshot: only SQLite's own
+	// bookkeeping is skipped there.
+	c.Check(slices.Contains(controllerPass().excludedTables, "log_transfer_progress"), tc.IsFalse)
+	c.Check(slices.Contains(controllerPass().excludedTables, "sqlite_sequence"), tc.IsTrue)
 }

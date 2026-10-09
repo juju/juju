@@ -16,6 +16,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	containerimageresourcestoreerrors "github.com/juju/juju/domain/containerimageresourcestore/errors"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/errors"
@@ -654,16 +655,23 @@ func (s *Service) SetRepositoryResources(
 		return errors.Errorf("zero LastPolled: %w", resourceerrors.ArgumentNotValid)
 	}
 	replacementUUIDs := make(map[string]string, len(args.Info))
+	removalJobUUIDs := make(map[string]string, len(args.Info))
 	for _, info := range args.Info {
 		replacementUUID, err := coreresource.NewUUID()
 		if err != nil {
 			return errors.Capture(err)
 		}
 		replacementUUIDs[info.Name] = replacementUUID.String()
+		removalJobUUID, err := removal.NewUUID()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		removalJobUUIDs[info.Name] = removalJobUUID.String()
 	}
 	return s.st.SetRepositoryResources(ctx, resource.StateSetRepositoryResourcesArgs{
 		SetRepositoryResourcesArgs: args,
 		ReplacementUUIDs:           replacementUUIDs,
+		RemovalJobUUIDs:            removalJobUUIDs,
 	})
 }
 
@@ -723,10 +731,15 @@ func (s *Service) UpdateUploadResource(
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	removalJobUUID, err := removal.NewUUID()
+	if err != nil {
+		return "", errors.Capture(err)
+	}
 
 	stateArgs := resource.StateUpdateUploadResourceArgs{
 		ResourceUUID:    resourceToUpdate.String(),
 		NewResourceUUID: newResourceUUID.String(),
+		RemovalJobUUID:  removalJobUUID.String(),
 	}
 	err = s.st.UpdateUploadResource(ctx, stateArgs)
 	if err != nil {

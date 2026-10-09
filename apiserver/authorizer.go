@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -89,6 +90,33 @@ type machineAgentAuthorizer struct{}
 func (a machineAgentAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
 	if _, ok := authInfo.Tag.(names.MachineTag); !ok {
 		return errors.Errorf("%s is not a machine agent", names.ReadableString(authInfo.Tag)).Add(
+			coreerrors.NotSupported,
+		)
+	}
+	return nil
+}
+
+// relayJWTAuthorizer checks that the authenticated entity is an externally
+// authenticated user (JIMM bearer JWT). It is the authorizer for the SSH
+// relay upgrade endpoint. The destination-specific access check happens
+// inside the relay handler using the JWT claims.
+//
+// relayJWTAuthorizer implements the [authentication.Authorizer] interface.
+type relayJWTAuthorizer struct{}
+
+// Authorize checks that the request is externally authenticated with a JWT
+// permission delegator. Rejecting non-JWT delegators here lets the relay
+// wrapper and handler trust the delegator's type.
+//
+// Authorize implements the [authentication.Authorizer] interface.
+func (a relayJWTAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
+	if !authInfo.IsExternallyAuthenticated {
+		return errors.New("authorization is not for an externally authenticated user").Add(
+			coreerrors.NotSupported,
+		)
+	}
+	if _, ok := authInfo.Delegator.(*jwt.PermissionDelegator); !ok {
+		return errors.New("authorization requires a JWT permission delegator").Add(
 			coreerrors.NotSupported,
 		)
 	}

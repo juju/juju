@@ -174,12 +174,10 @@ BEGIN
 END;
 
 CREATE TRIGGER trg_log_custom_machine_uuid_lifecycle_with_dependants_machine_parent_delete
-AFTER DELETE ON machine FOR EACH ROW
+AFTER DELETE ON machine_parent FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    SELECT 4, %[1]d, mp.parent_uuid, DATETIME('now')
-    FROM machine_parent AS mp
-    WHERE mp.machine_uuid = OLD.uuid;
+    VALUES(4, %[1]d, OLD.parent_uuid, DATETIME('now'));
 END;
 
 -- unit on machine life triggers

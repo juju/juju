@@ -87,6 +87,10 @@ var nonContentTables = map[string]bool{
 	"change_log_edit_type": true,
 	"change_log_namespace": true,
 
+	// Log transfer progress is target-local resume bookkeeping. It is not
+	// model content and must not be carried between controllers.
+	"log_transfer_progress": true,
+
 	// charm binary residency: charm_hash is insert-only (its "unmodifiable"
 	// trigger blocks UPDATE), so the binary-transfer phase's re-insert of the
 	// verified hash collides with the row carried over from the source.

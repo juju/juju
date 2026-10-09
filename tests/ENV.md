@@ -17,6 +17,7 @@ definitive source is the code.
 | `CONTROLLER_SNAP_PATH`        | Path to a prebuilt controller snap to bootstrap with (IaaS only). Set by CI; unset locally so bootstrap builds it. |
 | `KILL_CONTROLLER`             | If `'true'`, controllers will be forcibly killed during teardown.                  |
 | `MODEL_ARCH`                  | Will be set as a model constraint on newly added models.                           |
+| `JUJU_MIGRATION_36_BIN`       | Path to the juju 3.6 client used to bootstrap 3.6 migration source controllers in the `migration` suite (default `/snap/bin/juju_36`). |
 | `OPERATOR_IMAGE_ACCOUNT`      | Passed as the value of `--config caas-image-repo` when bootstrapping.              |
 | `TEST_INSPECT`                | If set, pause before teardown to allow inspection of the controller.               |
 | `CONTAINER_NETWORKING_METHOD` | If set, the default container networking method (`local`, `provider`, or `fan`).   |

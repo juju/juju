@@ -1,0 +1,24 @@
+name: resource-lifecycle
+summary: Resource lifecycle integration test charm, revision three.
+description: Exercises a second refresh of retained and added resources.
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+  arm64:
+  s390x:
+parts:
+  charm:
+    plugin: dump
+    source: .
+    prime:
+      - hooks
+resources:
+  retained:
+    type: file
+    filename: retained
+    description: A resource retained across repeated charm refreshes.
+  added:
+    type: file
+    filename: added
+    description: A resource retained from the preceding charm revision.

@@ -29,6 +29,30 @@ model "Juju" {
 
     controller [type: juju-software, label: "Controller"]
 
+    ssh_controller [type: juju-software, label: "Controller",
+                    abstracts: "controller"] {
+      ssh_gateway [type: juju-software,
+                   label: "SSH tunnel server\n(port 17022)"]
+      ssh_session [type: juju-software, label: "Target SSH server\n(virtual host key)"]
+      ssh_api     [type: juju-software, label: "API server\n(port 17070)"]
+      ssh_db      [type: database, label: "Model database\n(tunnel request)"]
+    }
+    ssh_target [type: external, label: "Machine or unit"]
+    ssh_processing_controller [type: juju-software, label: "Controller",
+                               abstracts: "controller"] {
+      ssh_decrypt [label: "🔓 decrypt"]
+      ssh_proxy   [type: juju-software, label: "SSH Proxy\n(inspect/process)"]
+      ssh_encrypt [label: "🔒 encrypt"]
+    }
+    ssh_machine [type: node, label: "Machine", deployed: true] {
+      ssh_machine_agent [type: juju-software, label: "Machine agent"]
+      ssh_machine_server [type: external, label: "Machine SSH server"]
+    }
+    ssh_k8s_api [type: external, label: "Kubernetes API server"]
+    ssh_pod     [type: node, label: "Unit pod", deployed: true] {
+      ssh_container [type: workload, label: "Target container"]
+    }
+
     // "The insight" shows Juju as one piece between the user and the
     // applications. "The topology" opens it into a client and a controller
     // and brings in the clouds and Charmhub.
@@ -85,6 +109,22 @@ model "Juju" {
     controller -> cloud      [type: api,    label: "gets nodes from"]
     agent_foo  -> controller [type: stream, label: "watches"]
     agent_bar  -> controller [type: stream, label: "watches"]
+
+    client -> ssh_gateway [type: stream, label: "outer SSH tunnel"]
+    client -> ssh_session [type: stream, label: "inner SSH session"]
+    client -> ssh_api [type: api, label: "fetches expected host keys"]
+    ssh_gateway -> ssh_session [type: ipc, label: "forwards inner SSH"]
+    ssh_session -> ssh_target [type: stream, label: "proxies session"]
+    ssh_controller -> ssh_k8s_api [type: stream, label: "exec stream"]
+    ssh_k8s_api -> ssh_container [type: stream, label: "executes in"]
+    ssh_session -> ssh_db [type: api, label: "1. stores tunnel request"]
+    ssh_machine_agent -> ssh_db [type: stream, label: "2. observes request via API"]
+    ssh_machine_agent -> ssh_api [type: stream, label: "3. opens reverse tunnel"]
+    ssh_session -> ssh_machine_server [type: stream, label: "4. SSH over reverse tunnel"]
+    client -> ssh_processing_controller [type: stream]
+    ssh_processing_controller -> ssh_target [type: stream]
+    ssh_decrypt -> ssh_proxy [type: control]
+    ssh_proxy -> ssh_encrypt [type: control]
   }
 
   behaviours {
@@ -232,3 +272,83 @@ sequence "juju deploy"         from "Juju" { select { behaviour: "deploy" } }
 sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8s" } }
 sequence "juju config"         from "Juju" { select { behaviour: "config" } }
 sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }
+
+diagram "SSH proxy overview" from "Juju" {
+  select {
+    nodes: client ssh_processing_controller ssh_target
+    edges: type stream type control
+    labels: hidden
+    sizing: uniform
+  }
+  positions {
+    client left-of ssh_processing_controller gap: 100
+    client align-middle ssh_processing_controller
+    ssh_target right-of ssh_processing_controller gap: 100
+    ssh_target align-middle ssh_processing_controller
+    ssh_processing_controller direction: down
+    ssh_proxy below ssh_decrypt gap: 40
+    ssh_proxy align-centre ssh_decrypt
+    ssh_encrypt below ssh_proxy gap: 40
+    ssh_encrypt align-centre ssh_proxy
+  }
+}
+
+diagram "SSH proxy connections" from "Juju" {
+  select {
+    nodes: client ssh_gateway ssh_session ssh_target
+    edges: type stream type ipc
+    except: client -> ssh_session
+  }
+  positions {
+    client left-of ssh_gateway gap: 160
+    client align-middle ssh_gateway
+    ssh_session below ssh_gateway gap: 100
+    ssh_session align-centre ssh_gateway
+    ssh_target right-of ssh_session gap: 160
+    ssh_target align-middle ssh_session
+  }
+  annotations {
+    box [nodes: "ssh_gateway ssh_session", label: "Juju controller",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+diagram "SSH proxy Kubernetes" from "Juju" {
+  select {
+    nodes: ssh_controller ssh_k8s_api ssh_pod
+    collapse: ssh_controller
+    edges: type stream
+  }
+  positions {
+    ssh_controller left-of ssh_k8s_api gap: 100
+    ssh_controller align-middle ssh_k8s_api
+    ssh_pod right-of ssh_k8s_api gap: 100
+    ssh_pod align-middle ssh_k8s_api
+  }
+}
+
+diagram "SSH proxy machine reverse tunnel" from "Juju" {
+  select {
+    nodes: ssh_session ssh_db ssh_api ssh_machine_server ssh_machine_agent
+    edges: type api type stream
+    routing: orthogonal
+    sizing: uniform
+  }
+  positions {
+    ssh_db below ssh_session gap: 80
+    ssh_db align-centre ssh_session
+    ssh_api below ssh_db gap: 80
+    ssh_api align-centre ssh_db
+    ssh_machine_server right-of ssh_session gap: 240
+    ssh_machine_server align-middle ssh_session
+    ssh_machine_agent below ssh_machine_server gap: 80
+    ssh_machine_agent align-centre ssh_machine_server
+    ssh_machine_agent align-middle ssh_api
+  }
+  annotations {
+    box [nodes: "ssh_session ssh_db ssh_api", label: "Juju controller",
+         style: "solid", color: "#E95420", padding: 24]
+    box [nodes: "ssh_machine_server ssh_machine_agent", label: "Machine",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}

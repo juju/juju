@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
@@ -690,6 +691,37 @@ func (s *serviceSuite) TestModelMigrationMode(c *tc.C) {
 	mode, err := s.service(c).ModelMigrationMode(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeExporting)
+}
+
+func (s *serviceSuite) TestLastLogTransferTime(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	lastTime := time.Date(2026, 9, 27, 6, 23, 24, 0, time.UTC)
+	s.modelState.EXPECT().GetLastLogTransferTime(gomock.Any()).Return(lastTime, nil)
+
+	retrieved, err := s.service(c).LastLogTransferTime(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(retrieved, tc.Equals, lastTime)
+}
+
+func (s *serviceSuite) TestSetLastLogTransferTime(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	lastTime := time.Date(2026, 9, 27, 6, 23, 24, 0, time.UTC)
+	s.modelState.EXPECT().SetLastLogTransferTime(gomock.Any(), lastTime).Return(nil)
+
+	err := s.service(c).SetLastLogTransferTime(c.Context(), lastTime)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetLastLogTransferTimeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	lastTime := time.Date(2026, 9, 27, 6, 23, 24, 0, time.UTC)
+	s.modelState.EXPECT().SetLastLogTransferTime(gomock.Any(), lastTime).Return(errors.New("boom"))
+
+	err := s.service(c).SetLastLogTransferTime(c.Context(), lastTime)
+	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
 // TestSetMigrationPhase asserts the active migration is resolved and the phase

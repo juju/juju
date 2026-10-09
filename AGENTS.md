@@ -1,11 +1,21 @@
 # Juju Agent Rules Index
 
-Apply both files below for any code change:
+Apply both files below when implementing or reviewing code:
 
 1. [Architectural rules](AGENTS.architecture-rules.md)
 2. [Core domain rules](AGENTS.core-domain-rules.md)
 
 If guidance conflicts, architectural rules take precedence.
+
+Before modifying or reviewing code, read any applicable nested `AGENTS.md`
+files between the repository root and each relevant file's directory. Nested
+rules supplement the shared rules above. Where nested files conflict, the
+closest applicable `AGENTS.md` to the affected file takes precedence;
+architectural rules always take precedence.
+
+Use plain `AGENTS.md` for new directory-specific guidance. Keep repository-wide
+topic files (`AGENTS.<topic>.md`) at the root and reference them explicitly from
+this index.
 
 ## Documentation
 
@@ -19,6 +29,14 @@ If guidance conflicts, architectural rules take precedence.
 - `make jujud` — Build the controller binary (includes domain services, dqlite).
 - `make jujuagentd` — Build the machine agent binary.
 
+## Behaviour Checks
+
+- Trace changed behaviour from data producers through conversions,
+  serialisation and persistence to consumers. Check that fields and supported
+  representations survive each boundary and that consumers handle them.
+- Verify that intended side effects reach their destination; a method named
+  to save, repair or persist something does not establish that it does so.
+
 ## Unit Test Conventions
 
 - Always use `tc` for writing unit tests.
@@ -29,13 +47,18 @@ If guidance conflicts, architectural rules take precedence.
   - The use of `tc.Must` (e.g. `tc.Must(c, NewUUID)`) should be limited to simple test setup.
 - Checkers:
   - Checkers are passed to `c.Assert` and `c.Check` as the second argument.
-  - Examples of checkers arr `tc.IsTrue`, `tc.IsFalse`, `tc.Equals` and `tc.DeepEquals`.
+  - Examples of checkers are `tc.IsTrue`, `tc.IsFalse`, `tc.Equals` and
+    `tc.DeepEquals`.
   - Use `c.Assert(err, tc.ErrorIs, MySentinalErr)` instead of `c.Assert(errors.Is(err, MySentinalErr), tc.Equals, true)`.
   - Use `c.Check(booleanExpr, tc.IsTrue)` instead of `c.Check(booleanExpr, tc.Equals, true)`.
   - There are more Checkers, look for the most appropriate checker.
 - For `select` cases, use test context (`c.Context`) instead of timeouts.
 - If a test event must occur, block on it and rely on the native test timeout
   instead of adding an explicit timeout branch.
+- Cover materially distinct inputs, outputs and error paths, including
+  representations produced by other callers. For round trips, exercise both
+  directions and supported representations. A regression test for one reported
+  case may not establish the whole contract.
 
 ## Running Tests
 
@@ -84,6 +107,10 @@ timeframe.
 
 - Place methods and functions below others that call them.
 - Limit comment line lengths to 80 characters.
+- Prefer British English spelling.
+- Avoid `IAAS` and `CAAS` in new logs, errors and user-facing text. Use machine
+  or Kubernetes terminology as appropriate. Prefer `K8s` over `CAAS` in new
+  identifiers for Kubernetes functionality.
 - When wrapping errors across layers, add identifying context such as
   entity UUIDs once at the highest useful layer. Keep state-layer
   `Errorf` messages generic to avoid repeated identifiers in the final

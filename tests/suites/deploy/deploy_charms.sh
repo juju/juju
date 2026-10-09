@@ -189,6 +189,22 @@ run_deploy_lxd_to_container() {
 		yq -r '.applications["ubuntu-plus"].units["ubuntu-plus/0"].machine')
 	echo "${principal_machine}" | check "0/lxd/0"
 
+	# The container's eth0 device is parented to the default LXD bridge,
+	# as the suite bootstraps with container-networking-method "local".
+	# Assert that eth0 obtained an IPv4 address, so that a container
+	# networking regression fails here deterministically, rather than
+	# manifesting only as a deployment timeout. Poll briefly for the
+	# address so slow DHCP does not flake the test, without weakening
+	# the match itself.
+	#
+	# The command below is evaluated by wait_for_or_fail via eval, so it
+	# is single-quoted here (expansion happens per poll attempt) and the
+	# regex variable is only referenced inside it.
+	# shellcheck disable=SC2034
+	eth0_ipv4_re='inet [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/'
+	# shellcheck disable=SC2016
+	wait_for_or_fail 'check_contains "$(juju_exec_output --machine "${principal_machine}" -- ip -4 addr show dev eth0)" "${eth0_ipv4_re}"'
+
 	destroy_model "${model_name}"
 }
 

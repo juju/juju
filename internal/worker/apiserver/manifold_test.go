@@ -6,7 +6,6 @@ package apiserver_test
 import (
 	"context"
 	"maps"
-	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
-	gossh "golang.org/x/crypto/ssh"
 
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -42,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/sshserver"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -137,6 +136,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 		ChangeStreamName:                  "change-stream",
 		JWTParserName:                     "jwt-parser",
 		SSHTunnelerName:                   "ssh-tunneler",
+		SSHServerName:                     "ssh-server",
 		WatcherRegistryName:               "watcher-registry",
 		FlightRecorderName:                "flight-recorder",
 		ProviderTrackerName:               "provider-tracker",
@@ -186,7 +186,8 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"trace":               s.tracerGetter,
 		"object-store":        s.objectStoreGetter,
 		"jwt-parser":          s.jwtParser,
-		"ssh-tunneler":        stubTunnelTracker{},
+		"ssh-tunneler":        &internalTunneler.Tracker{},
+		"ssh-server":          &sshserver.TerminatingServerFactory{},
 		"watcher-registry":    s.watcherRegistryGetter,
 		"flight-recorder":     s.flightRecorder,
 		"provider-tracker":    s.providerFactory,
@@ -197,18 +198,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 
 type mockModelLogger struct {
 	corelogger.ModelLogger
-}
-
-// stubTunnelTracker satisfies workerTunneler.TunnelTracker for the apiserver
-// manifold test.
-type stubTunnelTracker struct{}
-
-func (stubTunnelTracker) RequestTunnel(context.Context, internalTunneler.RequestArgs) (*gossh.Client, error) {
-	return nil, nil
-}
-
-func (stubTunnelTracker) PushTunnel(context.Context, string, string, net.Conn) (<-chan struct{}, error) {
-	return nil, nil
 }
 
 func (*mockModelLogger) Log([]corelogger.LogRecord) error {
@@ -235,7 +224,7 @@ var expectedInputs = []string{
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink",
 	"jwt-parser", "watcher-registry",
-	"flight-recorder", "provider-tracker", "ssh-tunneler",
+	"flight-recorder", "provider-tracker", "ssh-tunneler", "ssh-server",
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
@@ -278,7 +267,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	config.Clock = nil
 	config.DataDir = ""
 	config.LogDir = ""
-	config.SSHTunnel = nil
+	config.SSHProxy = nil
 
 	c.Assert(config, tc.DeepEquals, apiserver.Config{
 		LocalMacaroonAuthenticator: s.authenticator,

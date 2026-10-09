@@ -24,6 +24,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	"github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -155,6 +156,18 @@ AND    revision = ?`, oldResourceUUID, oldCharmUUID, revision).Scan(&oldRows)
 	c.Check(currentRevision, tc.Equals, revision)
 	c.Check(currentStoreUUID, tc.Equals, storeUUID)
 	c.Check(oldRows, tc.Equals, 1)
+
+	var removalJobUUID, removalEntityUUID string
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT uuid, entity_uuid
+FROM   removal
+WHERE  removal_type_id = ?
+AND    entity_uuid = ?`, removal.ResourceJob, oldResourceUUID).Scan(
+		&removalJobUUID, &removalEntityUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removal.UUID(removalJobUUID).Validate(), tc.ErrorIsNil)
+	c.Check(removalEntityUUID, tc.Equals, oldResourceUUID)
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmCarriesPinnedUpload(c *tc.C) {
@@ -453,7 +466,6 @@ INSERT INTO application_resource (resource_uuid, application_uuid)
 VALUES (?, ?)`, oldPotentialUUID, appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(oldResourceUUIDs, tc.HasLen, 2)
-
 	err = s.state.SetApplicationCharm(c.Context(), appID, newCharmUUID, application.SetCharmStateParams{
 		ResourceIDs: map[string]string{
 			"retained": retainedUUID,
@@ -526,6 +538,20 @@ AND    r.state_id = 1`, appID)
 		repositoryResourceUUIDs["retained"],
 		repositoryResourceUUIDs["added"],
 	})
+
+	removalRows, err := s.DB().QueryContext(c.Context(), `
+SELECT entity_uuid FROM removal WHERE removal_type_id = ?`, removal.ResourceJob)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = removalRows.Close() }()
+	var removalResourceUUIDs []string
+	for removalRows.Next() {
+		var resourceUUID string
+		err := removalRows.Scan(&resourceUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		removalResourceUUIDs = append(removalResourceUUIDs, resourceUUID)
+	}
+	c.Assert(removalRows.Err(), tc.ErrorIsNil)
+	c.Check(removalResourceUUIDs, tc.SameContents, append(oldResourceUUIDs, oldPotentialUUID))
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmResourceReconciliationRollsBack(c *tc.C) {
@@ -577,7 +603,7 @@ END`)
 	c.Assert(err, tc.ErrorMatches, `.*forced charm update failure.*`)
 
 	var charmUUID, resourceUUID string
-	var pendingRows, repositoryRows int
+	var pendingRows, repositoryRows, removalRows int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := tx.QueryRowContext(ctx, `
 SELECT a.charm_uuid, ar.resource_uuid
@@ -594,14 +620,18 @@ FROM   pending_application_resource
 WHERE  resource_uuid = ?`, pendingUUID).Scan(&pendingRows); err != nil {
 			return err
 		}
-		return tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM resource WHERE uuid = ?`, repositoryResourceUUID).Scan(&repositoryRows)
+		if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM resource WHERE uuid = ?`, repositoryResourceUUID).Scan(&repositoryRows); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM removal`).Scan(&removalRows)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(charmUUID, tc.Equals, oldCharmUUID)
 	c.Check(resourceUUID, tc.Equals, oldResourceUUID)
 	c.Check(pendingRows, tc.Equals, 1)
 	c.Check(repositoryRows, tc.Equals, 0)
+	c.Check(removalRows, tc.Equals, 0)
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmCHarmModifiedVersion(c *tc.C) {

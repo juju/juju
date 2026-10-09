@@ -2147,7 +2147,6 @@ func (s *ProviderService) makeSetCharmStateArg(
 		}
 		repositoryResourceUUIDs[name] = repositoryUUID.String()
 	}
-
 	channel, err := encodeChannel(setCharmParams.CharmOrigin.Channel)
 	if err != nil {
 		return application.SetCharmStateParams{}, errors.Errorf("encoding charm channel: %w", err)

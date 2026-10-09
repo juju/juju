@@ -564,14 +564,25 @@ WHERE uuid = $machine.uuid;
 		}
 
 		if !force {
-			// Check to see if the machine instance is in the dying state only if
-			// not forced.
+			// The machine_parent rows of the machine's children reference
+			// the machine row, so the children's own removal jobs must
+			// remove them first. A forced deletion skips this check: the
+			// machine delete then fails on the machine_parent foreign key
+			// until the children's jobs have removed their rows, and the
+			// removal worker retries the transaction.
+			if err := st.checkNoMachineChildren(ctx, tx, machineUUIDParam); err != nil {
+				return errors.Errorf("checking for child machines: %w", err).
+					Add(removalerrors.RemovalJobIncomplete)
+			}
+
+			// Check to see if the machine instance is in the dying state
+			// only if not forced.
 			if iLife == life.Dying {
 				return errors.Errorf("waiting for instance to be dead before deletion").Add(removalerrors.RemovalJobIncomplete)
 			}
 
-			// If force is not set, check for dependents before allowing deletion.
-			// This prevents accidental data loss.
+			// If force is not set, check for dependents before allowing
+			// deletion. This prevents accidental data loss.
 			if err := st.checkNoMachineDependents(ctx, tx, machineUUIDParam); err != nil {
 				return errors.Errorf("checking for dependents: %w", err).Add(removalerrors.RemovalJobIncomplete)
 			}
@@ -607,12 +618,10 @@ WHERE uuid = $machine.uuid;
 }
 
 func (st *State) checkNoMachineDependents(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
-	countContainersOnMachine, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM machine_parent
-WHERE parent_uuid = $entityUUID.uuid
-`, count{}, machineUUIDParam)
-	if err != nil {
+	// Containers are a physical requirement of deleting the machine row,
+	// so they are checked unconditionally by DeleteMachine as well; see
+	// checkNoMachineChildren.
+	if err := st.checkNoMachineChildren(ctx, tx, machineUUIDParam); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -663,15 +672,6 @@ SELECT SUM(count) AS &count.count FROM (
 		return errors.Capture(err)
 	}
 
-	var containerCount count
-	err = tx.Query(ctx, countContainersOnMachine, machineUUIDParam).Get(&containerCount)
-	if err != nil {
-		return errors.Errorf("getting container count: %w", err)
-	} else if containerCount.Count > 0 {
-		return errors.Errorf("cannot delete machine %q, it hosts has %d container(s)", machineUUIDParam.UUID, containerCount.Count).
-			Add(removalerrors.MachineHasContainers)
-	}
-
 	var unitCount count
 	err = tx.Query(ctx, countUnitsOnMachine, machineUUIDParam).Get(&unitCount)
 	if err != nil {
@@ -700,6 +700,33 @@ SELECT SUM(count) AS &count.count FROM (
 		).Add(removalerrors.MachineHasStorage)
 	}
 
+	return nil
+}
+
+// checkNoMachineChildren asserts that no machine_parent rows reference the
+// machine: the machine row can only be deleted once the removal jobs of
+// its child machines have removed them. The check only guards non-forced
+// deletions: a forced deletion skips it, and the machine delete then fails
+// on the machine_parent foreign key until the children's jobs have removed
+// their rows, so the removal worker's retry converges on the same order
+// either way.
+func (st *State) checkNoMachineChildren(ctx context.Context, tx *sqlair.TX, machineUUIDParam entityUUID) error {
+	countChildren, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   machine_parent
+WHERE  parent_uuid = $entityUUID.uuid
+`, count{}, machineUUIDParam)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var childCount count
+	if err := tx.Query(ctx, countChildren, machineUUIDParam).Get(&childCount); err != nil {
+		return errors.Errorf("getting container count: %w", err)
+	} else if childCount.Count > 0 {
+		return errors.Errorf("cannot delete machine %q, it hosts %d container(s)", machineUUIDParam.UUID, childCount.Count).
+			Add(removalerrors.MachineHasContainers)
+	}
 	return nil
 }
 

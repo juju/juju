@@ -1101,6 +1101,70 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`, "1", charmUUID, "buzz", 1, 0, 0, time.Now())
 	s.checkNoCharmsExist(c)
 }
 
+func (s *applicationSuite) TestDeleteOrphanedResourcesRetainsApplicationResource(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	resourceUUID := s.getAppResourceUUID(c, appUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteOrphanedResources(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkResourceExists(c, resourceUUID)
+}
+
+func (s *applicationSuite) TestDeleteOrphanedResourcesRetainsPendingApplicationResource(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	resourceUUID := s.getAppResourceUUID(c, appUUID)
+
+	_, err := s.DB().ExecContext(c.Context(), `
+DELETE FROM application_resource WHERE resource_uuid = ?`, resourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO pending_application_resource (resource_uuid, application_name)
+VALUES (?, 'pending-app')`, resourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteOrphanedResources(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkResourceExists(c, resourceUUID)
+}
+
+func (s *applicationSuite) TestDeleteOrphanedResourcesRetainsUnitResource(c *tc.C) {
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app", applicationservice.AddIAASUnitArg{})
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+
+	var resourceUUID, resourceName, unitUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT r.uuid, r.charm_resource_name, u.uuid
+FROM   resource AS r
+JOIN   application_resource AS ar ON ar.resource_uuid = r.uuid
+JOIN   unit AS u ON u.application_uuid = ar.application_uuid
+WHERE  ar.application_uuid = ?
+AND    r.state_id = 0`, appUUID).Scan(&resourceUUID, &resourceName, &unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO unit_resource (resource_uuid, unit_uuid, charm_resource_name, added_at)
+VALUES (?, ?, ?, ?)`, resourceUUID, unitUUID, resourceName, time.Now().UTC())
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+DELETE FROM application_resource WHERE resource_uuid = ?`, resourceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteOrphanedResources(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkResourceExists(c, resourceUUID)
+}
+
 func (s *applicationSuite) TestDeleteCharmIfUnsedAfterApplicationDeletion(c *tc.C) {
 	// Arrange: One application with a charm.
 	appSvc := s.setupApplicationService(c)
@@ -1299,6 +1363,14 @@ WHERE ar.application_uuid = ?`, appUUID.String())
 	err := row.Scan(&resourceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return resourceUUID
+}
+
+func (s *applicationSuite) checkResourceExists(c *tc.C, resourceUUID string) {
+	var count int
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM resource WHERE uuid = ?`, resourceUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
 }
 
 func (s *applicationSuite) checkUnitContents(c *tc.C, actual []string, expected []unit.UUID) {

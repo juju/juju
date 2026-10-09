@@ -111,15 +111,15 @@ func (s *stateSuite) TestGetControllerInfo(c *tc.C) {
 	err := controllerNodeState.AddDqliteNode(c.Context(), controllerID1, nodeID1, "10.0.0."+controllerID1)
 	c.Assert(err, tc.ErrorIsNil)
 
-	addrs1 := []controllernode.APIAddress{
-		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.2:17070", IsAgent: true, Scope: network.ScopeCloudLocal},
-		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.42:18080", IsAgent: true, Scope: network.ScopePublic},
-		{UUID: uuid.MustNewUUID().String(), Address: "192.168.0.1:17070", IsAgent: false, Scope: network.ScopeMachineLocal},
+	addrs1 := controllernode.APIAddresses{
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.2:17070", Scope: network.ScopeCloudLocal},
+		{UUID: uuid.MustNewUUID().String(), Address: "10.0.0.42:18080", Scope: network.ScopePublic},
 	}
 	err = controllerNodeState.SetAPIAddresses(
 		c.Context(),
-		map[string]controllernode.APIAddresses{
-			controllerID1: addrs1,
+		controllernode.APIAddressProjections{
+			"0":           {},
+			controllerID1: {Clients: addrs1, Agents: addrs1},
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -134,7 +134,7 @@ INSERT INTO controller_config ("key", value) VALUES (?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.DB().ExecContext(c.Context(), `
-INSERT INTO controller_agent_address (uuid, address, scope)
+INSERT INTO controller_client_address (uuid, address, scope)
 VALUES ('shared', 'shared.example.com:17070', 'local-cloud');
 INSERT INTO controller_api_address (controller_id, address, scope, is_agent)
 VALUES ('1', 'legacy.example.com:17070', 'public', true)`)

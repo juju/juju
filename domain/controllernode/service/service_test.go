@@ -172,7 +172,12 @@ func (s *serviceSuite) TestSetAPIAddressesStateError(c *tc.C) {
 
 	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).Return(internalerrors.New("boom"))
 
-	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{})
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: network.NewSpaceAddresses("controller.example.com")},
+		},
+	})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
@@ -180,306 +185,232 @@ func (s *serviceSuite) TestSetAPIAddresses(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	controllerID := "1"
-	controllerApiAddrs := map[string]controllernode.APIAddresses{
-		controllerID: {
-			{
-				Address: "10.0.0.1:17070",
-				IsAgent: true,
-				Scope:   network.ScopePublic,
-			}, {
-				Address: "10.0.0.2:17070",
-				IsAgent: false,
-				Scope:   network.ScopePublic,
-			},
-		},
-	}
-	s.expectAPIAddresses(c, controllerApiAddrs)
-
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: &network.SpaceInfo{
-			ID:   "space0-uuid",
-			Name: "space0",
-		},
-		APIAddresses: map[string]network.SpaceHostPorts{
-			controllerID: {
-				{
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.1",
-							Scope: network.ScopePublic,
-						},
-						SpaceID: "space0-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-				{
-					// This address is in a different space.
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.2",
-							Scope: network.ScopePublic,
-						},
-						SpaceID: "space1-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-			},
-		},
-	}
-
-	err := svc.SetAPIAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetAPIAddressesNilMgmtSpace(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	controllerID := "1"
-	controllerApiAddrs := map[string]controllernode.APIAddresses{
-		controllerID: {
-			{
-				Address: "10.0.0.1:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			}, {
-				Address: "10.0.0.2:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			},
-		},
-	}
-	s.expectAPIAddresses(c, controllerApiAddrs)
-
-	args := controllernode.SetAPIAddressArgs{
-		APIAddresses: map[string]network.SpaceHostPorts{
-			controllerID: {
-				{
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.1",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: "space0-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-				{
-					// This address is in a different space.
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.2",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: "space1-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-			},
-		},
-	}
-	err := svc.SetAPIAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetAPIAddressesAllAddrsFilteredForcesAgent(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	controllerID := "1"
-	controllerApiAddrs := map[string]controllernode.APIAddresses{
-		controllerID: {
-			{
-				Address: "10.0.0.1:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			}, {
-				Address: "10.0.0.2:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			},
-		},
-	}
-	s.expectAPIAddresses(c, controllerApiAddrs)
-
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: &network.SpaceInfo{
-			ID: "space0-uuid",
-		},
-		APIAddresses: map[string]network.SpaceHostPorts{
-			controllerID: {
-				{
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.1",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: "space1-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-				{
-					// This address is in a different space.
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.2",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: "space2-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-			},
-		},
-	}
-	err := svc.SetAPIAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetAPIAddressesNotAllAddrsFilteredAgents(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	controllerID := "1"
-	controllerApiAddrs := map[string]controllernode.APIAddresses{
-		controllerID: {
-			{
-				Address: "10.0.0.1:17070",
-				IsAgent: false,
-				Scope:   network.ScopePublic,
-			}, {
-				Address: "10.0.0.2:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			},
-		},
-	}
-
-	s.expectAPIAddresses(c, controllerApiAddrs)
-
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: &network.SpaceInfo{
-			ID: "space0-uuid",
-		},
-		APIAddresses: map[string]network.SpaceHostPorts{
-			controllerID: {
-				{
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.1",
-							Scope: network.ScopePublic,
-						},
-						SpaceID: "space1-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-				{
-					// This address is in a different space.
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "10.0.0.2",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: "space0-uuid",
-					},
-					NetPort: network.NetPort(17070),
-				},
-			},
-		},
-	}
-	err := svc.SetAPIAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSetAPIAddressesDualStackNoMismatchLeak(c *tc.C) {
-	// Reproduces GitHub issue #22787: when alpha has both IPv4 and IPv6
-	// subnets and beta has only the IPv6 subnets, controller addresses
-	// from alpha (IPv4) must not leak into agent config when
-	// juju-mgmt-space is set to beta.
-	//
-	//   alpha: 192.168.0.0/20, 192.168.16.0/20, fd00::/64, fd00:0:0:10::/64
-	//   beta:  fd00::/64, fd00:0:0:10::/64
-	//   mgmt-space = beta
-	defer s.setupMocks(c).Finish()
-	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
-
-	const alphaUUID = "656b4a82-e28c-53d6-a014-f0dd53417eb6"
-	const betaUUID = "e7d1d55c-d6b7-4989-896e-ddf996aaca65"
-
-	controllerID := "0"
-	controllerApiAddrs := map[string]controllernode.APIAddresses{
-		controllerID: {
-			{
-				Address: "192.168.16.4:17070",
-				IsAgent: false,
-				Scope:   network.ScopeCloudLocal,
-			},
-			{
-				Address: "[fd00::1]:17070",
-				IsAgent: true,
-				Scope:   network.ScopeCloudLocal,
-			},
-		},
-	}
-	s.expectAPIAddresses(c, controllerApiAddrs)
-
-	args := controllernode.SetAPIAddressArgs{
-		MgmtSpace: &network.SpaceInfo{
-			ID:   betaUUID,
-			Name: "beta",
-		},
-		APIAddresses: map[string]network.SpaceHostPorts{
-			controllerID: {
-				{
-					// IPv4 controller address in alpha space.
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "192.168.16.4",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: alphaUUID,
-					},
-					NetPort: network.NetPort(17070),
-				},
-				{
-					// IPv6 controller address in beta space.
-					SpaceAddress: network.SpaceAddress{
-						MachineAddress: network.MachineAddress{
-							Value: "fd00::1",
-							Scope: network.ScopeCloudLocal,
-						},
-						SpaceID: betaUUID,
-					},
-					NetPort: network.NetPort(17070),
-				},
-			},
-		},
-	}
-	err := svc.SetAPIAddresses(c.Context(), args)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// expectAPIAddresses checks audience selection, generated row identity and order.
-func (s *serviceSuite) expectAPIAddresses(c *tc.C, expected map[string]controllernode.APIAddresses) {
 	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, addresses map[string]controllernode.APIAddresses) error {
-			actual := make(map[string]controllernode.APIAddresses, len(addresses))
+		func(_ context.Context, projections controllernode.APIAddressProjections) error {
 			ids := make(map[string]bool)
-			for controllerID, addrs := range addresses {
-				for priority, addr := range addrs {
-					c.Check(uuid.IsValidUUIDString(addr.UUID), tc.IsTrue)
-					c.Check(ids[addr.UUID], tc.IsFalse)
-					ids[addr.UUID] = true
-					c.Check(addr.Priority, tc.Equals, priority)
-					addr.UUID = ""
-					addr.Priority = 0
-					actual[controllerID] = append(actual[controllerID], addr)
+			for controllerID, projection := range projections {
+				for _, addrs := range []controllernode.APIAddresses{
+					projection.Clients, projection.Agents, projection.Peers,
+				} {
+					for priority := range addrs {
+						c.Check(uuid.IsValidUUIDString(addrs[priority].UUID), tc.IsTrue)
+						c.Check(ids[addrs[priority].UUID], tc.IsFalse)
+						ids[addrs[priority].UUID] = true
+						c.Check(addrs[priority].Priority, tc.Equals, priority)
+						addrs[priority].UUID = ""
+					}
 				}
+				projections[controllerID] = projection
 			}
-			c.Check(actual, tc.DeepEquals, expected)
+			c.Check(projections, tc.DeepEquals, controllernode.APIAddressProjections{
+				"": {
+					Clients: controllernode.APIAddresses{
+						{Address: "shared-client.example.com:17070", Scope: network.ScopePublic},
+					},
+					Agents: controllernode.APIAddresses{
+						{Address: "shared-agent.example.com:17070", Scope: network.ScopeCloudLocal},
+					},
+				},
+				"0": {
+					Clients: controllernode.APIAddresses{
+						{Address: "controller.example.com:17070", Scope: network.ScopePublic},
+						{Address: "10.0.0.1:17070", Scope: network.ScopeCloudLocal, Priority: 1},
+						{Address: "[2001:db8::1]:17070", Scope: network.ScopeMachineLocal, Priority: 2},
+					},
+					Agents: controllernode.APIAddresses{
+						{Address: "10.0.0.1:17070", Scope: network.ScopePublic},
+					},
+					Peers: controllernode.APIAddresses{
+						{Address: "peer.example.com:17070", Scope: network.ScopeCloudLocal},
+					},
+				},
+				"1": {
+					Clients: controllernode.APIAddresses{
+						{Address: "10.0.1.1:17070", Scope: network.ScopeCloudLocal},
+					},
+					Agents: controllernode.APIAddresses{
+						{Address: "agent.example.com:17070", Scope: network.ScopePublic},
+					},
+					Peers: controllernode.APIAddresses{
+						{Address: "[2001:db8::2]:17070", Scope: network.ScopeMachineLocal},
+					},
+				},
+			})
 			return nil
 		})
+
+	args := controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: network.SpaceAddresses{
+				network.NewSpaceAddress("shared-client.example.com", network.WithScope(network.ScopePublic)),
+			},
+			Agents: network.SpaceAddresses{
+				network.NewSpaceAddress("shared-agent.example.com", network.WithScope(network.ScopeCloudLocal)),
+			},
+		},
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {
+				Clients: network.SpaceAddresses{
+					network.NewSpaceAddress("controller.example.com", network.WithScope(network.ScopePublic)),
+					network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+					network.NewSpaceAddress("controller.example.com", network.WithScope(network.ScopeMachineLocal)),
+					network.NewSpaceAddress("2001:db8::1", network.WithScope(network.ScopeMachineLocal)),
+				},
+				Agents: network.SpaceAddresses{
+					network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopePublic)),
+				},
+				Peers: network.SpaceAddresses{
+					network.NewSpaceAddress("peer.example.com", network.WithScope(network.ScopeCloudLocal)),
+				},
+			},
+			"1": {
+				Clients: network.SpaceAddresses{
+					network.NewSpaceAddress("10.0.1.1", network.WithScope(network.ScopeCloudLocal)),
+				},
+				Agents: network.SpaceAddresses{
+					network.NewSpaceAddress("agent.example.com", network.WithScope(network.ScopePublic)),
+				},
+				Peers: network.SpaceAddresses{
+					network.NewSpaceAddress("2001:db8::2", network.WithScope(network.ScopeMachineLocal)),
+				},
+			},
+		},
+	}
+	err := svc.SetAPIAddresses(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesSharedClientsOnly(c *tc.C) {
+	s.testSetAPIAddressesShared(c, controllernode.SharedAPIAddressSet{
+		Clients: network.NewSpaceAddresses("client.example.com"),
+	}, "client.example.com:17070", "")
+}
+
+func (s *serviceSuite) TestSetAPIAddressesSharedAgentsOnly(c *tc.C) {
+	s.testSetAPIAddressesShared(c, controllernode.SharedAPIAddressSet{
+		Agents: network.NewSpaceAddresses("agent.example.com"),
+	}, "", "agent.example.com:17070")
+}
+
+func (s *serviceSuite) testSetAPIAddressesShared(
+	c *tc.C,
+	shared controllernode.SharedAPIAddressSet,
+	wantClient, wantAgent string,
+) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().SetAPIAddresses(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, projections controllernode.APIAddressProjections) error {
+			c.Assert(projections, tc.HasLen, 1)
+			projection, ok := projections[""]
+			c.Assert(ok, tc.IsTrue)
+			if wantClient == "" {
+				c.Check(projection.Clients, tc.HasLen, 0)
+			} else {
+				c.Assert(projection.Clients, tc.HasLen, 1)
+				c.Check(projection.Clients[0].Address, tc.Equals, wantClient)
+			}
+			if wantAgent == "" {
+				c.Check(projection.Agents, tc.HasLen, 0)
+			} else {
+				c.Assert(projection.Agents, tc.HasLen, 1)
+				c.Check(projection.Agents[0].Address, tc.Equals, wantAgent)
+			}
+			return nil
+		})
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort:         17070,
+		SharedAddresses: shared,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesRejectsEmptyAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	for _, addresses := range []controllernode.APIAddressSet{
+		{Clients: network.NewSpaceAddresses("")},
+		{Agents: network.NewSpaceAddresses("")},
+		{Peers: network.NewSpaceAddresses("")},
+	} {
+		err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+			APIPort:   17070,
+			Addresses: map[string]controllernode.APIAddressSet{"0": addresses},
+		})
+		c.Check(err, tc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
+	}
+}
+
+func (s *serviceSuite) TestSetAPIAddressesRejectsEmptySharedClientAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Clients: network.NewSpaceAddresses(""),
+		},
+	})
+	c.Check(err, tc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesRejectsEmptySharedAgentAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		SharedAddresses: controllernode.SharedAPIAddressSet{
+			Agents: network.NewSpaceAddresses(""),
+		},
+	})
+	c.Check(err, tc.ErrorIs, controllernodeerrors.ControllerAddressNotValid)
+}
+
+func (s *serviceSuite) TestSetAPIAddressesRejectsEmptyNamedControllerID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"": {Clients: network.NewSpaceAddresses("client.example.com")},
+		},
+	})
+	c.Check(err, tc.ErrorIs, errors.NotValid)
+	c.Check(err, tc.ErrorMatches, "controller ID is empty: not valid")
+}
+
+func (s *serviceSuite) TestSetAPIAddressesRejectsNonPositivePort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	for _, port := range []int{0, -1} {
+		err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+			APIPort: port,
+			Addresses: map[string]controllernode.APIAddressSet{
+				"0": {Clients: network.NewSpaceAddresses("controller.example.com")},
+			},
+		})
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+	}
+}
+
+func (s *serviceSuite) TestSetAPIAddressesAcceptsEmptySnapshot(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+	s.state.EXPECT().SetAPIAddresses(
+		gomock.Any(), controllernode.APIAddressProjections{},
+	).Return(nil)
+
+	err := svc.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
+		APIPort: 17070,
+	})
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestGetControllerIDs(c *tc.C) {
@@ -514,7 +445,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForAgents(c *tc.C) {
 			{
 				Address: "10.0.0.1:17070",
 				Scope:   network.ScopeCloudLocal,
-			}, { // This address not in result, machine local.
+			}, {
 				Address: "10.0.0.2:17070",
 				Scope:   network.ScopeMachineLocal,
 			},
@@ -536,10 +467,11 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForAgents(c *tc.C) {
 	c.Check(apiAddrs, tc.DeepEquals, map[string][]string{
 		"1": {
 			"10.0.0.1:17070",
+			"10.0.0.2:17070",
 		},
 		"2": {
-			"10.0.0.7:17070",
 			"10.0.0.43:17070",
+			"10.0.0.7:17070",
 		},
 	})
 }
@@ -567,7 +499,7 @@ func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgents(c *tc.C) {
 			{
 				Address: "10.0.0.1:17070",
 				Scope:   network.ScopeCloudLocal,
-			}, { // This address not in result, machine local.
+			}, {
 				Address: "10.0.0.2:17070",
 				Scope:   network.ScopeMachineLocal,
 			},
@@ -586,7 +518,16 @@ func (s *serviceSuite) TestGetAPIHostPortsForControllerIDForAgents(c *tc.C) {
 
 	apiAddrs, err := svc.GetAPIHostPortsForControllerIDForAgents(c.Context(), "2")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(apiAddrs, tc.DeepEquals, network.NewMachineHostPorts(17070, "10.0.0.7", "10.0.0.43").HostPorts())
+	expected := network.MachineHostPorts{
+		{
+			MachineAddress: network.NewMachineAddress("10.0.0.43", network.WithScope(network.ScopePublic)),
+			NetPort:        17070,
+		}, {
+			MachineAddress: network.NewMachineAddress("10.0.0.7", network.WithScope(network.ScopeCloudLocal)),
+			NetPort:        17070,
+		},
+	}
+	c.Check(apiAddrs, tc.DeepEquals, expected.HostPorts())
 }
 
 // TestGetAPIHostPortsForControllerIDForAgentsNotFound verifies that an
@@ -632,7 +573,7 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgents(c *tc.C) {
 			{
 				Address: "10.0.0.1:17070",
 				Scope:   network.ScopeCloudLocal,
-			}, { // This address not in result, machine local.
+			}, {
 				Address: "10.0.0.2:17070",
 				Scope:   network.ScopeMachineLocal,
 			},
@@ -654,7 +595,12 @@ func (s *serviceSuite) TestGetAllAPIAddressesForAgents(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.7:17070", "10.0.0.43:17070"})
+	c.Assert(apiAddrs, tc.DeepEquals, []string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+		"10.0.0.43:17070",
+		"10.0.0.7:17070",
+	})
 }
 
 func (s *serviceSuite) TestGetAllAPIAddressesForAgentsError(c *tc.C) {
@@ -722,22 +668,18 @@ func (s *serviceSuite) TestGetAllAPIAddressesForClients(c *tc.C) {
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
-				IsAgent: true,
 				Scope:   network.ScopeCloudLocal,
 			}, {
 				Address: "10.0.0.2:17070",
-				IsAgent: false,
 				Scope:   network.ScopePublic,
 			},
 		},
 		"2": {
 			{
 				Address: "10.0.0.34:17070",
-				IsAgent: true,
 				Scope:   network.ScopePublic,
-			}, { // This address shouldn't appear.
+			}, {
 				Address: "10.0.0.9:17070",
-				IsAgent: false,
 				Scope:   network.ScopeMachineLocal,
 			},
 		},
@@ -749,7 +691,12 @@ func (s *serviceSuite) TestGetAllAPIAddressesForClients(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(apiAddrs, tc.DeepEquals, []string{"10.0.0.2:17070", "10.0.0.1:17070", "10.0.0.34:17070"})
+	c.Assert(apiAddrs, tc.DeepEquals, []string{
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+		"10.0.0.34:17070",
+		"10.0.0.9:17070",
+	})
 }
 
 func (s *serviceSuite) TestGetAllAPIAddressesForClientsError(c *tc.C) {
@@ -772,22 +719,18 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClients(c *tc.C) {
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
-				IsAgent: true,
 				Scope:   network.ScopeCloudLocal,
 			}, {
 				Address: "10.0.0.2:17070",
-				IsAgent: false,
 				Scope:   network.ScopePublic,
 			},
 		},
 		"2": {
 			{
 				Address: "10.0.0.34:17070",
-				IsAgent: true,
 				Scope:   network.ScopePublic,
-			}, { // This address shouldn't appear.
+			}, {
 				Address: "10.0.0.9:17070",
-				IsAgent: false,
 				Scope:   network.ScopeMachineLocal,
 			},
 		},
@@ -801,7 +744,7 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClients(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(apiAddrs, tc.DeepEquals, map[string][]string{
 		"1": {"10.0.0.1:17070", "10.0.0.2:17070"},
-		"2": {"10.0.0.34:17070"},
+		"2": {"10.0.0.34:17070", "10.0.0.9:17070"},
 	})
 }
 
@@ -815,6 +758,38 @@ func (s *serviceSuite) TestGetAPIAddressesByControllerIDForClientsError(c *tc.C)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *serviceSuite) TestGetAPIAddressesByControllerIDForPeers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	addresses := map[string]controllernode.APIAddresses{
+		"": {{Address: "shared.example.com:17070", Scope: network.ScopePublic}},
+		"1": {
+			{Address: "controller-1.example.com:17070", Scope: network.ScopeMachineLocal},
+			{Address: "[2001:db8::1]:17070", Scope: network.ScopeCloudLocal},
+		},
+		"2": {{Address: "10.0.0.2:17070", Scope: network.ScopeCloudLocal}},
+	}
+	s.state.EXPECT().GetAPIAddressesForPeers(gomock.Any()).Return(addresses, nil)
+
+	apiAddrs, err := svc.GetAPIAddressesByControllerIDForPeers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiAddrs, tc.DeepEquals, map[string][]string{
+		"1": {"controller-1.example.com:17070", "[2001:db8::1]:17070"},
+		"2": {"10.0.0.2:17070"},
+	})
+}
+
+func (s *serviceSuite) TestGetAPIAddressesByControllerIDForPeersError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().GetAPIAddressesForPeers(gomock.Any()).Return(nil, internalerrors.Errorf("boom"))
+
+	_, err := svc.GetAPIAddressesByControllerIDForPeers(c.Context())
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *serviceSuite) TestGetAPIHostPortsForAgents(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
@@ -824,19 +799,19 @@ func (s *serviceSuite) TestGetAPIHostPortsForAgents(c *tc.C) {
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
-				IsAgent: true,
 				Scope:   network.ScopeCloudLocal,
 			}, {
 				Address: "10.0.0.2:17070",
-				IsAgent: false,
 				Scope:   network.ScopePublic,
 			},
 		},
 		"2": {
 			{
 				Address: "10.0.0.34:17070",
-				IsAgent: true,
 				Scope:   network.ScopePublic,
+			}, {
+				Address: "10.0.0.9:17070",
+				Scope:   network.ScopeMachineLocal,
 			},
 		},
 	}
@@ -859,6 +834,9 @@ func (s *serviceSuite) TestGetAPIHostPortsForAgents(c *tc.C) {
 		}, {
 			{
 				MachineAddress: network.NewMachineAddress("10.0.0.34", network.WithScope(network.ScopePublic)),
+				NetPort:        17070,
+			}, {
+				MachineAddress: network.NewMachineAddress("10.0.0.9", network.WithScope(network.ScopeMachineLocal)),
 				NetPort:        17070,
 			},
 		},
@@ -889,22 +867,18 @@ func (s *serviceSuite) TestGetAPIAddressesForClients(c *tc.C) {
 		"1": {
 			{
 				Address: "10.0.0.1:17070",
-				IsAgent: true,
 				Scope:   network.ScopeCloudLocal,
 			}, {
 				Address: "10.0.0.2:17070",
-				IsAgent: false,
 				Scope:   network.ScopePublic,
 			},
 		},
 		"2": {
 			{
 				Address: "10.0.0.34:17070",
-				IsAgent: true,
 				Scope:   network.ScopePublic,
 			}, {
 				Address: "10.0.0.9:17070",
-				IsAgent: false,
 				Scope:   network.ScopeMachineLocal,
 			},
 		},
@@ -928,6 +902,9 @@ func (s *serviceSuite) TestGetAPIAddressesForClients(c *tc.C) {
 		}, {
 			{
 				MachineAddress: network.NewMachineAddress("10.0.0.34", network.WithScope(network.ScopePublic)),
+				NetPort:        17070,
+			}, {
+				MachineAddress: network.NewMachineAddress("10.0.0.9", network.WithScope(network.ScopeMachineLocal)),
 				NetPort:        17070,
 			},
 		},
@@ -955,7 +932,7 @@ func (s *serviceSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
 	// Arrange
 	svc := NewService(s.state, loggertesting.WrapCheckLog(c))
 
-	returnAddrs := []string{"9.3.5.2:17070", "3.4.2.5:17070", "[2001:db8::1]:17070"}
+	returnAddrs := []string{"9.3.5.2:17070", "3.4.2.5:17070", "[2001:db8::1]:17070", "api.internal:17070"}
 	s.state.EXPECT().GetAllCloudLocalAPIAddresses(gomock.Any()).Return(returnAddrs, nil)
 
 	// Act
@@ -963,7 +940,7 @@ func (s *serviceSuite) TestGetAllCloudLocalAPIAddresses(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(obtainedAddrs, tc.DeepEquals, []string{"9.3.5.2", "3.4.2.5", "2001:db8::1"})
+	c.Check(obtainedAddrs, tc.DeepEquals, []string{"9.3.5.2", "3.4.2.5", "2001:db8::1", "api.internal"})
 }
 
 func (s *serviceSuite) TestGetAllCloudLocalAPIAddressesError(c *tc.C) {

@@ -291,72 +291,25 @@ func (s *Service) RemoveStorageAttachment(
 		return "", errors.Capture(err)
 	}
 
-	if force && wait > 0 {
-		// If we have been supplied with the force flag *and* a wait time,
-		// schedule a normal removal job immediately. This will cause the
-		// earliest removal of the attachment if the normal destruction
-		// workflows complete within the wait duration.
-		_, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, false, 0)
-		if err != nil {
-			return "", errors.Capture(err)
-		}
-	} else if wait > 0 {
-		s.logger.Infof(
-			ctx,
-			"ignoring wait duration for non-forced removal of storage attachment %q",
-			saUUID.String(),
-		)
-		wait = 0
-	}
-	jUUID, err := s.storageAttachmentScheduleRemoval(ctx, saUUID, force, wait)
+	jUUID, err := s.scheduleWithForceWait(ctx, saUUID, force, wait, s.storageAttachmentScheduleRemoval)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
 	if cascade.FilesystemAttachmentUUID != nil {
-		a := *cascade.FilesystemAttachmentUUID
-		if force && wait > 0 {
-			if _, err := s.filesystemAttachmentScheduleRemoval(
-				ctx, storage.FilesystemAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.filesystemAttachmentScheduleRemoval(
-			ctx, storage.FilesystemAttachmentUUID(a), force, wait,
-		); err != nil {
+		if _, err := s.scheduleWithForceWait(ctx, storage.FilesystemAttachmentUUID(*cascade.FilesystemAttachmentUUID), force, wait, s.filesystemAttachmentScheduleRemoval); err != nil {
 			return "", errors.Capture(err)
 		}
 	}
 
 	if cascade.VolumeAttachmentUUID != nil {
-		a := *cascade.VolumeAttachmentUUID
-		if force && wait > 0 {
-			if _, err := s.volumeAttachmentScheduleRemoval(
-				ctx, storage.VolumeAttachmentUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeAttachmentScheduleRemoval(
-			ctx, storage.VolumeAttachmentUUID(a), force, wait,
-		); err != nil {
+		if _, err := s.scheduleWithForceWait(ctx, storage.VolumeAttachmentUUID(*cascade.VolumeAttachmentUUID), force, wait, s.volumeAttachmentScheduleRemoval); err != nil {
 			return "", errors.Capture(err)
 		}
 	}
 
 	if cascade.VolumeAttachmentPlanUUID != nil {
-		a := *cascade.VolumeAttachmentPlanUUID
-		if force && wait > 0 {
-			if _, err := s.volumeAttachmentPlanScheduleRemoval(
-				ctx, storage.VolumeAttachmentPlanUUID(a), false, 0,
-			); err != nil {
-				return "", errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeAttachmentPlanScheduleRemoval(
-			ctx, storage.VolumeAttachmentPlanUUID(a), force, wait,
-		); err != nil {
+		if _, err := s.scheduleWithForceWait(ctx, storage.VolumeAttachmentPlanUUID(*cascade.VolumeAttachmentPlanUUID), force, wait, s.volumeAttachmentPlanScheduleRemoval); err != nil {
 			return "", errors.Capture(err)
 		}
 	}
@@ -654,39 +607,18 @@ func (s *Service) RemoveStorageInstance(
 		)
 	}
 
-	if force && wait > 0 {
-		if _, err := s.storageInstanceScheduleRemoval(
-			ctx, uuid, false, 0,
-		); err != nil {
-			return errors.Capture(err)
-		}
-	}
-	if _, err := s.storageInstanceScheduleRemoval(
-		ctx, uuid, force, wait,
-	); err != nil {
+	if _, err := s.scheduleWithForceWait(ctx, uuid, force, wait, s.storageInstanceScheduleRemoval); err != nil {
 		return errors.Capture(err)
 	}
 
 	if cascaded.FileSystemUUID != nil {
-		fsUUID := storage.FilesystemUUID(*cascaded.FileSystemUUID)
-		if force && wait > 0 {
-			if _, err := s.filesystemScheduleRemoval(ctx, fsUUID, false, 0); err != nil {
-				return errors.Capture(err)
-			}
-		}
-		if _, err := s.filesystemScheduleRemoval(ctx, fsUUID, force, wait); err != nil {
+		if _, err := s.scheduleWithForceWait(ctx, storage.FilesystemUUID(*cascaded.FileSystemUUID), force, wait, s.filesystemScheduleRemoval); err != nil {
 			return errors.Capture(err)
 		}
 	}
 
 	if cascaded.VolumeUUID != nil {
-		volUUID := storage.VolumeUUID(*cascaded.VolumeUUID)
-		if force && wait > 0 {
-			if _, err := s.volumeScheduleRemoval(ctx, volUUID, false, 0); err != nil {
-				return errors.Capture(err)
-			}
-		}
-		if _, err := s.volumeScheduleRemoval(ctx, volUUID, force, wait); err != nil {
+		if _, err := s.scheduleWithForceWait(ctx, storage.VolumeUUID(*cascaded.VolumeUUID), force, wait, s.volumeScheduleRemoval); err != nil {
 			return errors.Capture(err)
 		}
 	}

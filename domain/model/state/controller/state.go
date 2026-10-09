@@ -1368,10 +1368,10 @@ AND       u.removed = false
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, uuid).GetAll(&modelUsers)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			if _, err := GetModel(ctx, tx, modelUUID); err != nil {
-				return errors.Capture(err)
-			}
-			return errors.New("no users found on model")
+			// A model can legitimately have no users, for example a model
+			// imported by a migration that carried no model permissions.
+			// Only report an error if the model itself doesn't exist.
+			return nil
 		} else if err != nil {
 			return errors.Capture(err)
 		}

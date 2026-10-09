@@ -66,25 +66,7 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 		return "", errors.Errorf("setting remote relation %q to dying: %w", relUUID, err)
 	}
 
-	var jUUID removal.UUID
-	if force {
-		if wait > 0 {
-			// If we have been supplied with the force flag *and* a wait time,
-			// schedule a normal removal job immediately. This will cause the
-			// earliest removal of the relation if the normal destruction
-			// workflows complete within the wait duration.
-			if _, err := s.relationWithRemoteOffererScheduleRemoval(ctx, relUUID, false, 0); err != nil {
-				return jUUID, errors.Capture(err)
-			}
-		}
-	} else {
-		if wait > 0 {
-			s.logger.Infof(ctx, "ignoring wait duration for non-forced removal of remote relation %q", relUUID.String())
-			wait = 0
-		}
-	}
-
-	jUUID, err = s.relationWithRemoteOffererScheduleRemoval(ctx, relUUID, force, wait)
+	jUUID, err := s.scheduleWithForceWait(ctx, relUUID, force, wait, s.relationWithRemoteOffererScheduleRemoval)
 	if err != nil {
 		return "", errors.Errorf("scheduling removal job for remote relation %q: %w", relUUID, err)
 	}

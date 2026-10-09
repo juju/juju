@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -51,22 +52,25 @@ VALUES ('model', 'controller', 'controller', 'admin', 'caas', 'test', 'test', tr
 		`INSERT INTO fqdn_address (uuid, address, scope_id) VALUES ('old-dns', 'old.example.com', 1)`,
 		`INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES ('old', 'old-dns')`)
 	wc.AssertOneChange()
-	addresses, err := svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	selection, err := svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
+	addresses := selection.ByUnit["controller/0"]
 	c.Assert(addresses, tc.HasLen, 1)
 	c.Check(addresses[0].Value, tc.Equals, "old.example.com")
 
 	s.exec(c, `UPDATE unit SET net_node_uuid = 'new'`)
 	wc.AssertOneChange()
-	addresses, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	selection, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
+	addresses = selection.ByUnit["controller/0"]
 	c.Check(addresses, tc.HasLen, 0)
 	// An address arriving on the replacement node must still notify.
 	s.exec(c, `INSERT INTO fqdn_address (uuid, address, scope_id) VALUES ('new-dns', 'new.example.com', 1)`,
 		`INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES ('new', 'new-dns')`)
 	wc.AssertOneChange()
-	addresses, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	selection, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
+	addresses = selection.ByUnit["controller/0"]
 	c.Assert(addresses, tc.HasLen, 1)
 	c.Check(addresses[0].Value, tc.Equals, "new.example.com")
 
@@ -87,14 +91,15 @@ VALUES ('model', 'controller', 'controller', 'admin', 'caas', 'test', 'test', tr
 		s.exec(c, statement)
 		wc.AssertOneChange()
 	}
-	addresses, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	selection, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Assert(err, tc.ErrorIsNil)
+	addresses = selection.ByUnit["controller/0"]
 	c.Assert(addresses, tc.HasLen, 1)
 	c.Check(addresses[0].Value, tc.Equals, "10.0.0.2")
 	c.Check(addresses[0].SpaceID, tc.Equals, network.AlphaSpaceId)
 	s.exec(c, `UPDATE unit SET life_id = 2`)
 	wc.AssertOneChange()
-	_, err = svc.GetControllerPeerAddresses(c.Context(), "controller/0", "")
+	_, err = svc.GetControllerPeerAddresses(c.Context(), []unit.Name{"controller/0"}, "")
 	c.Check(err, tc.ErrorIs, applicationerrors.UnitIsDead)
 }
 

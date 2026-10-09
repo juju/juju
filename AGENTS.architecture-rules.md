@@ -28,6 +28,22 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - `domain` -> must not import `apiserver`, `cmd`, or `internal/worker`.
 - `core` -> should only import other `core` sub-packages or external packages; not other Juju packages.
 
+## Interface Contracts and Initialisation
+
+- Every implementation must satisfy the interface's documented completion,
+  error, retry and lifecycle semantics. Preserve these contracts when changing
+  an implementation or extending an interface.
+- Callers must not need concrete-type knowledge or undocumented
+  implementation-specific call sequencing. Document required lifecycle
+  ordering as part of the shared contract.
+- Supply required dependencies during construction, or make incomplete
+  initialisation explicit. Operations must not silently succeed with empty or
+  default results because a dependency has not been set.
+- Give adapters and wrappers an identifiable responsibility, such as enforcing
+  an architectural boundary, translating representations or coordinating
+  lifecycle. Preserve necessary boundaries even when their implementation is
+  simple forwarding.
+
 ## Concurrency and Goroutine Rules
 
 ### Required
@@ -61,37 +77,6 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Facades handle auth, wire encoding/decoding, and domain service calls.
 - Do not place business logic in facades.
 
-## Domain Service and State Rules
-
-- Keep business logic in the service layer.
-- Services depend on state interfaces/indirections, not concrete implementations.
-- Do not leak transaction or database details out of state packages.
-- Put logic in state only when it must execute inside a transaction.
-- State sub-packages must use Sqlair for query and mutation.
-- Prefer SQL queries that use `WITH` common table expressions instead of embedded `SELECT` subqueries.
-- SQL queries must use explicit aliases for tables, CTEs, and projected values;
-  use `AS` rather than relying on implicit aliasing.
-- State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
-- Generate new UUIDs in the service layer, then pass them into state methods as
-  strings. State should persist supplied UUIDs rather than creating them, so
-  services can return created entity UUIDs directly when needed.
-- When wrapping errors across layers, add identifying context such as entity
-  UUIDs once at the highest useful layer. Keep state-layer `Errorf` messages
-  generic to avoid repeated identifiers in the final error chain.
-- UUID parameters accepted by service-layer methods should use their typed form
-  (e.g. `coremodel.UUID`) whenever such a type exists, and the service method
-  must validate them (e.g. `modelUUID.Validate()`) before use.
-- State-layer methods must always receive UUIDs as plain `string`; the service
-  converts typed UUIDs at the call boundary.
-- Domain packages should generally avoid `github.com/juju/names`. Prefer
-  converting Juju tags to primitive values at API, facade, worker, or command
-  boundaries before calling domain services.
-- Values populated inside a `db.Txn` closure MUST remain correct if the closure
-  is retried. Reset mutable targets only when a previous attempt can leave
-  partial data that would produce duplicate or inconsistent results. Do not add
-  redundant resets for retry-consistent assignments or Sqlair `GetAll` targets,
-  which Sqlair clears before populating.
-
 ## Worker Boundaries
 
 - Workers must be restartable, deterministic, and cancellation-aware.
@@ -105,3 +90,7 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Avoid new global state.
 - Avoid new dependencies unless clearly justified.
 - Do not introduce new patterns or abstractions unless clearly necessary.
+- Before removing a defensive branch or fallback, establish that its condition
+  is unreachable across supported callers, retries and concurrent state
+  changes. Validation by one caller alone does not establish this; document
+  deliberate guards where their purpose is not evident.

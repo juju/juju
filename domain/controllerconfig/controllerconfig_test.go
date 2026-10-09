@@ -109,6 +109,156 @@ func (s *controllerconfigSuite) TestControllerConfigAPIPortRoundTrip(c *tc.C) {
 	c.Check(cfgOut.APIPort(), tc.Equals, 17071)
 }
 
+func (s *controllerconfigSuite) TestUniqueValueGettersMatchControllerConfig(c *tc.C) {
+	st := domainstate.NewState(s.TxnRunnerFactory())
+	srv := service.NewService(st)
+
+	cfgIn, err := controller.NewConfig(
+		jujutesting.ControllerTag.Id(),
+		jujutesting.CACert,
+		map[string]any{
+			controller.APIPort:             17071,
+			controller.SSHServerPort:       17023,
+			controller.JujuManagementSpace: "management",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err := srv.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	sshPort, err := srv.GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sshPort, tc.Equals, cfg.SSHServerPort())
+
+	managementSpace, apiPort, err := srv.GetManagementSpaceAndAPIPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(managementSpace, tc.Equals, cfg.JujuManagementSpace())
+	c.Check(apiPort, tc.Equals, cfg.APIPort())
+}
+
+func (s *controllerconfigSuite) TestUniqueValueGettersMatchControllerConfigDefaults(c *tc.C) {
+	st := domainstate.NewState(s.TxnRunnerFactory())
+	srv := service.NewService(st)
+
+	cfgIn, err := controller.NewConfig(
+		jujutesting.ControllerTag.Id(),
+		jujutesting.CACert,
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg, err := srv.ControllerConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	sshPort, err := srv.GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sshPort, tc.Equals, cfg.SSHServerPort())
+
+	managementSpace, apiPort, err := srv.GetManagementSpaceAndAPIPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(managementSpace, tc.Equals, cfg.JujuManagementSpace())
+	c.Check(apiPort, tc.Equals, cfg.APIPort())
+}
+
+func (s *controllerconfigSuite) TestUniqueValueGettersMatchControllerConfigErrors(c *tc.C) {
+	st := domainstate.NewState(s.TxnRunnerFactory())
+	srv := service.NewService(st)
+
+	cfgIn, err := controller.NewConfig(
+		jujutesting.ControllerTag.Id(),
+		jujutesting.CACert,
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerModelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	err = bootstrap.InsertInitialControllerConfig(cfgIn, controllerModelUUID)(c.Context(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	tests := []struct {
+		name   string
+		values map[string]string
+		get    func(*service.Service) error
+	}{
+		{
+			name: "invalid API port",
+			values: map[string]string{
+				controller.APIPort: "not-a-port",
+			},
+			get: func(srv *service.Service) error {
+				_, _, err := srv.GetManagementSpaceAndAPIPort(c.Context())
+				return err
+			},
+		},
+		{
+			name: "invalid management space",
+			values: map[string]string{
+				controller.JujuManagementSpace: "invalid space",
+			},
+			get: func(srv *service.Service) error {
+				_, _, err := srv.GetManagementSpaceAndAPIPort(c.Context())
+				return err
+			},
+		},
+		{
+			name: "invalid SSH port",
+			values: map[string]string{
+				controller.SSHServerPort: "not-a-port",
+			},
+			get: func(srv *service.Service) error {
+				_, err := srv.GetSSHServerPort(c.Context())
+				return err
+			},
+		},
+		{
+			name: "negative SSH port",
+			values: map[string]string{
+				controller.SSHServerPort: "-1",
+			},
+			get: func(srv *service.Service) error {
+				_, err := srv.GetSSHServerPort(c.Context())
+				return err
+			},
+		},
+		{
+			name: "SSH port matches API port",
+			values: map[string]string{
+				controller.SSHServerPort: "17070",
+			},
+			get: func(srv *service.Service) error {
+				_, err := srv.GetSSHServerPort(c.Context())
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		c.Logf("checking %s", test.name)
+		err = st.UpdateControllerConfig(c.Context(), test.values, nil)
+		c.Assert(err, tc.ErrorIsNil)
+
+		_, fullConfigErr := srv.ControllerConfig(c.Context())
+		c.Check(fullConfigErr, tc.ErrorMatches, `.+`)
+		c.Check(test.get(srv), tc.ErrorMatches, `.+`)
+
+		err = st.UpdateControllerConfig(c.Context(), map[string]string{
+			controller.APIPort:             "17070",
+			controller.SSHServerPort:       "17022",
+			controller.JujuManagementSpace: "",
+		}, nil)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
 func keys(m map[string]any) set.Strings {
 	var result []string
 	for k := range m {

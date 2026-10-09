@@ -35,19 +35,11 @@ func (s *pingerSuite) SetUpTest(c *tc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	controllerNodeService := s.ControllerDomainServices(c).ControllerNode()
-	addrs := network.SpaceHostPorts{
-		{
-			SpaceAddress: network.SpaceAddress{
-				MachineAddress: network.MachineAddress{
-					Value: "10.9.9.32",
-				},
-			},
-			NetPort: 42,
-		},
-	}
+	addrs := network.SpaceAddresses{{MachineAddress: network.NewMachineAddress("10.9.9.32")}}
 	err := controllerNodeService.SetAPIAddresses(c.Context(), controllernode.SetAPIAddressArgs{
-		APIAddresses: map[string]network.SpaceHostPorts{
-			"0": addrs,
+		APIPort: 42,
+		Addresses: map[string]controllernode.APIAddressSet{
+			"0": {Clients: addrs, Agents: addrs, Peers: addrs},
 		},
 	})
 	c.Assert(err, tc.IsNil)
