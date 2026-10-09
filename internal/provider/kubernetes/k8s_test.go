@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/provider/kubernetes"
@@ -272,7 +273,10 @@ func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *tc.C) {
 	_, err := s.broker.Bootstrap(ctx, bootstrapParams)
 	c.Assert(err, tc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, tc.Matches, "controller storage class not identified")
+	c.Check(msg, tc.Equals, strings.Replace(`controller storage class not identified.
+Juju could not find a Kubernetes storage class for the controller's
+persistent volume claim. Record one with add-k8s --storage=<name>, or
+bootstrap with --storage-pool name=<pool>,type=kubernetes,storage-class=<name>`, "\n", "", -1))
 }
 
 func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
@@ -305,24 +309,221 @@ func (s *K8sBrokerSuite) TestBootstrap(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
 }
 
-func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *tc.C) {
+func (s *K8sBrokerSuite) TestBootstrapWithDefaultFilesystemSourcePool(c *tc.C) {
+	// The storage pool nominated by the model config
+	// storage-default-filesystem-source key resolves the controller's
+	// storage class.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "ceph-rbd",
+		map[string]storage.Attrs{
+			"ceph-rbd": {
+				"name":          "ceph-rbd",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolNoDefaultSource(c *tc.C) {
+	// With no default filesystem source nominated, the single Kubernetes
+	// storage pool scheduled for the controller model resolves the
+	// controller's storage class.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "ceph-rbd"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "",
+		map[string]storage.Attrs{
+			"ceph-rbd": {
+				"name":          "ceph-rbd",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithNominatedStorageClassMissing(c *tc.C) {
+	// A storage class resolved from the scheduled storage pools must exist
+	// on the cluster: the bootstrap fails naming the missing class.
+	_, err := s.bootstrapWithStoragePools(c, "ceph-rbd",
+		map[string]storage.Attrs{
+			"ceph-rbd": {
+				"name":          "ceph-rbd",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		nil,
+	)
+	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithStoragePoolClassMissing(c *tc.C) {
+	// As above, but for a pool resolved without a default filesystem
+	// source.
+	_, err := s.bootstrapWithStoragePools(c, "",
+		map[string]storage.Attrs{
+			"ceph-rbd": {
+				"name":          "ceph-rbd",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		nil,
+	)
+	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceSeededPool(c *tc.C) {
+	// A default filesystem source naming one of the pools the model seeds
+	// itself (such as the "kubernetes" pool) cannot resolve a storage
+	// class: the controller's storage class is discovered on the
+	// cluster instead.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "kubernetes", nil,
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithPoolsAmbiguousClasses(c *tc.C) {
+	// Storage pools scheduled for the controller model that name distinct
+	// storage classes nominate none of them: the controller's storage class
+	// is discovered on the cluster instead. Were one of the classes
+	// nominated, the bootstrap would fail naming it, as the cluster does
+	// not expose "sc-a".
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "sc-b"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "",
+		map[string]storage.Attrs{
+			"p1": {
+				"name":          "p1",
+				"type":          "kubernetes",
+				"storage-class": "sc-a",
+			},
+			"p2": {
+				"name":          "p2",
+				"type":          "kubernetes",
+				"storage-class": "sc-b",
+			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithPoolsAgreeingClass(c *tc.C) {
+	// Storage pools scheduled for the controller model that all name the
+	// same storage class nominate that class: the bootstrap fails naming
+	// it, as the cluster does not expose it.
+	_, err := s.bootstrapWithStoragePools(c, "",
+		map[string]storage.Attrs{
+			"p1": {
+				"name":          "p1",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+			"p2": {
+				"name":          "p2",
+				"type":          "kubernetes",
+				"storage-class": "ceph-rbd",
+			},
+		},
+		nil,
+	)
+	c.Check(err, tc.ErrorMatches, `nominated storage "ceph-rbd" not found`)
+}
+
+func (s *K8sBrokerSuite) TestBootstrapWithDefaultSourceWrongTypePool(c *tc.C) {
+	// A default filesystem source naming a scheduled pool that does not
+	// use the Kubernetes storage provider cannot resolve a storage class:
+	// the controller's storage class is discovered on the cluster, not
+	// taken from the class the pool records. The class-less seeded
+	// "kubernetes" pool is skipped the same way.
+	sc := storagev1.StorageClass{
+		ObjectMeta: v1.ObjectMeta{Name: "some-storage"},
+	}
+	result, err := s.bootstrapWithStoragePools(c, "rootfs-pool",
+		map[string]storage.Attrs{
+			"rootfs-pool": {
+				"name":          "rootfs-pool",
+				"type":          "rootfs",
+				"storage-class": "other-sc",
+			},
+			"kubernetes": {
+				"name": "kubernetes",
+				"type": "kubernetes",
+			},
+		},
+		[]storagev1.StorageClass{sc},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Arch, tc.Equals, "amd64")
+	c.Check(result.CaasBootstrapFinalizer, tc.NotNil)
+}
+
+// bootstrapWithStoragePools runs a controller bootstrap with the supplied
+// storage-default-filesystem-source model config value, storage pools
+// scheduled for the controller model, and storage classes present on the
+// cluster, returning the bootstrap result.
+func (s *K8sBrokerSuite) bootstrapWithStoragePools(
+	c *tc.C,
+	defaultSource string,
+	pools map[string]storage.Attrs,
+	storageClasses []storagev1.StorageClass,
+) (*environs.BootstrapResult, error) {
+	if defaultSource != "" {
+		cfg, err := s.cfg.Apply(testing.Attrs{
+			config.StorageDefaultFilesystemSourceKey: defaultSource,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		s.cfg = cfg
+	}
+
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	sc := storagev1.StorageClass{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "some-storage",
-		},
+	s.mockNodes.EXPECT().List(gomock.Any(), gomock.Any()).Return(&core.NodeList{}, nil)
+	s.mockStorageClass.EXPECT().List(gomock.Any(), gomock.Any()).Return(&storagev1.StorageClassList{
+		Items: storageClasses,
+	}, nil)
+
+	ctx := envtesting.BootstrapContext(c.Context(), c)
+	bootstrapParams := environs.BootstrapParams{
+		ControllerConfig:        testing.FakeControllerConfig(),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		StoragePools:            pools,
 	}
+	return s.broker.Bootstrap(ctx, bootstrapParams)
+}
+
+func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
 
 	s.mockNamespaces.EXPECT().Get(gomock.Any(), "controller-ctrl-1", v1.GetOptions{}).
 		Return(nil, s.k8sNotFoundError())
 	s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 		Return(&core.NamespaceList{Items: []core.Namespace{}}, nil)
-	s.mockNodes.EXPECT().List(gomock.Any(), gomock.Any()).Return(&core.NodeList{}, nil)
-	s.mockStorageClass.EXPECT().List(gomock.Any(), gomock.Any()).Return(&storagev1.StorageClassList{
-		Items: []storagev1.StorageClass{sc},
-	}, nil)
 	ctx := envtesting.BootstrapContext(c.Context(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), tc.ErrorIsNil,

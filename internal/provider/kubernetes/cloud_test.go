@@ -21,6 +21,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	k8sprovider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	k8sutils "github.com/juju/juju/internal/provider/kubernetes/utils"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -105,13 +106,187 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *tc.C) {
 		SkipTLSVerify:   true,
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]any{},
-		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
+		Config: map[string]any{
+			k8sconstants.WorkloadStorageKey: "workload-sc",
+		},
+		Regions: []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
 
+func (s *cloudSuite) TestFinalizeCloudNoWorkloadStorageClass(c *tc.C) {
+	// FinalizeCloud does not fail when the cluster reports no workload
+	// storage class: bootstrap can still resolve the controller's storage
+	// class from the storage pools scheduled for the controller model, and
+	// an unresolvable bootstrap fails later with a more specific message.
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+
+	p := s.getProvider()
+	// Override the default metadata registered by getProvider: the
+	// cluster reports no workload storage class.
+	s.fakeBroker.Call("GetClusterMetadata", "").Returns(&k8s.ClusterMetadata{
+		Cloud:   k8s.K8sCloudMicrok8s,
+		Regions: set.NewStrings(k8s.Microk8sRegion),
+	}, nil)
+
+	cloudFinalizer := p.(environs.CloudFinalizer)
+	ctx := mockContext{Context: c.Context()}
+	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, defaultK8sCloud)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloud.Config, tc.DeepEquals, map[string]any{})
+	c.Check(cloud.HostCloudRegion, tc.Equals,
+		fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion))
+}
+
+func (s *cloudSuite) TestFinalizeCloudNominatedStorageClassNotFound(c *tc.C) {
+	// A storage class recorded on the cloud that is no longer on the
+	// cluster does not fail FinalizeCloud: the recorded class is replaced
+	// by one discovered on the cluster.
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+
+	var nilMetadata *k8s.ClusterMetadata
+	// The class recorded on the cloud is no longer on the cluster...
+	s.fakeBroker.Call("GetClusterMetadata", "workload-sc").Returns(nilMetadata,
+		&environs.NominatedStorageNotFound{StorageName: "workload-sc"})
+	// ...but discovery still finds one.
+	s.fakeBroker.Call("GetClusterMetadata", "").Returns(&k8s.ClusterMetadata{
+		Cloud:   k8s.K8sCloudMicrok8s,
+		Regions: set.NewStrings(k8s.Microk8sRegion),
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "discovered-sc"},
+		},
+	}, nil)
+
+	cloudWithStaleStorage := defaultK8sCloud
+	cloudWithStaleStorage.Config = map[string]any{
+		k8sconstants.WorkloadStorageKey: "workload-sc",
+	}
+	ret := builtinCloudRet{cloud: cloudWithStaleStorage, credential: getDefaultCredential(), err: nil}
+	p := k8sprovider.NewProviderWithFakes(
+		s.runner,
+		credentialGetterFunc(ret),
+		cloudGetterFunc(ret),
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (k8sprovider.ClusterMetadataStorageChecker, error) {
+			return &s.fakeBroker, nil
+		},
+	)
+	cloudFinalizer := p.(environs.CloudFinalizer)
+	ctx := mockContext{Context: c.Context()}
+	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, cloudWithStaleStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloud.Config[k8sconstants.WorkloadStorageKey], tc.Equals, "discovered-sc")
+	c.Check(cloud.HostCloudRegion, tc.Equals,
+		fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion))
+}
+
+func (s *cloudSuite) TestFinalizeCloudKeepsStaleNominatedStorageClass(c *tc.C) {
+	// When neither the class recorded on the cloud nor cluster discovery
+	// yields a storage class, the recorded value is kept on the cloud so
+	// that a later unresolvable bootstrap failure names the class needing
+	// attention.
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "microk8s-hostpath",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+
+	var nilMetadata *k8s.ClusterMetadata
+	s.fakeBroker.Call("GetClusterMetadata", "workload-sc").Returns(nilMetadata,
+		&environs.NominatedStorageNotFound{StorageName: "workload-sc"})
+	s.fakeBroker.Call("GetClusterMetadata", "").Returns(&k8s.ClusterMetadata{
+		Cloud:   k8s.K8sCloudMicrok8s,
+		Regions: set.NewStrings(k8s.Microk8sRegion),
+	}, nil)
+
+	cloudWithStaleStorage := defaultK8sCloud
+	cloudWithStaleStorage.Config = map[string]any{
+		k8sconstants.WorkloadStorageKey: "workload-sc",
+	}
+	ret := builtinCloudRet{cloud: cloudWithStaleStorage, credential: getDefaultCredential(), err: nil}
+	p := k8sprovider.NewProviderWithFakes(
+		s.runner,
+		credentialGetterFunc(ret),
+		cloudGetterFunc(ret),
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (k8sprovider.ClusterMetadataStorageChecker, error) {
+			return &s.fakeBroker, nil
+		},
+	)
+	cloudFinalizer := p.(environs.CloudFinalizer)
+	ctx := mockContext{Context: c.Context()}
+	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, cloudWithStaleStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloud.Config[k8sconstants.WorkloadStorageKey], tc.Equals, "workload-sc")
+}
+
 func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
-	s.fakeBroker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
+	s.fakeBroker.Call("GetClusterMetadata", "").Returns(defaultClusterMetadata, nil)
 	s.fakeBroker.Call("CheckDefaultWorkloadStorage").Returns(nil)
 	ret := builtinCloudRet{cloud: defaultK8sCloud, credential: getDefaultCredential(), err: nil}
 	return k8sprovider.NewProviderWithFakes(
@@ -197,7 +372,7 @@ type fakeK8sClusterMetadataChecker struct {
 }
 
 func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(_ context.Context, storageClass string) (result *k8s.ClusterMetadata, err error) {
-	results := api.MethodCall(api, "GetClusterMetadata")
+	results := api.MethodCall(api, "GetClusterMetadata", storageClass)
 	return results[0].(*k8s.ClusterMetadata), testhelpers.TypeAssertError(results[1])
 }
 
