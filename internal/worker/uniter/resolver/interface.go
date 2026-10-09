@@ -84,11 +84,6 @@ type LocalState struct {
 	// remotestate.Snapshot for which a hook has been retried.
 	RetryHookVersion int
 
-	// CompletedActions is the set of actions that have been completed.
-	// This is used to prevent us re running actions requested by the
-	// controller.
-	CompletedActions map[string]struct{}
-
 	// HookWasShutdown is true if the hook exited due to a SIGTERM.
 	HookWasShutdown bool
 }

@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/core/storage"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -329,6 +330,11 @@ type Environ struct {
 	neutronUnlocked NetworkingNeutron
 	volumeURL       *url.URL
 
+	// clientFactoryUnlocked is used to create nova clients with specific
+	// headers (e.g. the compute microversion header for volume_type
+	// support in block_device_mapping_v2).
+	clientFactoryUnlocked *ClientFactory
+
 	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
 	keystoneImageDataSource      simplestreams.DataSource
@@ -609,7 +615,6 @@ func (e *Environ) ConstraintsValidator(ctx context.Context) (constraints.Validat
 	sort.Strings(instTypeNames)
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
 	validator.RegisterVocabulary(constraints.VirtType, []string{"kvm", "lxd"})
-	validator.RegisterVocabulary(constraints.RootDiskSource, []string{rootDiskSourceVolume, rootDiskSourceLocal})
 	return validator, nil
 }
 
@@ -707,14 +712,25 @@ func (e *Environ) PrecheckInstance(ctx context.Context, args environs.PrecheckIn
 		return errors.Trace(err)
 	}
 	usingVolumeRootDisk := false
-	if args.Constraints.HasRootDiskSource() && args.Constraints.HasRootDisk() &&
-		*args.Constraints.RootDiskSource == rootDiskSourceVolume {
+	if args.Constraints.HasRootDiskSource() &&
+		*args.Constraints.RootDiskSource != rootDiskSourceLocal {
 		usingVolumeRootDisk = true
 	}
 	if args.Constraints.HasRootDisk() && args.Constraints.HasInstanceType() && !usingVolumeRootDisk {
-		return errors.Errorf("constraint %s cannot be specified with %s unless constraint %s=%s",
+		return errors.Errorf("constraint %s cannot be specified with %s unless %s is %q (or a storage pool name)",
 			constraints.RootDisk, constraints.InstanceType,
 			constraints.RootDiskSource, rootDiskSourceVolume)
+	}
+	if args.Constraints.HasRootDiskSource() {
+		rootDiskSource := *args.Constraints.RootDiskSource
+		if rootDiskSource != rootDiskSourceLocal &&
+			rootDiskSource != rootDiskSourceVolume &&
+			!corestorage.IsValidPoolName(rootDiskSource) {
+			return errors.Errorf(
+				"invalid %s %q (must be %q, %q, or a storage pool name)",
+				constraints.RootDiskSource, rootDiskSource,
+				rootDiskSourceLocal, rootDiskSourceVolume)
+		}
 	}
 	if args.Constraints.HasInstanceType() {
 		// Constraint has an instance-type constraint so let's see if it is valid.
@@ -913,6 +929,7 @@ func (e *Environ) SetCloudSpec(_ context.Context, spec environscloudspec.CloudSp
 	if err := factory.Init(); err != nil {
 		return errors.Trace(err)
 	}
+	e.clientFactoryUnlocked = factory
 	e.clientUnlocked = factory.AuthClient()
 
 	// The following uses different clients for the different openstack clients
@@ -1261,7 +1278,33 @@ func (e *Environ) startInstance(
 	}
 	e.configurator.ModifyRunServerOptions(&opts)
 
-	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
+	// Determine whether the RunServer call requires the nova compute
+	// microversion header. volume_type and tag in block_device_mapping_v2
+	// were introduced in microversion 2.67 and 2.42 respectively.
+	// Any block device mapping may carry these fields, so check them all.
+	needMicroversion := false
+	for _, bdm := range opts.BlockDeviceMappings {
+		if bdm.VolumeType != "" || bdm.Tag != "" {
+			needMicroversion = true
+			break
+		}
+	}
+	novaClient := e.nova()
+	if needMicroversion {
+		e.ecfgMutex.Lock()
+		factory := e.clientFactoryUnlocked
+		e.ecfgMutex.Unlock()
+		if factory == nil {
+			// Should not happen.
+			return nil, errors.NotValidf("cannot start instance with block device mapping requiring nova microversion, no client factory available")
+		}
+		novaClient, err = factory.NovaWithMicroVersion()
+		if err != nil {
+			return nil, environs.ZoneIndependentError(err)
+		}
+	}
+
+	server, err := tryStartNovaInstance(shortAttempt, novaClient, opts)
 	if err != nil || server == nil {
 		// Attempt to clean up any security groups we created.
 		if err := e.firewaller.DeleteMachineGroup(ctx, args.InstanceConfig.MachineId); err != nil {
@@ -1589,22 +1632,21 @@ func (e *Environ) configureRootDisk(_ context.Context, args environs.StartInstan
 		rootDiskSource = *args.Constraints.RootDiskSource
 	}
 	rootDiskMapping := nova.BlockDeviceMapping{
-		BootIndex:  0,
-		UUID:       spec.Image.Id,
-		SourceType: "image",
-		// NB constraints.RootDiskSource in the case of OpenStack represents
-		// the type of block device to use. Either "local" to represent a local
-		// block device or "volume" to represent a block device from the cinder
-		// block storage service.
-		DestinationType:     rootDiskSource,
+		BootIndex:           0,
+		UUID:                spec.Image.Id,
+		SourceType:          "image",
+		DestinationType:     rootDiskSourceLocal,
 		DeleteOnTermination: true,
 	}
 	switch rootDiskSource {
 	case rootDiskSourceLocal:
 		runOpts.ImageId = spec.Image.Id
-	case rootDiskSourceVolume:
-		// Only preserve image-id for volume-backed roots when image-id was
-		// explicitly requested; local roots always need the image recorded.
+	default:
+		// Anything other than "local" is a cinder-backed root disk.
+		// This includes "volume" or the name of a  storage pool.
+		// Only preserve image-id for volume-backed roots when image-id
+		// was explicitly requested; local roots always need the image
+		// recorded.
 		if args.Constraints.HasImageID() {
 			runOpts.ImageId = spec.Image.Id
 		}
@@ -1616,9 +1658,18 @@ func (e *Environ) configureRootDisk(_ context.Context, args environs.StartInstan
 			size = defaultRootDiskSize
 		}
 		sizeGB := common.MiBToGiB(size)
+		rootDiskMapping.DestinationType = rootDiskSourceVolume
 		rootDiskMapping.VolumeSize = int(sizeGB)
-	default:
-		return errors.Errorf("invalid %s %s", constraints.RootDiskSource, rootDiskSource)
+		rootDiskMapping.DeviceType = deviceTypeDisk
+		if args.RootDisk != nil {
+			config, err := newCinderConfig(args.RootDisk.Attributes)
+			if err != nil {
+				return errors.Annotatef(err, "parsing root disk storage config")
+			}
+			rootDiskMapping.VolumeType = config.volumeType
+			rootDiskMapping.DiskBus = config.diskBus
+			rootDiskMapping.Tag = config.tag
+		}
 	}
 	runOpts.BlockDeviceMappings = []nova.BlockDeviceMapping{rootDiskMapping}
 	return nil
