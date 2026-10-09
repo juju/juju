@@ -75,6 +75,24 @@ const (
 	// ControllerExternalIPs is used to specify a comma separated
 	// list of external IPs for a k8s controller of type external.
 	ControllerExternalIPs = "controller-external-ips"
+
+	// WorkloadStorageKey is the cloud config attribute recording the name
+	// of the Kubernetes storage class used to provision workload storage,
+	// including the persistent volume claim backing the controller, for a
+	// Kubernetes cloud. It is a bootstrap-only attribute: add-k8s records
+	// it on the cloud and bootstrap consumes it when creating the default
+	// storage pool for the controller model. The same value is defined,
+	// with the Kubernetes provider context, in
+	// internal/provider/kubernetes/constants.
+	WorkloadStorageKey = "workload-storage"
+
+	// OperatorStorageKey was the 3.x cloud config attribute used to record
+	// the storage class for operator (podspec) storage. Operator storage is
+	// no longer supported; the key is registered here only so 3.x cloud
+	// definitions are routed (and ignored) rather than leaking into model
+	// config. The same value is defined in
+	// internal/provider/kubernetes/constants.
+	OperatorStorageKey = "operator-storage"
 )
 
 const (
@@ -110,6 +128,8 @@ var BootstrapConfigAttributes = []string{
 	ControllerServiceType,
 	ControllerExternalName,
 	ControllerExternalIPs,
+	WorkloadStorageKey,
+	OperatorStorageKey,
 }
 
 // BootstrapConfigSchema returns the schema used for config items during
@@ -191,6 +211,13 @@ func BootstrapConfigSchema() configschema.Fields {
 			Description: "Specifies a comma separated list of external IPs for a " +
 				"k8s controller of type external",
 			Type: configschema.Tlist,
+		},
+		WorkloadStorageKey: {
+			Description: "Sets the name of the Kubernetes storage class used to " +
+				"provision workload storage for a Kubernetes cloud, including the " +
+				"persistent volume claim backing the controller. Usually this is " +
+				"recorded on the cloud by add-k8s",
+			Type: configschema.Tstring,
 		},
 	}
 }
@@ -472,6 +499,19 @@ var configSchema = configschema.Fields{
 			string(caas.ServiceExternal),
 		},
 	},
+	// WorkloadStorageKey and OperatorStorageKey are accepted so that a
+	// Kubernetes cloud's recorded storage choices are valid bootstrap
+	// attributes. The values are consumed (workload storage) or ignored
+	// (operator storage, unsupported since 4.0) when constructing the
+	// controller model's storage configuration.
+	WorkloadStorageKey: {
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
+	},
+	OperatorStorageKey: {
+		Type:  configschema.Tstring,
+		Group: configschema.JujuGroup,
+	},
 	BootstrapTimeoutKey: {
 		Type:  configschema.Tint,
 		Group: configschema.JujuGroup,
@@ -499,6 +539,8 @@ var configDefaults = schema.Defaults{
 	ControllerServiceType:         schema.Omit,
 	ControllerExternalName:        schema.Omit,
 	ControllerExternalIPs:         schema.Omit,
+	WorkloadStorageKey:            schema.Omit,
+	OperatorStorageKey:            schema.Omit,
 	BootstrapTimeoutKey:           DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:        DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey:    DefaultBootstrapSSHAddressesDelay,
