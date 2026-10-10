@@ -3,10 +3,7 @@ help:
 	@echo "Usage: \n"
 	@sed -n 's/^## //p' ${MAKEFILE_LIST} | sort | column -t -s ':' |  sed -e 's/^/ /'
 
-# Export this first, incase we want to change it in the included makefiles.
 export CGO_ENABLED=0
-
-include scripts/dqlite/Makefile
 
 #
 # Makefile for juju-core.
@@ -122,6 +119,15 @@ JUJU_GOMOD_MODE ?= readonly
 # Extra linker flags passed to CGO builds.
 CGO_LDFLAGS ?=
 
+# The dynamically linked jujud resolves its runtime shared-library closure
+# from the operator image's /opt/lib (see caas/Dockerfile). The rpath is
+# absolute because the K8s startup scripts copy jujud from /opt into
+# $JUJU_TOOLS_DIR before launch, so $ORIGIN-relative paths do not resolve.
+# It must produce DT_RPATH (--disable-new-dtags), not DT_RUNPATH: RUNPATH
+# on the executable is not searched when resolving the staged libraries'
+# own dependencies, while RPATH is consulted for the whole process.
+CGO_RPATH = -extldflags '-Wl,--disable-new-dtags,-rpath,/opt/lib,-rpath,$$ORIGIN/../lib'
+
 # If .git directory is missing, we are building out of an archive, otherwise report
 # if the tree that is checked out is dirty (modified) or clean.
 GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
@@ -140,14 +146,18 @@ define BUILD_AGENT_TARGETS
 endef
 
 # BUILD_CGO_AGENT_TARGETS is a list of make targets that get built, that fall
-# under the category of Juju agents, that are CGO. These targets are also the
-# ones we are more then likely wanting to cross compile.
+# under the category of Juju agents, that are CGO. CGO targets are native
+# builds only: cross-architecture controller binaries are snapcraft's job
+# (the controller snap and its remote-build), so a foreign
+# AGENT_PACKAGE_PLATFORMS member never cross-links a CGO binary here.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujud,$(filter $(GOOS)/$(GOARCH),$(filter linux%,${AGENT_PACKAGE_PLATFORMS})))
 endef
 
+# BUILD_CGO_BENCH_TARGETS lists the dqlite-bench targets to build. Like the
+# CGO agent targets, dqlite-bench is a native build.
 define BUILD_CGO_BENCH_TARGETS
-	$(call tool_platform_paths,dqlite-bench,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,dqlite-bench,$(filter $(GOOS)/$(GOARCH),$(filter linux%,${AGENT_PACKAGE_PLATFORMS})))
 endef
 
 # BUILD_CLIENT_TARGETS is a list of make targets that get built that fall under
@@ -221,11 +231,11 @@ endif
 ifdef DEBUG_JUJU
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS) -gcflags "all=-N -l"
     LINK_FLAGS = $(COVER_LINK_FLAGS) "$(link_flags_version)"
-    CGO_LINK_FLAGS = $(COVER_CGO_LINK_FLAGS) "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) $(CGO_RPATH) $(link_flags_version)"
 else
     COMPILE_FLAGS = $(COVER_COMPILE_FLAGS)
     LINK_FLAGS = "$(COVER_LINK_FLAGS) -s -w -extldflags '-static' $(link_flags_version)"
-    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w -linkmode 'external' -extldflags '-static' $(link_flags_version)"
+    CGO_LINK_FLAGS = "$(COVER_CGO_LINK_FLAGS) -s -w $(CGO_RPATH) $(link_flags_version)"
 endif
 
 # run_go_build is a canned command sequence for the steps required to build a
@@ -257,6 +267,23 @@ define run_go_build
 			-v ${PACKAGE}
 endef
 
+define run_go_install
+	@echo "Installing ${PACKAGE}"
+	@env CGO_ENABLED=0 \
+		go install \
+			-mod=$(JUJU_GOMOD_MODE) \
+			-tags=$(FINAL_BUILD_TAGS) \
+			$(COMPILE_FLAGS) \
+			-ldflags $(LINK_FLAGS) \
+			-v ${PACKAGE}
+endef
+
+# run_cgo_build builds a CGO package using the default system C compiler and
+# the Dqlite/SQLite shared libraries installed on the host (see
+# install-dqlite-dependencies). It applies no musl toolchain, no static Dqlite
+# archive paths, and no static external link mode: the resulting binary links
+# dynamically against the host's glibc and libdqlite. The ambient CC is
+# respected so a native non-default compiler can be selected.
 define run_cgo_build
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
@@ -264,12 +291,7 @@ define run_cgo_build
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	@@mkdir -p ${BBIN_DIR}
 	@echo "Building ${PACKAGE} for ${OS}/${ARCH}"
-	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+	@env CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
 		GOOS=${OS} \
 		GOARCH=${BUILD_ARCH} \
@@ -282,25 +304,11 @@ define run_cgo_build
 			-v ${PACKAGE}
 endef
 
-define run_go_install
-	@echo "Installing ${PACKAGE}"
-	@env CGO_ENABLED=0 \
-		go install \
-		-mod=$(JUJU_GOMOD_MODE) \
-		-tags=$(FINAL_BUILD_TAGS) \
-		$(COMPILE_FLAGS) \
-		-ldflags $(LINK_FLAGS) \
-		-v ${PACKAGE}
-endef
-
+# run_cgo_install is the install-target form of run_cgo_build, for the host OS
+# and architecture.
 define run_cgo_install
 	@echo "Installing ${PACKAGE}"
-	@env PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+	@env CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
 		GOOS=${GOOS} \
 		GOARCH=${GOARCH} \
@@ -338,17 +346,16 @@ jujuagentd:
 .PHONY: jujud
 jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
-jujud: musl-install-if-missing dqlite-install-if-missing
-## jujud: Install jujud controller binary without updating dependencies
+jujud:
+## jujud: Install jujud controller binary (dynamically linked against host Dqlite libraries; requires make install-dqlite-dependencies)
 	${run_cgo_install}
 
 .PHONY: dqlite-repl
-dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite/cmd
+dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite-repl
 dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
-dqlite-repl: musl-install-if-missing dqlite-install-if-missing
-## jujuagentd: Install jujuagentd without updating dependencies
+dqlite-repl:
+## dqlite-repl: Install the dqlite-repl developer tool (requires install-dqlite-dependencies)
 	${run_cgo_install}
-		mv $(GO_INSTALL_PATH)/cmd $(GO_INSTALL_PATH)/dqlite-repl
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -374,8 +381,8 @@ phony_explicit:
 
 ${BUILD_DIR}/%/bin/dqlite-bench: PACKAGE = github.com/juju/juju/scripts/dqlite-bench
 ${BUILD_DIR}/%/bin/dqlite-bench: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit musl-install-if-missing dqlite-install-if-missing
-# build for dqlite-bench
+${BUILD_DIR}/%/bin/dqlite-bench: phony_explicit
+# build for dqlite-bench (dynamic, host Dqlite libraries)
 	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/juju: PACKAGE = github.com/juju/juju/cmd/juju
@@ -395,8 +402,8 @@ ${BUILD_DIR}/%/bin/jujuagentd: phony_explicit
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-install-if-missing
-# build for jujud controller binary
+${BUILD_DIR}/%/bin/jujud: phony_explicit
+# build for jujud controller binary (dynamic, host Dqlite libraries)
 	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -414,7 +421,7 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}
 	@cp $(PROJECT_DIR)/environs/tools/jujud-shim.sh $(call bin_platform_paths,$(subst -,/,$*))/jujud
@@ -487,8 +494,8 @@ cover-test:
 
 .PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
-run-tests: musl-install-if-missing dqlite-install-if-missing
-## run-tests: Run the unit tests
+run-tests:
+## run-tests: Run the unit tests (requires make install-dqlite-dependencies)
 	$(eval OS = $(shell go env GOOS))
 	$(eval ARCH = $(shell go env GOARCH))
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
@@ -505,14 +512,10 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 	$(eval TEST_PACKAGES := $(shell make -s test-packages))
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES $(TEST_EXTRA_ARGS)'
 	@TMPDIR=$(TMP) \
-		PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) \
+		  -ldflags ${CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
 .PHONY: test-packages
@@ -531,35 +534,31 @@ test-packages:
 
 .PHONY: run-go-tests
 run-go-tests: EXTRA_BUILD_TAGS += dqlite libsqlite3
-run-go-tests: musl-install-if-missing dqlite-install-if-missing
-## run-go-tests: Run the unit tests
+run-go-tests:
+## run-go-tests: Run the unit tests (requires make install-dqlite-dependencies)
 	$(eval OS = $(shell go env GOOS))
 	$(eval ARCH = $(shell go env GOARCH))
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${ARCH}))
 	$(eval TEST_PACKAGES ?= "./...")
 	$(eval TEST_FILTER ?= "")
 	@echo 'go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) $$TEST_PACKAGES -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)'
-	@PATH="${MUSL_BIN_PATH}:${PATH}" \
-		CC="musl-gcc" \
-		CGO_CFLAGS="-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include" \
-		CGO_LDFLAGS="$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576" \
-		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
-		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
+	@CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		CGO_ENABLED=1 \
-		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
+		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) \
+		  -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} \
+			-test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 .PHONY: go-test-alias
 go-test-alias: EXTRA_BUILD_TAGS += dqlite libsqlite3
-go-test-alias: musl-install-if-missing dqlite-install-if-missing
+go-test-alias:
 ## go-test-alias: Prints out an alias command for easy running of tests.
-	@echo alias jt=\'PATH=\"${MUSL_BIN_PATH}:\$$PATH\" \
-		CC=\"musl-gcc\" \
-		CGO_CFLAGS=\"-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include\" \
-		CGO_LDFLAGS=\"$(CGO_LDFLAGS) -L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -ldqlite -llz4 -lsqlite3 -Wl,-z,stack-size=1048576\" \
+# CGO_LINK_FLAGS contains single quotes (CGO_RPATH's -extldflags argument),
+# so embedding it inside a single-quoted alias would close the quoting early.
+# $(subst ','\'',...) rewrites every ' as '\'' so the printed alias can be
+# evaluated by a shell.
+	@echo alias jt=\'CGO_ENABLED=\"1\" \
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
-		LD_LIBRARY_PATH=\"${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}\" \
-		CGO_ENABLED=\"1\" \
-		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
+		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"$(subst ','\'',$(CGO_LINK_FLAGS))\"\'
 
 .PHONY: install
 install: rebuild-schema go-install
@@ -637,6 +636,12 @@ jujud-snap-build:
 # which refuses to run ("elevated permissions ... permission escalation", exit
 # 120) when the build's stdout is a regular file. A pipe keeps stdout valid
 # while still capturing output to the log for display on failure.
+#
+# The smart target fast-patches whenever the base snap exists and no file under
+# snaps/jujud/ is newer, so rerunning it alone only patches bin/jujud into the
+# existing base snap. When the snap's bundled libraries must change, run 'make
+# jujud-snap-clean' first to remove the base snap and force the full snapcraft
+# build.
 	@set -e; \
 	BASE_SNAP="${JUJUD_SNAP_PATH}"; \
 	if [ -f "$$BASE_SNAP" ] && [ -z "$$(find ${SNAPS_DIR}/jujud -newer "$$BASE_SNAP" -print -quit 2>/dev/null)" ]; then \
@@ -666,7 +671,24 @@ jujud-snap-build:
 
 .PHONY: jujud-snap-patch
 jujud-snap-patch:
-## jujud-snap-patch: Fast-patch the base jujud snap with a freshly built jujud binary.
+## jujud-snap-patch: Patch a freshly built jujud into the controller snap
+#
+# Only the jujud binary inside the snap is replaced; the snap keeps its own
+# bundled Dqlite libraries (built and staged by snaps/jujud/snapcraft.yaml).
+# The freshly built jujud was linked against the host's Dqlite development
+# libraries (installed by 'make install-dqlite-dependencies' from
+# ppa:dqlite/dev), so the host's Dqlite version must match the version
+# bundled in the snap; install-dqlite-dependencies verifies this match by
+# installing the PPA series package pinned to the snap's dqlite
+# source-commit version. When the snap moves to a newer Dqlite, raise the
+# snap pin and rerun install-dqlite-dependencies; a mismatch surfaces as a
+# loader or symbol error when the patched snap's jujud service starts
+# (check with a --build-snap bootstrap and 'snap logs jujud').
+#
+# When the snap's bundled libraries change, rerunning jujud-snap-build
+# alone does not pick that up: it fast-patches the existing base snap
+# unless a file under snaps/jujud/ changed. Run 'make jujud-snap-clean'
+# first to delete the base snap and force the full snapcraft rebuild.
 	@set -e; \
 	mkdir -p ${JUJUD_SNAP_PATCH_DIR}; \
 	$(MAKE) --no-print-directory jujud > ${JUJUD_SNAP_PATCH_LOG} 2>&1 \
@@ -711,6 +733,17 @@ jujud-snap-patch:
 	echo "$$JUJUD_SHA" > ${JUJUD_SNAP_PATCH_DIR}/.jujud.sha256; \
 	echo "Patched snap: $$BASE_SNAP"
 
+.PHONY: jujud-snap-clean
+jujud-snap-clean:
+## jujud-snap-clean: Remove the built controller snap and the fast-patch cache
+# Deletes the snap built by jujud-snap-build (_build/snap/jujud_*.snap) and
+# the fast-patch cache under _jujud-snap-patch/, so the next
+# jujud-snap-build cannot fast-patch and runs a full snapcraft build
+# instead. Run this when the snap's bundled libraries change:
+# fast-patching only replaces the jujud binary, so a changed library set
+# never reaches an existing base snap.
+	@rm -rf ${JUJUD_SNAP_PATCH_DIR} ${SNAP_BUILD_DIR}/jujud_*.snap
+
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
@@ -740,17 +773,38 @@ else
 endif
 
 WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
+APT_UPDATE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; apt_update "$$@"' apt_update
 
 .PHONY: install-sqlite3-dependencies
 install-sqlite3-dependencies:
 ## install-sqlite3-dependencies: Install libsqlite3-dev
 	@echo Installing libsqlite3-dev
 	@$(WAIT_FOR_DPKG)
-	@sudo apt-get update
+	@$(APT_UPDATE)
 	@sudo apt-get --yes install libsqlite3-dev
 
+# install-dqlite-dependencies provisions the native Dqlite development
+# libraries the dynamic jujud build contract links against. The distro
+# archive's libdqlite-dev is older than the versions Juju and the jujud
+# snap use, so the packages come from the Dqlite team's PPA. The version
+# is pinned to the snap's dqlite source-commit pin (see
+# install_dqlite_dev_packages in make_functions.sh): local builds link
+# against the same upstream Dqlite the snap bundles, so the fast-patch
+# library-pairing rule holds by construction. CGO builds are native:
+# cross-architecture controller binaries come from the controller snap
+# (snapcraft), not from a cross-linked build here.
+.PHONY: install-dqlite-dependencies
+install-dqlite-dependencies: install-sqlite3-dependencies
+## install-dqlite-dependencies: Install the snap-pinned libdqlite-dev from ppa:dqlite/dev (required to build jujud)
+	@echo Installing Dqlite development packages from ppa:dqlite/dev
+	@sudo apt-get --yes install software-properties-common
+	@sudo add-apt-repository -y ppa:dqlite/dev
+	@$(WAIT_FOR_DPKG)
+	@$(APT_UPDATE)
+	@$(INSTALL_DQLITE_DEV_PACKAGES)
+
 .PHONY: install-dependencies
-install-dependencies: install-snap-dependencies install-sqlite3-dependencies
+install-dependencies: install-snap-dependencies install-dqlite-dependencies
 ## install-dependencies: Install all the dependencies
 # squashfs-tools provides the unsquashfs helper that reads the version of
 # a locally built controller snap during bootstrap. The apt lists are
@@ -800,15 +854,26 @@ DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUAGENTD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
 JUJUAGENTD_BIN_DIR              ?= ${BIN_DIR}
+# OPERATOR_IMAGE_BUILD_SRC selects the operator-image payload provenance:
+# true (the default, local development) builds the controller snap via the
+# smart jujud-snap-build flow and stages bin/jujud plus the snap's bundled
+# native libraries into the per-platform image payload; false (the CI
+# contract set by the QA and release Jenkins jobs) trusts the payload
+# pre-staged by the QA payload unpack or the release snap extraction.
+# Either way no source-built jujud is linked against host libraries inside
+# the image: the jujud binary and its library closure always come from the
+# controller snap.
 OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
 # For the k8s operator.
 BUILD_OPERATOR_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
+STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD=bash -c '. "${PROJECT_DIR}/make_functions.sh"; stage_operator_image_snap_payload "$$@"' stage_operator_image_snap_payload
 OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 SEED_REPOSITORY=bash -c '. "${PROJECT_DIR}/make_functions.sh"; seed_repository "$$@"' seed_repository
+INSTALL_DQLITE_DEV_PACKAGES=bash -c '. "${PROJECT_DIR}/make_functions.sh"; install_dqlite_dev_packages "$$@"' install_dqlite_dev_packages
 
 image_check_prereq=image-check-build
 ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -818,13 +883,22 @@ endif
 .PHONY: image-check
 image-check: $(image_check_prereq)
 
+# image-check-build stages the local operator-image payload: the pure-Go
+# agent binaries (jujuagentd, jujuc, containeragent, pebble) are built for
+# the host architecture, and the jujud binary plus its bundled native
+# library closure are extracted from the locally built controller snap
+# (jujud-snap-build is the smart full/patch flow, so a jujud-only change
+# does not re-run snapcraft). The docker build then copies the payload
+# into the image; build_push_operator_image verifies it before building.
 .PHONY: image-check-build
-image-check-build:
-	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make go-build
+image-check-build: jujud-snap-build
+## image-check-build: Build the agent binaries and stage the snap payload for the operator image
+	@$(MAKE) --no-print-directory go-agent-build-no-cgo
+	@$(STAGE_OPERATOR_IMAGE_SNAP_PAYLOAD) "$(GOOS)/$(GOARCH)"
 
 .PHONY: image-check-build-skip
 image-check-build-skip:
-	@echo "skipping to build jujuagentd bin, use existing one at ${JUJUAGENTD_BIN_DIR}/."
+	@echo "skipping payload staging; using the pre-staged binaries and the pre-staged jujud library closure at ${BUILD_DIR}/<os>_<arch>/lib/"
 
 .PHONY: docker-builder
 docker-builder:
@@ -909,7 +983,7 @@ local-operator-update: check-k8s-model operator-image
 STATIC_ANALYSIS_JOB ?=
 
 .PHONY: static-analysis
-static-analysis: dqlite-install-if-missing
+static-analysis:
 ## static-analysis: Check the go code using static-analysis
 	@cd tests && CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \

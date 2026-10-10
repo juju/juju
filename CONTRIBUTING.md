@@ -172,12 +172,20 @@ To install Go see [Go docs](https://golang.org/doc/install#install).
 make install-dependencies
 ```
 
+This also installs the native Dqlite development packages from `ppa:dqlite/dev`
+and the SQLite development package from the configured Ubuntu archive. They are
+required to build the `jujud` controller binary, which links dynamically
+against the host's Dqlite libraries.
+
 ### Build and install Juju
 To compile the Juju source code and install the resulting binaries into your `$GOBIN` directory (typically `~/go/bin`):
 
 ```sh
 make install
 ```
+
+> Note: `make install` builds `jujud` dynamically against the host's Dqlite
+> libraries installed by the prerequisite step above.
 
 > Note: Ensure your PATH includes the Go bin directory so you can run the
 > `juju` command globally.
