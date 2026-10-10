@@ -397,6 +397,14 @@ pre_bootstrap() {
     fi
   fi
 
+  if [[ -n ${CONTROLLER_SNAP_PATH:-} ]]; then
+    export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=${CONTROLLER_SNAP_PATH}"
+  elif [[ -n ${SPREAD_PATH:-} && -f "$SPREAD_PATH/.spread-bin/jujud-controller.snap" ]]; then
+    # Use the controller snap staged by CI to avoid building it in the
+    # test VM, where snapcraft's LXD provider cannot run (nested LXD).
+    export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=$SPREAD_PATH/.spread-bin/jujud-controller.snap"
+  fi
+
   echo "====> BOOTSTRAP_ADDITIONAL_ARGS: ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
