@@ -354,7 +354,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(err, "reloading spaces for model %q", creationArgs.Name)
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
+	modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices, permission.AdminAccess)
 	if err != nil {
 		return result, err
 	}
@@ -956,29 +956,16 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
 
-	checkWritePermission := func(tag names.ModelTag) bool {
-		if m.isAdmin {
-			return true
-		}
-		if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, tag); err == nil {
-			return true
-		}
-		if err := m.authorizer.HasPermission(ctx, permission.WriteAccess, tag); err == nil {
-			return true
-		}
-		return false
-	}
-
 	getModelInfo := func(arg params.Entity) (params.ModelInfo, error) {
 		tag, err := names.ParseModelTag(arg.Tag)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		canWrite := checkWritePermission(tag)
-		if !canWrite {
-			// If the logged in user does not have at least read permission, we return an error.
-			if err := m.authorizer.HasPermission(ctx, permission.ReadAccess, tag); err != nil {
-				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+		access := permission.AdminAccess
+		if !m.isAdmin {
+			access, err = m.authorizer.RequireAccess(ctx, permission.ReadAccess, tag)
+			if err != nil {
+				return params.ModelInfo{}, errors.Trace(err)
 			}
 		}
 
@@ -988,7 +975,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			return params.ModelInfo{}, errors.Trace(err)
 		}
 
-		modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices)
+		modelInfo, err := m.getModelInfo(ctx, modelUUID, modelDomainServices, access)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -1003,7 +990,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			}
 			modelInfo.CloudCredentialValidity = new(!cred.Invalid)
 		}
-		if !canWrite {
+		if !access.EqualOrGreaterModelAccessThan(permission.WriteAccess) {
 			return modelInfo, nil
 		}
 
@@ -1062,6 +1049,7 @@ func (m *ModelManagerAPI) getModelInfo(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
 	modelDomainServices ModelDomainServices,
+	access permission.Access,
 ) (params.ModelInfo, error) {
 	modelTag := names.NewModelTag(modelUUID.String())
 	modelInfoService := modelDomainServices.ModelInfo()
@@ -1129,7 +1117,7 @@ func (m *ModelManagerAPI) getModelInfo(
 		}
 	}
 
-	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, coreuser.NameFromTag(m.apiUser), m.isAdmin)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, coreuser.NameFromTag(m.apiUser), m.isAdmin, access)
 	if err != nil {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}

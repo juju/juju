@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -62,8 +63,9 @@ type ModelService interface {
 	// [github.com/juju/juju/domain/model/errors.NotFound].
 	GetModelUsers(ctx context.Context, modelUUID coremodel.UUID) ([]coremodel.ModelUserInfo, error)
 
-	// GetModelUser will retrieve basic information about the specified model
-	// user.
+	// GetModelUser retrieves basic information about the specified
+	// model user. Unlike GetModelUsers, a user with no local permission
+	// row is still returned, with an empty access level.
 	// If the model cannot be found it will return
 	// [github.com/juju/juju/domain/model/errors.NotFound].
 	// If the user cannot be found it will return
@@ -415,10 +417,6 @@ func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, u
 	return result
 }
 
-func (api *UserManagerAPI) checkCanRead(ctx context.Context, modelTag names.Tag) error {
-	return api.authorizer.HasPermission(ctx, permission.ReadAccess, modelTag)
-}
-
 // ModelUserInfo returns information on all users in the model.
 func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entities) (params.ModelUserInfoResults, error) {
 	var result params.ModelUserInfoResults
@@ -438,21 +436,36 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 
 func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
 	var results []params.ModelUserInfoResult
-	if err := api.checkCanRead(ctx, modelTag); err != nil {
-		return results, err
+
+	access, err := api.authorizer.RequireAccess(ctx, permission.ReadAccess, modelTag)
+	if err != nil {
+		return results, errors.Trace(err)
 	}
 
-	// If the user is a controller superuser, they are considered a model
-	// admin.
+	isAdmin := api.isAdmin || access == permission.AdminAccess
 	modelUserInfo, err := commonmodel.ModelUserInfo(
 		ctx,
 		api.modelService,
 		modelTag,
 		api.apiUser.Name,
-		api.isModelAdmin(ctx, modelTag),
+		isAdmin,
+		access,
 	)
 	if err != nil {
 		return results, errors.Trace(err)
+	}
+
+	// An admin whose grant isn't stored locally is missing from the list.
+	if isAdmin && !slices.ContainsFunc(modelUserInfo, func(u params.ModelUserInfo) bool {
+		return u.UserName == api.apiUser.Name.Name()
+	}) {
+		own, err := commonmodel.ModelUserInfo(
+			ctx, api.modelService, modelTag, api.apiUser.Name, false, access,
+		)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		modelUserInfo = append(modelUserInfo, own...)
 	}
 
 	for i := range modelUserInfo {
@@ -570,13 +583,4 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		)
 	}
 	return result, nil
-}
-
-// isModelAdmin checks if the user is a controller superuser or admin on the
-// model.
-func (api *UserManagerAPI) isModelAdmin(ctx context.Context, modelTag names.ModelTag) bool {
-	if api.isAdmin {
-		return true
-	}
-	return api.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag) == nil
 }

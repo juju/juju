@@ -130,16 +130,17 @@ func NewCloudAPI(
 	}, nil
 }
 
-func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user user.Name, access permission.Access) (bool, error) {
-	id := permission.ID{ObjectType: permission.Cloud, Key: cloud}
-	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user, id)
-	if errors.Is(err, errors.NotFound) {
-		return false, nil
-	}
-	if err != nil {
+// canAccessCloud reports whether the caller has at least the requested
+// access on the cloud. Access is resolved through the authorizer so that
+// external (JWT) callers, whose grants live outside the controller's
+// local tables, are answered from their token, not a local permission row.
+func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, access permission.Access) (bool, error) {
+	cloudTag := names.NewCloudTag(cloud)
+	err := api.authorizer.HasPermission(ctx, access, cloudTag)
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	}
-	return perm.EqualOrGreaterCloudAccessThan(access), nil
+	return err == nil, nil
 }
 
 // Clouds returns the definitions of all clouds supported by the controller
@@ -161,7 +162,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	for _, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, user.NameFromTag(api.apiUser), permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, permission.AddModelAccess)
 			if err != nil {
 				return result, err
 			}
@@ -194,7 +195,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 		}
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), permission.AddModelAccess)
 			if err != nil {
 				return nil, err
 			}
@@ -252,13 +253,19 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
-	isAdmin := err == nil
-	// If not a controller admin, check for cloud admin.
+	isSuperuser := err == nil
+	isAdmin := isSuperuser
+
+	// If not a controller admin, resolve the caller's cloud access level
+	// once. It serves both the cloud-admin check below and filling in the
+	// caller's own entry.
+	access := permission.AdminAccess
 	if !isAdmin {
-		isAdmin, err = api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AdminAccess)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		access, err = api.authorizer.RequireAccess(ctx, permission.AddModelAccess, tag)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		isAdmin = access == permission.AdminAccess
 	}
 
 	aCloud, err := api.cloudService.Cloud(ctx, tag.Id())
@@ -275,8 +282,10 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ownEntry := false
 	for _, perm := range cloudUsers {
-		if !isAdmin && api.apiUser.Id() != perm.UserName.Name() {
+		isCaller := perm.UserName.Name() == api.apiUser.Id()
+		if !isAdmin && !isCaller {
 			// The authenticated user is neither the controller
 			// superuser, a cloud administrator, nor a cloud user, so
 			// has no business knowing about the cloud user.
@@ -287,13 +296,24 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 			DisplayName: perm.DisplayName,
 			Access:      string(perm.Access),
 		}
+		if isCaller && !isSuperuser {
+			// The local row may be stale for callers whose grants live externally.
+			userInfo.Access = string(access)
+			ownEntry = true
+		}
 		info.Users = append(info.Users, userInfo)
 	}
 
-	if len(info.Users) == 0 {
-		// No users, which means the authenticated user doesn't
-		// have access to the cloud.
-		return nil, errors.Trace(apiservererrors.ErrPerm)
+	// The caller's own entry may be absent from the local list when
+	// their grants live externally. Fill it from the resolved access
+	// level so the response still reports their access.
+	if !isSuperuser && !ownEntry {
+		// No DisplayName. This entry comes from the authorizer, not a
+		// local permission row. There's no display name available.
+		info.Users = append(info.Users, params.CloudUserInfo{
+			UserName: api.apiUser.Id(),
+			Access:   string(access),
+		})
 	}
 	return &info, nil
 }
@@ -858,7 +878,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 		}
 		// Ensure user has permission to remove the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AdminAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), permission.AdminAccess)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
