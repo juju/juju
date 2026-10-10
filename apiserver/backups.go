@@ -19,6 +19,7 @@ import (
 	backupsfacade "github.com/juju/juju/apiserver/facades/controller/backups"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -179,6 +180,15 @@ func (srv *Server) createBackupArchive(ctx context.Context, notes string) (*core
 			return modelExportDomainServices{modelServices}, nil
 		},
 	)
+	controllerObjectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, database.ControllerNS)
+	if err != nil {
+		return nil, "", nil, internalerrors.Capture(err)
+	}
+	objectStoreForModel := backupsfacade.ObjectStoreForModelFunc(
+		func(ctx context.Context, modelUUID string) (backupsfacade.ReadObjectStore, error) {
+			return srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID)
+		},
+	)
 	creator, err := backupsfacade.NewCreator(
 		srv.shared.machineTag,
 		srv.shared.controllerUUID,
@@ -190,6 +200,8 @@ func (srv *Server) createBackupArchive(ctx context.Context, notes string) (*core
 		controllerServices.Config(),
 		controllerServices.Controller(),
 		controllerServices.ControllerNode(),
+		controllerObjectStore,
+		objectStoreForModel,
 		srv.shared.clock,
 		srv.shared.logger.Child("backups"),
 	)

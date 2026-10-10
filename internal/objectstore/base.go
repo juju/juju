@@ -65,7 +65,12 @@ type request struct {
 	reader        io.Reader
 	size          int64
 	hashValidator hashValidator
-	response      chan response
+	// ctx is the caller's context. The processing loop runs the
+	// operation scoped to it (in addition to the worker lifetime), so a
+	// cancelled caller abandons its own in-flight read instead of
+	// blocking the loop for every other request.
+	ctx      context.Context
+	response chan response
 }
 
 type response struct {
@@ -73,6 +78,26 @@ type response struct {
 	digest objectstore.Digest
 	uuid   objectstore.UUID
 	err    error
+}
+
+// sendResponse sends resp to the request's response channel, unless
+// the caller has gone away or the worker is dying. A response carrying a
+// reader that cannot be delivered has the reader closed: the caller is
+// gone, so nobody else would ever close it.
+// Responses carrying readers must use an unbuffered channel so sending
+// transfers ownership to a waiting caller.
+func sendResponse(dying <-chan struct{}, req request, resp response) {
+	select {
+	case <-dying:
+		if resp.reader != nil {
+			_ = resp.reader.Close()
+		}
+	case <-req.ctx.Done():
+		if resp.reader != nil {
+			_ = resp.reader.Close()
+		}
+	case req.response <- resp:
+	}
 }
 
 type baseObjectStore struct {

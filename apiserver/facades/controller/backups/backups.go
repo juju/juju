@@ -5,11 +5,13 @@ package backups
 
 import (
 	"context"
+	"io"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	domainexport "github.com/juju/juju/domain/export"
 	environsconfig "github.com/juju/juju/environs/config"
 )
@@ -57,6 +59,19 @@ type ControllerNodeLister interface {
 	// GetControllerIDs returns the list of controller machine IDs.
 	GetControllerIDs(ctx context.Context) ([]string, error)
 }
+
+// ReadObjectStore is the subset of the object store used to stream
+// objects into the backup archive.
+type ReadObjectStore interface {
+	// GetBySHA256Prefix opens an object whose SHA-256 starts with the given
+	// prefix, retrieving missing local blobs from other controller nodes.
+	// The caller must close the returned reader.
+	GetBySHA256Prefix(ctx context.Context, sha256Prefix string) (io.ReadCloser, objectstore.Digest, error)
+}
+
+// ObjectStoreForModelFunc returns the object store for a given model
+// UUID.
+type ObjectStoreForModelFunc func(ctx context.Context, modelUUID string) (ReadObjectStore, error)
 
 // API provides backup-specific API methods.
 type API struct {
