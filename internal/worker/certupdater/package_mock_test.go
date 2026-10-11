@@ -25,9 +25,9 @@ type MockControllerNodeService struct {
 
 // MockControllerNodeServiceMockRecorder is the mock recorder for MockControllerNodeService.
 type MockControllerNodeServiceMockRecorder struct {
-	mock                                  *MockControllerNodeService
-	getAllCloudLocalAPIAddressesExpects   []*gomock.Call1_2[context.Context, []string, error]
-	watchControllerClientAddressesExpects []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	mock                                           *MockControllerNodeService
+	getAllAPIAddressesForCertificatesExpects       []*gomock.Call1_2[context.Context, []string, error]
+	watchControllerAddressesForCertificatesExpects []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 }
 
 // NewMockControllerNodeService creates a new mock instance.
@@ -42,41 +42,41 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 	return m.recorder
 }
 
-// GetAllCloudLocalAPIAddresses mocks base method.
-func (m *MockControllerNodeService) GetAllCloudLocalAPIAddresses(ctx context.Context) ([]string, error) {
+// GetAllAPIAddressesForCertificates mocks base method.
+func (m *MockControllerNodeService) GetAllAPIAddressesForCertificates(ctx context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getAllCloudLocalAPIAddressesExpects, m.ctrl, m, "GetAllCloudLocalAPIAddresses", ctx)
+	return gomock.Dispatch1_2(&m.recorder.getAllAPIAddressesForCertificatesExpects, m.ctrl, m, "GetAllAPIAddressesForCertificates", ctx)
 }
 
-// GetAllCloudLocalAPIAddresses indicates an expected call of GetAllCloudLocalAPIAddresses.
-func (mr *MockControllerNodeServiceMockRecorder) GetAllCloudLocalAPIAddresses(ctx any) *MockControllerNodeServiceGetAllCloudLocalAPIAddressesCall {
+// GetAllAPIAddressesForCertificates indicates an expected call of GetAllAPIAddressesForCertificates.
+func (mr *MockControllerNodeServiceMockRecorder) GetAllAPIAddressesForCertificates(ctx any) *MockControllerNodeServiceGetAllAPIAddressesForCertificatesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetAllCloudLocalAPIAddresses", gomock.EnsureMatcher(ctx))
-	mr.getAllCloudLocalAPIAddressesExpects = append(mr.getAllCloudLocalAPIAddressesExpects, call)
+	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetAllAPIAddressesForCertificates", gomock.EnsureMatcher(ctx))
+	mr.getAllAPIAddressesForCertificatesExpects = append(mr.getAllAPIAddressesForCertificatesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerNodeServiceGetAllCloudLocalAPIAddressesCall is the typed call wrapper for GetAllCloudLocalAPIAddresses.
-type MockControllerNodeServiceGetAllCloudLocalAPIAddressesCall = gomock.Call1_2[context.Context, []string, error]
+// MockControllerNodeServiceGetAllAPIAddressesForCertificatesCall is the typed call wrapper for GetAllAPIAddressesForCertificates.
+type MockControllerNodeServiceGetAllAPIAddressesForCertificatesCall = gomock.Call1_2[context.Context, []string, error]
 
-// WatchControllerClientAddresses mocks base method.
-func (m *MockControllerNodeService) WatchControllerClientAddresses(ctx context.Context) (watcher.NotifyWatcher, error) {
+// WatchControllerAddressesForCertificates mocks base method.
+func (m *MockControllerNodeService) WatchControllerAddressesForCertificates(ctx context.Context) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchControllerClientAddressesExpects, m.ctrl, m, "WatchControllerClientAddresses", ctx)
+	return gomock.Dispatch1_2(&m.recorder.watchControllerAddressesForCertificatesExpects, m.ctrl, m, "WatchControllerAddressesForCertificates", ctx)
 }
 
-// WatchControllerClientAddresses indicates an expected call of WatchControllerClientAddresses.
-func (mr *MockControllerNodeServiceMockRecorder) WatchControllerClientAddresses(ctx any) *MockControllerNodeServiceWatchControllerClientAddressesCall {
+// WatchControllerAddressesForCertificates indicates an expected call of WatchControllerAddressesForCertificates.
+func (mr *MockControllerNodeServiceMockRecorder) WatchControllerAddressesForCertificates(ctx any) *MockControllerNodeServiceWatchControllerAddressesForCertificatesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchControllerClientAddresses", gomock.EnsureMatcher(ctx))
-	mr.watchControllerClientAddressesExpects = append(mr.watchControllerClientAddressesExpects, call)
+	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchControllerAddressesForCertificates", gomock.EnsureMatcher(ctx))
+	mr.watchControllerAddressesForCertificatesExpects = append(mr.watchControllerAddressesForCertificatesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerNodeServiceWatchControllerClientAddressesCall is the typed call wrapper for WatchControllerClientAddresses.
-type MockControllerNodeServiceWatchControllerClientAddressesCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+// MockControllerNodeServiceWatchControllerAddressesForCertificatesCall is the typed call wrapper for WatchControllerAddressesForCertificates.
+type MockControllerNodeServiceWatchControllerAddressesForCertificatesCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 
 // MockControllerDomainServices is a mock of ControllerDomainServices interface.
 type MockControllerDomainServices struct {

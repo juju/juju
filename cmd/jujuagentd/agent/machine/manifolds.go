@@ -481,6 +481,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			CertReader: config.StartupValueProvider,
 		})),
 
+		// Certificate SANs are based on client and peer addresses in both
+		// machine and Kubernetes controller models.
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AuthorityName:               certificateWatcherName,
+			DomainServicesName:          domainServicesName,
+			GetControllerDomainServices: certupdater.GetControllerDomainServices,
+			NewWorker:                   certupdater.NewCertificateUpdater,
+			Logger:                      internallogger.GetLogger("juju.worker.certupdater"),
+		})),
+
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
 		// select their own desired facades. It will be interesting to see
@@ -1272,14 +1282,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RootDir:       config.RootDir,
 			NewFacade:     hostkeyreporter.NewFacade,
 			NewWorker:     hostkeyreporter.NewWorker,
-		})),
-
-		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
-			AuthorityName:               certificateWatcherName,
-			DomainServicesName:          domainServicesName,
-			GetControllerDomainServices: certupdater.GetControllerDomainServices,
-			NewWorker:                   certupdater.NewCertificateUpdater,
-			Logger:                      internallogger.GetLogger("juju.worker.certupdater"),
 		})),
 
 		// The machiner Worker will wait for the identified machine to become
