@@ -17,34 +17,38 @@ import (
 	"strings"
 
 	corebackups "github.com/juju/juju/core/backups"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
 )
 
 const (
-	// contentDir is the single top-level directory inside a backup
-	// archive. It mirrors the layout constant in core/backups; the
-	// recovery reader never consumes entries outside it.
-	contentDir = "juju-backup"
+	// maxMetadataSize bounds the metadata read from an archive: 4 MiB.
+	maxMetadataSize = 4 << 20
+
+	// maxDumpSize bounds a single database dump read from an archive:
+	// 1 GiB.
+	maxDumpSize = 1 << 30
+)
+
+// The archive layout is derived from the canonical paths core/backups
+// owns, so the recovery reader and the backup writer cannot drift
+// apart.
+var (
+	canonicalPaths = corebackups.NewCanonicalArchivePaths()
 
 	// metadataPath is the archive's metadata file: the provenance
 	// record holding the source agent version.
-	metadataPath = contentDir + "/metadata.json"
+	metadataPath = canonicalPaths.MetadataFile
 
 	// manifestPath is the archive's content manifest: the index of
 	// the archive's components with their sizes and SHA-256 hashes.
-	manifestPath = contentDir + "/manifest.json"
+	manifestPath = canonicalPaths.ManifestFile
 
 	// controllerDumpPath is the controller database dump.
-	controllerDumpPath = contentDir + "/dump/controller.yaml"
+	controllerDumpPath = path.Join(canonicalPaths.DBDumpDir, "controller.yaml")
 
 	// modelDumpDir holds one dump per model, named by model UUID.
-	modelDumpDir = contentDir + "/dump/models/"
-
-	// maxMetadataSize bounds the metadata read from an archive.
-	maxMetadataSize = 4 << 20
-
-	// maxDumpSize bounds a single database dump read from an archive.
-	maxDumpSize = 1 << 30
+	modelDumpDir = canonicalPaths.DBDumpDir + "/models/"
 )
 
 // MaxDumpSize is the largest single database dump the recovery loader
@@ -54,9 +58,10 @@ const (
 const MaxDumpSize = maxDumpSize
 
 // ArchiveContents holds the files extracted while streaming an archive.
-// Model dumps are staged on disk; the object blob bundle is streamed
-// through the checksum but never stored. Close must be called once the
-// contents have been consumed to remove the staged dumps.
+// Model dumps are staged on disk; the data-directory files archive
+// (root.tar) is streamed through the checksum but never stored. Close
+// must be called once the contents have been consumed to remove the
+// staged dumps.
 type ArchiveContents struct {
 	// Metadata is the archive's metadata.json provenance record.
 	Metadata []byte
@@ -78,14 +83,17 @@ type ArchiveContents struct {
 
 // readArchive streams archivePath once, computing the archive's SHA-256
 // checksum and extracting only the metadata and database dumps. The
-// object blob bundle is streamed through the hash but never held in
-// memory.
+// data-directory files archive is streamed through the hash but never
+// held in memory.
 //
-// The reader rejects absolute paths, parent traversal, duplicate entries
-// and non-regular files: an archive is operator-supplied but never
-// trusted beyond its checksum. When the archive carries a content
+// The reader rejects duplicate entries and non-regular files: an
+// archive is operator-supplied but never trusted beyond its checksum.
+// Unsafe entry paths are cleaned and logged rather than rejected:
+// entries are never extracted under their own name, so a cleaned path
+// cannot escape, and rejecting outright would dead-end an archive the
+// operator cannot otherwise fix. When the archive carries a content
 // manifest, it is cross-checked against the entries actually read.
-func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*ArchiveContents, string, int64, error) {
+func readArchive(ctx context.Context, logger corelogger.Logger, archivePath, expectedSHA256 string) (*ArchiveContents, string, int64, error) {
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return nil, "", 0, errors.Errorf("opening archive: %w", err)
@@ -128,12 +136,14 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 			return nil, "", 0, errors.Capture(err)
 		}
 
-		// Reject traversal on the raw entry name: cleaning alone would
-		// silently neutralize it instead of failing the archive.
-		if strings.HasPrefix(hdr.Name, "/") || slices.Contains(strings.Split(hdr.Name, "/"), "..") {
-			return nil, "", 0, errors.Errorf("archive contains unsafe path %q", hdr.Name)
-		}
+		// Entries are never extracted under their own name — dumps
+		// are staged under generated names — so an unsafe path cannot
+		// escape the staging area. Clean it, warn, and keep reading.
 		name := path.Clean(hdr.Name)
+		if strings.HasPrefix(hdr.Name, "/") || slices.Contains(strings.Split(hdr.Name, "/"), "..") {
+			logger.Warningf(ctx,
+				"archive entry %q carries an unsafe path, reading it as %q", hdr.Name, name)
+		}
 		if _, dup := seen[name]; dup {
 			return nil, "", 0, errors.Errorf("archive contains duplicate path %q", name)
 		}
@@ -142,24 +152,30 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			continue
+		// TypeRegA is the legacy NUL typeflag some old tars still
+		// write for regular files; accepting it keeps those archives
+		// readable.
 		case tar.TypeReg, tar.TypeRegA:
 		default:
 			return nil, "", 0, errors.Errorf("archive entry %q is not a regular file", name)
 		}
 
-		var limit int64
-		var store func([]byte)
-		switch {
-		case name == metadataPath:
-			limit = maxMetadataSize
-			store = func(b []byte) { contents.Metadata = b }
-		case name == manifestPath:
-			limit = maxMetadataSize
-			store = func(b []byte) { contents.Manifest = b }
-		case name == controllerDumpPath:
-			limit = maxDumpSize
-			store = func(b []byte) { contents.ControllerDump = b }
-		case strings.HasPrefix(name, modelDumpDir) && strings.HasSuffix(name, ".yaml"):
+		if limit, store, ok := contents.storeTarget(name); ok {
+			// The declared size bounds what the tar reader exposes
+			// for this entry; check it before reading.
+			if hdr.Size > limit {
+				return nil, "", 0, errors.Errorf("reading %q: file exceeds %d bytes", name, limit)
+			}
+			data, err := io.ReadAll(tr)
+			if err != nil {
+				return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
+			}
+			sum := sha256.Sum256(data)
+			digests[name] = entryDigest{size: int64(len(data)), sha256: hex.EncodeToString(sum[:])}
+			store(data)
+			continue
+		}
+		if strings.HasPrefix(name, modelDumpDir) && strings.HasSuffix(name, ".yaml") {
 			model := strings.TrimSuffix(strings.TrimPrefix(name, modelDumpDir), ".yaml")
 			if model == "" || strings.Contains(model, "/") {
 				return nil, "", 0, errors.Errorf("unexpected model dump path %q", name)
@@ -176,26 +192,23 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 			contents.ModelDumps[model] = filename
 			digests[name] = digest
 			continue
-		default:
-			// root.tar and anything else is hashed but not held.
-			hasher := sha256.New()
-			size, err := io.Copy(io.MultiWriter(io.Discard, hasher), tr)
-			if err != nil {
-				return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
-			}
-			digests[name] = entryDigest{size: size, sha256: hex.EncodeToString(hasher.Sum(nil))}
-			continue
 		}
-
-		data, err := readLimited(tr, limit)
+		// root.tar and anything else is hashed but not held.
+		entryHasher := sha256.New()
+		size, err := io.Copy(io.MultiWriter(io.Discard, entryHasher), tr)
 		if err != nil {
 			return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
 		}
-		sum := sha256.Sum256(data)
-		digests[name] = entryDigest{size: int64(len(data)), sha256: hex.EncodeToString(sum[:])}
-		store(data)
+		digests[name] = entryDigest{size: size, sha256: hex.EncodeToString(entryHasher.Sum(nil))}
 	}
 
+	// The manifest check runs before the checksum comparison: when
+	// both fail, the per-component disagreement says which part of the
+	// archive is corrupt, where the whole-archive mismatch only says
+	// that something is.
+	if err := checkManifest(contents.Manifest, digests); err != nil {
+		return nil, "", 0, errors.Capture(err)
+	}
 	checksum := hex.EncodeToString(hasher.Sum(nil))
 	if expectedSHA256 != "" && !strings.EqualFold(checksum, expectedSHA256) {
 		return nil, "", 0, errors.Errorf(
@@ -206,9 +219,6 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 	}
 	if len(contents.ControllerDump) == 0 {
 		return nil, "", 0, errors.Errorf("archive is missing %s", controllerDumpPath)
-	}
-	if err := checkManifest(contents.Manifest, digests); err != nil {
-		return nil, "", 0, errors.Capture(err)
 	}
 
 	stat, err := os.Stat(archivePath)
@@ -222,6 +232,21 @@ func readArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 // Close removes the staged model dumps. It is safe to call more than once.
 func (c *ArchiveContents) Close() error {
 	return errors.Capture(os.RemoveAll(c.stagingDir))
+}
+
+// storeTarget returns the read bound and the destination for the
+// entries the reader holds in memory: the metadata, the manifest and
+// the controller dump. ok is false for every other entry.
+func (c *ArchiveContents) storeTarget(name string) (limit int64, store func([]byte), ok bool) {
+	switch name {
+	case metadataPath:
+		return maxMetadataSize, func(b []byte) { c.Metadata = b }, true
+	case manifestPath:
+		return maxMetadataSize, func(b []byte) { c.Manifest = b }, true
+	case controllerDumpPath:
+		return maxDumpSize, func(b []byte) { c.ControllerDump = b }, true
+	}
+	return 0, nil, false
 }
 
 // stageModelDump streams one model dump to a private staging file while
@@ -262,18 +287,6 @@ func (r contextReader) Read(p []byte) (int, error) {
 	return r.reader.Read(p)
 }
 
-// readLimited reads r fully, failing when it holds more than limit bytes.
-func readLimited(r io.Reader, limit int64) ([]byte, error) {
-	data, err := io.ReadAll(io.LimitReader(r, limit+1))
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	if int64(len(data)) > limit {
-		return nil, errors.Errorf("file exceeds %d bytes", limit)
-	}
-	return data, nil
-}
-
 // entryDigest is one archive entry's uncompressed size and SHA-256
 // content hash, hex encoded, computed while streaming the archive.
 type entryDigest struct {
@@ -304,7 +317,7 @@ func checkManifest(data []byte, digests map[string]entryDigest) error {
 		listed[f.Path] = struct{}{}
 		switch f.Kind {
 		case corebackups.ManifestKindMetadata,
-			corebackups.ManifestKindFilesBundle,
+			corebackups.ManifestKindFilesArchive,
 			corebackups.ManifestKindControllerDump,
 			corebackups.ManifestKindModelDump:
 		default:

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/tc"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/recovery"
 )
 
@@ -23,7 +24,7 @@ func (s *validateSuite) TestReadArchiveStagesModelDumps(c *tc.C) {
 	stagingDir := c.MkDir()
 	c.Setenv("TMPDIR", stagingDir)
 
-	contents, info, err := recovery.ReadArchive(c.Context(), archivePath, sum)
+	contents, info, err := recovery.ReadArchive(c.Context(), loggertesting.WrapCheckLog(c), archivePath, sum)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Cleanup(func() { c.Check(contents.Close(), tc.ErrorIsNil) })
 	c.Check(info.Checksum, tc.Equals, sum)
@@ -50,7 +51,7 @@ func (s *validateSuite) TestValidateArchiveCleansUpStaging(c *tc.C) {
 	invalidMetadata["juju-backup/metadata.json"] = []byte("invalid json")
 	missingModel := validFiles()
 	delete(missingModel, "juju-backup/dump/models/"+testModelAUUID+".yaml")
-	invalidModel := caasFiles("payload: [invalid yaml")
+	invalidModel := k8sFiles("payload: [invalid yaml")
 	invalidManifest := withManifest(c, validFiles())
 	invalidManifest["juju-backup/dump/models/"+testModelAUUID+".yaml"] = []byte("tampered")
 	for _, test := range []struct {
@@ -79,7 +80,7 @@ func (s *validateSuite) TestValidateArchiveCleansUpStaging(c *tc.C) {
 		if test.cancel {
 			cancel()
 		}
-		_, err := recovery.ValidateArchive(ctx, archivePath, sum)
+		_, err := recovery.ValidateArchive(ctx, loggertesting.WrapCheckLog(c), archivePath, sum)
 		cancel()
 		if test.cancel {
 			c.Check(err, tc.ErrorIs, context.Canceled)
@@ -112,7 +113,7 @@ func (s *validateSuite) TestReadArchiveRejectsOversizedModelDump(c *tc.C) {
 	stagingDir := c.MkDir()
 	c.Setenv("TMPDIR", stagingDir)
 
-	_, _, err := recovery.ReadArchive(c.Context(), archivePath, "")
+	_, _, err := recovery.ReadArchive(c.Context(), loggertesting.WrapCheckLog(c), archivePath, "")
 	c.Check(err, tc.ErrorMatches, fmt.Sprintf("reading .*: file exceeds %d bytes", recovery.MaxDumpSize))
 	entries, err := os.ReadDir(stagingDir)
 	c.Assert(err, tc.ErrorIsNil)

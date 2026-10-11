@@ -52,8 +52,8 @@ type ModelInfo struct {
 	// "lxd", "ec2" or "kubernetes".
 	CloudType string
 
-	// Applications lists the archived CAAS workload applications of the
-	// model. It is filled only for caas models and excludes the
+	// Applications lists the archived Kubernetes workload applications
+	// of the model. It is filled only for caas models and excludes the
 	// controller application: the controller namespace is disposable
 	// bootstrap output, not surviving substrate. The inventory powers the
 	// read-only substrate check; it never gates recovery on its own.
@@ -111,39 +111,15 @@ type ArchiveInfo struct {
 }
 
 // CheckAgentVersion enforces the exact-version recovery gate: an archive
-// is only ever recovered onto the same agent version it was taken from.
-// The official build number (the ".1" in "4.1-beta3.1") distinguishes
-// released packaging of the same version, not the dump format or the
-// schema; the gate ignores it, mirroring the CAAS agent-version
-// comparison.
+// is only ever recovered onto the same agent version it was taken from,
+// build number included.
 func (i *ArchiveInfo) CheckAgentVersion(current semversion.Number) error {
-	archived := i.AgentVersion
-	archived.Build = 0
-	current.Build = 0
-	if archived.Compare(current) != 0 {
+	if i.AgentVersion.Compare(current) != 0 {
 		return errors.Errorf(
 			"archive was created by agent version %s but this binary is %s; "+
 				"recovery requires the exact same version", i.AgentVersion, current)
 	}
 	return nil
-}
-
-// ModelFamily returns the single model type ("iaas" or "caas") shared by
-// every model in the archive. A source controller with mixed model types
-// is unsupported and rejected.
-func (i *ArchiveInfo) ModelFamily() (string, error) {
-	if len(i.Models) == 0 {
-		return "", errors.New("archive records no models")
-	}
-	family := i.Models[0].ModelType
-	for _, m := range i.Models[1:] {
-		if m.ModelType != family {
-			return "", errors.Errorf(
-				"source controller has mixed model types: model %q is %s, expected %s",
-				m.Name, m.ModelType, family)
-		}
-	}
-	return family, nil
 }
 
 // CheckProviderFamily enforces the same-provider-family rule: the

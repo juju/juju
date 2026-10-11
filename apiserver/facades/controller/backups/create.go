@@ -218,7 +218,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	// Recovery rejects any dump larger than its read bound: fail the
 	// backup now instead of producing an archive that cannot be
 	// recovered.
-	if name, size, err := staging.Oversized(recovery.MaxDumpSize); err != nil {
+	if name, size, err := staging.EntryExceedsLimit(recovery.MaxDumpSize); err != nil {
 		return nil, "", nil, errors.Capture(err)
 	} else if name != "" {
 		return nil, "", nil, errors.Errorf(

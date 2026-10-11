@@ -228,7 +228,7 @@ func (s *createSuite) TestCreateManifest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(manifest.FormatVersion, tc.Equals, int64(1))
 
-	// One entry per component: metadata, files bundle and both dumps.
+	// One entry per component: metadata, files archive and both dumps.
 	// The manifest cannot record itself.
 	c.Assert(manifest.Files, tc.HasLen, 4)
 	byPath := make(map[string]backups.ManifestEntry, len(manifest.Files))
@@ -244,7 +244,7 @@ func (s *createSuite) TestCreateManifest(c *tc.C) {
 	c.Check(byPath["juju-backup/metadata.json"].Kind,
 		tc.Equals, backups.ManifestKindMetadata)
 	c.Check(byPath["juju-backup/root.tar"].Kind,
-		tc.Equals, backups.ManifestKindFilesBundle)
+		tc.Equals, backups.ManifestKindFilesArchive)
 	c.Check(byPath["juju-backup/dump/controller.yaml"].Kind,
 		tc.Equals, backups.ManifestKindControllerDump)
 	model := byPath["juju-backup/dump/models/"+modelUUID+".yaml"]

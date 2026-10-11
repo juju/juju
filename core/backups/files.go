@@ -109,7 +109,7 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 				if info.Mode().IsRegular() {
 					finalBackupFiles = append(finalBackupFiles, path)
 				} else if info.Mode()&os.ModeSymlink != 0 {
-					// A dangling symlink cannot be bundled: tar'ing a
+					// A dangling symlink cannot be archived: tar'ing a
 					// symlink opens its target, which fails for a
 					// broken link. Hook-tool symlinks dangle when a
 					// unit's tools directory is wiped and recreated;

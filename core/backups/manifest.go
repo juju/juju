@@ -25,9 +25,9 @@ type ManifestEntryKind string
 const (
 	// ManifestKindMetadata is the archive's metadata.json.
 	ManifestKindMetadata ManifestEntryKind = "metadata"
-	// ManifestKindFilesBundle is the root.tar bundle of data-directory
+	// ManifestKindFilesArchive is the root.tar archive of data-directory
 	// files.
-	ManifestKindFilesBundle ManifestEntryKind = "files-bundle"
+	ManifestKindFilesArchive ManifestEntryKind = "files-archive"
 	// ManifestKindControllerDump is the controller database dump.
 	ManifestKindControllerDump ManifestEntryKind = "controller-dump"
 	// ManifestKindModelDump is a model database dump.
@@ -77,7 +77,9 @@ func (m *Manifest) AsJSONBuffer() (io.Reader, error) {
 	return &outfile, nil
 }
 
-// NewManifestJSONReader extracts a manifest from its JSON file.
+// NewManifestJSONReader extracts a manifest from its JSON file. Only
+// the current format version is decoded: a newer manifest is rejected
+// rather than silently read with the wrong semantics.
 func NewManifestJSONReader(in io.Reader) (*Manifest, error) {
 	data, err := io.ReadAll(in)
 	if err != nil {
@@ -86,6 +88,10 @@ func NewManifestJSONReader(in io.Reader) (*Manifest, error) {
 	var manifest Manifest
 	if err := json.Unmarshal(data, &manifest); err != nil {
 		return nil, errors.Capture(err)
+	}
+	if manifest.FormatVersion != manifestFormatVersion {
+		return nil, errors.Errorf("manifest format %d %w",
+			manifest.FormatVersion, coreerrors.NotSupported)
 	}
 	return &manifest, nil
 }
@@ -100,7 +106,7 @@ func ClassifyManifestPath(archivePath string) (ManifestEntryKind, string, error)
 	case canonical.MetadataFile:
 		return ManifestKindMetadata, "", nil
 	case canonical.FilesArchive:
-		return ManifestKindFilesBundle, "", nil
+		return ManifestKindFilesArchive, "", nil
 	case path.Join(canonical.DBDumpDir, "controller.yaml"):
 		return ManifestKindControllerDump, "", nil
 	}

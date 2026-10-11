@@ -11,4 +11,9 @@
 // archive carries a content manifest (manifest.json), reading
 // cross-checks it against the actual entries in both directions: the
 // manifest is an index of the archive, never a source of truth.
+//
+// Model dumps are staged in temporary files under the system's
+// temporary directory (TMPDIR), each bounded by MaxDumpSize: recovering
+// an archive needs enough free space there to hold the archived model
+// dumps.
 package recovery

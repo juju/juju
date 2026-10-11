@@ -8,7 +8,7 @@
 // Backing up juju state involves exporting every database (the controller
 // database and one per model) and copying the controller's data directory
 // files, including the local object store (charms, resources and agent
-// binaries). All the files are bundled up into a single archive. The
+// binaries). All the files are gathered into a single archive. The
 // archive carries a metadata.json manifest recording the source agent
 // version, controller UUID and HA node count.
 
@@ -18,7 +18,7 @@
 //     metadata.json             - the provenance record for the archive.
 //     manifest.json             - the content index: every component's
 //                                 path, kind, size and SHA-256 hash.
-//     root.tar                  - the bundle of data-directory files.
+//     root.tar                  - the archive of data-directory files.
 //     dump/controller.yaml      - the controller database export.
 //     dump/models/<uuid>.yaml   - one export per model database.
 

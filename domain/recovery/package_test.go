@@ -7,9 +7,13 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-type recoverySuite struct{}
+type recoverySuite struct {
+	testhelpers.IsolationSuite
+}
 
 func TestRecoverySuite(t *stdtesting.T) {
 	tc.Run(t, &recoverySuite{})

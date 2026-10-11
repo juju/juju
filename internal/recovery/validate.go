@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	corebackups "github.com/juju/juju/core/backups"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
 	domainlife "github.com/juju/juju/domain/life"
 	domainrecovery "github.com/juju/juju/domain/recovery"
@@ -23,11 +24,10 @@ import (
 // full decode happens agent-side during the load stage.
 type controllerDumpPayload struct {
 	Controller []struct {
-		UUID           string  `yaml:"uuid"`
-		ModelUUID      string  `yaml:"model_uuid"`
-		CACert         *string `yaml:"ca_cert"`
-		CAPrivateKey   *string `yaml:"ca_private_key"`
-		SystemIdentity *string `yaml:"system_identity"`
+		UUID         string  `yaml:"uuid"`
+		ModelUUID    string  `yaml:"model_uuid"`
+		CACert       *string `yaml:"ca_cert"`
+		CAPrivateKey *string `yaml:"ca_private_key"`
 	} `yaml:"controller"`
 	Cloud []struct {
 		UUID        string `yaml:"uuid"`
@@ -68,8 +68,8 @@ type controllerDumpEnvelope struct {
 //
 // Validation is offline and runs before anything is provisioned. Model
 // dumps are staged in temporary files that are removed before returning.
-func ValidateArchive(ctx context.Context, archivePath, expectedSHA256 string) (*domainrecovery.ArchiveInfo, error) {
-	contents, info, err := ReadArchive(ctx, archivePath, expectedSHA256)
+func ValidateArchive(ctx context.Context, logger corelogger.Logger, archivePath, expectedSHA256 string) (*domainrecovery.ArchiveInfo, error) {
+	contents, info, err := ReadArchive(ctx, logger, archivePath, expectedSHA256)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +84,12 @@ func ValidateArchive(ctx context.Context, archivePath, expectedSHA256 string) (*
 // and the validated summary. The agent-side recovery stage consumes the
 // contents; the offline preflight consumes the summary alone via
 // [ValidateArchive]. The caller must Close the contents once consumed.
-func ReadArchive(ctx context.Context, archivePath, expectedSHA256 string) (*ArchiveContents, *domainrecovery.ArchiveInfo, error) {
-	contents, checksum, size, err := readArchive(ctx, archivePath, expectedSHA256)
+func ReadArchive(ctx context.Context, logger corelogger.Logger, archivePath, expectedSHA256 string) (*ArchiveContents, *domainrecovery.ArchiveInfo, error) {
+	contents, checksum, size, err := readArchive(ctx, logger, archivePath, expectedSHA256)
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
-	info, err := parseArchiveInfo(ctx, contents)
+	info, err := parseArchiveInfo(ctx, logger, contents)
 	if err != nil {
 		_ = contents.Close()
 		return nil, nil, errors.Capture(err)
@@ -101,7 +101,7 @@ func ReadArchive(ctx context.Context, archivePath, expectedSHA256 string) (*Arch
 
 // parseArchiveInfo builds the archive summary from extracted contents:
 // metadata, controller dump and the model dump inventory.
-func parseArchiveInfo(ctx context.Context, contents *ArchiveContents) (*domainrecovery.ArchiveInfo, error) {
+func parseArchiveInfo(ctx context.Context, logger corelogger.Logger, contents *ArchiveContents) (*domainrecovery.ArchiveInfo, error) {
 	meta, err := corebackups.NewMetadataJSONReader(bytes.NewReader(contents.Metadata))
 	if err != nil {
 		return nil, errors.Errorf("parsing %s: %w", metadataPath, err)
@@ -116,7 +116,7 @@ func parseArchiveInfo(ctx context.Context, contents *ArchiveContents) (*domainre
 		return nil, errors.Errorf("parsing %s: %w", controllerDumpPath, err)
 	}
 
-	info, err := buildArchiveInfo(ctx, meta, &dump.Payload, contents.ModelDumps)
+	info, err := buildArchiveInfo(ctx, logger, meta, &dump.Payload, contents.ModelDumps)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -125,7 +125,7 @@ func parseArchiveInfo(ctx context.Context, contents *ArchiveContents) (*domainre
 
 // buildArchiveInfo resolves clouds and model types from the controller
 // dump and cross-checks the model dump inventory against the model table.
-func buildArchiveInfo(ctx context.Context, meta *corebackups.Metadata, payload *controllerDumpPayload, modelDumps map[string]string) (*domainrecovery.ArchiveInfo, error) {
+func buildArchiveInfo(ctx context.Context, logger corelogger.Logger, meta *corebackups.Metadata, payload *controllerDumpPayload, modelDumps map[string]string) (*domainrecovery.ArchiveInfo, error) {
 	cloudTypes := make(map[int64]string)
 	for _, ct := range payload.CloudType {
 		if ct.ID != nil {
@@ -162,24 +162,25 @@ func buildArchiveInfo(ctx context.Context, meta *corebackups.Metadata, payload *
 	if len(payload.Controller) == 0 {
 		return nil, errors.Errorf("%s records no controller row", controllerDumpPath)
 	}
-	if payload.Controller[0].CACert == nil || payload.Controller[0].CAPrivateKey == nil {
+	controller := payload.Controller[0]
+	if controller.CACert == nil || controller.CAPrivateKey == nil {
 		return nil, errors.Errorf("%s records no controller CA material", controllerDumpPath)
 	}
-	info.CACert = *payload.Controller[0].CACert
-	info.CAPrivateKey = *payload.Controller[0].CAPrivateKey
-	if payload.Controller[0].ModelUUID != "" &&
-		info.ControllerModelUUID != payload.Controller[0].ModelUUID {
+	info.CACert = *controller.CACert
+	info.CAPrivateKey = *controller.CAPrivateKey
+	if controller.ModelUUID != "" &&
+		info.ControllerModelUUID != controller.ModelUUID {
 		return nil, errors.Errorf(
 			"controller model mismatch: metadata records %q, controller row records %q",
-			info.ControllerModelUUID, payload.Controller[0].ModelUUID)
+			info.ControllerModelUUID, controller.ModelUUID)
 	}
 	// The manifest and the dump must agree on the controller's identity:
 	// the recovered controller adopts the manifest's uuid, so a divergent
 	// dump row means the archive is internally inconsistent.
-	if payload.Controller[0].UUID != "" && payload.Controller[0].UUID != info.ControllerUUID {
+	if controller.UUID != "" && controller.UUID != info.ControllerUUID {
 		return nil, errors.Errorf(
 			"controller uuid mismatch: metadata records %q, controller row records %q",
-			info.ControllerUUID, payload.Controller[0].UUID)
+			info.ControllerUUID, controller.UUID)
 	}
 
 	if len(payload.Model) == 0 {
@@ -227,21 +228,14 @@ func buildArchiveInfo(ctx context.Context, meta *corebackups.Metadata, payload *
 		}
 	}
 	for uuid := range modelDumps {
-		found := false
-		for _, mi := range info.Models {
-			if mi.UUID == uuid {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if _, ok := seenModels[uuid]; !ok {
 			return nil, errors.Errorf("archive contains a database dump for unknown model %q", uuid)
 		}
 	}
 
-	// Fill the CAAS workload inventory from the model dumps: it powers
-	// the read-only substrate check, which reports missing workload
-	// objects instead of silently recreating them at the first
+	// Fill the Kubernetes workload inventory from the model dumps: it
+	// powers the read-only substrate check, which reports missing
+	// workload objects instead of silently recreating them at the first
 	// reconcile. The controller model is skipped: its namespace is
 	// disposable bootstrap output, not surviving substrate.
 	for i := range info.Models {
@@ -249,7 +243,7 @@ func buildArchiveInfo(ctx context.Context, meta *corebackups.Metadata, payload *
 		if mi.ModelType != "caas" || mi.UUID == info.ControllerModelUUID {
 			continue
 		}
-		apps, err := inventoryFromModelDump(ctx, modelDumps[mi.UUID])
+		apps, err := inventoryFromModelDump(ctx, logger, modelDumps[mi.UUID])
 		if err != nil {
 			return nil, errors.Errorf("model %q: %w", mi.Name, err)
 		}
@@ -289,10 +283,11 @@ type modelDumpInventory struct {
 }
 
 // inventoryFromModelDump extracts the surviving-substrate inventory of
-// one CAAS model: its alive applications, their alive units, and the
-// persistent volume claim names recorded by alive storage filesystems.
+// one Kubernetes model: its alive applications, their alive units, and
+// the persistent volume claim names recorded by alive storage
+// filesystems.
 // A claim name is attributed to the application whose unit attaches it.
-func inventoryFromModelDump(ctx context.Context, filename string) ([]domainrecovery.ApplicationInfo, error) {
+func inventoryFromModelDump(ctx context.Context, logger corelogger.Logger, filename string) ([]domainrecovery.ApplicationInfo, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Errorf("opening dump: %w", err)
@@ -311,7 +306,11 @@ func inventoryFromModelDump(ctx context.Context, filename string) ([]domainrecov
 	// resolving which application each attached volume belongs to.
 	unitAppByNode := make(map[string]string, len(inv.Unit))
 	for _, u := range inv.Unit {
-		if u.LifeID == domainlife.Dead || u.NetNodeUUID == "" {
+		if u.LifeID == domainlife.Dead {
+			continue
+		}
+		if u.NetNodeUUID == "" {
+			logger.Debugf(ctx, "unit %q has no net node, its volume attachments are not attributed", u.Name)
 			continue
 		}
 		unitAppByNode[u.NetNodeUUID] = u.ApplicationUUID
@@ -333,19 +332,28 @@ func inventoryFromModelDump(ctx context.Context, filename string) ([]domainrecov
 		}
 		claim, ok := filesystemClaim[att.StorageFilesystemUUID]
 		if !ok {
+			logger.Debugf(ctx, "attachment references unknown filesystem %q, skipped", att.StorageFilesystemUUID)
 			continue
 		}
-		if app, ok := unitAppByNode[att.NetNodeUUID]; ok && app != "" {
-			claimsByApp[app] = append(claimsByApp[app], claim)
+		app, ok := unitAppByNode[att.NetNodeUUID]
+		if !ok || app == "" {
+			logger.Debugf(ctx, "attachment of claim %q has no living unit to attribute it to, skipped", claim)
+			continue
 		}
+		claimsByApp[app] = append(claimsByApp[app], claim)
 	}
 
 	inventory := make([]domainrecovery.ApplicationInfo, 0, len(inv.Application))
 	for _, app := range inv.Application {
 		// Dead applications are recorded in the recovery summary as
 		// pending removals; their substrate is not checked.
-		if app.UUID == "" || app.Name == "" || app.LifeID == domainlife.Dead {
+		if app.LifeID == domainlife.Dead {
 			continue
+		}
+		// An alive application without its identity is not a row the
+		// dump format produces; the dump is corrupt.
+		if app.UUID == "" || app.Name == "" {
+			return nil, errors.Errorf("dump records an alive application with an empty uuid or name")
 		}
 		info := domainrecovery.ApplicationInfo{
 			UUID:                  app.UUID,

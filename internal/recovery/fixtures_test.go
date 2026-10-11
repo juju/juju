@@ -93,12 +93,12 @@ func controllerDump(models ...[3]string) string {
 	return out.String()
 }
 
-// caasModelDump renders a minimal CAAS model database dump with the
-// given applications. Each application is [uuid, name]; units and
+// k8sModelDump renders a minimal Kubernetes model database dump with
+// the given applications. Each application is [uuid, name]; units and
 // storage are attached deterministically: unit <name>/0 per application,
 // and one alive filesystem per unit whose provider_id is the PVC name
 // "<app>-<uuid[:6]>-0".
-func caasModelDump(apps ...[2]string) string {
+func k8sModelDump(apps ...[2]string) string {
 	var out strings.Builder
 	out.WriteString("version: 4.1.0\npayload:\n  net_node:\n")
 	for _, app := range apps {
@@ -196,11 +196,12 @@ func dumpOnlyFiles(controllerYAML string) map[string][]byte {
 	}
 }
 
-// caasFiles returns a valid archive file set whose workload-a model is
-// CAAS on the kubernetes cloud and carries the given model dump.
-func caasFiles(modelDump string) map[string][]byte {
+// k8sFiles returns a valid archive file set whose workload-a model is a
+// Kubernetes model on the kubernetes cloud and carries the given model
+// dump.
+func k8sFiles(modelDump string) map[string][]byte {
 	files := validFiles()
-	// Turn workload-a into a CAAS model on the kubernetes cloud:
+	// Turn workload-a into a Kubernetes model on the kubernetes cloud:
 	// controllerDump hardcodes model_type_id 0, patch the one workload
 	// row to caas (1).
 	files["juju-backup/dump/controller.yaml"] = []byte(strings.Replace(

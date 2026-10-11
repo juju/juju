@@ -133,35 +133,33 @@ var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string,
 	// are only known once the archive is built), but the finished time
 	// can: recovery summaries report the backup age from this file, and
 	// a zero time would mislead the operator about backup drift.
-	finished := args.Clock.Now()
-	meta.Finished = &finished
+	meta.Finished = new(args.Clock.Now())
 	metadataReader, err := meta.AsJSONBuffer()
 	if err != nil {
 		return "", errors.Errorf("preparing the metadata: %w", err)
 	}
 	canonicalPaths := NewCanonicalArchivePaths()
-	var manifestEntries []ManifestEntry
 	metaSize, metaSum, err := writeAll(archivePaths.MetadataFile, metadataReader)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	manifestEntries = append(manifestEntries, ManifestEntry{
+	manifestEntries := []ManifestEntry{{
 		Path:   canonicalPaths.MetadataFile,
 		Kind:   ManifestKindMetadata,
 		Size:   metaSize,
 		SHA256: metaSum,
-	})
+	}}
 
-	bundleSize, bundleSum, err := buildFilesArchive(ctx,
+	filesSize, filesSum, err := buildFilesArchive(ctx,
 		archivePaths.FilesArchive, args.FilesToBackUp, args.DataDir, args.ObjectEntries)
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 	manifestEntries = append(manifestEntries, ManifestEntry{
 		Path:   canonicalPaths.FilesArchive,
-		Kind:   ManifestKindFilesBundle,
-		Size:   bundleSize,
-		SHA256: bundleSum,
+		Kind:   ManifestKindFilesArchive,
+		Size:   filesSize,
+		SHA256: filesSum,
 	})
 
 	dumpEntries, err := buildDump(
@@ -235,7 +233,8 @@ func checkDestinationDir(destinationDir string) error {
 
 // checkDumpEntryName ensures the entry name is one of the two canonical
 // dump names — "controller.yaml" or "models/<model-uuid>.yaml" — so the
-// writer only ever emits dumps the recovery reader recognises.
+// writer only ever emits dumps the recovery reader recognises. The
+// canonical-name rule itself lives in [ClassifyManifestPath].
 func checkDumpEntryName(name string) error {
 	cleaned := path.Clean(name)
 	// path.Clean maps both "" and "." (and "./", ...) to ".", which
@@ -250,17 +249,13 @@ func checkDumpEntryName(name string) error {
 			"entry name %q escapes the root directory: %w",
 			name, coreerrors.NotValid)
 	}
-	if cleaned == "controller.yaml" {
-		return nil
+	dumpPath := path.Join(NewCanonicalArchivePaths().DBDumpDir, cleaned)
+	if _, _, err := ClassifyManifestPath(dumpPath); err != nil {
+		return errors.Errorf(
+			"entry name %q is not a canonical dump name: %w",
+			name, coreerrors.NotValid)
 	}
-	model := strings.TrimSuffix(strings.TrimPrefix(cleaned, "models/"), ".yaml")
-	if strings.HasPrefix(cleaned, "models/") && strings.HasSuffix(cleaned, ".yaml") &&
-		model != "" && !strings.Contains(model, "/") {
-		return nil
-	}
-	return errors.Errorf(
-		"entry name %q is not a canonical dump name: %w",
-		name, coreerrors.NotValid)
+	return nil
 }
 
 // writeAll writes the contents of source to the named file, creating
@@ -307,7 +302,7 @@ func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackU
 
 	archiveFile, err := os.Create(archiveFileName)
 	if err != nil {
-		return 0, "", errors.Errorf("creating archive file: %w", err)
+		return 0, "", errors.Errorf("creating files archive: %w", err)
 	}
 
 	// Both the filesystem files and the object entries go into a
@@ -347,7 +342,7 @@ func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackU
 
 	stat, err := os.Stat(archiveFileName)
 	if err != nil {
-		return 0, "", errors.Errorf("reading archive file info: %w", err)
+		return 0, "", errors.Errorf("reading files archive info: %w", err)
 	}
 	return stat.Size(), hex.EncodeToString(hasher.Sum(nil)), nil
 }

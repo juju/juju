@@ -115,9 +115,6 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 // where the apiserver runs as a non-host user — is skipped instead of
 // failing the backup.
 func (s *filesSuite) TestGetFilesToBackUpUnreadableSSHKeys(c *tc.C) {
-	if os.Geteuid() == 0 {
-		c.Skip("permission checks do not apply to root")
-	}
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)
 	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")
@@ -143,9 +140,6 @@ func (s *filesSuite) TestGetFilesToBackUpUnreadableSSHKeys(c *tc.C) {
 // tolerated. A permission error on one of Juju's own data-dir files —
 // trust material for disaster recovery — still fails the backup.
 func (s *filesSuite) TestGetFilesToBackUpUnreadableOptionalFile(c *tc.C) {
-	if os.Geteuid() == 0 {
-		c.Skip("permission checks do not apply to root")
-	}
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)
 	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")
@@ -166,9 +160,6 @@ func (s *filesSuite) TestGetFilesToBackUpUnreadableOptionalFile(c *tc.C) {
 // symlink whose target cannot be stat'ed — rather than merely absent —
 // fails the backup instead of being silently dropped as if it dangled.
 func (s *filesSuite) TestGetFilesToBackUpUnreadableSymlinkTarget(c *tc.C) {
-	if os.Geteuid() == 0 {
-		c.Skip("permission checks do not apply to root")
-	}
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)
 	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")

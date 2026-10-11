@@ -34,7 +34,7 @@ download is considered complete; if verification fails, the corrupt
 archive is kept locally under a ".corrupt" suffix for inspection and
 the backup must be created again. When the controller records its
 checksum in a format this client cannot verify (an older controller),
-the archive is kept with a warning instead. An interrupted transfer
+the download fails and no archive is kept. An interrupted transfer
 leaves no archive on either side: re-run the command to create the
 backup again.
 
@@ -153,10 +153,10 @@ func (c *createCommand) decideFilename(filename string, timestamp time.Time) str
 // along the way, and verifies the received bytes against the recorded
 // checksum. Verification only applies when the controller reports the
 // current checksum format: an older controller records a SHA-1 checksum
-// this client cannot verify, so its archive is kept with a warning
-// rather than condemned as corrupt on a certain mismatch. An incomplete
-// transfer leaves no partial file behind; a checksum mismatch keeps
-// the corrupt archive under a ".corrupt" suffix for inspection.
+// this client cannot verify, so the download fails rather than keep an
+// archive whose integrity is unconfirmed. An incomplete transfer leaves
+// no partial file behind; a checksum mismatch keeps the corrupt archive
+// under a ".corrupt" suffix for inspection.
 func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksum, checksumFormat, archiveFilename string) error {
 	archive, err := c.Filesystem().Create(archiveFilename)
 	if err != nil {
@@ -183,10 +183,13 @@ func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksu
 		return errors.Annotatef(closeErr, "while closing local archive file %v", archiveFilename)
 	}
 	if checksumFormat != backups.ChecksumFormatSHA256 {
-		fmt.Fprintf(ctx.Stderr,
-			"WARNING controller reported checksum format %q; the downloaded archive could not be verified\n",
+		// The checksum cannot be interpreted in an unknown format, so
+		// the archive's integrity is unconfirmed: remove it rather
+		// than keep a backup that cannot be verified.
+		_ = c.Filesystem().RemoveAll(archiveFilename)
+		return errors.Errorf(
+			"controller reported checksum format %q; the downloaded archive cannot be verified",
 			checksumFormat)
-		return nil
 	}
 	if !strings.EqualFold(hex.EncodeToString(hasher.Sum(nil)), checksum) {
 		// Keep the corrupt archive under a suffix so the operator can

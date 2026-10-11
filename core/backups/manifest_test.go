@@ -11,9 +11,12 @@ import (
 
 	"github.com/juju/juju/core/backups"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/internal/testing"
 )
 
-type manifestSuite struct{}
+type manifestSuite struct {
+	testing.BaseSuite
+}
 
 func TestManifestSuite(t *stdtesting.T) {
 	tc.Run(t, &manifestSuite{})
@@ -47,6 +50,15 @@ func (s *manifestSuite) TestManifestJSONReaderInvalid(c *tc.C) {
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
 }
 
+// TestManifestJSONReaderUnsupportedVersion pins the forward-compat
+// policy: a manifest in a newer format is rejected, never read with
+// the current semantics.
+func (s *manifestSuite) TestManifestJSONReaderUnsupportedVersion(c *tc.C) {
+	_, err := backups.NewManifestJSONReader(
+		strings.NewReader(`{"format-version": 2, "files": []}`))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
 func (s *manifestSuite) TestClassifyManifestPath(c *tc.C) {
 	for _, test := range []struct {
 		path      string
@@ -54,7 +66,7 @@ func (s *manifestSuite) TestClassifyManifestPath(c *tc.C) {
 		modelUUID string
 	}{
 		{"juju-backup/metadata.json", backups.ManifestKindMetadata, ""},
-		{"juju-backup/root.tar", backups.ManifestKindFilesBundle, ""},
+		{"juju-backup/root.tar", backups.ManifestKindFilesArchive, ""},
 		{"juju-backup/dump/controller.yaml", backups.ManifestKindControllerDump, ""},
 		{
 			"juju-backup/dump/models/deadbeef-0bad-400d-8000-4b1d0d06f00d.yaml",

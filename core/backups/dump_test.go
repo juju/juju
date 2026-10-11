@@ -105,7 +105,7 @@ func (s *dumpSuite) TestWalkDumps(c *tc.C) {
 	})
 }
 
-func (s *dumpSuite) TestStageDumpsOversized(c *tc.C) {
+func (s *dumpSuite) TestStageDumpsEntryExceedsLimit(c *tc.C) {
 	dumps := []backups.NamedDump{
 		{Name: "controller.yaml", Export: backups.YAMLDump("small")},
 		{Name: "models/model-uuid.yaml", Export: backups.YAMLDump("a dump over ten bytes")},
@@ -114,20 +114,20 @@ func (s *dumpSuite) TestStageDumpsOversized(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { c.Check(staging.Close(), tc.ErrorIsNil) }()
 
-	name, size, err := staging.Oversized(10)
+	name, size, err := staging.EntryExceedsLimit(10)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "models/model-uuid.yaml")
 	// The YAML encoder adds a trailing newline to the dump.
 	c.Check(size > 10, tc.IsTrue)
 
-	// A dump of exactly the limit is not oversized: the bound is
+	// A dump of exactly the limit does not exceed it: the bound is
 	// exclusive, matching the recovery reader's read limit.
-	name, size, err = staging.Oversized(size)
+	name, size, err = staging.EntryExceedsLimit(size)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "")
 	c.Check(size, tc.Equals, int64(0))
 
-	name, size, err = staging.Oversized(1 << 20)
+	name, size, err = staging.EntryExceedsLimit(1 << 20)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(name, tc.Equals, "")
 	c.Check(size, tc.Equals, int64(0))

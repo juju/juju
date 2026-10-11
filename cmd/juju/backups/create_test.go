@@ -196,27 +196,26 @@ Downloaded to backup.tgz
 
 // TestUnverifiableChecksumFormat verifies that a controller reporting a
 // checksum format this client cannot verify — an older controller still
-// recording SHA-1 — keeps the downloaded archive with a warning instead
-// of condemning it as corrupt on a certain mismatch.
+// recording SHA-1, or one predating the format field — fails the
+// download and keeps no archive whose integrity is unconfirmed.
 func (s *createSuite) TestUnverifiableChecksumFormat(c *tc.C) {
-	client := s.setDownload()
-	client.metaresult.ChecksumFormat = "SHA-1, base64 encoded"
-	client.metaresult.Checksum = "dGhpcyBpcyBub3QgYSBzaGEyNTYgc3Vt"
+	for _, format := range []string{"SHA-1, base64 encoded", ""} {
+		c.Logf("checksum format %q", format)
+		client := s.setDownload()
+		client.metaresult.ChecksumFormat = format
+		client.metaresult.Checksum = "dGhpcyBpcyBub3QgYSBzaGEyNTYgc3Vt"
 
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)
-	c.Assert(err, tc.ErrorIsNil)
-	client.CheckCalls(c, "Create")
+		_, err := cmdtesting.RunCommand(c, s.wrappedCommand)
+		c.Assert(err, tc.ErrorMatches,
+			`controller reported checksum format ".*"; the downloaded archive cannot be verified`)
+		client.CheckCalls(c, "Create")
 
-	c.Check(cmdtesting.Stderr(ctx), tc.Equals, `
-WARNING controller reported checksum format "SHA-1, base64 encoded"; the downloaded archive could not be verified
-Downloaded to juju-backup-00010101-000000.tar.gz
-`[1:])
-	// The archive is kept under its plain name, never renamed corrupt.
-	s.filename = "juju-backup-00010101-000000.tar.gz"
-	c.Cleanup(func() { s.filename = "" })
-	s.checkArchive(c)
-	_, err = os.Stat(s.filename + ".corrupt")
-	c.Check(err, tc.Satisfies, os.IsNotExist)
+		// The unverifiable archive is removed, never kept or renamed.
+		_, err = os.Stat("juju-backup-00010101-000000.tar.gz")
+		c.Check(err, tc.Satisfies, os.IsNotExist)
+		_, err = os.Stat("juju-backup-00010101-000000.tar.gz.corrupt")
+		c.Check(err, tc.Satisfies, os.IsNotExist)
+	}
 }
 
 // TestChecksumUppercase verifies that the checksum comparison tolerates

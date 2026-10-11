@@ -4,7 +4,7 @@
 // Package recovery defines the domain vocabulary for controller recovery
 // from a backup archive: the validated archive summary (ArchiveInfo,
 // ModelInfo, ApplicationInfo) and the preflight gates over it
-// (CheckAgentVersion, ModelFamily, CheckProviderFamily). The replacement
+// (CheckAgentVersion, CheckProviderFamily). The replacement
 // controller is bootstrapped with the source's identity and its
 // databases loaded from the archived dumps; the summary and gates are
 // what the bootstrap client decides from.

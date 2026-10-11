@@ -21,16 +21,21 @@ import (
 	"github.com/juju/tc"
 
 	corebackups "github.com/juju/juju/core/backups"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/recovery"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
-type validateSuite struct{}
+type validateSuite struct {
+	testhelpers.IsolationSuite
+}
 
 func (s *validateSuite) TestValidateArchive(c *tc.C) {
 	path, sum := writeArchive(c, validFiles())
 
-	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
@@ -54,7 +59,7 @@ func (s *validateSuite) TestValidateArchive(c *tc.C) {
 func (s *validateSuite) TestValidateArchiveChecksumMismatch(c *tc.C) {
 	path, _ := writeArchive(c, validFiles())
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "deadbeef")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "deadbeef")
 	c.Assert(err, tc.ErrorMatches, "archive checksum mismatch: expected sha256 .deadbeef., archive is .*")
 }
 
@@ -63,7 +68,7 @@ func (s *validateSuite) TestValidateArchiveMissingMetadata(c *tc.C) {
 	delete(files, "juju-backup/metadata.json")
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches, "archive is missing juju-backup/metadata.json")
 }
 
@@ -72,7 +77,7 @@ func (s *validateSuite) TestValidateArchiveMissingControllerDump(c *tc.C) {
 	delete(files, "juju-backup/dump/controller.yaml")
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches, "archive is missing juju-backup/dump/controller.yaml")
 }
 
@@ -81,7 +86,7 @@ func (s *validateSuite) TestValidateArchiveMissingModelDump(c *tc.C) {
 	delete(files, "juju-backup/dump/models/"+testModelAUUID+".yaml")
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"archive is missing the database dump for model .workload-a. .*")
 }
@@ -91,27 +96,34 @@ func (s *validateSuite) TestValidateArchiveUnknownModelDump(c *tc.C) {
 	files["juju-backup/dump/models/00000000-0000-0000-0000-000000000000.yaml"] = []byte("payload: {}\n")
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"archive contains a database dump for unknown model .*")
 }
 
-func (s *validateSuite) TestValidateArchiveRejectsTraversal(c *tc.C) {
+// A traversal entry cannot escape: entries are never extracted under
+// their own name, so the cleaned path is logged and the archive still
+// validates.
+func (s *validateSuite) TestValidateArchiveToleratesTraversal(c *tc.C) {
 	files := validFiles()
 	files["juju-backup/../escape"] = []byte("x")
-	path, _ := writeArchive(c, files)
+	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
-	c.Assert(err, tc.ErrorMatches, "archive contains unsafe path .*")
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
 }
 
-func (s *validateSuite) TestValidateArchiveRejectsAbsolutePath(c *tc.C) {
+// An absolute entry path is cleaned and logged the same way: it names
+// nothing the reader extracts to, so it cannot redirect an extraction.
+func (s *validateSuite) TestValidateArchiveToleratesAbsolutePath(c *tc.C) {
 	files := validFiles()
 	files["/abs/path"] = []byte("x")
-	path, _ := writeArchive(c, files)
+	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
-	c.Assert(err, tc.ErrorMatches, "archive contains unsafe path .*")
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
 }
 
 func (s *validateSuite) TestValidateArchiveRejectsDuplicate(c *tc.C) {
@@ -120,7 +132,7 @@ func (s *validateSuite) TestValidateArchiveRejectsDuplicate(c *tc.C) {
 	files["juju-backup/./metadata.json"] = []byte(metadataJSON("4.1.0"))
 	path, _ := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches, "archive contains duplicate path .*")
 }
 
@@ -153,7 +165,7 @@ func (s *validateSuite) TestValidateArchiveRejectsNonRegular(c *tc.C) {
 	path := filepath.Join(c.MkDir(), "juju-backup.tar.gz")
 	c.Assert(os.WriteFile(path, buf.Bytes(), 0o600), tc.ErrorIsNil)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches, "archive entry .* is not a regular file")
 }
 
@@ -170,7 +182,7 @@ func (s *validateSuite) TestValidateArchiveRejectsControllerUUIDMismatch(c *tc.C
 		"uuid: "+testControllerUUID, "uuid: deadbeef00-1111-2222-3333-444455556666", 1))
 	archivePath, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), archivePath, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), archivePath, sum)
 	c.Assert(err, tc.ErrorMatches, "controller uuid mismatch: metadata records .*, controller row records .*")
 }
 
@@ -183,23 +195,23 @@ func (s *validateSuite) TestValidateArchiveRejectsDuplicateModelUUID(c *tc.C) {
 	))
 	archivePath, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), archivePath, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), archivePath, sum)
 	c.Assert(err, tc.ErrorMatches, `dump records duplicate model uuid ".*"`)
 }
 
-func (s *validateSuite) TestValidateArchiveCAASWorkloadInventory(c *tc.C) {
-	// Give the CAAS workload model one archived application with a unit
-	// and a volume.
-	files := caasFiles(caasModelDump(
+func (s *validateSuite) TestValidateArchiveK8sWorkloadInventory(c *tc.C) {
+	// Give the Kubernetes workload model one archived application with a
+	// unit and a volume.
+	files := k8sFiles(k8sModelDump(
 		[2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"},
 	))
 	path, sum := writeArchive(c, files)
 
-	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The controller model and IAAS models carry no inventory; only the
-	// CAAS workload model does.
+	// The controller model and machine models carry no inventory; only
+	// the Kubernetes workload model does.
 	for _, m := range info.Models {
 		if m.UUID != testModelAUUID {
 			c.Check(m.Applications, tc.HasLen, 0)
@@ -214,14 +226,14 @@ func (s *validateSuite) TestValidateArchiveCAASWorkloadInventory(c *tc.C) {
 	c.Assert(app.FilesystemProviderIDs, tc.DeepEquals, []string{"gitlab-111111-0"})
 }
 
-func (s *validateSuite) TestValidateArchiveCAASInventorySkipsDeadEntities(c *tc.C) {
-	deadDump := strings.Replace(caasModelDump(
+func (s *validateSuite) TestValidateArchiveK8sInventorySkipsDeadEntities(c *tc.C) {
+	deadDump := strings.Replace(k8sModelDump(
 		[2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"},
 	), "life_id: 0", "life_id: 2", 1)
-	files := caasFiles(deadDump)
+	files := k8sFiles(deadDump)
 	path, sum := writeArchive(c, files)
 
-	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The only application is dead: it is a pending removal in the
@@ -273,7 +285,7 @@ func (s *validateSuite) TestValidateArchiveCreatedByBackup(c *tc.C) {
 
 	// The checksum recorded in the metadata during creation is the
 	// operator-supplied trust anchor for validation.
-	info, err := recovery.ValidateArchive(c.Context(), filename, meta.Checksum())
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), filename, meta.Checksum())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
 	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
@@ -282,9 +294,9 @@ func (s *validateSuite) TestValidateArchiveCreatedByBackup(c *tc.C) {
 	c.Check(meta.ChecksumFormat(), tc.Equals, corebackups.ChecksumFormatSHA256)
 	c.Check(info.CloudType, tc.Equals, "lxd")
 	c.Assert(info.Models, tc.HasLen, 2)
-	family, err := info.ModelFamily()
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(family, tc.Equals, "iaas")
+	for _, m := range info.Models {
+		c.Check(m.ModelType, tc.Equals, "iaas")
+	}
 }
 
 func (s *validateSuite) TestValidateArchiveNoControllerRow(c *tc.C) {
@@ -292,7 +304,7 @@ func (s *validateSuite) TestValidateArchiveNoControllerRow(c *tc.C) {
 		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/dump/controller.yaml records no controller row")
 }
@@ -307,7 +319,7 @@ func (s *validateSuite) TestValidateArchiveMissingCAMaterial(c *tc.C) {
 		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/dump/controller.yaml records no controller CA material")
 }
@@ -321,7 +333,7 @@ func (s *validateSuite) TestValidateArchiveControllerModelUUIDMismatch(c *tc.C) 
 		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"controller model mismatch: metadata records .*, controller row records .*")
 }
@@ -331,7 +343,7 @@ func (s *validateSuite) TestValidateArchiveUnknownCloudUUID(c *tc.C) {
 		rawModelRow(testControllerModelUUID, "controller", "cloud-gone", "0")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		`model "controller" references unknown cloud "cloud-gone"`)
 }
@@ -341,7 +353,7 @@ func (s *validateSuite) TestValidateArchiveUnknownModelType(c *tc.C) {
 		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "9")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		`model "controller" has unknown model type`)
 }
@@ -352,7 +364,7 @@ func (s *validateSuite) TestValidateArchiveUnknownCloudType(c *tc.C) {
 		rawModelRow(testControllerModelUUID, "controller", "cloud-lxd", "0")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		`model "controller" has unknown cloud type`)
 }
@@ -361,7 +373,7 @@ func (s *validateSuite) TestValidateArchiveNoModels(c *tc.C) {
 	files := dumpOnlyFiles(rawControllerDump(validControllerRow(), validCloudRows(), ""))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/dump/controller.yaml records no models")
 }
@@ -371,7 +383,7 @@ func (s *validateSuite) TestValidateArchiveControllerModelNotInModelTable(c *tc.
 		rawModelRow(testModelAUUID, "workload-a", "cloud-lxd", "0")))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		`controller model ".*" not found in juju-backup/dump/controller.yaml`)
 }
@@ -379,7 +391,7 @@ func (s *validateSuite) TestValidateArchiveControllerModelNotInModelTable(c *tc.
 // The dying(1)-included / dead(2)-excluded boundary decides which
 // workload objects the preflight reports as surviving substrate: dying
 // objects still exist in the cluster, dead ones are pending removal.
-func (s *validateSuite) TestValidateArchiveCAASInventoryLifeBoundary(c *tc.C) {
+func (s *validateSuite) TestValidateArchiveK8sInventoryLifeBoundary(c *tc.C) {
 	for i, test := range []struct {
 		about      string
 		anchor     string
@@ -421,13 +433,13 @@ func (s *validateSuite) TestValidateArchiveCAASInventoryLifeBoundary(c *tc.C) {
 	}} {
 		c.Logf("%d: %s", i, test.about)
 		dump := strings.Replace(
-			caasModelDump([2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"}),
+			k8sModelDump([2]string{"11111111-cafe-0000-0000-000000000001", "gitlab"}),
 			test.anchor,
 			strings.Replace(test.anchor, "life_id: 0", fmt.Sprintf("life_id: %d", test.life), 1),
 			1)
-		path, sum := writeArchive(c, caasFiles(dump))
+		path, sum := writeArchive(c, k8sFiles(dump))
 
-		info, err := recovery.ValidateArchive(c.Context(), path, sum)
+		info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 		c.Assert(err, tc.ErrorIsNil)
 		workload := findModel(c, info, testModelAUUID)
 		c.Assert(workload.Applications, tc.HasLen, 1)
@@ -452,7 +464,7 @@ func (s *validateSuite) TestValidateArchiveMetadataSizeBoundary(c *tc.C) {
 	files["juju-backup/metadata.json"] = []byte(padded)
 	path, sum := writeArchive(c, files)
 
-	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.AgentVersion, tc.Equals, semversion.MustParse("4.1.0"))
 
@@ -461,7 +473,7 @@ func (s *validateSuite) TestValidateArchiveMetadataSizeBoundary(c *tc.C) {
 		strings.Replace(meta, `"Notes":"",`, `"Notes":"`+pad+`a",`, 1))
 	path, sum = writeArchive(c, files)
 
-	_, err = recovery.ValidateArchive(c.Context(), path, sum)
+	_, err = recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		`reading "juju-backup/metadata.json": file exceeds 4194304 bytes`)
 }
@@ -475,7 +487,7 @@ func (s *validateSuite) TestValidateArchiveCancelled(c *tc.C) {
 	cancel()
 	// The wrong expected checksum would fail at the checksum stage;
 	// the cancellation must surface first.
-	_, err := recovery.ValidateArchive(ctx, path, "deadbeef")
+	_, err := recovery.ValidateArchive(ctx, loggertesting.WrapCheckLog(c), path, "deadbeef")
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
@@ -491,7 +503,7 @@ func (s *validateSuite) TestValidateArchiveUnexpectedModelDumpPath(c *tc.C) {
 		files[name] = []byte("payload: {}\n")
 		path, _ := writeArchive(c, files)
 
-		_, err := recovery.ValidateArchive(c.Context(), path, "")
+		_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 		c.Check(err, tc.ErrorMatches, "unexpected model dump path .*",
 			tc.Commentf("path %q", name))
 	}
@@ -503,7 +515,7 @@ func (s *validateSuite) TestValidateArchiveMetadataMissingAgentVersion(c *tc.C) 
 		metadataJSON("4.1.0"), `"Version":"4.1.0",`, ``, 1))
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/metadata.json does not record the source agent version")
 }
@@ -513,7 +525,7 @@ func (s *validateSuite) TestValidateArchiveMetadataMalformedJSON(c *tc.C) {
 	files["juju-backup/metadata.json"] = []byte("{")
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches, "parsing juju-backup/metadata.json: .*")
 }
 
@@ -522,7 +534,7 @@ func (s *validateSuite) TestValidateArchiveControllerDumpMalformedYAML(c *tc.C) 
 	files["juju-backup/dump/controller.yaml"] = []byte("payload: {\n")
 	path, sum := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, sum)
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorMatches, "parsing juju-backup/dump/controller.yaml: .*")
 }
 
@@ -548,7 +560,7 @@ func (s *validateSuite) TestValidateArchiveManifestRejectsUnknownKind(c *tc.C) {
 	files["juju-backup/manifest.json"] = manifestJSON
 	path, _ := writeArchive(c, files)
 
-	_, err = recovery.ValidateArchive(c.Context(), path, "")
+	_, err = recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches,
 		`juju-backup/manifest.json lists "juju-backup/root.tar" with unrecognised kind "dump"`)
 }
@@ -557,7 +569,7 @@ func (s *validateSuite) TestValidateArchiveWithManifest(c *tc.C) {
 	files := withManifest(c, validFiles())
 	path, sum := writeArchive(c, files)
 
-	info, err := recovery.ValidateArchive(c.Context(), path, sum)
+	info, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, sum)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ControllerUUID, tc.Equals, testControllerUUID)
 	c.Check(info.Checksum, tc.Equals, sum)
@@ -573,7 +585,7 @@ func (s *validateSuite) TestValidateArchiveManifestDetectsTamperedDump(c *tc.C) 
 		[]byte("payload: {tampered: true}\n")
 	path, _ := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/manifest.json records size .* but the archive entry has size .*")
 }
@@ -585,7 +597,7 @@ func (s *validateSuite) TestValidateArchiveManifestListsMissingEntry(c *tc.C) {
 	delete(files, "juju-backup/root.tar")
 	path, _ := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/manifest.json lists \"juju-backup/root.tar\", which is not in the archive")
 }
@@ -597,7 +609,7 @@ func (s *validateSuite) TestValidateArchiveManifestOmitsEntry(c *tc.C) {
 	files["juju-backup/extra.bin"] = []byte("x")
 	path, _ := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches,
 		"archive entry \"juju-backup/extra.bin\" is not listed in juju-backup/manifest.json")
 }
@@ -622,7 +634,7 @@ func (s *validateSuite) TestValidateArchiveManifestModelUUIDMismatch(c *tc.C) {
 	files["juju-backup/manifest.json"] = manifestJSON
 	path, _ := writeArchive(c, files)
 
-	_, err = recovery.ValidateArchive(c.Context(), path, "")
+	_, err = recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/manifest.json lists model dump .* with mismatched model UUID .*")
 }
@@ -632,8 +644,20 @@ func (s *validateSuite) TestValidateArchiveManifestInvalidJSON(c *tc.C) {
 	files["juju-backup/manifest.json"] = []byte("{")
 	path, _ := writeArchive(c, files)
 
-	_, err := recovery.ValidateArchive(c.Context(), path, "")
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches, "parsing juju-backup/manifest.json: .*")
+}
+
+// A manifest in a newer format is rejected outright: reading it with
+// the current semantics could silently accept an index written for
+// different rules.
+func (s *validateSuite) TestValidateArchiveManifestUnsupportedVersion(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/manifest.json"] = []byte(`{"format-version": 2, "files": []}`)
+	path, _ := writeArchive(c, files)
+
+	_, err := recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 func (s *validateSuite) TestValidateArchiveManifestDuplicateListing(c *tc.C) {
@@ -656,7 +680,7 @@ func (s *validateSuite) TestValidateArchiveManifestDuplicateListing(c *tc.C) {
 	files["juju-backup/manifest.json"] = manifestJSON
 	path, _ := writeArchive(c, files)
 
-	_, err = recovery.ValidateArchive(c.Context(), path, "")
+	_, err = recovery.ValidateArchive(c.Context(), loggertesting.WrapCheckLog(c), path, "")
 	c.Assert(err, tc.ErrorMatches,
 		"juju-backup/manifest.json lists \"juju-backup/metadata.json\" twice")
 }
