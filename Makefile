@@ -578,6 +578,7 @@ rebuild-export:
 	@echo "Generating exported schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/recovery
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
