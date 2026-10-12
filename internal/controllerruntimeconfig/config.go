@@ -68,10 +68,19 @@ type ControllerRuntimeConfig struct {
 	// APIPort is the controller API server listen port.
 	APIPort int `yaml:"api-port"`
 
-	// AgentPassword is the controller agent API password used for local worker
-	// startup before agent.conf is consulted. This field is sensitive and must
-	// not be logged.
+	// AgentPassword is the bootstrap admin secret consumed by
+	// jujud bootstrap-state to create the initial administrator, and
+	// by the IAAS bootstrap finalizer as the machine password. This
+	// field is sensitive and must not be logged.
 	AgentPassword string `yaml:"agent-password"`
+
+	// ControllerNodePassword is the random K8s controller-node credential
+	// used by the controller pod's machine agent and hashed into
+	// controller_node_password by the K8s bootstrap finalizer. It is
+	// generated before ConfigMap rendering and persisted here so bootstrap
+	// and finalizer retries reuse the same value. It is empty on IAAS.
+	// This field is sensitive and must not be logged.
+	ControllerNodePassword string `yaml:"controller-node-password,omitempty"`
 
 	// LoggingConfig is the persisted controller logging override used by the
 	// controller logger worker.

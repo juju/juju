@@ -648,6 +648,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			DataDir:                           controllerRuntimeConfig.DataDir,
 			APIPort:                           controllerRuntimeConfig.APIPort,
 			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
+			ControllerNodePassword:            controllerRuntimeConfig.ControllerNodePassword,
 			RootDir:                           a.rootDir,
 			BootstrapLock:                     a.bootstrapLock,
 			ProxyReadyLock:                    a.proxyReadyLock,

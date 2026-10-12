@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
+	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
@@ -184,6 +185,22 @@ type ManifoldsConfig struct {
 	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
 }
 
+// newAPICallerConnection selects the API connection behaviour for a
+// machine agent from its loaded configuration tag, never from the
+// process's machine tag: a K8s controller pod's machine agent runs as
+// machine-<id> but its configuration is tagged controller-<id> with
+// a pre-stored controller-node credential, so it must connect with
+// OnlyConnect and never rotate (rotation would retire a credential
+// shared with the bootstrap finalizer). Every other machine
+// configuration connects with ScaryConnect and rotates its password
+// on first use.
+func newAPICallerConnection(ctx context.Context, a coreagent.Agent, open api.OpenFunc, logger corelogger.Logger) (api.Connection, error) {
+	if _, ok := a.CurrentConfig().Tag().(names.ControllerAgentTag); ok {
+		return apicaller.OnlyConnect(ctx, a, open, logger)
+	}
+	return apicaller.ScaryConnect(ctx, a, open, logger)
+}
+
 // commonManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a machine agent.
 //
@@ -271,7 +288,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
 			APIOpen:              api.Open,
-			NewConnection:        apicaller.ScaryConnect,
+			NewConnection:        newAPICallerConnection,
 			Filter:               connectFilter,
 			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),

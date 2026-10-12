@@ -14,9 +14,11 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	goyaml "gopkg.in/yaml.v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -129,6 +131,52 @@ func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLoggingSettings(c *t
 	content := controllerStacker.GetControllerRuntimeConfigContent(c)
 	c.Check(strings.Contains(content, "logging-config: <root>=WARNING;juju.bootstrap=INFO"), tc.IsTrue)
 	c.Check(strings.Contains(content, "logging-override: juju.bootstrap=TRACE"), tc.IsTrue)
+}
+
+// TestControllerStackMachineAgentConfig proves the configuration-ownership
+// boundary for the K8s bootstrap controller pod: the pod machine agent's
+// config is a plain agent config carrying only connectivity state (the
+// controller tag, addresses, trust anchor, and the pre-generated
+// controller-node credential), with no controller serving information,
+// and the same credential is persisted in runtime.conf's
+// controller-node-password field for the K8s bootstrap finalizer.
+func (s *bootstrapSuite) TestControllerStackMachineAgentConfig(c *tc.C) {
+	controllerStacker := s.controllerStackerGetter()
+
+	content := controllerStacker.GetControllerAgentConfigContent(c)
+	conf, err := agent.ParseConfigData([]byte(content))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine agent keeps its controller-<id> identity.
+	c.Check(conf.Tag(), tc.DeepEquals, names.NewControllerAgentTag("0"))
+
+	// No serving info is rendered into the machine agent config: the
+	// controller material is delivered separately through runtime.conf.
+	_, isController := conf.ControllerAgentInfo()
+	c.Check(isController, tc.IsFalse)
+	c.Check(content, tc.Not(tc.Contains), "controllercert")
+	c.Check(content, tc.Not(tc.Contains), "controllerkey")
+	c.Check(content, tc.Not(tc.Contains), "caprivatekey")
+	c.Check(content, tc.Not(tc.Contains), "statepassword")
+
+	// The explicit localhost API address is carried, and the trust anchor
+	// is retained.
+	apiInfo, ok := conf.APIInfo()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:456"})
+	c.Check(conf.CACert(), tc.Equals, coretesting.CACert)
+
+	// The machine agent credential is the pre-generated controller-node
+	// password, not the bootstrap admin secret...
+	controllerNodePassword := controllerStacker.GetControllerNodePassword()
+	c.Check(conf.OldPassword(), tc.Equals, controllerNodePassword)
+	c.Check(conf.OldPassword(), tc.Not(tc.Equals), s.pcfg.APIInfo.Password)
+
+	// ...and the same value is persisted in runtime.conf for the K8s
+	// bootstrap finalizer to hash into controller_node_password.
+	runtimeContent := controllerStacker.GetControllerRuntimeConfigContent(c)
+	c.Check(strings.Contains(runtimeContent,
+		"controller-node-password: "+controllerNodePassword), tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLokiSettings(c *tc.C) {
@@ -1438,6 +1486,14 @@ fi
 		configmap, err := s.mockConfigMaps.Get(c.Context(), "juju-controller-test-configmap", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(configmap, tc.DeepEquals, configMapWithAgentConfAdded)
+
+		machineConfig, err := agent.ParseConfigData([]byte(configmap.Data["controller-agent.conf"]))
+		c.Assert(err, tc.ErrorIsNil)
+		var runtimeConfig controllerruntimeconfig.ControllerRuntimeConfig
+		err = goyaml.Unmarshal([]byte(configmap.Data[controllerruntimeconfig.Filename]), &runtimeConfig)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(runtimeConfig.ControllerNodePassword, tc.Not(tc.Equals), "")
+		c.Check(machineConfig.OldPassword(), tc.Equals, runtimeConfig.ControllerNodePassword)
 
 		crb, err := s.mockClusterRoleBindings.Get(c.Context(), `controller-1`, v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)

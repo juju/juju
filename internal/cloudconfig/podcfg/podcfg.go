@@ -89,8 +89,14 @@ type BootstrapConfig struct {
 	instancecfg.BootstrapConfig
 }
 
-// AgentConfig returns an agent config.
-func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWriter, error) {
+// AgentConfig returns an agent config for the controller pod's machine
+// agent. The config carries only connectivity state (the controller tag,
+// API addresses, credential, and trust anchor); controller serving
+// information is delivered separately through runtime.conf. The
+// controllerNodePassword is the pre-generated random controller-node
+// credential, shared with the K8s bootstrap finalizer so the pod machine
+// agent's connection is authorized against the stored hash.
+func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag, controllerNodePassword string) (agent.ConfigSetterWriter, error) {
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
 			DataDir:         cfg.DataDir,
@@ -99,22 +105,19 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		},
 		Tag:                                tag,
 		UpgradedToVersion:                  cfg.JujuVersion,
-		Password:                           cfg.APIInfo.Password,
+		Password:                           controllerNodePassword,
 		APIAddresses:                       cfg.APIHostAddrs(),
 		CACert:                             cfg.APIInfo.CACert,
 		Values:                             cfg.AgentEnvironment,
 		Controller:                         cfg.ControllerTag,
 		Model:                              cfg.APIInfo.ModelTag,
-		QueryTracingEnabled:                cfg.Controller.QueryTracingEnabled(),
-		QueryTracingThreshold:              cfg.Controller.QueryTracingThreshold(),
-		DqliteBusyTimeout:                  cfg.Controller.DqliteBusyTimeout(),
 		OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
 		OpenTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
 		OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: agent.DefaultOpenTelemetryTailSamplingThreshold,
 	}
-	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.ControllerAgentInfo)
+	return agent.NewAgentConfig(configParams)
 }
 
 // UnitAgentConfig returns the agent config file for the controller unit charm.

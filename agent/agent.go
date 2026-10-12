@@ -852,9 +852,6 @@ func (c *configInternal) SetOldPassword(oldPassword string) {
 }
 
 func (c *configInternal) SetPassword(newPassword string) {
-	if c.controllerAgentInfo != nil {
-		c.statePassword = newPassword
-	}
 	if c.apiDetails != nil {
 		c.apiDetails.password = newPassword
 	}

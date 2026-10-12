@@ -63,21 +63,20 @@ func (s *freshStateSuite) TestPreparationDoesNotChangeConfigOrState(c *tc.C) {
 }
 
 func (s *freshStateSuite) TestFreshIAASState(c *tc.C) {
-	s.assertFreshState(c, "lxd", coremodel.IAAS, false)
+	s.assertFreshState(c, "lxd", coremodel.IAAS)
 }
 
 func (s *freshStateSuite) TestFreshK8sState(c *tc.C) {
-	s.assertFreshState(c, cloud.CloudTypeKubernetes, coremodel.CAAS, true)
+	s.assertFreshState(c, cloud.CloudTypeKubernetes, coremodel.CAAS)
 }
 
 func (s *freshStateSuite) assertFreshState(
-	c *tc.C, cloudType string, modelType coremodel.ModelType, rotatesPassword bool,
+	c *tc.C, cloudType string, modelType coremodel.ModelType,
 ) {
 	b, cfg := s.newBootstrap(c, cloudType)
 	info, ok := cfg.ControllerAgentInfo()
 	c.Assert(ok, tc.IsTrue)
 	b.bootstrapDqlite = func(ctx context.Context, _ database.BootstrapNodeManager, _ network.ProviderAddresses, modelUUID coremodel.UUID, _ corelogger.Logger, ops ...database.BootstrapOpt) error {
-		// The local password is changed only once all seed operations succeed.
 		apiInfo, ok := cfg.APIInfo()
 		c.Assert(ok, tc.IsTrue)
 		c.Check(apiInfo.Password, tc.Equals, "agent-before")
@@ -127,12 +126,7 @@ WHERE u.name = 'admin'`).Scan(&hash, &salt)
 	c.Check(hash, tc.Equals, expectedHash)
 	apiInfo, ok := cfg.APIInfo()
 	c.Assert(ok, tc.IsTrue)
-	if rotatesPassword {
-		c.Check(apiInfo.Password, tc.Not(tc.Equals), "agent-before")
-		c.Check(apiInfo.Password, tc.Not(tc.Equals), "")
-	} else {
-		c.Check(apiInfo.Password, tc.Equals, "agent-before")
-	}
+	c.Check(apiInfo.Password, tc.Equals, "agent-before")
 }
 
 func (s *freshStateSuite) TestDatabaseFailureDoesNotChangeAgentConfig(c *tc.C) {
