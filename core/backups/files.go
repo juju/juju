@@ -18,11 +18,6 @@ const (
 	initDir        = "init"
 	objectstoreDir = "objectstore"
 
-	// objectstoreTmpDir matches the directory the object store stages
-	// uploads in before they are persisted
-	// (internal/objectstore's defaultTempDirectoryName).
-	objectstoreTmpDir = "tmp"
-
 	sshIdentFile = "system-identity"
 	serverPEM    = "server.pem"
 	dbSecret     = "shared-secret"
@@ -61,10 +56,8 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 		return nil, errors.Errorf("failed to fetch service config files: %w", err)
 	}
 
-	// The objectstore (charms, resources and agent binaries) and the
-	// tools directory must be there; a failure to walk them is fatal.
+	// The tools directory must be there; a failure to walk it is fatal.
 	backupFiles := []string{
-		filepath.Join(rootDir, paths.DataDir, objectstoreDir),
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 	}
 
@@ -89,11 +82,11 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 		backupFiles = append(backupFiles, file)
 	}
 
-	// The object store stages uploads that have not been persisted in
-	// <objectstore>/<namespace>/tmp directories; those files never
-	// made it into the object store, so they are not backed up.
-	objectstoreRoot := filepath.Join(rootDir, paths.DataDir, objectstoreDir)
-
+	// The object store directory is intentionally not collected here:
+	// object contents reach the archive through the object entries
+	// derived from the database dumps, which works for both the file
+	// and S3 backends, so a backup does not depend on a local cache of
+	// S3 objects.
 	var finalBackupFiles []string
 	for _, file := range backupFiles {
 		err := filepath.Walk(file,
@@ -102,10 +95,6 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 					return err
 				}
 				if info.IsDir() {
-					if info.Name() == objectstoreTmpDir &&
-						filepath.Dir(filepath.Dir(path)) == objectstoreRoot {
-						return filepath.SkipDir
-					}
 					return nil
 				}
 				if info.Mode().IsRegular() ||

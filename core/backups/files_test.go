@@ -37,24 +37,31 @@ func (s *filesSuite) writeFile(c *tc.C, path, content string) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *filesSuite) TestGetFilesToBackUpMissingObjectstore(c *tc.C) {
+func (s *filesSuite) TestGetFilesToBackUpSkipsObjectstore(c *tc.C) {
+	// Object store contents are never collected by the selector: they
+	// reach the archive through the object entries derived from the
+	// database dumps, so neither persisted objects nor staged upload
+	// leftovers may appear here.
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)
+	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1", "blob"),
+		"blob")
+	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1", "tmp",
+		"tmp1234"), "partial upload")
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
-	_, err := backups.GetFilesToBackUp(rootDir,
+	files, err := backups.GetFilesToBackUp(rootDir,
 		&backups.Paths{DataDir: relDataDir})
-	c.Assert(err, tc.ErrorMatches,
-		`cannot walk ".*objectstore.*`)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
+		filepath.Join(dataDir, "tools", "jujud"),
+	))
 }
 
 func (s *filesSuite) TestGetFilesToBackUpMissingTools(c *tc.C) {
 	rootDir := c.MkDir()
-	dataDir := filepath.Join(rootDir, relDataDir)
-	err := os.MkdirAll(filepath.Join(dataDir, "objectstore"), 0755)
-	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = backups.GetFilesToBackUp(rootDir,
+	_, err := backups.GetFilesToBackUp(rootDir,
 		&backups.Paths{DataDir: relDataDir})
 	c.Assert(err, tc.ErrorMatches,
 		`cannot walk ".*tools.*`)
@@ -63,8 +70,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissingTools(c *tc.C) {
 func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)
-	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1", "blob"),
-		"blob")
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 	s.writeFile(c,
 		filepath.Join(dataDir, "agents", "machine-0", "agent.conf"), "conf")
@@ -87,7 +92,6 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
-		filepath.Join(dataDir, "objectstore", "ns1", "blob"),
 		filepath.Join(dataDir, "tools", "jujud"),
 		filepath.Join(dataDir, "tools", "jujud-link"),
 		filepath.Join(dataDir, "agents", "machine-0", "agent.conf"),
@@ -100,7 +104,6 @@ func (s *filesSuite) TestGetFilesToBackUp(c *tc.C) {
 func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 	rootDir := c.MkDir()
 	dataDir := filepath.Join(rootDir, relDataDir)
-	s.writeFile(c, filepath.Join(dataDir, "objectstore", "blob"), "blob")
 	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
 
 	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
@@ -108,36 +111,6 @@ func (s *filesSuite) TestGetFilesToBackUpWithRootDir(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
-		filepath.Join(dataDir, "objectstore", "blob"),
-		filepath.Join(dataDir, "tools", "jujud"),
-	))
-}
-
-func (s *filesSuite) TestGetFilesToBackUpSkipsObjectstoreTmp(c *tc.C) {
-	rootDir := c.MkDir()
-	dataDir := filepath.Join(rootDir, relDataDir)
-	// In-flight object store uploads are staged under
-	// <objectstore>/<namespace>/tmp; they never made it into the
-	// object store.
-	s.writeFile(c,
-		filepath.Join(dataDir, "objectstore", "ns1", "tmp", "tmp1234"),
-		"partial upload")
-	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1", "blob"),
-		"blob")
-	// A "tmp" directory deeper in a namespace holds object data, not
-	// staging files, and is still backed up.
-	s.writeFile(c, filepath.Join(dataDir, "objectstore", "ns1",
-		"applications", "tmp", "resource"), "resource")
-	s.writeFile(c, filepath.Join(dataDir, "tools", "jujud"), "binary")
-
-	files, err := backups.GetFilesToBackUp(rootDir, &backups.Paths{
-		DataDir: relDataDir,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(set.NewStrings(files...), tc.DeepEquals, set.NewStrings(
-		filepath.Join(dataDir, "objectstore", "ns1", "blob"),
-		filepath.Join(dataDir, "objectstore", "ns1", "applications",
-			"tmp", "resource"),
 		filepath.Join(dataDir, "tools", "jujud"),
 	))
 }

@@ -19,7 +19,7 @@ import (
 
 const (
 	contentDir   = "juju-backup"
-	filesBundle  = "root.tar"
+	filesArchive = "root.tar"
 	dbDumpDir    = "dump"
 	metadataFile = "metadata.json"
 )
@@ -33,10 +33,10 @@ type ArchivePaths struct {
 	// is contained in the content directory.
 	ContentDir string
 
-	// FilesBundle is the path to the tar file inside the archive
+	// FilesArchive is the path to the tar file inside the archive
 	// containing all the database related files (with the exception of the
 	// DB dump files) gathered in by the backup machinery.
-	FilesBundle string
+	FilesArchive string
 
 	// DBDumpDir is the path to the directory within the archive
 	// contents that contains all the files dumped from the juju
@@ -54,7 +54,7 @@ type ArchivePaths struct {
 func NewCanonicalArchivePaths() ArchivePaths {
 	return ArchivePaths{
 		ContentDir:   contentDir,
-		FilesBundle:  path.Join(contentDir, filesBundle),
+		FilesArchive: path.Join(contentDir, filesArchive),
 		DBDumpDir:    path.Join(contentDir, dbDumpDir),
 		MetadataFile: path.Join(contentDir, metadataFile),
 	}
@@ -68,7 +68,7 @@ func NewCanonicalArchivePaths() ArchivePaths {
 func NewNonCanonicalArchivePaths(rootDir string) ArchivePaths {
 	return ArchivePaths{
 		ContentDir:   filepath.Join(rootDir, contentDir),
-		FilesBundle:  filepath.Join(rootDir, contentDir, filesBundle),
+		FilesArchive: filepath.Join(rootDir, contentDir, filesArchive),
 		DBDumpDir:    filepath.Join(rootDir, contentDir, dbDumpDir),
 		MetadataFile: filepath.Join(rootDir, contentDir, metadataFile),
 	}
@@ -123,9 +123,9 @@ func (ws *ArchiveWorkspace) Close() error {
 	return errors.Capture(err)
 }
 
-// UnpackFilesBundle unpacks the archived files bundle into the targeted dir.
-func (ws *ArchiveWorkspace) UnpackFilesBundle(targetRoot string) error {
-	tarFile, err := os.Open(ws.FilesBundle)
+// UnpackFilesArchive extracts root.tar into the target directory.
+func (ws *ArchiveWorkspace) UnpackFilesArchive(targetRoot string) error {
+	tarFile, err := os.Open(ws.FilesArchive)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -135,14 +135,14 @@ func (ws *ArchiveWorkspace) UnpackFilesBundle(targetRoot string) error {
 	return errors.Capture(err)
 }
 
-// OpenBundledFile returns an open ReadCloser for the corresponding file in
-// the archived files bundle.
-func (ws *ArchiveWorkspace) OpenBundledFile(filename string) (io.Reader, error) {
+// OpenArchivedFile returns an open ReadCloser for the corresponding file in
+// root.tar.
+func (ws *ArchiveWorkspace) OpenArchivedFile(filename string) (io.Reader, error) {
 	if filepath.IsAbs(filename) {
 		return nil, errors.Errorf("filename must be relative, got %q", filename)
 	}
 
-	tarFile, err := os.Open(ws.FilesBundle)
+	tarFile, err := os.Open(ws.FilesArchive)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

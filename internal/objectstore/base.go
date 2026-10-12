@@ -65,7 +65,12 @@ type request struct {
 	reader        io.Reader
 	size          int64
 	hashValidator hashValidator
-	response      chan response
+	// ctx is the caller's context. The processing loop runs the
+	// operation scoped to it (in addition to the worker lifetime), so a
+	// cancelled caller abandons its own in-flight read instead of
+	// blocking the loop for every other request.
+	ctx      context.Context
+	response chan response
 }
 
 type response struct {

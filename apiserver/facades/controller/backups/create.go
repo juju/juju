@@ -5,6 +5,7 @@ package backups
 
 import (
 	"context"
+	"io"
 	"os"
 	"path"
 
@@ -12,11 +13,13 @@ import (
 	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreversion "github.com/juju/juju/core/version"
+	domainexport "github.com/juju/juju/domain/export"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -56,8 +59,12 @@ type Creator struct {
 	modelConfig      ModelConfigService
 	controller       ControllerModelLister
 	controllerNodes  ControllerNodeLister
-	clock            clock.Clock
-	logger           corelogger.Logger
+
+	controllerObjectStore ReadObjectStore
+	objectStoreForModel   ObjectStoreForModelFunc
+
+	clock  clock.Clock
+	logger corelogger.Logger
 }
 
 // NewCreator creates a new backup archive creator.
@@ -71,22 +78,26 @@ func NewCreator(
 	modelConfig ModelConfigService,
 	controller ControllerModelLister,
 	controllerNodes ControllerNodeLister,
+	controllerObjectStore ReadObjectStore,
+	objectStoreForModel ObjectStoreForModelFunc,
 	clock clock.Clock,
 	logger corelogger.Logger,
 ) (*Creator, error) {
 	return &Creator{
-		controllerUUID:      controllerUUID,
-		controllerModelUUID: controllerModelUUID,
-		machineID:           machineTag.Id(),
-		dataDir:             dataDir,
-		logDir:              logDir,
-		controllerExport:    controllerExport,
-		modelServicesFor:    modelServicesFor,
-		modelConfig:         modelConfig,
-		controller:          controller,
-		controllerNodes:     controllerNodes,
-		clock:               clock,
-		logger:              logger,
+		controllerUUID:        controllerUUID,
+		controllerModelUUID:   controllerModelUUID,
+		machineID:             machineTag.Id(),
+		dataDir:               dataDir,
+		logDir:                logDir,
+		controllerExport:      controllerExport,
+		modelServicesFor:      modelServicesFor,
+		modelConfig:           modelConfig,
+		controller:            controller,
+		controllerNodes:       controllerNodes,
+		controllerObjectStore: controllerObjectStore,
+		objectStoreForModel:   objectStoreForModel,
+		clock:                 clock,
+		logger:                logger,
 	}, nil
 }
 
@@ -141,6 +152,11 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 	// no partial archives.
 	var dumps []corebackups.NamedDump
 
+	// The object inventory is derived from the typed export payloads:
+	// every object referenced by a dump is streamed into the archive
+	// from its namespace's object store.
+	var inventory []domainexport.ObjectInventoryEntry
+
 	controllerExport, err := c.controllerExport.Export(ctx)
 	if err != nil {
 		return nil, "", nil, errors.Capture(err)
@@ -149,6 +165,11 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		Name:   "controller.yaml",
 		Export: corebackups.YAMLDump(controllerExport),
 	})
+	controllerInventory, err := domainexport.ControllerObjectInventory(*controllerExport)
+	if err != nil {
+		return nil, "", nil, errors.Capture(err)
+	}
+	inventory = append(inventory, controllerInventory...)
 
 	modelUUIDs, err := c.controller.GetModelNamespaces(ctx)
 	if err != nil {
@@ -170,6 +191,11 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 			Name:   path.Join("models", modelUUID+".yaml"),
 			Export: corebackups.YAMLDump(modelExport),
 		})
+		modelInventory, err := domainexport.ModelObjectInventory(*modelExport, modelUUID)
+		if err != nil {
+			return nil, "", nil, errors.Capture(err)
+		}
+		inventory = append(inventory, modelInventory...)
 		c.logger.Tracef(ctx, "staged export for model %s", modelUUID)
 	}
 
@@ -199,7 +225,7 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		if err != nil {
 			// A file that cannot be stat'ed contributes nothing to the
 			// estimate, which then understates what the archive needs.
-			// That is not fatal here: bundling opens every one of these
+			// That is not fatal here: archiving opens every one of these
 			// files, so one that is really gone fails Create with a
 			// clear error. Log it so an understated space check, and the
 			// disk-full failure it can turn into, is diagnosable.
@@ -209,6 +235,39 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 			continue
 		}
 		expected += fi.Size()
+	}
+
+	// Each inventoried object is streamed into the archive through its
+	// namespace's object store, identified by its exported full SHA-256.
+	// The prefix lookup accepts a full hash and repairs missing local blobs
+	// from other controller nodes for file-based stores.
+	// Stores are resolved lazily and cached per namespace, so models
+	// with no objects never touch the object store.
+	stores := map[string]ReadObjectStore{
+		database.ControllerNS: c.controllerObjectStore,
+	}
+	objectEntries := make([]corebackups.ObjectEntry, 0, len(inventory))
+	for _, item := range inventory {
+		expected += item.Size
+		objectEntries = append(objectEntries, corebackups.ObjectEntry{
+			Namespace: item.Namespace,
+			SHA256:    item.SHA256,
+			SHA384:    item.SHA384,
+			Size:      item.Size,
+			Source: func(ctx context.Context) (io.ReadCloser, error) {
+				store, ok := stores[item.Namespace]
+				if !ok {
+					var err error
+					store, err = c.objectStoreForModel(ctx, item.Namespace)
+					if err != nil {
+						return nil, errors.Capture(err)
+					}
+					stores[item.Namespace] = store
+				}
+				r, _, err := store.GetBySHA256Prefix(ctx, item.SHA256)
+				return r, errors.Capture(err)
+			},
+		})
 	}
 
 	if err := corebackups.CheckSpaceFor(backupDir, expected); err != nil {
@@ -252,9 +311,11 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 		}
 	}()
 
-	filename, err := corebackups.Create(meta, corebackups.CreateArgs{
+	filename, err := corebackups.Create(ctx, meta, corebackups.CreateArgs{
 		DestinationDir: tmpDir,
+		DataDir:        c.dataDir,
 		FilesToBackUp:  files,
+		ObjectEntries:  objectEntries,
 		DumpEntries:    staging.Entries(),
 		Clock:          c.clock,
 	})

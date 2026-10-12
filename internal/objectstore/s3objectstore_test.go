@@ -145,6 +145,92 @@ func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
+func (s *s3ObjectStoreSuite) TestGetQueuedReadAbandonedOnCancel(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	// Force the optimistic lookup to fail so the read runs in the loop.
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").
+		Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: "hash384",
+		Path:   "foo",
+		Size:   12,
+	}, nil)
+	started := make(chan struct{})
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath("hash384")).
+		DoAndReturn(func(ctx context.Context, _, _ string) (io.ReadCloser, int64, string, error) {
+			close(started)
+			<-ctx.Done()
+			return nil, 0, "", ctx.Err()
+		})
+	// The worker must process another request after the cancelled read.
+	s.service.EXPECT().GetMetadata(gomock.Any(), "bar").
+		Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound).Times(2)
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+	s.expectStartup(c)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	errChan := make(chan error, 1)
+	go func() {
+		_, _, err := store.Get(ctx, "foo")
+		errChan <- err
+	}()
+	<-started
+	cancel()
+	c.Assert(<-errChan, tc.ErrorIs, context.Canceled)
+
+	_, _, err := store.Get(c.Context(), "bar")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ObjectNotFound)
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestGetQueuedReadClosesReaderOnLateDelivery(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").
+		Return(objectstore.Metadata{}, domainobjectstoreerrors.ErrNotFound)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		SHA384: "hash384",
+		Path:   "foo",
+		Size:   12,
+	}, nil)
+	reader := newCloseTrackingReader("some content")
+	started := make(chan struct{})
+	returnReader := make(chan struct{})
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath("hash384")).
+		DoAndReturn(func(ctx context.Context, _, _ string) (io.ReadCloser, int64, string, error) {
+			close(started)
+			<-ctx.Done()
+			// Return a reader only after its caller has already left.
+			<-returnReader
+			return reader, int64(12), "hash384", nil
+		})
+
+	store := s.newS3ObjectStore(c)
+	defer workertest.DirtyKill(c, store)
+	s.expectStartup(c)
+
+	ctx, cancel := context.WithCancel(c.Context())
+	defer cancel()
+	errChan := make(chan error, 1)
+	go func() {
+		_, _, err := store.Get(ctx, "foo")
+		errChan <- err
+	}()
+	<-started
+	cancel()
+	c.Assert(<-errChan, tc.ErrorIs, context.Canceled)
+	close(returnReader)
+	<-reader.closed
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *s3ObjectStoreSuite) TestGetMetadataBySHANotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
