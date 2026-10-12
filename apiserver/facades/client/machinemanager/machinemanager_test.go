@@ -548,6 +548,8 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
+	// A dry run does not keep instances, so the mocks expect no
+	// SetKeepInstance calls.
 	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 	container0 := s.expectDestroyMachine(ctrl, nil, nil, false, false, false)
@@ -555,6 +557,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainersDryRun(c *g
 
 	results, err := s.api.DestroyMachineWithParams(params.DestroyMachinesParams{
 		MachineTags: []string{"machine-0"},
+		Keep:        true,
 		DryRun:      true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
