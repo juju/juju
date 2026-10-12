@@ -571,7 +571,7 @@ func (w *userdataConfig) addDownloadToolsCmds() error {
 		}
 		curlCommand += " -o $bin/tools.tar.gz"
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching Juju agent version %s for %s", tools.Version.Number, tools.Version.Arch))
-		logger.Infof(context.TODO(), "Fetching agent: %s <%s>", curlCommand, urls)
+		logger.Infof(context.TODO(), "Fetching agent: <%s>", urls)
 		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
 	}
 

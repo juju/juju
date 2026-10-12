@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -1328,7 +1329,6 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 		creds.detectedName = creds.name
 		creds.name = ""
 	}
-	logger.Tracef(context.TODO(), "credential: %v", creds.credential)
 	return creds, regionName, nil
 }
 
@@ -1477,7 +1477,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	// Store specific attributes are either already specified in model
 	// config (but may have been coerced), or were not present. Either way,
 	// copy them in.
-	logger.Debugf(context.TODO(), "provider attrs: %v", providerAttrs)
+	logger.Debugf(ctx, "provider attrs: %v", slices.Sorted(maps.Keys(providerAttrs)))
 	maps.Copy(combinedConfig, providerAttrs)
 
 	maps.Copy(combinedConfig, inheritedControllerAttrs)
@@ -1545,7 +1545,8 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		}
 	}
 
-	logger.Debugf(context.TODO(), "preparing controller with config: %v", bootstrapModelConfig)
+	logger.Debugf(ctx, "preparing controller with config keys: %v",
+		slices.Sorted(maps.Keys(bootstrapModelConfig)))
 
 	configs := bootstrapConfigs{
 		bootstrapModel:           bootstrapModelConfig,
