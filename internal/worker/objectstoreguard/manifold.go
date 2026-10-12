@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/fortress"
 )
@@ -22,6 +23,7 @@ type GetDrainingServiceFunc func(dependency.Getter, string) (DrainingService, er
 // ManifoldConfig contains the dependencies required by the guard worker.
 type ManifoldConfig struct {
 	ObjectStoreServicesName string
+	ObjectStoreName         string
 	FortressName            string
 
 	GetDrainingService GetDrainingServiceFunc
@@ -33,6 +35,9 @@ type ManifoldConfig struct {
 func (c ManifoldConfig) Validate() error {
 	if c.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
+	}
+	if c.ObjectStoreName == "" {
+		return errors.NotValidf("empty ObjectStoreName")
 	}
 	if c.FortressName == "" {
 		return errors.NotValidf("empty FortressName")
@@ -55,6 +60,7 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			c.ObjectStoreServicesName,
+			c.ObjectStoreName,
 			c.FortressName,
 		},
 		Start: c.start,
@@ -74,10 +80,15 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 	if err := getter.Get(c.FortressName, &guard); err != nil {
 		return nil, errors.Trace(err)
 	}
+	var flusher objectstore.ObjectStoreFlusher
+	if err := getter.Get(c.ObjectStoreName, &flusher); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return c.NewWorker(Config{
-		Guard:           guard,
-		DrainingService: drainingService,
-		Logger:          c.Logger,
+		Guard:              guard,
+		DrainingService:    drainingService,
+		ObjectStoreFlusher: flusher,
+		Logger:             c.Logger,
 	})
 }
 

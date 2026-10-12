@@ -1013,6 +1013,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// their local object-store fortress synchronized with the drain phase.
 		objectStoreGuardName: ifNotPrimaryController(objectstoreguard.Manifold(objectstoreguard.ManifoldConfig{
 			ObjectStoreServicesName: objectStoreServicesName,
+			ObjectStoreName:         objectStoreName,
 			FortressName:            objectStoreFortressName,
 			GetDrainingService:      objectstoreguard.GetDrainingService,
 			NewWorker:               objectstoreguard.NewWorker,

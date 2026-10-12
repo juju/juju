@@ -31,6 +31,7 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 	config := s.config(c)
 	c.Check(Manifold(config).Inputs, tc.SameContents, []string{
 		"object-store-services",
+		"object-store",
 		"fortress",
 	})
 }
@@ -46,7 +47,8 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 		return service, nil
 	}
 	resources := map[string]any{
-		"fortress": guard,
+		"fortress":     guard,
+		"object-store": &recordingFlusher{calls: make(chan struct{}, 1)},
 	}
 	getter := dependencytesting.StubGetter(resources)
 	w, err := Manifold(config).Start(c.Context(), getter)
@@ -57,6 +59,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 func (s *manifoldSuite) config(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		ObjectStoreServicesName: "object-store-services",
+		ObjectStoreName:         "object-store",
 		FortressName:            "fortress",
 		GetDrainingService: func(dependency.Getter, string) (DrainingService, error) {
 			return nil, nil

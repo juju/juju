@@ -19,14 +19,16 @@ import (
 // DrainingService provides the object-store draining state and watcher.
 type DrainingService interface {
 	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
+	IsObjectStoreUsable(ctx context.Context) (bool, error)
 	WatchDraining(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Config holds the dependencies required by the object-store guard worker.
 type Config struct {
-	Guard           fortress.Guard
-	DrainingService DrainingService
-	Logger          logger.Logger
+	Guard              fortress.Guard
+	DrainingService    DrainingService
+	ObjectStoreFlusher objectstore.ObjectStoreFlusher
+	Logger             logger.Logger
 }
 
 // Validate ensures the worker has all of its required dependencies.
@@ -36,6 +38,9 @@ func (c Config) Validate() error {
 	}
 	if c.DrainingService == nil {
 		return errors.NotValidf("nil DrainingService")
+	}
+	if c.ObjectStoreFlusher == nil {
+		return errors.NotValidf("nil ObjectStoreFlusher")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -117,6 +122,20 @@ func (w *Worker) loop() error {
 func (w *Worker) syncGuard(ctx context.Context, phase objectstore.Phase) error {
 	switch phase {
 	case objectstore.PhaseUnknown, objectstore.PhaseCompleted:
+		usable, err := w.config.DrainingService.IsObjectStoreUsable(ctx)
+		if err != nil {
+			return errors.Annotate(err, "checking object-store usability")
+		}
+		if !usable {
+			w.config.Logger.Warningf(ctx, "object store is not usable, keeping local guard locked")
+			return w.lockGuard(ctx)
+		}
+
+		w.config.Logger.Infof(ctx, "object store is usable, refreshing local stores")
+		if err := w.config.ObjectStoreFlusher.FlushWorkers(ctx); err != nil {
+			return errors.Annotate(err, "refreshing local object stores")
+		}
+
 		w.config.Logger.Infof(ctx, "object store is not draining, unlocking local guard")
 		if err := w.config.Guard.Unlock(ctx); err != nil {
 			return errors.Annotate(err, "unlocking local object-store guard")
@@ -124,17 +143,18 @@ func (w *Worker) syncGuard(ctx context.Context, phase objectstore.Phase) error {
 		return nil
 	case objectstore.PhaseDraining:
 		w.config.Logger.Infof(ctx, "object store is draining, locking local guard")
-		if err := w.config.Guard.Lockdown(ctx); err != nil {
-			return errors.Annotate(err, "locking local object-store guard")
-		}
-		return nil
+		return w.lockGuard(ctx)
 	case objectstore.PhaseError:
 		w.config.Logger.Errorf(ctx, "object store draining is in an error state, keeping local guard locked")
-		if err := w.config.Guard.Lockdown(ctx); err != nil {
-			return errors.Annotate(err, "keeping local object-store guard locked")
-		}
-		return nil
+		return w.lockGuard(ctx)
 	default:
 		return errors.Errorf("unknown object-store draining phase %q", phase)
 	}
+}
+
+func (w *Worker) lockGuard(ctx context.Context) error {
+	if err := w.config.Guard.Lockdown(ctx); err != nil {
+		return errors.Annotate(err, "locking local object-store guard")
+	}
+	return nil
 }
