@@ -159,6 +159,13 @@ func (st *State) makeIAASUnitStatusArgs() application.UnitStatusArg {
 // The in-transaction checks win: the storage arguments are only consumed
 // when a subordinate unit is actually created.
 //
+// Like [State.EnterScope], the unit already being in scope is checked
+// before the life checks: if the unit is already in scope, entering scope
+// is a no-op that cannot create a subordinate unit, so false is returned
+// without error, even while the related subordinate application is dying
+// or dead. This keeps a unit agent restarting during application removal
+// from erroring when re-entering scope of its relations.
+//
 // The following errors may be expected:
 //   - [relationerrors.RelationNotFound] if the relation does not exist.
 //   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate
@@ -199,6 +206,20 @@ func (st *State) GetSubordinateUnitCreationInfo(
 			return errors.Errorf("getting relation scope: %w", err)
 		} else if scope != string(internalcharm.ScopeContainer) {
 			return nil
+		}
+
+		// If the unit is already in scope, entering scope is a no-op
+		// that cannot create a subordinate unit, so no storage
+		// arguments are needed. The check runs before the life checks
+		// to mirror [State.EnterScope], which deliberately reports a
+		// unit already in scope before the life checks so that
+		// re-entering scope succeeds during teardown.
+		if _, _, err := st.getRelationUnit(ctx, tx, relationUUID, unitName); err == nil {
+			return nil
+		} else if !errors.Is(err, relationerrors.RelationUnitNotFound) {
+			return errors.Errorf(
+				"checking if unit %q is in scope of relation %q: %w",
+				unitName, relationUUID, err)
 		}
 
 		// Get the UUID of the unit entering scope.

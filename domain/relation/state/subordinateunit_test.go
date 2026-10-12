@@ -1210,6 +1210,60 @@ func (s *subordinateUnitSuite) TestGetSubordinateUnitCreationInfoSubordinateAppl
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationIsDead)
 }
 
+// TestGetSubordinateUnitCreationInfoAlreadyInScope ensures that no
+// subordinate unit creation information, and no error, is returned when
+// the unit is already in scope of the relation, even while the related
+// subordinate application is dying or dead. This mirrors [State.EnterScope],
+// which reports a unit already in scope before the life checks, so that a
+// unit agent restarting during application removal does not error when
+// re-entering scope of its relations.
+func (s *subordinateUnitSuite) TestGetSubordinateUnitCreationInfoAlreadyInScope(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: add principal application with 1 unit
+	principalCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, principalCharmUUID, false)
+	principalApplicationUUID := s.addApplication(c, principalCharmUUID, "pri")
+	principalUnitName := coreunittesting.GenNewName(c, "pri/0")
+	principalUnitUUID := s.addUnit(c, principalUnitName, principalApplicationUUID, principalCharmUUID)
+
+	// Arrange: add a subordinate application
+	subordinateCharmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, subordinateCharmUUID, true)
+	subordinateApplicationUUID := s.addApplication(c, subordinateCharmUUID, "sub")
+
+	// Arrange: relate the principal and subordinate applications, with the
+	// principal unit already in scope of the relation, as after a restart of
+	// its unit agent.
+	relationUUID, principalRelationEndpointUUID, _ := s.addContainerScopedRelation(
+		c, principalApplicationUUID, principalCharmUUID,
+		subordinateApplicationUUID, subordinateCharmUUID)
+	s.addRelationUnit(c, principalUnitUUID, principalRelationEndpointUUID)
+
+	// Act and assert: no error is returned while the subordinate
+	// application is alive.
+	info, create, err := s.state.GetSubordinateUnitCreationInfo(c.Context(), relationUUID, principalUnitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(create, tc.IsFalse)
+	c.Check(info, tc.DeepEquals, internal.SubordinateUnitCreationInfo{})
+
+	// Act and assert: no error is returned while the subordinate
+	// application is dying, as during application removal.
+	s.setLife(c, "application", subordinateApplicationUUID.String(), domainlife.Dying)
+	info, create, err = s.state.GetSubordinateUnitCreationInfo(c.Context(), relationUUID, principalUnitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(create, tc.IsFalse)
+	c.Check(info, tc.DeepEquals, internal.SubordinateUnitCreationInfo{})
+
+	// Act and assert: no error is returned when the subordinate application
+	// is dead either.
+	s.setLife(c, "application", subordinateApplicationUUID.String(), domainlife.Dead)
+	info, create, err = s.state.GetSubordinateUnitCreationInfo(c.Context(), relationUUID, principalUnitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(create, tc.IsFalse)
+	c.Check(info, tc.DeepEquals, internal.SubordinateUnitCreationInfo{})
+}
+
 // TestGetSubordinateUnitCreationInfoRelationNotFound ensures that the
 // typed relation not found error is returned when the relation does not
 // exist, instead of a raw sqlair no-rows error.
