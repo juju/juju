@@ -548,6 +548,50 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseErrorFromDyingBackend(c *tc.C
 	c.Check(phase, tc.Equals, objectstore.PhaseError)
 }
 
+func (s *drainingServiceSuite) TestIsObjectStoreUsable(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(1, 1, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsTrue)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsableRejectsBackendTransition(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(2, 1, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsFalse)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsableRejectsDrainingPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		Phase: objectstore.PhaseDraining.String(),
+	}, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsFalse)
+}
+
 func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

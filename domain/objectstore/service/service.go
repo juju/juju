@@ -89,6 +89,10 @@ type DrainingState interface {
 	// currently dying.
 	HasDyingObjectStoreBackend(ctx context.Context) (bool, error)
 
+	// GetObjectStoreBackendCounts returns the total number of object-store
+	// backends and the number that are alive.
+	GetObjectStoreBackendCounts(ctx context.Context) (int, int, error)
+
 	// GetActiveDrainingInfo returns the active draining info of the object
 	// store.
 	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
@@ -515,6 +519,28 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 		return objectstore.PhaseError, nil
 	}
 	return objectstore.PhaseUnknown, nil
+}
+
+// IsObjectStoreUsable reports whether object-store operations can safely use
+// the configured backend. A usable store has finished draining and has exactly
+// one backend, which must be alive.
+func (s *WatchableDrainingService) IsObjectStoreUsable(ctx context.Context) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	phase, err := s.GetDrainingPhase(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if phase != objectstore.PhaseUnknown && phase != objectstore.PhaseCompleted {
+		return false, nil
+	}
+
+	total, alive, err := s.st.GetObjectStoreBackendCounts(ctx)
+	if err != nil {
+		return false, errors.Errorf("getting object-store backend counts: %w", err)
+	}
+	return total == 1 && alive == 1, nil
 }
 
 // BackendInfo represents the information about an object store backend,
