@@ -19,11 +19,10 @@ environment:
   CURRENT_LTS: "ubuntu@22.04"
   DESTROY_TIMEOUT: '$(HOST: echo "${DESTROY_TIMEOUT:-15m}")'
 
-  # Cloud credentials — passed through from host for non-LXD providers.
-  AWS_ACCESS_KEY_ID: '$(HOST: echo "${AWS_ACCESS_KEY_ID:-}")'
-  AWS_SECRET_ACCESS_KEY: '$(HOST: echo "${AWS_SECRET_ACCESS_KEY:-}")'
+  # Cloud configuration passed to the runner systems.
   AWS_DEFAULT_REGION: '$(HOST: echo "${AWS_DEFAULT_REGION:-}")'
   EC2_INSTANCE_TYPE: '$(HOST: echo "${EC2_INSTANCE_TYPE:-m5.xlarge}")'
+  EC2_INSTANCE_PROFILE: '$(HOST: echo "${EC2_INSTANCE_PROFILE:-}")'
   AZURE_SUBSCRIPTION_ID: '$(HOST: echo "${AZURE_SUBSCRIPTION_ID:-}")'
   AZURE_CLIENT_ID: '$(HOST: echo "${AZURE_CLIENT_ID:-}")'
   AZURE_CLIENT_SECRET: '$(HOST: echo "${AZURE_CLIENT_SECRET:-}")'
@@ -81,6 +80,16 @@ backends:
       instance_name="$(lxc ls -f csv | grep juju | grep $SPREAD_SYSTEM_ADDRESS | cut -f1 -d",")"
       lxc delete -f $instance_name
 
+    environment:
+      # Credentials for an explicit LXD-to-AWS bootstrap travel over the
+      # spread SSH channel; they must never ride in EC2 user-data, which
+      # any process on the instance reads back via IMDS
+      # (169.254.169.254/latest/user-data) and anyone with
+      # DescribeInstanceAttribute fetches from the API.
+      AWS_ACCESS_KEY_ID: '$(HOST: echo "${AWS_ACCESS_KEY_ID:-}")'
+      AWS_SECRET_ACCESS_KEY: '$(HOST: echo "${AWS_SECRET_ACCESS_KEY:-}")'
+      AWS_SESSION_TOKEN: '$(HOST: echo "${AWS_SESSION_TOKEN:-}")'
+
     prepare: |
       # Provider-specific setup inside the runner instance.
       case "${BOOTSTRAP_PROVIDER}" in
@@ -116,6 +125,9 @@ backends:
     type: adhoc
     allocate: |
       REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+      if [[ -z "${EC2_INSTANCE_PROFILE:-}" ]]; then
+        FATAL "EC2_INSTANCE_PROFILE must name a pre-provisioned EC2 instance profile"
+      fi
       PREFIX="spread-ci-$(head -c 6 /dev/urandom | xxd -p)"
 
       # Cleanup resources on failure during allocation.
@@ -182,25 +194,6 @@ backends:
       sed "s|SPREAD_PASSWORD|${SPREAD_PASSWORD}|g" \
         tests/spread/cloud-config.yaml > "$cloud_config"
 
-      # Resolve the host's effective AWS credentials (env vars, credentials
-      # file, or config file) and inject them into the instance so that
-      # `juju bootstrap aws` inside the runner can authenticate.
-      AWS_AK="${AWS_ACCESS_KEY_ID:-$(aws configure get aws_access_key_id 2>/dev/null || true)}"
-      AWS_SK="${AWS_SECRET_ACCESS_KEY:-$(aws configure get aws_secret_access_key 2>/dev/null || true)}"
-      AWS_ST="${AWS_SESSION_TOKEN:-$(aws configure get aws_session_token 2>/dev/null || true)}"
-      if [ -n "$AWS_AK" ] && [ -n "$AWS_SK" ]; then
-        creds_file="$(mktemp)"
-        printf '[default]\naws_access_key_id = %s\naws_secret_access_key = %s\n' \
-          "$AWS_AK" "$AWS_SK" > "$creds_file"
-        if [ -n "$AWS_ST" ]; then
-          printf 'aws_session_token = %s\n' "$AWS_ST" >> "$creds_file"
-        fi
-        creds_b64="$(base64 -w0 < "$creds_file")"
-        rm -f "$creds_file"
-        printf 'write_files:\n  - path: /root/.aws/credentials\n    permissions: "0600"\n    owner: root:root\n    encoding: b64\n    content: %s\n' \
-          "$creds_b64" >> "$cloud_config"
-      fi
-
       USER_DATA="$(base64 -w0 < "$cloud_config")"
       rm -f "$cloud_config"
 
@@ -209,6 +202,7 @@ backends:
         --image-id "$AMI_ID" \
         --instance-type "${EC2_INSTANCE_TYPE:-m5.xlarge}" \
         --key-name "$PREFIX" \
+        --iam-instance-profile "Name=${EC2_INSTANCE_PROFILE}" \
         --security-group-ids "$SG_ID" \
         --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"VolumeSize":40,"VolumeType":"gp3"}}]' \
         --user-data "$USER_DATA" \
@@ -229,15 +223,20 @@ backends:
 
       # Wait for cloud-init to create the spread user.
       echo "====> Waiting for cloud-init on ${IP}..."
+      ready=false
       for _ in $(seq 1 60); do
         if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
           -o UserKnownHostsFile=/dev/null \
           -i "/tmp/${PREFIX}.pem" "ubuntu@${IP}" \
           'id -u spread' &>/dev/null; then
+          ready=true
           break
         fi
         sleep 5
       done
+      if [[ "$ready" != true ]]; then
+        FATAL "spread user did not become reachable on ${IP}"
+      fi
 
       rm -f "/tmp/${PREFIX}.pem"
       trap - EXIT
@@ -286,12 +285,22 @@ backends:
       snap install lxd
       lxd waitready --timeout=30
       lxd init --auto
-      # AWS credentials are injected into /root/.aws/credentials by the
-      # allocate step via cloud-init write_files. Juju's AWS provider
-      # reads from the standard SDK credential chain including that file.
     environment:
       BOOTSTRAP_PROVIDER: ec2
       BOOTSTRAP_CLOUD: aws
+      # Bootstrap inside the runner authenticates with the host's CI
+      # credentials, delivered over the spread SSH channel — never EC2
+      # user-data, which any process on the instance reads back via IMDS
+      # and anyone with DescribeInstanceAttribute fetches from the API.
+      # The instance profile attached by allocate cannot drive bootstrap:
+      # juju's ec2 credential detection never queries IMDS
+      # (internal/provider/ec2/credentials.go), and an instance-role
+      # credential is incompatible with the bootstrap instance-role
+      # constraint the controller would need (environs/bootstrap:
+      # NotSupported). It only serves runner-side tooling such as aws-cli.
+      AWS_ACCESS_KEY_ID: '$(HOST: echo "${AWS_ACCESS_KEY_ID:-}")'
+      AWS_SECRET_ACCESS_KEY: '$(HOST: echo "${AWS_SECRET_ACCESS_KEY:-}")'
+      AWS_SESSION_TOKEN: '$(HOST: echo "${AWS_SESSION_TOKEN:-}")'
     systems:
       - ubuntu-22.04:
           username: spread

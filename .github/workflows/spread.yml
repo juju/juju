@@ -229,6 +229,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          EC2_INSTANCE_PROFILE: ${{ secrets.EC2_INSTANCE_PROFILE }}
           BOOTSTRAP_PROVIDER: ec2
           BOOTSTRAP_CLOUD: aws
         run: |

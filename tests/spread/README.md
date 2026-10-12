@@ -164,6 +164,7 @@ Most knobs are overridable via environment variables (see `spread.yaml`):
 | `BASE` | Base image of the runner instance (`noble`, `jammy`, …) | `noble` |
 | `DISK` / `CPU` / `MEM` | Runner instance sizing | `40` / `8` / `16` |
 | `EC2_INSTANCE_TYPE` | EC2 instance type for the `ec2` backend | `m5.xlarge` |
+| `EC2_INSTANCE_PROFILE` | Pre-provisioned profile for the EC2 runner | *(required for `ec2`)* |
 
 Example: run the deploy suite with an explicit runner image:
 
@@ -173,7 +174,9 @@ BASE=jammy spread -v lxd:ubuntu-22.04:tests/spread/deploy/...
 
 These variables are exported into the runner instance (via the `$(HOST: ...)`
 expressions in `spread.yaml`), so they can be set on the host before invoking
-`spread`. No spread-specific config file is needed beyond `spread.yaml`.
+`spread`. AWS credentials never ride in EC2 user-data: both backends deliver
+them to the runner over the spread SSH channel (see "Running against AWS").
+No spread-specific config file is needed beyond `spread.yaml`.
 
 ## Running against AWS
 
@@ -188,12 +191,26 @@ the preferred approach because the runner is on real AWS infrastructure:
 AWS_ACCESS_KEY_ID=... \
 AWS_SECRET_ACCESS_KEY=... \
 AWS_DEFAULT_REGION=us-east-1 \
+EC2_INSTANCE_PROFILE=juju-spread-ec2 \
 spread -v ec2:ubuntu-22.04:tests/spread/deploy/deploy-charm
 ```
 
 The backend creates an EC2 key pair, security group, and Ubuntu AMI instance
 for each job, and tears them down on completion. Set `EC2_INSTANCE_TYPE` to
-override the default `m5.xlarge`.
+override the default `m5.xlarge`. `EC2_INSTANCE_PROFILE` must name a
+pre-provisioned profile attached to the runner instance; its role trusts
+`ec2.amazonaws.com` and carries the permission set from
+`internal/provider/ec2/iam_docs.go`, serving runner-side tooling such as
+`aws-cli` via IMDS.
+
+`juju bootstrap aws` inside the runner authenticates with the same AWS
+credentials as the host, exported through the backend `environment:` block
+over the spread SSH channel. The runner profile cannot drive the bootstrap
+itself: juju's ec2 credential detection never queries IMDS, and an
+instance-role credential is incompatible with the bootstrap instance-role
+constraint the controller would need (`environs/bootstrap` rejects the
+combination), so the controller runs with the same access-key credential
+as the client.
 
 The `ec2` backend automatically sets `BOOTSTRAP_PROVIDER=ec2` and
 `BOOTSTRAP_CLOUD=aws`, so the Juju controller is bootstrapped onto AWS natively.
@@ -224,11 +241,50 @@ spread -reuse -v lxd:ubuntu-22.04:tests/spread/deploy/deploy-charm
 This is useful for testing the cloud bootstrap path without needing a native
 EC2 runner.
 
+### Provisioning the EC2 instance profile
+
+`EC2_INSTANCE_PROFILE` references an instance profile and role created once by
+an account administrator, using `tests/spread/aws-provision-instance-profile.sh`.
+The role's permission policy mirrors `internal/provider/ec2/iam_docs.go` and
+must stay in sync with it.
+
+With the CI credentials, record the principal that needs `iam:PassRole`:
+
+```sh
+aws sts get-caller-identity
+```
+
+With administrator credentials, create the role and profile, and grant the CI
+principal only `iam:PassRole` on that role (restricted to `ec2.amazonaws.com`):
+
+```sh
+ACCOUNT_ID=<account-id> CI_PRINCIPAL_ARN=<arn-from-above> \
+  bash tests/spread/aws-provision-instance-profile.sh
+```
+
+Verify with the CI credentials that the grant is effective — a
+`DryRunOperation` error means authorized, `UnauthorizedOperation` means it is
+not:
+
+```sh
+aws ec2 run-instances --dry-run --instance-type m5.xlarge \
+  --iam-instance-profile Name=juju-spread-ec2 \
+  --image-id "$(aws ec2 describe-images --owners 099720109477 \
+    --filters 'Name=name,Values=ubuntu/images/hvm-ssd*/ubuntu-jammy-22.04-amd64-server-*' \
+    --query 'sort_by(Images,&CreationDate)[-1].ImageId' --output text)"
+```
+
+Finally expose the profile to CI as the repository secret
+`EC2_INSTANCE_PROFILE=juju-spread-ec2` (Settings → Secrets and variables →
+Actions → Secrets). The profile name is not sensitive, but the workflow reads
+it from `secrets.EC2_INSTANCE_PROFILE`, so it is stored alongside the AWS
+credentials.
+
 ### CI
 
 The `spread.yml` workflow has both `spread-lxd` and `spread-ec2` jobs. The
-`ec2` job requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and
-`AWS_DEFAULT_REGION` repository secrets.
+`ec2` job requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+`AWS_DEFAULT_REGION`, and `EC2_INSTANCE_PROFILE` repository secrets.
 
 ### Notes
 
