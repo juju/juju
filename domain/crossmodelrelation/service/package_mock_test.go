@@ -1208,20 +1208,20 @@ type MockModelMigrationState struct {
 
 // MockModelMigrationStateMockRecorder is the mock recorder for MockModelMigrationState.
 type MockModelMigrationStateMockRecorder struct {
-	mock                                             *MockModelMigrationState
-	addRelationNetworkEgressExpects                  []*gomock.Call3_1[context.Context, string, []string, error]
-	addRelationNetworkIngressExpects                 []*gomock.Call3_1[context.Context, string, []string, error]
-	getApplicationUUIDByNameExpects                  []*gomock.Call2_2[context.Context, string, string, error]
-	getRelationUUIDByRelationKeyExpects              []*gomock.Call2_2[context.Context, relation.Key, string, error]
-	getSyntheticApplicationUUIDByRelationUUIDExpects []*gomock.Call2_2[context.Context, string, string, error]
-	getUnitUUIDExpects                               []*gomock.Call2_2[context.Context, string, string, error]
-	importOffersExpects                              []*gomock.Call2_1[context.Context, []crossmodelrelation.OfferImport, error]
-	importRemoteApplicationConsumersExpects          []*gomock.Call2_1[context.Context, []crossmodelrelation.RemoteApplicationConsumerImport, error]
-	importRemoteApplicationOfferersExpects           []*gomock.Call2_1[context.Context, []crossmodelrelation.RemoteApplicationOffererImport, error]
-	importRemoteApplicationSecretGrantsExpects       []*gomock.Call2_1[context.Context, []internal.RemoteApplicationSecretGrant, error]
-	importRemoteSecretExpects                        []*gomock.Call2_1[context.Context, internal.RemoteSecret, error]
-	importRemoteSecretConsumersExpects               []*gomock.Call2_1[context.Context, []internal.RemoteUnitConsumer, error]
-	relationExistsExpects                            []*gomock.Call2_2[context.Context, string, bool, error]
+	mock                                         *MockModelMigrationState
+	addRelationNetworkEgressExpects              []*gomock.Call3_1[context.Context, string, []string, error]
+	addRelationNetworkIngressExpects             []*gomock.Call3_1[context.Context, string, []string, error]
+	getApplicationUUIDByNameExpects              []*gomock.Call2_2[context.Context, string, string, error]
+	getRelationUUIDByRelationKeyExpects          []*gomock.Call2_2[context.Context, relation.Key, string, error]
+	getSyntheticApplicationByRelationUUIDExpects []*gomock.Call2_3[context.Context, string, string, string, error]
+	getUnitUUIDExpects                           []*gomock.Call2_2[context.Context, string, string, error]
+	importOffersExpects                          []*gomock.Call2_1[context.Context, []crossmodelrelation.OfferImport, error]
+	importRemoteApplicationConsumersExpects      []*gomock.Call2_1[context.Context, []crossmodelrelation.RemoteApplicationConsumerImport, error]
+	importRemoteApplicationOfferersExpects       []*gomock.Call2_1[context.Context, []crossmodelrelation.RemoteApplicationOffererImport, error]
+	importRemoteApplicationSecretGrantsExpects   []*gomock.Call2_1[context.Context, []internal.RemoteApplicationSecretGrant, error]
+	importRemoteSecretExpects                    []*gomock.Call2_1[context.Context, internal.RemoteSecret, error]
+	importRemoteSecretConsumersExpects           []*gomock.Call2_1[context.Context, []internal.RemoteUnitConsumer, error]
+	relationExistsExpects                        []*gomock.Call2_2[context.Context, string, bool, error]
 }
 
 // NewMockModelMigrationState creates a new mock instance.
@@ -1308,23 +1308,23 @@ func (mr *MockModelMigrationStateMockRecorder) GetRelationUUIDByRelationKey(ctx,
 // MockModelMigrationStateGetRelationUUIDByRelationKeyCall is the typed call wrapper for GetRelationUUIDByRelationKey.
 type MockModelMigrationStateGetRelationUUIDByRelationKeyCall = gomock.Call2_2[context.Context, relation.Key, string, error]
 
-// GetSyntheticApplicationUUIDByRelationUUID mocks base method.
-func (m *MockModelMigrationState) GetSyntheticApplicationUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error) {
+// GetSyntheticApplicationByRelationUUID mocks base method.
+func (m *MockModelMigrationState) GetSyntheticApplicationByRelationUUID(ctx context.Context, relationUUID string) (string, string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getSyntheticApplicationUUIDByRelationUUIDExpects, m.ctrl, m, "GetSyntheticApplicationUUIDByRelationUUID", ctx, relationUUID)
+	return gomock.Dispatch2_3(&m.recorder.getSyntheticApplicationByRelationUUIDExpects, m.ctrl, m, "GetSyntheticApplicationByRelationUUID", ctx, relationUUID)
 }
 
-// GetSyntheticApplicationUUIDByRelationUUID indicates an expected call of GetSyntheticApplicationUUIDByRelationUUID.
-func (mr *MockModelMigrationStateMockRecorder) GetSyntheticApplicationUUIDByRelationUUID(ctx, relationUUID any) *MockModelMigrationStateGetSyntheticApplicationUUIDByRelationUUIDCall {
+// GetSyntheticApplicationByRelationUUID indicates an expected call of GetSyntheticApplicationByRelationUUID.
+func (mr *MockModelMigrationStateMockRecorder) GetSyntheticApplicationByRelationUUID(ctx, relationUUID any) *MockModelMigrationStateGetSyntheticApplicationByRelationUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetSyntheticApplicationUUIDByRelationUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID))
-	mr.getSyntheticApplicationUUIDByRelationUUIDExpects = append(mr.getSyntheticApplicationUUIDByRelationUUIDExpects, call)
+	call := gomock.NewCall2_3[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "GetSyntheticApplicationByRelationUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID))
+	mr.getSyntheticApplicationByRelationUUIDExpects = append(mr.getSyntheticApplicationByRelationUUIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelMigrationStateGetSyntheticApplicationUUIDByRelationUUIDCall is the typed call wrapper for GetSyntheticApplicationUUIDByRelationUUID.
-type MockModelMigrationStateGetSyntheticApplicationUUIDByRelationUUIDCall = gomock.Call2_2[context.Context, string, string, error]
+// MockModelMigrationStateGetSyntheticApplicationByRelationUUIDCall is the typed call wrapper for GetSyntheticApplicationByRelationUUID.
+type MockModelMigrationStateGetSyntheticApplicationByRelationUUIDCall = gomock.Call2_3[context.Context, string, string, string, error]
 
 // GetUnitUUID mocks base method.
 func (m *MockModelMigrationState) GetUnitUUID(ctx context.Context, unitName string) (string, error) {

@@ -1117,8 +1117,8 @@ func (s *migrationSuite) TestImportGrantedSecrets(c *tc.C) {
 
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), relKey).Return(relUUID, nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), relUUID).
-		Return("", crossmodelrelationerrors.RemoteRelationNotFound)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), relUUID).
+		Return("", "", crossmodelrelationerrors.RemoteRelationNotFound)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
 		{
 			SecretID:        secretID,
@@ -1191,8 +1191,8 @@ func (s *migrationSuite) TestImportGrantedSecretsConsumerGrantNotFound(c *tc.C) 
 
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(uuid.MustNewUUID().String(), nil)
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), gomock.Any()).Return(uuid.MustNewUUID().String(), nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), gomock.Any()).
-		Return("", crossmodelrelationerrors.RemoteRelationNotFound)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), gomock.Any()).
+		Return("", "", crossmodelrelationerrors.RemoteRelationNotFound)
 
 	// Act
 	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
@@ -1220,8 +1220,8 @@ func (s *migrationSuite) TestImportGrantedSecretsGetApplicationUUIDByNameFail(c 
 
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), gomock.Any()).
 		Return(uuid.MustNewUUID().String(), nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), gomock.Any()).
-		Return("", crossmodelrelationerrors.RemoteRelationNotFound)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), gomock.Any()).
+		Return("", "", crossmodelrelationerrors.RemoteRelationNotFound)
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return("", errors.Errorf("boom"))
 
 	// Act
@@ -1250,8 +1250,8 @@ func (s *migrationSuite) TestImportGrantedSecretsImportGrantsFail(c *tc.C) {
 
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return("uuid", nil)
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), gomock.Any()).Return("rel-uuid", nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), "rel-uuid").
-		Return("", crossmodelrelationerrors.RemoteRelationNotFound)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), "rel-uuid").
+		Return("", "", crossmodelrelationerrors.RemoteRelationNotFound)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
 
 	// Act
@@ -1320,8 +1320,8 @@ func (s *migrationSuite) TestImportGrantedSecretsSkipsUnresolvedRelation(c *tc.C
 		Return(resolvedRelUUID, nil)
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), unresolvedKey).
 		Return("", relationerrors.RelationNotFound)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), resolvedRelUUID).
-		Return("", crossmodelrelationerrors.RemoteRelationNotFound)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), resolvedRelUUID).
+		Return("", "", crossmodelrelationerrors.RemoteRelationNotFound)
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).Return(appUUID, nil)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
 		{
@@ -1443,8 +1443,8 @@ func (s *migrationSuite) TestImportGrantedSecretsKeepsFirstGrantForSameApplicati
 		Return(firstRelUUID, nil)
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), secondKey).
 		Return(uuid.MustNewUUID().String(), nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), gomock.Any()).
-		Return("", crossmodelrelationerrors.RemoteRelationNotFound).Times(2)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), gomock.Any()).
+		Return("", "", crossmodelrelationerrors.RemoteRelationNotFound).Times(2)
 	s.modelMigrationState.EXPECT().GetApplicationUUIDByName(gomock.Any(), appName).
 		Return(appUUID, nil).Times(2)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
@@ -1502,8 +1502,10 @@ func (s *migrationSuite) TestImportGrantedSecretsByRelationToken(c *tc.C) {
 	}
 
 	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), relUUID).Return(true, nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), relUUID).
-		Return(appUUID, nil)
+	// The synthetic application of the connection keeps the identity of the
+	// legacy proxy, so its consumers keep their unit names.
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), relUUID).
+		Return(appUUID, appName, nil)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
 		{
 			SecretID:        secretID,
@@ -1526,6 +1528,202 @@ func (s *migrationSuite) TestImportGrantedSecretsByRelationToken(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// The consumers of a grant over the relation of an additional offer
+// connection are recorded for the synthetic application of that
+// connection, not for the legacy proxy application of the first
+// connection: the offering side resolves the consumers by the application
+// of their unit name, so the legacy proxy unit names are rewritten onto
+// the synthetic application holding the grant, like the synthetic units
+// are imported.
+func (s *migrationSuite) TestImportGrantedSecretsRewritesConsumerOntoConnectionApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	secretID := "secret-id"
+	appName := "remote-13ea"
+	appUUID := uuid.MustNewUUID().String()
+	synthAppName := coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(appUUID))
+	relUUID := uuid.MustNewUUID().String()
+	relKey, err := relation.NewKeyFromString("postgres:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+	unitName := unit.Name(appName + "/0")
+
+	input := []GrantedSecretImport{
+		{
+			SecretID: secretID,
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					RelationKey:     relKey,
+					RelationUUID:    relUUID,
+					Role:            secrets.RoleView,
+				},
+			},
+			Consumers: []GrantedSecretConsumerImport{
+				{
+					Unit:            unitName,
+					CurrentRevision: 1,
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), relUUID).Return(true, nil)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), relUUID).
+		Return(appUUID, synthAppName, nil)
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), []internal.RemoteApplicationSecretGrant{
+		{
+			SecretID:        secretID,
+			ApplicationName: appName,
+			ApplicationUUID: appUUID,
+			RelationKey:     relKey.String(),
+			RelationUUID:    relUUID,
+		},
+	}).Return(nil)
+	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
+		{
+			SecretID:        secretID,
+			Unit:            synthAppName + "/0",
+			CurrentRevision: 1,
+		},
+	}).Return(nil)
+
+	// Act
+	err = s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// The source model does not record which offer connection the consumers
+// of an application used, so when several offer connections of the
+// application hold grants, the consumers are recorded for the synthetic
+// application of the first grant imported for the application.
+func (s *migrationSuite) TestImportGrantedSecretsConsumerFollowsFirstGrant(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	secretID := "secret-id"
+	appName := "remote-13ea"
+	firstAppUUID := uuid.MustNewUUID().String()
+	secondAppUUID := uuid.MustNewUUID().String()
+	firstRelUUID := uuid.MustNewUUID().String()
+	secondRelUUID := uuid.MustNewUUID().String()
+	firstKey, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+	secondKey, err := relation.NewKeyFromString("postgres:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+	firstSynthName := coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(firstAppUUID))
+	secondSynthName := coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(secondAppUUID))
+
+	// The grants are listed in reverse relation key order to pin that the
+	// consumers follow the first grant in the deterministic processing
+	// order, not the first grant of the input.
+	input := []GrantedSecretImport{
+		{
+			SecretID: secretID,
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					RelationKey:     secondKey,
+					RelationUUID:    secondRelUUID,
+					Role:            secrets.RoleView,
+				},
+				{
+					ApplicationName: appName,
+					RelationKey:     firstKey,
+					RelationUUID:    firstRelUUID,
+					Role:            secrets.RoleView,
+				},
+			},
+			Consumers: []GrantedSecretConsumerImport{
+				{
+					Unit:            unit.Name(appName + "/0"),
+					CurrentRevision: 1,
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), firstRelUUID).Return(true, nil)
+	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), secondRelUUID).Return(true, nil)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), firstRelUUID).
+		Return(firstAppUUID, firstSynthName, nil)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), secondRelUUID).
+		Return(secondAppUUID, secondSynthName, nil)
+	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), gomock.InAnyOrder([]internal.RemoteApplicationSecretGrant{
+		{
+			SecretID:        secretID,
+			ApplicationName: appName,
+			ApplicationUUID: firstAppUUID,
+			RelationKey:     firstKey.String(),
+			RelationUUID:    firstRelUUID,
+		},
+		{
+			SecretID:        secretID,
+			ApplicationName: appName,
+			ApplicationUUID: secondAppUUID,
+			RelationKey:     secondKey.String(),
+			RelationUUID:    secondRelUUID,
+		},
+	})).Return(nil)
+	// The grants are processed in relation key order, so the consumers are
+	// recorded for the synthetic application of the mysql connection.
+	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
+		{
+			SecretID:        secretID,
+			Unit:            firstSynthName + "/0",
+			CurrentRevision: 1,
+		},
+	}).Return(nil)
+
+	// Act
+	err = s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// A database error while checking that the relation of a token-bearing
+// grant exists fails the migration, instead of being treated as a
+// relation that was not migrated and skipping the grant.
+func (s *migrationSuite) TestImportGrantedSecretsRelationExistsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange
+	appName := "remote-13ea"
+	relUUID := uuid.MustNewUUID().String()
+
+	input := []GrantedSecretImport{
+		{
+			SecretID: "secret-id",
+			ACLs: []GrantedSecretACLImport{
+				{
+					ApplicationName: appName,
+					RelationKey: relation.Key{
+						{
+							ApplicationName: appName,
+							EndpointName:    "endpoint",
+							Role:            deploymentcharm.RoleProvider,
+						},
+					},
+					RelationUUID: relUUID,
+					Role:         secrets.RoleView,
+				},
+			},
+		},
+	}
+
+	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), relUUID).
+		Return(false, errors.Errorf("boom"))
+
+	// Act
+	err := s.service(c).ImportGrantedSecrets(c.Context(), input)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*getting relation UUID for relation with key.*boom")
 }
 
 // A grant whose relation token was recorded, but whose relation was not
@@ -1614,10 +1812,10 @@ func (s *migrationSuite) TestImportGrantedSecretsMultipleOfferConnections(c *tc.
 
 	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), rel1UUID).Return(true, nil)
 	s.modelMigrationState.EXPECT().RelationExists(gomock.Any(), rel2UUID).Return(true, nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), rel1UUID).
-		Return(app1UUID, nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), rel2UUID).
-		Return(app2UUID, nil)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), rel1UUID).
+		Return(app1UUID, coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(app1UUID)), nil)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), rel2UUID).
+		Return(app2UUID, coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(app2UUID)), nil)
 	s.modelMigrationState.EXPECT().ImportRemoteApplicationSecretGrants(gomock.Any(), gomock.InAnyOrder([]internal.RemoteApplicationSecretGrant{
 		{
 			SecretID:        secretID,
@@ -1673,8 +1871,8 @@ func (s *migrationSuite) TestImportGrantedSecretsSyntheticSubjectError(c *tc.C) 
 
 	s.modelMigrationState.EXPECT().GetRelationUUIDByRelationKey(gomock.Any(), gomock.Any()).
 		Return(uuid.MustNewUUID().String(), nil)
-	s.modelMigrationState.EXPECT().GetSyntheticApplicationUUIDByRelationUUID(gomock.Any(), gomock.Any()).
-		Return("", boom)
+	s.modelMigrationState.EXPECT().GetSyntheticApplicationByRelationUUID(gomock.Any(), gomock.Any()).
+		Return("", "", boom)
 
 	// Act
 	err := s.service(c).ImportGrantedSecrets(c.Context(), input)

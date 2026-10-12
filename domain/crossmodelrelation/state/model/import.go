@@ -345,31 +345,37 @@ WHERE  uuid = $uuid.uuid
 	return result.Count > 0, nil
 }
 
-// GetSyntheticApplicationUUIDByRelationUUID returns the UUID of the
-// synthetic application representing the remote consumer of the relation
-// with the given UUID: the UUID of the offer connection made for the
-// relation, which is also the UUID of the synthetic application.
+// GetSyntheticApplicationByRelationUUID returns the UUID and the name of
+// the synthetic application representing the remote consumer of the
+// relation with the given UUID: the application of the offer connection
+// made for the relation, whose UUID is also the UUID of the synthetic
+// application. The name is the one the synthetic units of the application
+// are named after, so records referencing the remote consumer by its
+// legacy unit name, such as the consumers of the secrets granted over the
+// relation, can be rewritten onto it.
 //
 // The following error types can be expected to be returned:
 //   - [crossmodelrelationerrors.RemoteRelationNotFound] is returned if the
 //     relation has no offer connection.
-func (st *State) GetSyntheticApplicationUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error) {
+func (st *State) GetSyntheticApplicationByRelationUUID(ctx context.Context, relationUUID string) (string, string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
 	ident := remoteRelationUUID{UUID: relationUUID}
 	stmt, err := st.Prepare(`
-SELECT &offerConnection.*
+SELECT oc.uuid AS &syntheticApplication.uuid,
+       a.name  AS &syntheticApplication.name
 FROM   offer_connection oc
+JOIN   application a ON a.uuid = oc.uuid
 WHERE  oc.remote_relation_uuid = $remoteRelationUUID.uuid
-`, offerConnection{}, ident)
+`, syntheticApplication{}, ident)
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
 
-	var result offerConnection
+	var result syntheticApplication
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, stmt, ident).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -381,9 +387,9 @@ WHERE  oc.remote_relation_uuid = $remoteRelationUUID.uuid
 		return err
 	})
 	if err != nil {
-		return "", errors.Capture(err)
+		return "", "", errors.Capture(err)
 	}
-	return result.UUID, nil
+	return result.UUID, result.Name, nil
 }
 
 func (st *State) getRegularRelationUUIDByEndpointIdentifiers(

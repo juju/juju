@@ -198,6 +198,54 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworksDeduplicatedRemo
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// The relation token of a relation of a de-duplicated remote offer
+// application is resolved from the key of the source model, before the
+// key is rewritten to the primary remote application name, as the remote
+// entities record the keys of the source model.
+func (s *importRelationNetworksSuite) TestImportRelationNetworksResolvesRelationTokenOfDeduplicatedApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "mysql",
+		OfferUUID: "deadbeef-0a0a-0a0a-0a0a-0a0a0a0a0a0a",
+	})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "mysql-staging",
+		OfferUUID: "deadbeef-0a0a-0a0a-0a0a-0a0a0a0a0a0a",
+	})
+	model.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          "mysql-staging:db remote-13ea:db:ingress:default",
+		RelationKey: "mysql-staging:db remote-13ea:db",
+		CIDRS:       []string{"10.0.0.0/24"},
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-mysql-staging.db#remote-13ea.db",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	expectedKey, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey:  expectedKey,
+			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			Direction:    crossmodelrelation.RelationNetworkIngress,
+			CIDRs:        []string{"10.0.0.0/24"},
+		},
+	}).Return(nil)
+
+	op := importRelationNetworksOperation{
+		importService: s.importService,
+		logger:        loggertesting.WrapCheckLog(c),
+	}
+
+	err = op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *importRelationNetworksSuite) TestImportRelationNetworksError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

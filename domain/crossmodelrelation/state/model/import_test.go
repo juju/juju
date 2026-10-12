@@ -790,35 +790,37 @@ func (s *importSecretSuite) TestRelationExists(c *tc.C) {
 // The offer connection made for a relation shares the UUID of the
 // synthetic application representing the remote consumer of the relation,
 // so the application of a consumer relation is resolved from it, not by
-// name.
-func (s *importSecretSuite) TestGetSyntheticApplicationUUIDByRelationUUID(c *tc.C) {
+// name, and its name is the one the synthetic units are named after.
+func (s *importSecretSuite) TestGetSyntheticApplicationByRelationUUID(c *tc.C) {
 	// Arrange
 	relUUID := s.addRelation(c)
-	syntheticAppUUID := tc.Must(c, internaluuid.NewUUID).String()
+	appName := "remote-13ea27915e7840d888c5e9451444b45d"
+	appUUID := s.addApplication(c, s.addCharm(c), appName)
 	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.query(c, `
 INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, "test-offer")
 	s.query(c, `
 INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
-VALUES (?, ?, ?, "bob")`, syntheticAppUUID, offerUUID, relUUID.String())
+VALUES (?, ?, ?, "bob")`, appUUID.String(), offerUUID, relUUID.String())
 
 	// Act
-	obtainedUUID, err := s.state.GetSyntheticApplicationUUIDByRelationUUID(c.Context(), relUUID.String())
+	obtainedUUID, obtainedName, err := s.state.GetSyntheticApplicationByRelationUUID(c.Context(), relUUID.String())
 
 	// Assert
 	c.Assert(err, tc.IsNil)
-	c.Check(obtainedUUID, tc.Equals, syntheticAppUUID)
+	c.Check(obtainedUUID, tc.Equals, appUUID.String())
+	c.Check(obtainedName, tc.Equals, appName)
 }
 
 // A relation without an offer connection has no synthetic consumer
 // application, which is reported as RemoteRelationNotFound so the caller
 // can fall back to resolving the application by name.
-func (s *importSecretSuite) TestGetSyntheticApplicationUUIDByRelationUUIDNotFound(c *tc.C) {
+func (s *importSecretSuite) TestGetSyntheticApplicationByRelationUUIDNotFound(c *tc.C) {
 	// Arrange
 	relUUID := s.addRelation(c)
 
 	// Act
-	_, err := s.state.GetSyntheticApplicationUUIDByRelationUUID(c.Context(), relUUID.String())
+	_, _, err := s.state.GetSyntheticApplicationByRelationUUID(c.Context(), relUUID.String())
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteRelationNotFound)

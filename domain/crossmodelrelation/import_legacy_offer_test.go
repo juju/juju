@@ -866,21 +866,26 @@ WHERE secret_id = ? AND scope_uuid = ?`, secretID, offer.relationUUID2).
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(scopeUUID, tc.Equals, offer.relationUUID2)
 
-	var syntheticUUID string
+	var syntheticUUID, syntheticName string
 	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
-SELECT uuid FROM application WHERE name LIKE 'remote-%' AND name != ?`, offer.remoteApp).
-			Scan(&syntheticUUID)
+SELECT uuid, name FROM application WHERE name LIKE 'remote-%' AND name != ?`, offer.remoteApp).
+			Scan(&syntheticUUID, &syntheticName)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(subjectUUID, tc.Equals, syntheticUUID)
 
-	// The consumer of the secret is imported as well.
-	var consumers int
+	// The consumer of the secret is recorded for the synthetic unit of the
+	// application holding the grant, not for the legacy proxy unit, so the
+	// offering side resolves it to the offer connection of the grant.
+	var consumerUnit string
 	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM secret_remote_unit_consumer WHERE secret_id = ?`, secretID).Scan(&consumers)
+SELECT sruc.unit_name
+FROM   secret_remote_unit_consumer AS sruc
+JOIN   application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
+WHERE  sruc.secret_id = ? AND app.uuid = ?`, secretID, syntheticUUID).Scan(&consumerUnit)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(consumers, tc.Equals, 1)
+	c.Check(consumerUnit, tc.Equals, syntheticName+"/0")
 }

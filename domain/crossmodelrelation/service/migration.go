@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"net"
+	"slices"
+	"strings"
 
 	"github.com/juju/collections/transform"
 
@@ -53,16 +55,16 @@ type ModelMigrationState interface {
 	// exists in the model.
 	RelationExists(ctx context.Context, relationUUID string) (bool, error)
 
-	// GetSyntheticApplicationUUIDByRelationUUID returns the UUID of the
-	// synthetic application representing the remote consumer of the
-	// relation with the given UUID: the UUID of the offer connection made
-	// for the relation, which is also the UUID of the synthetic
+	// GetSyntheticApplicationByRelationUUID returns the UUID and the name
+	// of the synthetic application representing the remote consumer of the
+	// relation with the given UUID: the application of the offer connection
+	// made for the relation, whose UUID is also the UUID of the synthetic
 	// application.
 	//
 	// The following error types can be expected to be returned:
 	//   - [crossmodelrelationerrors.RemoteRelationNotFound] is returned if
 	//     the relation has no offer connection.
-	GetSyntheticApplicationUUIDByRelationUUID(ctx context.Context, relationUUID string) (string, error)
+	GetSyntheticApplicationByRelationUUID(ctx context.Context, relationUUID string) (string, string, error)
 
 	// AddRelationNetworkIngress adds ingress network CIDRs for the specified
 	// relation.
@@ -685,11 +687,24 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 	// that grant with a warning, the remaining grants are still imported.
 	// A skipped grant doesn't count towards the first, so a later grant
 	// of the same application can still be imported.
-	grants := make([]internal.RemoteApplicationSecretGrant, 0, len(secret.ACLs))
-	grantByApplications := make(map[string]struct{}, len(secret.ACLs))
-	grantedSubjects := make(map[string]struct{}, len(secret.ACLs))
+	//
+	// The grants are processed in a deterministic order, as the source
+	// model does not record which offer connection the consumers of the
+	// application used: the consumers are recorded for the synthetic
+	// application of the first grant imported for the application.
+	acls := slices.Clone(secret.ACLs)
+	slices.SortFunc(acls, func(a, b GrantedSecretACLImport) int {
+		if cmp := strings.Compare(a.ApplicationName, b.ApplicationName); cmp != 0 {
+			return cmp
+		}
+		return strings.Compare(a.RelationKey.String(), b.RelationKey.String())
+	})
+
+	grants := make([]internal.RemoteApplicationSecretGrant, 0, len(acls))
+	grantSubjectByApplications := make(map[string]string, len(acls))
+	grantedSubjects := make(map[string]struct{}, len(acls))
 	skippedGrantApps := make(map[string]struct{})
-	for _, acl := range secret.ACLs {
+	for _, acl := range acls {
 		if acl.Role != secrets.RoleView {
 			return internalerrors.Errorf("unsupported role %q for remote secret %q", acl.Role, secret.SecretID)
 		}
@@ -704,7 +719,7 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 		} else if err != nil {
 			return internalerrors.Errorf("getting relation UUID for relation with key %q: %w", acl.RelationKey, err)
 		}
-		appUUID, err := s.getGrantSubjectUUID(ctx, relUUID, acl.ApplicationName)
+		appUUID, appName, err := s.getGrantSubject(ctx, relUUID, acl.ApplicationName)
 		if err != nil {
 			return internalerrors.Errorf("getting grant subject for application %q: %w", acl.ApplicationName, err)
 		}
@@ -726,13 +741,21 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 			RelationUUID:    relUUID,
 		})
 		grantedSubjects[appUUID] = struct{}{}
-		grantByApplications[acl.ApplicationName] = struct{}{}
+		if _, ok := grantSubjectByApplications[acl.ApplicationName]; !ok {
+			grantSubjectByApplications[acl.ApplicationName] = appName
+		}
 	}
 
-	// Verify that every consumer has a grant for the application.
+	// Verify that every consumer has a grant for the application, and
+	// record the consumers for the application holding the grant: the
+	// offering side resolves the consumers by the application of their unit
+	// name, so the legacy proxy unit names are rewritten onto the synthetic
+	// application of the offer connection holding the grant, like the
+	// synthetic units are imported.
 	var grantedConsumers []internal.RemoteUnitConsumer
 	for _, consumer := range secret.Consumers {
-		if _, ok := grantByApplications[consumer.Unit.Application()]; !ok {
+		appName, granted := grantSubjectByApplications[consumer.Unit.Application()]
+		if !granted {
 			if _, skipped := skippedGrantApps[consumer.Unit.Application()]; skipped {
 				// Every grant of the application was skipped, so its
 				// consumers are skipped as well.
@@ -742,9 +765,14 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 			}
 			return internalerrors.Errorf("grant for application %q not found for remote secret %q", consumer.Unit.Application(), secret.SecretID)
 		}
+		unitName, err := domainmodelmigration.RewriteUnitName(
+			consumer.Unit.String(), consumer.Unit.Application(), appName)
+		if err != nil {
+			return internalerrors.Errorf("rewriting secret consumer unit name %q: %w", consumer.Unit, err)
+		}
 		grantedConsumers = append(grantedConsumers, internal.RemoteUnitConsumer{
 			SecretID:        secret.SecretID,
-			Unit:            consumer.Unit.String(),
+			Unit:            unitName,
 			CurrentRevision: consumer.CurrentRevision,
 		})
 	}
@@ -764,24 +792,29 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 	return nil
 }
 
-// getGrantSubjectUUID returns the UUID of the application a secret grant
-// is recorded for. For the relation of a remote application consumer, the
-// grant subject is the synthetic application of the offer connection of
-// the relation: an additional offer connection of a legacy consumer proxy
-// is represented by a freshly named synthetic application, which cannot be
-// resolved by the legacy proxy name of the grant. For any other relation,
-// the granted application is resolved by its name.
-func (s *MigrationService) getGrantSubjectUUID(
+// getGrantSubject returns the UUID and the name of the application a
+// secret grant is recorded for. For the relation of a remote application
+// consumer, the grant subject is the synthetic application of the offer
+// connection of the relation: an additional offer connection of a legacy
+// consumer proxy is represented by a freshly named synthetic application,
+// which cannot be resolved by the legacy proxy name of the grant. For any
+// other relation, the granted application is resolved by its name, so the
+// returned name is the one the grant is recorded for.
+func (s *MigrationService) getGrantSubject(
 	ctx context.Context,
 	relationUUID, applicationName string,
-) (string, error) {
-	appUUID, err := s.modelState.GetSyntheticApplicationUUIDByRelationUUID(ctx, relationUUID)
+) (string, string, error) {
+	appUUID, appName, err := s.modelState.GetSyntheticApplicationByRelationUUID(ctx, relationUUID)
 	if err == nil {
-		return appUUID, nil
+		return appUUID, appName, nil
 	} else if !internalerrors.Is(err, crossmodelrelationerrors.RemoteRelationNotFound) {
-		return "", internalerrors.Capture(err)
+		return "", "", internalerrors.Capture(err)
 	}
-	return s.modelState.GetApplicationUUIDByName(ctx, applicationName)
+	appUUID, err = s.modelState.GetApplicationUUIDByName(ctx, applicationName)
+	if err != nil {
+		return "", "", internalerrors.Capture(err)
+	}
+	return appUUID, applicationName, nil
 }
 
 func (s *MigrationService) importRemoteSecret(ctx context.Context, secret RemoteSecretImport) error {
