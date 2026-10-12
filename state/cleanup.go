@@ -1031,8 +1031,41 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	// the unit in the case that the unit and machine agents don't for
 	// some reason.
 	if force {
-		if err := st.scheduleForceCleanup(cleanupForceDestroyedUnit, name, maxWait); err != nil {
-			return errors.Trace(err)
+		// A unit can't become Dead before its subordinates are removed, and
+		// its backstop skips Dying ones, so schedule a backstop for each of
+		// them too. Alive ones are force destroyed first so that their agents
+		// can shut them down.
+		var subNames []string
+		for _, subName := range unit.SubordinateNames() {
+			subUnit, err := st.Unit(subName)
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return errors.Annotatef(err, "getting subordinate %q of unit %v", subName, unit.Name())
+			}
+			switch subUnit.Life() {
+			case Dead:
+				continue
+			case Alive:
+				opErrs, err := subUnit.DestroyWithForce(true, maxWait)
+				if len(opErrs) != 0 || err != nil {
+					logger.Warningf("errors while force destroying subordinate %q of unit %v: %v, %v", subName, unit.Name(), err, opErrs)
+				}
+			}
+			subNames = append(subNames, subName)
+		}
+		// Take the deadline after handling the subordinates.
+		deadline := st.stateClock.Now().Add(maxWait)
+		var ops []txn.Op
+		for _, subName := range subNames {
+			ops = append(ops, newCleanupAtOp(deadline, cleanupForceDestroyedUnit, subName, maxWait))
+		}
+		ops = append(ops, newCleanupAtOp(deadline, cleanupForceDestroyedUnit, name, maxWait))
+		err := st.db().Run(func(int) ([]txn.Op, error) {
+			return ops, nil
+		})
+		if err != nil {
+			return errors.Annotatef(err, "scheduling %s cleanups", cleanupForceDestroyedUnit)
 		}
 	}
 
