@@ -670,22 +670,6 @@ func (m *Machine) DestroyWithParams(force, destroyHostedUnitsAndContainers bool,
 			}
 			return nil, jujutxn.ErrNoOperations
 		}
-		if !force {
-			locked, err := machine.IsLockedForSeriesUpgrade()
-			if err != nil {
-				return nil, errors.Annotatef(
-					err,
-					"reading machine %s upgrade-series lock",
-					machine.Id(),
-				)
-			}
-			if locked {
-				return nil, errors.Errorf(
-					"machine %s is locked for series upgrade",
-					machine.Id(),
-				)
-			}
-		}
 		if force {
 			return machine.forceDestroyOps(maxWait)
 		}
@@ -731,15 +715,64 @@ func (m *Machine) evacuateMachineOps(force bool, maxWait time.Duration) ([]txn.O
 		)
 	}
 	if !force {
-		ops = append(ops, txn.Op{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     m.doc.Id,
-			Assert: txn.DocMissing,
-		})
+		// The machine's cleanup also removes its containers, so neither it
+		// nor any of them may be locked for series upgrade.
+		lockOps, err := m.upgradeSeriesLockOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, lockOps...)
 	}
 	return append(ops, newCleanupOp(
 		cleanupEvacuateMachine, m.doc.Id, force, maxWait,
 	)), nil
+}
+
+// upgradeSeriesLockOps returns ops asserting that neither the machine nor
+// any of its containers, at any depth, is locked for series upgrade. The
+// containers are asserted too, so that one added meanwhile is checked when
+// the transaction is retried.
+func (m *Machine) upgradeSeriesLockOps() ([]txn.Op, error) {
+	locked, err := m.IsLockedForSeriesUpgrade()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading machine %s upgrade-series lock", m.Id())
+	}
+	if locked {
+		return nil, errors.Errorf("machine %s is locked for series upgrade", m.Id())
+	}
+	ops := []txn.Op{{
+		C:      machineUpgradeSeriesLocksC,
+		Id:     m.doc.Id,
+		Assert: txn.DocMissing,
+	}}
+	containerIds, err := m.Containers()
+	if errors.IsNotFound(err) {
+		return ops, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(containerIds) == 0 {
+		return append(ops, m.noContainersOp()), nil
+	}
+	ops = append(ops, txn.Op{
+		C:      containerRefsC,
+		Id:     m.doc.DocID,
+		Assert: bson.D{{"children", containerIds}},
+	})
+	for _, containerId := range containerIds {
+		container, err := m.st.Machine(containerId)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		containerOps, err := container.upgradeSeriesLockOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, containerOps...)
+	}
+	return ops, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
