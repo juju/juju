@@ -407,7 +407,7 @@ func (s *createSuite) TestBuildArchiveAndChecksumFailureRemovesArchive(c *tc.C) 
 	// A missing content directory fails the tar build after the
 	// archive file has been created; the partial archive must not be
 	// left behind.
-	_, _, err := backups.BuildArchiveAndChecksum(filename, dir,
+	_, _, err := backups.BuildArchiveAndChecksum(c.Context(), filename, dir,
 		filepath.Join(dir, "missing"))
 	c.Assert(err, tc.NotNil)
 

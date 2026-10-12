@@ -189,7 +189,7 @@ var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string,
 
 	filename := filepath.Join(args.DestinationDir,
 		meta.Started.Format(FilenameTemplate))
-	size, checksum, err := buildArchiveAndChecksumContext(ctx, filename, stagingDir,
+	size, checksum, err := buildArchiveAndChecksum(ctx, filename, stagingDir,
 		archivePaths.ContentDir)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -525,11 +525,7 @@ func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]Manifes
 // the named archive file, computing the archive's SHA-256 checksum —
 // in its canonical prefixed form, see [ChecksumSHA256] — and size along
 // the way.
-func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
-	return buildArchiveAndChecksumContext(context.Background(), filename, stagingDir, contentDir)
-}
-
-func buildArchiveAndChecksumContext(ctx context.Context, filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
+func buildArchiveAndChecksum(ctx context.Context, filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
 		return 0, "", errors.Errorf("creating archive file: %w", err)
