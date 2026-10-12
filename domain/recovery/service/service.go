@@ -20,7 +20,6 @@ type State interface {
 	LoadControllerDump(context.Context, *domainrecovery.ControllerDump, string) error
 	LoadModelDump(context.Context, *domainrecovery.ModelDump, string) error
 	// Object queries describe the files required by persisted metadata.
-	GetObjects(context.Context) ([]domainrecovery.ObjectBlob, error)
 	GetObjectMetadataPaths(context.Context) ([]domainrecovery.ObjectMetadataPath, error)
 	// Machine lookup returns the first live controller machine in name order.
 	GetControllerMachineName(context.Context) (string, error)
@@ -163,13 +162,9 @@ func (s *Service) modelState(ctx context.Context, model coremodel.UUID) (State, 
 }
 
 func objectInventory(ctx context.Context, namespace string, st State) (domainrecovery.ObjectInventory, error) {
-	blobs, err := st.GetObjects(ctx)
-	if err != nil {
-		return domainrecovery.ObjectInventory{}, errors.Capture(err)
-	}
 	paths, err := st.GetObjectMetadataPaths(ctx)
 	if err != nil {
 		return domainrecovery.ObjectInventory{}, errors.Capture(err)
 	}
-	return domainrecovery.ObjectInventory{Namespace: namespace, Blobs: blobs, Paths: paths}, nil
+	return domainrecovery.ObjectInventory{Namespace: namespace, Paths: paths}, nil
 }

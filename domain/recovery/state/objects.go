@@ -12,39 +12,6 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetObjects retrieves the blobs referenced by this database.
-func (st *State) GetObjects(ctx context.Context) ([]domainrecovery.ObjectBlob, error) {
-	type blob struct {
-		SHA384 string `db:"sha_384"`
-		Size   int64  `db:"size"`
-	}
-	stmt, err := st.Prepare(`SELECT osm.sha_384 AS &blob.sha_384,
-    osm.size AS &blob.size FROM object_store_metadata AS osm ORDER BY osm.sha_384`, blob{})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	var rows []blob
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt).GetAll(&rows)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		return err
-	})
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	result := make([]domainrecovery.ObjectBlob, len(rows))
-	for i, row := range rows {
-		result[i] = domainrecovery.ObjectBlob{SHA384: row.SHA384, Size: row.Size}
-	}
-	return result, nil
-}
-
 // GetObjectMetadataPaths retrieves each path and its blob hash.
 func (st *State) GetObjectMetadataPaths(ctx context.Context) ([]domainrecovery.ObjectMetadataPath, error) {
 	type path struct {
