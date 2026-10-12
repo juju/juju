@@ -420,6 +420,62 @@ func (s *MachineSuite) TestLifeMachineLockedForSeriesUpgrade(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 }
 
+func (s *MachineSuite) TestDestroyWithParamsContainerLockedForSeriesUpgrade(c *gc.C) {
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04")), jc.ErrorIsNil)
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, gc.ErrorMatches, `machine 1/lxd/0 is locked for series upgrade`)
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Check(s.machine.Life(), gc.Equals, state.Alive)
+
+	// Force removal goes ahead regardless of the lock.
+	c.Assert(s.machine.DestroyWithParams(true, true, time.Minute), jc.ErrorIsNil)
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Check(s.machine.Life(), gc.Equals, state.Dying)
+}
+
+func (s *MachineSuite) TestDestroyWithParamsContainerLockedForSeriesUpgradeRace(c *gc.C) {
+	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(container.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04")), jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, gc.ErrorMatches, `machine 1/lxd/0 is locked for series upgrade`)
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Check(s.machine.Life(), gc.Equals, state.Alive)
+}
+
+func (s *MachineSuite) TestDestroyWithParamsContainerAddedLockedForSeriesUpgradeRace(c *gc.C) {
+	template := state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	}
+	_, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
+	c.Assert(err, jc.ErrorIsNil)
+	// Another container is added and locked after the removal has read the
+	// containers, but before its transaction.
+	defer state.SetBeforeHooks(c, s.State, func() {
+		container, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXD)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(container.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04")), jc.ErrorIsNil)
+	}).Check()
+
+	err = s.machine.DestroyWithParams(false, true, time.Minute)
+	c.Assert(err, gc.ErrorMatches, `machine 1/lxd/1 is locked for series upgrade`)
+	c.Assert(s.machine.Refresh(), jc.ErrorIsNil)
+	c.Check(s.machine.Life(), gc.Equals, state.Alive)
+}
+
 func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// A machine with an assigned unit must not advance lifecycle.
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
