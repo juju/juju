@@ -226,6 +226,67 @@ func (s *cloudSuite) TestFinalizeCloudNominatedStorageClassNotFound(c *tc.C) {
 		fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion))
 }
 
+func (s *cloudSuite) TestFinalizeCloudNominatedStorageClassRetained(c *tc.C) {
+	// A storage class recorded on the cloud that is still present on the
+	// cluster is retained: re-validation succeeds and no discovery query
+	// is made (the call mocker fails the test on unexpected calls).
+	s.fakeBroker.Call("ListStorageClasses", k8slabels.NewSelector()).Returns(
+		[]storagev1.StorageClass{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "workload-sc",
+					Annotations: map[string]string{
+						"storageclass.kubernetes.io/is-default-class": "true",
+					},
+				},
+			},
+		}, nil,
+	)
+	s.fakeBroker.Call(
+		"ListPods", "kube-system",
+		k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}),
+	).Returns([]corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "coredns-xx",
+				Labels: map[string]string{
+					"k8s-app": "kube-dns",
+				},
+			},
+		},
+	}, nil)
+
+	// The nominated class is on the cluster: validation succeeds.
+	s.fakeBroker.Call("GetClusterMetadata", "workload-sc").Returns(&k8s.ClusterMetadata{
+		Cloud:   k8s.K8sCloudMicrok8s,
+		Regions: set.NewStrings(k8s.Microk8sRegion),
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "workload-sc"},
+		},
+	}, nil)
+
+	cloudWithNominatedStorage := defaultK8sCloud
+	cloudWithNominatedStorage.Config = map[string]any{
+		k8sconstants.WorkloadStorageKey: "workload-sc",
+	}
+	ret := builtinCloudRet{cloud: cloudWithNominatedStorage, credential: getDefaultCredential(), err: nil}
+	p := k8sprovider.NewProviderWithFakes(
+		s.runner,
+		credentialGetterFunc(ret),
+		cloudGetterFunc(ret),
+		func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (k8sprovider.ClusterMetadataStorageChecker, error) {
+			return &s.fakeBroker, nil
+		},
+	)
+	cloudFinalizer := p.(environs.CloudFinalizer)
+	ctx := mockContext{Context: c.Context()}
+	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, cloudWithNominatedStorage)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloud.Config[k8sconstants.WorkloadStorageKey], tc.Equals, "workload-sc")
+	c.Check(cloud.HostCloudRegion, tc.Equals,
+		fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion))
+}
+
 func (s *cloudSuite) TestFinalizeCloudKeepsStaleNominatedStorageClass(c *tc.C) {
 	// When neither the class recorded on the cloud nor cluster discovery
 	// yields a storage class, the recorded value is kept on the cloud so
