@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/domain/status"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -500,7 +501,7 @@ func validateStorageInstanceForUnitAttachment(
 	}
 
 	charmStorageDef := info.UnitAttachNamedStorageInfo.CharmStorageDefinition
-	expectedKind, err := storage.StorageKindFromCharmStorageType(charmStorageDef.Type)
+	expectedKind, err := domainstorageprovisioning.StorageKindFromCharmStorageType(charmStorageDef.Type)
 	if err != nil {
 		return errors.Errorf(
 			"determining storage kind for charm storage definition %q: %w",

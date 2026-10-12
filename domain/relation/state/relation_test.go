@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/relation/internal"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -2301,7 +2302,7 @@ func (s *relationSuite) TestEnterScope(c *tc.C) {
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 
 	// Act: Enter scope.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings)
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf(errors.ErrorStack(err)))
@@ -2356,7 +2357,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	settings := map[string]string{"ingress-address": "x.x.x.x"}
 
 	// Enter scope.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings)
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, settings, internal.SubordinateUnitStorageArgs{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	relationUnitUUID := s.getRelationUnitInScope(c, relationUUID, unitUUID)
@@ -2372,7 +2373,7 @@ func (s *relationSuite) TestEnterScopeIdempotent(c *tc.C) {
 	newSettings := map[string]string{"ingress-address": "y.y.y.y"}
 
 	// EnterScope a second time.
-	_, err = s.state.EnterScope(c.Context(), relationUUID, unitName, newSettings)
+	_, err = s.state.EnterScope(c.Context(), relationUUID, unitName, newSettings, internal.SubordinateUnitStorageArgs{})
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationUnitAlreadyExists)
 
 	// Check the same relation unit uuid is found and the settings stayed the
@@ -2435,7 +2436,7 @@ func (s *relationSuite) TestEnterScopeSubordinate(c *tc.C) {
 
 	// Act: Try and enter scope with the unit 1, which is a subordinate to an
 	// application not in the relation.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName1, map[string]string{})
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName1, map[string]string{}, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
@@ -2500,7 +2501,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValidSubordinate(c
 
 	// Act: Try and enter scope with the unit 1 of application 1, which is a
 	// subordinate to an application not in the relation (application 2).
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName1, map[string]string{})
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName1, map[string]string{}, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.PotentialRelationUnitNotValid)
@@ -2530,7 +2531,7 @@ func (s *relationSuite) TestEnterScopePotentialRelationUnitNotValid(c *tc.C) {
 	s.addUnit(c, unitName, s.fakeApplicationUUID2, s.fakeCharmUUID2)
 
 	// Act: Enter scope.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{}, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.UnitNotInRelation)
@@ -2566,7 +2567,7 @@ func (s *relationSuite) TestEnterScopeRelationNotAlive(c *tc.C) {
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Enter scope.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{}, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
@@ -2602,7 +2603,7 @@ func (s *relationSuite) TestEnterScopeUnitNotAlive(c *tc.C) {
 	s.addUnitWithLife(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1, corelife.Dead)
 
 	// Act: Enter scope.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{}, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.CannotEnterScopeNotAlive)
@@ -2615,7 +2616,7 @@ func (s *relationSuite) TestEnterScopeRelationNotFound(c *tc.C) {
 	s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
 
 	// Act: Try and enter scope.
-	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{})
+	_, err := s.state.EnterScope(c.Context(), relationUUID, unitName, map[string]string{}, internal.SubordinateUnitStorageArgs{})
 
 	// Assert:
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
@@ -2629,6 +2630,7 @@ func (s *relationSuite) TestEnterScopeUnitNotFound(c *tc.C) {
 		relationUUID,
 		coreunittesting.GenNewName(c, "app1/0"),
 		map[string]string{},
+		internal.SubordinateUnitStorageArgs{},
 	)
 
 	// Assert:

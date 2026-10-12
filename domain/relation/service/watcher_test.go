@@ -29,8 +29,9 @@ import (
 type watcherSuite struct {
 	testhelpers.IsolationSuite
 
-	state          *MockState
-	watcherFactory *MockWatcherFactory
+	state               *MockState
+	watcherFactory      *MockWatcherFactory
+	storagePoolProvider *MockStoragePoolProvider
 
 	service *WatchableService
 }
@@ -593,13 +594,15 @@ func (s *watcherSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
+	s.storagePoolProvider = NewMockStoragePoolProvider(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
-	s.service = NewWatchableService(s.state, s.watcherFactory, nil, nil, loggertesting.WrapCheckLog(c))
+	s.service = NewWatchableService(s.state, s.storagePoolProvider, s.watcherFactory, nil, nil, loggertesting.WrapCheckLog(c))
 
 	c.Cleanup(func() {
 		s.state = nil
 		s.service = nil
 		s.watcherFactory = nil
+		s.storagePoolProvider = nil
 	})
 	return ctrl
 }
