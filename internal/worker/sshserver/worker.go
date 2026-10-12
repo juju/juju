@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
@@ -52,6 +53,7 @@ type ServerWrapperWorkerConfig struct {
 	Authorizer              Authorizer
 	ServerFactory           *TerminatingServerFactory
 	Metrics                 *Collector
+	Clock                   clock.Clock
 }
 
 // Validate validates the workers configuration is as expected.
@@ -79,6 +81,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.ServerFactory == nil {
 		return errors.NotValidf("ServerFactory is required")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("Clock is required")
 	}
 	return nil
 }
@@ -192,6 +197,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		Authorizer:               ssw.config.Authorizer,
 		ServerFactory:            ssw.config.ServerFactory,
 		Metrics:                  ssw.config.Metrics,
+		Clock:                    ssw.config.Clock,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {
