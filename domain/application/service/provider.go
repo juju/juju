@@ -679,7 +679,10 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 	// in trying to resolve them.
 	// Also, we know that the charm must have a non-nil meta, since we have already
 	// validated the args.
-	var resolvedConstraints constraints.Constraints
+	var (
+		applicationConstraints constraints.Constraints
+		resolvedConstraints    constraints.Constraints
+	)
 	if !charm.Meta().Subordinate {
 		cons, err := s.resolveApplicationConstraints(ctx, args.Constraints)
 		if err != nil {
@@ -706,10 +709,11 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 			origin.Platform.Architecture = *cons.Arch
 		}
 
+		applicationConstraints = applicationConstraintsWithResolvedArch(args.Constraints, cons)
 		resolvedConstraints = cons
 	}
 
-	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, resolvedConstraints, args)
+	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, applicationConstraints, args)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("preparing application args: %w", err)
 	}
@@ -723,7 +727,7 @@ func (s *ProviderService) makeIAASApplicationArg(ctx context.Context,
 		arg.StorageDirectives,
 	)
 	unitArgs, err := s.makeIAASUnitArgs(
-		ctx, units, storageDirectives, arg.Platform, arg.Constraints,
+		ctx, units, storageDirectives, arg.Platform, resolvedConstraints,
 	)
 	if err != nil {
 		return "", application.AddIAASApplicationArg{}, nil, errors.Errorf("making unit args: %w", err)
@@ -768,7 +772,10 @@ func (s *ProviderService) makeCAASApplicationArg(
 		}
 	}
 
-	appName, arg, err := s.makeApplicationArg(ctx, name, charm, origin, cons, args)
+	appName, arg, err := s.makeApplicationArg(
+		ctx, name, charm, origin,
+		applicationConstraintsWithResolvedArch(args.Constraints, cons), args,
+	)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("preparing CAAS application args: %w", err)
 	}
@@ -783,7 +790,7 @@ func (s *ProviderService) makeCAASApplicationArg(
 		arg.StorageDirectives,
 	)
 	unitArgs, err := s.makeCAASUnitArgs(
-		ctx, units, storageDirectives, arg.Constraints,
+		ctx, units, storageDirectives, cons,
 	)
 	if err != nil {
 		return "", application.AddCAASApplicationArg{}, nil, errors.Errorf("making CAAS unit args: %w", err)
@@ -868,6 +875,17 @@ func (s *ProviderService) makeApplicationArg(
 	}
 
 	return name, appArg, nil
+}
+
+// applicationConstraintsWithResolvedArch adds the resolved architecture to
+// the explicit application constraints, matching 3.6 behaviour.
+func applicationConstraintsWithResolvedArch(
+	appCons coreconstraints.Value,
+	resolvedCons constraints.Constraints,
+) constraints.Constraints {
+	cons := constraints.DecodeConstraints(appCons)
+	cons.Arch = resolvedCons.Arch
+	return cons
 }
 
 func (s *ProviderService) precheckInstances(
