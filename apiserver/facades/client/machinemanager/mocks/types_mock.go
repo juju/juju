@@ -706,6 +706,21 @@ func (mr *MockMachineMockRecorder) IsManager() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManager", reflect.TypeOf((*MockMachine)(nil).IsManager))
 }
 
+// KeepInstance mocks base method.
+func (m *MockMachine) KeepInstance() (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "KeepInstance")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// KeepInstance indicates an expected call of KeepInstance.
+func (mr *MockMachineMockRecorder) KeepInstance() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KeepInstance", reflect.TypeOf((*MockMachine)(nil).KeepInstance))
+}
+
 // Principals mocks base method.
 func (m *MockMachine) Principals() []string {
 	m.ctrl.T.Helper()

@@ -589,8 +589,11 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 		// cleanup can make a container Dead before the container is
 		// destroyed below.
 		containersAfterHost := options.destroyHostedUnitsAndContainers && !options.force
+		var keptContainers []string
 		if containersAfterHost && options.keep {
-			if err := mm.keepContainerInstances(containers); err != nil {
+			keptContainers, err = mm.keepContainerInstances(containers)
+			if err != nil {
+				mm.unkeepContainerInstances(keptContainers)
 				fail(err)
 				continue
 			}
@@ -602,6 +605,9 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 			options.maxWait,
 		)
 		if err != nil {
+			// A refused host leaves its containers Alive, so undo the
+			// keep-instance set for this removal.
+			mm.unkeepContainerInstances(keptContainers)
 			fail(err)
 			continue
 		}
@@ -646,29 +652,57 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 }
 
 // keepContainerInstances marks the given containers, and any containers
-// inside them, to keep their instances when they are removed.
-func (mm *MachineManagerAPI) keepContainerInstances(containers []string) error {
+// inside them, to keep their instances when they are removed. It returns
+// the containers it marked, leaving out those already marked, even when
+// it fails partway.
+func (mm *MachineManagerAPI) keepContainerInstances(containers []string) ([]string, error) {
+	var kept []string
 	for _, id := range containers {
 		container, err := mm.st.Machine(id)
 		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
-			return errors.Trace(err)
+			return kept, errors.Trace(err)
 		}
-		if err := container.SetKeepInstance(true); err != nil {
-			return errors.Annotatef(err, "keeping instance of machine %v", id)
+		// NotFound means the container has no instance data yet, so it
+		// is not kept.
+		alreadyKept, err := container.KeepInstance()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return kept, errors.Trace(err)
+		}
+		if !alreadyKept {
+			if err := container.SetKeepInstance(true); err != nil {
+				return kept, errors.Annotatef(err, "keeping instance of machine %v", id)
+			}
+			kept = append(kept, id)
 		}
 		children, err := container.Containers()
 		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
-			return errors.Trace(err)
+			return kept, errors.Trace(err)
 		}
-		if err := mm.keepContainerInstances(children); err != nil {
-			return errors.Trace(err)
+		keptChildren, err := mm.keepContainerInstances(children)
+		kept = append(kept, keptChildren...)
+		if err != nil {
+			return kept, errors.Trace(err)
 		}
 	}
-	return nil
+	return kept, nil
+}
+
+// unkeepContainerInstances clears keep-instance on the containers that
+// keepContainerInstances marked for a removal that did not go ahead.
+func (mm *MachineManagerAPI) unkeepContainerInstances(containers []string) {
+	for _, id := range containers {
+		container, err := mm.st.Machine(id)
+		if err == nil {
+			err = container.SetKeepInstance(false)
+		}
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			logger.Warningf("could not undo keep instance for machine %v: %v", id, err)
+		}
+	}
 }
 
 func (mm *MachineManagerAPI) destoryContainer(containers []string, options destroyMachineOptions) ([]params.DestroyMachineResult, error) {
