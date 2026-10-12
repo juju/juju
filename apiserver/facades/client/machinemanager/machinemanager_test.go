@@ -786,6 +786,70 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContain
 	c.Assert(results.Results[0].Info.DestroyedContainers[0].Info.MachineId, gc.Equals, "0/lxd/0")
 }
 
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContainersKeepsContainerInstancesFirst(c *gc.C) {
+	s.assertKeepsContainerInstancesFirst(c, nil)
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContainersKeepSkipsRemovedContainer(c *gc.C) {
+	// A container removed after it was read has lost its container
+	// references along with it, so there are none to keep.
+	s.assertKeepsContainerInstancesFirst(c, errors.NotFoundf("container info for machine 0/lxd/0"))
+}
+
+func (s *DestroyMachineManagerSuite) assertKeepsContainerInstancesFirst(c *gc.C, containersErr error) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.expectUnpinAppLeaders("0")
+	s.expectUnpinAppLeaders("0/lxd/0")
+
+	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, true, false)
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	// The container keeps its instance before its host is destroyed, as
+	// the host's cleanup may make the container Dead before it is
+	// destroyed.
+	keeper := mocks.NewMockMachine(ctrl)
+	container0 := s.expectDestroyMachine(ctrl, nil, nil, false, true, false)
+	container0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil)
+	gomock.InOrder(
+		s.st.EXPECT().Machine("0/lxd/0").Return(keeper, nil),
+		keeper.EXPECT().SetKeepInstance(true).Return(nil),
+		keeper.EXPECT().Containers().Return(nil, containersErr),
+		machine0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(nil),
+		s.st.EXPECT().Machine("0/lxd/0").Return(container0, nil),
+	)
+
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
+		MachineTags: []string{"machine-0"},
+		Keep:        true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Info.DestroyedContainers, gc.HasLen, 1)
+}
+
+func (s *DestroyMachineManagerSuite) TestDestroyMachineWithHostedUnitsAndContainersRefusedLeavesContainers(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.leadership.EXPECT().GetMachineApplicationNames("0").Return([]string{"foo-app-1"}, nil)
+
+	// The container is never looked up or destroyed, as its host is refused.
+	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, false, false, false)
+	machine0.EXPECT().DestroyWithParams(false, true, gomock.Any()).Return(errors.New("machine 0 is locked for series upgrade"))
+	s.st.EXPECT().Machine("0").Return(machine0, nil)
+
+	results, err := s.api.DestroyMachineWithHostedUnitsAndContainers(params.DestroyMachinesWithHostedUnitsParams{
+		MachineTags: []string{"machine-0"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "machine 0 is locked for series upgrade")
+	c.Assert(results.Results[0].Info, gc.IsNil)
+}
+
 func (s *DestroyMachineManagerSuite) TestDestroyMachineWithForceAndHostedUnitsAndContainers(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
