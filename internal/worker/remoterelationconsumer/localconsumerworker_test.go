@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -291,6 +292,101 @@ func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusFailed(c *tc.C) {
 
 	err = workertest.CheckKilled(c, w)
 	c.Assert(err, tc.ErrorMatches, `watching status for offer: not valid`)
+}
+
+func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusOfferRemoved(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			ch := make(chan []string)
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			defer close(done)
+			return nil, errors.NotFound
+		})
+
+	// The offer is gone, so the remote application offerer must be removed
+	// from the local model via its application UUID.
+	s.crossModelService.EXPECT().
+		RemoveRemoteApplicationOffererByApplicationUUID(gomock.Any(), s.applicationUUID, true, time.Minute).
+		Return(tc.Must(c, removal.NewUUID), nil)
+
+	w := s.newLocalConsumerWorker(c)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	// The worker must stop with the terminal error, so that it is not
+	// restarted by the runner.
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIs, RemoteApplicationOffererDeadErr)
+}
+
+func (s *localConsumerWorkerSuite) TestStartWatchOfferStatusOfferRemovedAlreadyGone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			ch := make(chan []string)
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			defer close(done)
+			return nil, errors.NotFound
+		})
+
+	// The remote application offerer has already been removed locally, so
+	// the worker must still terminate instead of bouncing.
+	s.crossModelService.EXPECT().
+		RemoveRemoteApplicationOffererByApplicationUUID(gomock.Any(), s.applicationUUID, true, time.Minute).
+		Return(removal.UUID(""), internalerrors.Errorf(
+			"getting remote application offerer for application %q: %w",
+			s.applicationUUID, crossmodelrelationerrors.RemoteApplicationNotFound,
+		))
+
+	w := s.newLocalConsumerWorker(c)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for WatchOfferStatus to be called")
+	}
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, tc.ErrorIs, RemoteApplicationOffererDeadErr)
 }
 
 func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
