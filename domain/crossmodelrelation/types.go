@@ -337,6 +337,25 @@ type RemoteApplicationConsumer struct {
 	OfferUUID string
 }
 
+// RemoteConsumerSecretGrant describes a grant of a secret to a remote
+// application consumer, resolved for one offer connection of the
+// consuming application.
+type RemoteConsumerSecretGrant struct {
+	// ApplicationName is the name of the synthetic application representing
+	// the consuming application for the offer connection the secret was
+	// granted over. Every offer connection of a consuming application is
+	// represented by its own synthetic application.
+	ApplicationName string
+
+	// RelationUUID is the UUID of the relation scoping the grant, being the
+	// relation created for the offer connection the secret was granted over.
+	RelationUUID string
+
+	// OfferUUID is the UUID of the offer the connection the secret was
+	// granted over was made for.
+	OfferUUID string
+}
+
 // RemoteApplicationOfferer represents a remote application
 type RemoteApplicationOfferer struct {
 	// ApplicationUUID is the UUID of the synthetic application

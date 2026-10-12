@@ -12,6 +12,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -694,4 +695,84 @@ AND    subject_id = $secretAccessor.subject_id`
 		return nil
 	})
 	return result.Role, errors.Capture(err)
+}
+
+// GetRemoteConsumerSecretGrants returns the grants of the specified secret
+// to the remote consumer with the given consuming application UUID: one
+// entry per offer connection of the consuming application over which the
+// secret was granted, ordered by the name of the synthetic application
+// representing the consuming application for that connection.
+//
+// A consuming application may hold several offer connections, each
+// represented by its own synthetic application, so the consuming
+// application UUID alone cannot identify the connection a secret was
+// granted over; the grant does.
+// It returns an error satisfying [secreterrors.SecretNotFound] if the
+// secret does not exist, and an error satisfying
+// [secreterrors.SecretAccessScopeNotFound] if the consuming application
+// holds no grant of the secret.
+func (st *State) GetRemoteConsumerSecretGrants(
+	ctx context.Context, uri *coresecrets.URI, consumingAppUUID string,
+) ([]crossmodelrelation.RemoteConsumerSecretGrant, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	// A remote consumer is granted access to a secret through the
+	// application, scoped by the relation of the offer connection the
+	// secret was consumed over: the subject UUID is the UUID of the
+	// synthetic application, which is also the UUID of the offer
+	// connection, and the scope UUID is the relation of the connection.
+	query := `
+SELECT a.name AS &remoteConsumerSecretGrant.application_name,
+       sp.scope_uuid AS &remoteConsumerSecretGrant.relation_uuid,
+       oc.offer_uuid AS &remoteConsumerSecretGrant.offer_uuid
+FROM   secret_permission sp
+       JOIN application a ON a.uuid = sp.subject_uuid
+       JOIN offer_connection oc ON oc.uuid = sp.subject_uuid
+       JOIN application_remote_consumer arc ON arc.offer_connection_uuid = sp.subject_uuid
+WHERE  sp.secret_id = $secretRef.secret_id
+AND    arc.consumer_application_uuid = $uuid.uuid
+AND    sp.subject_type_id = 1 -- domainsecret.SubjectApplication
+AND    sp.scope_type_id = 3 -- domainsecret.ScopeRelation
+ORDER BY a.name`
+
+	ref := secretRef{ID: uri.ID}
+	appUUID := uuid{UUID: consumingAppUUID}
+	selectGrantsStmt, err := st.Prepare(query, ref, appUUID, remoteConsumerSecretGrant{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []remoteConsumerSecretGrant
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := st.checkExists(ctx, tx, uri); err != nil {
+			return errors.Capture(err)
+		}
+		err := tx.Query(ctx, selectGrantsStmt, ref, appUUID).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"secret grant for consuming application UUID %q on %q not found",
+				consumingAppUUID, uri).Add(secreterrors.SecretAccessScopeNotFound)
+		} else if err != nil {
+			return errors.Errorf(
+				"looking up secret grants for consuming application UUID %q on %q: %w",
+				consumingAppUUID, uri, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	grants := make([]crossmodelrelation.RemoteConsumerSecretGrant, len(rows))
+	for i, row := range rows {
+		grants[i] = crossmodelrelation.RemoteConsumerSecretGrant{
+			ApplicationName: row.ApplicationName,
+			RelationUUID:    row.RelationUUID,
+			OfferUUID:       row.OfferUUID,
+		}
+	}
+	return grants, nil
 }

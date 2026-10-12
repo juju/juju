@@ -10,6 +10,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	"github.com/juju/juju/domain/secret"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -19,7 +20,6 @@ import (
 
 // SecretService provides access to the secret service,
 type SecretService interface {
-	GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, accessor secret.SecretAccessor) (corerelation.UUID, error)
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor,
 	) ([]*secrets.SecretRevisionRef, error)
@@ -44,7 +44,13 @@ type CrossModelRelationService interface {
 	// A relation is valid if it is not suspended and the application is involved in the relation.
 	IsCrossModelRelationValidForApplication(ctx context.Context, key corerelation.Key, appName string) (bool, error)
 
-	// GetRemoteConsumerApplicationName returns the name of the synthetic application representing
-	// a consuming application in the offering model.
-	GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID coreapplication.UUID) (string, error)
+	// GetRemoteConsumerSecretGrants returns the grants of the specified
+	// secret to the remote consumer identified by the consuming application
+	// UUID: one entry per offer connection of the consuming application
+	// over which the secret was granted, ordered by the name of the
+	// synthetic application representing the consuming application for
+	// that connection.
+	GetRemoteConsumerSecretGrants(
+		ctx context.Context, uri *secrets.URI, consumingAppUUID coreapplication.UUID,
+	) ([]crossmodelrelationservice.RemoteConsumerSecretGrant, error)
 }

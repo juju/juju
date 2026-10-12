@@ -202,7 +202,7 @@ type MockModelStateMockRecorder struct {
 	getRemoteApplicationOffererByApplicationNameExpects                         []*gomock.Call2_2[context.Context, string, string, error]
 	getRemoteApplicationOfferersExpects                                         []*gomock.Call1_2[context.Context, []crossmodelrelation.RemoteApplicationOfferer, error]
 	getRemoteConsumedSecretURIsWithChangesFromOfferingSideExpects               []*gomock.Call2V_2[context.Context, string, string, []string, error]
-	getRemoteConsumerApplicationNameExpects                                     []*gomock.Call2_2[context.Context, string, string, error]
+	getRemoteConsumerSecretGrantsExpects                                        []*gomock.Call3_2[context.Context, *secrets.URI, string, []crossmodelrelation.RemoteConsumerSecretGrant, error]
 	getSecretAccessExpects                                                      []*gomock.Call3_2[context.Context, *secrets.URI, secret.AccessParams, string, error]
 	getSecretRemoteConsumerExpects                                              []*gomock.Call3_3[context.Context, *secrets.URI, string, *secrets.SecretConsumerMetadata, int, error]
 	getSecretValueExpects                                                       []*gomock.Call3_3[context.Context, *secrets.URI, int, secrets.SecretData, *secrets.ValueRef, error]
@@ -731,23 +731,23 @@ func (mr *MockModelStateMockRecorder) GetRemoteConsumedSecretURIsWithChangesFrom
 // MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall is the typed call wrapper for GetRemoteConsumedSecretURIsWithChangesFromOfferingSide.
 type MockModelStateGetRemoteConsumedSecretURIsWithChangesFromOfferingSideCall = gomock.Call2V_2[context.Context, string, string, []string, error]
 
-// GetRemoteConsumerApplicationName mocks base method.
-func (m *MockModelState) GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID string) (string, error) {
+// GetRemoteConsumerSecretGrants mocks base method.
+func (m *MockModelState) GetRemoteConsumerSecretGrants(ctx context.Context, uri *secrets.URI, consumingAppUUID string) ([]crossmodelrelation.RemoteConsumerSecretGrant, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getRemoteConsumerApplicationNameExpects, m.ctrl, m, "GetRemoteConsumerApplicationName", ctx, consumingAppUUID)
+	return gomock.Dispatch3_2(&m.recorder.getRemoteConsumerSecretGrantsExpects, m.ctrl, m, "GetRemoteConsumerSecretGrants", ctx, uri, consumingAppUUID)
 }
 
-// GetRemoteConsumerApplicationName indicates an expected call of GetRemoteConsumerApplicationName.
-func (mr *MockModelStateMockRecorder) GetRemoteConsumerApplicationName(ctx, consumingAppUUID any) *MockModelStateGetRemoteConsumerApplicationNameCall {
+// GetRemoteConsumerSecretGrants indicates an expected call of GetRemoteConsumerSecretGrants.
+func (mr *MockModelStateMockRecorder) GetRemoteConsumerSecretGrants(ctx, uri, consumingAppUUID any) *MockModelStateGetRemoteConsumerSecretGrantsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetRemoteConsumerApplicationName", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(consumingAppUUID))
-	mr.getRemoteConsumerApplicationNameExpects = append(mr.getRemoteConsumerApplicationNameExpects, call)
+	call := gomock.NewCall3_2[context.Context, *secrets.URI, string, []crossmodelrelation.RemoteConsumerSecretGrant, error](mr.mock.ctrl.T, mr.mock, "GetRemoteConsumerSecretGrants", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(consumingAppUUID))
+	mr.getRemoteConsumerSecretGrantsExpects = append(mr.getRemoteConsumerSecretGrantsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelStateGetRemoteConsumerApplicationNameCall is the typed call wrapper for GetRemoteConsumerApplicationName.
-type MockModelStateGetRemoteConsumerApplicationNameCall = gomock.Call2_2[context.Context, string, string, error]
+// MockModelStateGetRemoteConsumerSecretGrantsCall is the typed call wrapper for GetRemoteConsumerSecretGrants.
+type MockModelStateGetRemoteConsumerSecretGrantsCall = gomock.Call3_2[context.Context, *secrets.URI, string, []crossmodelrelation.RemoteConsumerSecretGrant, error]
 
 // GetSecretAccess mocks base method.
 func (m *MockModelState) GetSecretAccess(ctx context.Context, uri *secrets.URI, params secret.AccessParams) (string, error) {

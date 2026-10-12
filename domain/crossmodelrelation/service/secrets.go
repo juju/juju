@@ -7,12 +7,14 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/offer"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
@@ -46,6 +48,18 @@ type ModelSecretsState interface {
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
 	// GetSecretAccess returns the access to the secret for the specified accessor.
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
+
+	// GetRemoteConsumerSecretGrants returns the grants of the specified
+	// secret to the remote consumer with the given consuming application
+	// UUID: one entry per offer connection of the consuming application
+	// over which the secret was granted, ordered by the name of the
+	// synthetic application representing the consuming application for
+	// that connection.
+	// It returns an error satisfying [secreterrors.SecretNotFound] if the
+	// secret does not exist, and an error satisfying
+	// [secreterrors.SecretAccessScopeNotFound] if the consuming application
+	// holds no grant of the secret.
+	GetRemoteConsumerSecretGrants(ctx context.Context, uri *secrets.URI, consumingAppUUID string) ([]crossmodelrelation.RemoteConsumerSecretGrant, error)
 }
 
 // UpdateRemoteConsumedRevision returns the latest revision for the specified secret,
@@ -117,6 +131,78 @@ func (s *Service) SaveRemoteSecretConsumer(ctx context.Context, uri *secrets.URI
 	}
 
 	return s.modelState.SaveRemoteSecretConsumer(ctx, uri, unitUUID, md, appUUID.String(), relationUUID.String())
+}
+
+// RemoteConsumerSecretGrant describes a grant of a secret to a remote
+// application consumer, resolved for one offer connection of the
+// consuming application.
+type RemoteConsumerSecretGrant struct {
+	// ApplicationName is the name of the synthetic application representing
+	// the consuming application for the offer connection the secret was
+	// granted over. Every offer connection of a consuming application is
+	// represented by its own synthetic application.
+	ApplicationName string
+
+	// RelationUUID is the UUID of the relation scoping the grant, being the
+	// relation created for the offer connection the secret was granted
+	// over.
+	RelationUUID relation.UUID
+
+	// OfferUUID is the UUID of the offer the connection the secret was
+	// granted over was made for.
+	OfferUUID offer.UUID
+}
+
+// GetRemoteConsumerSecretGrants returns the grants of the specified secret
+// to the remote consumer identified by the consuming application UUID: one
+// entry per offer connection of the consuming application over which the
+// secret was granted, ordered by the name of the synthetic application
+// representing the consuming application for that connection.
+//
+// A consuming application may hold several offer connections, each
+// represented by its own synthetic application, so the consuming
+// application UUID alone cannot identify the connection a secret was
+// granted over; the grant does.
+// It returns an error satisfying [secreterrors.SecretNotFound] if the secret
+// does not exist, and an error satisfying
+// [secreterrors.SecretAccessScopeNotFound] if the consuming application holds
+// no grant of the secret.
+func (s *Service) GetRemoteConsumerSecretGrants(
+	ctx context.Context, uri *secrets.URI, consumingAppUUID coreapplication.UUID,
+) ([]RemoteConsumerSecretGrant, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := consumingAppUUID.Validate(); err != nil {
+		return nil, applicationerrors.ApplicationUUIDNotValid
+	}
+
+	grants, err := s.modelState.GetRemoteConsumerSecretGrants(ctx, uri, consumingAppUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	result := make([]RemoteConsumerSecretGrant, len(grants))
+	for i, grant := range grants {
+		relationUUID, err := relation.ParseUUID(grant.RelationUUID)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing relation UUID %q of the grant of secret %q to consuming application UUID %q: %w",
+				grant.RelationUUID, uri, consumingAppUUID, err)
+		}
+		offerUUID, err := offer.ParseUUID(grant.OfferUUID)
+		if err != nil {
+			return nil, errors.Errorf(
+				"parsing offer UUID %q of the grant of secret %q to consuming application UUID %q: %w",
+				grant.OfferUUID, uri, consumingAppUUID, err)
+		}
+		result[i] = RemoteConsumerSecretGrant{
+			ApplicationName: grant.ApplicationName,
+			RelationUUID:    relationUUID,
+			OfferUUID:       offerUUID,
+		}
+	}
+	return result, nil
 }
 
 func (s *Service) canRead(ctx context.Context, uri *secrets.URI, consumer domainsecret.AccessParams) error {

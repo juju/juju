@@ -428,6 +428,12 @@ type secretAccessor struct {
 	RoleID        domainsecret.Role             `db:"role_id"`
 }
 
+type remoteConsumerSecretGrant struct {
+	ApplicationName string `db:"application_name"`
+	RelationUUID    string `db:"relation_uuid"`
+	OfferUUID       string `db:"offer_uuid"`
+}
+
 type secretRole struct {
 	Role string `db:"role"`
 }
