@@ -843,6 +843,7 @@ to create a new model to deploy %sworkloads.
 		ControllerExternalName:        bootstrapCfg.bootstrap.ControllerExternalName,
 		ControllerExternalIPs:         append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),
 		StoragePools:                  bootstrapCfg.storagePools,
+		ControllerStorageClass:        bootstrapCfg.controllerStorageClass,
 		ControllerCharmPath:           c.ControllerCharmPath,
 		ControllerCharmChannel:        c.ControllerCharmChannel,
 		DialOpts: environs.BootstrapDialOpts{
@@ -1336,6 +1337,7 @@ type bootstrapConfigs struct {
 	inheritedControllerAttrs map[string]any
 	userConfigAttrs          map[string]any
 	storagePools             map[string]storage.Attrs
+	controllerStorageClass   string
 }
 
 func (c *bootstrapCommand) bootstrapConfigs(
@@ -1423,17 +1425,24 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 
 	// If the Kubernetes cloud has a workload storage class recorded (see
-	// add-k8s --storage) and the user has not configured the controller
-	// model's storage themselves, schedule a storage pool for the
-	// recorded class and make it the controller model's default
-	// filesystem source. This provisions both the controller's
-	// persistent volume claim and any charm storage in the controller
-	// model from the recorded class.
+	// add-k8s --storage), honouring a --config workload-storage override,
+	// nominate it for the controller's persistent volume claim regardless
+	// of the storage the user configures themselves: the recorded class
+	// nominates the PVC specifically.
+	var controllerStorageClass string
 	if cloud.Type == jujucloud.CloudTypeKubernetes {
-		if workloadStorageClass := workloadStorageClassForBootstrap(cloud, userConfigAttrs); workloadStorageClass != "" &&
+		controllerStorageClass = workloadStorageClassForBootstrap(cloud, userConfigAttrs)
+
+		// When the user has not configured the controller model's
+		// storage themselves, also schedule a storage pool for the
+		// recorded class and make it the controller model's default
+		// filesystem source. This provisions both the controller's
+		// persistent volume claim and any charm storage in the controller
+		// model from the recorded class.
+		if controllerStorageClass != "" &&
 			len(storagePools) == 0 &&
 			!defaultFilesystemSourceConfigured(userConfigAttrs, modelDefaultConfigAttrs, cloud.Config) {
-			poolName := workloadStorageClass
+			poolName := controllerStorageClass
 			if reservedStoragePoolName(poolName) {
 				poolName = "k8s-" + poolName
 			}
@@ -1441,7 +1450,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 				poolName: {
 					corestorage.BootstrapStoragePoolNameKey: poolName,
 					corestorage.BootstrapStoragePoolTypeKey: string(k8sconstants.StorageProviderType),
-					k8sconstants.StorageClass:               workloadStorageClass,
+					k8sconstants.StorageClass:               controllerStorageClass,
 				},
 			}
 			// The default filesystem source is deliberately set for the
@@ -1596,6 +1605,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		inheritedControllerAttrs: inheritedControllerAttrs,
 		userConfigAttrs:          userConfigAttrs,
 		storagePools:             storagePools,
+		controllerStorageClass:   controllerStorageClass,
 	}
 	return configs, nil
 }

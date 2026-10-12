@@ -507,6 +507,13 @@ var configSchema = configschema.Fields{
 	WorkloadStorageKey: {
 		Type:  configschema.Tstring,
 		Group: configschema.JujuGroup,
+		Description: `
+The name of the Kubernetes storage class recorded on the cloud by
+add-k8s --storage, used for the controller's persistent volume claim.
+A value supplied with --config overrides the recorded class. The
+nominated class is used for the controller's persistent volume claim
+even when the controller model's default storage is configured
+separately.`,
 	},
 	OperatorStorageKey: {
 		Type:  configschema.Tstring,

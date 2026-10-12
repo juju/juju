@@ -763,6 +763,7 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageConfig(c *tc.C) {
 	c.Check(workloadInModel, tc.IsFalse)
 	_, workloadInherited := configs.inheritedControllerAttrs["workload-storage"]
 	c.Check(workloadInherited, tc.IsFalse)
+	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserOverride(c *tc.C) {
@@ -796,6 +797,38 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserOverride(c *tc.C) {
 		},
 	})
 	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "override-sc")
+	c.Check(configs.controllerStorageClass, tc.Equals, "override-sc")
+}
+
+func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserOverrideNoCloudRecord(c *tc.C) {
+	// A workload storage class supplied with --config synthesises the
+	// controller model's pool even when no class is recorded on the
+	// cloud: synthesis comes solely from the user's config.
+	s.patchVersion(c)
+
+	ctx := cmdtesting.Context(c)
+	env := &openstack.Environ{}
+	provider := env.Provider()
+
+	err := s.bootstrapCmd.config.Set("workload-storage=override-sc")
+	c.Assert(err, tc.ErrorIsNil)
+
+	testCloud := cloud.Cloud{
+		Name: "myk8s",
+		Type: cloud.CloudTypeKubernetes,
+	}
+	configs, err := s.bootstrapCmd.bootstrapConfigs(ctx, testCloud, provider)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(configs.storagePools, tc.DeepEquals, map[string]storage.Attrs{
+		"override-sc": {
+			"name":          "override-sc",
+			"type":          "kubernetes",
+			"storage-class": "override-sc",
+		},
+	})
+	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "override-sc")
+	c.Check(configs.controllerStorageClass, tc.Equals, "override-sc")
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageReservedPoolName(c *tc.C) {
@@ -825,6 +858,7 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageReservedPoolName(c *tc.C
 		},
 	})
 	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "k8s-kubernetes")
+	c.Check(configs.controllerStorageClass, tc.Equals, "kubernetes")
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserDefaultSource(c *tc.C) {
@@ -851,6 +885,7 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserDefaultSource(c *tc.
 
 	c.Check(configs.storagePools, tc.HasLen, 0)
 	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "rootfs")
+	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageModelDefaultSource(c *tc.C) {
@@ -877,6 +912,7 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageModelDefaultSource(c *tc
 
 	c.Check(configs.storagePools, tc.HasLen, 0)
 	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "rootfs")
+	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageCloudDefaultSource(c *tc.C) {
@@ -901,6 +937,7 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageCloudDefaultSource(c *tc
 
 	c.Check(configs.storagePools, tc.HasLen, 0)
 	c.Check(configs.bootstrapModel["storage-default-filesystem-source"], tc.Equals, "rootfs")
+	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
 }
 
 func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserPool(c *tc.C) {
@@ -942,6 +979,7 @@ func (s *BootstrapSuite) TestBootstrapK8sWorkloadStorageUserPool(c *tc.C) {
 	// model's storage resolves through their pool unaided.
 	_, hasDefault := configs.bootstrapModel["storage-default-filesystem-source"]
 	c.Check(hasDefault, tc.IsFalse)
+	c.Check(configs.controllerStorageClass, tc.Equals, "ceph-rbd")
 }
 
 func (s *BootstrapSuite) TestBootstrapNonK8sWorkloadStorageConfig(c *tc.C) {
@@ -969,6 +1007,7 @@ func (s *BootstrapSuite) TestBootstrapNonK8sWorkloadStorageConfig(c *tc.C) {
 	c.Check(hasDefault, tc.IsFalse)
 	_, workloadInModel := configs.bootstrapModel["workload-storage"]
 	c.Check(workloadInModel, tc.IsFalse)
+	c.Check(configs.controllerStorageClass, tc.Equals, "")
 }
 
 func (s *BootstrapSuite) TestBootstrapRegionConfigNoRegionSpecified(c *tc.C) {
