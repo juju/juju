@@ -284,6 +284,7 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 }
 
 // DeleteStoragePool deletes a storage pool with the specified name.
+// The UUID lookup, usage check and deletion run in the same transaction.
 // The following errors can be expected:
 // - [domainstorageerrors.StoragePoolNotFound] if the pool does not exist.
 // - [domainstorageerrors.StoragePoolInUse] if the pool is still referenced.
@@ -294,10 +295,7 @@ func (st State) DeleteStoragePool(ctx context.Context, poolName string) error {
 	}
 
 	usage := storagePoolUsage{}
-	inputName := name{Name: poolName}
-	usageStmt, err := st.Prepare(storagePoolUsageQuery+`
-WHERE pu.name = $name.name
-`, inputName, usage)
+	usageStmt, err := st.Prepare(storagePoolUsageQuery, entityUUID{}, usage)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -316,7 +314,12 @@ DELETE FROM storage_pool WHERE uuid = $storagePoolUsage.uuid
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, usageStmt, inputName).Get(&usage); errors.Is(err, sqlair.ErrNoRows) {
+		poolUUID, err := GetStoragePoolUUID(ctx, tx, st, poolName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		inputUUID := entityUUID{UUID: poolUUID.String()}
+		if err := tx.Query(ctx, usageStmt, inputUUID).Get(&usage); errors.Is(err, sqlair.ErrNoRows) {
 			return domainstorageerrors.StoragePoolNotFound
 		} else if err != nil {
 			return errors.Errorf("checking storage pool usage: %w", err)
@@ -357,9 +360,7 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 
 	inputUUID := entityUUID{UUID: pool.UUID}
 	usage := storagePoolUsage{}
-	usageStmt, err := st.Prepare(storagePoolUsageQuery+`
-WHERE pu.uuid = $entityUUID.uuid
-`, inputUUID, usage)
+	usageStmt, err := st.Prepare(storagePoolUsageQuery, inputUUID, usage)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -396,7 +397,6 @@ type storagePoolUsage struct {
 const storagePoolUsageQuery = `
 WITH pool_usage AS (
 SELECT sp.uuid AS uuid,
-       sp.name AS name,
        sp.type AS type,
     (
         EXISTS (
@@ -442,6 +442,7 @@ SELECT pu.uuid AS &storagePoolUsage.uuid,
        pu.type AS &storagePoolUsage.type,
        pu.in_use AS &storagePoolUsage.in_use
 FROM pool_usage AS pu
+WHERE pu.uuid = $entityUUID.uuid
 `
 
 // ListStoragePools returns all storage pools in the model.
