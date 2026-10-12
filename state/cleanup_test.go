@@ -1687,29 +1687,17 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	assertLifeIs(c, subordinate, state.Alive)
 
 	s.assertNeedsCleanup(c)
-	// dyingUnit(mysql/0)
+	// dyingUnit(mysql/0) force destroys the subordinate and schedules
+	// forceDestroyUnit for both units.
 	s.assertNextCleanup(c, "dyingUnit(mysql/0)")
-
-	// forceDestroyUnit(mysql/0) triggers destruction of the subordinate that
-	// needs to run - it fails because the subordinates haven't yet
-	// been removed. It will be pending until near the end of this test when it
-	// finally succeeds.
-	s.assertNextCleanup(c, "forceDestroyUnit(mysql/0)")
 
 	assertLifeIs(c, subordinate, state.Dying)
 	assertLifeIs(c, unit, state.Dying)
 
-	// dyingUnit(logging/0) runs and schedules the force cleanup.
-	s.assertNextCleanup(c, "dyingUnit(logging/0)")
-	// forceDestroyUnit(logging/0) sets it to dead.
-	s.assertNextCleanup(c, "forceDestroyUnit(logging/0)")
-
-	assertLifeIs(c, subordinate, state.Dead)
-	assertLifeIs(c, unit, state.Dying)
-
-	// The principal cleanup removes the now-dead subordinate and can then
-	// finish making the principal dead.
-	s.assertNextCleanup(c, "forceDestroyUnit(mysql/0)")
+	// forceDestroyUnit(logging/0) sets the subordinate to dead. The
+	// principal's backstop runs after it, so it removes the now-dead
+	// subordinate and can then make the principal dead.
+	s.assertNextCleanup(c, "dyingUnit(logging/0), forceDestroyUnit(logging/0), forceDestroyUnit(mysql/0)")
 	assertUnitRemoved(c, subordinate)
 	assertLifeIs(c, unit, state.Dead)
 

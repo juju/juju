@@ -197,7 +197,9 @@ func (db *failRunTransactionDatabase) RunTransaction(ops []txn.Op) error {
 
 type failCleanupSchedulingDatabase struct {
 	Database
-	kind   cleanupKind
+	kind cleanupKind
+	// prefix, when set, limits the failure to cleanups for that entity.
+	prefix string
 	err    error
 	failed bool
 }
@@ -209,7 +211,9 @@ func (db *failCleanupSchedulingDatabase) Run(source jujutxn.TransactionSource) e
 			return nil, err
 		}
 		for _, op := range ops {
-			if doc, ok := op.Insert.(*cleanupDoc); ok && doc.Kind == db.kind && !db.failed {
+			doc, ok := op.Insert.(*cleanupDoc)
+			matched := ok && doc.Kind == db.kind && (db.prefix == "" || doc.Prefix == db.prefix)
+			if matched && !db.failed {
 				db.failed = true
 				return nil, db.err
 			}
@@ -836,6 +840,113 @@ func (s *cleanupInternalSuite) TestCleanupForceDestroyedUnitEscalatesSubordinate
 		c.Check(docs[0].DocID, gc.Equals, stableDocID)
 		c.Check(docs[0].When, gc.Equals, stableWhen)
 	}
+}
+
+// addDyingSubordinate returns a principal unit and its subordinate, which
+// has been destroyed without force and has no force backstop of its own.
+func addDyingSubordinate(c *gc.C, st *State) (*Unit, *Unit) {
+	principalApplication := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+	subordinateApplication := AddTestingApplication(c, st, "logging", AddTestingCharm(c, st, "logging"))
+	endpoints, err := st.InferEndpoints(principalApplication.Name(), subordinateApplication.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := st.AddRelation(endpoints...)
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	principal := addUnitToMachine(c, principalApplication, machine)
+	principalRelationUnit, err := relation.Unit(principal)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(principalRelationUnit.EnterScope(nil), jc.ErrorIsNil)
+	c.Assert(principal.Refresh(), jc.ErrorIsNil)
+	c.Assert(principal.SubordinateNames(), gc.HasLen, 1)
+	subordinate, err := st.Unit(principal.SubordinateNames()[0])
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(principal.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+	c.Assert(subordinate.SetAgentStatus(status.StatusInfo{Status: status.Idle}), jc.ErrorIsNil)
+
+	c.Assert(subordinate.Destroy(), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	assertForceDestroyedUnitCount(c, st, subordinate.Name(), 0)
+	return principal, subordinate
+}
+
+func (s *cleanupInternalSuite) TestCleanupDyingUnitSchedulesDyingSubordinateBackstop(c *gc.C) {
+	st := s.newState(c)
+	principal, subordinate := addDyingSubordinate(c, st)
+
+	const maxWait = time.Minute
+	_, err := principal.DestroyWithForce(true, maxWait)
+	c.Assert(err, jc.ErrorIsNil)
+	// The principal's dying unit cleanup schedules the subordinate's
+	// backstop along with its own.
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	assertForceDestroyedUnitCount(c, st, principal.Name(), 1)
+	assertForceDestroyedUnitCount(c, st, subordinate.Name(), 1)
+
+	// After maxWait both backstops run: the subordinate is forced to Dead,
+	// then removed by the principal's backstop, which lets the principal
+	// become Dead.
+	s.clock.Advance(maxWait)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(subordinate.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(principal.Refresh(), jc.ErrorIsNil)
+	c.Check(principal.Life(), gc.Equals, Dead)
+}
+
+func (s *cleanupInternalSuite) TestCleanupDyingUnitRetriesSubordinateLookupError(c *gc.C) {
+	st := s.newState(c)
+	principal, subordinate := addDyingSubordinate(c, st)
+	_, err := principal.DestroyWithForce(true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The second units lookup is the subordinate's. Its failure keeps the
+	// principal's dying unit cleanup, rather than scheduling the backstop
+	// and leaving the subordinate without one.
+	faultState := *st
+	database := &failCollectionDatabase{
+		Database:   st.database,
+		collection: unitsC,
+		failAt:     2,
+		err:        errors.New("subordinate lookup failed"),
+	}
+	faultState.database = database
+	c.Assert(faultState.Cleanup(nil), jc.ErrorIsNil)
+	c.Check(database.calls, gc.Equals, 2)
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 1)
+	assertForceDestroyedUnitCount(c, st, principal.Name(), 0)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	assertForceDestroyedUnitCount(c, st, principal.Name(), 1)
+	assertForceDestroyedUnitCount(c, st, subordinate.Name(), 1)
+}
+
+func (s *cleanupInternalSuite) TestCleanupDyingUnitRetriesSubordinateBackstopError(c *gc.C) {
+	st := s.newState(c)
+	principal, subordinate := addDyingSubordinate(c, st)
+	_, err := principal.DestroyWithForce(true, time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// A failure to schedule the principal's backstop doesn't leave the
+	// subordinate's scheduled either, and keeps the principal's dying
+	// unit cleanup to try again.
+	faultState := *st
+	database := &failCleanupSchedulingDatabase{
+		Database: st.database,
+		kind:     cleanupForceDestroyedUnit,
+		prefix:   principal.Name(),
+		err:      errors.New("cleanup scheduling failed"),
+	}
+	faultState.database = database
+	c.Assert(faultState.Cleanup(nil), jc.ErrorIsNil)
+	c.Assert(database.failed, jc.IsTrue)
+	AssertCleanupCountWithKind(c, st, cleanupDyingUnit, 1)
+	assertForceDestroyedUnitCount(c, st, principal.Name(), 0)
+	assertForceDestroyedUnitCount(c, st, subordinate.Name(), 0)
+
+	c.Assert(st.Cleanup(nil), jc.ErrorIsNil)
+	assertForceDestroyedUnitCount(c, st, principal.Name(), 1)
+	assertForceDestroyedUnitCount(c, st, subordinate.Name(), 1)
 }
 
 func (s *cleanupInternalSuite) TestCleanupEvacuateMissingMachineRemovesUpgradeSeriesLock(c *gc.C) {
