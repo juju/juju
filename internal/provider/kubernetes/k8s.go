@@ -450,7 +450,10 @@ func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo 
 //  2. the single storage pool scheduled for creation in the controller
 //     model that uses the Kubernetes storage provider and defines a
 //     [constants.StorageClass] attribute;
-//  3. storage class discovery against the cluster, using the same
+//  3. the storage class recorded on the cloud (see add-k8s --storage),
+//     honouring a --config workload-storage override, via
+//     [environs.BootstrapParams.ControllerStorageClass];
+//  4. storage class discovery against the cluster, using the same
 //     preference rules as add-k8s.
 //
 // A nominated storage class that does not exist on the cluster is reported
@@ -478,6 +481,14 @@ func (k *kubernetesClient) resolveControllerStorageClass(
 		// Kubernetes storage pool for the controller model, the storage
 		// class it defines is unambiguous.
 		nominatedStorageClass = storageClassFromPools(args.StoragePools)
+	}
+	if nominatedStorageClass == "" {
+		// The storage scheduled for the controller model does not
+		// identify a class: user configuration of the controller
+		// model's default storage must not void the class recorded on
+		// the cloud, which nominates the controller's persistent volume
+		// claim specifically.
+		nominatedStorageClass = args.ControllerStorageClass
 	}
 
 	// GetClusterMetadata validates a nominated class against the cluster
