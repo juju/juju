@@ -121,6 +121,7 @@ type MockDrainingServiceMockRecorder struct {
 	getDrainingPhaseExpects            []*gomock.Call1_2[context.Context, objectstore.Phase, error]
 	getDrainingPhaseInfoExpects        []*gomock.Call1_2[context.Context, objectstore.DrainingPhaseInfo, error]
 	getObjectStoreBackendExpects       []*gomock.Call2_2[context.Context, objectstore.UUID, service.BackendInfo, error]
+	isObjectStoreUsableExpects         []*gomock.Call1_2[context.Context, bool, error]
 	setDrainingPhaseExpects            []*gomock.Call2_1[context.Context, objectstore.Phase, error]
 	watchDrainingExpects               []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 	watchObjectStoreBackendExpects     []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
@@ -209,6 +210,24 @@ func (mr *MockDrainingServiceMockRecorder) GetObjectStoreBackend(ctx, uuid any) 
 
 // MockDrainingServiceGetObjectStoreBackendCall is the typed call wrapper for GetObjectStoreBackend.
 type MockDrainingServiceGetObjectStoreBackendCall = gomock.Call2_2[context.Context, objectstore.UUID, service.BackendInfo, error]
+
+// IsObjectStoreUsable mocks base method.
+func (m *MockDrainingService) IsObjectStoreUsable(ctx context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.isObjectStoreUsableExpects, m.ctrl, m, "IsObjectStoreUsable", ctx)
+}
+
+// IsObjectStoreUsable indicates an expected call of IsObjectStoreUsable.
+func (mr *MockDrainingServiceMockRecorder) IsObjectStoreUsable(ctx any) *MockDrainingServiceIsObjectStoreUsableCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, bool, error](mr.mock.ctrl.T, mr.mock, "IsObjectStoreUsable", gomock.EnsureMatcher(ctx))
+	mr.isObjectStoreUsableExpects = append(mr.isObjectStoreUsableExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDrainingServiceIsObjectStoreUsableCall is the typed call wrapper for IsObjectStoreUsable.
+type MockDrainingServiceIsObjectStoreUsableCall = gomock.Call1_2[context.Context, bool, error]
 
 // SetDrainingPhase mocks base method.
 func (m *MockDrainingService) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {

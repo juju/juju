@@ -58,6 +58,7 @@ type DrainingService interface {
 	// GetDrainingPhase returns the current draining phase, including an
 	// inferred error phase when a backend remains dying.
 	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
+	IsObjectStoreUsable(ctx context.Context) (bool, error)
 
 	// GetDrainingPhaseInfo returns the current active draining phase info of
 	// the object store.
@@ -294,6 +295,17 @@ func (w *Worker) loop() error {
 			// We're not draining, so we can unlock the guard and wait
 			// for the next change.
 			if phase.IsNotStarted() || phase == objectstore.PhaseCompleted {
+				usable, err := w.drainingService.IsObjectStoreUsable(ctx)
+				if err != nil {
+					return errors.Errorf("checking object-store usability: %w", err)
+				}
+				if !usable {
+					if err := w.guard.Lockdown(ctx); err != nil {
+						return errors.Errorf("failed to update guard: %v", err)
+					}
+					continue
+				}
+
 				w.logger.Infof(ctx, "object store is not draining, unlocking guard")
 
 				if err := w.guard.Unlock(ctx); err != nil {
@@ -302,6 +314,9 @@ func (w *Worker) loop() error {
 				continue
 			} else if phase == objectstore.PhaseError {
 				w.logger.Errorf(ctx, "object store is in an error state, manual intervention required")
+				if err := w.guard.Lockdown(ctx); err != nil {
+					return errors.Errorf("failed to update guard: %v", err)
+				}
 				continue
 			}
 

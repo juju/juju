@@ -579,6 +579,7 @@ func (s *workerSuite) TestDrainingPhaseErrorKeepsGuardLockedUntilCompletion(c *t
 			return "", c.Context().Err()
 		}
 	}).AnyTimes()
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
 	s.guard.EXPECT().Unlock(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
 		defer close(done)
 		return nil
