@@ -421,7 +421,7 @@ func (w *localConsumerWorker) loop() (err error) {
 					return RemoteApplicationOffererDeadErr
 				}
 
-				if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, change.Status); err != nil {
+				if err := w.crossModelService.SetRemoteApplicationOffererStatusByApplicationUUID(ctx, w.applicationUUID, change.Status); err != nil {
 					return errors.Annotatef(err, "updating remote application %v status from remote model %v", w.applicationName, w.offererModelUUID)
 				}
 			}
@@ -457,7 +457,7 @@ func (w *localConsumerWorker) setupRemoteModelClient(ctx context.Context) (Remot
 	// we cannot connect to the remote model. If this fails, log the error,
 	// as we don't want the worker to bounce on this error. Instead, we want
 	// to bounce on the original error.
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatusByApplicationUUID(ctx, w.applicationUUID, status.StatusInfo{
 		Status:  status.Error,
 		Message: fmt.Sprintf("cannot connect to external controller: %v", err.Error()),
 	}); err != nil {
@@ -493,7 +493,7 @@ func (w *localConsumerWorker) setApplicationOffererStatusMacaroonError(ctx conte
 		return nil
 	}
 
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatusByApplicationUUID(ctx, w.applicationUUID, status.StatusInfo{
 		Status:  status.Error,
 		Message: err.Error(),
 	}); err != nil {
@@ -509,7 +509,7 @@ func (w *localConsumerWorker) remoteOfferRemoved(ctx context.Context) error {
 	// and not removing any additional workers? If the offer has been removed,
 	// surely we want to some how trigger a cleanup of the remote application
 	// and data associated with it?
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatusByApplicationUUID(ctx, w.applicationUUID, status.StatusInfo{
 		Status:  status.Terminated,
 		Message: "offer has been removed",
 	}); err != nil {
@@ -1060,7 +1060,7 @@ func (w *localConsumerWorker) handleDischargeRequiredErrorWhilstDying(ctx contex
 
 	// If consume permission has been revoked for the offer, set the status of
 	// of the local application entity representing the remote offerer.
-	if err := w.crossModelService.SetRemoteApplicationOffererStatus(ctx, w.applicationName, status.StatusInfo{
+	if err := w.crossModelService.SetRemoteApplicationOffererStatusByApplicationUUID(ctx, w.applicationUUID, status.StatusInfo{
 		Status:  status.Error,
 		Message: fmt.Sprintf("offer permission revoked: %v", err.Error()),
 	}); err != nil {

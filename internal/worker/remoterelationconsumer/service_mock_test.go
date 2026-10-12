@@ -319,25 +319,25 @@ type MockCrossModelService struct {
 
 // MockCrossModelServiceMockRecorder is the mock recorder for MockCrossModelService.
 type MockCrossModelServiceMockRecorder struct {
-	mock                                                   *MockCrossModelService
-	ensureUnitsExistExpects                                []*gomock.Call3_1[context.Context, application.UUID, []unit.Name, error]
-	getApplicationUUIDByNameExpects                        []*gomock.Call2_2[context.Context, string, application.UUID, error]
-	getRelationDetailsExpects                              []*gomock.Call2_2[context.Context, relation.UUID, relation0.RelationDetails, error]
-	getRelationUnitUUIDExpects                             []*gomock.Call3_2[context.Context, relation.UUID, unit.Name, relation.UnitUUID, error]
-	getRelationUnitsExpects                                []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, relation0.RelationUnitChange, error]
-	getRemoteApplicationOfferersExpects                    []*gomock.Call1_2[context.Context, []crossmodelrelation.RemoteApplicationOfferer, error]
-	leaveScopeExpects                                      []*gomock.Call2_1[context.Context, relation.UnitUUID, error]
-	removeRelationWithRemoteOffererExpects                 []*gomock.Call4_2[context.Context, relation.UUID, bool, time.Duration, removal.UUID, error]
-	removeRemoteApplicationOffererByApplicationUUIDExpects []*gomock.Call4_2[context.Context, application.UUID, bool, time.Duration, removal.UUID, error]
-	saveMacaroonForRelationExpects                         []*gomock.Call3_1[context.Context, relation.UUID, *macaroon.Macaroon, error]
-	setRelationRemoteApplicationAndUnitSettingsExpects     []*gomock.Call5_1[context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string, error]
-	setRemoteApplicationOffererStatusExpects               []*gomock.Call3_1[context.Context, string, status.StatusInfo, error]
-	setRemoteRelationSuspendedStateExpects                 []*gomock.Call4_1[context.Context, relation.UUID, bool, string, error]
-	updateRemoteSecretRevisionExpects                      []*gomock.Call4_1[context.Context, *secrets.URI, int, application.UUID, error]
-	watchDyingModelExpects                                 []*gomock.Call1_2[context.Context, watcher0.NotifyWatcher, error]
-	watchRelationUnitsExpects                              []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, watcher0.NotifyWatcher, error]
-	watchRelationsLifeSuspendedStatusForApplicationExpects []*gomock.Call2_2[context.Context, application.UUID, watcher0.StringsWatcher, error]
-	watchRemoteApplicationOfferersExpects                  []*gomock.Call1_2[context.Context, watcher0.NotifyWatcher, error]
+	mock                                                      *MockCrossModelService
+	ensureUnitsExistExpects                                   []*gomock.Call3_1[context.Context, application.UUID, []unit.Name, error]
+	getApplicationUUIDByNameExpects                           []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	getRelationDetailsExpects                                 []*gomock.Call2_2[context.Context, relation.UUID, relation0.RelationDetails, error]
+	getRelationUnitUUIDExpects                                []*gomock.Call3_2[context.Context, relation.UUID, unit.Name, relation.UnitUUID, error]
+	getRelationUnitsExpects                                   []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, relation0.RelationUnitChange, error]
+	getRemoteApplicationOfferersExpects                       []*gomock.Call1_2[context.Context, []crossmodelrelation.RemoteApplicationOfferer, error]
+	leaveScopeExpects                                         []*gomock.Call2_1[context.Context, relation.UnitUUID, error]
+	removeRelationWithRemoteOffererExpects                    []*gomock.Call4_2[context.Context, relation.UUID, bool, time.Duration, removal.UUID, error]
+	removeRemoteApplicationOffererByApplicationUUIDExpects    []*gomock.Call4_2[context.Context, application.UUID, bool, time.Duration, removal.UUID, error]
+	saveMacaroonForRelationExpects                            []*gomock.Call3_1[context.Context, relation.UUID, *macaroon.Macaroon, error]
+	setRelationRemoteApplicationAndUnitSettingsExpects        []*gomock.Call5_1[context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string, error]
+	setRemoteApplicationOffererStatusByApplicationUUIDExpects []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
+	setRemoteRelationSuspendedStateExpects                    []*gomock.Call4_1[context.Context, relation.UUID, bool, string, error]
+	updateRemoteSecretRevisionExpects                         []*gomock.Call4_1[context.Context, *secrets.URI, int, application.UUID, error]
+	watchDyingModelExpects                                    []*gomock.Call1_2[context.Context, watcher0.NotifyWatcher, error]
+	watchRelationUnitsExpects                                 []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, watcher0.NotifyWatcher, error]
+	watchRelationsLifeSuspendedStatusForApplicationExpects    []*gomock.Call2_2[context.Context, application.UUID, watcher0.StringsWatcher, error]
+	watchRemoteApplicationOfferersExpects                     []*gomock.Call1_2[context.Context, watcher0.NotifyWatcher, error]
 }
 
 // NewMockCrossModelService creates a new mock instance.
@@ -550,23 +550,23 @@ func (mr *MockCrossModelServiceMockRecorder) SetRelationRemoteApplicationAndUnit
 // MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall is the typed call wrapper for SetRelationRemoteApplicationAndUnitSettings.
 type MockCrossModelServiceSetRelationRemoteApplicationAndUnitSettingsCall = gomock.Call5_1[context.Context, application.UUID, relation.UUID, map[string]string, map[unit.Name]map[string]string, error]
 
-// SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockCrossModelService) SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error {
+// SetRemoteApplicationOffererStatusByApplicationUUID mocks base method.
+func (m *MockCrossModelService) SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setRemoteApplicationOffererStatusExpects, m.ctrl, m, "SetRemoteApplicationOffererStatus", ctx, appName, sts)
+	return gomock.Dispatch3_1(&m.recorder.setRemoteApplicationOffererStatusByApplicationUUIDExpects, m.ctrl, m, "SetRemoteApplicationOffererStatusByApplicationUUID", ctx, appUUID, sts)
 }
 
-// SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
-func (mr *MockCrossModelServiceMockRecorder) SetRemoteApplicationOffererStatus(ctx, appName, sts any) *MockCrossModelServiceSetRemoteApplicationOffererStatusCall {
+// SetRemoteApplicationOffererStatusByApplicationUUID indicates an expected call of SetRemoteApplicationOffererStatusByApplicationUUID.
+func (mr *MockCrossModelServiceMockRecorder) SetRemoteApplicationOffererStatusByApplicationUUID(ctx, appUUID, sts any) *MockCrossModelServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetRemoteApplicationOffererStatus", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(sts))
-	mr.setRemoteApplicationOffererStatusExpects = append(mr.setRemoteApplicationOffererStatusExpects, call)
+	call := gomock.NewCall3_1[context.Context, application.UUID, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetRemoteApplicationOffererStatusByApplicationUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(sts))
+	mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects = append(mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockCrossModelServiceSetRemoteApplicationOffererStatusCall is the typed call wrapper for SetRemoteApplicationOffererStatus.
-type MockCrossModelServiceSetRemoteApplicationOffererStatusCall = gomock.Call3_1[context.Context, string, status.StatusInfo, error]
+// MockCrossModelServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall is the typed call wrapper for SetRemoteApplicationOffererStatusByApplicationUUID.
+type MockCrossModelServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall = gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
 
 // SetRemoteRelationSuspendedState mocks base method.
 func (m *MockCrossModelService) SetRemoteRelationSuspendedState(ctx context.Context, relationUUID relation.UUID, suspended bool, reason string) error {
@@ -1023,8 +1023,8 @@ type MockStatusService struct {
 
 // MockStatusServiceMockRecorder is the mock recorder for MockStatusService.
 type MockStatusServiceMockRecorder struct {
-	mock                                     *MockStatusService
-	setRemoteApplicationOffererStatusExpects []*gomock.Call3_1[context.Context, string, status.StatusInfo, error]
+	mock                                                      *MockStatusService
+	setRemoteApplicationOffererStatusByApplicationUUIDExpects []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
 }
 
 // NewMockStatusService creates a new mock instance.
@@ -1039,23 +1039,23 @@ func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
 	return m.recorder
 }
 
-// SetRemoteApplicationOffererStatus mocks base method.
-func (m *MockStatusService) SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error {
+// SetRemoteApplicationOffererStatusByApplicationUUID mocks base method.
+func (m *MockStatusService) SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setRemoteApplicationOffererStatusExpects, m.ctrl, m, "SetRemoteApplicationOffererStatus", ctx, appName, sts)
+	return gomock.Dispatch3_1(&m.recorder.setRemoteApplicationOffererStatusByApplicationUUIDExpects, m.ctrl, m, "SetRemoteApplicationOffererStatusByApplicationUUID", ctx, appUUID, sts)
 }
 
-// SetRemoteApplicationOffererStatus indicates an expected call of SetRemoteApplicationOffererStatus.
-func (mr *MockStatusServiceMockRecorder) SetRemoteApplicationOffererStatus(ctx, appName, sts any) *MockStatusServiceSetRemoteApplicationOffererStatusCall {
+// SetRemoteApplicationOffererStatusByApplicationUUID indicates an expected call of SetRemoteApplicationOffererStatusByApplicationUUID.
+func (mr *MockStatusServiceMockRecorder) SetRemoteApplicationOffererStatusByApplicationUUID(ctx, appUUID, sts any) *MockStatusServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetRemoteApplicationOffererStatus", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(sts))
-	mr.setRemoteApplicationOffererStatusExpects = append(mr.setRemoteApplicationOffererStatusExpects, call)
+	call := gomock.NewCall3_1[context.Context, application.UUID, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetRemoteApplicationOffererStatusByApplicationUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(sts))
+	mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects = append(mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStatusServiceSetRemoteApplicationOffererStatusCall is the typed call wrapper for SetRemoteApplicationOffererStatus.
-type MockStatusServiceSetRemoteApplicationOffererStatusCall = gomock.Call3_1[context.Context, string, status.StatusInfo, error]
+// MockStatusServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall is the typed call wrapper for SetRemoteApplicationOffererStatusByApplicationUUID.
+type MockStatusServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall = gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
 
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {

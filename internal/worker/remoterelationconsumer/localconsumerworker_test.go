@@ -229,11 +229,11 @@ func (s *localConsumerWorkerSuite) TestStartNoRemoteClient(c *tc.C) {
 		Return(s.remoteModelRelationClient, errors.NotFound)
 
 	s.crossModelService.EXPECT().
-		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
+		SetRemoteApplicationOffererStatusByApplicationUUID(gomock.Any(), s.applicationUUID, status.StatusInfo{
 			Status:  status.Error,
 			Message: "cannot connect to external controller: not found",
 		}).
-		DoAndReturn(func(context.Context, string, status.StatusInfo) error {
+		DoAndReturn(func(context.Context, application.UUID, status.StatusInfo) error {
 			defer close(done)
 			return nil
 		})
@@ -355,6 +355,63 @@ func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChanged(c *tc.C) {
 
 	err = workertest.CheckKill(c, w)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *localConsumerWorkerSuite) TestWatchOfferStatusChanged(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	ch := make(chan []string)
+	s.crossModelService.EXPECT().
+		WatchRelationsLifeSuspendedStatusForApplication(gomock.Any(), s.applicationUUID).
+		DoAndReturn(func(ctx context.Context, i application.UUID) (watcher.StringsWatcher, error) {
+			return watchertest.NewMockStringsWatcher(ch), nil
+		})
+	s.remoteRelationClientGetter.EXPECT().
+		GetRemoteRelationClient(gomock.Any(), s.offererModelUUID).
+		Return(s.remoteModelRelationClient, nil)
+
+	offerStatusChanges := make(chan []watcher.OfferStatusChange)
+	s.remoteModelRelationClient.EXPECT().
+		WatchOfferStatus(gomock.Any(), params.OfferArg{
+			OfferUUID:     s.offerUUID,
+			Macaroons:     macaroon.Slice{s.macaroon},
+			BakeryVersion: bakery.LatestVersion,
+		}).
+		DoAndReturn(func(ctx context.Context, oa params.OfferArg) (watcher.OfferStatusWatcher, error) {
+			return watchertest.NewMockWatcher(offerStatusChanges), nil
+		})
+
+	// The status update must be targeted at the remote application offerer
+	// via its application UUID, and not via the application name.
+	s.crossModelService.EXPECT().
+		SetRemoteApplicationOffererStatusByApplicationUUID(gomock.Any(), s.applicationUUID, status.StatusInfo{
+			Status:  status.Active,
+			Message: "all good",
+		}).
+		DoAndReturn(func(context.Context, application.UUID, status.StatusInfo) error {
+			defer close(done)
+			return nil
+		})
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case offerStatusChanges <- []watcher.OfferStatusChange{{
+		UUID:   s.offerUUID,
+		Status: status.StatusInfo{Status: status.Active, Message: "all good"},
+	}}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting to send on offer status channel")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for status to be set")
+	}
 }
 
 func (s *localConsumerWorkerSuite) TestWatchApplicationStatusChangedNotFound(c *tc.C) {
@@ -1413,10 +1470,10 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionRelationDyingDis
 
 	statusDone := make(chan struct{})
 	s.crossModelService.EXPECT().
-		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
+		SetRemoteApplicationOffererStatusByApplicationUUID(gomock.Any(), s.applicationUUID, status.StatusInfo{
 			Status:  status.Error,
 			Message: "offer permission revoked: discharge required",
-		}).DoAndReturn(func(ctx context.Context, appName string, sts status.StatusInfo) error {
+		}).DoAndReturn(func(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error {
 		defer close(statusDone)
 		return nil
 	})
@@ -1494,7 +1551,7 @@ func (s *localConsumerWorkerSuite) TestNotifyOfferPermissionDeniedDischargeError
 	consumingRelationUUID := tc.Must(c, relation.NewUUID)
 
 	s.crossModelService.EXPECT().
-		SetRemoteApplicationOffererStatus(gomock.Any(), s.applicationName, status.StatusInfo{
+		SetRemoteApplicationOffererStatusByApplicationUUID(gomock.Any(), s.applicationUUID, status.StatusInfo{
 			Status:  status.Error,
 			Message: "offer permission revoked: discharge required",
 		}).

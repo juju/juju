@@ -183,9 +183,10 @@ type CrossModelRelationService interface {
 // StatusService is an interface that defines the methods for
 // managing status directly on the local model database.
 type StatusService interface {
-	// SetRemoteApplicationOffererStatus sets the status of the specified remote
-	// application in the local model.
-	SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error
+	// SetRemoteApplicationOffererStatusByApplicationUUID sets the status of
+	// the remote application offerer associated with the specified application
+	// UUID.
+	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
 }
 
 // RemovalService is an interface that defines the methods for
