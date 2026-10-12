@@ -1987,8 +1987,8 @@ ORDER BY u.name;
 	return result, nil
 }
 
-// GetApplicationAndUnitModelStatuses returns the application name and unit
-// count for each model for the model status request.
+// GetApplicationAndUnitModelStatuses returns the application name and Alive
+// unit count for each model for the model status request.
 func (st *ModelState) GetApplicationAndUnitModelStatuses(ctx context.Context) (map[string]int, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -2000,6 +2000,7 @@ SELECT application.name AS &applicationNameUnitCount.name,
 	   COUNT(u.uuid) AS &applicationNameUnitCount.unit_count
 FROM application
 LEFT JOIN unit AS u ON u.application_uuid = application.uuid
+                  AND u.life_id = 0
 GROUP BY u.application_uuid, application.name;
 `, applicationNameUnitCount{})
 	if err != nil {
