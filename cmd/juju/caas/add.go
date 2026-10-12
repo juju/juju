@@ -557,6 +557,13 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		var preferredStorageErr *environs.PreferredStorageNotFound
 		newCloud, err = k8sprovider.UpdateKubeCloudWithStorage(newCloud, storageParams)
 		if err != nil {
+			var nominatedStorageErr *environs.NominatedStorageNotFound
+			if errors.As(err, &nominatedStorageErr) {
+				// A storage class nominated with --storage that is not on
+				// the cluster is reported verbatim, not as a cluster
+				// query failure.
+				return errors.Trace(nominatedStorageErr)
+			}
 			if k8sprovider.IsClusterQueryError(err) {
 				cloudArg := "--cloud=<cloud> to specify the cloud"
 				if c.ControllerName == "jaas" {

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
+	"github.com/juju/juju/environs"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/testhelpers"
@@ -970,6 +971,22 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *tc.C) {
 	--cloud=<cloud> to specify the cloud.
 : oops`[1:]
 	c.Assert(err, tc.ErrorMatches, expectedErr)
+}
+
+func (s *addCAASSuite) TestNominatedStorageNotFoundError(c *tc.C) {
+	// add-k8s with --storage naming a class that is not on the cluster
+	// fails with the named error verbatim, not the generic cluster-query
+	// boilerplate.
+	var result *k8s.ClusterMetadata
+	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result,
+		&environs.NominatedStorageNotFound{StorageName: "missing-sc"})
+
+	err := SetKubeConfigData(kubeConfigStr)
+	c.Assert(err, tc.ErrorIsNil)
+
+	command := s.makeCommand(c, true, false, true)
+	_, err = s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "myk8s", "--storage", "missing-sc")
+	c.Assert(err, tc.ErrorMatches, `nominated storage "missing-sc" not found`)
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *tc.C) {
