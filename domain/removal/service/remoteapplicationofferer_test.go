@@ -115,8 +115,8 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForc
 	}, nil)
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
 
-	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
-	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-2", false, when.UTC()).Return(nil)
+	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-2", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -142,19 +142,19 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForc
 	}, nil)
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
 
-	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, false, time.Minute)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
-// TestRemoveRemoteApplicationOffererForceWaitSchedulesRelationJobsImmediatelyAndAfterWait
+// TestRemoveRemoteApplicationOffererForceWaitSchedulesCMRRelationJobsImmediatelyAndAfterWait
 // ensures that a forced remote application offerer removal with a wait
 // duration schedules the cascaded relations twice, like the offerer
 // itself: a normal removal job scheduled immediately, and a forced one
 // scheduled after the wait duration.
-func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererForceWaitSchedulesRelationJobsImmediatelyAndAfterWait(c *tc.C) {
+func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererForceWaitSchedulesCMRRelationJobsImmediatelyAndAfterWait(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	remoteAppUUID := tc.Must(c, coreremoteapplication.NewUUID)
@@ -176,8 +176,8 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererForceW
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
 	// The cascaded relation jobs follow the same pattern.
-	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
-	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
+	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, true, time.Minute)
 	c.Assert(err, tc.ErrorIsNil)

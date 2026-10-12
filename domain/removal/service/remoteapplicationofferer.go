@@ -102,7 +102,7 @@ func (s *Service) RemoveRemoteApplicationOfferer(
 		return appJobUUID, nil
 	}
 
-	if err := s.scheduleCascaded(ctx, cascaded.RelationUUIDs, force, wait, s.relationScheduleRemoval); err != nil {
+	if err := s.scheduleCascaded(ctx, cascaded.RelationUUIDs, force, wait, s.relationWithRemoteOffererScheduleRemoval); err != nil {
 		return "", errors.Capture(err)
 	}
 
