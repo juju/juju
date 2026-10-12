@@ -12,13 +12,4 @@
 // The offline archive handling — reading the tarball, verifying its
 // checksum, and decoding the dumps into the summary — lives in
 // internal/recovery, which composes this domain.
-//
-// The state subpackage owns the agent-side database load. It runs inside
-// dqlite bootstrap, after the schema migrations and before any agent, API
-// or worker starts, with every database exclusively owned by bootstrap.
-// That exclusivity is why the load takes plain *sql.DB handles rather
-// than a transaction-runner factory: it drives one connection with
-// foreign keys disabled, a single transaction per database and a
-// foreign_key_check before commit — mechanics a pooled runner cannot
-// express.
 package recovery

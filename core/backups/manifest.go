@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"path"
+	"path/filepath"
 	"strings"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -69,6 +69,7 @@ func NewManifest(entries []ManifestEntry) *Manifest {
 
 // AsJSONBuffer returns a bytes.Buffer containing the JSON-ified
 // manifest.
+// TODO: reuse the json.Encoder and reset the buffer between calls.
 func (m *Manifest) AsJSONBuffer() (io.Reader, error) {
 	var outfile bytes.Buffer
 	if err := json.NewEncoder(&outfile).Encode(m); err != nil {
@@ -107,10 +108,12 @@ func ClassifyManifestPath(archivePath string) (ManifestEntryKind, string, error)
 		return ManifestKindMetadata, "", nil
 	case canonical.FilesArchive:
 		return ManifestKindFilesArchive, "", nil
-	case path.Join(canonical.DBDumpDir, "controller.yaml"):
+	case filepath.Join(canonical.DBDumpDir, "controller.yaml"):
 		return ManifestKindControllerDump, "", nil
 	}
-	const modelDumpPrefix = contentDir + "/" + dbDumpDir + "/models/"
+	// The trailing separator keeps the prefix from matching a sibling
+	// such as "models-extra".
+	modelDumpPrefix := filepath.Join(contentDir, dbDumpDir, "models") + "/"
 	model := strings.TrimSuffix(
 		strings.TrimPrefix(archivePath, modelDumpPrefix), ".yaml")
 	if strings.HasPrefix(archivePath, modelDumpPrefix) &&

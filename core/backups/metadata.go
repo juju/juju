@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/utils/v4/filestorage"
@@ -36,8 +37,25 @@ type Paths struct {
 }
 
 // ChecksumFormatSHA256 identifies how to interpret the checksum for a
-// backup generated with this version of juju.
-const ChecksumFormatSHA256 = "SHA-256, hex encoded"
+// backup generated with this version of juju. The encoding is not
+// restated here because the recorded checksum carries it: see
+// [ChecksumSHA256].
+const ChecksumFormatSHA256 = "SHA-256"
+
+// checksumPrefixSHA256 prefixes a recorded SHA-256 checksum so the
+// digest algorithm travels with the value, per the W3C content-digest
+// convention: "sha256-<hex digest>".
+const checksumPrefixSHA256 = "sha256-"
+
+// ChecksumSHA256 returns the canonical recorded form of a hex SHA-256
+// digest: the algorithm prefix followed by the digest. A digest already
+// carrying the prefix is returned unchanged.
+func ChecksumSHA256(hexDigest string) string {
+	if strings.HasPrefix(hexDigest, checksumPrefixSHA256) {
+		return hexDigest
+	}
+	return checksumPrefixSHA256 + hexDigest
+}
 
 // Origin identifies where a backup archive came from.  While it is
 // more about where and Metadata about what and when, that distinction
@@ -303,7 +321,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 		return nil, errors.Capture(err)
 	}
 	rawsum := hasher.Sum(nil)
-	checksum := hex.EncodeToString(rawsum)
+	checksum := ChecksumSHA256(hex.EncodeToString(rawsum))
 
 	// Build the metadata.
 	meta := NewMetadata(time.Time{})

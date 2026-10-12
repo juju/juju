@@ -224,7 +224,7 @@ func (s *createSuite) TestChecksumUppercase(c *tc.C) {
 	client := s.setDownload()
 	sum := sha256.Sum256([]byte(s.data))
 	lower := hex.EncodeToString(sum[:])
-	client.metaresult.Checksum = strings.ToUpper(lower)
+	client.metaresult.Checksum = "sha256-" + strings.ToUpper(lower)
 	s.expectedOut = strings.Replace(MetaResultString, lower, strings.ToUpper(lower), 1)
 
 	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand)

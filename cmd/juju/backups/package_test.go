@@ -18,6 +18,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -38,8 +39,8 @@ model UUID:
 machine ID:             
 created on host:        
 
-checksum:              3d355aabca47fd9136cc478ed30a28086334dcc474a52e990778ad2e664b2259 
-checksum format:       SHA-256, hex encoded 
+checksum:              sha256-3d355aabca47fd9136cc478ed30a28086334dcc474a52e990778ad2e664b2259 
+checksum format:       SHA-256 
 size (B):              0 
 stored:                0001-01-01 00:00:00 +0000 UTC 
 started:               0001-01-01 00:00:00 +0000 UTC 
@@ -67,7 +68,7 @@ func (s *BaseBackupsSuite) SetUpTest(c *tc.C) {
 	s.metaresult = &params.BackupsMetadataResult{
 		ID:             "backup-id",
 		Filename:       "backup-filename",
-		ChecksumFormat: "SHA-256, hex encoded",
+		ChecksumFormat: "SHA-256",
 	}
 	s.data = "<compressed archive data>"
 
@@ -152,7 +153,7 @@ func (c *fakeAPIClient) Create(ctx context.Context, notes string) (params.Backup
 		// test set one explicitly.
 		if c.metaresult.Checksum == "" {
 			sum := sha256.Sum256([]byte(c.data))
-			c.metaresult.Checksum = hex.EncodeToString(sum[:])
+			c.metaresult.Checksum = corebackups.ChecksumSHA256(hex.EncodeToString(sum[:]))
 		}
 	}
 	if c.createHook != nil {

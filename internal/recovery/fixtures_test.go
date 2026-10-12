@@ -41,7 +41,7 @@ func metadataJSON(agentVersion string) string {
 		`"ID":"20260930-120000.aabb-ccdd-eeff",` +
 		`"FormatVersion":2,` +
 		`"Checksum":"abc",` +
-		`"ChecksumFormat":"SHA-256, hex encoded",` +
+		`"ChecksumFormat":"SHA-256",` +
 		`"Size":10,` +
 		`"Stored":"0001-01-01T00:00:00Z",` +
 		`"Started":"2026-09-30T12:00:00Z",` +
@@ -263,7 +263,7 @@ func writeArchive(c *tc.C, files map[string][]byte) (string, string) {
 	sum := sha256.Sum256(archive)
 	path := filepath.Join(c.MkDir(), "juju-backup.tar.gz")
 	c.Assert(os.WriteFile(path, archive, 0o600), tc.ErrorIsNil)
-	return path, hex.EncodeToString(sum[:])
+	return path, corebackups.ChecksumSHA256(hex.EncodeToString(sum[:]))
 }
 
 // validFiles returns a complete, valid recovery archive file set.

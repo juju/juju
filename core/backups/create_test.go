@@ -404,7 +404,7 @@ func (s *createSuite) TestCreateMetadataFailureRemovesArchive(c *tc.C) {
 	// runs only once the archive file is complete.
 	meta := backups.NewMetadata(testStarted)
 	c.Assert(meta.SetFileInfo(99, "not-the-real-checksum",
-		"SHA-256, hex encoded"), tc.ErrorIsNil)
+		backups.ChecksumFormatSHA256), tc.ErrorIsNil)
 
 	_, err := backups.Create(c.Context(), meta, backups.CreateArgs{
 		DestinationDir: destDir,

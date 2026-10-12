@@ -163,9 +163,9 @@ func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksu
 		return errors.Annotatef(err, "while creating local archive file %v", archiveFilename)
 	}
 
-	// The checksum is the hex-encoded SHA-256 sum of the archive as
-	// recorded when it was created; hash while streaming so the archive
-	// is only read once.
+	// The checksum is the SHA-256 sum of the archive as recorded when
+	// it was created, in the canonical prefixed form; hash while
+	// streaming so the archive is only read once.
 	hasher := sha256.New()
 	_, copyErr := io.Copy(io.MultiWriter(archive, hasher), stream)
 	// Close the archive before handling either failure, so that an
@@ -191,7 +191,7 @@ func (c *createCommand) writeArchive(ctx *cmd.Context, stream io.Reader, checksu
 			"controller reported checksum format %q; the downloaded archive cannot be verified",
 			checksumFormat)
 	}
-	if !strings.EqualFold(hex.EncodeToString(hasher.Sum(nil)), checksum) {
+	if !strings.EqualFold(backups.ChecksumSHA256(hex.EncodeToString(hasher.Sum(nil))), backups.ChecksumSHA256(checksum)) {
 		// Keep the corrupt archive under a suffix so the operator can
 		// inspect the damage, rather than silently removing it.
 		corruptName := archiveFilename + ".corrupt"

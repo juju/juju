@@ -495,7 +495,7 @@ func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]Manifes
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		archivePath := canonicalDumpDir + "/" + entry.Name
+		archivePath := filepath.Join(canonicalDumpDir, entry.Name)
 		kind, modelUUID, err := ClassifyManifestPath(archivePath)
 		if err != nil {
 			return nil, errors.Errorf("dump entry %q: %w", entry.Name, err)
@@ -512,8 +512,9 @@ func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]Manifes
 }
 
 // buildArchiveAndChecksum tars and gzips the content directory into
-// the named archive file, computing the archive's SHA-256 checksum and
-// size along the way.
+// the named archive file, computing the archive's SHA-256 checksum —
+// in its canonical prefixed form, see [ChecksumSHA256] — and size along
+// the way.
 func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
@@ -546,7 +547,7 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 		return 0, "", errors.Errorf("reading archive file info: %w", err)
 	}
 
-	return stat.Size(), hex.EncodeToString(hasher.Sum(nil)), nil
+	return stat.Size(), ChecksumSHA256(hex.EncodeToString(hasher.Sum(nil))), nil
 }
 
 // buildArchive writes the gzipped tar of the content directory to the

@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -45,10 +46,10 @@ var (
 	manifestPath = canonicalPaths.ManifestFile
 
 	// controllerDumpPath is the controller database dump.
-	controllerDumpPath = path.Join(canonicalPaths.DBDumpDir, "controller.yaml")
+	controllerDumpPath = filepath.Join(canonicalPaths.DBDumpDir, "controller.yaml")
 
 	// modelDumpDir holds one dump per model, named by model UUID.
-	modelDumpDir = canonicalPaths.DBDumpDir + "/models/"
+	modelDumpDir = filepath.Join(canonicalPaths.DBDumpDir, "models")
 )
 
 // MaxDumpSize is the largest single database dump the recovery loader
@@ -121,96 +122,27 @@ func readArchive(ctx context.Context, logger corelogger.Logger, archivePath, exp
 			_ = contents.Close()
 		}
 	}()
-	seen := make(map[string]struct{})
-	digests := make(map[string]entryDigest)
-	tr := tar.NewReader(gz)
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, "", 0, errors.Errorf("reading archive: %w", err)
-		}
-		if err := ctx.Err(); err != nil {
-			return nil, "", 0, errors.Capture(err)
-		}
-
-		// Entries are never extracted under their own name — dumps
-		// are staged under generated names — so an unsafe path cannot
-		// escape the staging area. Clean it, warn, and keep reading.
-		name := path.Clean(hdr.Name)
-		if strings.HasPrefix(hdr.Name, "/") || slices.Contains(strings.Split(hdr.Name, "/"), "..") {
-			logger.Warningf(ctx,
-				"archive entry %q carries an unsafe path, reading it as %q", hdr.Name, name)
-		}
-		if _, dup := seen[name]; dup {
-			return nil, "", 0, errors.Errorf("archive contains duplicate path %q", name)
-		}
-		seen[name] = struct{}{}
-
-		switch hdr.Typeflag {
-		case tar.TypeDir:
-			continue
-		// TypeRegA is the legacy NUL typeflag some old tars still
-		// write for regular files; accepting it keeps those archives
-		// readable.
-		case tar.TypeReg, tar.TypeRegA:
-		default:
-			return nil, "", 0, errors.Errorf("archive entry %q is not a regular file", name)
-		}
-
-		if limit, store, ok := contents.storeTarget(name); ok {
-			// The declared size bounds what the tar reader exposes
-			// for this entry; check it before reading.
-			if hdr.Size > limit {
-				return nil, "", 0, errors.Errorf("reading %q: file exceeds %d bytes", name, limit)
-			}
-			data, err := io.ReadAll(tr)
-			if err != nil {
-				return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
-			}
-			sum := sha256.Sum256(data)
-			digests[name] = entryDigest{size: int64(len(data)), sha256: hex.EncodeToString(sum[:])}
-			store(data)
-			continue
-		}
-		if strings.HasPrefix(name, modelDumpDir) && strings.HasSuffix(name, ".yaml") {
-			model := strings.TrimSuffix(strings.TrimPrefix(name, modelDumpDir), ".yaml")
-			if model == "" || strings.Contains(model, "/") {
-				return nil, "", 0, errors.Errorf("unexpected model dump path %q", name)
-			}
-			// Check the declared size before staging. The tar reader
-			// exposes at most this entry's declared number of bytes.
-			if hdr.Size > maxDumpSize {
-				return nil, "", 0, errors.Errorf("reading %q: file exceeds %d bytes", name, maxDumpSize)
-			}
-			filename, digest, err := stageModelDump(ctx, stagingDir, tr)
-			if err != nil {
-				return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
-			}
-			contents.ModelDumps[model] = filename
-			digests[name] = digest
-			continue
-		}
-		// root.tar and anything else is hashed but not held.
-		entryHasher := sha256.New()
-		size, err := io.Copy(io.MultiWriter(io.Discard, entryHasher), tr)
-		if err != nil {
-			return nil, "", 0, errors.Errorf("reading %q: %w", name, err)
-		}
-		digests[name] = entryDigest{size: size, sha256: hex.EncodeToString(entryHasher.Sum(nil))}
+	reader := &archiveReader{
+		ctx:      ctx,
+		logger:   logger,
+		contents: contents,
+		seen:     make(map[string]struct{}),
+		digests:  make(map[string]entryDigest),
+	}
+	if err := reader.readEntries(tar.NewReader(gz)); err != nil {
+		return nil, "", 0, errors.Capture(err)
 	}
 
 	// The manifest check runs before the checksum comparison: when
 	// both fail, the per-component disagreement says which part of the
 	// archive is corrupt, where the whole-archive mismatch only says
 	// that something is.
-	if err := checkManifest(contents.Manifest, digests); err != nil {
+	if err := checkManifest(contents.Manifest, reader.digests); err != nil {
 		return nil, "", 0, errors.Capture(err)
 	}
-	checksum := hex.EncodeToString(hasher.Sum(nil))
-	if expectedSHA256 != "" && !strings.EqualFold(checksum, expectedSHA256) {
+	checksum := corebackups.ChecksumSHA256(hex.EncodeToString(hasher.Sum(nil)))
+	if expectedSHA256 != "" &&
+		!strings.EqualFold(checksum, corebackups.ChecksumSHA256(expectedSHA256)) {
 		return nil, "", 0, errors.Errorf(
 			"archive checksum mismatch: expected sha256 %q, archive is %q", expectedSHA256, checksum)
 	}
@@ -227,6 +159,109 @@ func readArchive(ctx context.Context, logger corelogger.Logger, archivePath, exp
 	}
 	completed = true
 	return contents, checksum, stat.Size(), nil
+}
+
+// archiveReader accumulates the state built while walking an archive:
+// the extracted contents, the entry names seen so far so duplicates
+// are rejected, and each entry's digest for the manifest cross-check.
+type archiveReader struct {
+	ctx      context.Context
+	logger   corelogger.Logger
+	contents *ArchiveContents
+	seen     map[string]struct{}
+	digests  map[string]entryDigest
+}
+
+// readEntries walks every tar entry, dispatching each to its
+// destination: held in memory, staged on disk, or hashed and dropped.
+func (r *archiveReader) readEntries(tr *tar.Reader) error {
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("reading archive: %w", err)
+		}
+		if err := r.ctx.Err(); err != nil {
+			return errors.Capture(err)
+		}
+		if err := r.readEntry(hdr, tr); err != nil {
+			return errors.Capture(err)
+		}
+	}
+}
+
+// readEntry handles one tar entry: the metadata, the manifest and the
+// controller dump are held in memory, model dumps are staged on disk,
+// and anything else — root.tar included — is hashed and dropped.
+func (r *archiveReader) readEntry(hdr *tar.Header, tr *tar.Reader) error {
+	// Entries are never extracted under their own name — dumps
+	// are staged under generated names — so an unsafe path cannot
+	// escape the staging area. Clean it, warn, and keep reading.
+	name := path.Clean(hdr.Name)
+	if strings.HasPrefix(hdr.Name, "/") || slices.Contains(strings.Split(hdr.Name, "/"), "..") {
+		r.logger.Warningf(r.ctx,
+			"archive entry %q carries an unsafe path, reading it as %q", hdr.Name, name)
+	}
+	if _, dup := r.seen[name]; dup {
+		return errors.Errorf("archive contains duplicate path %q", name)
+	}
+	r.seen[name] = struct{}{}
+
+	switch hdr.Typeflag {
+	case tar.TypeDir:
+		return nil
+	// TypeRegA is the legacy NUL typeflag some old tars still
+	// write for regular files; accepting it keeps those archives
+	// readable.
+	case tar.TypeReg, tar.TypeRegA:
+	default:
+		return errors.Errorf("archive entry %q is not a regular file", name)
+	}
+
+	if limit, store, ok := r.contents.storeTarget(name); ok {
+		// The declared size bounds what the tar reader exposes
+		// for this entry; check it before reading.
+		if hdr.Size > limit {
+			return errors.Errorf("reading %q: file exceeds %d bytes", name, limit)
+		}
+		data, err := io.ReadAll(tr)
+		if err != nil {
+			return errors.Errorf("reading %q: %w", name, err)
+		}
+		sum := sha256.Sum256(data)
+		r.digests[name] = entryDigest{size: int64(len(data)), sha256: hex.EncodeToString(sum[:])}
+		store(data)
+		return nil
+	}
+	modelDumpPrefix := modelDumpDir + "/"
+	if strings.HasPrefix(name, modelDumpPrefix) && strings.HasSuffix(name, ".yaml") {
+		model := strings.TrimSuffix(strings.TrimPrefix(name, modelDumpPrefix), ".yaml")
+		if model == "" || strings.Contains(model, "/") {
+			return errors.Errorf("unexpected model dump path %q", name)
+		}
+		// Check the declared size before staging. The tar reader
+		// exposes at most this entry's declared number of bytes.
+		if hdr.Size > maxDumpSize {
+			return errors.Errorf("reading %q: file exceeds %d bytes", name, maxDumpSize)
+		}
+		filename, digest, err := stageModelDump(r.ctx, r.contents.stagingDir, tr)
+		if err != nil {
+			return errors.Errorf("reading %q: %w", name, err)
+		}
+		r.contents.ModelDumps[model] = filename
+		r.digests[name] = digest
+		return nil
+	}
+	// root.tar and anything else is hashed but not held.
+	entryHasher := sha256.New()
+	size, err := io.Copy(io.MultiWriter(io.Discard, entryHasher), tr)
+	if err != nil {
+		return errors.Errorf("reading %q: %w", name, err)
+	}
+	r.digests[name] = entryDigest{size: size, sha256: hex.EncodeToString(entryHasher.Sum(nil))}
+	return nil
 }
 
 // Close removes the staged model dumps. It is safe to call more than once.
@@ -327,7 +362,7 @@ func checkManifest(data []byte, digests map[string]entryDigest) error {
 				manifestPath, f.Path, f.Kind)
 		}
 		if f.Kind == corebackups.ManifestKindModelDump &&
-			f.Path != modelDumpDir+f.ModelUUID+".yaml" {
+			f.Path != filepath.Join(modelDumpDir, f.ModelUUID+".yaml") {
 			return errors.Errorf(
 				"%s lists model dump %q with mismatched model UUID %q",
 				manifestPath, f.Path, f.ModelUUID)
