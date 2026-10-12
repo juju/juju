@@ -81,7 +81,8 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 				},
 			},
 			Constraints: constraints.Constraints{
-				Arch: new(arch.ARM64),
+				Arch:     new(arch.ARM64),
+				CpuCores: new(uint64(4)),
 			},
 		},
 	}}
@@ -147,10 +148,13 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 		Scale: 1,
 	}
 
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Arch:     new(arch.ARM64),
+		CpuCores: new(uint64(4)),
+	}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
-		Constraints: coreconstraints.MustParse("arch=arm64"),
+		Constraints: coreconstraints.MustParse("arch=arm64 cores=4"),
 		Base: corebase.Base{
 			OS: "ubuntu",
 			Channel: corebase.Channel{
@@ -221,7 +225,6 @@ func (s *providerServiceSuite) TestCreateCAASApplication(c *tc.C) {
 			"":         "default",
 			"provider": "beta",
 		},
-		Constraints: coreconstraints.MustParse("arch=arm64"),
 	}, AddUnitArg{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(receivedArgs, createAddCAASUnitArgsChecker(), us)
@@ -330,13 +333,15 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 			Platform: platform,
 			Constraints: constraints.Constraints{
 				CpuCores: new(uint64(4)),
-				CpuPower: new(uint64(75)),
 				Arch:     new("arm64"),
 			},
 		},
 	}
 
-	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Arch:     new(arch.ARM64),
+		CpuPower: new(uint64(75)),
+	}, nil)
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
 	s.provider.EXPECT().PrecheckInstance(gomock.Any(), environs.PrecheckInstanceParams{
 		Constraints: coreconstraints.MustParse("cores=4 cpu-power=75 arch=arm64"),
@@ -381,7 +386,7 @@ func (s *providerServiceSuite) TestCreateIAASApplication(c *tc.C) {
 			DownloadSize:       42,
 		},
 		CharmObjectStoreUUID: objectStoreUUID,
-		Constraints:          coreconstraints.MustParse("arch=arm64 cores=4 cpu-power=75"),
+		Constraints:          coreconstraints.MustParse("cores=4"),
 	}, AddIAASUnitArg{
 		AddUnitArg: AddUnitArg{
 			Placement: &instance.Placement{

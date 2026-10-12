@@ -319,41 +319,8 @@ func (a *appWorker) loop() error {
 				appProvisionChanges = appProvisionWatcher.Changes()
 			}
 			if !statusOnly {
-				a.provisioningInfo, err = a.ops.ProvisioningInfo(ctx, name,
-					a.appUUID, a.facade, a.applicationService,
-					a.storageProvisioningService, a.resourceOpenerGetter,
-					a.provisioningInfo, a.logger)
-				if errors.Is(err, errors.NotProvisioned) {
-					a.logger.Debugf(ctx, "application %q is not provisioned", name)
-					// State not ready for this application to be provisioned yet.
-					// Usually because the charm has not yet been downloaded.
-					return tryAgain
-				} else if appRemovedFromState(err) {
-					// The application rows were deleted mid-read (forced
-					// removal); the retry re-reads GetApplicationLife, which
-					// then observes the removal and takes the Dead path.
-					return tryAgain
-				} else if err != nil {
-					return errors.Annotatef(err, "failed to get provisioning info for %q", name)
-				}
-				// Signal that we are managing k8s resources for this app,
-				// blocking removal until we explicitly clear the flag.
-				if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
-					if appRemovedFromState(err) {
-						// Rows deleted mid-flight; the retry converges to
-						// the Dead path (see the comment above).
-						return tryAgain
-					}
-					return errors.Annotatef(err, "setting k8s resources managed for %q", name)
-				}
-				err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
-					&a.lastApplied, a.provisioningInfo, a.statusService,
-					a.clock, a.logger)
-				if err != nil {
-					if appRemovedFromState(err) {
-						return tryAgain
-					}
-					return errors.Trace(err)
+				if err := a.ensureApplicationSpec(ctx, name, app); err != nil {
+					return err
 				}
 			}
 			if appChanges == nil {
@@ -436,6 +403,26 @@ func (a *appWorker) loop() error {
 				scaleChan = a.clock.After(retryDelay)
 				shouldRefresh = false
 				break
+			}
+			// Re-render the k8s application spec before scaling so that any
+			// constraint or config changes are applied to the newly created
+			// units.
+			if err := a.ensureApplicationSpec(ctx, name, app); err != nil {
+				if appRemovedFromState(err) {
+					// Run the dead cleanup path so k8s resources are removed.
+					routeToDeadCleanup()
+					scaleChan = nil
+					break
+				} else if errors.Is(err, tryAgain) {
+					if scaleTries >= maxRetries {
+						return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
+					}
+					scaleTries++
+					scaleChan = a.clock.After(retryDelay)
+					shouldRefresh = false
+					break
+				}
+				return errors.Trace(err)
 			}
 			err := a.ops.EnsureScale(ctx, name, a.appUUID, app, a.life, a.facade,
 				a.applicationService, a.logger)
@@ -624,6 +611,38 @@ func (a *appWorker) loop() error {
 			}
 		}
 	}
+}
+
+// ensureApplicationSpec refreshes provisioning info and re-applies changed
+// k8s resources. It preserves removal errors for dead-cleanup routing.
+func (a *appWorker) ensureApplicationSpec(
+	ctx context.Context, name string, app caas.Application,
+) error {
+	provisioningInfo, err := a.ops.ProvisioningInfo(ctx, name,
+		a.appUUID, a.facade, a.applicationService,
+		a.storageProvisioningService, a.resourceOpenerGetter,
+		a.provisioningInfo, a.logger)
+	if errors.Is(err, errors.NotProvisioned) {
+		a.logger.Debugf(ctx, "application %q is not provisioned", name)
+		// State not ready for this application to be provisioned yet.
+		// Usually because the charm has not yet been downloaded.
+		return tryAgain
+	} else if err != nil {
+		return errors.Annotatef(err, "failed to get provisioning info for %q", name)
+	}
+	a.provisioningInfo = provisioningInfo
+	// Signal that we are managing k8s resources for this app, blocking
+	// removal until we explicitly clear the flag.
+	if err := a.applicationService.SetApplicationHasK8sResources(ctx, a.appUUID); err != nil {
+		return errors.Annotatef(err, "setting k8s resources managed for %q", name)
+	}
+	err = a.ops.AppAlive(ctx, name, a.appUUID, app, a.password,
+		&a.lastApplied, a.provisioningInfo, a.statusService,
+		a.clock, a.logger)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Report returns a report about this application provisioner.
