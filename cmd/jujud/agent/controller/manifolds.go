@@ -60,6 +60,7 @@ import (
 	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	workerdomainservices "github.com/juju/juju/internal/worker/domainservices"
+	"github.com/juju/juju/internal/worker/dqliteconfigupdater"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
@@ -532,6 +533,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			RuntimeConfigPath:    config.ControllerRuntimePath,
 			RuntimeConfigChanged: config.RuntimeConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.controllerlokiupdater"),
+		}),
+
+		// dqliteConfigUpdaterName watches the controller config for changes to the
+		// mutable Dqlite tuning values (query tracing and busy timeout), persists
+		// them to the local runtime.conf delivery cache read by dbaccessor, and
+		// requests a controller restart so the restarted dbaccessor constructs
+		// Dqlite with the new values.
+		dqliteConfigUpdaterName: dqliteconfigupdater.Manifold(dqliteconfigupdater.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			RuntimeConfigPath:  config.ControllerRuntimePath,
+			Logger:             internallogger.GetLogger("juju.worker.dqliteconfigupdater"),
 		}),
 
 		// logRouterName is a controller-only logrouter that
@@ -1300,6 +1312,7 @@ const (
 	controlSocketName                  = "control-socket"
 	dbAccessorName                     = "db-accessor"
 	domainServicesName                 = "domain-services"
+	dqliteConfigUpdaterName            = "dqlite-config-updater"
 	externalControllerUpdaterName      = "external-controller-updater"
 	fileNotifyWatcherName              = "file-notify-watcher"
 	httpClientName                     = "http-client"
