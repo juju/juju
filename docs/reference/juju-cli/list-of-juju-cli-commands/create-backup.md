@@ -31,12 +31,21 @@ request, and nothing is kept on the controller once the request ends.
 The archive is verified against the recorded checksum before the
 download is considered complete; if verification fails, the corrupt
 archive is kept locally under a ".corrupt" suffix for inspection and
-the backup must be created again. An interrupted transfer leaves no
-archive on either side: re-run the command to create the backup
-again.
+the backup must be created again. When the controller records its
+checksum in a format this client cannot verify (an older controller),
+the download fails and no archive is kept. An interrupted transfer
+leaves no archive on either side: re-run the command to create the
+backup again.
 
 The model config attribute `backup-dir` only serves as scratch space
 during backup creation; no archive is kept there once the command
 finishes.
+
+Each database (the controller database and every model database) is
+exported in its own transaction at a slightly different moment: the
+archive is not a single point-in-time snapshot of the whole controller.
+Create the backup during a quiet window, when models are not being
+deployed, destroyed or upgraded, so that concurrent changes cannot
+produce an inconsistent archive.
 
 Use `--verbose` to see extra information about backup.
