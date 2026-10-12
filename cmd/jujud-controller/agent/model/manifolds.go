@@ -492,7 +492,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		)),
 
-		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
+		// These workers write to live Kubernetes resources (model operator
+		// deployment, image pull secrets) that remain shared with the
+		// source controller until a migration commits, so they must not
+		// run while the model is still being imported.
+		caasModelOperatorName: ifNotMigrating(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			BrokerName:    providerTrackerName,
@@ -500,7 +504,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ModelUUID:     agentConfig.Model().Id(),
 		})),
 
-		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
+		caasmodelconfigmanagerName: ifNotMigrating(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
 			APICallerName: apiCallerName,
 			BrokerName:    providerTrackerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodelconfigmanager"),
