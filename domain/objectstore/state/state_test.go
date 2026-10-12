@@ -807,6 +807,58 @@ func (s *stateSuite) TestHasDyingObjectStoreBackendTracksDrainOutcome(c *tc.C) {
 	c.Check(dying, tc.IsFalse)
 }
 
+func (s *stateSuite) TestGetObjectStoreBackendCounts(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	total, alive, err := st.GetObjectStoreBackendCounts(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(total, tc.Equals, 1)
+	c.Check(alive, tc.Equals, 1)
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	err = st.TransitionBackendToS3(c.Context(), backendUUID, "drain-uuid", domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	total, alive, err = st.GetObjectStoreBackendCounts(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(total, tc.Equals, 2)
+	c.Check(alive, tc.Equals, 1)
+}
+
+func (s *stateSuite) TestGetObjectStoreBackendCountsNoBackends(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM object_store_backend")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	total, alive, err := st.GetObjectStoreBackendCounts(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(total, tc.Equals, 0)
+	c.Check(alive, tc.Equals, 0)
+}
+
+func (s *stateSuite) TestGetObjectStoreBackendCountsNoAliveBackend(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "UPDATE object_store_backend SET life_id = 2")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	total, alive, err := st.GetObjectStoreBackendCounts(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(total, tc.Equals, 1)
+	c.Check(alive, tc.Equals, 0)
+}
+
 func (s *stateSuite) TestTransitionDrainingPhaseMissingFromBackend(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
 
