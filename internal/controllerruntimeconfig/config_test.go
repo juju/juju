@@ -35,6 +35,8 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		DataDir:                "/var/lib/juju",
 		IsK8SController:        false,
 		LogDir:                 "/var/log/juju",
+		SocketDir:              "/var/snap/juju/common/sockets",
+		SharedAgentDir:         "/var/snap/juju/common",
 		APIPort:                17070,
 		AgentPassword:          "agent-password",
 		LoggingConfig:          "<root>=INFO",
@@ -178,6 +180,72 @@ func (s *configSuite) TestValidate_EmptyDataDir(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorMatches, `empty data-dir not valid`)
 }
 
+// TestValidate_EmptySocketDir ensures an empty socket dir is rejected:
+// the group-accessible socket directory is required, not defaulted.
+func (s *configSuite) TestValidate_EmptySocketDir(c *tc.C) {
+	cfg := validConfig()
+	cfg.SocketDir = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `empty socket-dir not valid`)
+}
+
+// TestValidate_RelativeSocketDir ensures a relative socket dir is
+// rejected; the charm runs outside the snap and must reach the sockets.
+func (s *configSuite) TestValidate_RelativeSocketDir(c *tc.C) {
+	cfg := validConfig()
+	cfg.SocketDir = "sockets"
+	c.Check(cfg.Validate(), tc.ErrorMatches, `socket-dir "sockets" not valid`)
+}
+
+// TestValidate_EmptySharedAgentDir ensures an empty shared agent dir is
+// rejected: the charm-written controller.conf directory is required, not
+// defaulted.
+func (s *configSuite) TestValidate_EmptySharedAgentDir(c *tc.C) {
+	cfg := validConfig()
+	cfg.SharedAgentDir = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `empty shared-agent-dir not valid`)
+}
+
+// TestValidate_RelativeSharedAgentDir ensures a relative shared agent dir
+// is rejected.
+func (s *configSuite) TestValidate_RelativeSharedAgentDir(c *tc.C) {
+	cfg := validConfig()
+	cfg.SharedAgentDir = "shared"
+	c.Check(cfg.Validate(), tc.ErrorMatches, `shared-agent-dir "shared" not valid`)
+}
+
+// TestWriteAndReadRoundTrip_AlwaysEmitsPathDirs ensures the socket and
+// shared-agent directories are always serialized, never omitted.
+func (s *configSuite) TestWriteAndReadRoundTrip_AlwaysEmitsPathDirs(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	data, err := os.ReadFile(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Contains, "socket-dir:")
+	c.Assert(string(data), tc.Contains, "shared-agent-dir:")
+}
+
+// TestRenderStagedControllerRuntimeConfig_AlwaysEmitsPathDirs ensures the
+// staged (tokenized) render always carries both path directories, so the
+// resolved runtime.conf can never silently fall back to a snap-private
+// directory.
+func (s *configSuite) TestRenderStagedControllerRuntimeConfig_AlwaysEmitsPathDirs(c *tc.C) {
+	cfg := validConfig()
+	staged := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
+
+	c.Check(staged.SocketDir, tc.Equals, controllerruntimeconfig.TokenSnapCommon+"/sockets")
+	c.Check(staged.SharedAgentDir, tc.Equals, controllerruntimeconfig.TokenSnapCommon)
+
+	data, err := yaml.Marshal(staged)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(string(data), tc.Contains, "socket-dir:")
+	c.Assert(string(data), tc.Contains, "shared-agent-dir:")
+}
+
 // TestValidate_EmptyLogDir ensures an empty log dir is rejected.
 func (s *configSuite) TestValidate_EmptyLogDir(c *tc.C) {
 	cfg := validConfig()
@@ -197,6 +265,14 @@ func (s *configSuite) TestValidate_EmptyAgentPassword(c *tc.C) {
 	cfg := validConfig()
 	cfg.AgentPassword = ""
 	c.Check(cfg.Validate(), tc.ErrorMatches, `empty agent-password not valid`)
+}
+
+// TestValidate_EmptyK8sControllerNodePassword ensures a Kubernetes controller
+// cannot start without the credential required by its bootstrap manifold.
+func (s *configSuite) TestValidate_EmptyK8sControllerNodePassword(c *tc.C) {
+	cfg := validConfig()
+	cfg.IsK8SController = true
+	c.Check(cfg.Validate(), tc.ErrorMatches, `empty controller-node-password not valid`)
 }
 
 // TestValidate_InvalidDqlitePort ensures an out-of-range Dqlite port is
@@ -299,6 +375,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_IsCAASController(c *tc.C) {
 	path := filepath.Join(dir, controllerruntimeconfig.Filename)
 	cfg := validConfig()
 	cfg.IsK8SController = true
+	cfg.ControllerNodePassword = "controller-node-password"
 
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
 	c.Assert(err, tc.ErrorIsNil)
@@ -331,22 +408,25 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	dir := c.MkDir()
 	path := filepath.Join(dir, controllerruntimeconfig.Filename)
 	cfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:          "0",
-		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
-		DataDir:               "/var/lib/juju",
-		IsK8SController:       true,
-		LogDir:                "/var/log/juju",
-		APIPort:               17070,
-		AgentPassword:         "agent-password",
-		DqlitePort:            0, // default
-		QueryTracingEnabled:   true,
-		QueryTracingThreshold: 500 * time.Millisecond,
-		DqliteBusyTimeout:     3 * time.Second,
-		CACert:                "ca-cert-pem-data",
-		CAPrivateKey:          "ca-private-key-pem-data",
-		ControllerCert:        "controller-cert-pem-data",
-		ControllerPrivateKey:  "controller-private-key-pem-data",
+		ControllerID:           "0",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:    "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:                "/var/lib/juju",
+		IsK8SController:        true,
+		LogDir:                 "/var/log/juju",
+		SocketDir:              "/var/snap/juju/common/sockets",
+		SharedAgentDir:         "/var/snap/juju/common",
+		APIPort:                17070,
+		AgentPassword:          "agent-password",
+		ControllerNodePassword: "controller-node-password",
+		DqlitePort:             0, // default
+		QueryTracingEnabled:    true,
+		QueryTracingThreshold:  500 * time.Millisecond,
+		DqliteBusyTimeout:      3 * time.Second,
+		CACert:                 "ca-cert-pem-data",
+		CAPrivateKey:           "ca-private-key-pem-data",
+		ControllerCert:         "controller-cert-pem-data",
+		ControllerPrivateKey:   "controller-private-key-pem-data",
 	}
 
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
@@ -434,6 +514,8 @@ controller-uuid: "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 controller-model-uuid: "feedface-dead-beef-cafe-c0ffee000000"
 data-dir: /var/lib/juju
 log-dir: /var/log/juju
+socket-dir: /var/snap/juju/common/sockets
+shared-agent-dir: /var/snap/juju/common
 api-port: 17070
 agent-password: agent-password
 controller-cert: cert-pem
@@ -574,6 +656,17 @@ func (s *configSuite) TestResolveStagedControllerRuntimeConfig_TokenInCredential
 	_, err = controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(
 		staged, "/snap/data", "/snap/common")
 	c.Check(err, tc.ErrorMatches, `.*token found in non-path field.*`)
+}
+
+// TestResolveStagedControllerRuntimeConfig_TokenInControllerNodePasswordFails
+// ensures tokens cannot be embedded in the K8s controller-node credential.
+func (s *configSuite) TestResolveStagedControllerRuntimeConfig_TokenInControllerNodePasswordFails(c *tc.C) {
+	staged := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(validConfig())
+	staged.ControllerNodePassword = controllerruntimeconfig.TokenSnapData + "-should-not-be-here"
+
+	_, err := controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(
+		staged, "/snap/data", "/snap/common")
+	c.Check(err, tc.ErrorMatches, `token found in non-path field "controller-node-password".*`)
 }
 
 // TestResolveStagedControllerRuntimeConfig_MissingSnapData ensures an empty

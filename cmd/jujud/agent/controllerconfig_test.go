@@ -308,6 +308,8 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:              "/var/lib/juju",
+		SocketDir:            "/var/snap/juju/common/sockets",
+		SharedAgentDir:       "/var/snap/juju/common",
 		LogDir:               "/var/log/juju",
 		APIPort:              17070,
 		AgentPassword:        "agent-password",
