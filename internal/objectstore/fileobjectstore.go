@@ -435,6 +435,31 @@ func (t *fileObjectStore) scopedContext() (context.Context, context.CancelFunc) 
 	return t.catacomb.Context(ctx), cancel
 }
 
+// sendResponse sends resp to the request's response channel, unless
+// the caller has gone away or the worker is dying. A response carrying a
+// reader that cannot be delivered has the reader closed: the caller is
+// gone, so nobody else would ever close it.
+// Responses carrying readers must use an unbuffered channel so sending
+// transfers ownership to a waiting caller.
+// A non-nil error is returned only when the worker is dying, so the
+// loop can exit; an abandoned caller is not an error for the worker.
+func (t *fileObjectStore) sendResponse(req request, resp response) error {
+	select {
+	case <-t.catacomb.Dying():
+		if resp.reader != nil {
+			_ = resp.reader.Close()
+		}
+		return t.catacomb.ErrDying()
+	case <-req.ctx.Done():
+		if resp.reader != nil {
+			_ = resp.reader.Close()
+		}
+		return nil
+	case req.response <- resp:
+		return nil
+	}
+}
+
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
@@ -481,42 +506,52 @@ func (t *fileObjectStore) loop() error {
 			case opGet:
 				reader, digest, err := t.get(reqCtx, req.path, RemoteFallback)
 
-				sendResponse(t.catacomb.Dying(), req, response{
+				if err := t.sendResponse(req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				})
+				}); err != nil {
+					return err
+				}
 
 			case opGetBySHA256:
 				reader, digest, err := t.getBySHA256(reqCtx, req.sha256)
 
-				sendResponse(t.catacomb.Dying(), req, response{
+				if err := t.sendResponse(req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				})
+				}); err != nil {
+					return err
+				}
 
 			case opGetBySHA256Prefix:
 				reader, digest, err := t.getBySHA256Prefix(reqCtx, req.sha256, RemoteFallback)
 
-				sendResponse(t.catacomb.Dying(), req, response{
+				if err := t.sendResponse(req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				})
+				}); err != nil {
+					return err
+				}
 
 			case opPut:
 				uuid, err := t.put(reqCtx, req.path, req.reader, req.size, req.hashValidator)
 
-				sendResponse(t.catacomb.Dying(), req, response{
+				if err := t.sendResponse(req, response{
 					uuid: uuid,
 					err:  err,
-				})
+				}); err != nil {
+					return err
+				}
 
 			case opRemove:
-				sendResponse(t.catacomb.Dying(), req, response{
+				if err := t.sendResponse(req, response{
 					err: t.remove(reqCtx, req.path),
-				})
+				}); err != nil {
+					return err
+				}
 			default:
 				return errors.Errorf("unknown request type %d", req.op)
 			}
