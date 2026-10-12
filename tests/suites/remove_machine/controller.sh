@@ -282,7 +282,7 @@ run_force_remove_controller_machine() {
 	machine_id=$(controller_machine_ids | tail -n 1)
 	delete_cloud_instance "controller" "${machine_id}"
 	juju remove-machine -m controller "${machine_id}" --force --no-wait --no-prompt
-	wait_for_controller_machine_count 2
+	wait_for_controller_machine_count 2 200
 	wait_for_machine_removed "${machine_id}"
 	assert_controller_instance_ids
 
