@@ -542,7 +542,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 			fail(err)
 			continue
 		}
-		if options.dryRun || options.destroyHostedUnitsAndContainers {
+		if options.dryRun || (options.force && options.destroyHostedUnitsAndContainers) {
 			info.DestroyedContainers, err = mm.destoryContainer(
 				containers,
 				options,
@@ -583,6 +583,19 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 			continue
 		}
 
+		// Without force, the containers are destroyed only once their host
+		// has been accepted for removal, so that a refused host leaves them
+		// Alive. Keep their instances before destroying the host, as its
+		// cleanup can make a container Dead before the container is
+		// destroyed below.
+		containersAfterHost := options.destroyHostedUnitsAndContainers && !options.force
+		if containersAfterHost && options.keep {
+			if err := mm.keepContainerInstances(containers); err != nil {
+				fail(err)
+				continue
+			}
+		}
+
 		err = machine.DestroyWithParams(
 			options.force,
 			options.destroyHostedUnitsAndContainers,
@@ -591,6 +604,17 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 		if err != nil {
 			fail(err)
 			continue
+		}
+
+		if containersAfterHost {
+			info.DestroyedContainers, err = mm.destoryContainer(
+				containers,
+				options,
+			)
+			if err != nil {
+				fail(err)
+				continue
+			}
 		}
 
 		// Ensure that when the machine has been removed that all the leadership
@@ -619,6 +643,32 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destro
 		results[i] = result
 	}
 	return params.DestroyMachineResults{Results: results}, nil
+}
+
+// keepContainerInstances marks the given containers, and any containers
+// inside them, to keep their instances when they are removed.
+func (mm *MachineManagerAPI) keepContainerInstances(containers []string) error {
+	for _, id := range containers {
+		container, err := mm.st.Machine(id)
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if err := container.SetKeepInstance(true); err != nil {
+			return errors.Annotatef(err, "keeping instance of machine %v", id)
+		}
+		children, err := container.Containers()
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+		if err := mm.keepContainerInstances(children); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (mm *MachineManagerAPI) destoryContainer(containers []string, options destroyMachineOptions) ([]params.DestroyMachineResult, error) {
