@@ -54,6 +54,14 @@ type StoragePoolProvider interface {
 // operation that requires fetching a storage pools provider multiple times in
 // the operation.
 //
+// The cache has no invalidation or eviction mechanism: its entries live for
+// exactly as long as the cache map does. For that reason a
+// CachedStoragePoolProvider must not outlive the operation it was created
+// for — at most the lifetime of a websocket connection or worker — and it
+// must never be hoisted above the current call sites, for example by being
+// held as a field of a long lived service. Doing so would leave no way to
+// know when to clear the cache, and stale storage providers would be served.
+//
 // This implementation is NOT thread safe and never will be. Short operations
 // with a defined end that ask the same question repeatedly is that this type
 // exists to solve.
