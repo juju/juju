@@ -43,6 +43,23 @@ func (s *DumpStaging) Entries() []DumpEntry {
 	return s.entries
 }
 
+// EntryExceedsLimit reports the staged dump exceeding limit, if any.
+// Recovery refuses dumps larger than its own read bound, so a dump that
+// would back up fine but can never be recovered fails the backup instead.
+// The entry name is empty when nothing exceeds the limit.
+func (s *DumpStaging) EntryExceedsLimit(limit int64) (name string, size int64, err error) {
+	for i, file := range s.files {
+		info, err := file.Stat()
+		if err != nil {
+			return "", 0, errors.Capture(err)
+		}
+		if info.Size() > limit {
+			return s.entries[i].Name, info.Size(), nil
+		}
+	}
+	return "", 0, nil
+}
+
 // Size returns the total size in bytes of the staged dumps.
 func (s *DumpStaging) Size() (int64, error) {
 	var size int64
@@ -77,8 +94,9 @@ func (s *DumpStaging) Close() error {
 // StageDumps marshals each dump into a temporary directory inside dir and
 // returns the staging handle holding the resulting entries. The caller must
 // create dir beforehand and must keep the handle open until the dumps have
-// been archived, then Close it.
-func StageDumps(ctx context.Context, dir string, dumps []NamedDump) (*DumpStaging, error) {
+// been archived, then Close it. It is a variable so tests can wrap the
+// staging, mirroring [Create].
+var StageDumps = func(ctx context.Context, dir string, dumps []NamedDump) (*DumpStaging, error) {
 	stagingDir, err := os.MkdirTemp(dir, "juju-backup-dump-")
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -154,7 +172,7 @@ func YAMLDump(v any) DumpExportFunc {
 
 // WalkDumps reads every staged dump back from dir, passing each file's
 // archive-relative name and contents to fn. It is the read side of
-// [StageDumps], used when restoring a backup.
+// [StageDumps], used when recovering a backup.
 //
 // The fn callback receives each file as a reader that will be closed when fn
 // returns. The callback must fully consume the reader before returning; any

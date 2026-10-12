@@ -21,6 +21,7 @@ import (
 	coreversion "github.com/juju/juju/core/version"
 	domainexport "github.com/juju/juju/domain/export"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/recovery"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -115,7 +116,7 @@ func NewCreator(
 // archive is not a single point-in-time view of the whole controller.
 // State that changes between the controller export and a given model
 // export is not captured consistently. This is inherent to backing up
-// multiple independent dqlite databases and is documented so restore
+// multiple independent dqlite databases and is documented so recovery
 // logic does not assume otherwise.
 func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
 	// The backup destination is resolved first because the database dumps
@@ -214,6 +215,17 @@ func (c *Creator) Create(ctx context.Context, notes string) (*corebackups.Metada
 			c.logger.Debugf(ctx, "cleaning up staged backup dumps: %v", err)
 		}
 	}()
+	// Recovery rejects any dump larger than its read bound: fail the
+	// backup now instead of producing an archive that cannot be
+	// recovered.
+	if name, size, err := staging.EntryExceedsLimit(recovery.MaxDumpSize); err != nil {
+		return nil, "", nil, errors.Capture(err)
+	} else if name != "" {
+		return nil, "", nil, errors.Errorf(
+			"database dump %q is %d bytes, exceeding the %d byte recovery limit: "+
+				"the archive could never be recovered",
+			name, size, recovery.MaxDumpSize)
+	}
 	expected, err := staging.Size()
 	if err != nil {
 		return nil, "", nil, errors.Capture(err)

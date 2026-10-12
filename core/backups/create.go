@@ -7,7 +7,7 @@ import (
 	archivetar "archive/tar"
 	"compress/gzip"
 	"context"
-	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
 	"io"
@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/utils/v4/hash"
 	utilstar "github.com/juju/utils/v4/tar"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -130,24 +129,54 @@ var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string,
 		return "", errors.Errorf("creating temp directories: %w", err)
 	}
 
-	// The metadata file does not contain the ID or the "finished"
-	// data. However, that information is not as critical. The
-	// alternatives are either adding the metadata file to the archive
-	// after the fact or adding placeholders here for the finished data
-	// and filling them in afterward. Neither is particularly trivial.
+	// The metadata file cannot carry the final size and checksum (they
+	// are only known once the archive is built), but the finished time
+	// can: recovery summaries report the backup age from this file, and
+	// a zero time would mislead the operator about backup drift.
+	meta.Finished = new(args.Clock.Now())
 	metadataReader, err := meta.AsJSONBuffer()
 	if err != nil {
 		return "", errors.Errorf("preparing the metadata: %w", err)
 	}
-	if err := writeAll(archivePaths.MetadataFile, metadataReader); err != nil {
+	canonicalPaths := NewCanonicalArchivePaths()
+	metaSize, metaSum, err := writeAll(archivePaths.MetadataFile, metadataReader)
+	if err != nil {
 		return "", errors.Capture(err)
 	}
+	manifestEntries := []ManifestEntry{{
+		Path:   canonicalPaths.MetadataFile,
+		Kind:   ManifestKindMetadata,
+		Size:   metaSize,
+		SHA256: metaSum,
+	}}
 
-	if err := buildFilesArchive(ctx, archivePaths.FilesArchive, args.FilesToBackUp, args.DataDir, args.ObjectEntries); err != nil {
+	filesSize, filesSum, err := buildFilesArchive(ctx,
+		archivePaths.FilesArchive, args.FilesToBackUp, args.DataDir, args.ObjectEntries)
+	if err != nil {
 		return "", errors.Capture(err)
 	}
+	manifestEntries = append(manifestEntries, ManifestEntry{
+		Path:   canonicalPaths.FilesArchive,
+		Kind:   ManifestKindFilesArchive,
+		Size:   filesSize,
+		SHA256: filesSum,
+	})
 
-	if err := buildDump(archivePaths.DBDumpDir, args.DumpEntries); err != nil {
+	dumpEntries, err := buildDump(
+		archivePaths.DBDumpDir, canonicalPaths.DBDumpDir, args.DumpEntries)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	manifestEntries = append(manifestEntries, dumpEntries...)
+
+	// The manifest is staged last: it indexes every other component,
+	// so it cannot record its own size or checksum. Those are covered
+	// by the outer archive checksum recorded in the metadata.
+	manifestReader, err := NewManifest(manifestEntries).AsJSONBuffer()
+	if err != nil {
+		return "", errors.Errorf("preparing the manifest: %w", err)
+	}
+	if _, _, err := writeAll(archivePaths.ManifestFile, manifestReader); err != nil {
 		return "", errors.Capture(err)
 	}
 
@@ -202,8 +231,10 @@ func checkDestinationDir(destinationDir string) error {
 	return nil
 }
 
-// checkDumpEntryName ensures the entry name is not empty, is relative
-// and stays within the archive's dump directory.
+// checkDumpEntryName ensures the entry name is one of the two canonical
+// dump names — "controller.yaml" or "models/<model-uuid>.yaml" — so the
+// writer only ever emits dumps the recovery reader recognises. The
+// canonical-name rule itself lives in [ClassifyManifestPath].
 func checkDumpEntryName(name string) error {
 	cleaned := path.Clean(name)
 	// path.Clean maps both "" and "." (and "./", ...) to ".", which
@@ -218,61 +249,75 @@ func checkDumpEntryName(name string) error {
 			"entry name %q escapes the root directory: %w",
 			name, coreerrors.NotValid)
 	}
+	dumpPath := path.Join(NewCanonicalArchivePaths().DBDumpDir, cleaned)
+	if _, _, err := ClassifyManifestPath(dumpPath); err != nil {
+		return errors.Errorf(
+			"entry name %q is not a canonical dump name: %w",
+			name, coreerrors.NotValid)
+	}
 	return nil
 }
 
 // writeAll writes the contents of source to the named file, creating
-// any missing parent directories.
-func writeAll(targetname string, source io.Reader) error {
+// any missing parent directories. It returns the number of bytes
+// written and their SHA-256 checksum, hex encoded, hashed while
+// writing so the source is only read once.
+func writeAll(targetname string, source io.Reader) (int64, string, error) {
 	if err := os.MkdirAll(filepath.Dir(targetname), 0700); err != nil {
-		return errors.Errorf("creating directory for %q: %w",
+		return 0, "", errors.Errorf("creating directory for %q: %w",
 			targetname, err)
 	}
 	target, err := os.Create(targetname)
 	if err != nil {
-		return errors.Errorf("creating file %q: %w", targetname, err)
+		return 0, "", errors.Errorf("creating file %q: %w", targetname, err)
 	}
-	if _, err := io.Copy(target, source); err != nil {
+	hasher := sha256.New()
+	size, err := io.Copy(io.MultiWriter(target, hasher), source)
+	if err != nil {
 		_ = target.Close()
-		return errors.Errorf("copying into file %q: %w", targetname, err)
+		return 0, "", errors.Errorf("copying into file %q: %w", targetname, err)
 	}
 	if err := target.Close(); err != nil {
-		return errors.Errorf("closing file %q: %w", targetname, err)
+		return 0, "", errors.Errorf("closing file %q: %w", targetname, err)
 	}
-	return nil
+	return size, hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // buildFilesArchive creates the tar file archiving all the juju
 // state-related files gathered in by the backup machinery, followed by
-// the object store objects referenced by the database dumps.
-func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackUp []string, dataDir string, objectEntries []ObjectEntry) error {
+// the object store objects referenced by the database dumps. It
+// returns the archive's size and SHA-256 checksum, hex encoded, hashed
+// while writing so the archive is only read once.
+func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackUp []string, dataDir string, objectEntries []ObjectEntry) (int64, string, error) {
 	if len(filesToBackUp) == 0 {
-		return errors.New("missing list of files to back up")
+		return 0, "", errors.New("missing list of files to back up")
 	}
 
 	// Create the parent directory here rather than relying on an
 	// earlier write having created it, matching writeAll.
 	if err := os.MkdirAll(filepath.Dir(archiveFileName), 0700); err != nil {
-		return errors.Errorf("creating directory for %q: %w",
+		return 0, "", errors.Errorf("creating directory for %q: %w",
 			archiveFileName, err)
 	}
 
 	archiveFile, err := os.Create(archiveFileName)
 	if err != nil {
-		return errors.Errorf("creating archive file: %w", err)
+		return 0, "", errors.Errorf("creating files archive: %w", err)
 	}
 
 	// Both the filesystem files and the object entries go into a
-	// single tar stream, so the archive is written by one tar.Writer.
-	tarw := archivetar.NewWriter(archiveFile)
-	fail := func(err error) error {
+	// single tar stream, so the archive is written by one tar.Writer,
+	// hashed while writing so the archive is only read once.
+	hasher := sha256.New()
+	tarw := archivetar.NewWriter(io.MultiWriter(archiveFile, hasher))
+	fail := func(err error) (int64, string, error) {
 		if terr := tarw.Close(); err == nil {
 			err = errors.Capture(terr)
 		}
 		if cerr := archiveFile.Close(); err == nil {
 			err = errors.Capture(cerr)
 		}
-		return err
+		return 0, "", err
 	}
 	// The leading path separator is stripped off each file name when
 	// it is added to the tar file.
@@ -292,9 +337,14 @@ func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackU
 		return fail(errors.Capture(err))
 	}
 	if err := archiveFile.Close(); err != nil {
-		return errors.Errorf("closing files archive: %w", err)
+		return 0, "", errors.Errorf("closing files archive: %w", err)
 	}
-	return nil
+
+	stat, err := os.Stat(archiveFileName)
+	if err != nil {
+		return 0, "", errors.Errorf("reading files archive info: %w", err)
+	}
+	return stat.Size(), hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // writeArchiveFile adds a single file or directory to the archive, with the
@@ -434,20 +484,37 @@ func checkObjectEntries(entries []ObjectEntry, dataDir string) error {
 }
 
 // buildDump writes the database dump entries into the archive's dump
-// directory.
-func buildDump(dumpDir string, entries []DumpEntry) error {
+// directory and returns their manifest entries, hashed while writing
+// so each dump is only read once. canonicalDumpDir is the dump
+// directory's path inside the archive, used for the manifest paths.
+func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]ManifestEntry, error) {
+	manifest := make([]ManifestEntry, 0, len(entries))
 	for _, entry := range entries {
 		target := filepath.Join(dumpDir, filepath.FromSlash(entry.Name))
-		if err := writeAll(target, entry.Reader); err != nil {
-			return errors.Capture(err)
+		size, sum, err := writeAll(target, entry.Reader)
+		if err != nil {
+			return nil, errors.Capture(err)
 		}
+		archivePath := filepath.Join(canonicalDumpDir, entry.Name)
+		kind, modelUUID, err := ClassifyManifestPath(archivePath)
+		if err != nil {
+			return nil, errors.Errorf("dump entry %q: %w", entry.Name, err)
+		}
+		manifest = append(manifest, ManifestEntry{
+			Path:      archivePath,
+			Kind:      kind,
+			Size:      size,
+			SHA256:    sum,
+			ModelUUID: modelUUID,
+		})
 	}
-	return nil
+	return manifest, nil
 }
 
 // buildArchiveAndChecksum tars and gzips the content directory into
-// the named archive file, computing the archive's SHA-1 checksum and
-// size along the way.
+// the named archive file, computing the archive's SHA-256 checksum —
+// in its canonical prefixed form, see [ChecksumSHA256] — and size along
+// the way.
 func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
@@ -466,12 +533,12 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 	}()
 
 	// Build the tarball, writing out to both the archive file and a
-	// SHA-1 hash. The hash corresponds to the gzipped file rather than
+	// SHA-256 hash. The hash corresponds to the gzipped file rather than
 	// to the uncompressed contents of the tarball. This is so that
 	// users can compare the published checksum against the checksum of
 	// the file without having to decompress it first.
-	hasher := hash.NewHashingWriter(archiveFile, sha1.New())
-	if err := buildArchive(hasher, stagingDir, contentDir); err != nil {
+	hasher := sha256.New()
+	if err := buildArchive(io.MultiWriter(archiveFile, hasher), stagingDir, contentDir); err != nil {
 		return 0, "", errors.Capture(err)
 	}
 
@@ -480,7 +547,7 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 		return 0, "", errors.Errorf("reading archive file info: %w", err)
 	}
 
-	return stat.Size(), hasher.Base64Sum(), nil
+	return stat.Size(), ChecksumSHA256(hex.EncodeToString(hasher.Sum(nil))), nil
 }
 
 // buildArchive writes the gzipped tar of the content directory to the
