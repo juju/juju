@@ -44,7 +44,6 @@ type CAASApplicationSuite struct {
 	modelUUID               coremodel.UUID
 	controllerConfigService *caasapplication.MockControllerConfigService
 	controllerNodeService   *caasapplication.MockControllerNodeService
-	controllerService       *caasapplication.MockControllerService
 	agentPasswordService    *caasapplication.MockAgentPasswordService
 	applicationService      *caasapplication.MockApplicationService
 	modelAgentService       *caasapplication.MockModelAgentService
@@ -69,7 +68,6 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string, controllerMod
 
 	s.controllerConfigService = caasapplication.NewMockControllerConfigService(ctrl)
 	s.controllerNodeService = caasapplication.NewMockControllerNodeService(ctrl)
-	s.controllerService = caasapplication.NewMockControllerService(ctrl)
 	s.agentPasswordService = caasapplication.NewMockAgentPasswordService(ctrl)
 	s.applicationService = caasapplication.NewMockApplicationService(ctrl)
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
@@ -82,7 +80,7 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string, controllerMod
 	}
 	s.facade = caasapplication.NewFacade(s.authorizer,
 		coretesting.ControllerTag.Id(), s.modelUUID, isControllerModelScope,
-		s.controllerConfigService, s.controllerNodeService, s.controllerService,
+		s.controllerConfigService, s.controllerNodeService,
 		s.agentPasswordService, s.applicationService,
 		s.modelAgentService, s.tracingService, s.lokiConfigService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
@@ -190,7 +188,10 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "controller").Return(applicationUUID, nil)
 	s.applicationService.EXPECT().IsControllerApplication(gomock.Any(), applicationUUID).Return(true, nil)
 	s.agentPasswordService.EXPECT().ValidateControllerNodeNonce(gomock.Any(), "2", "nonce").Return(true, nil)
-	controllerCfg := controller.Config{controller.CACertKey: coretesting.CACert}
+	controllerCfg := controller.Config{
+		controller.CACertKey: coretesting.CACert,
+		controller.APIPort:   17070,
+	}
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controllerCfg, nil)
 	addrs := []string{"10.6.6.6:17070"}
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
@@ -202,12 +203,6 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 		ApplicationName: "controller",
 		ProviderID:      "controller-2",
 	}).Return("controller/2", "unit-secret", nil)
-	s.controllerService.EXPECT().GetControllerAgentInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
-		APIPort:      17070,
-		Cert:         coretesting.ServerCert,
-		PrivateKey:   coretesting.ServerKey,
-		CAPrivateKey: coretesting.CAKey,
-	}, nil)
 	s.controllerNodeService.EXPECT().AddDqliteNodeID(gomock.Any(), "2")
 
 	var storedPassword string
@@ -232,8 +227,12 @@ func (s *CAASApplicationSuite) TestControllerUnitIntroductionCreatesControllerId
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(controllerConf.Tag(), tc.DeepEquals, names.NewControllerAgentTag("2"))
 	c.Check(controllerConf.Value(agent.ProviderType), tc.Equals, "kubernetes")
+	// The scale-out machine config carries no serving info: the pod's
+	// controller material is delivered outside agent.conf.
 	_, isController := controllerConf.ControllerAgentInfo()
-	c.Check(isController, tc.IsTrue)
+	c.Check(isController, tc.IsFalse)
+	// The same plaintext credential rendered into the config is the one
+	// stored (hashed) by SetControllerNodePassword.
 	c.Check(controllerConf.OldPassword(), tc.Equals, storedPassword)
 	apiInfo, ok := controllerConf.APIInfo()
 	c.Assert(ok, tc.IsTrue)

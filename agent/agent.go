@@ -312,18 +312,6 @@ type Config interface {
 	// files to keep (compressed).
 	AgentLogfileMaxBackups() int
 
-	// QueryTracingEnabled returns whether query tracing is enabled.
-	QueryTracingEnabled() bool
-
-	// QueryTracingThreshold returns the threshold for query tracing. The
-	// lower the threshold, the more queries will be output. A value of 0
-	// means all queries will be output.
-	QueryTracingThreshold() time.Duration
-
-	// DqliteBusyTimeout returns the busy timeout for dqlite database
-	// operations.
-	DqliteBusyTimeout() time.Duration
-
 	// OpenTelemetryEnabled returns whether the open telemetry is enabled.
 	OpenTelemetryEnabled() bool
 
@@ -354,10 +342,6 @@ type Config interface {
 	// OpenTelemetryTailSamplingThreshold returns the threshold for tail-based
 	// sampling. The lower the threshold, the more spans will be sampled.
 	OpenTelemetryTailSamplingThreshold() time.Duration
-
-	// DqlitePort returns the port that should be used by Dqlite. This should
-	// only be set during testing.
-	DqlitePort() (int, bool)
 }
 
 type configSetterOnly interface {
@@ -399,16 +383,6 @@ type configSetterOnly interface {
 	// CA certificate, insecure skip verify flag, and org ID are updated together.
 	SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string)
 
-	// SetQueryTracingEnabled sets whether query tracing is enabled.
-	SetQueryTracingEnabled(bool)
-
-	// SetQueryTracingThreshold sets the threshold for query tracing.
-	SetQueryTracingThreshold(time.Duration)
-
-	// SetDqliteBusyTimeout sets the busy timeout for dqlite database
-	// operations.
-	SetDqliteBusyTimeout(time.Duration)
-
 	// SetOpenTelemetryEnabled sets whether open telemetry is enabled.
 	SetOpenTelemetryEnabled(bool)
 
@@ -440,9 +414,7 @@ type configSetterOnly interface {
 	// sampling. The lower the threshold, the more spans will be sampled.
 	SetOpenTelemetryTailSamplingThreshold(time.Duration)
 
-	// SetDataDir overrides the data directory. It is used in CAAS to relocate
-	// the controller agent's home to a controller-specific subdirectory while
-	// keeping the controller identity and state-serving info intact.
+	// SetDataDir overrides the data directory.
 	SetDataDir(string)
 }
 
@@ -521,9 +493,6 @@ type configInternal struct {
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
-	queryTracingEnabled                bool
-	queryTracingThreshold              time.Duration
-	dqliteBusyTimeout                  time.Duration
 	openTelemetryEnabled               bool
 	openTelemetryHTTPEndpoint          string
 	openTelemetryGRPCEndpoint          string
@@ -532,7 +501,6 @@ type configInternal struct {
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
 	openTelemetryTailSamplingThreshold time.Duration
-	dqlitePort                         int
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -551,9 +519,6 @@ type AgentConfigParams struct {
 	Values                             map[string]string
 	AgentLogfileMaxSizeMB              int
 	AgentLogfileMaxBackups             int
-	QueryTracingEnabled                bool
-	QueryTracingThreshold              time.Duration
-	DqliteBusyTimeout                  time.Duration
 	OpenTelemetryEnabled               bool
 	OpenTelemetryHTTPEndpoint          string
 	OpenTelemetryGRPCEndpoint          string
@@ -562,7 +527,6 @@ type AgentConfigParams struct {
 	OpenTelemetryStackTraces           bool
 	OpenTelemetrySampleRatio           float64
 	OpenTelemetryTailSamplingThreshold time.Duration
-	DqlitePort                         int
 
 	// LokiEndpoint is the initial Loki push API endpoint for this agent.
 	// Empty means logs are sent through the controller logsink.
@@ -637,9 +601,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		values:                             configParams.Values,
 		agentLogfileMaxSizeMB:              configParams.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups:             configParams.AgentLogfileMaxBackups,
-		queryTracingEnabled:                configParams.QueryTracingEnabled,
-		queryTracingThreshold:              configParams.QueryTracingThreshold,
-		dqliteBusyTimeout:                  configParams.DqliteBusyTimeout,
 		openTelemetryEnabled:               configParams.OpenTelemetryEnabled,
 		openTelemetryHTTPEndpoint:          configParams.OpenTelemetryHTTPEndpoint,
 		openTelemetryGRPCEndpoint:          configParams.OpenTelemetryGRPCEndpoint,
@@ -648,7 +609,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetryStackTraces:           configParams.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
 		openTelemetryTailSamplingThreshold: configParams.OpenTelemetryTailSamplingThreshold,
-		dqlitePort:                         configParams.DqlitePort,
 		lokiEndpoint:                       configParams.LokiEndpoint,
 		lokiCACert:                         configParams.LokiCACert,
 		lokiInsecureSkipVerify:             configParams.LokiInsecureSkipVerify,
@@ -882,9 +842,7 @@ func (c *configInternal) DataDir() string {
 	return c.paths.DataDir
 }
 
-// SetDataDir overrides the data directory. It is used in CAAS to relocate the
-// controller agent's home to a controller-specific subdirectory while keeping
-// the controller identity and state-serving info intact.
+// SetDataDir overrides the data directory.
 func (c *configInternal) SetDataDir(dir string) {
 	c.paths.DataDir = dir
 	c.paths.ConfDir = filepath.Join(dir, "agents")
@@ -988,42 +946,6 @@ func (c *configInternal) AgentLogfileMaxSizeMB() int {
 // AgentLogfileMaxBackups implements Config.
 func (c *configInternal) AgentLogfileMaxBackups() int {
 	return c.agentLogfileMaxBackups
-}
-
-// QueryTracingEnabled implements Config.
-func (c *configInternal) QueryTracingEnabled() bool {
-	return c.queryTracingEnabled
-}
-
-// SetQueryTracingEnabled implements configSetterOnly.
-func (c *configInternal) SetQueryTracingEnabled(v bool) {
-	c.queryTracingEnabled = v
-}
-
-// QueryTracingThreshold implements Config.
-func (c *configInternal) QueryTracingThreshold() time.Duration {
-	return c.queryTracingThreshold
-}
-
-// SetQueryTracingThreshold implements configSetterOnly.
-func (c *configInternal) SetQueryTracingThreshold(v time.Duration) {
-	c.queryTracingThreshold = v
-}
-
-// DqliteBusyTimeout implements Config.
-func (c *configInternal) DqliteBusyTimeout() time.Duration {
-	return c.dqliteBusyTimeout
-}
-
-// SetDqliteBusyTimeout implements configSetterOnly.
-func (c *configInternal) SetDqliteBusyTimeout(v time.Duration) {
-	// If the value is negative, set it to zero, we don't want negative
-	// timeouts. We can't error out here as this method is called from config
-	// change processing and that doesn't handle errors (annoyingly).
-	if v < 0 {
-		v = 0
-	}
-	c.dqliteBusyTimeout = v
 }
 
 // OpenTelemetryEnabled implements Config.
@@ -1178,9 +1100,4 @@ func (c *configInternal) APIInfo() (*api.Info, bool) {
 		Nonce:    c.nonce,
 		ModelTag: c.model,
 	}, true
-}
-
-// DqlitePort is defined on Config interface.
-func (c *configInternal) DqlitePort() (int, bool) {
-	return c.dqlitePort, c.dqlitePort > 0
 }

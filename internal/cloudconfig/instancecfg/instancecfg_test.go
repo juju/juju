@@ -329,3 +329,56 @@ func (*instancecfgSuite) TestAgentConfigTracingConfigHTTPFallback(c *tc.C) {
 	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://otel.example.com:4318")
 	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "")
 }
+
+// TestAgentConfigBootstrapMachineOmitsControllerState proves the machine-0
+// bootstrap render carries only connectivity state: even with bootstrap
+// serving info present on the InstanceConfig (for the separately rendered
+// runtime.conf), the machine agent config has no serving info, no Dqlite
+// settings, and no state password, while the local API address is
+// explicit in apiaddresses.
+func (*instancecfgSuite) TestAgentConfigBootstrapMachineOmitsControllerState(c *tc.C) {
+	icfg := instancecfg.InstanceConfig{
+		APIInfo: &api.Info{
+			Addrs:    []string{"1.2.3.4:4321"},
+			CACert:   "cert",
+			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
+			Password: "secret123",
+		},
+		ControllerConfig: controller.Config{
+			controller.APIPort:               4321,
+			controller.QueryTracingEnabled:   true,
+			controller.QueryTracingThreshold: "10s",
+			controller.DqliteBusyTimeout:     "2s",
+		},
+		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
+		DataDir:       "/path/to/datadir/",
+		Bootstrap: &instancecfg.BootstrapConfig{
+			ControllerAgentInfo: controller.ControllerAgentInfo{
+				APIPort:      4321,
+				Cert:         "cert",
+				PrivateKey:   "key",
+				CAPrivateKey: "cakey",
+			},
+		},
+	}
+	cfg, err := icfg.AgentConfig(names.NewMachineTag("0"), semversion.MustParse("1.2.3"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The local API address is explicit; no serving info is present.
+	apiInfo, ok := cfg.APIInfo()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:4321", "1.2.3.4:4321"})
+	_, isController := cfg.ControllerAgentInfo()
+	c.Check(isController, tc.IsFalse)
+
+	rendered, err := cfg.(agent.ConfigRenderer).Render()
+	c.Assert(err, tc.ErrorIsNil)
+	content := string(rendered)
+	c.Check(content, tc.Not(tc.Contains), "controllercert")
+	c.Check(content, tc.Not(tc.Contains), "controllerkey")
+	c.Check(content, tc.Not(tc.Contains), "caprivatekey")
+	c.Check(content, tc.Not(tc.Contains), "statepassword")
+	c.Check(content, tc.Not(tc.Contains), "querytracing")
+	c.Check(content, tc.Not(tc.Contains), "dqlitebusytimeout")
+	c.Check(content, tc.Not(tc.Contains), "dqlite-port")
+}

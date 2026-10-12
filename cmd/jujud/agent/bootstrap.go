@@ -287,16 +287,13 @@ func (c *BootstrapCommand) runFromRuntimeConf(
 			DataDir: runtimeCfg.DataDir,
 			LogDir:  runtimeCfg.LogDir,
 		},
-		Tag:                   controllerAgentTag,
-		UpgradedToVersion:     jujuversion.Current,
-		Password:              runtimeCfg.AgentPassword,
-		Controller:            controllerTag,
-		Model:                 modelTag,
-		APIAddresses:          apiAddrs,
-		CACert:                runtimeCfg.CACert,
-		QueryTracingEnabled:   args.ControllerConfig.QueryTracingEnabled(),
-		QueryTracingThreshold: args.ControllerConfig.QueryTracingThreshold(),
-		DqliteBusyTimeout:     args.ControllerConfig.DqliteBusyTimeout(),
+		Tag:               controllerAgentTag,
+		UpgradedToVersion: jujuversion.Current,
+		Password:          runtimeCfg.AgentPassword,
+		Controller:        controllerTag,
+		Model:             modelTag,
+		APIAddresses:      apiAddrs,
+		CACert:            runtimeCfg.CACert,
 	}
 	agentCfgWriter, err := agent.NewStateMachineConfig(agentConfigParams, info)
 	if err != nil {

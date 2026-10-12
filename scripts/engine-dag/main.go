@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
 	jjudcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
 	jjudmodel "github.com/juju/juju/cmd/jujud/agent/model"
-	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
@@ -263,8 +262,6 @@ func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
 type mockConfig struct {
 	agent.ConfigSetter
 	tag      names.Tag
-	ssiSet   bool
-	ssi      controller.ControllerAgentInfo
 	dataPath string
 }
 
@@ -281,15 +278,6 @@ func (mock *mockConfig) Model() names.ModelTag {
 
 func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
-}
-
-func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	return mc.ssi, mc.ssiSet
-}
-
-func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	mc.ssiSet = true
-	mc.ssi = info
 }
 
 func (mc *mockConfig) LogDir() string {

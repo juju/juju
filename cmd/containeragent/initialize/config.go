@@ -139,19 +139,7 @@ func (c *configFromEnv) AgentLogfileMaxBackups() int {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) QueryTracingEnabled() bool {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) QueryTracingThreshold() time.Duration {
-	panic("not implemented")
-}
-
 func (c *configFromEnv) OpenTelemetryEnabled() bool {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) DqliteBusyTimeout() time.Duration {
 	panic("not implemented")
 }
 
@@ -184,10 +172,6 @@ func (c *configFromEnv) OpenTelemetryTailSamplingThreshold() time.Duration {
 }
 
 func (c *configFromEnv) ObjectStoreType() objectstore.BackendType {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) DqlitePort() (int, bool) {
 	panic("not implemented")
 }
 

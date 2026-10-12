@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
 	"github.com/juju/juju/cmd/jujuagentd/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -52,7 +51,6 @@ import (
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/pki"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/storage/looputil"
@@ -357,49 +355,6 @@ func (a *MachineAgent) Done(err error) {
 	close(a.dead)
 }
 
-// upgradeCertificateDNSNames ensure that the controller certificate
-// recorded in the agent config and also mongo server.pem contains the
-// DNSNames entries required by Juju.
-func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
-	si, ok := config.ControllerAgentInfo()
-	if !ok || si.CAPrivateKey == "" {
-		// No certificate information exists yet, nothing to do.
-		return nil
-	}
-
-	authority, err := pki.NewDefaultAuthorityPemCAKey([]byte(config.CACert()),
-		[]byte(si.CAPrivateKey))
-	if err != nil {
-		return errors.Annotate(err, "building authority from ca pem")
-	}
-
-	// Validate the current certificate and private key pair, and then
-	// extract the current DNS names from the certificate. If the
-	// certificate validation fails, or it does not contain the DNS
-	// names we require, we will generate a new one.
-	leaf, err := authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
-		[]byte(si.Cert), []byte(si.PrivateKey))
-	if err != nil || !pki.LeafHasDNSNames(leaf, controller.DefaultDNSNames) {
-		logger.Infof(context.TODO(), "parsing certificate/key failed, will generate a new one: %v", err)
-		leaf, err = authority.LeafRequestForGroup(pki.DefaultLeafGroup).
-			AddDNSNames(controller.DefaultDNSNames...).
-			Commit()
-		if err != nil {
-			return errors.Annotate(err, "generating new default controller certificate")
-		}
-	}
-
-	cert, privateKey, err := leaf.ToPemParts()
-	if err != nil {
-		return errors.Annotate(err, "transforming controller certificate to pem format")
-	}
-
-	si.Cert, si.PrivateKey = string(cert), string(privateKey)
-
-	config.SetControllerAgentInfo(si)
-	return nil
-}
-
 // Run runs a machine agent.
 func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
@@ -442,14 +397,6 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
 		logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
-	}
-
-	// Before doing anything else, we need to make sure the certificate
-	// generated for use by mongo to validate controller connections is correct.
-	// This needs to be done before any possible restart of the mongo service.
-	// See bug http://pad.lv/1434680
-	if err := a.AgentConfigWriter.ChangeConfig(upgradeCertificateDNSNames); err != nil {
-		return errors.Annotate(err, "error upgrading server certificate")
 	}
 
 	// Moved from NewMachineAgent here because the agent config could not be

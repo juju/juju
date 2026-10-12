@@ -601,42 +601,6 @@ func (*suite) TestSetCACert(c *tc.C) {
 	c.Assert(conf.CACert(), tc.Equals, "new ca cert")
 }
 
-func (*suite) TestSetQueryTracingEnabled(c *tc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, tc.ErrorIsNil)
-
-	queryTracingEnabled := conf.QueryTracingEnabled()
-	c.Assert(queryTracingEnabled, tc.Equals, attributeParams.QueryTracingEnabled)
-
-	conf.SetQueryTracingEnabled(true)
-	queryTracingEnabled = conf.QueryTracingEnabled()
-	c.Assert(queryTracingEnabled, tc.Equals, true, tc.Commentf("query tracing enabled setting not updated"))
-}
-
-func (*suite) TestSetQueryTracingThreshold(c *tc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, tc.ErrorIsNil)
-
-	queryTracingThreshold := conf.QueryTracingThreshold()
-	c.Assert(queryTracingThreshold, tc.Equals, attributeParams.QueryTracingThreshold)
-
-	conf.SetQueryTracingThreshold(time.Second * 10)
-	queryTracingThreshold = conf.QueryTracingThreshold()
-	c.Assert(queryTracingThreshold, tc.Equals, time.Second*10, tc.Commentf("query tracing threshold setting not updated"))
-}
-
-func (*suite) TestSetDqliteBusyTimeout(c *tc.C) {
-	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, tc.ErrorIsNil)
-
-	dqliteBusyTimeout := conf.DqliteBusyTimeout()
-	c.Assert(dqliteBusyTimeout, tc.Equals, attributeParams.DqliteBusyTimeout)
-
-	conf.SetDqliteBusyTimeout(time.Second * 10)
-	dqliteBusyTimeout = conf.DqliteBusyTimeout()
-	c.Assert(dqliteBusyTimeout, tc.Equals, time.Second*10, tc.Commentf("dqlite busy timeout not updated"))
-}
-
 func (*suite) TestSetOpenTelemetryEnabled(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, tc.ErrorIsNil)

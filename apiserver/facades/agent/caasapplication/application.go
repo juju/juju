@@ -5,6 +5,7 @@ package caasapplication
 
 import (
 	"context"
+	"net"
 	"path"
 	"strconv"
 	"strings"
@@ -46,11 +47,6 @@ type ControllerNodeService interface {
 	// addresses available for agents ordered to prefer local-cloud scoped
 	// addresses and IPv4 over IPv6 for each machine.
 	GetAllAPIAddressesForAgents(ctx context.Context) ([]string, error)
-}
-
-// ControllerService provides controller agent configuration.
-type ControllerService interface {
-	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 
 // AgentPasswordService manages agent passwords.
@@ -104,7 +100,6 @@ type Facade struct {
 	auth                    facade.Authorizer
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
-	controllerService       ControllerService
 	agentPasswordService    AgentPasswordService
 	applicationService      ApplicationService
 	modelAgentService       ModelAgentService
@@ -121,7 +116,6 @@ func NewFacade(
 	isControllerModelScope bool,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
-	controllerService ControllerService,
 	agentPasswordService AgentPasswordService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
@@ -136,7 +130,6 @@ func NewFacade(
 		isControllerModelScope:  isControllerModelScope,
 		controllerConfigService: controllerConfigService,
 		controllerNodeService:   controllerNodeService,
-		controllerService:       controllerService,
 		agentPasswordService:    agentPasswordService,
 		applicationService:      applicationService,
 		modelAgentService:       modelAgentService,
@@ -334,11 +327,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(errors.Annotate(err, "generating controller agent password"))
 	}
-	controllerAgentInfo, err := f.controllerService.GetControllerAgentInfo(ctx)
-	if err != nil {
-		return errResp(errors.Annotate(err, "getting controller agent info"))
-	}
-	controllerConf, err := agent.NewStateMachineConfig(agent.AgentConfigParams{
+	// The controller pod's machine agent connects with a pre-stored,
+	// non-rotating controller-node credential; the hash of the same
+	// plaintext is stored below via SetControllerNodePassword.
+	//
+	// The localhost address is only for reaching jujud from jujuagentd
+	// within the same controller pod.
+	controllerAddrs := append([]string{
+		net.JoinHostPort("localhost", strconv.Itoa(controllerConfig.APIPort())),
+	}, addrs...)
+	controllerConf, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		Paths: agent.Paths{
 			DataDir: dataDir,
 			LogDir:  logDir,
@@ -346,16 +344,13 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		Tag:               names.NewControllerAgentTag(controllerID),
 		Controller:        names.NewControllerTag(f.controllerUUID),
 		Model:             names.NewModelTag(f.modelUUID.String()),
-		APIAddresses:      addrs,
+		APIAddresses:      controllerAddrs,
 		CACert:            caCert,
 		Password:          controllerPassword,
 		UpgradedToVersion: version,
 		Values: map[string]string{
 			agent.ProviderType: domaincloud.CloudTypeKubernetes.String(),
 		},
-		QueryTracingEnabled:                controllerConfig.QueryTracingEnabled(),
-		QueryTracingThreshold:              controllerConfig.QueryTracingThreshold(),
-		DqliteBusyTimeout:                  controllerConfig.DqliteBusyTimeout(),
 		OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "" || tracingConfig.HTTPEndpoint != "",
 		OpenTelemetryHTTPEndpoint:          tracingConfig.HTTPEndpoint,
 		OpenTelemetryGRPCEndpoint:          tracingConfig.GRPCEndpoint,
@@ -366,7 +361,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		LokiEndpoint:                       lokiConfig.Endpoint,
 		LokiCACert:                         lokiConfig.CACertificate,
 		LokiInsecureSkipVerify:             lokiConfig.InsecureSkipVerify,
-	}, controllerAgentInfo)
+	})
 	if err != nil {
 		return errResp(errors.Annotate(err, "creating controller agent config"))
 	}
@@ -379,7 +374,8 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	}
 	// The nonce validation above proves this pod is the legitimate owner of
 	// this ordinal. If this is a retry of a previous introduction whose
-	// response was lost, overwriting the password is safe.
+	// response was lost, overwriting the password is safe: the same
+	// plaintext is rendered into the returned controller agent config.
 	if err := f.agentPasswordService.SetControllerNodePassword(ctx, controllerID, controllerPassword); err != nil {
 		return errResp(err)
 	}
