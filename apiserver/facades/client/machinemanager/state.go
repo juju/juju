@@ -84,6 +84,7 @@ type Machine interface {
 	Containers() ([]string, error)
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
+	KeepInstance() (bool, error)
 	CreateUpgradeSeriesLock([]string, state.Base) error
 	RemoveUpgradeSeriesLock() error
 	CompleteUpgradeSeries() error
