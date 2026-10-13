@@ -1672,28 +1672,58 @@ func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleRetainsHighestOrd
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(got, tc.DeepEquals, want)
 	}
-	created, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 0, nil, newUnits(1))
+	created, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), nil, nil, newUnits(1))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(created, tc.DeepEquals, []string{"foo/0"})
-	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 1, nil, newUnits(2))
+	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/0"}, nil, newUnits(2))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(created, tc.DeepEquals, []string{"foo/1", "foo/2"})
-	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 3, []string{"foo/0", "foo/1"}, nil)
+	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/0", "foo/1", "foo/2"}, []string{"foo/0", "foo/1"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(created, tc.HasLen, 0)
 	checkLives(map[string]int{"foo/0": int(life.Dying), "foo/1": int(life.Dying), "foo/2": int(life.Alive)})
-	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 1, nil, newUnits(1))
+	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/2"}, nil, newUnits(1))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(created, tc.DeepEquals, []string{"foo/3"})
 	checkLives(map[string]int{"foo/0": int(life.Dying), "foo/1": int(life.Dying), "foo/2": int(life.Alive), "foo/3": int(life.Alive)})
 
-	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 1, []string{"foo/2"}, nil)
+	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/2"}, []string{"foo/2"}, nil)
 	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
-	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 2, []string{"foo/2", "foo/3"}, nil)
+	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/2", "foo/3"}, []string{"foo/2", "foo/3"}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 0, nil, newUnits(1))
+	created, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), nil, nil, newUnits(1))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(created, tc.DeepEquals, []string{"foo/4"})
+}
+
+func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleRejectsStaleMembership(c *tc.C) {
+	appUUID := s.createCAASScalingApplication(c, "foo", life.Alive, 0)
+	newUnits := func(count int) []applicationinternal.AddCAASUnitArg {
+		args := make([]applicationinternal.AddCAASUnitArg, count)
+		for i := range args {
+			args[i].UnitUUID = tc.Must(c, unit.NewUUID).String()
+			args[i].NetNodeUUID = tc.Must(c, domainnetwork.NewNetNodeUUID).String()
+		}
+		return args
+	}
+
+	_, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), nil, nil, newUnits(2))
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/0", "foo/1"}, []string{"foo/0"}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/1"}, nil, newUnits(1))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A plan made for {foo/0, foo/1} must not succeed against {foo/1, foo/2}.
+	_, err = s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/0", "foo/1"}, []string{"foo/0"}, nil)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
+	lives, err := s.state.GetAllUnitLifeForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lives, tc.DeepEquals, map[string]int{
+		"foo/0": int(life.Dying),
+		"foo/1": int(life.Alive),
+		"foo/2": int(life.Alive),
+	})
 }
 
 func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleAcceptsServiceValidatedUnitPlan(c *tc.C) {
@@ -1704,11 +1734,11 @@ func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleAcceptsServiceVal
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
 		}}
 	}
-	_, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 0, nil, newUnit())
+	_, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), nil, nil, newUnit())
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.EnsureApplicationUnitSequenceAtLeast(c.Context(), "foo", 5)
 	c.Assert(err, tc.ErrorIsNil)
-	created, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), 1, nil, newUnit())
+	created, err := s.state.SetCAASApplicationUnitScale(c.Context(), appUUID.String(), []string{"foo/0"}, nil, newUnit())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(created, tc.DeepEquals, []string{"foo/6"})
 	lives, err := s.state.GetAllUnitLifeForApplication(c.Context(), appUUID)
@@ -1731,7 +1761,7 @@ func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleSerializesConcurr
 		args := makeUnit()
 		go func() {
 			<-start
-			_, err := s.state.SetCAASApplicationUnitScale(ctx, appUUID.String(), 0, nil, args)
+			_, err := s.state.SetCAASApplicationUnitScale(ctx, appUUID.String(), nil, nil, args)
 			results <- err
 		}()
 	}
