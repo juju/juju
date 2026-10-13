@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	domainssh "github.com/juju/juju/domain/ssh"
 	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -56,12 +56,22 @@ func (s *Service) SetSSHServerPort(ctx context.Context, port int) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := domainssh.ValidateSSHServerPort(port); err != nil {
+	if err := validateSSHServerPort(port); err != nil {
 		return errors.Capture(err)
 	}
 
 	if err := s.state.SetSSHServerPort(ctx, port); err != nil {
 		return errors.Errorf("setting controller SSH server port: %w", err)
+	}
+	return nil
+}
+
+// validateSSHServerPort checks that port is a valid TCP port for the
+// controller SSH jump server to listen on. An error satisfying
+// [coreerrors.NotValid] is returned if it is not.
+func validateSSHServerPort(port int) error {
+	if port <= 0 || port > 65535 {
+		return errors.Errorf("port %d out of range 1-65535", port).Add(coreerrors.NotValid)
 	}
 	return nil
 }
