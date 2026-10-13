@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -392,7 +393,7 @@ func (c *Client) SSHServerHostKey(ctx context.Context) ([]byte, error) {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return nil, errors.Trace(result.Error)
+		return nil, apiservererrors.RestoreError(result.Error)
 	}
 	return result.PublicKey, nil
 }
@@ -406,7 +407,7 @@ func (c *Client) SSHServerPort(ctx context.Context) (int, error) {
 		return 0, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return 0, errors.Trace(result.Error)
+		return 0, apiservererrors.RestoreError(result.Error)
 	}
 	return result.Port, nil
 }
