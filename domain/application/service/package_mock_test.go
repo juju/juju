@@ -497,7 +497,7 @@ type MockStateMockRecorder struct {
 	setApplicationCharmExpects                                []*gomock.Call4_1[context.Context, application.UUID, charm.ID, application0.SetCharmStateParams, error]
 	setApplicationConstraintsExpects                          []*gomock.Call3_1[context.Context, application.UUID, constraints0.Constraints, error]
 	setApplicationHasK8sResourcesExpects                      []*gomock.Call2_1[context.Context, application.UUID, error]
-	setCAASApplicationUnitScaleExpects                        []*gomock.Call5_2[context.Context, string, []string, []string, []internal.AddCAASUnitArg, []string, error]
+	setCAASApplicationUnitScaleExpects                        []*gomock.Call5_2[context.Context, string, []string, []string, []internal.ScaleCAASUnitArg, []string, error]
 	setCharmAvailableExpects                                  []*gomock.Call2_1[context.Context, charm.ID, error]
 	setUnitWorkloadVersionExpects                             []*gomock.Call3_1[context.Context, unit.Name, string, error]
 	shouldAllowCharmUpgradeOnErrorExpects                     []*gomock.Call2_2[context.Context, string, bool, error]
@@ -2906,7 +2906,7 @@ func (mr *MockStateMockRecorder) SetApplicationHasK8sResources(ctx, appUUID any)
 type MockStateSetApplicationHasK8sResourcesCall = gomock.Call2_1[context.Context, application.UUID, error]
 
 // SetCAASApplicationUnitScale mocks base method.
-func (m *MockState) SetCAASApplicationUnitScale(arg0 context.Context, arg1 string, arg2, arg3 []string, arg4 []internal.AddCAASUnitArg) ([]string, error) {
+func (m *MockState) SetCAASApplicationUnitScale(arg0 context.Context, arg1 string, arg2, arg3 []string, arg4 []internal.ScaleCAASUnitArg) ([]string, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch5_2(&m.recorder.setCAASApplicationUnitScaleExpects, m.ctrl, m, "SetCAASApplicationUnitScale", arg0, arg1, arg2, arg3, arg4)
 }
@@ -2914,14 +2914,14 @@ func (m *MockState) SetCAASApplicationUnitScale(arg0 context.Context, arg1 strin
 // SetCAASApplicationUnitScale indicates an expected call of SetCAASApplicationUnitScale.
 func (mr *MockStateMockRecorder) SetCAASApplicationUnitScale(arg0, arg1, arg2, arg3, arg4 any) *MockStateSetCAASApplicationUnitScaleCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall5_2[context.Context, string, []string, []string, []internal.AddCAASUnitArg, []string, error](mr.mock.ctrl.T, mr.mock, "SetCAASApplicationUnitScale", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4))
+	call := gomock.NewCall5_2[context.Context, string, []string, []string, []internal.ScaleCAASUnitArg, []string, error](mr.mock.ctrl.T, mr.mock, "SetCAASApplicationUnitScale", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4))
 	mr.setCAASApplicationUnitScaleExpects = append(mr.setCAASApplicationUnitScaleExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateSetCAASApplicationUnitScaleCall is the typed call wrapper for SetCAASApplicationUnitScale.
-type MockStateSetCAASApplicationUnitScaleCall = gomock.Call5_2[context.Context, string, []string, []string, []internal.AddCAASUnitArg, []string, error]
+type MockStateSetCAASApplicationUnitScaleCall = gomock.Call5_2[context.Context, string, []string, []string, []internal.ScaleCAASUnitArg, []string, error]
 
 // SetCharmAvailable mocks base method.
 func (m *MockState) SetCharmAvailable(ctx context.Context, charmID charm.ID) error {

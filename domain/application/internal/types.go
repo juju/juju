@@ -107,3 +107,9 @@ type AddCAASUnitArg struct {
 	Constraints constraints.Constraints
 	K8sPod      *application.K8sPod
 }
+
+// ScaleCAASUnitArg pairs a new unit with the name its scale plan requires.
+type ScaleCAASUnitArg struct {
+	ExpectedName string
+	AddCAASUnitArg
+}
