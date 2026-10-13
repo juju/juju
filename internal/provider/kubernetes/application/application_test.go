@@ -1084,9 +1084,10 @@ func (s *applicationSuite) TestEnsureStatefulDeletesOrphanedStatefulSet(c *tc.C)
 			// The new StatefulSet must have the new UUID, not the orphan's.
 			c.Assert(ss.Annotations["app.juju.is/uuid"], tc.Equals, "uniqid")
 
-			// Replicas must be nil (not 0) so Kubernetes defaults to 1.
-			// This is because exists stays true after the orphan deletion.
-			c.Assert(ss.Spec.Replicas, tc.IsNil)
+			// Replacement starts at zero even when InitialScale is nonzero.
+			// The provisioner scales it after reserving the intended units.
+			c.Assert(ss.Spec.Replicas, tc.NotNil)
+			c.Check(*ss.Spec.Replicas, tc.Equals, int32(0))
 
 			// The VolumeClaimTemplates must contain the new UUID.
 			// Without the fix, the update path does not modify VCTs
