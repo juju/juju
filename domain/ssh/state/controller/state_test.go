@@ -13,6 +13,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -196,7 +197,7 @@ func (s *stateSuite) TestGetSSHServerPortMissing(c *tc.C) {
 
 	port, err := st.GetSSHServerPort(c.Context())
 	c.Check(port, tc.Equals, 0)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+	c.Assert(err, tc.ErrorIs, ssherrors.SSHServerPortNotFound)
 }
 
 func (s *stateSuite) TestSetAndGetSSHServerPort(c *tc.C) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
@@ -210,7 +211,7 @@ FROM controller_ssh_server_port`, sshServerPort{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("controller SSH server port not found").Add(coreerrors.NotFound)
+			return errors.Errorf("controller SSH server port not found").Add(ssherrors.SSHServerPortNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying controller SSH server port: %w", err)

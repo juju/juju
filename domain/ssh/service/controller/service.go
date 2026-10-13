@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
-	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/trace"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainssh "github.com/juju/juju/domain/ssh"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -40,7 +40,7 @@ func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
 	defer span.End()
 
 	port, err := s.state.GetSSHServerPort(ctx)
-	if errors.Is(err, coreerrors.NotFound) {
+	if errors.Is(err, ssherrors.SSHServerPortNotFound) {
 		return controller.DefaultSSHServerPort, nil
 	}
 	if err != nil {

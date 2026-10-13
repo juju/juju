@@ -17,6 +17,7 @@ import (
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/watchertest"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 )
 
@@ -128,7 +129,7 @@ func (s *serviceSuite) TestGetSSHServerPortReturnsStored(c *tc.C) {
 
 func (s *serviceSuite) TestGetSSHServerPortDefaultsWhenMissing(c *tc.C) {
 	controllerState := NewMockState(gomock.NewController(c))
-	controllerState.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, coreerrors.NotFound)
+	controllerState.EXPECT().GetSSHServerPort(gomock.Any()).Return(0, ssherrors.SSHServerPortNotFound)
 
 	port, err := controllersshservice.NewService(controllerState).GetSSHServerPort(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
