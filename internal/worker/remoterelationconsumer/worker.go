@@ -284,10 +284,10 @@ func NewWorker(config Config) (ReportableWorker, error) {
 		// Only restart if the worker has not indicated that it should not
 		// be restarted.
 		ShouldRestart: func(err error) bool {
-			if internalworker.ShouldRunnerRestart(err) {
-				return true
+			if errors.Is(err, RemoteApplicationOffererDeadErr) {
+				return false
 			}
-			return !errors.Is(err, RemoteApplicationOffererDeadErr)
+			return internalworker.ShouldRunnerRestart(err)
 		},
 
 		// For any failures, try again in 15 seconds.
