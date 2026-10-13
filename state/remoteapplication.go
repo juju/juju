@@ -299,6 +299,10 @@ type DestroyRemoteApplicationOperation struct {
 
 	// app holds the remote application to destroy.
 	app *RemoteApplication
+
+	// skipRelations holds the keys of relations that a forced offer removal
+	// destroys in the same transaction.
+	skipRelations set.Strings
 }
 
 // Build is part of the ModelOperation interface.
@@ -434,6 +438,9 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 	if haveRels {
 		failRels := false
 		for _, rel := range rels {
+			if op.skipRelations.Contains(rel.doc.Key) {
+				continue
+			}
 			// If the remote app has been terminated, we may have been offline
 			// and not noticed so need to clean up any exiting relation units.
 			destroyRelUnitOps, _, err := destroyCrossModelRelationUnitsOps(&op.ForcedOperation, op.app, rel, true)
