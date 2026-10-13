@@ -202,17 +202,27 @@ func (s *stateSuite) TestGetSSHServerPortMissing(c *tc.C) {
 
 func (s *stateSuite) TestSetAndGetSSHServerPort(c *tc.C) {
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	s.seedSSHServerPort(c, 17022)
 
-	err := st.SetSSHServerPort(c.Context(), 17022)
+	err := st.SetSSHServerPort(c.Context(), 17099)
 	c.Assert(err, tc.ErrorIsNil)
 
 	port, err := st.GetSSHServerPort(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(port, tc.Equals, 17022)
+	c.Check(port, tc.Equals, 17099)
+}
+
+func (s *stateSuite) TestSetSSHServerPortNotSeeded(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	// The port is seeded at bootstrap, so there's nothing to update without it.
+	err := st.SetSSHServerPort(c.Context(), 17099)
+	c.Assert(err, tc.ErrorIs, ssherrors.SSHServerPortNotFound)
 }
 
 func (s *stateSuite) TestSetSSHServerPortReplacesExisting(c *tc.C) {
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	s.seedSSHServerPort(c, 17022)
 
 	c.Assert(st.SetSSHServerPort(c.Context(), 17022), tc.ErrorIsNil)
 	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
@@ -230,13 +240,14 @@ func (s *stateSuite) TestSetSSHServerPortReplacesExisting(c *tc.C) {
 
 func (s *stateSuite) TestSetSSHServerPortChangeLog(c *tc.C) {
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	s.seedSSHServerPort(c, 17022)
 
 	c.Assert(st.SetSSHServerPort(c.Context(), 17022), tc.ErrorIsNil)
 	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
 	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
 
-	// The port is upserted in place, so the change log records one insert (1)
-	// then one update (2), with no delete, and nothing for an unchanged port.
+	// The seed records an insert (1). The port is then updated in place, so
+	// the change log records one update (2), and nothing for an unchanged port.
 	rows, err := s.DB().QueryContext(c.Context(), `
 SELECT cl.edit_type_id FROM change_log AS cl
 JOIN change_log_namespace AS ns ON ns.id = cl.namespace_id
@@ -253,6 +264,12 @@ ORDER BY cl.id`)
 	}
 	c.Assert(rows.Err(), tc.ErrorIsNil)
 	c.Check(editTypes, tc.DeepEquals, []int{1, 2})
+}
+
+// seedSSHServerPort inserts the SSH server port row, as bootstrap does.
+func (s *stateSuite) seedSSHServerPort(c *tc.C, port int) {
+	_, err := s.DB().ExecContext(c.Context(), `INSERT INTO controller_ssh_server_port (port) VALUES (?)`, port)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestNamespaceForWatchSSHServerPort(c *tc.C) {

@@ -225,28 +225,31 @@ FROM controller_ssh_server_port`, sshServerPort{})
 }
 
 // SetSSHServerPort sets the port the controller SSH jump server listens on.
-// The port is a singleton value, so any existing value is replaced.
+// The port is seeded at bootstrap and never deleted, so it is updated in place.
+// If no port has been set, it returns an error satisfying
+// [ssherrors.SSHServerPortNotFound].
 func (st *State) SetSSHServerPort(ctx context.Context, port int) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	// The conflict target is omitted because SQLite cannot target the
-	// singleton's ((1)) expression index; the singleton index is the only
-	// uniqueness constraint on the table, so any conflict is on it. Updating in
-	// place emits a single change-log entry, and none if the port is unchanged.
-	upsertStmt, err := st.Prepare(`
-INSERT INTO controller_ssh_server_port (port)
-VALUES ($sshServerPort.port)
-ON CONFLICT DO UPDATE SET port = excluded.port`, sshServerPort{})
+	updateStmt, err := st.Prepare(`
+UPDATE controller_ssh_server_port
+SET    port = $sshServerPort.port`, sshServerPort{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, upsertStmt, sshServerPort{Port: port}).Run(); err != nil {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, updateStmt, sshServerPort{Port: port}).Get(&outcome); err != nil {
 			return errors.Errorf("setting controller SSH server port: %w", err)
+		}
+		if n, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("setting controller SSH server port: %w", err)
+		} else if n == 0 {
+			return errors.Errorf("controller SSH server port not found").Add(ssherrors.SSHServerPortNotFound)
 		}
 		return nil
 	}))
