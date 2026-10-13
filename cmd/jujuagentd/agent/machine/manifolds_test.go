@@ -123,6 +123,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"is-bootstrap-gate",
 			"is-controller-flag",
 			"is-not-controller-flag",
+			"is-not-primary-controller-flag",
 			"is-primary-controller-flag",
 			"jwt-parser",
 			"lease-expiry",
@@ -145,6 +146,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"object-store-fortress",
 			"object-store-facade",
 			"object-store-drainer",
+			"object-store-guard",
 			"object-store-s3-caller",
 			"object-store-services",
 			"object-store",
@@ -231,6 +233,7 @@ func (s *ManifoldsSuite) TestManifoldNamesK8s(c *tc.C) {
 			"is-bootstrap-gate",
 			"is-controller-flag",
 			"is-not-controller-flag",
+			"is-not-primary-controller-flag",
 			"is-primary-controller-flag",
 			"jwt-parser",
 			"lease-expiry",
@@ -249,6 +252,7 @@ func (s *ManifoldsSuite) TestManifoldNamesK8s(c *tc.C) {
 			"object-store-fortress",
 			"object-store-facade",
 			"object-store-drainer",
+			"object-store-guard",
 			"object-store-s3-caller",
 			"object-store-services",
 			"object-store",
@@ -343,6 +347,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"is-bootstrap-gate",
 		"is-controller-flag",
 		"is-not-controller-flag",
+		"is-not-primary-controller-flag",
 		"is-primary-controller-flag",
 		"jwt-parser",
 		"lease-expiry",
@@ -359,6 +364,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"object-store-fortress",
 		"object-store-facade",
 		"object-store-drainer",
+		"object-store-guard",
 		"object-store-s3-caller",
 		"object-store-services",
 		"object-store",
@@ -431,12 +437,20 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"watcher-registry",
 	)
 
+	nonPrimaryControllerFlagWorkers := set.NewStrings(
+		"is-not-primary-controller-flag",
+	)
+
 	primaryControllerWorkers := set.NewStrings(
 		"api-address-setter",
 		"change-stream-pruner",
 		"external-controller-updater",
 		"object-store-drainer",
 		"secret-backend-rotate",
+	)
+
+	nonPrimaryControllerWorkers := set.NewStrings(
+		"object-store-guard",
 	)
 
 	implicitControllerWorkers := set.NewStrings(
@@ -485,6 +499,11 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		c.Logf("%s", name)
 		dependencies := agenttest.ManifoldDependencies(manifolds, manifold).SortedValues()
 		switch {
+		case nonPrimaryControllerFlagWorkers.Contains(name):
+			checkContains(c, manifold.Inputs, "is-controller-flag")
+			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkContains(c, dependencies, "is-controller-flag")
+			checkContains(c, dependencies, "is-primary-controller-flag")
 		case controllerWorkers.Contains(name):
 			checkContains(c, manifold.Inputs, "is-controller-flag")
 			checkContains(c, dependencies, "is-controller-flag")
@@ -494,6 +513,11 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 			checkContains(c, dependencies, "is-controller-flag")
 			checkContains(c, dependencies, "is-primary-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
+		case nonPrimaryControllerWorkers.Contains(name):
+			checkContains(c, manifold.Inputs, "is-not-primary-controller-flag")
+			checkContains(c, dependencies, "is-controller-flag")
+			checkContains(c, dependencies, "is-primary-controller-flag")
+			checkContains(c, dependencies, "is-not-primary-controller-flag")
 		case implicitControllerWorkers.Contains(name):
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
@@ -779,6 +803,28 @@ func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 		})
 		checkNotContains(c, manifold.Inputs, "agent")
 		checkNotContains(c, manifold.Inputs, "clock")
+	}
+}
+
+func (*ManifoldsSuite) TestObjectStoreGuardDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		machine.K8sManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["object-store-guard"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{
+			"is-not-primary-controller-flag",
+			"object-store-fortress",
+			"object-store",
+			"object-store-services",
+		})
 	}
 }
 
@@ -1677,6 +1723,20 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"state-config-watcher",
 	},
+	"is-not-primary-controller-flag": {
+		"agent",
+		"change-stream",
+		"controller-agent-config",
+		"controller-trace",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"lease-manager",
+		"query-logger",
+		"state-config-watcher",
+		"trace-services",
+	},
 	"is-primary-controller-flag": {
 		"agent",
 		"change-stream",
@@ -1977,6 +2037,29 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"is-controller-flag",
+		"is-primary-controller-flag",
+		"lease-manager",
+		"object-store",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"query-logger",
+		"state-config-watcher",
+		"trace-services",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
+	"object-store-guard": {
+		"agent",
+		"api-remote-caller",
+		"change-stream",
+		"controller-agent-config",
+		"controller-trace",
+		"db-accessor",
+		"file-notify-watcher",
+		"http-client",
+		"is-controller-flag",
+		"is-not-primary-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
 		"object-store",
@@ -2513,6 +2596,29 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 }
 var expectedMachineManifoldsWithDependenciesK8s = map[string][]string{
+	"object-store-guard": {
+		"agent",
+		"api-remote-caller",
+		"change-stream",
+		"controller-agent-config",
+		"controller-trace",
+		"db-accessor",
+		"file-notify-watcher",
+		"http-client",
+		"is-controller-flag",
+		"is-not-primary-controller-flag",
+		"is-primary-controller-flag",
+		"lease-manager",
+		"object-store",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"query-logger",
+		"state-config-watcher",
+		"trace-services",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
 	"api-address-updater": {
 		"agent",
 		"api-caller",
@@ -3247,6 +3353,20 @@ var expectedMachineManifoldsWithDependenciesK8s = map[string][]string{
 	"is-not-controller-flag": {
 		"agent",
 		"state-config-watcher",
+	},
+	"is-not-primary-controller-flag": {
+		"agent",
+		"change-stream",
+		"controller-agent-config",
+		"controller-trace",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"is-primary-controller-flag",
+		"lease-manager",
+		"query-logger",
+		"state-config-watcher",
+		"trace-services",
 	},
 	"is-primary-controller-flag": {
 		"agent",

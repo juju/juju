@@ -102,6 +102,7 @@ import (
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
 	"github.com/juju/juju/internal/worker/objectstorefacade"
+	"github.com/juju/juju/internal/worker/objectstoreguard"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/providerservices"
@@ -608,6 +609,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Entity:           controllerTag,
 			NewWorker:        singular.NewFlagWorker,
 		})),
+		isNotPrimaryControllerFlagName: ifController(singular.NotPrimaryControllerFlagManifold(isPrimaryControllerFlagName)),
 
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender or rsyslog,
@@ -1007,6 +1009,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                       objectstoredrainer.NewWorker,
 			Clock:                           config.Clock,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
+		})),
+		// Only the primary drains data. The other controller agents keep
+		// their local object-store fortress synchronized with the drain phase.
+		objectStoreGuardName: ifNotPrimaryController(objectstoreguard.Manifold(objectstoreguard.ManifoldConfig{
+			ObjectStoreServicesName: objectStoreServicesName,
+			ObjectStoreName:         objectStoreName,
+			FortressName:            objectStoreFortressName,
+			GetDrainingService:      objectstoreguard.GetDrainingService,
+			NewWorker:               objectstoreguard.NewWorker,
+			Logger:                  internallogger.GetLogger("juju.worker.objectstoreguard"),
 		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
@@ -1588,12 +1600,21 @@ var ifPrimaryController = engine.Housing{
 	},
 }.Decorate
 
+var ifNotPrimaryController = engine.Housing{
+	Flags: []string{
+		isNotPrimaryControllerFlagName,
+	},
+}.Decorate
+
 var ifController = engine.Housing{
 	Flags: []string{
 		isControllerFlagName,
 	},
 }.Decorate
 
+// notPrimaryControllerFlagManifold exposes the inverse of the singular
+// controller flag. Its lifetime follows the primary flag manifold, so a
+// controller election restarts this flag with the new role.
 var ifNotController = engine.Housing{
 	Flags: []string{
 		isNotControllerFlagName,
@@ -1713,6 +1734,7 @@ const (
 	isControllerFlagName               = "is-controller-flag"
 	isNotControllerFlagName            = "is-not-controller-flag"
 	isPrimaryControllerFlagName        = "is-primary-controller-flag"
+	isNotPrimaryControllerFlagName     = "is-not-primary-controller-flag"
 	jwtParserName                      = "jwt-parser"
 	leaseExpiryName                    = "lease-expiry"
 	leaseManagerName                   = "lease-manager"
@@ -1734,6 +1756,7 @@ const (
 	objectStoreFortressName            = "object-store-fortress"
 	objectStoreFacadeName              = "object-store-facade"
 	objectStoreDrainerName             = "object-store-drainer"
+	objectStoreGuardName               = "object-store-guard"
 	providerDomainServicesName         = "provider-services"
 	providerTrackerName                = "provider-tracker"
 	proxyConfigUpdater                 = "proxy-config-updater"

@@ -25,6 +25,52 @@ wait_for_controller_machines() {
 	fi
 }
 
+controller_unit_names() {
+	juju status -m controller --format=json |
+		yq -r '.applications.controller.units | keys | .[]' |
+		sort -t/ -k2,2n
+}
+
+wait_for_controller_unit_count() {
+	local expected_count status actual_count idle_count attempt
+
+	expected_count=${1}
+	attempt=0
+	until status=$(timeout 10 juju status -m controller --format=json 2>/dev/null) &&
+		actual_count=$(yq -r '.applications.controller.units | length' <<<"${status}") &&
+		idle_count=$(yq -r '.applications.controller.units | to_entries | map(select(.value["juju-status"].current == "idle" and .value["workload-status"].current != "error")) | length' <<<"${status}") &&
+		[[ ${actual_count} -eq ${expected_count} && ${idle_count} -eq ${expected_count} ]]; do
+		echo "[+] (attempt ${attempt}) waiting for ${expected_count} controller units to settle"
+		timeout 10 juju status -m controller --format=yaml 2>&1 | sed 's/^/    | /g' || true
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+		if [[ ${attempt} -gt 200 ]]; then
+			echo "controller units did not settle at ${expected_count} units"
+			exit 1
+		fi
+	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling controller units')"
+		juju status -m controller --format=yaml 2>&1 | sed 's/^/    | /g'
+	fi
+	sleep "${SHORT_TIMEOUT}"
+}
+
+remove_controller_unit() {
+	local unit_name
+
+	unit_name=${1}
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"k8s" | "kubernetes" | "microk8s")
+		juju remove-unit -m controller controller --num-units 1 --no-prompt
+		;;
+	*)
+		juju remove-unit -m controller "${unit_name}" --no-prompt
+		;;
+	esac
+}
+
 wait_for_ha() {
 	amount=${1}
 

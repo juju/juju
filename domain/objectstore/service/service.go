@@ -85,6 +85,14 @@ type State interface {
 type DrainingState interface {
 	State
 
+	// HasDyingObjectStoreBackend returns true if an object-store backend is
+	// currently dying.
+	HasDyingObjectStoreBackend(ctx context.Context) (bool, error)
+
+	// GetObjectStoreBackendCounts returns the total number of object-store
+	// backends and the number that are alive.
+	GetObjectStoreBackendCounts(ctx context.Context) (int, int, error)
+
 	// GetActiveDrainingInfo returns the active draining info of the object
 	// store.
 	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
@@ -485,18 +493,54 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 	return nil
 }
 
-// GetDrainingPhase returns the phase of the object store.
+// GetDrainingPhase returns the current draining phase. If there is no active
+// drain, it reports an error phase when a backend remains dying.
 func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (objectstore.Phase, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	info, err := s.st.GetActiveDrainingInfo(ctx)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		return objectstore.PhaseUnknown, nil
-	} else if err != nil {
+	if err == nil {
+		return objectstore.Phase(info.Phase), nil
+	}
+	if !errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		return "", errors.Errorf("getting draining phase: %w", err)
 	}
-	return objectstore.Phase(info.Phase), nil
+
+	// A terminal error leaves the source backend in the dying state. A
+	// completed drain marks it dead, so the backend lifecycle records whether
+	// the terminal outcome was an error without requiring terminal drain rows
+	// to be active.
+	hasDyingBackend, err := s.st.HasDyingObjectStoreBackend(ctx)
+	if err != nil {
+		return "", errors.Errorf("checking for a dying object-store backend: %w", err)
+	}
+	if hasDyingBackend {
+		return objectstore.PhaseError, nil
+	}
+	return objectstore.PhaseUnknown, nil
+}
+
+// IsObjectStoreUsable reports whether object-store operations can safely use
+// the configured backend. A usable store has finished draining, has at least
+// one backend, and has exactly one alive backend.
+func (s *WatchableDrainingService) IsObjectStoreUsable(ctx context.Context) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	phase, err := s.GetDrainingPhase(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	if phase != objectstore.PhaseUnknown && phase != objectstore.PhaseCompleted {
+		return false, nil
+	}
+
+	total, alive, err := s.st.GetObjectStoreBackendCounts(ctx)
+	if err != nil {
+		return false, errors.Errorf("getting object-store backend counts: %w", err)
+	}
+	return total > 0 && alive == 1, nil
 }
 
 // BackendInfo represents the information about an object store backend,
@@ -543,8 +587,10 @@ func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
 	}, true
 }
 
-// GetDrainingPhaseInfo returns the phase information of the draining object
-// store.
+// GetDrainingPhaseInfo returns information for an active drain only. It returns
+// ErrDrainingPhaseNotFound when no active drain exists, including after a
+// terminal error or completed drain. Use GetDrainingPhase for the authoritative
+// current phase.
 func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

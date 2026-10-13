@@ -756,6 +756,62 @@ WHERE di.phase_type_id < 2;
 	}, nil
 }
 
+// HasDyingObjectStoreBackend returns true if there is a dying object-store
+// backend.
+func (s *State) HasDyingObjectStoreBackend(ctx context.Context) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &dbBackendCount.count
+FROM object_store_backend
+WHERE life_id = 1
+`, dbBackendCount{})
+	if err != nil {
+		return false, errors.Errorf("preparing count dying object-store backends statement: %w", err)
+	}
+
+	var result dbBackendCount
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&result); err != nil {
+			return errors.Capture(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Errorf("counting dying object-store backends: %w", err)
+	}
+	return result.Count > 0, nil
+}
+
+// GetObjectStoreBackendCounts returns the total number of object-store
+// backends and the number that are alive.
+func (s *State) GetObjectStoreBackendCounts(ctx context.Context) (int, int, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return 0, 0, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &dbBackendCounts.total,
+       COALESCE(SUM(CASE WHEN life_id = 0 THEN 1 ELSE 0 END), 0) AS &dbBackendCounts.alive
+FROM object_store_backend
+`, dbBackendCounts{})
+	if err != nil {
+		return 0, 0, errors.Errorf("preparing object-store backend counts statement: %w", err)
+	}
+
+	var result dbBackendCounts
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&result)
+	}); err != nil {
+		return 0, 0, errors.Errorf("getting object-store backend counts: %w", err)
+	}
+	return result.Total, result.Alive, nil
+}
+
 // GetObjectStoreBackend returns the current object store backend information.
 // This is used to determine which backend the object store is currently using,
 // and if it is using S3, then it will return the credentials for the S3
