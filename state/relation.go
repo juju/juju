@@ -687,7 +687,9 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying, force bool) (
 	// dying remote application, through its destroy operation, once no
 	// relations reference it. An alive consumer proxy is not queued and
 	// is left with no relations: that forced destroy does not assert on
-	// its relations, so one added concurrently would be left behind.
+	// its relations, so one added concurrently would be left behind. A
+	// forced application destroy or offer removal keeps one of these per
+	// remote application.
 	var cleanupOps []txn.Op
 	if force && app.doc.Life != Alive {
 		cleanupOps = append(cleanupOps, newCleanupOp(

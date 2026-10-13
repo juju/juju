@@ -435,6 +435,11 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			})
 		}
 	}
+	// When forced, each relation to the same dying consumer proxy queues
+	// its cleanup, so only the first is kept.
+	if op.Force {
+		ops = uniqueRemoteApplicationCleanupOps(ops)
+	}
 	decRefOp, err := decApplicationOffersRefOp(op.offerStore.st, offer.ApplicationName)
 	if err != nil {
 		return nil, errors.Trace(err)

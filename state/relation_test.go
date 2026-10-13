@@ -2059,6 +2059,15 @@ func (s *RelationSuite) TestDestroyApplicationForceRemovesDyingRemoteApplication
 	c.Assert(s.State.ApplyOperation(op), jc.ErrorIsNil)
 	c.Check(op.Errors, gc.HasLen, 0)
 	c.Check(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+	// Both relations name the same remote application, so one cleanup is
+	// queued for it.
+	cleanups, closer := state.GetCollection(s.State, "cleanups")
+	defer closer()
+	n, err := cleanups.Find(bson.D{
+		{"kind", "remoteApplication"}, {"prefix", remote.Name()},
+	}).Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(n, gc.Equals, 1)
 
 	// The queued cleanup removes it once no relations reference it.
 	c.Assert(s.State.Cleanup(fakeSecretDeleter), jc.ErrorIsNil)

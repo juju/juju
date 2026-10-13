@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
+	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -13,6 +14,19 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 )
+
+func (s *cleanupInternalSuite) TestUniqueRemoteApplicationCleanupOps(c *gc.C) {
+	first := newCleanupOp(cleanupRemoteApplication, "remote", true)
+	other := txn.Op{C: relationsC, Id: "rel", Remove: true}
+	repeated := newCleanupOp(cleanupRemoteApplication, "remote", true)
+	otherApp := newCleanupOp(cleanupRemoteApplication, "remote2", true)
+	otherKind := newCleanupOp(cleanupApplication, "remote", false, true)
+
+	ops := uniqueRemoteApplicationCleanupOps([]txn.Op{
+		first, other, repeated, otherApp, otherKind,
+	})
+	c.Check(ops, jc.DeepEquals, []txn.Op{first, other, otherApp, otherKind})
+}
 
 func (s *cleanupInternalSuite) TestRemoveDyingRemoteApplicationOnForce(c *gc.C) {
 	remote, err := s.state.AddRemoteApplication(AddRemoteApplicationParams{

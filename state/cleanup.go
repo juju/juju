@@ -126,6 +126,24 @@ func newCleanupAtOp(when time.Time, kind cleanupKind, prefix string, args ...int
 	}
 }
 
+// uniqueRemoteApplicationCleanupOps returns ops without the remote
+// application cleanups that name the same application as an earlier one.
+func uniqueRemoteApplicationCleanupOps(ops []txn.Op) []txn.Op {
+	queued := make(map[string]bool)
+	result := make([]txn.Op, 0, len(ops))
+	for _, op := range ops {
+		doc, ok := op.Insert.(*cleanupDoc)
+		if ok && doc.Kind == cleanupRemoteApplication {
+			if queued[doc.Prefix] {
+				continue
+			}
+			queued[doc.Prefix] = true
+		}
+		result = append(result, op)
+	}
+	return result
+}
+
 // newModelScopedCleanupOp returns a cleanup op like newCleanupOp, but
 // suitable for inclusion in a raw transaction.
 func (st *State) newModelScopedCleanupOp(kind cleanupKind, prefix string, args ...interface{}) (txn.Op, error) {
