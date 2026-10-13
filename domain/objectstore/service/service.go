@@ -587,8 +587,10 @@ func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
 	}, true
 }
 
-// GetDrainingPhaseInfo returns the phase information of the draining object
-// store.
+// GetDrainingPhaseInfo returns information for an active drain only. It returns
+// ErrDrainingPhaseNotFound when no active drain exists, including after a
+// terminal error or completed drain. Use GetDrainingPhase for the authoritative
+// current phase.
 func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

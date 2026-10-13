@@ -60,10 +60,6 @@ type DrainingService interface {
 	GetDrainingPhase(ctx context.Context) (objectstore.Phase, error)
 	IsObjectStoreUsable(ctx context.Context) (bool, error)
 
-	// GetDrainingPhaseInfo returns the current active draining phase info of
-	// the object store.
-	GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error)
-
 	// SetDrainingPhase sets the phase of the object store to draining.
 	SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error
 
