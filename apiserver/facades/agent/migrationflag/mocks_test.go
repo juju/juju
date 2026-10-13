@@ -13,8 +13,8 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+	migration "github.com/juju/juju/core/migration"
 	watcher "github.com/juju/juju/core/watcher"
-	modelmigration "github.com/juju/juju/domain/modelmigration"
 )
 
 // MockModelMigrationService is a mock of ModelMigrationService interface.
@@ -26,9 +26,9 @@ type MockModelMigrationService struct {
 
 // MockModelMigrationServiceMockRecorder is the mock recorder for MockModelMigrationService.
 type MockModelMigrationServiceMockRecorder struct {
-	mock                       *MockModelMigrationService
-	migrationExpects           []*gomock.Call1_2[context.Context, modelmigration.Migration, error]
-	watchMigrationPhaseExpects []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	mock                          *MockModelMigrationService
+	migrationPhaseExpects         []*gomock.Call1_2[context.Context, migration.Phase, error]
+	watchMigrationActivityExpects []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 }
 
 // NewMockModelMigrationService creates a new mock instance.
@@ -43,38 +43,38 @@ func (m *MockModelMigrationService) EXPECT() *MockModelMigrationServiceMockRecor
 	return m.recorder
 }
 
-// Migration mocks base method.
-func (m *MockModelMigrationService) Migration(ctx context.Context) (modelmigration.Migration, error) {
+// MigrationPhase mocks base method.
+func (m *MockModelMigrationService) MigrationPhase(ctx context.Context) (migration.Phase, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.migrationExpects, m.ctrl, m, "Migration", ctx)
+	return gomock.Dispatch1_2(&m.recorder.migrationPhaseExpects, m.ctrl, m, "MigrationPhase", ctx)
 }
 
-// Migration indicates an expected call of Migration.
-func (mr *MockModelMigrationServiceMockRecorder) Migration(ctx any) *MockModelMigrationServiceMigrationCall {
+// MigrationPhase indicates an expected call of MigrationPhase.
+func (mr *MockModelMigrationServiceMockRecorder) MigrationPhase(ctx any) *MockModelMigrationServiceMigrationPhaseCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, modelmigration.Migration, error](mr.mock.ctrl.T, mr.mock, "Migration", gomock.EnsureMatcher(ctx))
-	mr.migrationExpects = append(mr.migrationExpects, call)
+	call := gomock.NewCall1_2[context.Context, migration.Phase, error](mr.mock.ctrl.T, mr.mock, "MigrationPhase", gomock.EnsureMatcher(ctx))
+	mr.migrationPhaseExpects = append(mr.migrationPhaseExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelMigrationServiceMigrationCall is the typed call wrapper for Migration.
-type MockModelMigrationServiceMigrationCall = gomock.Call1_2[context.Context, modelmigration.Migration, error]
+// MockModelMigrationServiceMigrationPhaseCall is the typed call wrapper for MigrationPhase.
+type MockModelMigrationServiceMigrationPhaseCall = gomock.Call1_2[context.Context, migration.Phase, error]
 
-// WatchMigrationPhase mocks base method.
-func (m *MockModelMigrationService) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatcher, error) {
+// WatchMigrationActivity mocks base method.
+func (m *MockModelMigrationService) WatchMigrationActivity(ctx context.Context) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchMigrationPhaseExpects, m.ctrl, m, "WatchMigrationPhase", ctx)
+	return gomock.Dispatch1_2(&m.recorder.watchMigrationActivityExpects, m.ctrl, m, "WatchMigrationActivity", ctx)
 }
 
-// WatchMigrationPhase indicates an expected call of WatchMigrationPhase.
-func (mr *MockModelMigrationServiceMockRecorder) WatchMigrationPhase(ctx any) *MockModelMigrationServiceWatchMigrationPhaseCall {
+// WatchMigrationActivity indicates an expected call of WatchMigrationActivity.
+func (mr *MockModelMigrationServiceMockRecorder) WatchMigrationActivity(ctx any) *MockModelMigrationServiceWatchMigrationActivityCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchMigrationPhase", gomock.EnsureMatcher(ctx))
-	mr.watchMigrationPhaseExpects = append(mr.watchMigrationPhaseExpects, call)
+	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchMigrationActivity", gomock.EnsureMatcher(ctx))
+	mr.watchMigrationActivityExpects = append(mr.watchMigrationActivityExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelMigrationServiceWatchMigrationPhaseCall is the typed call wrapper for WatchMigrationPhase.
-type MockModelMigrationServiceWatchMigrationPhaseCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+// MockModelMigrationServiceWatchMigrationActivityCall is the typed call wrapper for WatchMigrationActivity.
+type MockModelMigrationServiceWatchMigrationActivityCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]

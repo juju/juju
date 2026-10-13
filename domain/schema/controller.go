@@ -89,6 +89,11 @@ var controllerPostPatchFilesByVersion = []struct {
 	files: []string{
 		"0033-model-database-deletion.PATCH.sql",
 	},
+}, {
+	version: semversion.MustParse("4.0.16"),
+	files: []string{
+		"0034-migration-import-claim-trigger.PATCH.sql",
+	},
 }}
 
 // ControllerDDL is used to create the controller database schema at bootstrap.

@@ -166,6 +166,50 @@ func (s *exportWatcherSuite) TestWatchMinionReports(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+// TestWatchMigrationActivityFiresOnImportClaim asserts the activity watcher
+// fires when a target-side import claim is created and, critically, when it
+// is deleted: claim deletion is the moment an imported model becomes usable,
+// and it is the only changestream event that unfreezes the migration flag on
+// the target. It also asserts claims of other models do not fire it.
+func (s *exportWatcherSuite) TestWatchMigrationActivityFiresOnImportClaim(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_migration_import")
+	svc := s.setupService(c, factory)
+
+	s.AssertChangeStreamIdle(c)
+	w, err := svc.WatchMigrationActivity(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+
+	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// A claim for another model must not fire the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.insertImportClaim(c, uuid.MustNewUUID().String())
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Creating this model's claim (import start) fires the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.insertImportClaim(c, s.modelUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Deleting the claim (import finalised) fires the watcher. This is the
+	// event that unfreezes the target model's gated workers.
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteImportClaim(c)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
 // insertMinionReport records a minion sync row directly.
 func (s *exportWatcherSuite) insertMinionReport(c *tc.C, migrationUUID string, phaseID int, entityKey string, success bool) {
 	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -222,6 +266,29 @@ func (s *exportWatcherSuite) insertPhase(c *tc.C, migrationUUID string, phaseID 
 INSERT INTO model_migration_export_phase (migration_uuid, model_uuid, phase_id, changed_at)
 VALUES (?, ?, ?, DATETIME('now', 'utc'))`,
 			migrationUUID, s.modelUUID, phaseID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// insertImportClaim records a target-side import claim directly, as
+// ImportModel does via markModelAsImporting.
+func (s *exportWatcherSuite) insertImportClaim(c *tc.C, modelUUID string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, ?)`, uuid.MustNewUUID().String(), modelUUID, uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// deleteImportClaim removes this model's import claim, as ActivateImport does
+// when the import is finalised.
+func (s *exportWatcherSuite) deleteImportClaim(c *tc.C) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"DELETE FROM model_migration_import WHERE model_uuid = ?", s.modelUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
