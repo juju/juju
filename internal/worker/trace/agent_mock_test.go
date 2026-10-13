@@ -103,8 +103,6 @@ type MockConfigMockRecorder struct {
 	controllerAgentInfoExpects                []*gomock.Call0_2[controller.ControllerAgentInfo, bool]
 	dataDirExpects                            []*gomock.Call0_1[string]
 	dirExpects                                []*gomock.Call0_1[string]
-	dqliteBusyTimeoutExpects                  []*gomock.Call0_1[time.Duration]
-	dqlitePortExpects                         []*gomock.Call0_2[int, bool]
 	jobsExpects                               []*gomock.Call0_1[[]model.MachineJob]
 	logDirExpects                             []*gomock.Call0_1[string]
 	loggingConfigExpects                      []*gomock.Call0_1[string]
@@ -124,8 +122,6 @@ type MockConfigMockRecorder struct {
 	openTelemetrySampleRatioExpects           []*gomock.Call0_1[float64]
 	openTelemetryStackTracesExpects           []*gomock.Call0_1[bool]
 	openTelemetryTailSamplingThresholdExpects []*gomock.Call0_1[time.Duration]
-	queryTracingEnabledExpects                []*gomock.Call0_1[bool]
-	queryTracingThresholdExpects              []*gomock.Call0_1[time.Duration]
 	systemIdentityPathExpects                 []*gomock.Call0_1[string]
 	tagExpects                                []*gomock.Call0_1[names.Tag]
 	transientDataDirExpects                   []*gomock.Call0_1[string]
@@ -307,42 +303,6 @@ func (mr *MockConfigMockRecorder) Dir() *MockConfigDirCall {
 
 // MockConfigDirCall is the typed call wrapper for Dir.
 type MockConfigDirCall = gomock.Call0_1[string]
-
-// DqliteBusyTimeout mocks base method.
-func (m *MockConfig) DqliteBusyTimeout() time.Duration {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.dqliteBusyTimeoutExpects, m.ctrl, m, "DqliteBusyTimeout")
-}
-
-// DqliteBusyTimeout indicates an expected call of DqliteBusyTimeout.
-func (mr *MockConfigMockRecorder) DqliteBusyTimeout() *MockConfigDqliteBusyTimeoutCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[time.Duration](mr.mock.ctrl.T, mr.mock, "DqliteBusyTimeout")
-	mr.dqliteBusyTimeoutExpects = append(mr.dqliteBusyTimeoutExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigDqliteBusyTimeoutCall is the typed call wrapper for DqliteBusyTimeout.
-type MockConfigDqliteBusyTimeoutCall = gomock.Call0_1[time.Duration]
-
-// DqlitePort mocks base method.
-func (m *MockConfig) DqlitePort() (int, bool) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_2(&m.recorder.dqlitePortExpects, m.ctrl, m, "DqlitePort")
-}
-
-// DqlitePort indicates an expected call of DqlitePort.
-func (mr *MockConfigMockRecorder) DqlitePort() *MockConfigDqlitePortCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_2[int, bool](mr.mock.ctrl.T, mr.mock, "DqlitePort")
-	mr.dqlitePortExpects = append(mr.dqlitePortExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigDqlitePortCall is the typed call wrapper for DqlitePort.
-type MockConfigDqlitePortCall = gomock.Call0_2[int, bool]
 
 // Jobs mocks base method.
 func (m *MockConfig) Jobs() []model.MachineJob {
@@ -685,42 +645,6 @@ func (mr *MockConfigMockRecorder) OpenTelemetryTailSamplingThreshold() *MockConf
 
 // MockConfigOpenTelemetryTailSamplingThresholdCall is the typed call wrapper for OpenTelemetryTailSamplingThreshold.
 type MockConfigOpenTelemetryTailSamplingThresholdCall = gomock.Call0_1[time.Duration]
-
-// QueryTracingEnabled mocks base method.
-func (m *MockConfig) QueryTracingEnabled() bool {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.queryTracingEnabledExpects, m.ctrl, m, "QueryTracingEnabled")
-}
-
-// QueryTracingEnabled indicates an expected call of QueryTracingEnabled.
-func (mr *MockConfigMockRecorder) QueryTracingEnabled() *MockConfigQueryTracingEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[bool](mr.mock.ctrl.T, mr.mock, "QueryTracingEnabled")
-	mr.queryTracingEnabledExpects = append(mr.queryTracingEnabledExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigQueryTracingEnabledCall is the typed call wrapper for QueryTracingEnabled.
-type MockConfigQueryTracingEnabledCall = gomock.Call0_1[bool]
-
-// QueryTracingThreshold mocks base method.
-func (m *MockConfig) QueryTracingThreshold() time.Duration {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.queryTracingThresholdExpects, m.ctrl, m, "QueryTracingThreshold")
-}
-
-// QueryTracingThreshold indicates an expected call of QueryTracingThreshold.
-func (mr *MockConfigMockRecorder) QueryTracingThreshold() *MockConfigQueryTracingThresholdCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[time.Duration](mr.mock.ctrl.T, mr.mock, "QueryTracingThreshold")
-	mr.queryTracingThresholdExpects = append(mr.queryTracingThresholdExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigQueryTracingThresholdCall is the typed call wrapper for QueryTracingThreshold.
-type MockConfigQueryTracingThresholdCall = gomock.Call0_1[time.Duration]
 
 // SystemIdentityPath mocks base method.
 func (m *MockConfig) SystemIdentityPath() string {
