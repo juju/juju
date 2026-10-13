@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -531,6 +532,9 @@ func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig 
 		testclock = clock.WallClock
 	}
 	return apiserver.ServerConfig{
+		CreateBackup: func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+			return nil, "", nil, errors.NotSupportedf("backup creation in this test fixture")
+		},
 		Clock:                      testclock,
 		Tag:                        names.NewMachineTag("0"),
 		LogDir:                     c.MkDir(),

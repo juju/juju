@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -126,25 +127,26 @@ func (s *serviceSuite) TestGetMetadataBySHA256TooLong(c *tc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	shaPrefix := "deadbeef"
+	sha256 := "a29512966119f000555dff9d84761e828064b5e95402f78c36e9939ede8d4f88"
 
 	metadata := objectstore.Metadata{
 		Path:   "path",
-		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA256: sha256,
 		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
-	s.state.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), shaPrefix).Return(objectstore.Metadata{
-		Path:   metadata.Path,
-		Size:   metadata.Size,
-		SHA256: metadata.SHA256,
-		SHA384: metadata.SHA384,
-	}, nil)
+	// Backups use the full exported hash through this lookup so missing
+	// local blobs can still be retrieved from other controller nodes.
+	for _, length := range []int{7, 8, 9, 63, 64} {
+		shaPrefix := sha256[:length]
+		s.state.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), shaPrefix).
+			Return(metadata, nil)
 
-	p, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), shaPrefix)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(p, tc.DeepEquals, metadata)
+		p, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), shaPrefix)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(p, tc.DeepEquals, metadata)
+	}
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *tc.C) {
@@ -157,7 +159,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *tc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooLong(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), "deadbeef1")
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), strings.Repeat("a", 65))
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 

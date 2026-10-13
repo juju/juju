@@ -16,15 +16,11 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	backupsfacade "github.com/juju/juju/apiserver/facades/controller/backups"
 	internalhttp "github.com/juju/juju/apiserver/internal/http"
 	corebackups "github.com/juju/juju/core/backups"
-	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	internalerrors "github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -47,7 +43,7 @@ const (
 type backupHandler struct {
 	// createArchive builds a fresh backup archive and returns its
 	// metadata, its path, and a cleanup that removes it.
-	createArchive func(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error)
+	createArchive corebackups.CreateFunc
 	// shutdownCtx is canceled when the apiserver starts shutting down.
 	// Creation requests are tracked, so shutdownCtx waits for them: the
 	// handler then cancels archive creation and expires the request's
@@ -161,75 +157,6 @@ func (h *backupHandler) cancelOnShutdown(ctx context.Context, w http.ResponseWri
 		}
 		cancel()
 	}
-}
-
-// createBackupArchive builds a fresh backup archive using the backups
-// facade's creator, resolving the domain services per call, and
-// returns its metadata, path, and cleanup.
-func (srv *Server) createBackupArchive(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
-	ctx, release, err := srv.backupLock.Acquire(ctx)
-	if err != nil {
-		return nil, "", nil, err
-	}
-	defer release()
-	controllerServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, srv.shared.controllerModelUUID)
-	if err != nil {
-		return nil, "", nil, internalerrors.Capture(err)
-	}
-	modelServicesFor := backupsfacade.ModelServicesForFunc(
-		func(ctx context.Context, modelUUID coremodel.UUID) (backupsfacade.ModelExportDomainServices, error) {
-			modelServices, err := srv.shared.domainServicesGetter.ServicesForModel(ctx, modelUUID)
-			if err != nil {
-				return nil, err
-			}
-			return modelExportDomainServices{modelServices}, nil
-		},
-	)
-	controllerObjectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, database.ControllerNS)
-	if err != nil {
-		return nil, "", nil, internalerrors.Capture(err)
-	}
-	objectStoreForModel := backupsfacade.ObjectStoreForModelFunc(
-		func(ctx context.Context, modelUUID string) (backupsfacade.ReadObjectStore, error) {
-			return srv.shared.objectStoreGetter.GetObjectStore(ctx, modelUUID)
-		},
-	)
-	creator, err := backupsfacade.NewCreator(
-		srv.shared.machineTag,
-		srv.shared.controllerUUID,
-		srv.shared.controllerModelUUID,
-		srv.shared.dataDir,
-		srv.shared.logDir,
-		controllerServices.ControllerExport(),
-		modelServicesFor,
-		controllerServices.Config(),
-		controllerServices.Controller(),
-		controllerServices.ControllerNode(),
-		controllerObjectStore,
-		objectStoreForModel,
-		srv.shared.clock,
-		srv.shared.logger.Child("backups"),
-	)
-	if err != nil {
-		return nil, "", nil, internalerrors.Capture(err)
-	}
-	meta, archive, cleanup, err := creator.Create(ctx, notes)
-	if err == nil && ctx.Err() != nil {
-		cleanup()
-		return nil, "", nil, context.Cause(ctx)
-	}
-	return meta, archive, cleanup, err
-}
-
-// modelExportDomainServices adapts a [services.DomainServices] to the
-// creator's ModelExportDomainServices interface.
-type modelExportDomainServices struct {
-	domainServices services.DomainServices
-}
-
-// Export returns the model export service.
-func (s modelExportDomainServices) Export() backupsfacade.ModelExportService {
-	return s.domainServices.Export()
 }
 
 // sendError logs the error and sends it to the client as a classified

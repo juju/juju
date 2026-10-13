@@ -70,6 +70,7 @@ import (
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
+	"github.com/juju/juju/internal/worker/backupcreation"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
@@ -137,6 +138,12 @@ func (p machineControllerStartupValueProvider) LocalValues() (apiserver.LocalVal
 		LogDir:        cfg.LogDir(),
 		LogSinkConfig: logSinkConfig,
 	}, nil
+}
+
+// BackupLocalValues returns the current paths used to create backup archives.
+func (p machineControllerStartupValueProvider) BackupLocalValues() (backupcreation.LocalValues, error) {
+	cfg := p.agent.CurrentConfig()
+	return backupcreation.LocalValues{DataDir: cfg.DataDir(), LogDir: cfg.LogDir()}, nil
 }
 
 // ObjectStoreRootDir returns the current local root dir for file-backed object

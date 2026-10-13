@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -18,6 +19,7 @@ import (
 
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -96,6 +98,7 @@ func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelService = NewMockModelService(ctrl)
 
 	s.config = apiserver.Config{
+		CreateBackup:                      stubCreateBackup,
 		ControllerTag:                     s.controllerTag,
 		DataDir:                           s.dataDir,
 		LogDir:                            s.logDir,
@@ -178,6 +181,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
+		f:      func(cfg *apiserver.Config) { cfg.CreateBackup = nil },
+		expect: "nil CreateBackup not valid",
+	}, {
 		f:      func(cfg *apiserver.Config) { cfg.ControllerTag = nil },
 		expect: "nil ControllerTag not valid",
 	}, {
@@ -257,4 +263,8 @@ func (s *WorkerValidationSuite) testValidateError(c *tc.C, f func(*apiserver.Con
 	}
 	c.Check(w, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, expect)
+}
+
+func stubCreateBackup(_ context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	return nil, "", nil, errors.New(notes)
 }

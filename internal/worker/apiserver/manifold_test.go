@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
@@ -120,6 +121,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
+		BackupCreationName:                "backup-creation",
 		AuthenticatorName:                 "authenticator",
 		Clock:                             clock.WallClock,
 		ControllerTag:                     names.NewControllerAgentTag("0"),
@@ -174,6 +176,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
+		"backup-creation":     corebackups.CreateFunc(stubCreateBackup),
 		"authenticator":       s.authenticator,
 		"mux":                 s.mux,
 		"upgrade":             &s.upgradeGate,
@@ -219,6 +222,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 }
 
 var expectedInputs = []string{
+	"backup-creation",
 	"authenticator", "mux",
 	"upgrade", "auditconfig-updater", "lease-manager",
 	"http-client", "change-stream",
@@ -242,6 +246,10 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(args, tc.HasLen, 1)
 	c.Assert(args[0], tc.FitsTypeOf, apiserver.Config{})
 	config := args[0].(apiserver.Config)
+	c.Assert(config.CreateBackup, tc.NotNil)
+	_, _, _, err := config.CreateBackup(c.Context(), "backup notes")
+	c.Check(err, tc.ErrorMatches, "backup notes")
+	config.CreateBackup = nil
 
 	c.Assert(config.GetAuditConfig, tc.NotNil)
 	c.Assert(config.GetAuditConfig(), tc.DeepEquals, s.auditConfig.config)

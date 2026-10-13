@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
@@ -31,6 +32,7 @@ import (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
+	CreateBackup corebackups.CreateFunc
 	// ControllerTag is the tag of the controller running this API server.
 	ControllerTag names.Tag
 	// DataDir is the controller process data directory.
@@ -80,6 +82,9 @@ type NewServerFunc func(context.Context, apiserver.ServerConfig) (worker.Worker,
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
+	if config.CreateBackup == nil {
+		return errors.NotValidf("nil CreateBackup")
+	}
 	if config.ControllerTag == nil {
 		return errors.NotValidf("nil ControllerTag")
 	}
@@ -184,6 +189,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	serverConfig := apiserver.ServerConfig{
+		CreateBackup:                  config.CreateBackup,
 		Clock:                         config.Clock,
 		Tag:                           config.ControllerTag,
 		DataDir:                       config.DataDir,

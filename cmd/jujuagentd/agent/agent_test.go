@@ -132,6 +132,27 @@ func (s *machineControllerStartupValueProviderSuite) TestLocalValuesReadCurrentA
 	c.Check(values.LogDir, tc.Equals, "/log/two")
 }
 
+func (s *machineControllerStartupValueProviderSuite) TestBackupLocalValuesReadCurrentAgentConfig(c *tc.C) {
+	provider := machineControllerStartupValueProvider{
+		agent: &MachineAgent{AgentConfigWriter: &fakeMachineAgentConfigWriter{
+			config: &fakeMachineConfig{dataDir: "/data/one", logDir: "/log/one"},
+		}},
+	}
+
+	values, err := provider.BackupLocalValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.DataDir, tc.Equals, "/data/one")
+	c.Check(values.LogDir, tc.Equals, "/log/one")
+
+	provider.agent.AgentConfigWriter = &fakeMachineAgentConfigWriter{
+		config: &fakeMachineConfig{dataDir: "/data/two", logDir: "/log/two"},
+	}
+	values, err = provider.BackupLocalValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.DataDir, tc.Equals, "/data/two")
+	c.Check(values.LogDir, tc.Equals, "/log/two")
+}
+
 func (s *machineControllerStartupValueProviderSuite) TestCertMaterialReadsCurrentAgentConfig(c *tc.C) {
 	provider := machineControllerStartupValueProvider{
 		agent: &MachineAgent{AgentConfigWriter: &fakeMachineAgentConfigWriter{

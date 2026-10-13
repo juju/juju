@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/flightrecorder"
@@ -76,6 +77,7 @@ type LocalConfigReader interface {
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
+	BackupCreationName     string
 	AuthenticatorName      string
 	MuxName                string
 	UpgradeGateName        string
@@ -113,6 +115,9 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
+	if config.BackupCreationName == "" {
+		return errors.NotValidf("empty BackupCreationName")
+	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -201,6 +206,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.BackupCreationName,
 			config.AuthenticatorName,
 			config.MuxName,
 			config.UpgradeGateName,
@@ -258,6 +264,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	var getAuditConfig func() auditlog.Config
 	if err := getter.Get(config.AuditConfigUpdaterName, &getAuditConfig); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	var createBackup corebackups.CreateFunc
+	if err := getter.Get(config.BackupCreationName, &createBackup); err != nil {
+		return nil, err
 	}
 
 	var leaseManager lease.Manager
@@ -354,6 +365,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	w, err := config.NewWorker(ctx, Config{
+		CreateBackup:                      createBackup,
 		ControllerTag:                     config.ControllerTag,
 		DataDir:                           localValues.DataDir,
 		LogDir:                            localValues.LogDir,

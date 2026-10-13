@@ -21,7 +21,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/ratelimit"
-	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/flightrecorder"
@@ -68,7 +68,6 @@ import (
 	"github.com/juju/juju/internal/resource"
 	resourcecharmhub "github.com/juju/juju/internal/resource/charmhub"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/backuplock"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 	"github.com/juju/juju/rpc"
@@ -106,10 +105,8 @@ type Server struct {
 	pingClock clock.Clock
 	wg        sync.WaitGroup
 
-	shared     *sharedServerContext
-	backupLock interface {
-		Acquire(context.Context) (context.Context, func(), error)
-	}
+	shared       *sharedServerContext
+	createBackup corebackups.CreateFunc
 
 	// modelRemovals reports the removal of a model from this controller to the
 	// connections serving it.
@@ -175,6 +172,9 @@ type Server struct {
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
+	// CreateBackup creates an archive and maintains its lease.
+	CreateBackup corebackups.CreateFunc
+
 	Clock     clock.Clock
 	PingClock clock.Clock
 	Tag       names.Tag
@@ -296,6 +296,9 @@ type SSHProxyConfig struct {
 
 // Validate validates the API server configuration.
 func (c ServerConfig) Validate() error {
+	if c.CreateBackup == nil {
+		return errors.NotValidf("nil CreateBackup")
+	}
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
 	}
@@ -435,6 +438,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	srv := &Server{
+		createBackup:                  cfg.CreateBackup,
 		clock:                         cfg.Clock,
 		pingClock:                     cfg.pingClock(),
 		newObserver:                   cfg.NewObserver,
@@ -471,21 +475,9 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	ready := make(chan struct{})
-	backupLock, err := backuplock.NewWorker(backuplock.Config{
-		Manager:             cfg.LeaseManager,
-		ControllerUUID:      cfg.ControllerUUID,
-		ControllerModelUUID: cfg.ControllerModelUUID.String(),
-		Clock:               cfg.Clock,
-		Logger:              shared.logger.Child("backups"),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	srv.backupLock = backupLock
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "apiserver",
 		Site: &srv.catacomb,
-		Init: []worker.Worker{backupLock},
 		Work: func() error {
 			return srv.loop(ready)
 		},
@@ -875,7 +867,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		srv.logDir,
 	), "log")
 	backupHandler := srv.monitoredHandler(&backupHandler{
-		createArchive: srv.createBackupArchive,
+		createArchive: srv.createBackup,
 		shutdownCtx:   srv.catacomb.Context(context.Background()),
 		logger:        logger,
 	}, "backup")
