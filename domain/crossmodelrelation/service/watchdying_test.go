@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
@@ -16,7 +15,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
-	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	statemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
@@ -98,7 +96,7 @@ func (s *watchDyingModelSuite) TestWatchDyingModel(c *tc.C) {
 	select {
 	case _, ok := <-w.Changes():
 		c.Assert(ok, tc.IsTrue)
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatalf("watcher did not observe the model life change")
 	}
 }

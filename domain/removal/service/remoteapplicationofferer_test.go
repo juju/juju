@@ -48,6 +48,29 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererByAppl
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }
 
+// TestRemoveRemoteApplicationOffererByApplicationUUIDNotFound verifies that
+// RemoveRemoteApplicationOffererByApplicationUUID propagates
+// RemoteApplicationNotFound when the application UUID resolves to no
+// remote application offerer. The local consumer worker relies on this
+// sentinel to distinguish "already gone" from other errors, so the
+// propagation must survive the wrapping done by
+// GetRemoteApplicationOffererUUIDByApplicationUUID.
+func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererByApplicationUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.modelState.EXPECT().
+		GetRemoteApplicationOffererUUIDByApplicationUUID(gomock.Any(), appUUID.String()).
+		Return("", errors.Errorf(
+			"getting remote application offerer for application %q: %w",
+			appUUID, crossmodelrelationerrors.RemoteApplicationNotFound,
+		))
+
+	_, err := s.newService(c).RemoveRemoteApplicationOffererByApplicationUUID(c.Context(), appUUID, false, 0)
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
 func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoWaitSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

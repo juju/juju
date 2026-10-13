@@ -1014,49 +1014,6 @@ func (mr *MockCrossModelRelationServiceMockRecorder) WatchRemoteApplicationOffer
 // MockCrossModelRelationServiceWatchRemoteApplicationOfferersCall is the typed call wrapper for WatchRemoteApplicationOfferers.
 type MockCrossModelRelationServiceWatchRemoteApplicationOfferersCall = gomock.Call1_2[context.Context, watcher0.NotifyWatcher, error]
 
-// MockStatusService is a mock of StatusService interface.
-type MockStatusService struct {
-	ctrl     *gomock.Controller
-	recorder *MockStatusServiceMockRecorder
-	isgomock struct{}
-}
-
-// MockStatusServiceMockRecorder is the mock recorder for MockStatusService.
-type MockStatusServiceMockRecorder struct {
-	mock                                                      *MockStatusService
-	setRemoteApplicationOffererStatusByApplicationUUIDExpects []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
-}
-
-// NewMockStatusService creates a new mock instance.
-func NewMockStatusService(ctrl *gomock.Controller) *MockStatusService {
-	mock := &MockStatusService{ctrl: ctrl}
-	mock.recorder = &MockStatusServiceMockRecorder{mock: mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockStatusService) EXPECT() *MockStatusServiceMockRecorder {
-	return m.recorder
-}
-
-// SetRemoteApplicationOffererStatusByApplicationUUID mocks base method.
-func (m *MockStatusService) SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setRemoteApplicationOffererStatusByApplicationUUIDExpects, m.ctrl, m, "SetRemoteApplicationOffererStatusByApplicationUUID", ctx, appUUID, sts)
-}
-
-// SetRemoteApplicationOffererStatusByApplicationUUID indicates an expected call of SetRemoteApplicationOffererStatusByApplicationUUID.
-func (mr *MockStatusServiceMockRecorder) SetRemoteApplicationOffererStatusByApplicationUUID(ctx, appUUID, sts any) *MockStatusServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, application.UUID, status.StatusInfo, error](mr.mock.ctrl.T, mr.mock, "SetRemoteApplicationOffererStatusByApplicationUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(appUUID), gomock.EnsureMatcher(sts))
-	mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects = append(mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStatusServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall is the typed call wrapper for SetRemoteApplicationOffererStatusByApplicationUUID.
-type MockStatusServiceSetRemoteApplicationOffererStatusByApplicationUUIDCall = gomock.Call3_1[context.Context, application.UUID, status.StatusInfo, error]
-
 // MockRemovalService is a mock of RemovalService interface.
 type MockRemovalService struct {
 	ctrl     *gomock.Controller

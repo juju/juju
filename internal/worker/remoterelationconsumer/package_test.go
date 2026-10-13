@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination service_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer ReportableWorker,OffererApplicationWorker,RemoteModelRelationsClient,CrossModelService,ApplicationService,RelationService,CrossModelRelationService,StatusService,RemovalService
+//go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination service_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer ReportableWorker,OffererApplicationWorker,RemoteModelRelationsClient,CrossModelService,ApplicationService,RelationService,CrossModelRelationService,RemovalService
 //go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination worker_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer RemoteRelationClientGetter
 //go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination remote_relation_caller_mock_test.go github.com/juju/juju/internal/worker/apiremoterelationcaller APIRemoteCallerGetter
 //go:generate go run github.com/canonical/gomock/mockgen -package remoterelationconsumer -destination clock_mock_test.go github.com/juju/clock Clock

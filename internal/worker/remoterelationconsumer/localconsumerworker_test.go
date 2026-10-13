@@ -26,6 +26,7 @@ import (
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -1449,8 +1450,8 @@ func (s *localConsumerWorkerSuite) TestHandleRelationConsumptionEnsureSingular(c
 	select {
 	case <-s.offererRelationWorkerStarted:
 		c.Fatalf("remote relation worker started more than once")
-	case <-time.After(500 * time.Millisecond):
-		// Wait for a bit to ensure we don't get a second start.
+	case <-time.After(coretesting.ShortWait):
+		// Wait briefly to ensure no second start arrives.
 	}
 
 	// Ensure that calling handleRelationConsumption again doesn't create

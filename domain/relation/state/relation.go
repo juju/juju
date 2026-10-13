@@ -3319,6 +3319,15 @@ WHERE  main.uuid = $search.uuid
 	return check(searched.Life), nil
 }
 
+// checkRemoteApplicationOffererAlive reports whether the remote application
+// offerer associated with the given application UUID is alive.
+//
+// If no application_remote_offerer row exists for the application UUID, the
+// function returns (true, nil). This is intentional: the call-site in
+// AddRelation invokes this check for both endpoints, one of which will always
+// be a local application with no offerer record. A missing row means the
+// application is not a SAAS, so the check does not apply and the relation
+// creation should proceed normally.
 func (st *State) checkRemoteApplicationOffererAlive(
 	ctx context.Context,
 	tx *sqlair.TX,

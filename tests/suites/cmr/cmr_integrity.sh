@@ -32,6 +32,9 @@
 # dqlite database, using the db REPL on the controller machine, and
 # prints the first scalar result. Queries passed here must select a
 # single value, aliased AS n.
+# On connection or execution failure the string "ERROR" is printed so
+# that callers (assert_db_count, assert_offer_connections) can emit a
+# diagnostic rather than a misleading count mismatch.
 model_db_scalar() {
 	local model_name sql out
 	model_name=${1}
@@ -46,7 +49,7 @@ model_db_scalar() {
 	# model actually called "model-x" the argument is
 	# "model-model-x".
 	if ! out=$(
-		juju ssh -m controller 0 bash <<EOF 2>/dev/null
+		juju ssh -m controller 0 bash <<EOF 2>&1
 . /etc/profile.d/juju-introspection.sh
 juju_db_repl <<'SQL'
 .switch model-${model_name}
@@ -55,12 +58,19 @@ ${sql}
 SQL
 EOF
 	); then
-		echo ""
+		echo "ERROR"
 		return
 	fi
 
-	printf '%s\n' "${out}" | tr -d '\r' |
-		awk '{ v=$0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); if (v ~ /^[0-9]+$/) { print v; exit } }'
+	local scalar
+	scalar=$(printf '%s\n' "${out}" | tr -d '\r' |
+		awk '{ v=$0; gsub(/^[[:space:]]+|[[:space:]]+$/, "", v); if (v ~ /^[0-9]+$/) { print v; exit } }')
+	if [ -z "${scalar}" ]; then
+		# The REPL ran but produced no numeric output; treat as an error.
+		echo "ERROR"
+		return
+	fi
+	echo "${scalar}"
 }
 
 # assert_db_count fails unless the given table in the named model holds
@@ -72,6 +82,10 @@ assert_db_count() {
 	expected=${3}
 
 	count=$(model_db_scalar "${model_name}" "SELECT COUNT(*) AS n FROM ${table};")
+	if [ "${count}" = "ERROR" ]; then
+		echo "    FAIL: could not query ${table} in model ${model_name} (controller unreachable or REPL error)"
+		return 1
+	fi
 	if [ "${count}" != "${expected}" ]; then
 		echo "    FAIL: expected ${expected} rows in ${table} of model ${model_name}, got ${count:-none}"
 		return 1
@@ -88,6 +102,10 @@ assert_offer_connections() {
 	expected=${3}
 
 	count=$(model_db_scalar "${model_name}" "SELECT COUNT(*) AS n FROM offer_connection AS oc JOIN offer AS o ON o.uuid = oc.offer_uuid WHERE o.name = '${offer_name}';")
+	if [ "${count}" = "ERROR" ]; then
+		echo "    FAIL: could not query offer_connection in model ${model_name} (controller unreachable or REPL error)"
+		return 1
+	fi
 	if [ "${count}" != "${expected}" ]; then
 		echo "    FAIL: expected ${expected} connections for offer ${offer_name} in model ${model_name}, got ${count:-none}"
 		return 1
@@ -122,22 +140,25 @@ check_offerer_cleanup() {
 }
 
 # wait_for_db_checks polls the given check commands (assertion functions
-# with their arguments, passed as strings) until they all pass, or fails
-# after the given timeout in seconds.
+# with their arguments, passed as space-separated strings) until they all
+# pass, or fails after the given timeout in seconds.
+# Each check string is split by whitespace into a function name and its
+# arguments. No argument may contain a space — model names, table names,
+# and expected counts all satisfy this constraint, so eval is not needed.
 wait_for_db_checks() {
 	local model_name timeout
 	model_name=${1}
 	timeout=${2}
 	shift 2
 
-	local waited=0 attempt=0 ok out o
+	local waited=0 attempt=0 ok out o check args
 	while :; do
 		ok=1
 		out=""
-		local check
 		for check in "${@}"; do
-			# shellcheck disable=SC2294
-			if o=$(eval "${check}" 2>/dev/null); then
+			# Split the check string into an array; no argument contains spaces.
+			read -ra args <<<"${check}"
+			if o=$("${args[@]}" 2>/dev/null); then
 				out+="${o}"$'\n'
 			else
 				out+="${o}"$'\n'
