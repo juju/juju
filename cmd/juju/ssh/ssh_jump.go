@@ -117,6 +117,8 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	if err := p.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
 	}
+	// Guard for non-direct ssh. Proxying through the controller needs the
+	// newer facades, --direct doesn't.
 	if err := checkSSHJumpFacadeVersion(
 		p.sshClient.BestAPIVersion(), p.controllerClient.BestAPIVersion(),
 	); err != nil {
