@@ -119,7 +119,6 @@ type MockDrainingServiceMockRecorder struct {
 	mock                               *MockDrainingService
 	getActiveObjectStoreBackendExpects []*gomock.Call1_2[context.Context, service.BackendInfo, error]
 	getDrainingPhaseExpects            []*gomock.Call1_2[context.Context, objectstore.Phase, error]
-	getDrainingPhaseInfoExpects        []*gomock.Call1_2[context.Context, objectstore.DrainingPhaseInfo, error]
 	getObjectStoreBackendExpects       []*gomock.Call2_2[context.Context, objectstore.UUID, service.BackendInfo, error]
 	isObjectStoreUsableExpects         []*gomock.Call1_2[context.Context, bool, error]
 	setDrainingPhaseExpects            []*gomock.Call2_1[context.Context, objectstore.Phase, error]
@@ -174,24 +173,6 @@ func (mr *MockDrainingServiceMockRecorder) GetDrainingPhase(ctx any) *MockDraini
 
 // MockDrainingServiceGetDrainingPhaseCall is the typed call wrapper for GetDrainingPhase.
 type MockDrainingServiceGetDrainingPhaseCall = gomock.Call1_2[context.Context, objectstore.Phase, error]
-
-// GetDrainingPhaseInfo mocks base method.
-func (m *MockDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getDrainingPhaseInfoExpects, m.ctrl, m, "GetDrainingPhaseInfo", ctx)
-}
-
-// GetDrainingPhaseInfo indicates an expected call of GetDrainingPhaseInfo.
-func (mr *MockDrainingServiceMockRecorder) GetDrainingPhaseInfo(ctx any) *MockDrainingServiceGetDrainingPhaseInfoCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, objectstore.DrainingPhaseInfo, error](mr.mock.ctrl.T, mr.mock, "GetDrainingPhaseInfo", gomock.EnsureMatcher(ctx))
-	mr.getDrainingPhaseInfoExpects = append(mr.getDrainingPhaseInfoExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockDrainingServiceGetDrainingPhaseInfoCall is the typed call wrapper for GetDrainingPhaseInfo.
-type MockDrainingServiceGetDrainingPhaseInfoCall = gomock.Call1_2[context.Context, objectstore.DrainingPhaseInfo, error]
 
 // GetObjectStoreBackend mocks base method.
 func (m *MockDrainingService) GetObjectStoreBackend(ctx context.Context, uuid objectstore.UUID) (service.BackendInfo, error) {
