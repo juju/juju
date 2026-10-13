@@ -9,6 +9,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -326,10 +327,11 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("deleting unit: %w", err)
 	}
 
-	// Try to delete the charm if it is unused.
-	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting charm for unit %q: %v", job.EntityUUID, err)
+	// Schedule the removal of the unit's charm. The charm removal job
+	// deletes any orphaned resources associated with the charm and then the
+	// charm itself, once nothing references it.
+	if err := s.ScheduleCharmRemoval(ctx, corecharm.ID(charmUUID)); err != nil {
+		return errors.Errorf("scheduling charm removal for unit %q: %w", job.EntityUUID, err)
 	}
 
 	return nil

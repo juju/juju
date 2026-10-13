@@ -54,6 +54,7 @@ type ModelDBState interface {
 	OfferState
 	SecretModelState
 	ResourceState
+	CharmState
 
 	// GetAllJobs returns all removal jobs.
 	GetAllJobs(ctx context.Context) ([]removal.Job, error)
@@ -61,6 +62,10 @@ type ModelDBState interface {
 	// DeleteJob deletes a removal record under the assumption
 	// that it was executed successfully.
 	DeleteJob(ctx context.Context, jUUID string) error
+
+	// RescheduleJob updates the scheduled time of the removal job with the
+	// input UUID, delaying its next execution.
+	RescheduleJob(ctx context.Context, jobUUID string, when time.Time) error
 
 	// NamespaceForWatchRemovals returns the table name whose UUIDs we
 	// are watching in order to be notified of new removal jobs.
@@ -215,6 +220,9 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 	case removal.ResourceJob:
 		err = s.processResourceRemovalJob(ctx, job)
 
+	case removal.CharmJob:
+		err = s.processCharmRemovalJob(ctx, job)
+
 	default:
 		err = errors.Errorf("removal job type %q not supported", job.RemovalType).Add(
 			removalerrors.RemovalJobTypeNotSupported)
@@ -225,6 +233,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 		return nil
 	}
 	if err != nil && !errors.IsOneOf(err, nonRetryableErrors...) {
+		s.logger.Debugf(ctx, "removal job for %s %q failed, will retry: %v", job.RemovalType, job.EntityUUID, err)
 		return errors.Capture(err)
 	}
 
@@ -245,6 +254,7 @@ func (s *Service) ExecuteJob(ctx context.Context, job removal.Job) error {
 			job.RemovalType, job.EntityUUID, err)
 	}
 
+	s.logger.Debugf(ctx, "removal job for %s %q completed", job.RemovalType, job.EntityUUID)
 	return nil
 }
 

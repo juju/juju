@@ -1410,6 +1410,12 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			)
 		}
 
+		if unitLifeCharm.CharmUUID != targetCharmUUID.UUID {
+			if err := st.scheduleCharmRemoval(ctx, tx, unitLifeCharm.CharmUUID); err != nil {
+				return errors.Errorf("scheduling removal of previous charm %q: %w", unitLifeCharm.CharmUUID, err)
+			}
+		}
+
 		// Remove resources which do not belong to the unit's new charm.
 		err = tx.Query(
 			ctx, deleteOldCharmUnitResourcesStmt, unitUUID, targetCharmUUID,

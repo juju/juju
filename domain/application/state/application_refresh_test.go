@@ -74,6 +74,70 @@ func (s *applicationRefreshSuite) TestSetApplicationCharm(c *tc.C) {
 	c.Assert(newCharmUUID, tc.Equals, charmUUID.String())
 }
 
+func (s *applicationRefreshSuite) TestSetApplicationCharmSchedulesRemovalOfPreviousCharm(c *tc.C) {
+	// Arrange: an application on an initial charm, and a new charm to switch
+	// to.
+	appID := s.createApplication(c, createApplicationArgs{
+		relations: []charm.Relation{
+			{Role: charm.RoleProvider},
+			{Role: charm.RoleRequirer},
+		},
+	})
+	charmUUID := s.createCharm(c, createCharmArgs{name: "foo"})
+
+	var oldCharmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM application WHERE uuid = ?", appID).Scan(&oldCharmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: a charm removal job was scheduled for the previous charm,
+	// atomically with the switch.
+	row := s.DB().QueryRow(`
+SELECT t.name, r.entity_uuid
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  r.entity_uuid = ?`, oldCharmUUID,
+	)
+	var (
+		removalType string
+		entityUUID  string
+	)
+	err = row.Scan(&removalType, &entityUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalType, tc.Equals, "charm")
+	c.Check(entityUUID, tc.Equals, oldCharmUUID)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmSameCharmSchedulesNoRemoval(c *tc.C) {
+	// Arrange
+	appID := s.createApplication(c, createApplicationArgs{
+		relations: []charm.Relation{
+			{Role: charm.RoleProvider},
+			{Role: charm.RoleRequirer},
+		},
+	})
+
+	var charmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM application WHERE uuid = ?", appID).Scan(&charmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: set the charm the application is already running.
+	err = s.state.SetApplicationCharm(c.Context(), appID, corecharm.ID(charmUUID), application.SetCharmStateParams{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: nothing to remove, so no removal job exists.
+	var count int
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM removal").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *applicationRefreshSuite) TestSetApplicationCharmCreatesImmutableResourceForNewCharm(c *tc.C) {
 	const (
 		resourceName = "foo"

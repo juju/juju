@@ -422,8 +422,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnit(c *tc.C) {
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -453,8 +454,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDyingUnitWithNoEntities(c *tc.C) {
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -483,8 +485,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadJujuSecretsDeleteUnit(c *tc.C) {
 	exp.DeleteUnitOwnedSecretContent(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -513,8 +516,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadExternalSecretsDeleteUnit(c *tc.C) 
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(secretExternalRefs, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -690,8 +694,9 @@ func (s *unitSuite) TestExecuteJobForUnitDeadDeleteUnitClaimNotHeld(c *tc.C) {
 	exp.GetUnitOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteUnitOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteUnit(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
+	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{

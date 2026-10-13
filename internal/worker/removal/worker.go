@@ -161,7 +161,7 @@ func (w *removalWorker) processRemovalJobs(ctx context.Context) error {
 		}
 
 		w.cfg.Logger.Infof(ctx, "scheduling %s job %q", j.RemovalType, id)
-		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j)); err != nil {
+		if err := w.runner.StartWorker(ctx, id, newJobWorker(w.cfg.RemovalService, j, w.cfg.Logger)); err != nil {
 			return errors.Capture(err)
 		}
 	}
@@ -196,11 +196,17 @@ type jobWorker struct {
 // newJobWorker returns a closure suitable for passing to
 // a runner's StartWorker method.
 // It uses the input service to run the input removal job.
-func newJobWorker(svc RemovalService, job removal.Job) func(context.Context) (worker.Worker, error) {
+func newJobWorker(svc RemovalService, job removal.Job, logger logger.Logger) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		w := jobWorker{job: job}
 		w.tomb.Go(func() error {
-			return svc.ExecuteJob(w.tomb.Context(context.Background()), job)
+			err := svc.ExecuteJob(w.tomb.Context(context.Background()), job)
+			if err != nil {
+				logger.Warningf(ctx, "removal job %q (%s) attempt failed: %v", job.UUID, job.RemovalType, err)
+			} else {
+				logger.Debugf(ctx, "removal job %q (%s) completed", job.UUID, job.RemovalType)
+			}
+			return err
 		})
 		return &w, nil
 	}
