@@ -22,6 +22,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -44,6 +45,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -58,6 +60,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -83,6 +86,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -106,6 +110,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnNoRetry(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -134,6 +139,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -166,6 +172,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStdTxnIsNotNil(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -198,6 +205,7 @@ func (s *trackedDBWorkerSuite) TestWorkerRunReusesPreparedContextForRetries(c *t
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -231,6 +239,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *tc.C) {
 
 	// This test uses a dialated wall clock to test retries.
 	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
+
+	s.expectNotLeader()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -268,6 +278,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *tc.C) 
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(1)()
 
 	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
@@ -311,6 +322,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *tc.C) {
 	// This test uses a dialated wall clock to test retries.
 	s.clock = testclock.NewDilatedWallClock(time.Millisecond)
 
+	s.expectNotLeader()
+
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
 	done := make(chan struct{})
@@ -347,6 +360,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
+	s.setupOptimizeTimer()
 	timerCh := s.setupTimer(PollInterval)
 
 	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
@@ -416,6 +431,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(1)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
@@ -444,6 +460,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
+	s.expectNotLeader()
 	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -466,6 +483,235 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *tc.C) {
 	})
 
 	c.Assert(err, tc.ErrorMatches, "context canceled")
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerOptimizesDatabaseOnOpen(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	defer s.expectTimer(0)()
+
+	// This node hosts the Dqlite leader, so opening the database refreshes
+	// the query planner statistics.
+	s.expectLeader()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	s.seedOptimizableTable(c)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	c.Check(analysedIndexes(c, s.DB()), SliceContains, "optimize_test_value_idx")
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerDoesNotOptimizeDatabaseOnOpenWhenNotLeader(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	defer s.expectTimer(0)()
+
+	// The leader lives on another node, which is the node that will do the
+	// work. Doing it here as well would only contend for the writer slot.
+	s.expectNotLeader()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	s.seedOptimizableTable(c)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	c.Check(analysedIndexes(c, s.DB()), tc.HasLen, 0)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerOptimizesDatabaseOnTimer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.setupTimer(PollInterval)
+	optimizeCh := s.setupOptimizeTimer()
+
+	// The optimize timer is reset once the refresh has been attempted, so
+	// resetting it tells us that the work is done.
+	optimized := make(chan struct{})
+	s.optimizeTimer.EXPECT().Reset(gomock.Any()).Times(1).DoAndReturn(func(time.Duration) bool {
+		close(optimized)
+		return true
+	})
+
+	// Not the leader when the database is opened, but the leader by the time
+	// the refresh falls due, which isolates the work done on the timer.
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).AnyTimes()
+	s.dbApp.EXPECT().ID().Return(dqliteNodeID).AnyTimes()
+	gomock.InOrder(
+		s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{ID: otherDqliteNodeID}, nil),
+		s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{ID: dqliteNodeID}, nil),
+	)
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	s.seedOptimizableTable(c)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+
+	// Opening the database did nothing, because this node was not the leader.
+	c.Assert(analysedIndexes(c, s.DB()), tc.HasLen, 0)
+
+	s.tickOptimizeTimer(c, optimizeCh, optimized)
+
+	c.Check(analysedIndexes(c, s.DB()), SliceContains, "optimize_test_value_idx")
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerDoesNotOptimizeDatabaseOnTimerWhenNotLeader(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.setupTimer(PollInterval)
+	optimizeCh := s.setupOptimizeTimer()
+
+	optimized := make(chan struct{})
+	s.optimizeTimer.EXPECT().Reset(gomock.Any()).Times(1).DoAndReturn(func(time.Duration) bool {
+		close(optimized)
+		return true
+	})
+
+	s.expectNotLeader()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	s.seedOptimizableTable(c)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+	s.tickOptimizeTimer(c, optimizeCh, optimized)
+
+	c.Check(analysedIndexes(c, s.DB()), tc.HasLen, 0)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *trackedDBWorkerSuite) TestWorkerReportsOptimizations(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.setupTimer(PollInterval)
+	optimizeCh := s.setupOptimizeTimer()
+
+	optimized := make(chan struct{})
+	s.optimizeTimer.EXPECT().Reset(gomock.Any()).Times(1).DoAndReturn(func(time.Duration) bool {
+		close(optimized)
+		return true
+	})
+
+	s.expectLeader()
+
+	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
+
+	s.seedOptimizableTable(c)
+
+	w, err := s.newTrackedDBWorker(c, defaultPingDBFunc)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
+	s.tickOptimizeTimer(c, optimizeCh, optimized)
+
+	report := w.(interface {
+		Report(ctx context.Context) map[string]any
+	}).Report(c.Context())
+
+	// Once when the database was opened, and once on the timer.
+	c.Check(report["optimizations"], tc.Equals, uint32(2))
+
+	workertest.CleanKill(c, w)
+}
+
+// tickOptimizeTimer fires the optimize timer and waits for the resulting
+// refresh attempt to complete.
+func (s *trackedDBWorkerSuite) tickOptimizeTimer(c *tc.C, tick chan time.Time, done chan struct{}) {
+	select {
+	case tick <- time.Now():
+	case <-c.Context().Done():
+		c.Fatal("timed out sending the optimize tick")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for the database to be optimized")
+	}
+}
+
+// seedOptimizableTable creates an indexed table with enough rows in it that
+// the query planner statistics are worth gathering. PRAGMA optimize skips
+// empty tables, so without the rows there would be nothing to analyse.
+func (s *trackedDBWorkerSuite) seedOptimizableTable(c *tc.C) {
+	db := s.DB()
+
+	_, err := db.ExecContext(c.Context(), `
+CREATE TABLE optimize_test (
+	id    INTEGER PRIMARY KEY,
+	value TEXT NOT NULL
+)`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(c.Context(), "CREATE INDEX optimize_test_value_idx ON optimize_test (value)")
+	c.Assert(err, tc.ErrorIsNil)
+
+	for i := range 100 {
+		_, err = db.ExecContext(c.Context(),
+			"INSERT INTO optimize_test (id, value) VALUES (?, ?)", i, fmt.Sprintf("value-%d", i%10))
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
+// analysedIndexes returns the names of the indexes that the query planner has
+// gathered statistics for.
+func analysedIndexes(c *tc.C, db *sql.DB) []string {
+	// The statistics table only comes into existence the first time that
+	// something is actually analysed.
+	var analysed int
+	err := db.QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM sqlite_master WHERE name = 'sqlite_stat1'").Scan(&analysed)
+	c.Assert(err, tc.ErrorIsNil)
+
+	if analysed == 0 {
+		return nil
+	}
+
+	rows, err := db.QueryContext(c.Context(), "SELECT idx FROM sqlite_stat1 WHERE idx IS NOT NULL")
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	var indexes []string
+	for rows.Next() {
+		var index string
+		c.Assert(rows.Scan(&index), tc.ErrorIsNil)
+		indexes = append(indexes, index)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+
+	return indexes
 }
 
 func (s *trackedDBWorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -515,7 +761,7 @@ func readTableNames(c *tc.C, w coredatabase.TxnRunner) []string {
 	err := w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		tables = nil
 
-		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
+		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema WHERE tbl_name NOT LIKE 'sqlite_%'")
 		if err != nil {
 			return err
 		}
