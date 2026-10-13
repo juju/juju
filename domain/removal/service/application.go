@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -313,16 +314,11 @@ func (s *Service) processApplicationRemovalJob(ctx context.Context, job removal.
 		return errors.Errorf("deleting application %q: %w", job.EntityUUID, err)
 	}
 
-	// Try to delete any orphaned resources associated with the charm.
-	if err := s.modelState.DeleteOrphanedResources(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting orphaned resources for application %q: %v", job.EntityUUID, err)
-	}
-
-	// Try to delete the charm if it is unused.
-	if err := s.modelState.DeleteCharmIfUnused(ctx, charmUUID); err != nil {
-		// Log the error but do not fail the removal job.
-		s.logger.Warningf(ctx, "deleting charm for application %q: %v", job.EntityUUID, err)
+	// Schedule the removal of the application's charm. The charm removal job
+	// deletes any orphaned resources associated with the charm and then the
+	// charm itself, once nothing references it.
+	if err := s.ScheduleCharmRemoval(ctx, corecharm.ID(charmUUID)); err != nil {
+		return errors.Errorf("scheduling charm removal for application %q: %w", job.EntityUUID, err)
 	}
 
 	return nil

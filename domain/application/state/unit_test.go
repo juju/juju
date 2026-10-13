@@ -1083,6 +1083,62 @@ func (s *unitStateSuite) TestUpdateUnitCharm(c *tc.C) {
 	c.Assert(gotUUID, tc.Equals, id.String())
 }
 
+func (s *unitStateSuite) TestUpdateUnitCharmSchedulesRemovalOfPreviousCharm(c *tc.C) {
+	_, unitUUID := s.createNamedIAASUnit(c)
+
+	var oldCharmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM unit WHERE uuid = ?", unitUUID).Scan(&oldCharmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "bar",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`UPDATE application
+		 SET charm_uuid = ?
+		 WHERE uuid = (SELECT application_uuid FROM unit WHERE uuid = ?)`,
+		id.String(), unitUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUID,
+		CharmUUID:   id,
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: a charm removal job was scheduled for the previous charm,
+	// atomically with the switch.
+	row := s.DB().QueryRow(`
+SELECT t.name, r.entity_uuid
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  r.entity_uuid = ?`, oldCharmUUID,
+	)
+	var (
+		removalType string
+		entityUUID  string
+	)
+	err = row.Scan(&removalType, &entityUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalType, tc.Equals, "charm")
+	c.Check(entityUUID, tc.Equals, oldCharmUUID)
+}
+
 func (s *unitStateSuite) TestUpdateUnitCharmRemovesResourceNotFoundInNewCharm(c *tc.C) {
 	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]

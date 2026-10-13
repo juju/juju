@@ -1574,10 +1574,16 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
-		// Update storage directives for the new charm.
-		err := st.updateApplicationStorageDirectives(
-			ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate)
+		// Capture the current charm before the switch, so its removal can be
+		// scheduled atomically with it.
+		oldCharmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appID.String())
 		if err != nil {
+			return errors.Capture(err)
+		}
+
+		// Update storage directives for the new charm.
+		if err := st.updateApplicationStorageDirectives(
+			ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate); err != nil {
 			return errors.Errorf("updating storage directives: %w", err)
 		}
 
@@ -1616,6 +1622,12 @@ WHERE  uuid = $entityUUID.uuid
 
 		if err := tx.Query(ctx, setAppCharmStmt, appAndCharmPair).Run(); err != nil {
 			return errors.Errorf("setting application charm: %w", err)
+		}
+
+		if oldCharmUUID != chID.String() {
+			if err := st.scheduleCharmRemoval(ctx, tx, oldCharmUUID); err != nil {
+				return errors.Errorf("scheduling removal of previous charm %q: %w", oldCharmUUID, err)
+			}
 		}
 
 		appIdent := entityUUID{UUID: appID.String()}
