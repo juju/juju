@@ -35,6 +35,7 @@ test_migration() {
 
 		# Tests that need to be run are added here.
 		test_migration_36
+		test_migration_36_image_metadata
 		test_migration_36_cmr_offering
 		test_migration_36_cmr_consuming
 		test_migration_36_cmr_spaces

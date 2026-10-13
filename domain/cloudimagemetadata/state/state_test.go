@@ -178,15 +178,16 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 
 	//  Act
 	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs1, ImageID: "1"},
+		{MetadataAttributes: attrs1, Priority: 7, ImageID: "1"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs2, ImageID: "2"},
+		{MetadataAttributes: attrs2, Priority: 9, ImageID: "2"},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Assert
+	// Assert: only the image id is replaced; priority and the rest of the
+	// target row are retained.
 	obtained, err := s.retrieveMetadataFromDB(c)
 	for i := range obtained {
 		c.Check(obtained[i].CreationTime, tc.After, testBeginTime)
@@ -194,7 +195,7 @@ func (s *stateSuite) TestSaveMetadataUpdateMetadata(c *tc.C) {
 	}
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained, tc.SameContents, []cloudimagemetadata.Metadata{
-		{MetadataAttributes: attrs1, ImageID: "2"}, // Imageid has been updated, but other attributes don't.
+		{MetadataAttributes: attrs1, Priority: 7, ImageID: "2"}, // Imageid has been updated, but other attributes don't.
 	})
 }
 
@@ -280,6 +281,43 @@ func (s *stateSuite) TestSaveMetadataWithSameAttributes(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, errors.ImageMetadataAlreadyExists)
+	obtained, err := s.retrieveMetadataFromDB(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.HasLen, 0)
+}
+
+// TestSaveMetadataUpdateSameImage verifies that re-saving metadata on an
+// existing natural key with the same image id leaves the stored row
+// unchanged: the image id is untouched and the incoming row's other fields
+// (priority here) are ignored.
+func (s *stateSuite) TestSaveMetadataUpdateSameImage(c *tc.C) {
+	// Arrange
+	attrs := cloudimagemetadata.MetadataAttributes{
+		Stream:          "stream",
+		Region:          "region-test",
+		Version:         "22.04",
+		Arch:            "arm64",
+		VirtType:        "virtType-test",
+		RootStorageType: "rootStorageType-test",
+		Source:          "test",
+	}
+
+	// Act
+	err := s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs, Priority: 7, ImageID: "1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.SaveMetadata(c.Context(), []cloudimagemetadata.Metadata{
+		{MetadataAttributes: attrs, Priority: 9, ImageID: "1"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	obtained, err := s.retrieveMetadataFromDB(c)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 1)
+	c.Check(obtained[0].ImageID, tc.Equals, "1")
+	c.Check(obtained[0].Priority, tc.Equals, 7)
 }
 
 // TestSaveMetadataSeveralMetadataWithInvalidArchitecture verifies that metadata with an invalid architecture is ignored
