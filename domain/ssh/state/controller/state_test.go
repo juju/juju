@@ -13,12 +13,12 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
-	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
 	jujutesting "github.com/juju/juju/internal/testing"
 	internaluuid "github.com/juju/juju/internal/uuid"

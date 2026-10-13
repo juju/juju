@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
-	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	domainssh "github.com/juju/juju/domain/ssh"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
