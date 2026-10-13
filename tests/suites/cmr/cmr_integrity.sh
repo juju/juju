@@ -385,6 +385,14 @@ run_cmr_consume_remove_reconsume() {
 	juju remove-relation dummy-sink dummy-offer
 	juju remove-saas dummy-offer
 	wait_for null '.applications["dummy-sink"] | .relations'
+	# The SAAS removal job only deletes the SAAS application and its
+	# application_remote_offerer row once every cascaded relation is gone,
+	# which can outlast the offering-model drain below. Re-consuming inside
+	# that window is silently idempotent (OfferAlreadyConsumed is swallowed
+	# by the consume facade), leaving the SAAS dying, and the relate below
+	# is then rejected with "remote application ... is not alive". Wait for
+	# the SAAS to be fully removed locally first.
+	wait_for null '."application-endpoints"' 300
 
 	echo "Wait for the offering model to drain the connection"
 	juju switch model-offer-recon
