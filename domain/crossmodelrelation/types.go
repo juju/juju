@@ -304,6 +304,14 @@ const (
 type RelationNetworkImport struct {
 	RelationKey corerelation.Key
 
+	// RelationUUID is the relation token recorded for the relation in the
+	// source model, being the UUID the relation was imported under. It is
+	// set when the relation crossed a model boundary, and empty otherwise:
+	// the relation of an additional offer connection of a legacy consumer
+	// proxy is represented in the model by a freshly named synthetic
+	// application, so it cannot be located by its legacy key.
+	RelationUUID string
+
 	// Direction is the direction of the networks, either ingress or egress.
 	Direction RelationNetworkDirection
 

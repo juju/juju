@@ -271,6 +271,14 @@ type offerConnection struct {
 	Username           string `db:"username"`
 }
 
+// syntheticApplication maps the synthetic application standing in for the
+// remote consumer of an offer connection: the offer connection shares the
+// UUID of the application it is made for.
+type syntheticApplication struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type remoteRelationUUID struct {
 	UUID string `db:"uuid"`
 }
