@@ -168,7 +168,24 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 		},
 		Handler: func(session ssh.Session) {
 			close(sessionStarted)
-			_, _ = io.WriteString(session, "shell done\n")
+			_, windowChanges, ok := session.Pty()
+			c.Check(ok, tc.IsTrue)
+			// Keep the session open until the resized window is received,
+			// otherwise the session may close before the client sends the
+			// window change. The initial window is received first.
+			for {
+				select {
+				case window := <-windowChanges:
+					if window.Height != 30 || window.Width != 100 {
+						continue
+					}
+					_, _ = io.WriteString(session, "shell done\n")
+					return
+				case <-session.Context().Done():
+					c.Error("session closed before window change was received")
+					return
+				}
+			}
 		},
 	})
 
@@ -197,6 +214,7 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatal("timed out waiting for pty callback to be called")
 	}
+
 	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
 
 	select {
