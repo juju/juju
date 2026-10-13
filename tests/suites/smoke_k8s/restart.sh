@@ -64,6 +64,171 @@ assert_split_topology() {
 	check_contains "${pebble_services}" "jujuagentd"
 }
 
+# pod_exec_sh runs a shell command in the controller pod's api-server
+# container. The pod's processes run as the juju user, so agent-owned
+# files under /var/lib/juju are readable without sudo.
+pod_exec_sh() {
+	local pod cmd
+	pod=$(get_controller_pod)
+	if [[ -z ${pod} ]]; then
+		return 1
+	fi
+	cmd=${1}
+	kubectl exec -n "controller-${BOOTSTRAPPED_JUJU_CTRL_NAME}" "${pod}" -c api-server -- \
+		/bin/sh -c "${cmd}" 2>/dev/null || echo ""
+}
+
+# conf_key_line prints the top-level YAML line for the given key from a
+# configuration body. Used to probe agent.conf and runtime.conf without
+# ever echoing credential-bearing content.
+conf_key_line() {
+	printf "%s" "${2}" | grep -E "^${1}:" || true
+}
+
+# machine_agent_conf reads the controller pod machine agent's live
+# agent.conf. The output must never be logged: it holds the machine
+# credential. Only key-probing helpers and the digest helper consume it.
+machine_agent_conf() {
+	pod_exec_sh "cat /var/lib/juju/agents/machine-0/agent.conf"
+}
+
+# assert_machine_agent_conf_trimmed asserts the controller pod machine
+# agent's configuration carries the controller-0 identity and
+# connectivity state only: no controller-serving or Dqlite field is
+# serialized.
+assert_machine_agent_conf_trimmed() {
+	local conf tag_line
+	conf=$(machine_agent_conf)
+
+	tag_line=$(conf_key_line "tag" "${conf}")
+	if [[ ${tag_line} != "tag: controller-0" ]]; then
+		echo "Unexpected pod machine agent tag \"${tag_line}\", expected controller-0" >&2
+		return 1
+	fi
+
+	# Required connectivity state: addresses, credential, trust anchor.
+	local addresses_line
+	addresses_line=$(conf_key_line "apiaddresses" "${conf}")
+	if [[ -z ${addresses_line} || ${addresses_line} == "apiaddresses: []" ]]; then
+		echo "Pod machine agent config has no API addresses" >&2
+		return 1
+	fi
+	if [[ -z $(conf_key_line "apipassword" "${conf}") ]]; then
+		echo "Pod machine agent config has no API password" >&2
+		return 1
+	fi
+	if [[ -z $(conf_key_line "cacert" "${conf}") ]]; then
+		echo "Pod machine agent config has no CA certificate" >&2
+		return 1
+	fi
+
+	# No controller serving information on the machine-agent path.
+	local key
+	for key in controllercert controllerkey caprivatekey apiport systemidentity statepassword stateaddresses; do
+		if [[ -n $(conf_key_line "${key}" "${conf}") ]]; then
+			echo "Pod machine agent config must not contain key \"${key}\"" >&2
+			return 1
+		fi
+	done
+
+	# Dqlite settings are delivered via runtime.conf, not agent.conf.
+	for key in querytracingenabled querytracingthreshold dqlitebusytimeout dqlite-port; do
+		if [[ -n $(conf_key_line "${key}" "${conf}") ]]; then
+			echo "Pod machine agent config must not contain key \"${key}\"" >&2
+			return 1
+		fi
+	done
+
+	echo "Pod machine agent config carries connectivity state only"
+}
+
+# machine_agent_credential_digest prints a SHA-256 digest of the machine
+# agent's API password so the credential can be compared across restarts
+# without being logged.
+machine_agent_credential_digest() {
+	local conf
+	conf=$(machine_agent_conf)
+	if [[ -z $(conf_key_line "apipassword" "${conf}") ]]; then
+		echo ""
+		return 1
+	fi
+	printf "%s" "${conf}" | grep -E "^apipassword:" | sha256sum | awk '{print $1}'
+}
+
+# jujud_pid prints the PID of the jujud controller process in the
+# controller pod's api-server container, used to observe controller
+# restarts.
+jujud_pid() {
+	pod_exec_sh "ps aux" | awk '/[j]ujud controller/ {print $2}' | head -n 1
+}
+
+# runtime_conf_key_line prints the top-level YAML line for the given key
+# from the controller pod's runtime.conf.
+runtime_conf_key_line() {
+	conf_key_line "${1}" "$(pod_exec_sh "cat /var/lib/juju/controller/runtime.conf")"
+}
+
+# assert_dqlite_config_update proves the Dqlite controller-config update
+# path end to end: changing a mutable Dqlite controller-config value
+# makes the jujud Dqlite-config updater write the new value into the
+# controller's local runtime.conf and restart the controller exactly
+# once.
+assert_dqlite_config_update() {
+	local pid_before pid_after pid_settled key_line attempt
+
+	pid_before=$(jujud_pid)
+	if [[ -z ${pid_before} ]]; then
+		echo "No jujud controller process found before config update" >&2
+		return 1
+	fi
+	echo "jujud controller pid before config update: ${pid_before}"
+
+	juju controller-config query-tracing-enabled=true
+
+	# The updater writes runtime.conf, then exits; Pebble restarts the
+	# jujud service. Wait for the process identity to change.
+	attempt=0
+	pid_after=""
+	until [[ -n ${pid_after} && ${pid_after} != "${pid_before}" ]]; do
+		pid_after=$(jujud_pid)
+		if [[ -n ${pid_after} && ${pid_after} != "${pid_before}" ]]; then
+			break
+		fi
+		echo "[+] (attempt ${attempt}) waiting for controller restart"
+		if [[ ${attempt} -ge 60 ]]; then
+			echo "Failed: controller did not restart after query-tracing-enabled=true" >&2
+			return 1
+		fi
+		sleep 5
+		attempt=$((attempt + 1))
+	done
+	echo "jujud controller pid after restart: ${pid_after}"
+
+	# The restart applied the value through the runtime.conf delivery
+	# cache. The write happens before the restart, so it must already be
+	# visible.
+	key_line=$(runtime_conf_key_line "query-tracing-enabled")
+	if [[ ${key_line} != "query-tracing-enabled: true" ]]; then
+		echo "runtime.conf does not carry query-tracing-enabled: true (got \"${key_line}\")" >&2
+		return 1
+	fi
+
+	# The controller must recover and keep serving.
+	wait_for "snappass-test" "$(idle_condition "snappass-test")" 300
+	assert_split_topology
+
+	# Exactly one restart: after the reconciliation the updated values
+	# match, so a restart loop must not occur. Give the controller a
+	# settle window and assert the process identity is stable.
+	sleep 30
+	pid_settled=$(jujud_pid)
+	if [[ ${pid_settled} != "${pid_after}" ]]; then
+		echo "Unexpected second controller restart: pid ${pid_after} became ${pid_settled}" >&2
+		return 1
+	fi
+	echo "Dqlite config update caused exactly one controller restart"
+}
+
 # test_controller_restart restarts the jujud controller service via
 # Pebble and verifies that the controller API recovers and the
 # deployed workload remains manageable.
@@ -182,8 +347,13 @@ test_workload_and_split_topology() {
 }
 
 # test_restart_resilience orchestrates the full restart resilience
-# scenario: workload deploy, controller restart, and machine-agent
-# restart in sequence on a single model.
+# scenario on a single model: workload deploy, controller restart, and
+# machine-agent restart, with the machine-agent configuration
+# assertions (the controller pod machine agent keeps its controller-0
+# identity, its configuration carries connectivity state only, and its
+# credential is never rotated) and the Dqlite controller-config update
+# delivery proof (exactly one controller restart with the value
+# applied).
 test_restart_resilience() {
 	if [ "$(skip 'test_restart_resilience')" ]; then
 		echo "==> TEST SKIPPED: restart resilience tests"
@@ -204,6 +374,15 @@ test_restart_resilience() {
 
 		# Verify initial split topology.
 		assert_split_topology
+
+		# Capture the machine-agent configuration boundary and a
+		# non-logged credential digest before any restart.
+		assert_machine_agent_conf_trimmed
+		digest_before=$(machine_agent_credential_digest)
+		if [[ -z ${digest_before} ]]; then
+			echo "Failed to digest the pod machine agent credential" >&2
+			exit 1
+		fi
 
 		# Restart the controller process.
 		echo "====> Restarting jujud controller service"
@@ -227,6 +406,21 @@ test_restart_resilience() {
 		wait_for "snappass-test" "$(idle_condition "snappass-test")" 300
 		assert_split_topology
 
+		# The machine agent connects with OnlyConnect and never rotates
+		# its controller-node credential: the digest must be unchanged
+		# across the restart, and the configuration boundary must hold.
+		digest_after=$(machine_agent_credential_digest)
+		if [[ -z ${digest_after} ]]; then
+			echo "Failed to digest the pod machine agent credential after restart" >&2
+			exit 1
+		fi
+		if [[ ${digest_after} != "${digest_before}" ]]; then
+			echo "Pod machine agent credential changed across the jujuagentd restart (rotation is forbidden)" >&2
+			exit 1
+		fi
+		echo "====> Machine-agent credential stable across restart"
+		assert_machine_agent_conf_trimmed
+
 		# Verify jujud remains the sole controller owner.
 		local pod
 		pod=$(get_controller_pod)
@@ -242,6 +436,10 @@ test_restart_resilience() {
 			echo "Expected exactly 1 jujud controller process, found ${jujud_count}" >&2
 			exit 1
 		fi
+
+		# Prove the Dqlite controller-config update delivery: one
+		# controller restart with the value applied.
+		assert_dqlite_config_update
 
 		destroy_model "test-restart-resilience"
 
