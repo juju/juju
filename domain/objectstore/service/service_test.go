@@ -563,13 +563,28 @@ func (s *drainingServiceSuite) TestIsObjectStoreUsable(c *tc.C) {
 	c.Check(usable, tc.IsTrue)
 }
 
-func (s *drainingServiceSuite) TestIsObjectStoreUsableRejectsBackendTransition(c *tc.C) {
+func (s *drainingServiceSuite) TestIsObjectStoreUsableAllowsDeadBackend(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
 		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
 	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
 	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(2, 1, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsTrue)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsableRejectsNoBackends(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(0, 0, nil)
 
 	usable, err := NewWatchableDrainingService(
 		s.state, s.watcherFactory, testControllerUUID,

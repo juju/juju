@@ -522,8 +522,8 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 }
 
 // IsObjectStoreUsable reports whether object-store operations can safely use
-// the configured backend. A usable store has finished draining and has exactly
-// one backend, which must be alive.
+// the configured backend. A usable store has finished draining, has at least
+// one backend, and has exactly one alive backend.
 func (s *WatchableDrainingService) IsObjectStoreUsable(ctx context.Context) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -540,7 +540,7 @@ func (s *WatchableDrainingService) IsObjectStoreUsable(ctx context.Context) (boo
 	if err != nil {
 		return false, errors.Errorf("getting object-store backend counts: %w", err)
 	}
-	return total == 1 && alive == 1, nil
+	return total > 0 && alive == 1, nil
 }
 
 // BackendInfo represents the information about an object store backend,

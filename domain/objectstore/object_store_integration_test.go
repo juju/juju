@@ -306,6 +306,10 @@ func (s *integrationSuite) TestDrainingLifecycleCompleted(c *tc.C) {
 	backend, err := svc.GetActiveObjectStoreBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(backend.Type, tc.Equals, objectstore.S3Backend)
+
+	usable, err := svc.IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsTrue)
 }
 
 // TestDrainingLifecycleError verifies the drain lifecycle when transitioning

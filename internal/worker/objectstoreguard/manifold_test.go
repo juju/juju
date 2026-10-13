@@ -6,6 +6,7 @@ package objectstoreguard
 import (
 	"testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -26,6 +27,35 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 type manifoldSuite struct{}
+
+func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
+	config := s.config(c)
+	c.Check(config.Validate(), tc.ErrorIsNil)
+
+	config = s.config(c)
+	config.ObjectStoreServicesName = ""
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	config = s.config(c)
+	config.ObjectStoreName = ""
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	config = s.config(c)
+	config.FortressName = ""
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	config = s.config(c)
+	config.GetDrainingService = nil
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	config = s.config(c)
+	config.NewWorker = nil
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	config = s.config(c)
+	config.Logger = nil
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
+}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	config := s.config(c)
@@ -54,6 +84,40 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	w, err := Manifold(config).Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
+}
+
+func (s *manifoldSuite) TestStartGetDrainingServiceError(c *tc.C) {
+	config := s.config(c)
+	config.GetDrainingService = func(dependency.Getter, string) (DrainingService, error) {
+		return nil, errors.New("boom")
+	}
+
+	_, err := Manifold(config).Start(c.Context(), dependencytesting.StubGetter(nil))
+	c.Check(err, tc.ErrorMatches, "boom")
+}
+
+func (s *manifoldSuite) TestStartMissingFortress(c *tc.C) {
+	config := s.config(c)
+	config.GetDrainingService = func(dependency.Getter, string) (DrainingService, error) {
+		return &drainingService{}, nil
+	}
+
+	_, err := Manifold(config).Start(c.Context(), dependencytesting.StubGetter(map[string]any{
+		"object-store": &recordingFlusher{calls: make(chan struct{}, 1)},
+	}))
+	c.Check(err, tc.Not(tc.ErrorIsNil))
+}
+
+func (s *manifoldSuite) TestStartMissingObjectStore(c *tc.C) {
+	config := s.config(c)
+	config.GetDrainingService = func(dependency.Getter, string) (DrainingService, error) {
+		return &drainingService{}, nil
+	}
+
+	_, err := Manifold(config).Start(c.Context(), dependencytesting.StubGetter(map[string]any{
+		"fortress": &recordingGuard{calls: make(chan string, 1)},
+	}))
+	c.Check(err, tc.Not(tc.ErrorIsNil))
 }
 
 func (s *manifoldSuite) config(c *tc.C) ManifoldConfig {
