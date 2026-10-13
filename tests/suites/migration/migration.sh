@@ -956,6 +956,66 @@ run_migration_36_relation_egress_override() {
 	destroy_controller_36 "mig36-egress-src-12345"
 }
 
+# Cloud image metadata migration: the target controller's image metadata
+# table is controller-wide, so a migrating model's custom rows merge into
+# it on the natural key. An incoming row whose key already exists with a
+# different image id replaces the target's image id (other fields
+# retained); a row identical on key and image id is left unchanged.
+run_migration_36_image_metadata() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	local file src_images target_images migrated_images
+
+	file="${TEST_DIR}/test-mig-imgmeta36-12345.log"
+	ensure "mig-target-imgmeta-12345" "${file}"
+
+	add_clean_func "cleanup_mig_controllers_36"
+	bootstrap_controller_36 "mig36-imgmeta-src-12345"
+	add_model_36 "mig36-imgmeta-src-12345" "mig-imgmeta36-12345"
+
+	# Model B on the 4.0 target: its image id will be replaced by the migration.
+	juju add-model -c "${BOOTSTRAPPED_JUJU_CTRL_NAME}" img-meta-b-12345
+	juju metadata add-image bbb-0001 -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345" --base ubuntu@22.04
+	# Same key and same image id on both sides: migration must not change it.
+	juju metadata add-image shared-0001 -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345" --base ubuntu@24.04
+
+	# Model A on the 3.6 source: same natural key, different image id.
+	${JUJU_36} metadata add-image aaa-0001 -m "mig36-imgmeta-src-12345:mig-imgmeta36-12345" --base ubuntu@22.04
+	${JUJU_36} metadata add-image shared-0001 -m "mig36-imgmeta-src-12345:mig-imgmeta36-12345" --base ubuntu@24.04
+
+	src_images=$(${JUJU_36} metadata list-images -m "mig36-imgmeta-src-12345:mig-imgmeta36-12345")
+	check_contains "${src_images}" "aaa-0001"
+	check_contains "${src_images}" "shared-0001"
+	target_images=$(juju metadata list-images -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345")
+	check_contains "${target_images}" "bbb-0001"
+	check_contains "${target_images}" "shared-0001"
+	check_not_contains "${target_images}" "aaa-0001"
+
+	migrate_36 "mig36-imgmeta-src-12345" "mig-imgmeta36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_source_reaped_36 "mig36-imgmeta-src-12345" "mig-imgmeta36-12345"
+
+	# Same natural key, different image id: the target's image id is
+	# replaced. The identical row (shared-0001) is unchanged.
+	target_images=$(juju metadata list-images -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345")
+	check_contains "${target_images}" "aaa-0001"
+	check_not_contains "${target_images}" "bbb-0001"
+	check_contains "${target_images}" "shared-0001"
+
+	# The migrated model reads the same controller-scoped table.
+	migrated_images=$(juju metadata list-images -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-imgmeta36-12345")
+	check_contains "${migrated_images}" "aaa-0001"
+	check_contains "${migrated_images}" "shared-0001"
+	check_not_contains "${migrated_images}" "bbb-0001"
+
+	# Clean up.
+	destroy_controller_36 "mig36-imgmeta-src-12345"
+
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	destroy_model "img-meta-b-12345"
+	destroy_model "mig-imgmeta36-12345"
+}
+
 test_migration_36() {
 	if [ -n "$(skip 'test_migration_36')" ]; then
 		echo "==> SKIP: Asked to skip juju 3.6 model migration test"
@@ -1218,5 +1278,35 @@ test_migration_36_relation_egress_override() {
 		cd .. || exit
 
 		run "run_migration_36_relation_egress_override"
+	)
+}
+
+
+test_migration_36_image_metadata() {
+	if [ -n "$(skip 'test_migration_36_image_metadata')" ]; then
+		echo "==> SKIP: Asked to skip juju 3.6 model migration cloud image metadata test"
+		return
+	fi
+
+	if ! gate_reason=$(mig36_gate 2>&1); then
+		echo "==> SKIP: juju 3.6 model migration cloud image metadata test: ${gate_reason}"
+		return
+	fi
+
+	case "${BOOTSTRAP_PROVIDER}" in
+	"lxd"|"ec2")
+		;;
+	*)
+		echo "==> SKIP: juju 3.6 model migration cloud image metadata test needs the lxd or ec2 provider"
+		return
+		;;
+	esac
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_migration_36_image_metadata"
 	)
 }
