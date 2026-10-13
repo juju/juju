@@ -305,6 +305,46 @@ func (s *controllerSuite) TestSSHServerPort(c *tc.C) {
 	c.Check(result.Error, tc.IsNil)
 }
 
+// TestSSHServerMethodsLoginAccess tests that a user with only login access to
+// the controller can read the SSH jump server host key and port.
+func (s *controllerSuite) TestSSHServerMethodsLoginAccess(c *tc.C) {
+	s.context.Auth_ = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("login")}
+	s.controllerSSHService = &stubControllerSSHService{publicKey: []byte("key"), port: 17099}
+	api := s.controllerAPI(c)
+
+	keyResult, err := api.SSHServerHostKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keyResult.Error, tc.IsNil)
+	c.Check(keyResult.PublicKey, tc.DeepEquals, []byte("key"))
+
+	portResult, err := api.SSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(portResult.Error, tc.IsNil)
+	c.Check(portResult.Port, tc.Equals, 17099)
+}
+
+// TestSSHServerMethodsPermissionDenied tests that a user without login access
+// to the controller can't read the SSH jump server host key or port, and that
+// the service isn't consulted.
+func (s *controllerSuite) TestSSHServerMethodsPermissionDenied(c *tc.C) {
+	s.context.Auth_ = apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("nobody")}
+	service := &stubControllerSSHService{publicKey: []byte("key"), port: 17099}
+	s.controllerSSHService = service
+	api := s.controllerAPI(c)
+
+	keyResult, err := api.SSHServerHostKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keyResult.Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(keyResult.PublicKey, tc.IsNil)
+
+	portResult, err := api.SSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(portResult.Error, tc.Satisfies, params.IsCodeUnauthorized)
+	c.Check(portResult.Port, tc.Equals, 0)
+
+	c.Check(service.called, tc.IsFalse)
+}
+
 type stubControllerSSHService struct {
 	publicKey []byte
 	err       error
@@ -319,6 +359,7 @@ func (s *stubControllerSSHService) SSHServerHostPublicKey(context.Context) ([]by
 }
 
 func (s *stubControllerSSHService) GetSSHServerPort(context.Context) (int, error) {
+	s.called = true
 	return s.port, s.portErr
 }
 
