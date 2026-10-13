@@ -301,6 +301,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 			return errors.Annotatef(err, "creating or updating headless service for %q %q", a.deploymentType, a.name)
 		}
 		exists := true
+		replacingOrphan := false
 		existingSts, getErr := a.getStatefulSet()
 		if errors.Is(getErr, errors.NotFound) {
 			exists = false
@@ -327,10 +328,10 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 					return errors.Trace(err)
 				}
 			}
-			// Keep exists=true so that numPods stays nil below.
-			// With nil Replicas, Kubernetes defaults to 1 replica
-			// on creation. The provisioner's EnsureScale will
-			// correct the replica count if needed.
+			// The old ordinal range may no longer be intended. The provisioner
+			// reserves the current Alive units before scaling this replacement,
+			// so zero is safe here; nil would start an unreserved ordinal zero.
+			replacingOrphan = true
 		}
 		if exists && config.Controller {
 			ensureControllerBootstrapPodTemplate(&existingSts.Spec.Template.Spec, podSpec)
@@ -339,6 +340,8 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		var numPods *int32
 		if !exists {
 			numPods = new(int32(config.InitialScale))
+		} else if replacingOrphan {
+			numPods = new(int32(0))
 		}
 
 		var volumeClaimTemplates []corev1.PersistentVolumeClaim
