@@ -82,7 +82,19 @@ type MachineManagerAPI struct {
 }
 
 type MachineManagerV9 struct {
+	*MachineManagerV10
+}
+
+type MachineManagerV10 struct {
 	*MachineManagerAPI
+}
+
+type destroyMachineOptions struct {
+	force                           bool
+	maxWait                         time.Duration
+	keep                            bool
+	dryRun                          bool
+	destroyHostedUnitsAndContainers bool
 }
 
 // NewFacadeV9 create a new server-side MachineManager API facade. This
@@ -93,13 +105,24 @@ func NewFacadeV9(ctx facade.Context) (*MachineManagerV9, error) {
 		return nil, err
 	}
 	return &MachineManagerV9{
-		MachineManagerAPI: api,
+		MachineManagerV10: api,
 	}, nil
 }
 
 // NewFacadeV10 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV10(ctx facade.Context) (*MachineManagerV10, error) {
+	api, err := NewFacadeV11(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &MachineManagerV10{
+		MachineManagerAPI: api,
+	}, nil
+}
+
+// NewFacadeV11 creates a new server-side MachineManager API facade.
+func NewFacadeV11(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -432,25 +455,50 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 	return m.SetInstanceStatus(sInfo)
 }
 
+// DestroyMachineWithHostedUnitsAndContainers removes a set of machines from
+// the model, including units and containers hosted on them.
+func (mm *MachineManagerAPI) DestroyMachineWithHostedUnitsAndContainers(args params.DestroyMachinesWithHostedUnitsParams) (params.DestroyMachineResults, error) {
+	return mm.destroyMachine(destroyMachineEntities(args.MachineTags), destroyMachineOptions{
+		force:                           args.Force,
+		maxWait:                         common.MaxWait(args.MaxWait),
+		keep:                            args.Keep,
+		destroyHostedUnitsAndContainers: true,
+	})
+}
+
 // DestroyMachineWithParams removes a set of machines from the model.
 func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
-	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
-	for i, tag := range args.MachineTags {
-		entities.Entities[i].Tag = tag
-	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, args.DryRun, common.MaxWait(args.MaxWait))
+	return mm.destroyMachine(destroyMachineEntities(args.MachineTags), destroyMachineOptions{
+		force:                           args.Force,
+		keep:                            args.Keep,
+		dryRun:                          args.DryRun,
+		destroyHostedUnitsAndContainers: args.Force,
+		maxWait:                         common.MaxWait(args.MaxWait),
+	})
 }
+
+// DestroyMachineWithHostedUnitsAndContainers isn't on the V10 API.
+func (*MachineManagerV10) DestroyMachineWithHostedUnitsAndContainers(_, _ struct{}) {}
 
 // DestroyMachineWithParams removes a set of machines from the model.
 func (mm *MachineManagerV9) DestroyMachineWithParams(args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
-	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
-	for i, tag := range args.MachineTags {
-		entities.Entities[i].Tag = tag
-	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, false, common.MaxWait(args.MaxWait))
+	return mm.destroyMachine(destroyMachineEntities(args.MachineTags), destroyMachineOptions{
+		force:                           args.Force,
+		keep:                            args.Keep,
+		destroyHostedUnitsAndContainers: args.Force,
+		maxWait:                         common.MaxWait(args.MaxWait),
+	})
 }
 
-func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
+func destroyMachineEntities(machineTags []string) params.Entities {
+	entities := params.Entities{Entities: make([]params.Entity, len(machineTags))}
+	for i, tag := range machineTags {
+		entities.Entities[i].Tag = tag
+	}
+	return entities
+}
+
+func (mm *MachineManagerAPI) destroyMachine(args params.Entities, options destroyMachineOptions) (params.DestroyMachineResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
@@ -475,10 +523,10 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			fail(err)
 			continue
 		}
-		if keep {
+		if options.keep && !options.dryRun {
 			logger.Infof("destroy machine %v but keep instance", machineTag.Id())
-			if err := machine.SetKeepInstance(keep); err != nil {
-				if !force {
+			if err := machine.SetKeepInstance(options.keep); err != nil {
+				if !options.force {
 					fail(err)
 					continue
 				}
@@ -494,8 +542,11 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			fail(err)
 			continue
 		}
-		if force || dryRun {
-			info.DestroyedContainers, err = mm.destoryContainer(containers, force, keep, dryRun, maxWait)
+		if options.dryRun || (options.force && options.destroyHostedUnitsAndContainers) {
+			info.DestroyedContainers, err = mm.destoryContainer(
+				containers,
+				options,
+			)
 			if err != nil {
 				fail(err)
 				continue
@@ -513,14 +564,14 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 
 		info.DestroyedStorage, info.DetachedStorage, err = mm.classifyDetachedStorage(units)
 		if err != nil {
-			if !force {
+			if !options.force {
 				fail(err)
 				continue
 			}
 			logger.Warningf("could not deal with units' storage on machine %v: %v", machineTag.Id(), err)
 		}
 
-		if dryRun {
+		if options.dryRun {
 			result.Info = &info
 			results[i] = result
 			continue
@@ -532,13 +583,41 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			continue
 		}
 
-		if force {
-			if err := machine.ForceDestroy(maxWait); err != nil {
+		// Without force, the containers are destroyed only once their host
+		// has been accepted for removal, so that a refused host leaves them
+		// Alive. Keep their instances before destroying the host, as its
+		// cleanup can make a container Dead before the container is
+		// destroyed below.
+		containersAfterHost := options.destroyHostedUnitsAndContainers && !options.force
+		var keptContainers []string
+		if containersAfterHost && options.keep {
+			keptContainers, err = mm.keepContainerInstances(containers)
+			if err != nil {
+				mm.unkeepContainerInstances(keptContainers)
 				fail(err)
 				continue
 			}
-		} else {
-			if err := machine.Destroy(); err != nil {
+		}
+
+		err = machine.DestroyWithParams(
+			options.force,
+			options.destroyHostedUnitsAndContainers,
+			options.maxWait,
+		)
+		if err != nil {
+			// A refused host leaves its containers Alive, so undo the
+			// keep-instance set for this removal.
+			mm.unkeepContainerInstances(keptContainers)
+			fail(err)
+			continue
+		}
+
+		if containersAfterHost {
+			info.DestroyedContainers, err = mm.destoryContainer(
+				containers,
+				options,
+			)
+			if err != nil {
 				fail(err)
 				continue
 			}
@@ -572,15 +651,69 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 	return params.DestroyMachineResults{Results: results}, nil
 }
 
-func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
-	if containers == nil || len(containers) == 0 {
+// keepContainerInstances marks the given containers, and any containers
+// inside them, to keep their instances when they are removed. It returns
+// the containers it marked, leaving out those already marked, even when
+// it fails partway.
+func (mm *MachineManagerAPI) keepContainerInstances(containers []string) ([]string, error) {
+	var kept []string
+	for _, id := range containers {
+		container, err := mm.st.Machine(id)
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return kept, errors.Trace(err)
+		}
+		// NotFound means the container has no instance data yet, so it
+		// is not kept.
+		alreadyKept, err := container.KeepInstance()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return kept, errors.Trace(err)
+		}
+		if !alreadyKept {
+			if err := container.SetKeepInstance(true); err != nil {
+				return kept, errors.Annotatef(err, "keeping instance of machine %v", id)
+			}
+			kept = append(kept, id)
+		}
+		children, err := container.Containers()
+		if errors.Is(err, errors.NotFound) {
+			continue
+		} else if err != nil {
+			return kept, errors.Trace(err)
+		}
+		keptChildren, err := mm.keepContainerInstances(children)
+		kept = append(kept, keptChildren...)
+		if err != nil {
+			return kept, errors.Trace(err)
+		}
+	}
+	return kept, nil
+}
+
+// unkeepContainerInstances clears keep-instance on the containers that
+// keepContainerInstances marked for a removal that did not go ahead.
+func (mm *MachineManagerAPI) unkeepContainerInstances(containers []string) {
+	for _, id := range containers {
+		container, err := mm.st.Machine(id)
+		if err == nil {
+			err = container.SetKeepInstance(false)
+		}
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			logger.Warningf("could not undo keep instance for machine %v: %v", id, err)
+		}
+	}
+}
+
+func (mm *MachineManagerAPI) destoryContainer(containers []string, options destroyMachineOptions) ([]params.DestroyMachineResult, error) {
+	if len(containers) == 0 {
 		return nil, nil
 	}
 	entities := params.Entities{Entities: make([]params.Entity, len(containers))}
 	for i, container := range containers {
 		entities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
 	}
-	results, err := mm.destroyMachine(entities, force, keep, dryRun, maxWait)
+	results, err := mm.destroyMachine(entities, options)
 	return results.Results, err
 }
 
