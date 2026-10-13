@@ -846,6 +846,17 @@ AND u.life_id = 0
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	getApplication, err := st.Prepare(`
+SELECT a.name AS &applicationDetails.name,
+       c.source_id = 2 AS &applicationDetails.is_application_synthetic
+FROM application AS a
+JOIN charm AS c ON c.uuid = a.charm_uuid
+WHERE a.uuid = $applicationDetails.uuid
+`, applicationDetails{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
 	// Scale down changes desired unit membership atomically with additions. The
 	// provisioner observes this Dying unit and calls removal.RemoveUnit, whose
 	// cascade is intentionally safe for an already-Dying unit: it schedules
@@ -862,6 +873,17 @@ WHERE name = $unitName.name AND life_id = 0
 	var inserted []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var txnInserted []string
+
+		appDetails := applicationDetails{UUID: appUUID}
+		if err := tx.Query(ctx, getApplication, appDetails).Get(&appDetails); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("application %q not found", appUUID).
+				Add(applicationerrors.ApplicationNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		if appDetails.IsApplicationSynthetic {
+			return errors.Errorf("cannot scale synthetic application %q", appDetails.Name)
+		}
 
 		// Re-read the Alive set inside the transaction before applying the plan.
 		var alive []unitName
