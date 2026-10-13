@@ -157,6 +157,7 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	ptyCalled := make(chan struct{})
 	sessionStarted := make(chan struct{})
+	windowChangeSent := make(chan struct{})
 
 	machine := startSSHTestServer(c, &ssh.Server{
 		PtyCallback: func(_ ssh.Context, pty ssh.Pty) bool {
@@ -168,23 +169,15 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 		},
 		Handler: func(session ssh.Session) {
 			close(sessionStarted)
-			_, windowChanges, ok := session.Pty()
-			c.Check(ok, tc.IsTrue)
-			// Keep the session open until the resized window is received,
-			// otherwise the session may close before the client sends the
-			// window change. The initial window is received first.
-			for {
-				select {
-				case window := <-windowChanges:
-					if window.Height != 30 || window.Width != 100 {
-						continue
-					}
-					_, _ = io.WriteString(session, "shell done\n")
-					return
-				case <-session.Context().Done():
-					c.Error("session closed before window change was received")
-					return
-				}
+			// Keep the session open until the client has sent the window
+			// change, otherwise the session may close before it is sent.
+			// session.Pty() is not used to wait for the window change, as
+			// gliderssh does not synchronise it with incoming window changes.
+			select {
+			case <-windowChangeSent:
+				_, _ = io.WriteString(session, "shell done\n")
+			case <-session.Context().Done():
+				c.Error("session closed before window change was sent")
 			}
 		},
 	})
@@ -216,6 +209,7 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	}
 
 	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
+	close(windowChangeSent)
 
 	select {
 	case <-sessionStarted:
