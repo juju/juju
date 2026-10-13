@@ -70,6 +70,10 @@ type ModelRemoteApplicationState interface {
 	// for remote application offerers.
 	NamespaceRemoteApplicationOfferers() string
 
+	// NamespaceModelLife returns the database namespace for model life
+	// changes.
+	NamespaceModelLife() string
+
 	// NamespaceRemoteApplicationConsumers returns the database namespace
 	// for remote application consumers.
 	NamespaceRemoteApplicationConsumers() string

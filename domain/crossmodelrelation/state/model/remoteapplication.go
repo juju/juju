@@ -37,6 +37,13 @@ func (st *State) NamespaceRemoteApplicationOfferers() string {
 	return "application_remote_offerer"
 }
 
+// NamespaceModelLife returns the database namespace for model life
+// changes. The model life table uses a custom lifecycle namespace,
+// registered by the model schema triggers.
+func (st *State) NamespaceModelLife() string {
+	return "custom_model_life_model_uuid_lifecycle"
+}
+
 // NamespaceRemoteApplicationConsumers returns the remote application consumers.
 func (st *State) NamespaceRemoteApplicationConsumers() string {
 	return "application_remote_consumer"
