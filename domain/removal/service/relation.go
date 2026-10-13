@@ -133,9 +133,9 @@ func (s *Service) relationScheduleRemoval(
 // scheduleCascadedRelations schedules removal jobs for relations that were
 // cascaded into dying by another entity's removal, such as an application.
 // Cross-model relations cannot be removed via the plain relation removal
-// path, and are routed to the CMR-aware removal, mirroring the model removal
-// cascade (see removeRelations in model.go). Scheduling a relation that has
-// already been removed by another process is not an error.
+// path, and are routed to the CMR-aware removal. This matches the CMR routing
+// in the model removal cascade (see removeRelations in model.go). Scheduling a
+// relation that has already been removed by another process is not an error.
 func (s *Service) scheduleCascadedRelations(ctx context.Context, relationUUIDs []string, force bool, wait time.Duration) error {
 	for _, relationUUID := range relationUUIDs {
 		relUUID := corerelation.UUID(relationUUID)

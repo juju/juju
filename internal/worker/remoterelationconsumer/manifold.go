@@ -167,8 +167,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // setRemoteApplicationOffererStatusByUUIDService is the subset of the status
 // service consumed by GetCrossModelService to satisfy the
-// SetRemoteApplicationOffererStatusByApplicationUUID method now declared on
-// CrossModelRelationService.
+// SetRemoteApplicationOffererStatusByApplicationUUID method on
+// CrossModelService.
 type setRemoteApplicationOffererStatusByUUIDService interface {
 	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
 }

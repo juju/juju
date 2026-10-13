@@ -4,6 +4,7 @@
 package service
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -92,6 +93,44 @@ func (s *relationSuite) TestRemoveRelationNotFound(c *tc.C) {
 
 	_, err := s.newService(c).RemoveRelation(c.Context(), rUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestScheduleCascadedRelationsSkipsRemovedRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := relationtesting.GenRelationUUID(c)
+	s.modelState.EXPECT().RelationExists(gomock.Any(), relationUUID.String()).Return(false, nil)
+
+	err := s.newService(c).scheduleCascadedRelations(
+		c.Context(), []string{relationUUID.String()}, false, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestScheduleCascadedRelationsSkipsRemovedRemoteRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := relationtesting.GenRelationUUID(c)
+	exp := s.modelState.EXPECT()
+	exp.RelationExists(gomock.Any(), relationUUID.String()).Return(false, removalerrors.RelationIsCrossModel)
+	exp.RelationWithRemoteOffererExists(gomock.Any(), relationUUID.String()).Return(false, nil)
+
+	err := s.newService(c).scheduleCascadedRelations(
+		c.Context(), []string{relationUUID.String()}, false, 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestScheduleCascadedRelationsStopsOnRemovalError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	relationUUID := relationtesting.GenRelationUUID(c)
+	s.modelState.EXPECT().RelationExists(gomock.Any(), relationUUID.String()).Return(false, errors.New("front fell off"))
+
+	err := s.newService(c).scheduleCascadedRelations(
+		c.Context(), []string{relationUUID.String()}, false, 0,
+	)
+	c.Assert(err, tc.ErrorMatches, ".*front fell off")
 }
 
 func (s *relationSuite) TestLeaveScope(c *tc.C) {
