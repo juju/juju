@@ -34,9 +34,6 @@ jobs:
           mkdir -p .spread-bin
           GOBIN="$PWD/.spread-bin" make juju
           GOBIN="$PWD/.spread-bin" make jujuagentd
-          # spread.yaml expects the agent binary as "jujud"; keep a
-          # compatibility name so the existing prepare script works.
-          cp .spread-bin/jujuagentd .spread-bin/jujud
 
       - name: Build patched spread
         # Upstream spread's SendTar emits 'tar --no-same-owner xz' which GNU tar
@@ -50,7 +47,7 @@ jobs:
 
       - name: Verify built binaries
         run: |
-          for binary in juju jujuagentd jujud spread; do
+          for binary in juju jujuagentd spread; do
             test -x ".spread-bin/$binary"
             file ".spread-bin/$binary"
           done
@@ -63,7 +60,6 @@ jobs:
           path: |
             .spread-bin/juju
             .spread-bin/jujuagentd
-            .spread-bin/jujud
             .spread-bin/spread
 
   build-controller-snap:
@@ -86,9 +82,13 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Install snapcraft
+        # Major-version pin: 9.x/stable still tracks 9.x minor refreshes
+        # (snap channels cannot pin an exact revision); only a snapcraft
+        # major refresh is excluded. Pin an exact revision here instead
+        # if reproducible snap builds ever start to matter.
         run: |
           snap list snapcraft >/dev/null 2>&1 || \
-            sudo snap install snapcraft --channel 9.x --classic
+            sudo snap install snapcraft --channel 9.x/stable --classic
 
       - name: Setup LXD
         uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
@@ -162,7 +162,7 @@ jobs:
           path: .spread-bin
 
       - name: Restore binary permissions
-        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/jujud .spread-bin/spread
+        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/spread
 
       - name: Setup LXD
         uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
@@ -175,20 +175,39 @@ jobs:
           done
 
       - name: Relax unprivileged userns restriction
+        id: userns
         # snapd inside the nested LXD containers must create user and
         # mount namespaces for snap-confine; newer kernels restrict
         # unprivileged userns creation via apparmor, which shows up as
         # "cannot change profile ... Permission denied" from snap-confine.
+        # The sysctl is global to this shared runner machine (not
+        # namespaced, and /proc/sys is read-only inside the test
+        # containers), so remember the previous value and restore it
+        # in the post step below, whatever the outcome of the run.
         run: |
           current=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || echo absent)
           echo "apparmor_restrict_unprivileged_userns: ${current}"
-          if [ "$current" = "1" ]; then
+          echo "original=${current}" >> "$GITHUB_OUTPUT"
+          # Relax on any non-zero value; the restriction is reported
+          # as values other than a bare 1 on newer kernels.
+          if [ "$current" != "absent" ] && [ "$current" != "0" ]; then
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
 
       - name: Run spread
         run: |
           .spread-bin/spread -v lxd:${{ matrix.system }}:${{ matrix.suite }}
+
+      - name: Restore unprivileged userns restriction
+        # Runs even when "Run spread" fails or the job is cancelled;
+        # only restores when the relax step actually changed the value,
+        # and restores the remembered value rather than a hardcoded one.
+        if: always() && steps.userns.outputs.original != '' && steps.userns.outputs.original != 'absent' && steps.userns.outputs.original != '0'
+        env:
+          USERNS_ORIGINAL: ${{ steps.userns.outputs.original }}
+        run: |
+          sudo sysctl -w "kernel.apparmor_restrict_unprivileged_userns=$USERNS_ORIGINAL"
+          echo "restored apparmor_restrict_unprivileged_userns=$USERNS_ORIGINAL"
 
   spread-ec2:
     name: "spread-ec2 (${{ matrix.system }}): ${{ matrix.suite }}"
@@ -222,7 +241,16 @@ jobs:
           path: .spread-bin
 
       - name: Restore binary permissions
-        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/jujud .spread-bin/spread
+        run: chmod +x .spread-bin/juju .spread-bin/jujuagentd .spread-bin/spread
+
+      - name: Ensure runner-side tools for spread allocate
+        # The ec2 allocate/discard scripts run on this shared runner
+        # host, not in the test VM: they need aws-cli plus core tools.
+        # The aws-cli install in the ec2 backend prepare runs inside
+        # the test VM and does not cover the host.
+        run: |
+          snap list aws-cli >/dev/null 2>&1 || sudo snap install aws-cli --classic
+          command -v ssh base64 curl od sed >/dev/null
 
       - name: Run spread on ec2
         env:
@@ -230,7 +258,5 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
           EC2_INSTANCE_PROFILE: ${{ secrets.EC2_INSTANCE_PROFILE }}
-          BOOTSTRAP_PROVIDER: ec2
-          BOOTSTRAP_CLOUD: aws
         run: |
           .spread-bin/spread -v ec2:${{ matrix.system }}:${{ matrix.suite }}

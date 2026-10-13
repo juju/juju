@@ -13,7 +13,7 @@ juju_version() {
 }
 
 jujud_version() {
-  version=$(jujud version)
+  version=$(jujuagentd version)
 
   # shellcheck disable=SC2116
   version=$(echo "${version%-*}")
@@ -397,12 +397,18 @@ pre_bootstrap() {
     fi
   fi
 
-  if [[ -n ${CONTROLLER_SNAP_PATH:-} ]]; then
-    export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=${CONTROLLER_SNAP_PATH}"
-  elif [[ -n ${SPREAD_PATH:-} && -f "$SPREAD_PATH/.spread-bin/jujud-controller.snap" ]]; then
-    # Use the controller snap staged by CI to avoid building it in the
-    # test VM, where snapcraft's LXD provider cannot run (nested LXD).
-    export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=$SPREAD_PATH/.spread-bin/jujud-controller.snap"
+  # Snap based controllers bootstrap from a controller snap; a
+  # Kubernetes bootstrap must never be handed a snap path, so leave
+  # the arguments unset for the k8s provider (mirrors the guard in
+  # tests/includes/juju.sh).
+  if [[ ${BOOTSTRAP_PROVIDER:-} != "k8s" ]]; then
+    if [[ -n ${CONTROLLER_SNAP_PATH:-} ]]; then
+      export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=${CONTROLLER_SNAP_PATH}"
+    elif [[ -n ${SPREAD_PATH:-} && -f "$SPREAD_PATH/.spread-bin/jujud-controller.snap" ]]; then
+      # Use the controller snap staged by CI to avoid building it in the
+      # test VM, where snapcraft's LXD provider cannot run (nested LXD).
+      export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-snap-path=$SPREAD_PATH/.spread-bin/jujud-controller.snap"
+    fi
   fi
 
   echo "====> BOOTSTRAP_ADDITIONAL_ARGS: ${BOOTSTRAP_ADDITIONAL_ARGS}"

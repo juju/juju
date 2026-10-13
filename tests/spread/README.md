@@ -244,9 +244,8 @@ EC2 runner.
 ### Provisioning the EC2 instance profile
 
 `EC2_INSTANCE_PROFILE` references an instance profile and role created once by
-an account administrator, using `tests/spread/aws-provision-instance-profile.sh`.
-The role's permission policy mirrors `internal/provider/ec2/iam_docs.go` and
-must stay in sync with it.
+an account administrator. The role's permission policy mirrors
+`internal/provider/ec2/iam_docs.go` and must stay in sync with it.
 
 With the CI credentials, record the principal that needs `iam:PassRole`:
 
@@ -258,9 +257,25 @@ With administrator credentials, create the role and profile, and grant the CI
 principal only `iam:PassRole` on that role (restricted to `ec2.amazonaws.com`):
 
 ```sh
-ACCOUNT_ID=<account-id> CI_PRINCIPAL_ARN=<arn-from-above> \
-  bash tests/spread/aws-provision-instance-profile.sh
+# trust.json: only ec2.amazonaws.com may assume the role (sts:AssumeRole)
+aws iam create-role --role-name juju-spread-ec2 \
+  --assume-role-policy-document file://trust.json \
+  --description "Juju spread test controller role"
+# permissions.json: the Juju AWS permission set mirrored from iam_docs.go
+aws iam put-role-policy --role-name juju-spread-ec2 \
+  --policy-name juju-controller-permissions \
+  --policy-document file://permissions.json
+aws iam create-instance-profile --instance-profile-name juju-spread-ec2
+aws iam add-role-to-instance-profile \
+  --instance-profile-name juju-spread-ec2 --role-name juju-spread-ec2
+# passrole.json: iam:PassRole on the role, iam:PassedToService=ec2.amazonaws.com
+aws iam put-user-policy --user-name <ci-user> \
+  --policy-name juju-spread-ec2-passrole \
+  --policy-document file://passrole.json
 ```
+
+Use `put-role-policy` with the role name instead of `put-user-policy` when
+the CI principal is an assumed role rather than an IAM user.
 
 Verify with the CI credentials that the grant is effective — a
 `DryRunOperation` error means authorized, `UnauthorizedOperation` means it is
@@ -285,6 +300,14 @@ credentials.
 The `spread.yml` workflow has both `spread-lxd` and `spread-ec2` jobs. The
 `ec2` job requires `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
 `AWS_DEFAULT_REGION`, and `EC2_INSTANCE_PROFILE` repository secrets.
+
+The `ec2` backend's `allocate`/`discard` scripts execute on the **runner
+host**, not inside the test VM, so that host needs `aws-cli` (snap, classic;
+the `Ensure runner-side tools` step installs it if missing) and the core
+tools `ssh`, `base64`, `curl`, `od`, and `sed` (all in a standard Ubuntu
+server image; `xxd` is deliberately not used). The `aws-cli` install inside
+the backend `prepare` runs in the test VM and does not cover the runner
+host. For local runs the same tools must be on `PATH`.
 
 ### Notes
 
