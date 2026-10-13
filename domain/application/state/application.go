@@ -825,15 +825,17 @@ WHERE  a.name = $applicationDetails.name;
 }
 
 // SetCAASApplicationUnitScale applies a service-validated CAAS unit mutation
-// plan when the Alive membership has not changed since that plan was read.
+// plan. It verifies both the old Alive membership and each new allocated name
+// in the same transaction, so a stale plan cannot commit a gap.
 func (st *State) SetCAASApplicationUnitScale(
 	ctx context.Context, appUUID string, expected []string, leaving []string,
-	newUnits []applicationinternal.AddCAASUnitArg,
+	newUnits []applicationinternal.ScaleCAASUnitArg,
 ) ([]string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
 	input := entityUUID{UUID: appUUID}
 	getAlive, err := st.Prepare(`
 SELECT u.name AS &unitName.name
@@ -844,6 +846,10 @@ AND u.life_id = 0
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	// Scale down changes desired unit membership atomically with additions. The
+	// provisioner observes this Dying unit and calls removal.RemoveUnit, whose
+	// cascade is intentionally safe for an already-Dying unit: it schedules
+	// removal and advances dependent storage without moving the unit life back.
 	setDying, err := st.Prepare(`
 UPDATE unit
 SET life_id = 1
@@ -852,9 +858,12 @@ WHERE name = $unitName.name AND life_id = 0
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+
 	var inserted []string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var txnInserted []string
+
+		// Re-read the Alive set inside the transaction before applying the plan.
 		var alive []unitName
 		if err := tx.Query(ctx, getAlive, input).GetAll(&alive); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
@@ -862,6 +871,7 @@ WHERE name = $unitName.name AND life_id = 0
 		if len(alive) != len(expected) {
 			return applicationerrors.ScalingStateInconsistent
 		}
+
 		// Membership can change and return to the same count. Comparing names
 		// prevents a stale plan from updating units that are no longer Alive.
 		aliveNames := make(map[string]struct{}, len(alive))
@@ -874,24 +884,35 @@ WHERE name = $unitName.name AND life_id = 0
 			}
 			delete(aliveNames, name)
 		}
+
+		// Departures and new reservations are committed together.
 		for _, name := range leaving {
 			if err := tx.Query(ctx, setDying, unitName{Name: name}).Run(); err != nil {
 				return errors.Errorf("marking unit as dying: %w", err)
 			}
 		}
+
 		if len(newUnits) > 0 {
 			charmUUID, err := st.getCharmIDByApplicationUUID(ctx, tx, appUUID)
 			if err != nil {
 				return errors.Capture(err)
 			}
+
 			for _, unit := range newUnits {
-				name, err := st.insertCAASUnit(ctx, tx, appUUID, charmUUID, unit)
+				name, err := st.insertCAASUnit(ctx, tx, appUUID, charmUUID, unit.AddCAASUnitArg)
 				if err != nil {
 					return errors.Errorf("inserting pending unit: %w", err)
+				}
+
+				// The sequence can advance after the service builds the plan.
+				// Reject a gap using the name allocated in this transaction.
+				if name != unit.ExpectedName {
+					return errors.Errorf("allocated unit name changed: %w", applicationerrors.ScalingStateInconsistent)
 				}
 				txnInserted = append(txnInserted, name)
 			}
 		}
+
 		inserted = txnInserted
 		return nil
 	})
