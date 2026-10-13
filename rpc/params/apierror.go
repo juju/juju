@@ -5,7 +5,7 @@ package params
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"reflect"
 	"strings"
@@ -97,14 +97,14 @@ type DischargeRequiredErrorInfo struct {
 	// discharged, may allow access to the juju API.
 	// This field is associated with the ErrDischargeRequired
 	// error code.
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Macaroon *macaroon.Macaroon `json:"macaroon,omitzero"`
 
 	// BakeryMacaroon may hold a macaroon that, when
 	// discharged, may allow access to the juju API.
 	// This field is associated with the ErrDischargeRequired
 	// error code.
 	// This is the macaroon emitted by newer Juju controllers using bakery.v2.
-	BakeryMacaroon *bakery.Macaroon `json:"bakery-macaroon,omitempty"`
+	BakeryMacaroon *bakery.Macaroon `json:"bakery-macaroon,omitzero"`
 
 	// MacaroonPath holds the URL path to be associated
 	// with the macaroon. The macaroon is potentially
