@@ -59,7 +59,8 @@ type UnitState interface {
 	MarkUnitAsDead(ctx context.Context, unitUUID string) error
 
 	// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead
-	// only if there are no associated entities that are still alive.
+	// only if it has no storage attachments. Remaining relation scopes do not
+	// block the transition and are left by the removal service afterward.
 	MarkUnitAsDeadWithNoEntities(ctx context.Context, unitUUID string) error
 
 	// GetCharmForUnit returns the charm UUID for the unit with the input unit
@@ -239,8 +240,8 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	}
 
 	if l == life.Dying && !job.Force {
-		// Can the unit be marked as dead? If the unit has any associated
-		// entities that are still alive, we cannot mark it as dead.
+		// Storage attachments must be removed before the unit can be marked
+		// dead. Relation scopes are left below after the transition.
 		err := s.modelState.MarkUnitAsDeadWithNoEntities(ctx, job.EntityUUID)
 		if errors.Is(err, applicationerrors.UnitNotFound) {
 			// The unit has already been removed.

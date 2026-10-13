@@ -551,8 +551,10 @@ AND    life_id = 1`, unitUUID)
 	}))
 }
 
-// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead,
-// if there are no associated entities that are still found.
+// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead if
+// it has no storage attachments. Relation units do not prevent the transition;
+// the removal service leaves any remaining relation scopes after the unit is
+// dead.
 func (st *State) MarkUnitAsDeadWithNoEntities(ctx context.Context, uUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -567,20 +569,6 @@ WHERE  uuid = $entityAssociationCount.uuid
 AND    life_id = 1`, unitUUID)
 	if err != nil {
 		return errors.Errorf("preparing unit life update: %w", err)
-	}
-
-	// The following statements check for associated entities that would
-	// prevent the unit from being marked as dead. As long as there are no
-	// relations or storage attachments associated with the unit, we can mark
-	// it as dead.
-
-	relationStmt, err := st.Prepare(`
-SELECT count(*) AS &entityAssociationCount.count
-FROM   relation_unit
-WHERE  unit_uuid = $entityAssociationCount.uuid
-`, unitUUID)
-	if err != nil {
-		return errors.Capture(err)
 	}
 
 	storageAttachmentStmt, err := st.Prepare(`
@@ -602,12 +590,6 @@ WHERE  unit_uuid = $entityAssociationCount.uuid
 		}
 
 		var counter entityAssociationCount
-		if err := tx.Query(ctx, relationStmt, unitUUID).Get(&counter); err != nil {
-			return errors.Errorf("getting relation unit count: %w", err)
-		} else if counter.Count > 0 {
-			return errors.Errorf("unit still has relations in scope").Add(removalerrors.EntityStillAlive)
-		}
-
 		if err := tx.Query(ctx, storageAttachmentStmt, unitUUID).Get(&counter); err != nil {
 			return errors.Errorf("getting storage attachment count: %w", err)
 		} else if counter.Count > 0 {

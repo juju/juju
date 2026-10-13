@@ -1349,6 +1349,7 @@ type stubCharm struct {
 	name        string
 	subordinate bool
 	storage     map[string]internalcharm.Storage
+	peers       map[string]internalcharm.Relation
 }
 
 func (s *stubCharm) Meta() *internalcharm.Meta {
@@ -1383,6 +1384,7 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 				Scope:     internalcharm.ScopeGlobal,
 			},
 		},
+		Peers: s.peers,
 		Devices: map[string]internalcharm.Device{
 			"bitcoinminer": {
 				Type: "nvidia.com/gpu",

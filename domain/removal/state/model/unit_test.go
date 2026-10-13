@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/unit"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -669,27 +670,42 @@ VALUES (?, ?)`,
 	s.checkUnitLife(c, unitUUID.String(), life.Dead)
 }
 
-func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesWithRelations(c *tc.C) {
+func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesIgnoresRelations(c *tc.C) {
 	appSvc := s.setupApplicationService(c)
-	appUUID := s.createIAASApplication(c, appSvc, "app1", applicationservice.AddIAASUnitArg{})
-	s.createIAASApplication(c, appSvc, "app2", applicationservice.AddIAASUnitArg{})
+	appUUID := s.createIAASApplicationWithCharm(
+		c,
+		appSvc,
+		"app1",
+		&stubCharm{
+			name: "test-charm",
+			peers: map[string]internalcharm.Relation{
+				"peers": {
+					Name:      "peers",
+					Role:      internalcharm.RolePeer,
+					Interface: "peer",
+					Scope:     internalcharm.ScopeGlobal,
+				},
+			},
+		},
+		applicationservice.AddIAASUnitArg{},
+		applicationservice.AddIAASUnitArg{},
+	)
 
 	relSvc := s.setupRelationService(c)
-	ep1, ep2, err := relSvc.AddRelation(c.Context(), "app1:foo", "app2:bar")
+	relationKey, err := corerelation.NewKeyFromString("app1:peers")
+	c.Assert(err, tc.ErrorIsNil)
+	relUUID, err := relSvc.GetRelationUUIDByKey(c.Context(), relationKey)
 	c.Assert(err, tc.ErrorIsNil)
 
-	relUUID, err := relSvc.GetRelationUUIDForRemoval(c.Context(), domainrelation.GetRelationUUIDForRemovalArgs{
-		Endpoints: []string{ep1.String(), ep2.String()},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	unitName0 := tc.Must2(c, unit.NewNameFromParts, "app1", 0)
-	err = relSvc.EnterScope(c.Context(), relUUID, unitName0, map[string]string{})
-	c.Assert(err, tc.ErrorIsNil)
+	for i := range 2 {
+		unitName := tc.Must2(c, unit.NewNameFromParts, "app1", i)
+		err = relSvc.EnterScope(c.Context(), relUUID, unitName, map[string]string{})
+		c.Assert(err, tc.ErrorIsNil)
+	}
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
-	c.Assert(len(unitUUIDs), tc.Equals, 1)
-	unitUUID := unitUUIDs[0]
+	c.Assert(unitUUIDs, tc.HasLen, 2)
+	unitUUID := unitUUIDs[1]
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -697,25 +713,17 @@ func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesWithRelations(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
-	c.Assert(err, tc.ErrorIs, removalerrors.EntityStillAlive)
-
-	// The unit should still be dying, as it wasn't marked dead.
-	s.checkUnitLife(c, unitUUID.String(), life.Dying)
-
-	// Remove the unit from the relation scope.
-	row := s.DB().QueryRowContext(c.Context(), "SELECT uuid FROM relation_unit WHERE unit_uuid=?", unitUUID.String())
-	var ruUUID string
-	err = row.Scan(&ruUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.LeaveScope(c.Context(), ruUUID)
-	c.Assert(err, tc.ErrorIsNil)
-
-	err = st.MarkUnitAsDeadWithNoEntities(c.Context(), unitUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// The unit should now be dead.
+	// The unit should now be dead, ready for the removal service to leave its
+	// remaining relation scopes.
 	s.checkUnitLife(c, unitUUID.String(), life.Dead)
+
+	row := s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM relation_unit WHERE unit_uuid=?", unitUUID.String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
 }
 
 func (s *unitSuite) TestMarkUnitAsDeadWithNoEntitiesWithStorageAttachment(c *tc.C) {
