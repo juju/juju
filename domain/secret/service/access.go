@@ -7,7 +7,6 @@ import (
 	"context"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
@@ -77,34 +76,6 @@ func (s *SecretService) getRelationKeyByUUID(ctx context.Context, relUUID string
 		return corerelation.Key{}, errors.Capture(err)
 	}
 	return corerelation.Key(endpoints), nil
-}
-
-// GetSecretAccessRelationScope returns the relation UUID of the access scope for the specified
-// app or unit's permission on the secret. This requires that the access scope is a relation.
-// It returns an error satisfying:
-// - [secreterrors.SecretNotFound] if the secret is not found.
-// - [secreterrors.SecretAccessScopeNotFound] if the access scope is not found.
-func (s *SecretService) GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, accessor domainsecret.SecretAccessor) (corerelation.UUID, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	ap := domainsecret.AccessParams{
-		SubjectID: accessor.ID,
-	}
-	switch accessor.Kind {
-	case domainsecret.UnitAccessor:
-		ap.SubjectTypeID = domainsecret.SubjectUnit
-	case domainsecret.ApplicationAccessor:
-		ap.SubjectTypeID = domainsecret.SubjectApplication
-	case domainsecret.ModelAccessor:
-		// Should never happen.
-		return "", errors.Errorf("getting relation access scope for kind %q not supported", accessor.Kind).Add(coreerrors.NotSupported)
-	}
-	relationUUID, err := s.secretState.GetSecretAccessRelationScope(ctx, uri, ap)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return corerelation.ParseUUID(relationUUID)
 }
 
 // getSecretAccess returns the access to the secret for the specified accessor.

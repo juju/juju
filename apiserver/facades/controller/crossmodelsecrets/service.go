@@ -10,7 +10,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
-	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -52,5 +52,5 @@ type CrossModelRelationService interface {
 	// that connection.
 	GetRemoteConsumerSecretGrants(
 		ctx context.Context, uri *secrets.URI, consumingAppUUID coreapplication.UUID,
-	) ([]crossmodelrelationservice.RemoteConsumerSecretGrant, error)
+	) ([]crossmodelrelation.RemoteConsumerSecretGrant, error)
 }

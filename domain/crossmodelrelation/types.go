@@ -349,11 +349,11 @@ type RemoteConsumerSecretGrant struct {
 
 	// RelationUUID is the UUID of the relation scoping the grant, being the
 	// relation created for the offer connection the secret was granted over.
-	RelationUUID string
+	RelationUUID corerelation.UUID
 
 	// OfferUUID is the UUID of the offer the connection the secret was
 	// granted over was made for.
-	OfferUUID string
+	OfferUUID offer.UUID
 }
 
 // RemoteApplicationOfferer represents a remote application

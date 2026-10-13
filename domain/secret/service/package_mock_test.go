@@ -59,7 +59,6 @@ type MockStateMockRecorder struct {
 	getRotationExpiryInfoExpects                                []*gomock.Call2_2[context.Context, *secrets.URI, *secret.RotationExpiryInfo, error]
 	getSecretExpects                                            []*gomock.Call2_2[context.Context, *secrets.URI, *secrets.SecretMetadata, error]
 	getSecretAccessExpects                                      []*gomock.Call3_2[context.Context, *secrets.URI, secret.AccessParams, string, error]
-	getSecretAccessRelationScopeExpects                         []*gomock.Call3_2[context.Context, *secrets.URI, secret.AccessParams, string, error]
 	getSecretByURIExpects                                       []*gomock.Call3_3[context.Context, secrets.URI, *int, *secrets.SecretMetadata, []*secrets.SecretRevisionMetadata, error]
 	getSecretConsumerExpects                                    []*gomock.Call3_3[context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata, int, error]
 	getSecretGrantsExpects                                      []*gomock.Call3_2[context.Context, *secrets.URI, secrets.SecretRole, []secret.GrantDetails, error]
@@ -507,24 +506,6 @@ func (mr *MockStateMockRecorder) GetSecretAccess(ctx, uri, params any) *MockStat
 
 // MockStateGetSecretAccessCall is the typed call wrapper for GetSecretAccess.
 type MockStateGetSecretAccessCall = gomock.Call3_2[context.Context, *secrets.URI, secret.AccessParams, string, error]
-
-// GetSecretAccessRelationScope mocks base method.
-func (m *MockState) GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, params secret.AccessParams) (string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.getSecretAccessRelationScopeExpects, m.ctrl, m, "GetSecretAccessRelationScope", ctx, uri, params)
-}
-
-// GetSecretAccessRelationScope indicates an expected call of GetSecretAccessRelationScope.
-func (mr *MockStateMockRecorder) GetSecretAccessRelationScope(ctx, uri, params any) *MockStateGetSecretAccessRelationScopeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, *secrets.URI, secret.AccessParams, string, error](mr.mock.ctrl.T, mr.mock, "GetSecretAccessRelationScope", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(params))
-	mr.getSecretAccessRelationScopeExpects = append(mr.getSecretAccessRelationScopeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetSecretAccessRelationScopeCall is the typed call wrapper for GetSecretAccessRelationScope.
-type MockStateGetSecretAccessRelationScopeCall = gomock.Call3_2[context.Context, *secrets.URI, secret.AccessParams, string, error]
 
 // GetSecretByURI mocks base method.
 func (m *MockState) GetSecretByURI(ctx context.Context, uri secrets.URI, revision *int) (*secrets.SecretMetadata, []*secrets.SecretRevisionMetadata, error) {

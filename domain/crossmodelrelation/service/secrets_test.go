@@ -9,7 +9,6 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -252,25 +251,21 @@ func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrants(c *tc.C) {
 
 	uri := coresecrets.NewURI()
 	appUUID := tc.Must(c, coreapplication.NewUUID)
-	relUUID := tc.Must(c, corerelation.NewUUID)
-	offerUUID := tc.Must(c, offer.NewUUID)
+
+	expected := []crossmodelrelation.RemoteConsumerSecretGrant{{
+		ApplicationName: "remote-app",
+		RelationUUID:    tc.Must(c, corerelation.NewUUID),
+		OfferUUID:       tc.Must(c, offer.NewUUID),
+	}}
 
 	s.modelState.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID.String()).Return(
-		[]crossmodelrelation.RemoteConsumerSecretGrant{{
-			ApplicationName: "remote-app",
-			RelationUUID:    relUUID.String(),
-			OfferUUID:       offerUUID.String(),
-		}}, nil)
+		expected, nil)
 
 	service := s.service(c)
 
 	grants, err := service.GetRemoteConsumerSecretGrants(c.Context(), uri, appUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(grants, tc.DeepEquals, []RemoteConsumerSecretGrant{{
-		ApplicationName: "remote-app",
-		RelationUUID:    relUUID,
-		OfferUUID:       offerUUID,
-	}})
+	c.Assert(grants, tc.DeepEquals, expected)
 }
 
 func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrantsInvalidUUID(c *tc.C) {
@@ -295,24 +290,4 @@ func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrantsError(c *tc.C) {
 
 	_, err := service.GetRemoteConsumerSecretGrants(c.Context(), uri, appUUID)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretAccessScopeNotFound)
-}
-
-func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrantsInvalidRelationUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	appUUID := tc.Must(c, coreapplication.NewUUID)
-	offerUUID := tc.Must(c, offer.NewUUID)
-
-	s.modelState.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID.String()).Return(
-		[]crossmodelrelation.RemoteConsumerSecretGrant{{
-			ApplicationName: "remote-app",
-			RelationUUID:    "invalid",
-			OfferUUID:       offerUUID.String(),
-		}}, nil)
-
-	service := s.service(c)
-
-	_, err := service.GetRemoteConsumerSecretGrants(c.Context(), uri, appUUID)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }

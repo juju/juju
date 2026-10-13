@@ -9,6 +9,8 @@ import (
 	"github.com/canonical/sqlair"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coreoffer "github.com/juju/juju/core/offer"
+	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -734,13 +736,17 @@ FROM   secret_permission sp
        JOIN application_remote_consumer arc ON arc.offer_connection_uuid = sp.subject_uuid
 WHERE  sp.secret_id = $secretRef.secret_id
 AND    arc.consumer_application_uuid = $uuid.uuid
-AND    sp.subject_type_id = 1 -- domainsecret.SubjectApplication
-AND    sp.scope_type_id = 3 -- domainsecret.ScopeRelation
+AND    sp.subject_type_id = $secretGrantTypes.subject_type_id
+AND    sp.scope_type_id = $secretGrantTypes.scope_type_id
 ORDER BY a.name`
 
 	ref := secretRef{ID: uri.ID}
 	appUUID := uuid{UUID: consumingAppUUID}
-	selectGrantsStmt, err := st.Prepare(query, ref, appUUID, remoteConsumerSecretGrant{})
+	grantTypes := secretGrantTypes{
+		SubjectTypeID: domainsecret.SubjectApplication,
+		ScopeTypeID:   domainsecret.ScopeRelation,
+	}
+	selectGrantsStmt, err := st.Prepare(query, ref, appUUID, grantTypes, remoteConsumerSecretGrant{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -750,7 +756,7 @@ ORDER BY a.name`
 		if err := st.checkExists(ctx, tx, uri); err != nil {
 			return errors.Capture(err)
 		}
-		err := tx.Query(ctx, selectGrantsStmt, ref, appUUID).GetAll(&rows)
+		err := tx.Query(ctx, selectGrantsStmt, ref, appUUID, grantTypes).GetAll(&rows)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"secret grant for consuming application UUID %q on %q not found",
@@ -768,10 +774,18 @@ ORDER BY a.name`
 
 	grants := make([]crossmodelrelation.RemoteConsumerSecretGrant, len(rows))
 	for i, row := range rows {
+		relationUUID, err := corerelation.ParseUUID(row.RelationUUID)
+		if err != nil {
+			return nil, errors.Errorf("parsing relation UUID of the grant of secret %q: %w", uri, err)
+		}
+		offerUUID, err := coreoffer.ParseUUID(row.OfferUUID)
+		if err != nil {
+			return nil, errors.Errorf("parsing offer UUID of the grant of secret %q: %w", uri, err)
+		}
 		grants[i] = crossmodelrelation.RemoteConsumerSecretGrant{
 			ApplicationName: row.ApplicationName,
-			RelationUUID:    row.RelationUUID,
-			OfferUUID:       row.OfferUUID,
+			RelationUUID:    relationUUID,
+			OfferUUID:       offerUUID,
 		}
 	}
 	return grants, nil

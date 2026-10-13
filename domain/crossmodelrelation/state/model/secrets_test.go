@@ -14,8 +14,10 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreoffer "github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
@@ -706,9 +708,10 @@ func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrants(c *tc.C) {
 	grants, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(grants, tc.DeepEquals, []crossmodelrelation.RemoteConsumerSecretGrant{{
+		// The helper names the synthetic application by its UUID.
 		ApplicationName: synthAppUUID,
-		RelationUUID:    relUUID,
-		OfferUUID:       offerUUID,
+		RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID),
+		OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID),
 	}})
 }
 
@@ -734,10 +737,10 @@ func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsMultipleOfferConnec
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(grants, tc.DeepEquals, []crossmodelrelation.RemoteConsumerSecretGrant{{
 		ApplicationName: "remote-second",
-		RelationUUID:    relUUID2,
-		OfferUUID:       offerUUID2,
+		RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID2),
+		OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID2),
 	}})
-	c.Assert(synthAppUUID1, tc.Not(tc.Equals), synthAppUUID2)
+	c.Check(synthAppUUID1, tc.Not(tc.Equals), synthAppUUID2)
 }
 
 // TestGetRemoteConsumerSecretGrantsOrdered checks that the grants of a
@@ -760,24 +763,31 @@ func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsOrdered(c *tc.C) {
 	c.Assert(grants, tc.DeepEquals, []crossmodelrelation.RemoteConsumerSecretGrant{
 		{
 			ApplicationName: "remote-aaa",
-			RelationUUID:    relUUID2,
-			OfferUUID:       offerUUID2,
+			RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID2),
+			OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID2),
 		}, {
 			ApplicationName: "remote-zzz",
-			RelationUUID:    relUUID1,
-			OfferUUID:       offerUUID1,
+			RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID1),
+			OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID1),
 		},
 	})
 }
 
 // TestGetRemoteConsumerSecretGrantsAccessScopeNotFound checks that an error
 // satisfying [secreterrors.SecretAccessScopeNotFound] is returned when the
-// consuming application of the given UUID holds no grant of the secret.
+// consuming application of the given UUID holds no grant of the secret, even
+// when it holds a grant of another secret.
 func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsAccessScopeNotFound(c *tc.C) {
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
 
-	_, _, _, _, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
+	otherURI := coresecrets.NewURI()
+	s.createSecret(c, otherURI, map[string]string{"foo": "bar"}, nil)
+
+	_, relUUID, _, synthAppUUID, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
+	// The consumer is granted another secret, which must not resolve as
+	// a grant of the first one.
+	s.grantSecretToConsumer(c, otherURI, synthAppUUID, relUUID)
 
 	_, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretAccessScopeNotFound)
@@ -793,4 +803,92 @@ func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsSecretNotFound(c *t
 
 	_, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+// TestGetRemoteConsumerSecretGrantsConsumerIsolation checks that the
+// grants of a secret are resolved per consuming application: when several
+// consuming applications are granted the same secret, each lookup
+// returns only the grants over the connections of its own application.
+func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsConsumerIsolation(c *tc.C) {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
+
+	offererAppUUID := s.setupRemoteApp(c, "mysql")
+
+	consumeAppUUID1 := tc.Must0(c, coreapplication.NewUUID).String()
+	offerUUID1, relUUID1, synthApp1 := s.addOfferConnection(c, consumeAppUUID1, offererAppUUID, "remote-one")
+	s.grantSecretToConsumer(c, uri, synthApp1, relUUID1)
+
+	consumeAppUUID2 := tc.Must0(c, coreapplication.NewUUID).String()
+	offerUUID2, relUUID2, synthApp2 := s.addOfferConnection(c, consumeAppUUID2, offererAppUUID, "remote-two")
+	s.grantSecretToConsumer(c, uri, synthApp2, relUUID2)
+
+	grants, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(grants, tc.DeepEquals, []crossmodelrelation.RemoteConsumerSecretGrant{{
+		ApplicationName: "remote-one",
+		RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID1),
+		OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID1),
+	}})
+
+	grants, err = s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(grants, tc.DeepEquals, []crossmodelrelation.RemoteConsumerSecretGrant{{
+		ApplicationName: "remote-two",
+		RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID2),
+		OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID2),
+	}})
+}
+
+// TestGetRemoteConsumerSecretGrantsInvalidRelationUUID checks that an
+// error is returned when the relation UUID scoping a grant is not a
+// valid UUID.
+func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsInvalidRelationUUID(c *tc.C) {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
+
+	_, _, _, synthAppUUID, consumeAppUUID := s.setupRemoteApplicationConsumer(c)
+	// The grant is scoped by a relation UUID which is not a valid UUID.
+	s.grantSecretToConsumer(c, uri, synthAppUUID, "not a uuid")
+
+	_, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+// TestGetRemoteConsumerSecretGrantsInvalidOfferUUID checks that an
+// error is returned when the offer UUID of the connection a grant was
+// made over is not a valid UUID.
+func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrantsInvalidOfferUUID(c *tc.C) {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
+
+	consumeAppUUID := tc.Must0(c, coreapplication.NewUUID).String()
+	offererAppUUID := s.setupRemoteApp(c, "mysql")
+
+	// The offer of the connection is identified by a value which is not
+	// a valid UUID.
+	s.createOffer(c, "not a uuid")
+	charmUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createCharm(c, charmUUID)
+	synthAppUUID := s.addApplication(c, corecharm.ID(charmUUID), "remote-invalid").String()
+	relUUID := s.addRelation(c).String()
+
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'bob')`, synthAppUUID, "not a uuid", relUUID)
+
+	s.query(c, `
+INSERT INTO application_remote_consumer (
+    offer_connection_uuid,
+    offerer_application_uuid,
+    consumer_application_uuid,
+    consumer_model_uuid,
+    life_id)
+VALUES (?, ?, ?, ?, 0)`,
+		synthAppUUID, offererAppUUID, consumeAppUUID, tc.Must0(c, coremodel.NewUUID))
+
+	s.grantSecretToConsumer(c, uri, synthAppUUID, relUUID)
+
+	_, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }

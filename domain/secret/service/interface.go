@@ -117,10 +117,6 @@ type State interface {
 	// the specified access parameters.
 	GetSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
 
-	// GetSecretAccessRelationScope returns the relation scope UUID for
-	// the given secret access params, or an empty string if none.
-	GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, params domainsecret.AccessParams) (string, error)
-
 	// GetRegularRelationUUIDByEndpointIdentifiers returns the UUID of a
 	// relation matching the given endpoint identifiers.
 	GetRegularRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint1, endpoint2 corerelation.EndpointIdentifier) (string, error)

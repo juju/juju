@@ -23,7 +23,8 @@ import (
 	"github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
-	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -145,7 +146,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 	relUUID2 := tc.Must(c, relation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID).Return(
-		[]crossmodelrelationservice.RemoteConsumerSecretGrant{{
+		[]crossmodelrelation.RemoteConsumerSecretGrant{{
 			ApplicationName: "mediawiki",
 			RelationUUID:    relUUID,
 			OfferUUID:       offerUUID,
@@ -158,7 +159,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 		}, 668, nil,
 	)
 	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID2).Return(
-		[]crossmodelrelationservice.RemoteConsumerSecretGrant{{
+		[]crossmodelrelation.RemoteConsumerSecretGrant{{
 			ApplicationName: "wordpress",
 			RelationUUID:    relUUID2,
 			OfferUUID:       offerUUID2,
@@ -294,21 +295,28 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfo(c *tc.C) {
 
 // TestGetSecretAccessScope checks that the access scope reported for a
 // remote consumer of a secret is the relation scoping the grant of the
-// secret to the consuming application.
+// secret to the consuming application, resolved for the first grant of
+// the deterministic grants ordering.
 func (s *CrossModelSecretsSuite) TestGetSecretAccessScope(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
 	appUUID := tc.Must(c, application.NewUUID)
-	relUUID := tc.Must(c, relation.NewUUID)
-	offerUUID := tc.Must(c, offer.NewUUID)
+	relUUID1 := tc.Must(c, relation.NewUUID)
+	relUUID2 := tc.Must(c, relation.NewUUID)
 
 	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID).Return(
-		[]crossmodelrelationservice.RemoteConsumerSecretGrant{{
-			ApplicationName: "remote-app",
-			RelationUUID:    relUUID,
-			OfferUUID:       offerUUID,
-		}}, nil)
+		[]crossmodelrelation.RemoteConsumerSecretGrant{
+			{
+				ApplicationName: "remote-aaa",
+				RelationUUID:    relUUID1,
+				OfferUUID:       tc.Must(c, offer.NewUUID),
+			}, {
+				ApplicationName: "remote-zzz",
+				RelationUUID:    relUUID2,
+				OfferUUID:       tc.Must(c, offer.NewUUID),
+			},
+		}, nil)
 
 	results, err := s.facade.GetSecretAccessScope(c.Context(), params.GetRemoteSecretAccessArgs{
 		Args: []params.GetRemoteSecretAccessArg{{
@@ -318,9 +326,10 @@ func (s *CrossModelSecretsSuite) TestGetSecretAccessScope(c *tc.C) {
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{Result: relUUID.String()}},
+	c.Check(results, tc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{Result: relUUID1.String()}},
 	})
+	c.Check(results.Results[0].Result, tc.Not(tc.Equals), relUUID2.String())
 }
 
 // TestGetSecretAccessScopeErrors checks the error codes returned for a
@@ -347,8 +356,8 @@ func (s *CrossModelSecretsSuite) TestGetSecretAccessScopeErrors(c *tc.C) {
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[0].Error.Message, tc.Equals, fmt.Sprintf("secret %q not found", uri.String()))
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Message, tc.Equals, fmt.Sprintf("secret %q not found", uri.String()))
 
 	results, err = s.facade.GetSecretAccessScope(c.Context(), params.GetRemoteSecretAccessArgs{
 		Args: []params.GetRemoteSecretAccessArg{{
@@ -358,8 +367,8 @@ func (s *CrossModelSecretsSuite) TestGetSecretAccessScopeErrors(c *tc.C) {
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[0].Error.Message, tc.Equals, "secret access scope not found")
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Message, tc.Equals, "secret access scope not found")
 }
 
 // TestGetSecretContentInfoMultipleOfferConnections checks that the
@@ -383,7 +392,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfoMultipleOfferConnection
 	// The secret is granted over both connections of the consuming
 	// application, in synthetic application name order.
 	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, consumeAppUUID).Return(
-		[]crossmodelrelationservice.RemoteConsumerSecretGrant{
+		[]crossmodelrelation.RemoteConsumerSecretGrant{
 			{
 				ApplicationName: "mediawiki",
 				RelationUUID:    relUUID1,
@@ -431,8 +440,134 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfoMultipleOfferConnection
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
-	c.Assert(results.Results[0].Error.Message, tc.Equals, fmt.Sprintf("secret %q not found", uri))
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Message, tc.Equals, fmt.Sprintf("secret %q not found", uri))
+}
+
+// TestGetSecretContentInfoMacaroonOfferNotInGrants checks the resolution
+// of the consuming application when the macaroons identify an offer the
+// secret was not granted over: the grant of the first connection of the
+// deterministic ordering is used, so a unit holding a valid relation key
+// for that connection is served, while one holding a relation key of an
+// unrelated relation is denied.
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfoMacaroonOfferNotInGrants(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
+	consumeAppUUID := tc.Must(c, application.NewUUID)
+
+	relUUID1 := tc.Must(c, relation.NewUUID)
+	relUUID2 := tc.Must(c, relation.NewUUID)
+	offerUUID1 := tc.Must(c, offer.NewUUID)
+	offerUUID2 := tc.Must(c, offer.NewUUID)
+	offerUUID3 := tc.Must(c, offer.NewUUID)
+	offerUUID4 := tc.Must(c, offer.NewUUID)
+
+	// The secret is granted over both connections of the consuming
+	// application, in synthetic application name order.
+	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, consumeAppUUID).Return(
+		[]crossmodelrelation.RemoteConsumerSecretGrant{
+			{
+				ApplicationName: "mediawiki",
+				RelationUUID:    relUUID1,
+				OfferUUID:       offerUUID1,
+			}, {
+				ApplicationName: "wordpress",
+				RelationUUID:    relUUID2,
+				OfferUUID:       offerUUID2,
+			},
+		}, nil).AnyTimes()
+
+	// Both macaroons identify offers the secret was not granted over.
+	mac, err := s.bakery.NewMacaroon(
+		c.Context(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("username", "mary"),
+			checkers.DeclaredCaveat("offer-uuid", offerUUID3.String()),
+			checkers.DeclaredCaveat("source-model-uuid", uri.SourceUUID),
+			checkers.DeclaredCaveat("relation-key", "mediawiki:server mysql:database"),
+		}, bakery.Op{Entity: "consume", Action: "mysql-uuid"})
+	c.Assert(err, tc.ErrorIsNil)
+	mac2, err := s.bakery.NewMacaroon(
+		c.Context(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("username", "mary"),
+			checkers.DeclaredCaveat("offer-uuid", offerUUID4.String()),
+			checkers.DeclaredCaveat("source-model-uuid", uri.SourceUUID),
+			checkers.DeclaredCaveat("relation-key", "unrelated:server mysql:database"),
+		}, bakery.Op{Entity: "consume", Action: "mysql-uuid"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The relation key of the first macaroon is valid for the application
+	// of the first grant, so the content is processed for its unit.
+	relKey := tc.Must1(c, relation.NewKeyFromString, "mediawiki:server mysql:database")
+	relTag := names.NewRelationTag(relKey.String())
+	s.crossModelRelationService.EXPECT().IsCrossModelRelationValidForApplication(gomock.Any(), relKey, "mediawiki").Return(true, nil)
+	s.authenticator.EXPECT().CheckRelationMacaroons(
+		gomock.Any(), s.modelUUID.String(), offerUUID3.String(), relTag, macaroon.Slice{mac.M()}, bakery.LatestVersion)
+	s.crossModelRelationService.EXPECT().ProcessRemoteConsumerGetSecret(
+		gomock.Any(), uri, unit.Name("mediawiki/666"), nil, false, true).Return(
+		nil, nil, 0, secreterrors.SecretNotFound)
+
+	// The relation key of the second macaroon is not valid for the
+	// application of the first grant, so the request is denied.
+	relKey2 := tc.Must1(c, relation.NewKeyFromString, "unrelated:server mysql:database")
+	s.crossModelRelationService.EXPECT().IsCrossModelRelationValidForApplication(gomock.Any(), relKey2, "mediawiki").Return(false, nil)
+
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetRemoteSecretContentArgs{
+		Args: []params.GetRemoteSecretContentArg{{
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
+			ApplicationToken:     consumeAppUUID.String(),
+			UnitId:               666,
+			BakeryVersion:        3,
+			Macaroons:            macaroon.Slice{mac.M()},
+			URI:                  uri.String(),
+			Refresh:              true,
+		}, {
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
+			ApplicationToken:     consumeAppUUID.String(),
+			UnitId:               666,
+			BakeryVersion:        3,
+			Macaroons:            macaroon.Slice{mac2.M()},
+			URI:                  uri.String(),
+			Refresh:              true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Message, tc.Equals, fmt.Sprintf("secret %q not found", uri))
+	c.Check(results.Results[1].Error, tc.DeepEquals, &params.Error{
+		Code:    params.CodeUnauthorized,
+		Message: "permission denied",
+	})
+}
+
+// TestGetSecretContentInfoInvalidApplicationToken checks the error
+// surfaced for an invalid application token: the token is validated by
+// the cross model relation service, and the service error is reported
+// as is.
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfoInvalidApplicationToken(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
+
+	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, application.UUID("invalid")).Return(
+		nil, applicationerrors.ApplicationUUIDNotValid)
+
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetRemoteSecretContentArgs{
+		Args: []params.GetRemoteSecretContentArg{{
+			ApplicationToken: "invalid",
+			UnitId:           666,
+			URI:              uri.String(),
+			Refresh:          true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
+		Message: "application UUID not valid",
+	})
 }
 
 // TestGetSecretContentInfoNoGrant checks that a consuming application
@@ -448,7 +583,7 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNoGrant(c *tc.C) {
 
 	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
-			SourceControllerUUID: "deadbeef-1bad-500d-900d-9000-4b1d0d06f666",
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
 			ApplicationToken:     appUUID.String(),
 			UnitId:               666,
 			BakeryVersion:        3,
@@ -457,8 +592,33 @@ func (s *CrossModelSecretsSuite) TestGetSecretContentInfoNoGrant(c *tc.C) {
 		}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results.Results[0].Error, tc.DeepEquals, &params.Error{
+	c.Check(results.Results[0].Error, tc.DeepEquals, &params.Error{
 		Code:    params.CodeUnauthorized,
 		Message: "permission denied",
 	})
+}
+
+// TestGetSecretContentInfoSecretNotFound checks that requesting the
+// content of a secret that does not exist reports the missing secret
+// with a not found error code.
+func (s *CrossModelSecretsSuite) TestGetSecretContentInfoSecretNotFound(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI().WithSource(coretesting.ModelTag.Id())
+	appUUID := tc.Must(c, application.NewUUID)
+
+	s.crossModelRelationService.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID).Return(
+		nil, secreterrors.SecretNotFound)
+
+	results, err := s.facade.GetSecretContentInfo(c.Context(), params.GetRemoteSecretContentArgs{
+		Args: []params.GetRemoteSecretContentArg{{
+			ApplicationToken: appUUID.String(),
+			UnitId:           666,
+			URI:              uri.String(),
+			Refresh:          true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(results.Results[0].Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(results.Results[0].Error.Message, tc.Equals, fmt.Sprintf("secret %q not found", uri))
 }
