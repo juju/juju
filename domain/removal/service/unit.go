@@ -292,7 +292,7 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	// A controller unit must remain authenticated until it has departed its
 	// peer relation scopes. Deleting it before then prevents the departure hook
 	// from publishing the updated db-bind-addresses to the remaining units.
-	if err := s.deleteControllerNodeForUnit(ctx, unit.UUID(job.EntityUUID), applicationName, unitName); err != nil {
+	if err := s.deleteControllerNodeForUnit(ctx, applicationName, unitName); err != nil {
 		return errors.Errorf("deleting controller node for unit %q: %w", job.EntityUUID, err)
 	}
 
@@ -336,7 +336,7 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 }
 
 func (s *Service) deleteControllerNodeForUnit(
-	ctx context.Context, unitUUID unit.UUID, applicationName string, unitName unit.Name,
+	ctx context.Context, applicationName string, unitName unit.Name,
 ) error {
 	if applicationName != coreapplication.ControllerApplicationName {
 		return nil
