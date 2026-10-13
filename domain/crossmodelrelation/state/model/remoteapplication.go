@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/schema"
 	sequencestate "github.com/juju/juju/domain/sequence/state"
 	"github.com/juju/juju/domain/status"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -37,11 +38,12 @@ func (st *State) NamespaceRemoteApplicationOfferers() string {
 	return "application_remote_offerer"
 }
 
-// NamespaceModelLife returns the database namespace for model life
-// changes. The model life table uses a custom lifecycle namespace,
-// registered by the model schema triggers.
+// NamespaceModelLife returns the changestream namespace used by the
+// model-life lifecycle trigger. Use schema.NamespaceModelLife rather than
+// a literal string so that a rename of the trigger namespace is caught at
+// compile time.
 func (st *State) NamespaceModelLife() string {
-	return "custom_model_life_model_uuid_lifecycle"
+	return schema.NamespaceModelLife
 }
 
 // NamespaceRemoteApplicationConsumers returns the remote application consumers.

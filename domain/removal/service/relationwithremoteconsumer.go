@@ -76,7 +76,7 @@ func (s *Service) RemoveRelationWithRemoteConsumer(
 	// NOTE: LeaveScope is called outside the cascade transaction — see the
 	// identical note in relationwithremoteofferer.go for the full explanation.
 	for _, r := range res.SyntheticRelationUnitUUIDs {
-		if err := s.modelState.LeaveScope(ctx, r); err != nil {
+		if err := s.modelState.LeaveScope(ctx, r); err != nil && !errors.Is(err, relationerrors.RelationUnitNotFound) {
 			return "", errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
 		}
 	}

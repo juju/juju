@@ -75,6 +75,13 @@ const (
 	customNamespaceRelationLifeSuspended
 )
 
+// NamespaceModelLife is the changestream namespace used by the model-life
+// lifecycle trigger (registered by triggerEntityLifecycleByFieldForTable for
+// the model_life table on the model_uuid field). All consumers that watch for
+// model lifecycle transitions must use this constant so that a rename of the
+// trigger does not silently break the watcher.
+const NamespaceModelLife = "custom_model_life_model_uuid_lifecycle"
+
 const (
 	tableModelConfig tableNamespaceID = iota + reservedCustomNamespaceIDOffset
 	tableModelObjectStoreMetadata
