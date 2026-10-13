@@ -18,9 +18,6 @@ jobs:
         platform:
           - { os: linux, arch: amd64, host_arch: x64 }
           - { os: linux, arch: arm64, host_arch: arm64 }
-          # Until we get rid of musl, lets just disable these to save build time.
-          #          - { os: linux, arch: s390x }
-          #          - { os: linux, arch: ppc64le }
           - { os: darwin, arch: arm64, host_arch: arm64 }
 
     steps:
@@ -36,6 +33,15 @@ jobs:
         with:
           go-version-file: "go.mod"
           cache: false
+
+      # jujud is a native CGO build on every linux entry and links against
+      # the host's Dqlite libraries (ppa:dqlite/dev); darwin does not build
+      # jujud (the agent platform lists filter it to linux). Only the CGO
+      # link-time deps are needed; the full install-dependencies set (snaps,
+      # squashfs-tools) is not required for a build-only workflow.
+      - name: "Install dependencies"
+        if: matrix.platform.os == 'linux'
+        run: make install-dqlite-dependencies
 
       - name: "Build"
         run: |

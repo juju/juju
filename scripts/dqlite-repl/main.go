@@ -54,7 +54,7 @@ func historyDir() string {
 		root = filepath.Join(os.Getenv("HOME"), ".local", "share")
 	}
 	path := filepath.Join(root, "juju", "repl")
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		panic(err)
 	}
 	return path
@@ -82,7 +82,7 @@ func main() {
 	var file *os.File
 	if *history {
 		var err error
-		file, err = os.OpenFile(filepath.Join(*historyFile, ".history"), os.O_CREATE|os.O_RDWR, 0600)
+		file, err = os.OpenFile(filepath.Join(*historyFile, ".history"), os.O_CREATE|os.O_RDWR, 0o600)
 		if err != nil {
 			panic(err)
 		}
@@ -100,7 +100,7 @@ func main() {
 		path = *dbPathFlag
 	}
 
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		panic(err)
 	}
 
@@ -251,7 +251,7 @@ func dumpDB(ctx context.Context, db *sql.DB, path, name string) error {
 		filePath := filepath.Join(path, file.Name)
 		fmt.Println("Dumping file", filePath)
 
-		err := os.WriteFile(filePath, file.Data, 0600)
+		err := os.WriteFile(filePath, file.Data, 0o600)
 		if err != nil {
 			return fmt.Errorf("WriteFile failed on path %s", filePath)
 		}
@@ -284,9 +284,7 @@ func (r *txnRunner) Dying() <-chan struct{} {
 	return make(<-chan struct{})
 }
 
-var (
-	defaultTransactionRunner = txn.NewRetryingTxnRunner()
-)
+var defaultTransactionRunner = txn.NewRetryingTxnRunner()
 
 // Txn executes the input function against the tracked database, using
 // the sqlair package. The sqlair package provides a mapping library for
