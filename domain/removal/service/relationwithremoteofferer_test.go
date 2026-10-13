@@ -151,6 +151,7 @@ func (s *relationWithRemoteOffererSuite) TestExecuteJobForRelationWithRemoteOffe
 
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), j.EntityUUID).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
 
 	err := s.newService(c).ExecuteJob(c.Context(), j)
@@ -165,8 +166,33 @@ func (s *relationWithRemoteOffererSuite) TestExecuteJobForRelationWithRemoteOffe
 
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), j.EntityUUID).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return([]string{"unit/0"}, nil)
 	exp.DeleteRelationUnits(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteRelationWithRemoteOfferer(gomock.Any(), j.EntityUUID).Return(nil)
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
+
+	err := s.newService(c).ExecuteJob(c.Context(), j)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestExecuteJobForRelationWithRemoteOffererDepartsSyntheticUnits ensures
+// that synthetic relation units, which have no uniter to depart them, are
+// departed by the removal job. Otherwise they would block the relation
+// deletion forever.
+func (s *relationWithRemoteOffererSuite) TestExecuteJobForRelationWithRemoteOffererDepartsSyntheticUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	j := newRelationWithRemoteOffererJob(c)
+
+	exp := s.modelState.EXPECT()
+	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), j.EntityUUID).Return(internal.CascadedRelationWithRemoteOffererLives{
+		SyntheticRelationUnitUUIDs: []string{"synthetic-relation-unit-1"},
+	}, nil)
+	exp.LeaveScope(gomock.Any(), "synthetic-relation-unit-1").Return(nil)
+	// No real units remain in scope once the synthetic unit is departed.
+	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteRelationWithRemoteOfferer(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
@@ -181,6 +207,7 @@ func (s *relationWithRemoteOffererSuite) TestExecuteJobForRelationWithRemoteOffe
 
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), j.EntityUUID).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteRelationWithRemoteOfferer(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
@@ -196,6 +223,7 @@ func (s *relationWithRemoteOffererSuite) TestExecuteJobForRelationWithRemoteOffe
 
 	exp := s.modelState.EXPECT()
 	exp.GetRelationLife(gomock.Any(), j.EntityUUID).Return(life.Dying, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), j.EntityUUID).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
 	exp.UnitNamesInScope(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteRelationWithRemoteOfferer(gomock.Any(), j.EntityUUID).Return(errors.Errorf("the front fell off"))
 
