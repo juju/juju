@@ -1259,6 +1259,88 @@ func (s *MigrationExportSuite) TestExternalControllersLocalController(c *gc.C) {
 	c.Check(ctrl.Models(), jc.SameContents, []string{otherModel.UUID()})
 }
 
+func (s *MigrationExportSuite) TestExternalControllersLocalControllerK8s(c *gc.C) {
+	// The cloud service holds a public address, which is exported.
+	s.assertExternalControllersLocalControllerK8s(c,
+		network.SpaceAddresses{
+			network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic)),
+		},
+		[]string{"1.2.3.4:17777"},
+	)
+}
+
+func (s *MigrationExportSuite) TestExternalControllersLocalControllerK8sCloudLocalOnly(c *gc.C) {
+	// Public scope matching falls back through a hierarchy, so a cloud
+	// service with only cloud-local addresses still exports those.
+	s.assertExternalControllersLocalControllerK8s(c,
+		network.SpaceAddresses{
+			network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
+		},
+		[]string{"10.0.0.1:17777"},
+	)
+}
+
+func (s *MigrationExportSuite) assertExternalControllersLocalControllerK8s(
+	c *gc.C, svcAddrs network.SpaceAddresses, expectedAddrs []string,
+) {
+	// The model being exported is hosted on a k8s controller and has a
+	// cross-model relation to a model on the same controller. The API host
+	// ports of a k8s controller can only be read via the controller
+	// model's state, not via the state of the model being exported.
+	hostedState := s.Factory.MakeModel(c, nil)
+	defer func() { _ = hostedState.Close() }()
+
+	otherState := s.Factory.MakeModel(c, nil)
+	defer func() { _ = otherState.Close() }()
+	otherModel, err := otherState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = hostedState.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: otherModel.ModelTag(),
+		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make this a k8s controller with a cloud service holding the
+	// controller addresses.
+	state.SetModelTypeToCAAS(c, s.State, s.Model)
+	_, err = s.State.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         s.State.ControllerUUID(),
+		ProviderId: "provider-id",
+		Addresses:  svcAddrs,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := hostedState.ExportPartial(state.ExportConfig{
+		SkipActions:              true,
+		SkipAnnotations:          true,
+		SkipCloudImageMetadata:   true,
+		SkipCredentials:          true,
+		SkipIPAddresses:          true,
+		SkipSettings:             true,
+		SkipSSHHostKeys:          true,
+		SkipStatusHistory:        true,
+		SkipLinkLayerDevices:     true,
+		SkipUnitAgentBinaries:    true,
+		SkipMachineAgentBinaries: true,
+		SkipRelationData:         true,
+		SkipInstanceData:         true,
+		SkipApplicationOffers:    true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrls := model.ExternalControllers()
+	c.Assert(ctrls, gc.HasLen, 1)
+
+	ctrl := ctrls[0]
+	c.Check(ctrl.ID(), gc.Equals, names.NewControllerTag(s.State.ControllerUUID()))
+	c.Check(ctrl.Addrs(), jc.SameContents, expectedAddrs)
+	c.Check(ctrl.Models(), jc.SameContents, []string{otherModel.UUID()})
+}
+
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	s.assertMigrateUnits(c, s.State)
 }

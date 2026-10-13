@@ -1494,7 +1494,20 @@ func (s externalControllerShim) ModelExists(uuid string) (bool, error) {
 // LocalControllerInfo returns a MigrationExternalController representing the
 // current controller. The provided modelUUIDs are set as the hosted models.
 func (s externalControllerShim) LocalControllerInfo(modelUUIDs []string) (migrations.MigrationExternalController, error) {
-	apiHostPorts, err := s.st.APIHostPortsForClients()
+	// On CAAS controllers the API host ports can only be retrieved via
+	// the controller model's state, but s.st is the state of the model
+	// being exported, so open a state for the controller model.
+	st := s.st
+	if !st.IsController() {
+		ctrlSt, err := st.newStateNoWorkers(st.ControllerModelUUID())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer func() { _ = ctrlSt.Close() }()
+		st = ctrlSt
+	}
+
+	apiHostPorts, err := st.APIHostPortsForClients()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
