@@ -148,9 +148,9 @@ type ApplicationState interface {
 	CheckApplicationsForMigration(context.Context) error
 
 	// SetCAASApplicationUnitScale atomically updates the Alive unit set.
-	// The expected count protects relative requests against concurrent scale
-	// changes.
-	SetCAASApplicationUnitScale(context.Context, string, int, []string, []internal.AddCAASUnitArg) ([]string, error)
+	// The expected names must match the current Alive set before the plan is
+	// applied, including when its size has not changed.
+	SetCAASApplicationUnitScale(context.Context, string, []string, []string, []internal.AddCAASUnitArg) ([]string, error)
 
 	// GetCharmByApplicationUUID returns the charm, charm origin and charm
 	// platform for the specified application UUID.
@@ -1093,7 +1093,13 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Capture(err)
 	}
 
-	return s.changeCAASApplicationUnitScale(ctx, appUUID, nil, scaleChange)
+	const maxAttempts = 3
+	for attempt := 0; ; attempt++ {
+		newScale, err := s.changeCAASApplicationUnitScale(ctx, appUUID, nil, scaleChange)
+		if !errors.Is(err, applicationerrors.ScalingStateInconsistent) || attempt == maxAttempts-1 {
+			return newScale, err
+		}
+	}
 }
 
 // changeCAASApplicationUnitScale applies a plan when the Alive set has not
@@ -1173,7 +1179,11 @@ func (s *Service) changeCAASApplicationUnitScale(
 			K8sPod:      arg.K8sPod,
 		}
 	}
-	inserted, err := s.st.SetCAASApplicationUnitScale(ctx, appUUID.String(), current, leaving, stateArgs)
+	expected := make([]string, len(alive))
+	for i, name := range alive {
+		expected[i] = name.String()
+	}
+	inserted, err := s.st.SetCAASApplicationUnitScale(ctx, appUUID.String(), expected, leaving, stateArgs)
 	if err != nil {
 		return -1, errors.Errorf("setting unit scale: %w", err)
 	}

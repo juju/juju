@@ -827,7 +827,7 @@ WHERE  a.name = $applicationDetails.name;
 // SetCAASApplicationUnitScale applies a service-validated CAAS unit mutation
 // plan when the Alive membership has not changed since that plan was read.
 func (st *State) SetCAASApplicationUnitScale(
-	ctx context.Context, appUUID string, expected int, leaving []string,
+	ctx context.Context, appUUID string, expected []string, leaving []string,
 	newUnits []applicationinternal.AddCAASUnitArg,
 ) ([]string, error) {
 	db, err := st.DB(ctx)
@@ -859,8 +859,20 @@ WHERE name = $unitName.name AND life_id = 0
 		if err := tx.Query(ctx, getAlive, input).GetAll(&alive); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
-		if len(alive) != expected {
+		if len(alive) != len(expected) {
 			return applicationerrors.ScalingStateInconsistent
+		}
+		// Membership can change and return to the same count. Comparing names
+		// prevents a stale plan from updating units that are no longer Alive.
+		aliveNames := make(map[string]struct{}, len(alive))
+		for _, unit := range alive {
+			aliveNames[unit.Name] = struct{}{}
+		}
+		for _, name := range expected {
+			if _, ok := aliveNames[name]; !ok {
+				return applicationerrors.ScalingStateInconsistent
+			}
+			delete(aliveNames, name)
 		}
 		for _, name := range leaving {
 			if err := tx.Query(ctx, setDying, unitName{Name: name}).Run(); err != nil {
