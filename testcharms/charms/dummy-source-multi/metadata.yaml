@@ -1,0 +1,17 @@
+name: dummy-source-multi
+maintainer: Juju Crew <juju-crew@canonical.com>
+summary: Dummy charm that provides data over two endpoints
+description: |
+  This dummy charm verifies that two relations to one application work.
+requires:
+  sink:
+    interface: dummy-token
+  sink-alt:
+    interface: dummy-token
+categories:
+  - misc
+series:
+  - xenial
+  - bionic
+  - focal
+  - jammy
