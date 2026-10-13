@@ -395,8 +395,12 @@ func (st *State) LeaveScope(ctx context.Context, relUnitUUID string) error {
 		return errors.Capture(err)
 	}
 
-	id := entityUUID{UUID: relUnitUUID}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.leaveScope(ctx, tx, entityUUID{UUID: relUnitUUID})
+	}))
+}
 
+func (st *State) leaveScope(ctx context.Context, tx *sqlair.TX, id entityUUID) error {
 	existsStmt, err := st.Prepare(`
 SELECT &entityUUID.uuid
 FROM   relation_unit
@@ -427,49 +431,42 @@ WHERE  unit_uuid = $entityUUID.uuid
 		return errors.Errorf("preparing synthetic unit still in scope query: %w", err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, existsStmt, id).Get(&id)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return relationerrors.RelationUnitNotFound
-		} else if err != nil {
-			return errors.Errorf("running relation unit exists query: %w", err)
-		}
+	err = tx.Query(ctx, existsStmt, id).Get(&id)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return relationerrors.RelationUnitNotFound
+	} else if err != nil {
+		return errors.Errorf("running relation unit exists query: %w", err)
+	}
 
-		var synthUnitUUID entityUUID
-		err = tx.Query(ctx, isSyntheticStmt, id).Get(&synthUnitUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-		} else if err != nil {
-			return errors.Errorf("checking if unit is synthetic: %w", err)
-		}
+	var synthUnitUUID entityUUID
+	err = tx.Query(ctx, isSyntheticStmt, id).Get(&synthUnitUUID)
+	if errors.Is(err, sqlair.ErrNoRows) {
+	} else if err != nil {
+		return errors.Errorf("checking if unit is synthetic: %w", err)
+	}
 
-		err = st.archiveRelationUnitSettings(ctx, tx, id)
-		if err != nil {
-			return errors.Errorf("archiving relation unit settings: %w", err)
-		}
-
-		err = st.deleteRelationUnit(ctx, tx, id)
-		if err != nil {
-			return errors.Errorf("deleting relation unit: %w", err)
-		}
-
-		if synthUnitUUID.UUID != "" {
-			var unitStillInScope count
-			err = tx.Query(ctx, isUnitStillInScopeStmt, synthUnitUUID).Get(&unitStillInScope)
-			if err != nil {
-				return errors.Errorf("checking if synthetic unit still in scope: %w", err)
-			}
-
-			if unitStillInScope.Count == 0 {
-				if err := st.deleteSynthUnit(ctx, tx, synthUnitUUID); err != nil {
-					return errors.Errorf("deleting synthetic unit %q: %w", synthUnitUUID.UUID, err)
-				}
-			}
-		}
-
-		return nil
-	})
+	err = st.archiveRelationUnitSettings(ctx, tx, id)
 	if err != nil {
-		return errors.Capture(err)
+		return errors.Errorf("archiving relation unit settings: %w", err)
+	}
+
+	err = st.deleteRelationUnit(ctx, tx, id)
+	if err != nil {
+		return errors.Errorf("deleting relation unit: %w", err)
+	}
+
+	if synthUnitUUID.UUID != "" {
+		var unitStillInScope count
+		err = tx.Query(ctx, isUnitStillInScopeStmt, synthUnitUUID).Get(&unitStillInScope)
+		if err != nil {
+			return errors.Errorf("checking if synthetic unit still in scope: %w", err)
+		}
+
+		if unitStillInScope.Count == 0 {
+			if err := st.deleteSynthUnit(ctx, tx, synthUnitUUID); err != nil {
+				return errors.Errorf("deleting synthetic unit %q: %w", synthUnitUUID.UUID, err)
+			}
+		}
 	}
 
 	return nil

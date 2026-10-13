@@ -8,10 +8,8 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/domain/removal"
-	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -54,13 +52,13 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 	return remoteRelationExists, errors.Capture(err)
 }
 
-// EnsureRelationWithRemoteOffererNotAliveCascade ensures that the relation identified
-// by the input UUID is not alive, and sets the synthetic units in scope
-// of this relation to dead.
-func (st *State) EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteOffererLives, error) {
+// EnsureRelationWithRemoteOffererNotAliveCascade ensures that the relation
+// identified by the input UUID is not alive and atomically departs its
+// synthetic units. Units shared with another relation are retained.
+func (st *State) EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
 	remoteRelationUUID := entityUUID{UUID: rUUID}
@@ -68,80 +66,83 @@ func (st *State) EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Cont
 UPDATE relation
 SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
-AND    life_id = 0`, remoteRelationUUID)
+	AND    life_id = 0`, remoteRelationUUID)
 	if err != nil {
-		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Errorf("preparing remote relation life update: %w", err)
-	}
-
-	getSyntheticAppUUIDStmt, err := st.Prepare(`
-SELECT a.uuid AS &entityUUID.uuid
-FROM   relation AS r
-JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
-JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
-JOIN   application AS a ON ae.application_uuid = a.uuid
-JOIN   charm AS c ON a.charm_uuid = c.uuid
-JOIN   charm_source AS cs ON c.source_id = cs.id
-WHERE  r.uuid = $entityUUID.uuid
-AND    cs.name = 'cmr'`, remoteRelationUUID)
-	if err != nil {
-		return internal.CascadedRelationWithRemoteOffererLives{},
-			errors.Errorf("preparing remote relation synthetic application UUID query: %w", err)
+		return errors.Errorf("preparing remote relation life update: %w", err)
 	}
 
 	getSyntheticRelationUnitUUIDsStmt, err := st.Prepare(`
 SELECT ru.uuid AS &entityUUID.uuid
 FROM   relation_unit AS ru
 JOIN   unit AS u ON ru.unit_uuid = u.uuid
-WHERE  u.application_uuid = $entityUUID.uuid
-	`, entityUUID{})
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   charm AS c ON u.charm_uuid = c.uuid
+JOIN   charm_source AS cs ON c.source_id = cs.id
+WHERE  re.relation_uuid = $entityUUID.uuid
+	AND    cs.name = 'cmr'
+	`, remoteRelationUUID)
 	if err != nil {
-		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
+		return errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
 	}
 
 	updateSyntheticUnitStmt, err := st.Prepare(`
-UPDATE unit
+WITH departing_units AS (
+	SELECT ru.unit_uuid AS uuid
+	FROM   relation_unit AS ru
+	JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+	JOIN   unit AS u ON ru.unit_uuid = u.uuid
+	JOIN   charm AS c ON u.charm_uuid = c.uuid
+	JOIN   charm_source AS cs ON c.source_id = cs.id
+	WHERE  re.relation_uuid = $entityUUID.uuid
+	AND    cs.name = 'cmr'
+	EXCEPT
+	SELECT ru.unit_uuid AS uuid
+	FROM   relation_unit AS ru
+	JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+	JOIN   relation AS r ON re.relation_uuid = r.uuid
+	WHERE  r.life_id = 0
+)
+UPDATE unit AS u
 SET    life_id = 2
-WHERE  life_id = 0
-AND    application_uuid = $entityUUID.uuid
-`, entityUUID{})
+WHERE  u.life_id = 0
+AND    u.uuid IN (SELECT du.uuid FROM departing_units AS du)
+`, remoteRelationUUID)
 	if err != nil {
-		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Errorf("preparing remote relation synthetic unit update: %w", err)
+		return errors.Errorf("preparing remote relation synthetic unit update: %w", err)
 	}
 
 	var synthRelationUnitUUIDs []entityUUID
 	err = errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		synthRelationUnitUUIDs = nil
+
 		err = tx.Query(ctx, updateRelationStmt, remoteRelationUUID).Run()
 		if err != nil {
 			return errors.Errorf("advancing remote relation life: %w", err)
 		}
 
-		var synthAppUUID entityUUID
-		err = tx.Query(ctx, getSyntheticAppUUIDStmt, remoteRelationUUID).Get(&synthAppUUID)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		} else if err != nil {
-			return errors.Errorf("getting synthetic application UUID: %w", err)
-		}
-
-		err = tx.Query(ctx, getSyntheticRelationUnitUUIDsStmt, synthAppUUID).GetAll(&synthRelationUnitUUIDs)
+		err = tx.Query(ctx, getSyntheticRelationUnitUUIDsStmt, remoteRelationUUID).GetAll(&synthRelationUnitUUIDs)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("getting synthetic relation unit UUIDs: %w", err)
 		}
 
-		err = tx.Query(ctx, updateSyntheticUnitStmt, synthAppUUID).Run()
+		err = tx.Query(ctx, updateSyntheticUnitStmt, remoteRelationUUID).Run()
 		if err != nil {
 			return errors.Errorf("advancing remote relation synthetic unit life: %w", err)
+		}
+
+		for _, relationUnitUUID := range synthRelationUnitUUIDs {
+			if err := st.leaveScope(ctx, tx, relationUnitUUID); err != nil {
+				return errors.Errorf("departing synthetic relation unit: %w", err)
+			}
 		}
 
 		return nil
 	}))
 	if err != nil {
-		return internal.CascadedRelationWithRemoteOffererLives{}, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	return internal.CascadedRelationWithRemoteOffererLives{
-		SyntheticRelationUnitUUIDs: transform.Slice(synthRelationUnitUUIDs, func(eu entityUUID) string { return eu.UUID }),
-	}, nil
+	return nil
 }
 
 // RelationWithRemoteOffererScheduleRemoval schedules a removal job for the relation
