@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -392,9 +393,23 @@ func (c *Client) SSHServerHostKey(ctx context.Context) ([]byte, error) {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return nil, errors.Trace(result.Error)
+		return nil, apiservererrors.RestoreError(result.Error)
 	}
 	return result.PublicKey, nil
+}
+
+// SSHServerPort returns the port the controller's embedded SSH jump server
+// listens on. This is read from the controller rather than controller config
+// because the port is owned by the controller charm and may change at runtime.
+func (c *Client) SSHServerPort(ctx context.Context) (int, error) {
+	var result params.SSHControllerSSHPortResult
+	if err := c.facade.FacadeCall(ctx, "SSHServerPort", nil, &result); err != nil {
+		return 0, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return 0, apiservererrors.RestoreError(result.Error)
+	}
+	return result.Port, nil
 }
 
 // DashboardConnectionInfo

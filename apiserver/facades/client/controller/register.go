@@ -38,7 +38,7 @@ func Register(registry facade.FacadeRegistry) {
 		}
 		return api, nil
 	}, reflect.TypeFor[*ControllerAPIV14]())
-	// v15 adds SSHServerHostKey.
+	// v15 adds SSHServerHostKey and SSHServerPort.
 	registry.MustRegisterForMultiModel("Controller", 15, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		api, err := makeControllerAPI(stdCtx, ctx)
 		if err != nil {
@@ -175,7 +175,7 @@ func makeControllerAPI(stdCtx context.Context, ctx facade.MultiModelContext) (*C
 		authorizer,
 		ctx.Logger().Child("controller"),
 		domainServices.ControllerConfig(),
-		domainServices.SSHServerHostKey(),
+		domainServices.ControllerSSH(),
 		domainServices.ControllerNode(),
 		domainServices.ExternalController(),
 		domainServices.Access(),

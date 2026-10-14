@@ -447,7 +447,7 @@ func (b *baseDeployer) calculateLocalCharmHashes(path string, expectedSize int64
 	return sha256, sha384, nil
 }
 
-func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
+func (b *baseDeployer) createCharmSettings(ch charm.Charm) (charm.Config, error) {
 	cfg := charm.Config{
 		"is-juju": true,
 	}
@@ -462,6 +462,15 @@ func (b *baseDeployer) createCharmSettings() (charm.Config, error) {
 	}
 	if addr != "" {
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
+	}
+
+	// Pass the bootstrap ssh server port through to the charm, which owns it
+	// from here on. Older charms don't have the option and an unknown option
+	// fails the deploy, so only set it if the charm has it.
+	if spec := ch.Config(); spec != nil {
+		if _, ok := spec.Options["ssh-server-port"]; ok {
+			cfg["ssh-server-port"] = int64(b.controllerConfig.SSHServerPort())
+		}
 	}
 	return cfg, nil
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	domainssh "github.com/juju/juju/domain/ssh"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -190,39 +191,73 @@ WHERE u.name = $entityName.name
 	return found, nil
 }
 
-type controllerSSHHostKey struct {
-	ID              string `db:"id"`
-	AlgorithmTypeID int    `db:"algorithm_type_id"`
-	SSHKey          string `db:"ssh_key"`
-	PublicKey       []byte `db:"public_key"`
+// GetSSHServerPort returns the port the controller SSH jump server listens on.
+// If no port has been set, it returns 0 and a NotFound error, leaving the
+// caller to decide on a default.
+func (st *State) GetSSHServerPort(ctx context.Context) (int, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &sshServerPort.port
+FROM controller_ssh_server_port`, sshServerPort{})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+
+	var row sshServerPort
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("controller SSH server port not found").Add(ssherrors.SSHServerPortNotFound)
+		}
+		if err != nil {
+			return errors.Errorf("querying controller SSH server port: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+	return row.Port, nil
 }
 
-type controllerSSHHostKeyID struct {
-	ID string `db:"id"`
+// SetSSHServerPort sets the port the controller SSH jump server listens on.
+// The port is seeded at bootstrap and never deleted, so it is updated in place.
+// If no port has been set, it returns an error satisfying
+// [ssherrors.SSHServerPortNotFound].
+func (st *State) SetSSHServerPort(ctx context.Context, port int) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	updateStmt, err := st.Prepare(`
+UPDATE controller_ssh_server_port
+SET    port = $sshServerPort.port`, sshServerPort{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, updateStmt, sshServerPort{Port: port}).Get(&outcome); err != nil {
+			return errors.Errorf("setting controller SSH server port: %w", err)
+		}
+		if n, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Errorf("setting controller SSH server port: %w", err)
+		} else if n == 0 {
+			// This would be a programmatic error, but we're just being defensive.
+			return errors.Errorf("controller SSH server port not found").Add(ssherrors.SSHServerPortNotFound)
+		}
+		return nil
+	}))
 }
 
-type userName struct {
-	Name string `db:"name"`
-}
-
-type userPublicSSHKey struct {
-	Comment     string `db:"comment"`
-	Fingerprint string `db:"fingerprint"`
-	PublicKey   string `db:"public_key"`
-}
-
-type entityName struct {
-	Name string `db:"name"`
-}
-
-type modelUUIDValue struct {
-	UUID string `db:"uuid"`
-}
-
-type publicKeyFingerprint struct {
-	Fingerprint string `db:"fingerprint"`
-}
-
-type matchedPublicKeyFingerprint struct {
-	Fingerprint string `db:"fingerprint"`
+// NamespaceForWatchSSHServerPort returns the change-stream namespace used to
+// watch for changes to the controller SSH server port.
+func (st *State) NamespaceForWatchSSHServerPort() string {
+	return "controller_ssh_server_port"
 }

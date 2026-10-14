@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -238,6 +240,9 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 		Logger:                  loggertesting.WrapCheckLog(c),
 		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
+			// The port now comes from the SSH service (stub default), not
+			// controller config; this test exercises the max-conns restart.
+			c.Check(swc.Port, tc.Equals, controller.DefaultSSHServerPort)
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
 			w := workertest.NewErrorWorker(nil)
 			servers <- startedServer{config: swc, worker: w}
@@ -251,7 +256,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 
 	first := <-servers
 	defer workertest.DirtyKill(c, first.worker)
-	c.Check(first.config.Port, tc.Equals, 22)
+	c.Check(first.config.Port, tc.Equals, controller.DefaultSSHServerPort)
 	c.Check(first.config.MaxConcurrentConnections, tc.Equals, 10)
 
 	// Check all workers alive properly.
@@ -269,7 +274,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 	ch <- nil
 	second := <-servers
 	defer workertest.DirtyKill(c, second.worker)
-	c.Check(second.config.Port, tc.Equals, 22)
+	c.Check(second.config.Port, tc.Equals, controller.DefaultSSHServerPort)
 	c.Check(second.config.MaxConcurrentConnections, tc.Equals, 15)
 
 	c.Check(workertest.CheckKilled(c, first.worker), tc.ErrorIsNil)
@@ -291,45 +296,33 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 
 	controllerConfigService := NewMockControllerConfigService(ctrl)
 	controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).Return(controllerConfigWatcher, nil)
+	// Controller config is only read at startup here; the port change is driven
+	// via the SSH server port watcher below.
+	controllerConfigService.EXPECT().
+		ControllerConfig(gomock.Any()).
+		Return(
+			controller.Config{
+				controller.SSHMaxConcurrentConnections: 10,
+			},
+			nil,
+		).
+		AnyTimes()
 
-	// First call on startup.
-	controllerConfigService.EXPECT().
-		ControllerConfig(gomock.Any()).
-		Return(
-			controller.Config{
-				controller.SSHServerPort:               22,
-				controller.SSHMaxConcurrentConnections: 10,
-			},
-			nil,
-		).
-		Times(1)
-	// Second call after first watcher event: unchanged.
-	controllerConfigService.EXPECT().
-		ControllerConfig(gomock.Any()).
-		Return(
-			controller.Config{
-				controller.SSHServerPort:               22,
-				controller.SSHMaxConcurrentConnections: 10,
-			},
-			nil,
-		).
-		Times(1)
-	// Third call after second watcher event: port changed.
-	controllerConfigService.EXPECT().
-		ControllerConfig(gomock.Any()).
-		Return(
-			controller.Config{
-				controller.SSHServerPort:               23,
-				controller.SSHMaxConcurrentConnections: 10,
-			},
-			nil,
-		).
-		Times(1)
+	// The SSH server port is owned by the SSH service. Drive changes through a
+	// controllable notify watcher and a mutable port value.
+	portCh := make(chan struct{})
+	portWatcher := watchertest.NewMockNotifyWatcher(portCh)
+	defer workertest.DirtyKill(c, portWatcher)
+	sshService := &mutablePortSSHService{
+		stubSSHService: stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		portWatcher:    portWatcher,
+	}
+	sshService.setPort(22)
 
 	servers := make(chan startedServer, 2)
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              sshService,
 		Logger:                  loggertesting.WrapCheckLog(c),
 		Metrics:                 NewMetricsCollector(),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
@@ -352,14 +345,15 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 	workertest.CheckAlive(c, first.worker)
 	workertest.CheckAlive(c, controllerConfigWatcher)
 
-	// First change: no restart expected.
-	ch <- nil
+	// First change: port unchanged, no restart expected.
+	portCh <- struct{}{}
 	workertest.CheckAlive(c, w)
 	workertest.CheckAlive(c, first.worker)
 	c.Check(servers, tc.HasLen, 0)
 
 	// Second change: port changed, server replaced and the wrapper stays up.
-	ch <- nil
+	sshService.setPort(23)
+	portCh <- struct{}{}
 	second := <-servers
 	defer workertest.DirtyKill(c, second.worker)
 	c.Check(second.config.Port, tc.Equals, 23)
@@ -371,6 +365,31 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 
 	workertest.CleanKill(c, w)
 	c.Check(workertest.CheckKilled(c, second.worker), tc.ErrorIsNil)
+}
+
+// mutablePortSSHService is a stubSSHService whose port and port watcher can be
+// controlled by tests to exercise the SSH server port watch/restart path.
+type mutablePortSSHService struct {
+	stubSSHService
+	mu          sync.Mutex
+	currentPort int
+	portWatcher watcher.NotifyWatcher
+}
+
+func (s *mutablePortSSHService) setPort(port int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.currentPort = port
+}
+
+func (s *mutablePortSSHService) GetSSHServerPort(context.Context) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.currentPort, nil
+}
+
+func (s *mutablePortSSHService) WatchSSHServerPort(context.Context) (watcher.NotifyWatcher, error) {
+	return s.portWatcher, nil
 }
 
 func (s *workerSuite) TestSSHServerWrapperWorkerConfigWatcherClosed(c *tc.C) {
@@ -497,10 +516,30 @@ type stubSSHService struct {
 	virtualErr     error
 	resolveErr     error
 	machineErr     error
+
+	port         int
+	portErr      error
+	portWatcher  watcher.NotifyWatcher
+	portWatchErr error
 }
 
 func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
 	return s.jumpHostKey, s.jumpErr
+}
+
+func (s stubSSHService) GetSSHServerPort(context.Context) (int, error) {
+	if s.port == 0 && s.portErr == nil {
+		return controller.DefaultSSHServerPort, nil
+	}
+	return s.port, s.portErr
+}
+
+func (s stubSSHService) WatchSSHServerPort(context.Context) (watcher.NotifyWatcher, error) {
+	if s.portWatcher != nil || s.portWatchErr != nil {
+		return s.portWatcher, s.portWatchErr
+	}
+	// Default: a watcher that never fires, kept alive until closed.
+	return watchertest.NewMockNotifyWatcher(make(chan struct{})), nil
 }
 
 func (s stubSSHService) GetPublicKeysForUser(context.Context, user.Name) ([]coressh.PublicKey, error) {
