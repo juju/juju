@@ -125,6 +125,11 @@ type unitName struct {
 	Name string `db:"name"`
 }
 
+type unitNameAndOrdinal struct {
+	Name    string `db:"name"`
+	Ordinal int    `db:"ordinal"`
+}
+
 type unitNameAndUUID struct {
 	Name string `db:"name"`
 	UUID string `db:"uuid"`

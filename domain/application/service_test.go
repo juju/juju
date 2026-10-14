@@ -144,6 +144,30 @@ func (s *serviceSuite) TestChangeScale(c *tc.C) {
 	c.Check(gotScale, tc.Equals, 3)
 }
 
+func (s *serviceSuite) TestChangeScaleConcurrent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.createApplication(c, "foo", service.AddUnitArg{})
+
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			_, err := s.svc.ChangeApplicationScale(c.Context(), "foo", 1)
+			results <- err
+		}()
+	}
+	close(start)
+	for range 2 {
+		c.Check(<-results, tc.ErrorIsNil)
+	}
+
+	gotScale, err := s.svc.GetApplicationScale(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotScale, tc.Equals, 3)
+}
+
 func (s *serviceSuite) TestChangeScaleInvalid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
