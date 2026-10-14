@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -113,17 +114,16 @@ WHERE sm.type = 'table' AND sm.name NOT LIKE 'sqlite_%' ORDER BY sm.name`)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var names []string
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
-			_ = rows.Close()
 			return nil, err
 		}
 		names = append(names, name)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {
@@ -131,35 +131,42 @@ WHERE sm.type = 'table' AND sm.name NOT LIKE 'sqlite_%' ORDER BY sm.name`)
 	}
 	var tables []table
 	for _, name := range names {
-		t := table{Name: name, Struct: prefix + camel(name)}
-		cols, err := db.QueryContext(ctx, `PRAGMA table_info("`+name+`")`)
+		t, err := inspectTable(ctx, db, prefix, name)
 		if err != nil {
 			return nil, err
 		}
-		for cols.Next() {
-			var id, notNull, primaryKey int
-			var name, typ string
-			var def sql.NullString
-			if err := cols.Scan(&id, &name, &typ, &notNull, &def, &primaryKey); err != nil {
-				_ = cols.Close()
-				return nil, err
-			}
-			t.Columns = append(t.Columns, column{
-				Name: name, Field: camel(name), Type: bindingType(t.Name, name, typ),
-				HasDefault: def.Valid, Default: def.String,
-			})
-		}
-		if err := cols.Err(); err != nil {
-			_ = cols.Close()
-			return nil, err
-		}
-		if err := cols.Close(); err != nil {
-			return nil, err
-		}
-		t.Insert = insertSQL(t)
 		tables = append(tables, t)
 	}
 	return tables, nil
+}
+
+func inspectTable(ctx context.Context, db *sql.DB, prefix, name string) (table, error) {
+	t := table{Name: name, Struct: prefix + camel(name)}
+	cols, err := db.QueryContext(ctx, `PRAGMA table_info("`+name+`")`)
+	if err != nil {
+		return table{}, err
+	}
+	defer cols.Close()
+	for cols.Next() {
+		var id, notNull, primaryKey int
+		var name, typ string
+		var def sql.NullString
+		if err := cols.Scan(&id, &name, &typ, &notNull, &def, &primaryKey); err != nil {
+			return table{}, err
+		}
+		t.Columns = append(t.Columns, column{
+			Name: name, Field: camel(name), Type: bindingType(t.Name, name, typ),
+			HasDefault: def.Valid, Default: def.String,
+		})
+	}
+	if err := cols.Err(); err != nil {
+		return table{}, err
+	}
+	if err := cols.Close(); err != nil {
+		return table{}, err
+	}
+	t.Insert = insertSQL(t)
+	return t, nil
 }
 
 // binaryTextColumns describes legacy TEXT columns whose domain writers bind
@@ -192,10 +199,8 @@ var binaryTextColumns = map[string][]string{
 }
 
 func bindingType(table, name, typ string) string {
-	for _, binaryColumn := range binaryTextColumns[table] {
-		if name == binaryColumn {
-			return "[]byte"
-		}
+	if slices.Contains(binaryTextColumns[table], name) {
+		return "[]byte"
 	}
 	switch strings.ToUpper(typ) {
 	case "INTEGER", "INT":
@@ -230,7 +235,7 @@ func insertSQL(t table) string {
 
 func camel(s string) string {
 	var result strings.Builder
-	for _, part := range strings.Split(s, "_") {
+	for part := range strings.SplitSeq(s, "_") {
 		switch part {
 		case "uuid", "id":
 			result.WriteString(strings.ToUpper(part))
