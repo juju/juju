@@ -6,12 +6,13 @@ by Juju controller agents for dashboards, alerts, and troubleshooting.
 ## Accessing metrics
 
 A controller agent exposes its Prometheus registry at the authenticated HTTPS
-path `/metrics/`. The endpoint uses the controller API listener, so its host
-and port are the controller API address advertised by `juju controllers`.
-It is not a public unauthenticated endpoint. The authentication identity
-depends on the callee: when Prometheus scrapes through the `juju-controller`
-charm, it connects as the metrics user created for that relation; for direct
-access through the introspection handler, the agent is the callee.
+path `/introspection/metrics/`. The endpoint uses the controller API listener,
+so its host and port are the controller API address advertised by `juju
+controllers`. It is not a public unauthenticated endpoint. The authentication
+identity depends on the callee: when Prometheus scrapes through the
+`juju-controller` charm, it connects as the metrics user created for that
+relation; for direct access through the introspection handler, the agent is
+the callee.
 
 For normal operation, relate the controller application's `metrics-endpoint`
 to Prometheus. The `juju-controller` charm supplies the endpoint address and
@@ -20,9 +21,8 @@ controller](docs/howto/manage-controllers.md#collect-metrics-about-a-controller)
 for an example using the Canonical Observability Stack.
 
 The same registry is available on Linux agents through their local
-introspection socket at `/metrics/`. This direct access uses the
-introspection handler and is intended for local diagnostics, not remote
-scraping.
+introspection socket at `/metrics/`. This direct access is intended for local
+diagnostics, not remote scraping.
 
 The endpoint emits Prometheus text exposition format. A metric family appears
 only after its collector has been registered, and a labelled series normally
@@ -46,8 +46,11 @@ does not by itself indicate a fault.
 Counters normally increase for the lifetime of an agent. Use PromQL functions
 such as `rate()` or `increase()` to measure activity over a time range. A
 histogram exposes `_bucket`, `_sum`, and `_count` series; a summary exposes
-`_sum` and `_count` series as well as configured quantiles. Most counters use
-the Prometheus `_total` suffix, although a few older metrics do not.
+`_sum` and `_count` series as well as configured quantiles. Counter metrics
+normally use the Prometheus `_total` suffix. The exceptions are
+`juju_apiserver_ping_failure_count`, `juju_apiserver_log_write_count`,
+`juju_apiserver_log_read_count`, and
+`juju_sshserver_authentication_failures`.
 
 ## Useful queries
 
@@ -60,7 +63,7 @@ appropriate for the controller's normal workload.
 | Which outbound API hosts are returning errors? | `sum by (host, status) (rate(juju_apiserver_outbound_request_errors_total[5m]))` |
 | Is database transaction retry activity increasing? | `sum by (namespace) (rate(juju_db_txn_retries_total[5m]))` |
 | Are change-stream dispatches failing? | `sum by (namespace) (rate(juju_db_dispatch_duration_seconds_count{failed="true"}[5m]))` |
-| Are logs being dropped before reaching Loki? | `sum by (log_router) (rate(juju_loki_forwarder_dropped_total[5m]))` |
+| Are logs being dropped before reaching Loki? | `rate(juju_loki_forwarder_dropped_total[5m])` |
 | Are SSH logins being rejected? | `sum by (auth_method) (rate(juju_sshserver_authentication_failures[5m]))` |
 
 ## Controller API server
@@ -122,11 +125,9 @@ is configured and running.
 
 | Metric | Type | Labels | Unit | Description |
 | --- | --- | --- | --- | --- |
-| `juju_loki_forwarder_sent_total` | counter | `log_router` | log records | Log records successfully sent to Loki. |
-| `juju_loki_forwarder_dropped_total` | counter | `log_router` | log records | Log records dropped from the local queue. |
-| `juju_loki_forwarder_push_errors_total` | counter | `log_router` | attempts | Loki push attempts that failed after retries. |
-
-`log_router` distinguishes the API-backed and controller-local log routers.
+| `juju_loki_forwarder_sent_total` | counter | none | log records | Log records successfully sent to Loki. |
+| `juju_loki_forwarder_dropped_total` | counter | none | log records | Log records dropped from the local queue. |
+| `juju_loki_forwarder_push_errors_total` | counter | none | attempts | Loki push attempts that failed after retries. |
 
 ## Runtime metrics
 
