@@ -1094,13 +1094,7 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Capture(err)
 	}
 
-	const maxAttempts = 3
-	for attempt := 0; ; attempt++ {
-		newScale, err := s.changeCAASApplicationUnitScale(ctx, appUUID, appName, nil, scaleChange)
-		if !errors.Is(err, applicationerrors.ScalingStateInconsistent) || attempt == maxAttempts-1 {
-			return newScale, err
-		}
-	}
+	return s.changeCAASApplicationUnitScale(ctx, appUUID, appName, nil, scaleChange)
 }
 
 // changeCAASApplicationUnitScale applies a plan when the Alive set has not
