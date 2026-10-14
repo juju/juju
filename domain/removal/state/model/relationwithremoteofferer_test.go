@@ -4,8 +4,6 @@
 package model
 
 import (
-	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -59,7 +57,16 @@ func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveC
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), relUUID.String())
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+SELECT 'local-relation-unit', re.uuid, u.uuid
+FROM relation_endpoint AS re
+JOIN application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN unit AS u ON ae.application_uuid = u.application_uuid
+WHERE re.relation_uuid = ? AND u.name = 'bar/0'`, relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lifeID int
@@ -74,41 +81,86 @@ func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveC
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, int(life.Alive))
 
-	// But the synth units should all be dead
-	rows, err := s.DB().QueryContext(c.Context(), "SELECT life_id FROM unit where application_uuid = ?", synthAppUUID.String())
+	var units int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM unit WHERE application_uuid = ?`, synthAppUUID.String()).Scan(&units)
 	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-	for rows.Next() {
-		var lifeID int
-		err := rows.Scan(&lifeID)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(lifeID, tc.Equals, int(life.Dead))
-	}
-
-	// Check the returned synth rel units
-	synthRelUnitUUIDs := artifacts.SyntheticRelationUnitUUIDs
-	c.Check(len(synthRelUnitUUIDs), tc.Equals, 3)
-
-	var gotAppUUID string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT DISTINCT u.application_uuid
-FROM            relation_unit AS ru
-JOIN            unit AS u ON ru.unit_uuid = u.uuid
-WHERE           ru.uuid IN (?, ?, ?)
-`, synthRelUnitUUIDs[0], synthRelUnitUUIDs[1], synthRelUnitUUIDs[2]).Scan(&gotAppUUID)
-		return err
-	})
+	c.Check(units, tc.Equals, 0)
+	var settings int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_setting`).Scan(&settings)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotAppUUID, tc.Equals, synthAppUUID.String())
+	c.Check(settings, tc.Equals, 0)
+	var settingsHash int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_settings_hash`).Scan(&settingsHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settingsHash, tc.Equals, 0)
+	var archived int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_setting_archive
+WHERE relation_uuid = ? AND key = 'do' AND value = 'da'`, relUUID.String()).Scan(&archived)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archived, tc.Equals, 3)
+	inScope, err := st.UnitNamesInScope(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inScope, tc.DeepEquals, []string{"bar/0"})
 }
 
 func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), "some-relation-uuid")
+	err := st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *relationWithRemoteOfferer) TestEnsureRelationWithRemoteOffererNotAliveCascadeRollback(c *tc.C) {
+	relUUID, synthAppUUID := s.createRelationWithRemoteOfferer(c)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	ctx := c.Context()
+
+	_, err := s.DB().ExecContext(ctx, `
+CREATE TRIGGER fail_last_synthetic_unit_deletion BEFORE DELETE ON unit
+WHEN (SELECT COUNT(*) FROM unit WHERE application_uuid = OLD.application_uuid) = 1
+BEGIN
+    SELECT RAISE(ABORT, 'synthetic unit deletion failed');
+END`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, relUUID.String())
+	c.Assert(err, tc.ErrorMatches, ".*synthetic unit deletion failed.*")
+	relationLife, err := st.GetRelationLife(ctx, relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationLife, tc.Equals, life.Alive)
+
+	var aliveUnits int
+	err = s.DB().QueryRowContext(ctx, `
+SELECT COUNT(*) FROM unit
+WHERE application_uuid = ? AND life_id = 0`, synthAppUUID.String()).Scan(&aliveUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(aliveUnits, tc.Equals, 3)
+	for _, table := range []string{"relation_unit", "relation_unit_setting", "relation_unit_settings_hash"} {
+		var remaining int
+		err = s.DB().QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&remaining)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(remaining, tc.Equals, 3)
+	}
+	var archived int
+	err = s.DB().QueryRowContext(ctx, `
+SELECT COUNT(*) FROM relation_unit_setting_archive WHERE relation_uuid = ?`, relUUID.String()).Scan(&archived)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archived, tc.Equals, 0)
+
+	_, err = s.DB().ExecContext(ctx, "DROP TRIGGER fail_last_synthetic_unit_deletion")
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	var totalUnits int
+	err = s.DB().QueryRowContext(ctx, `
+SELECT COUNT(*) FROM unit WHERE application_uuid = ?`, synthAppUUID.String()).Scan(&totalUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(totalUnits, tc.Equals, 0)
 }
 
 func (s *relationWithRemoteOfferer) TestRelationWithRemoteOffererScheduleRemovalNormalSuccess(c *tc.C) {

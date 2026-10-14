@@ -13,7 +13,6 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
-	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -25,9 +24,9 @@ type RelationWithRemoteOfferer interface {
 	RelationWithRemoteOffererExists(ctx context.Context, rUUID string) (bool, error)
 
 	// EnsureRelationWithRemoteOffererNotAliveCascade ensures that the relation
-	// identified by the input UUID is not alive, and sets the synthetic units
-	// in scope of this relation to dead.
-	EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteOffererLives, error)
+	// identified by the input UUID is not alive and atomically departs its
+	// synthetic units, retaining units shared with another relation.
+	EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) error
 
 	// RelationWithRemoteOffererScheduleRemoval schedules a removal job for the
 	// relation with the input UUID, qualified with the input force boolean.
@@ -61,7 +60,7 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 		return "", errors.Errorf("remote relation %q does not exist", relUUID).Add(relationerrors.RelationNotFound)
 	}
 
-	res, err := s.modelState.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, relUUID.String())
+	err = s.modelState.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, relUUID.String())
 	if err != nil {
 		return "", errors.Errorf("setting remote relation %q to dying: %w", relUUID, err)
 	}
@@ -69,15 +68,6 @@ func (s *Service) RemoveRelationWithRemoteOfferer(
 	jUUID, err := s.scheduleWithForceWait(ctx, relUUID, force, wait, s.relationWithRemoteOffererScheduleRemoval)
 	if err != nil {
 		return "", errors.Errorf("scheduling removal job for remote relation %q: %w", relUUID, err)
-	}
-
-	// Depart the synthetic units here ourselves, since synthetic units don't
-	// have their own uniter.
-	// TODO: This should ideally be handled in the same transaction as the cascade
-	for _, r := range res.SyntheticRelationUnitUUIDs {
-		if err := s.modelState.LeaveScope(ctx, r); err != nil {
-			return "", errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
-		}
 	}
 
 	return jUUID, nil
