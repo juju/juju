@@ -848,6 +848,7 @@ AND u.life_id = 0
 	}
 	getApplication, err := st.Prepare(`
 SELECT a.name AS &applicationDetails.name,
+	   a.life_id AS &applicationDetails.life_id,
        c.source_id = 2 AS &applicationDetails.is_application_synthetic
 FROM application AS a
 JOIN charm AS c ON c.uuid = a.charm_uuid
@@ -880,6 +881,9 @@ WHERE name = $unitName.name AND life_id = 0
 				Add(applicationerrors.ApplicationNotFound)
 		} else if err != nil {
 			return errors.Capture(err)
+		}
+		if appDetails.LifeID != life.Alive {
+			return errors.Errorf("application %q is not alive: %w", appDetails.Name, applicationerrors.ApplicationNotAlive)
 		}
 		if appDetails.IsApplicationSynthetic {
 			return errors.Errorf("cannot scale synthetic application %q", appDetails.Name)
