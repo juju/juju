@@ -153,6 +153,10 @@ type ApplicationState interface {
 	// required name, checked against the name allocated in the transaction.
 	SetCAASApplicationUnitScale(context.Context, string, []string, []string, []internal.ScaleCAASUnitArg) ([]string, error)
 
+	// ChangeCAASApplicationUnitScale atomically applies a relative change to
+	// the Alive unit set and returns the resulting scale and inserted names.
+	ChangeCAASApplicationUnitScale(context.Context, string, int, []internal.AddCAASUnitArg) (int, []string, error)
+
 	// GetCharmByApplicationUUID returns the charm, charm origin and charm
 	// platform for the specified application UUID.
 	//
@@ -1033,8 +1037,36 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if err != nil {
 		return errors.Capture(err)
 	}
-	_, err = s.changeCAASApplicationUnitScale(ctx, appUUID, appName, &scale, 0)
-	return errors.Capture(err)
+	lives, err := s.st.GetAllUnitLifeForApplication(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if scale == 0 {
+		isController, err := s.st.IsControllerApplication(ctx, appUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if isController {
+			return errors.Errorf("cannot scale controller application to 0 units")
+		}
+	}
+	plan, err := s.makeCAASUnitScalePlan(ctx, appName, lives, scale)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	inserted, err := s.st.SetCAASApplicationUnitScale(
+		ctx, appUUID.String(), plan.expected, plan.leaving, plan.newUnits,
+	)
+	if err != nil {
+		return errors.Errorf("setting unit scale: %w", err)
+	}
+	for i, name := range inserted {
+		if err := s.recordUnitStatusHistory(ctx, coreunit.Name(name), plan.newUnits[i].UnitStatus); err != nil {
+			return errors.Errorf("recording status history: %w", err)
+		}
+	}
+	return nil
 }
 
 // GetApplicationScale returns the desired scale of an application,
@@ -1094,58 +1126,22 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Capture(err)
 	}
 
-	return s.changeCAASApplicationUnitScale(ctx, appUUID, appName, nil, scaleChange)
-}
-
-// changeCAASApplicationUnitScale applies a plan when the Alive set has not
-// changed between the read and the atomic state transaction.
-func (s *Service) changeCAASApplicationUnitScale(
-	ctx context.Context, appUUID coreapplication.UUID, appName string, absolute *int, delta int,
-) (int, error) {
-	lives, err := s.st.GetAllUnitLifeForApplication(ctx, appUUID)
+	newUnits, err := s.makeCAASUnitArgs(max(scaleChange, 0))
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
-	current := aliveUnitCount(lives)
-	var target int
-	if absolute != nil {
-		target = *absolute
-	} else {
-		if delta > 0 && current > math.MaxInt-delta {
-			return -1, applicationerrors.ScaleChangeInvalid
-		}
-		target = delta + current
-	}
-	if target < 0 {
-		return -1, errors.Errorf("%w: cannot remove more units than currently exist", applicationerrors.ScaleChangeInvalid)
-	}
-	if target == 0 {
-		isController, err := s.st.IsControllerApplication(ctx, appUUID)
-		if err != nil {
-			return -1, errors.Capture(err)
-		}
-		if isController {
-			return -1, errors.Errorf("cannot scale controller application to 0 units")
-		}
-	}
-	plan, err := s.makeCAASUnitScalePlan(ctx, appName, lives, target)
-	if err != nil {
-		return -1, errors.Capture(err)
-	}
-
-	inserted, err := s.st.SetCAASApplicationUnitScale(
-		ctx, appUUID.String(), plan.expected, plan.leaving, plan.newUnits,
+	newScale, inserted, err := s.st.ChangeCAASApplicationUnitScale(
+		ctx, appUUID.String(), scaleChange, newUnits,
 	)
 	if err != nil {
-		return -1, errors.Errorf("setting unit scale: %w", err)
+		return -1, errors.Capture(err)
 	}
 	for i, name := range inserted {
-		unitName := coreunit.Name(name)
-		if err := s.recordUnitStatusHistory(ctx, unitName, plan.newUnits[i].UnitStatus); err != nil {
+		if err := s.recordUnitStatusHistory(ctx, coreunit.Name(name), newUnits[i].UnitStatus); err != nil {
 			return -1, errors.Errorf("recording status history: %w", err)
 		}
 	}
-	return target, nil
+	return newScale, nil
 }
 
 type caasUnitScalePlan struct {
@@ -1223,12 +1219,27 @@ func (s *Service) makeCAASScaleUnitArgs(
 	if nextOrdinal > math.MaxInt-count+1 {
 		return nil, applicationerrors.ScaleChangeInvalid
 	}
+	unitArgs, err := s.makeCAASUnitArgs(count)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 	args := make([]internal.ScaleCAASUnitArg, count)
 	for i := range args {
 		name, err := coreunit.NewNameFromParts(appName, nextOrdinal+i)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
+		args[i] = internal.ScaleCAASUnitArg{
+			ExpectedName:   name.String(),
+			AddCAASUnitArg: unitArgs[i],
+		}
+	}
+	return args, nil
+}
+
+func (s *Service) makeCAASUnitArgs(count int) ([]internal.AddCAASUnitArg, error) {
+	args := make([]internal.AddCAASUnitArg, count)
+	for i := range args {
 		unitUUID, err := coreunit.NewUUID()
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1237,11 +1248,10 @@ func (s *Service) makeCAASScaleUnitArgs(
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
-		args[i] = internal.ScaleCAASUnitArg{
-			ExpectedName: name.String(),
-			UnitUUID:     unitUUID.String(),
-			NetNodeUUID:  netNodeUUID.String(),
-			UnitStatus:   s.makeCAASUnitStatusArgs(),
+		args[i] = internal.AddCAASUnitArg{
+			UnitUUID:    unitUUID.String(),
+			NetNodeUUID: netNodeUUID.String(),
+			UnitStatus:  s.makeCAASUnitStatusArgs(),
 		}
 	}
 	return args, nil
