@@ -249,6 +249,7 @@ SET    port = $sshServerPort.port`, sshServerPort{})
 		if n, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Errorf("setting controller SSH server port: %w", err)
 		} else if n == 0 {
+			// This would be a programmatic error, but we're just being defensive.
 			return errors.Errorf("controller SSH server port not found").Add(ssherrors.SSHServerPortNotFound)
 		}
 		return nil
