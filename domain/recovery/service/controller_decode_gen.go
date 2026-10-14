@@ -10,11 +10,20 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// DecodeControllerDump decodes an archive and selects recoverable tables.
+// Version compatibility must be checked by the caller before replay.
+func DecodeControllerDump(data []byte) (*recovery.ControllerDump, error) {
+	dump, err := decodeDump(data)
+	if err != nil {
+		return nil, err
+	}
+	return decodeControllerDump(dump)
+}
+
 // decodeControllerDump validates tables and converts rows to native types.
 func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 	out := &recovery.ControllerDump{Present: make(map[string]bool, len(dump.Tables))}
 	for table, rows := range dump.Tables {
-		out.Present[table] = true
 		switch table {
 		case "agent_binary_store":
 			decoded, err := decodeRows[recovery.ControllerAgentBinaryStore](rows)
@@ -53,41 +62,17 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerBakeryConfig = decoded
 		case "change_log":
-			decoded, err := decodeRows[recovery.ControllerChangeLog](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasCreatedAt = rows[i]["created_at"]
-			}
-			out.ControllerChangeLog = decoded
+			// Do not replay source change notifications.
+			continue
 		case "change_log_edit_type":
-			decoded, err := decodeRows[recovery.ControllerChangeLogEditType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerChangeLogEditType = decoded
+			// Keep the target's seeded change types.
+			continue
 		case "change_log_namespace":
-			decoded, err := decodeRows[recovery.ControllerChangeLogNamespace](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerChangeLogNamespace = decoded
+			// Keep the target's seeded change namespaces.
+			continue
 		case "change_log_witness":
-			decoded, err := decodeRows[recovery.ControllerChangeLogWitness](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasLowerBound = rows[i]["lower_bound"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasUpperBound = rows[i]["upper_bound"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasUpdatedAt = rows[i]["updated_at"]
-			}
-			out.ControllerChangeLogWitness = decoded
+			// Keep target watcher progress.
+			continue
 		case "charm_tracing_config":
 			decoded, err := decodeRows[recovery.ControllerCharmTracingConfig](rows)
 			if err != nil {
@@ -161,32 +146,14 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerController = decoded
 		case "controller_agent_address":
-			decoded, err := decodeRows[recovery.ControllerControllerAgentAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasPriority = rows[i]["priority"]
-			}
-			out.ControllerControllerAgentAddress = decoded
+			// Keep replacement agent endpoints.
+			continue
 		case "controller_api_address":
-			decoded, err := decodeRows[recovery.ControllerControllerApiAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsAgent = rows[i]["is_agent"]
-			}
-			out.ControllerControllerApiAddress = decoded
+			// Keep replacement API endpoints.
+			continue
 		case "controller_client_address":
-			decoded, err := decodeRows[recovery.ControllerControllerClientAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasPriority = rows[i]["priority"]
-			}
-			out.ControllerControllerClientAddress = decoded
+			// Keep replacement client endpoints.
+			continue
 		case "controller_config":
 			decoded, err := decodeRows[recovery.ControllerControllerConfig](rows)
 			if err != nil {
@@ -194,41 +161,20 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerControllerConfig = decoded
 		case "controller_node":
-			decoded, err := decodeRows[recovery.ControllerControllerNode](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasLifeID = rows[i]["life_id"]
-			}
-			out.ControllerControllerNode = decoded
+			// Keep replacement controller nodes.
+			continue
 		case "controller_node_agent_version":
-			decoded, err := decodeRows[recovery.ControllerControllerNodeAgentVersion](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerControllerNodeAgentVersion = decoded
+			// Keep replacement node agent versions.
+			continue
 		case "controller_node_nonce":
-			decoded, err := decodeRows[recovery.ControllerControllerNodeNonce](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerControllerNodeNonce = decoded
+			// Keep replacement node introduction nonces.
+			continue
 		case "controller_node_password":
-			decoded, err := decodeRows[recovery.ControllerControllerNodePassword](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerControllerNodePassword = decoded
+			// Keep replacement node credentials.
+			continue
 		case "controller_peer_address":
-			decoded, err := decodeRows[recovery.ControllerControllerPeerAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasPriority = rows[i]["priority"]
-			}
-			out.ControllerControllerPeerAddress = decoded
+			// Keep replacement peer endpoints.
+			continue
 		case "controller_ssh_host_key":
 			decoded, err := decodeRows[recovery.ControllerControllerSshHostKey](rows, "public_key")
 			if err != nil {
@@ -266,17 +212,11 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerFlag = decoded
 		case "lease":
-			decoded, err := decodeRows[recovery.ControllerLease](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerLease = decoded
+			// Do not restore source worker ownership.
+			continue
 		case "lease_pin":
-			decoded, err := decodeRows[recovery.ControllerLeasePin](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerLeasePin = decoded
+			// Do not restore pins on source leases.
+			continue
 		case "lease_type":
 			decoded, err := decodeRows[recovery.ControllerLeaseType](rows)
 			if err != nil {
@@ -485,11 +425,8 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerObjectStoreMetadataPath = decoded
 		case "object_store_placement":
-			decoded, err := decodeRows[recovery.ControllerObjectStorePlacement](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerObjectStorePlacement = decoded
+			// Rebuild placements using the supplied target node.
+			continue
 		case "password_hash_algorithm":
 			decoded, err := decodeRows[recovery.ControllerPasswordHashAlgorithm](rows)
 			if err != nil {
@@ -521,11 +458,8 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerPermissionObjectType = decoded
 		case "schema":
-			decoded, err := decodeRows[recovery.ControllerSchema](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerSchema = decoded
+			// Keep the target's applied migration bookkeeping.
+			continue
 		case "secret_backend":
 			decoded, err := decodeRows[recovery.ControllerSecretBackend](rows)
 			if err != nil {
@@ -578,17 +512,11 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.ControllerSshKeyAlgorithmType = decoded
 		case "upgrade_info":
-			decoded, err := decodeRows[recovery.ControllerUpgradeInfo](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerUpgradeInfo = decoded
+			// Keep target upgrade progress.
+			continue
 		case "upgrade_info_controller_node":
-			decoded, err := decodeRows[recovery.ControllerUpgradeInfoControllerNode](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ControllerUpgradeInfoControllerNode = decoded
+			// Keep target node upgrade progress.
+			continue
 		case "upgrade_state_type":
 			decoded, err := decodeRows[recovery.ControllerUpgradeStateType](rows)
 			if err != nil {
@@ -637,6 +565,7 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 		default:
 			return nil, errors.Errorf("unknown recovery table %q", table)
 		}
+		out.Present[table] = true
 	}
 	return out, nil
 }

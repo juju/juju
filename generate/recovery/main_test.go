@@ -44,11 +44,28 @@ data BLOB, id INTEGER PRIMARY KEY AUTOINCREMENT)`)
 }
 
 func (s *generatorSuite) TestLegacyBinaryBindings(c *tc.C) {
-	c.Check(bindingType("bakery_config", "local_users_public_key", "TEXT"), tc.Equals, "[]byte")
-	c.Check(bindingType("macaroon_root_key", "id", "TEXT"), tc.Equals, "[]byte")
-	c.Check(bindingType("macaroon_root_key", "root_key", "TEXT"), tc.Equals, "[]byte")
-	c.Check(bindingType("controller", "uuid", "TEXT"), tc.Equals, "string")
-	c.Check(bindingType("macaroon_root_key", "created_at", "TIMESTAMP"), tc.Equals, "time.Time")
+	for _, test := range []struct{ table, column, sqlType, want string }{
+		{"bakery_config", "local_users_public_key", "TEXT", "[]byte"},
+		{"macaroon_root_key", "id", "TEXT", "[]byte"},
+		{"macaroon_root_key", "root_key", "TEXT", "[]byte"},
+		{"controller", "uuid", "TEXT", "string"},
+		{"macaroon_root_key", "created_at", "TIMESTAMP", "time.Time"},
+		{"controller_api_address", "scope", "TXT", "string"},
+	} {
+		got, err := bindingType(test.table, test.column, test.sqlType)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(got, tc.Equals, test.want)
+	}
+}
+
+func (s *generatorSuite) TestUnknownSQLTypeFailsInspection(c *tc.C) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Cleanup(func() { c.Check(db.Close(), tc.ErrorIsNil) })
+	_, err = db.Exec(`CREATE TABLE sample (value UNRECOGNISED)`)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = inspect(c.Context(), db, "Model")
+	c.Check(err, tc.ErrorMatches, `unsupported SQL type "UNRECOGNISED" for sample.value`)
 }
 
 func (s *generatorSuite) TestBinaryPoliciesMatchNativeSchemas(c *tc.C) {
@@ -66,6 +83,8 @@ func (s *generatorSuite) TestBinaryPoliciesMatchNativeSchemas(c *tc.C) {
 		for _, table := range tables {
 			columns := make(map[string]string)
 			for _, column := range table.Columns {
+				c.Check(column.Type, tc.Not(tc.Equals), "any",
+					tc.Commentf("column %s.%s", table.Name, column.Name))
 				columns[column.Name] = column.Type
 			}
 			known[table.Name] = columns
@@ -76,5 +95,8 @@ func (s *generatorSuite) TestBinaryPoliciesMatchNativeSchemas(c *tc.C) {
 		for _, column := range columns {
 			c.Check(known[table][column], tc.Equals, "[]byte", tc.Commentf("binary column %s.%s", table, column))
 		}
+	}
+	for table := range recoveryExclusions {
+		c.Check(known[table], tc.NotNil, tc.Commentf("excluded table %s", table))
 	}
 }

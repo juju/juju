@@ -15,10 +15,12 @@ import (
 )
 
 // Load{{ .Prefix }}Dump replaces the selected tables in one transaction.
-// The service selects tables according to recovery policy before this call.
-func (st *State) Load{{ .Prefix }}Dump(ctx context.Context, dump *recovery.{{ .Prefix }}Dump) error {
+// Runtime tables are excluded by the generated recovery policy. The caller
+// supplies the target node ID where the archived blobs have been restored.
+func (st *State) Load{{ .Prefix }}Dump(ctx context.Context, dump *recovery.{{ .Prefix }}Dump, nodeID string) error {
     var tables []replayTable
 {{- range .Tables }}
+{{- if not .Exclusion }}
     if dump.Present["{{ .Name }}"] {
         tables = append(tables, replayTable{
             name: "{{ .Name }}",
@@ -31,5 +33,6 @@ func (st *State) Load{{ .Prefix }}Dump(ctx context.Context, dump *recovery.{{ .P
         })
     }
 {{- end }}
-    return st.loadTables(ctx, tables)
+{{- end }}
+    return st.loadTables(ctx, tables, nodeID)
 }

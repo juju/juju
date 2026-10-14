@@ -14,8 +14,9 @@ import (
 )
 
 // LoadModelDump replaces the selected tables in one transaction.
-// The service selects tables according to recovery policy before this call.
-func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump) error {
+// Runtime tables are excluded by the generated recovery policy. The caller
+// supplies the target node ID where the archived blobs have been restored.
+func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, nodeID string) error {
 	var tables []replayTable
 	if dump.Present["agent_binary_store"] {
 		tables = append(tables, replayTable{
@@ -476,50 +477,6 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump) er
 			sample:    recovery.ModelBlockDeviceProvenance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ModelBlockDeviceProvenance)
-			},
-		})
-	}
-	if dump.Present["change_log"] {
-		tables = append(tables, replayTable{
-			name:      "change_log",
-			deleteSQL: `DELETE FROM "change_log" AS t`,
-			insertSQL: `INSERT INTO "change_log" ("id", "edit_type_id", "namespace_id", "changed", "created_at") SELECT $ModelChangeLog.id AS "id", $ModelChangeLog.edit_type_id AS "edit_type_id", $ModelChangeLog.namespace_id AS "namespace_id", $ModelChangeLog.changed AS "changed", CASE WHEN $ModelChangeLog.has_created_at THEN $ModelChangeLog.created_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "created_at"`,
-			sample:    recovery.ModelChangeLog{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelChangeLog)
-			},
-		})
-	}
-	if dump.Present["change_log_edit_type"] {
-		tables = append(tables, replayTable{
-			name:      "change_log_edit_type",
-			deleteSQL: `DELETE FROM "change_log_edit_type" AS t`,
-			insertSQL: `INSERT INTO "change_log_edit_type" ("id", "edit_type") SELECT $ModelChangeLogEditType.id AS "id", $ModelChangeLogEditType.edit_type AS "edit_type"`,
-			sample:    recovery.ModelChangeLogEditType{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelChangeLogEditType)
-			},
-		})
-	}
-	if dump.Present["change_log_namespace"] {
-		tables = append(tables, replayTable{
-			name:      "change_log_namespace",
-			deleteSQL: `DELETE FROM "change_log_namespace" AS t`,
-			insertSQL: `INSERT INTO "change_log_namespace" ("id", "namespace", "description") SELECT $ModelChangeLogNamespace.id AS "id", $ModelChangeLogNamespace.namespace AS "namespace", $ModelChangeLogNamespace.description AS "description"`,
-			sample:    recovery.ModelChangeLogNamespace{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelChangeLogNamespace)
-			},
-		})
-	}
-	if dump.Present["change_log_witness"] {
-		tables = append(tables, replayTable{
-			name:      "change_log_witness",
-			deleteSQL: `DELETE FROM "change_log_witness" AS t`,
-			insertSQL: `INSERT INTO "change_log_witness" ("controller_id", "lower_bound", "upper_bound", "updated_at") SELECT $ModelChangeLogWitness.controller_id AS "controller_id", CASE WHEN $ModelChangeLogWitness.has_lower_bound THEN $ModelChangeLogWitness.lower_bound ELSE -1 END AS "lower_bound", CASE WHEN $ModelChangeLogWitness.has_upper_bound THEN $ModelChangeLogWitness.upper_bound ELSE -1 END AS "upper_bound", CASE WHEN $ModelChangeLogWitness.has_updated_at THEN $ModelChangeLogWitness.updated_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "updated_at"`,
-			sample:    recovery.ModelChangeLogWitness{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelChangeLogWitness)
 			},
 		})
 	}
@@ -1513,17 +1470,6 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump) er
 			},
 		})
 	}
-	if dump.Present["object_store_placement"] {
-		tables = append(tables, replayTable{
-			name:      "object_store_placement",
-			deleteSQL: `DELETE FROM "object_store_placement" AS t`,
-			insertSQL: `INSERT INTO "object_store_placement" ("uuid", "node_id") SELECT $ModelObjectStorePlacement.uuid AS "uuid", $ModelObjectStorePlacement.node_id AS "node_id"`,
-			sample:    recovery.ModelObjectStorePlacement{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelObjectStorePlacement)
-			},
-		})
-	}
 	if dump.Present["offer"] {
 		tables = append(tables, replayTable{
 			name:      "offer",
@@ -2060,17 +2006,6 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump) er
 			sample:    recovery.ModelResourceState{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ModelResourceState)
-			},
-		})
-	}
-	if dump.Present["schema"] {
-		tables = append(tables, replayTable{
-			name:      "schema",
-			deleteSQL: `DELETE FROM "schema" AS t`,
-			insertSQL: `INSERT INTO "schema" ("id", "version", "hash", "updated_at") SELECT $ModelSchema.id AS "id", $ModelSchema.version AS "version", $ModelSchema.hash AS "hash", $ModelSchema.updated_at AS "updated_at"`,
-			sample:    recovery.ModelSchema{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSchema)
 			},
 		})
 	}
@@ -2778,5 +2713,5 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump) er
 			},
 		})
 	}
-	return st.loadTables(ctx, tables)
+	return st.loadTables(ctx, tables, nodeID)
 }

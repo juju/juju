@@ -23,7 +23,10 @@ type replayTable struct {
 // with the target's children. Foreign keys remain enabled; checks are deferred
 // for this transaction and verified before its commit. No connection PRAGMAs
 // need restoring after success, cancellation or rollback.
-func (st *State) loadTables(ctx context.Context, tables []replayTable) error {
+func (st *State) loadTables(ctx context.Context, tables []replayTable, nodeID string) error {
+	if nodeID == "" {
+		return errors.Errorf("target object store node ID is required")
+	}
 	type statements struct {
 		delete, insert *sqlair.Statement
 	}
@@ -45,11 +48,6 @@ func (st *State) loadTables(ctx context.Context, tables []replayTable) error {
 	}
 	type placement struct {
 		NodeID string `db:"node_id"`
-	}
-	getNode, err := st.Prepare(`SELECT osp.node_id AS &placement.node_id
-FROM object_store_placement AS osp LIMIT 1`, placement{})
-	if err != nil {
-		return errors.Capture(err)
 	}
 	deletePlacements, err := st.Prepare("DELETE FROM object_store_placement AS osp")
 	if err != nil {
@@ -81,10 +79,7 @@ FROM pragma_foreign_key_check AS fkc LIMIT 11`, violation{})
 		if err := tx.Query(ctx, deferFK).Run(); err != nil {
 			return errors.Capture(err)
 		}
-		node := placement{NodeID: "0"}
-		if err := tx.Query(ctx, getNode).Get(&node); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Capture(err)
-		}
+		node := placement{NodeID: nodeID}
 		if err := tx.Query(ctx, deletePlacements).Run(); err != nil {
 			return errors.Capture(err)
 		}

@@ -14,8 +14,9 @@ import (
 )
 
 // LoadControllerDump replaces the selected tables in one transaction.
-// The service selects tables according to recovery policy before this call.
-func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.ControllerDump) error {
+// Runtime tables are excluded by the generated recovery policy. The caller
+// supplies the target node ID where the archived blobs have been restored.
+func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.ControllerDump, nodeID string) error {
 	var tables []replayTable
 	if dump.Present["agent_binary_store"] {
 		tables = append(tables, replayTable{
@@ -80,50 +81,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			sample:    recovery.ControllerBakeryConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ControllerBakeryConfig)
-			},
-		})
-	}
-	if dump.Present["change_log"] {
-		tables = append(tables, replayTable{
-			name:      "change_log",
-			deleteSQL: `DELETE FROM "change_log" AS t`,
-			insertSQL: `INSERT INTO "change_log" ("id", "edit_type_id", "namespace_id", "changed", "created_at") SELECT $ControllerChangeLog.id AS "id", $ControllerChangeLog.edit_type_id AS "edit_type_id", $ControllerChangeLog.namespace_id AS "namespace_id", $ControllerChangeLog.changed AS "changed", CASE WHEN $ControllerChangeLog.has_created_at THEN $ControllerChangeLog.created_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "created_at"`,
-			sample:    recovery.ControllerChangeLog{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerChangeLog)
-			},
-		})
-	}
-	if dump.Present["change_log_edit_type"] {
-		tables = append(tables, replayTable{
-			name:      "change_log_edit_type",
-			deleteSQL: `DELETE FROM "change_log_edit_type" AS t`,
-			insertSQL: `INSERT INTO "change_log_edit_type" ("id", "edit_type") SELECT $ControllerChangeLogEditType.id AS "id", $ControllerChangeLogEditType.edit_type AS "edit_type"`,
-			sample:    recovery.ControllerChangeLogEditType{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerChangeLogEditType)
-			},
-		})
-	}
-	if dump.Present["change_log_namespace"] {
-		tables = append(tables, replayTable{
-			name:      "change_log_namespace",
-			deleteSQL: `DELETE FROM "change_log_namespace" AS t`,
-			insertSQL: `INSERT INTO "change_log_namespace" ("id", "namespace", "description") SELECT $ControllerChangeLogNamespace.id AS "id", $ControllerChangeLogNamespace.namespace AS "namespace", $ControllerChangeLogNamespace.description AS "description"`,
-			sample:    recovery.ControllerChangeLogNamespace{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerChangeLogNamespace)
-			},
-		})
-	}
-	if dump.Present["change_log_witness"] {
-		tables = append(tables, replayTable{
-			name:      "change_log_witness",
-			deleteSQL: `DELETE FROM "change_log_witness" AS t`,
-			insertSQL: `INSERT INTO "change_log_witness" ("controller_id", "lower_bound", "upper_bound", "updated_at") SELECT $ControllerChangeLogWitness.controller_id AS "controller_id", CASE WHEN $ControllerChangeLogWitness.has_lower_bound THEN $ControllerChangeLogWitness.lower_bound ELSE -1 END AS "lower_bound", CASE WHEN $ControllerChangeLogWitness.has_upper_bound THEN $ControllerChangeLogWitness.upper_bound ELSE -1 END AS "upper_bound", CASE WHEN $ControllerChangeLogWitness.has_updated_at THEN $ControllerChangeLogWitness.updated_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "updated_at"`,
-			sample:    recovery.ControllerChangeLogWitness{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerChangeLogWitness)
 			},
 		})
 	}
@@ -259,39 +216,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			},
 		})
 	}
-	if dump.Present["controller_agent_address"] {
-		tables = append(tables, replayTable{
-			name:      "controller_agent_address",
-			deleteSQL: `DELETE FROM "controller_agent_address" AS t`,
-			insertSQL: `INSERT INTO "controller_agent_address" ("uuid", "controller_id", "address", "scope", "priority") SELECT $ControllerControllerAgentAddress.uuid AS "uuid", $ControllerControllerAgentAddress.controller_id AS "controller_id", $ControllerControllerAgentAddress.address AS "address", $ControllerControllerAgentAddress.scope AS "scope", CASE WHEN $ControllerControllerAgentAddress.has_priority THEN $ControllerControllerAgentAddress.priority ELSE 0 END AS "priority"`,
-			sample:    recovery.ControllerControllerAgentAddress{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerAgentAddress)
-			},
-		})
-	}
-	if dump.Present["controller_api_address"] {
-		tables = append(tables, replayTable{
-			name:      "controller_api_address",
-			deleteSQL: `DELETE FROM "controller_api_address" AS t`,
-			insertSQL: `INSERT INTO "controller_api_address" ("controller_id", "address", "is_agent", "scope") SELECT $ControllerControllerApiAddress.controller_id AS "controller_id", $ControllerControllerApiAddress.address AS "address", CASE WHEN $ControllerControllerApiAddress.has_is_agent THEN $ControllerControllerApiAddress.is_agent ELSE FALSE END AS "is_agent", $ControllerControllerApiAddress.scope AS "scope"`,
-			sample:    recovery.ControllerControllerApiAddress{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerApiAddress)
-			},
-		})
-	}
-	if dump.Present["controller_client_address"] {
-		tables = append(tables, replayTable{
-			name:      "controller_client_address",
-			deleteSQL: `DELETE FROM "controller_client_address" AS t`,
-			insertSQL: `INSERT INTO "controller_client_address" ("uuid", "controller_id", "address", "scope", "priority") SELECT $ControllerControllerClientAddress.uuid AS "uuid", $ControllerControllerClientAddress.controller_id AS "controller_id", $ControllerControllerClientAddress.address AS "address", $ControllerControllerClientAddress.scope AS "scope", CASE WHEN $ControllerControllerClientAddress.has_priority THEN $ControllerControllerClientAddress.priority ELSE 0 END AS "priority"`,
-			sample:    recovery.ControllerControllerClientAddress{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerClientAddress)
-			},
-		})
-	}
 	if dump.Present["controller_config"] {
 		tables = append(tables, replayTable{
 			name:      "controller_config",
@@ -300,61 +224,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			sample:    recovery.ControllerControllerConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ControllerControllerConfig)
-			},
-		})
-	}
-	if dump.Present["controller_node"] {
-		tables = append(tables, replayTable{
-			name:      "controller_node",
-			deleteSQL: `DELETE FROM "controller_node" AS t`,
-			insertSQL: `INSERT INTO "controller_node" ("controller_id", "life_id", "dqlite_node_id", "dqlite_bind_address") SELECT $ControllerControllerNode.controller_id AS "controller_id", CASE WHEN $ControllerControllerNode.has_life_id THEN $ControllerControllerNode.life_id ELSE 0 END AS "life_id", $ControllerControllerNode.dqlite_node_id AS "dqlite_node_id", $ControllerControllerNode.dqlite_bind_address AS "dqlite_bind_address"`,
-			sample:    recovery.ControllerControllerNode{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerNode)
-			},
-		})
-	}
-	if dump.Present["controller_node_agent_version"] {
-		tables = append(tables, replayTable{
-			name:      "controller_node_agent_version",
-			deleteSQL: `DELETE FROM "controller_node_agent_version" AS t`,
-			insertSQL: `INSERT INTO "controller_node_agent_version" ("controller_id", "version", "architecture_id") SELECT $ControllerControllerNodeAgentVersion.controller_id AS "controller_id", $ControllerControllerNodeAgentVersion.version AS "version", $ControllerControllerNodeAgentVersion.architecture_id AS "architecture_id"`,
-			sample:    recovery.ControllerControllerNodeAgentVersion{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerNodeAgentVersion)
-			},
-		})
-	}
-	if dump.Present["controller_node_nonce"] {
-		tables = append(tables, replayTable{
-			name:      "controller_node_nonce",
-			deleteSQL: `DELETE FROM "controller_node_nonce" AS t`,
-			insertSQL: `INSERT INTO "controller_node_nonce" ("controller_id", "nonce") SELECT $ControllerControllerNodeNonce.controller_id AS "controller_id", $ControllerControllerNodeNonce.nonce AS "nonce"`,
-			sample:    recovery.ControllerControllerNodeNonce{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerNodeNonce)
-			},
-		})
-	}
-	if dump.Present["controller_node_password"] {
-		tables = append(tables, replayTable{
-			name:      "controller_node_password",
-			deleteSQL: `DELETE FROM "controller_node_password" AS t`,
-			insertSQL: `INSERT INTO "controller_node_password" ("controller_id", "password_hash_algorithm_id", "password_hash") SELECT $ControllerControllerNodePassword.controller_id AS "controller_id", $ControllerControllerNodePassword.password_hash_algorithm_id AS "password_hash_algorithm_id", $ControllerControllerNodePassword.password_hash AS "password_hash"`,
-			sample:    recovery.ControllerControllerNodePassword{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerNodePassword)
-			},
-		})
-	}
-	if dump.Present["controller_peer_address"] {
-		tables = append(tables, replayTable{
-			name:      "controller_peer_address",
-			deleteSQL: `DELETE FROM "controller_peer_address" AS t`,
-			insertSQL: `INSERT INTO "controller_peer_address" ("uuid", "controller_id", "address", "scope", "priority") SELECT $ControllerControllerPeerAddress.uuid AS "uuid", $ControllerControllerPeerAddress.controller_id AS "controller_id", $ControllerControllerPeerAddress.address AS "address", $ControllerControllerPeerAddress.scope AS "scope", CASE WHEN $ControllerControllerPeerAddress.has_priority THEN $ControllerControllerPeerAddress.priority ELSE 0 END AS "priority"`,
-			sample:    recovery.ControllerControllerPeerAddress{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerControllerPeerAddress)
 			},
 		})
 	}
@@ -410,28 +279,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			sample:    recovery.ControllerFlag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ControllerFlag)
-			},
-		})
-	}
-	if dump.Present["lease"] {
-		tables = append(tables, replayTable{
-			name:      "lease",
-			deleteSQL: `DELETE FROM "lease" AS t`,
-			insertSQL: `INSERT INTO "lease" ("uuid", "lease_type_id", "model_uuid", "name", "holder", "start", "expiry") SELECT $ControllerLease.uuid AS "uuid", $ControllerLease.lease_type_id AS "lease_type_id", $ControllerLease.model_uuid AS "model_uuid", $ControllerLease.name AS "name", $ControllerLease.holder AS "holder", $ControllerLease.start AS "start", $ControllerLease.expiry AS "expiry"`,
-			sample:    recovery.ControllerLease{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerLease)
-			},
-		})
-	}
-	if dump.Present["lease_pin"] {
-		tables = append(tables, replayTable{
-			name:      "lease_pin",
-			deleteSQL: `DELETE FROM "lease_pin" AS t`,
-			insertSQL: `INSERT INTO "lease_pin" ("uuid", "lease_uuid", "entity_id") SELECT $ControllerLeasePin.uuid AS "uuid", $ControllerLeasePin.lease_uuid AS "lease_uuid", $ControllerLeasePin.entity_id AS "entity_id"`,
-			sample:    recovery.ControllerLeasePin{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerLeasePin)
 			},
 		})
 	}
@@ -787,17 +634,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			},
 		})
 	}
-	if dump.Present["object_store_placement"] {
-		tables = append(tables, replayTable{
-			name:      "object_store_placement",
-			deleteSQL: `DELETE FROM "object_store_placement" AS t`,
-			insertSQL: `INSERT INTO "object_store_placement" ("uuid", "node_id") SELECT $ControllerObjectStorePlacement.uuid AS "uuid", $ControllerObjectStorePlacement.node_id AS "node_id"`,
-			sample:    recovery.ControllerObjectStorePlacement{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerObjectStorePlacement)
-			},
-		})
-	}
 	if dump.Present["password_hash_algorithm"] {
 		tables = append(tables, replayTable{
 			name:      "password_hash_algorithm",
@@ -850,17 +686,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			sample:    recovery.ControllerPermissionObjectType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
 				return insertRows(ctx, tx, stmt, dump.ControllerPermissionObjectType)
-			},
-		})
-	}
-	if dump.Present["schema"] {
-		tables = append(tables, replayTable{
-			name:      "schema",
-			deleteSQL: `DELETE FROM "schema" AS t`,
-			insertSQL: `INSERT INTO "schema" ("id", "version", "hash", "updated_at") SELECT $ControllerSchema.id AS "id", $ControllerSchema.version AS "version", $ControllerSchema.hash AS "hash", $ControllerSchema.updated_at AS "updated_at"`,
-			sample:    recovery.ControllerSchema{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerSchema)
 			},
 		})
 	}
@@ -952,28 +777,6 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			},
 		})
 	}
-	if dump.Present["upgrade_info"] {
-		tables = append(tables, replayTable{
-			name:      "upgrade_info",
-			deleteSQL: `DELETE FROM "upgrade_info" AS t`,
-			insertSQL: `INSERT INTO "upgrade_info" ("uuid", "previous_version", "target_version", "state_type_id") SELECT $ControllerUpgradeInfo.uuid AS "uuid", $ControllerUpgradeInfo.previous_version AS "previous_version", $ControllerUpgradeInfo.target_version AS "target_version", $ControllerUpgradeInfo.state_type_id AS "state_type_id"`,
-			sample:    recovery.ControllerUpgradeInfo{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerUpgradeInfo)
-			},
-		})
-	}
-	if dump.Present["upgrade_info_controller_node"] {
-		tables = append(tables, replayTable{
-			name:      "upgrade_info_controller_node",
-			deleteSQL: `DELETE FROM "upgrade_info_controller_node" AS t`,
-			insertSQL: `INSERT INTO "upgrade_info_controller_node" ("uuid", "controller_node_id", "upgrade_info_uuid", "node_upgrade_completed_at") SELECT $ControllerUpgradeInfoControllerNode.uuid AS "uuid", $ControllerUpgradeInfoControllerNode.controller_node_id AS "controller_node_id", $ControllerUpgradeInfoControllerNode.upgrade_info_uuid AS "upgrade_info_uuid", $ControllerUpgradeInfoControllerNode.node_upgrade_completed_at AS "node_upgrade_completed_at"`,
-			sample:    recovery.ControllerUpgradeInfoControllerNode{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ControllerUpgradeInfoControllerNode)
-			},
-		})
-	}
 	if dump.Present["upgrade_state_type"] {
 		tables = append(tables, replayTable{
 			name:      "upgrade_state_type",
@@ -1051,5 +854,5 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			},
 		})
 	}
-	return st.loadTables(ctx, tables)
+	return st.loadTables(ctx, tables, nodeID)
 }

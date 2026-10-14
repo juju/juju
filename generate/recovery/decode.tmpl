@@ -10,14 +10,25 @@ import (
     "github.com/juju/juju/internal/errors"
 )
 
+// Decode{{ .Prefix }}Dump decodes an archive and selects recoverable tables.
+// Version compatibility must be checked by the caller before replay.
+func Decode{{ .Prefix }}Dump(data []byte) (*recovery.{{ .Prefix }}Dump, error) {
+    dump, err := decodeDump(data)
+    if err != nil { return nil, err }
+    return decode{{ .Prefix }}Dump(dump)
+}
+
 // decode{{ .Prefix }}Dump validates tables and converts rows to native types.
 func decode{{ .Prefix }}Dump(dump *dump) (*recovery.{{ .Prefix }}Dump, error) {
     out := &recovery.{{ .Prefix }}Dump{Present: make(map[string]bool, len(dump.Tables))}
     for table, rows := range dump.Tables {
-        out.Present[table] = true
         switch table {
 {{- range .Tables }}
         case "{{ .Name }}":
+{{- if .Exclusion }}
+            // {{ .Exclusion }}
+            continue
+{{- else }}
             decoded, err := decodeRows[recovery.{{ .Struct }}](rows{{ range .Columns }}{{ if eq .Type "[]byte" }}, "{{ .Name }}"{{ end }}{{ end }})
             if err != nil { return nil, errors.Errorf("table %q: %w", table, err) }
 {{- range .Columns }}
@@ -29,9 +40,11 @@ func decode{{ .Prefix }}Dump(dump *dump) (*recovery.{{ .Prefix }}Dump, error) {
 {{- end }}
             out.{{ .Struct }} = decoded
 {{- end }}
+{{- end }}
         default:
             return nil, errors.Errorf("unknown recovery table %q", table)
         }
+        out.Present[table] = true
     }
     return out, nil
 }

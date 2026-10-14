@@ -10,11 +10,20 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// DecodeModelDump decodes an archive and selects recoverable tables.
+// Version compatibility must be checked by the caller before replay.
+func DecodeModelDump(data []byte) (*recovery.ModelDump, error) {
+	dump, err := decodeDump(data)
+	if err != nil {
+		return nil, err
+	}
+	return decodeModelDump(dump)
+}
+
 // decodeModelDump validates tables and converts rows to native types.
 func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 	out := &recovery.ModelDump{Present: make(map[string]bool, len(dump.Tables))}
 	for table, rows := range dump.Tables {
-		out.Present[table] = true
 		switch table {
 		case "agent_binary_store":
 			decoded, err := decodeRows[recovery.ModelAgentBinaryStore](rows)
@@ -287,41 +296,17 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 			}
 			out.ModelBlockDeviceProvenance = decoded
 		case "change_log":
-			decoded, err := decodeRows[recovery.ModelChangeLog](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasCreatedAt = rows[i]["created_at"]
-			}
-			out.ModelChangeLog = decoded
+			// Do not replay source change notifications.
+			continue
 		case "change_log_edit_type":
-			decoded, err := decodeRows[recovery.ModelChangeLogEditType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelChangeLogEditType = decoded
+			// Keep the target's seeded change types.
+			continue
 		case "change_log_namespace":
-			decoded, err := decodeRows[recovery.ModelChangeLogNamespace](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelChangeLogNamespace = decoded
+			// Keep the target's seeded change namespaces.
+			continue
 		case "change_log_witness":
-			decoded, err := decodeRows[recovery.ModelChangeLogWitness](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasLowerBound = rows[i]["lower_bound"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasUpperBound = rows[i]["upper_bound"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasUpdatedAt = rows[i]["updated_at"]
-			}
-			out.ModelChangeLogWitness = decoded
+			// Keep target watcher progress.
+			continue
 		case "charm":
 			decoded, err := decodeRows[recovery.ModelCharm](rows, "lxd_profile")
 			if err != nil {
@@ -923,11 +908,8 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 			}
 			out.ModelObjectStoreMetadataPath = decoded
 		case "object_store_placement":
-			decoded, err := decodeRows[recovery.ModelObjectStorePlacement](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelObjectStorePlacement = decoded
+			// Rebuild placements using the supplied target node.
+			continue
 		case "offer":
 			decoded, err := decodeRows[recovery.ModelOffer](rows)
 			if err != nil {
@@ -1235,11 +1217,8 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 			}
 			out.ModelResourceState = decoded
 		case "schema":
-			decoded, err := decodeRows[recovery.ModelSchema](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelSchema = decoded
+			// Keep the target's applied migration bookkeeping.
+			continue
 		case "secret":
 			decoded, err := decodeRows[recovery.ModelSecret](rows)
 			if err != nil {
@@ -1642,6 +1621,7 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 		default:
 			return nil, errors.Errorf("unknown recovery table %q", table)
 		}
+		out.Present[table] = true
 	}
 	return out, nil
 }

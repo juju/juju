@@ -285,7 +285,7 @@ type ControllerControllerApiAddress struct {
 	Address      *string `db:"address" yaml:"address"`
 	IsAgent      *bool   `db:"is_agent" yaml:"is_agent"`
 	HasIsAgent   bool    `db:"has_is_agent" yaml:"-"`
-	Scope        *any    `db:"scope" yaml:"scope"`
+	Scope        *string `db:"scope" yaml:"scope"`
 }
 
 type ControllerControllerClientAddress struct {

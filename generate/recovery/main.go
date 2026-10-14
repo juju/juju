@@ -48,6 +48,7 @@ type column struct {
 type table struct {
 	Name, Struct, Insert string
 	Columns              []column
+	Exclusion            string
 }
 
 type pass struct {
@@ -92,6 +93,9 @@ func generate(ctx context.Context, kind string) error {
 	p.Tables, err = inspect(ctx, db, p.Prefix)
 	if err != nil {
 		return err
+	}
+	for i := range p.Tables {
+		p.Tables[i].Exclusion = recoveryExclusions[p.Tables[i].Name]
 	}
 	_, filename, _, _ := runtime.Caller(0)
 	dir := filepath.Dir(filename)
@@ -154,8 +158,12 @@ func inspectTable(ctx context.Context, db *sql.DB, prefix, name string) (table, 
 		if err := cols.Scan(&id, &name, &typ, &notNull, &def, &primaryKey); err != nil {
 			return table{}, err
 		}
+		binding, err := bindingType(t.Name, name, typ)
+		if err != nil {
+			return table{}, err
+		}
 		t.Columns = append(t.Columns, column{
-			Name: name, Field: camel(name), Type: bindingType(t.Name, name, typ),
+			Name: name, Field: camel(name), Type: binding,
 			HasDefault: def.Valid, Default: def.String,
 		})
 	}
@@ -198,25 +206,25 @@ var binaryTextColumns = map[string][]string{
 	"application_remote_offerer_relation_macaroon": {"macaroon"},
 }
 
-func bindingType(table, name, typ string) string {
+func bindingType(table, name, typ string) (string, error) {
 	if slices.Contains(binaryTextColumns[table], name) {
-		return "[]byte"
+		return "[]byte", nil
 	}
 	switch strings.ToUpper(typ) {
 	case "INTEGER", "INT":
-		return "int64"
+		return "int64", nil
 	case "BOOLEAN":
-		return "bool"
+		return "bool", nil
 	case "DATETIME", "TIMESTAMP", "DATE":
-		return "time.Time"
+		return "time.Time", nil
 	case "BLOB":
-		return "[]byte"
+		return "[]byte", nil
 	case "REAL", "FLOAT", "DOUBLE":
-		return "float64"
-	case "TEXT":
-		return "string"
+		return "float64", nil
+	case "TEXT", "TXT": // controller_api_address.scope uses legacy TXT.
+		return "string", nil
 	default:
-		return "any"
+		return "", fmt.Errorf("unsupported SQL type %q for %s.%s", typ, table, name)
 	}
 }
 
