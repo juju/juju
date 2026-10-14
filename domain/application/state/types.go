@@ -108,6 +108,7 @@ type applicationDetails struct {
 type applicationScale struct {
 	ApplicationID string `db:"application_uuid"`
 	StartOrdinal  int    `db:"start_ordinal"`
+	EndOrdinal    int    `db:"end_ordinal"`
 	Scaling       bool   `db:"scaling"`
 	Scale         int    `db:"scale"`
 	ScaleTarget   int    `db:"scale_target"`
