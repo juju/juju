@@ -112,7 +112,7 @@ func (s *applicationSuite) TestRemoveApplicationNoForceIgnoresWaitForCascadedJob
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return("removal-job", nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, time.Minute)
@@ -153,8 +153,8 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSchedulesCascadedJobsIm
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
 
 	// So do the cascaded unit jobs.
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", true, when.UTC().Add(time.Minute)).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return("removal-job", nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", true, when.UTC().Add(time.Minute)).Return("removal-job", nil)
 
 	// And the cascaded machine jobs.
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
@@ -196,7 +196,7 @@ func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(cascaded, nil).Times(2)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil).Times(2)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil).Times(2)
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil).Times(2)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return("removal-job", nil).Times(2)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil).Times(2)
 	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "storage-attachment-1", false, when.UTC()).Return(nil).Times(2)
 	exp.FilesystemAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "filesystem-attachment-1", false, when.UTC()).Return(nil).Times(2)
@@ -249,8 +249,8 @@ func (s *applicationSuite) TestRemoveApplicationRetryWithForceSchedulesRemovalJo
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC()).Return(nil)
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", true, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return("removal-job", nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", true, when.UTC()).Return("removal-job", nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", true, when.UTC()).Return(nil)
 	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "storage-attachment-1", false, when.UTC()).Return(nil)
@@ -308,8 +308,8 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithUnitsAndStorag
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
-	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-2", false, when.UTC()).Return(nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return("removal-job", nil)
+	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-2", false, when.UTC()).Return("removal-job", nil)
 	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "st-att-unit-1", false, when.UTC()).Return(nil)
 	exp.StorageAttachmentScheduleRemoval(gomock.Any(), gomock.Any(), "st-att-unit-2", false, when.UTC()).Return(nil)
 
