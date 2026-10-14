@@ -12,7 +12,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/removal"
@@ -104,8 +103,6 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
-	mExp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), "some-unit-id").Return("foo", "foo/0", nil).Times(2)
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil).Times(2)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil).Times(2)
 
 	mExp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "some-machine-id", false, when.UTC()).Return(nil).Times(2)
@@ -160,8 +157,6 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
 	mExp.EnsureUnitNotAliveCascade(gomock.Any(), "some-unit-id", true).Return(removalinternal.CascadedUnitLives{}, nil).Times(2)
-	mExp.GetApplicationNameAndUnitNameByUnitUUID(gomock.Any(), "some-unit-id").Return("foo", "foo/0", nil).Times(2)
-	s.revoker.EXPECT().RevokeLeadership("foo", unit.Name("foo/0")).Return(nil).Times(2)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", false, when.UTC()).Return(nil)
 	mExp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "some-unit-id", true, when.UTC()).Return(nil)
 
