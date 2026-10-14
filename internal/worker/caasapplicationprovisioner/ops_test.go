@@ -563,6 +563,63 @@ func (s *OpsSuite) TestEnsureScaleWaitsForPodRegistration(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "try again")
 }
 
+func (s *OpsSuite) TestEnsureScaleIgnoresPodsWithoutOrdinals(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	units := map[unit.Name]life.Value{
+		"test/0": life.Alive,
+		"test/1": life.Alive,
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 0, 2).Return(nil),
+		app.EXPECT().State().Return(caas.ApplicationState{
+			DesiredReplicas: 2,
+			Replicas:        []string{"test-0", "test-1", "test-not-an-ordinal"},
+		}, nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appID).Return(map[unit.Name]string{
+			"test/0": "test-0",
+			"test/1": "test-1",
+		}, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+		life.Alive, facade, applicationService, nil, s.logger)
+	c.Check(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestEnsureScaleRejectsPodOutsideOrdinalRange(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+	units := map[unit.Name]life.Value{
+		"test/1": life.Alive,
+		"test/2": life.Alive,
+	}
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(units, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 1, 2).Return(nil),
+		app.EXPECT().State().Return(caas.ApplicationState{
+			DesiredReplicas: 2,
+			StartOrdinal:    1,
+			Replicas:        []string{"test-1", "test-2", "test-3"},
+		}, nil),
+	)
+
+	err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+		life.Alive, facade, applicationService, nil, s.logger)
+	c.Assert(err, tc.ErrorMatches, "try again")
+}
+
 func (s *OpsSuite) TestEnsureScaleUsesSequenceAtZero(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
