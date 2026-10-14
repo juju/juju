@@ -51,6 +51,15 @@ func (s *linkLayerSuite) TestIsValidLinkLayerDeviceTypeInvalid(c *tc.C) {
 	c.Check(result, tc.IsFalse)
 }
 
+func (s *linkLayerSuite) TestIsHostLocalBridge(c *tc.C) {
+	c.Check(IsHostLocalBridge(DefaultLXDBridge), tc.IsTrue)
+	c.Check(IsHostLocalBridge(DefaultDockerBridge), tc.IsTrue)
+
+	for _, name := range []string{"", "eth0", "br-eth0", "lxdbr1", "virbr0"} {
+		c.Check(IsHostLocalBridge(name), tc.IsFalse, tc.Commentf("name %q", name))
+	}
+}
+
 var validUnixDeviceNames = []string{"eth0", "eno1", "br-eth0.123", "tun:1", "bond0.42"}
 
 func (s *linkLayerSuite) TestIsValidLinkLayerDeviceNameValidNamesLinux(c *tc.C) {
