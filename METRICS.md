@@ -1,15 +1,17 @@
 # Juju metrics
 
-This document describes the Prometheus metrics emitted by Juju controller
-agents. It is versioned with Juju because metric names, types, meanings, and
-labels are part of the controller's operational API.
+This reference helps controller operators use the Prometheus metrics emitted
+by Juju controller agents for dashboards, alerts, and troubleshooting.
 
 ## Accessing metrics
 
 A controller agent exposes its Prometheus registry at the authenticated HTTPS
 path `/metrics/`. The endpoint uses the controller API listener, so its host
 and port are the controller API address advertised by `juju controllers`.
-It is not a public unauthenticated endpoint.
+It is not a public unauthenticated endpoint. The authentication identity
+depends on the callee: when Prometheus scrapes through the `juju-controller`
+charm, it connects as the metrics user created for that relation; for direct
+access through the introspection handler, the agent is the callee.
 
 For normal operation, relate the controller application's `metrics-endpoint`
 to Prometheus. The `juju-controller` charm supplies the endpoint address and
@@ -18,32 +20,48 @@ controller](docs/howto/manage-controllers.md#collect-metrics-about-a-controller)
 for an example using the Canonical Observability Stack.
 
 The same registry is available on Linux agents through their local
-introspection socket at `/metrics/`. That interface is intended for local
-diagnostics, not remote scraping.
+introspection socket at `/metrics/`. This direct access uses the
+introspection handler and is intended for local diagnostics, not remote
+scraping.
 
 The endpoint emits Prometheus text exposition format. A metric family appears
 only after its collector has been registered, and a labelled series normally
 appears only after it has been observed. Consequently, a scrape of an idle
 controller is not a complete inventory.
 
-## Labels and compatibility
+## Reading metrics
 
-`namespace` identifies a controller or model database namespace. `model_uuid`
-identifies a model. These labels have a bounded set per controller, but their
-values can change as models are created and removed. `host` is the remote host
-used by an outbound HTTP request. `endpoint`, `method`, `status`, `result`,
-`error`, `reason`, `auth_method`, `failed`, and `model_type` use bounded values
-chosen by Juju or the remote protocol.
+`namespace` identifies a controller or model database namespace and
+`model_uuid` identifies a model. Use these labels to isolate a query to the
+controller or model that is being investigated. `host` identifies the remote
+host used by an outbound HTTP request. `endpoint`, `method`, `status`,
+`result`, `error`, `reason`, `auth_method`, `failed`, and `model_type` provide
+additional context about an operation or connection.
 
-Do not add labels derived from request paths, entity names, credentials, or
-other user-controlled values. In particular, HTTP client metrics deliberately
-use the remote host rather than the request path.
+Metrics can have no samples until the associated work has occurred. For
+example, an idle controller may have no outbound HTTP or SSH series, and Loki
+metrics appear only when log forwarding is configured. This is expected and
+does not by itself indicate a fault.
 
-Metric names and label sets are compatibility contracts. A breaking change
-must use a new metric name and retain the old one for a documented deprecation
-period. Most counters use the Prometheus `_total` suffix; histograms also
-expose `_bucket`, `_sum`, and `_count` series, and summaries expose `_sum` and
-`_count` series.
+Counters normally increase for the lifetime of an agent. Use PromQL functions
+such as `rate()` or `increase()` to measure activity over a time range. A
+histogram exposes `_bucket`, `_sum`, and `_count` series; a summary exposes
+`_sum` and `_count` series as well as configured quantiles. Most counters use
+the Prometheus `_total` suffix, although a few older metrics do not.
+
+## Useful queries
+
+Use these examples as starting points and choose intervals and alert thresholds
+appropriate for the controller's normal workload.
+
+| Question | PromQL |
+| --- | --- |
+| Which API methods are failing? | `sum by (facade, method) (rate(juju_apiserver_request_duration_seconds_count{error_code="error"}[5m]))` |
+| Which outbound API hosts are returning errors? | `sum by (host, status) (rate(juju_apiserver_outbound_request_errors_total[5m]))` |
+| Is database transaction retry activity increasing? | `sum by (namespace) (rate(juju_db_txn_retries_total[5m]))` |
+| Are change-stream dispatches failing? | `sum by (namespace) (rate(juju_db_dispatch_duration_seconds_count{failed="true"}[5m]))` |
+| Are logs being dropped before reaching Loki? | `sum by (log_router) (rate(juju_loki_forwarder_dropped_total[5m]))` |
+| Are SSH logins being rejected? | `sum by (auth_method) (rate(juju_sshserver_authentication_failures[5m]))` |
 
 ## Controller API server
 
@@ -80,7 +98,7 @@ expose `_bucket`, `_sum`, and `_count` series, and summaries expose `_sum` and
 | `juju_db_subscription_count` | gauge | `namespace` | subscriptions | Current event-multiplexer subscriptions. |
 | `juju_db_dispatch_duration_seconds` | histogram | `namespace`, `failed` | seconds | Event-multiplexer dispatch duration. |
 
-## Agent workers
+## Controller agent workers
 
 | Metric | Type | Labels | Unit | Description |
 | --- | --- | --- | --- | --- |
@@ -119,11 +137,3 @@ metrics. These are third-party collector metrics rather than Juju metric
 contracts; their exact families depend on the Go and operating-system versions.
 Consult the `HELP` and `TYPE` records returned by the endpoint for their
 version-specific definitions.
-
-## Maintaining this document
-
-When adding, removing, or changing a collector, update this file in the same
-change. Confirm both an idle scrape and a scrape after exercising the feature:
-collectors and labelled series can be conditional. Every Juju-owned metric
-must provide a Prometheus `HELP` string, a type, a base unit where applicable,
-and a bounded label set.
