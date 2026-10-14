@@ -513,12 +513,10 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 		}
 	}
 	return storage.Filesystem{
-		filesystemTag,
-		volumeTag,
-		storage.FilesystemInfo{
-			in.Info.ProviderId,
-			in.Info.SizeMiB,
-		},
+		Tag:        filesystemTag,
+		Volume:     volumeTag,
+		ProviderId: in.Info.ProviderId,
+		Size:       in.Info.SizeMiB,
 	}, nil
 }
 

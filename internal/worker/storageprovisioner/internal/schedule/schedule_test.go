@@ -59,6 +59,27 @@ func (*scheduleSuite) TestReadyNoEvents(c *tc.C) {
 	c.Assert(ready, tc.HasLen, 0)
 }
 
+func (*scheduleSuite) TestContains(c *tc.C) {
+	clock := testclock.NewClock(time.Time{})
+	s := schedule.NewSchedule(clock)
+
+	c.Check(s.Contains("key"), tc.IsFalse)
+	s.Add("key", "value", clock.Now())
+	c.Check(s.Contains("key"), tc.IsTrue)
+
+	s.Ready(clock.Now())
+	c.Check(s.Contains("key"), tc.IsFalse)
+}
+
+func (*scheduleSuite) TestContainsAfterRemove(c *tc.C) {
+	clock := testclock.NewClock(time.Time{})
+	s := schedule.NewSchedule(clock)
+	s.Add("key", "value", clock.Now())
+
+	s.Remove("key")
+	c.Check(s.Contains("key"), tc.IsFalse)
+}
+
 func (*scheduleSuite) TestAdd(c *tc.C) {
 	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()

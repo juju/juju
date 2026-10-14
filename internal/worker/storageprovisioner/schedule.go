@@ -25,9 +25,19 @@ func scheduleOperations(deps *dependencies, ops ...scheduleOp) {
 	if len(ops) == 0 {
 		return
 	}
+
 	now := deps.config.Clock.Now()
 	for _, op := range ops {
 		k := op.key()
+		// If the operation is already scheduled, we don't want to reschedule
+		// it. This is because the operation may have been scheduled with a
+		// shorter delay, and we don't want to extend the delay unnecessarily.
+		if deps.schedule.Contains(k) {
+			continue
+		}
+
+		// Work out the delay for the operation, and schedule it to run after
+		// that delay.
 		d := op.delay()
 		deps.schedule.Add(k, op, now.Add(d))
 	}
