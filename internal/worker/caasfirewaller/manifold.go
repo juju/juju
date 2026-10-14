@@ -30,6 +30,10 @@ type ManifoldConfig struct {
 	Logger               logger.Logger
 }
 
+// The domain services value from the dependency engine must satisfy
+// [DomainServices], or the manifold can't get it.
+var _ DomainServices = (services.DomainServices)(nil)
+
 // Manifold returns a Manifold that encapsulates the firewaller worker.
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
@@ -92,7 +96,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
-	var domainServices services.DomainServices
+	var domainServices DomainServices
 	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Errorf(
 			"getting domain services for input name %q: %w",
