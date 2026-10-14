@@ -142,6 +142,9 @@ type Firewaller struct {
 	portsWatcher         watcher.StringsWatcher
 	subnetWatcher        watcher.StringsWatcher
 	modelFirewallWatcher watcher.NotifyWatcher
+	// Watch the controller firewall ports, only started for the controller
+	// model.
+	controllerPortsWatcher watcher.NotifyWatcher
 	// Watch the remote relations, only emits in the consuming model.
 	consumerRelationsWatcher watcher.StringsWatcher
 	// Watch the remote relations, only emits in the offering model.
@@ -165,10 +168,9 @@ type Firewaller struct {
 
 	// controllerFirewallPortRanges caches the port ranges that must be
 	// opened on the instance firewall for the controller units, obtained
-	// from the firewaller API. They are derived solely from the controller
-	// configuration attributes api-port, ssh-server-port and
-	// autocert-dns-name, none of which can be changed after bootstrap, so
-	// the cache never requires invalidation.
+	// from the firewaller API. The api-port and autocert-dns-name can't change
+	// after bootstrap, but the ssh server port can, so the cache is cleared
+	// when it does.
 	controllerFirewallPortRanges []network.PortRange
 	// controllerFirewallPortsFetched distinguishes a cached empty result
 	// from a value that has not been fetched yet.
@@ -317,6 +319,16 @@ func (fw *Firewaller) setUp(ctx context.Context) error {
 		}
 	}
 
+	if fw.isControllerModel {
+		fw.controllerPortsWatcher, err = fw.firewallerAPI.WatchControllerFirewallPorts(ctx)
+		if err != nil {
+			return errors.Annotatef(err, "starting controller firewall ports watcher")
+		}
+		if err := fw.catacomb.Add(fw.controllerPortsWatcher); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if fw.spaceInfos, err = fw.firewallerAPI.AllSpaceInfos(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -342,6 +354,10 @@ func (fw *Firewaller) loop() error {
 	var ensureModelFirewalls <-chan time.Time
 	if fw.modelFirewallWatcher != nil {
 		modelFirewallChanges = fw.modelFirewallWatcher.Changes()
+	}
+	var controllerPortsChanges watcher.NotifyChannel
+	if fw.controllerPortsWatcher != nil {
+		controllerPortsChanges = fw.controllerPortsWatcher.Changes()
 	}
 
 	for {
@@ -404,6 +420,13 @@ func (fw *Firewaller) loop() error {
 				if err := fw.openedPortsChanged(ctx, unitUUID); err != nil {
 					return errors.Trace(err)
 				}
+			}
+		case _, ok := <-controllerPortsChanges:
+			if !ok {
+				return errors.New("controller firewall ports watcher closed")
+			}
+			if err := fw.controllerPortsChanged(ctx); err != nil {
+				return errors.Trace(err)
 			}
 		case _, ok := <-fw.subnetWatcher.Changes():
 			if !ok {
@@ -1010,10 +1033,7 @@ func (fw *Firewaller) isControllerUnit(unitd *unitData) bool {
 
 // controllerFirewallPorts returns the port ranges to open on the instance
 // firewall for the controller units. The ranges are obtained from the
-// firewaller API and cached for the lifetime of the worker. They depend
-// only on the controller configuration attributes api-port,
-// ssh-server-port and autocert-dns-name, which cannot be modified after
-// bootstrap, so the cache never requires invalidation.
+// firewaller API and cached until the ssh server port changes.
 func (fw *Firewaller) controllerFirewallPorts(ctx context.Context) ([]network.PortRange, error) {
 	if fw.controllerFirewallPortsFetched {
 		return fw.controllerFirewallPortRanges, nil
@@ -1025,6 +1045,29 @@ func (fw *Firewaller) controllerFirewallPorts(ctx context.Context) ([]network.Po
 	fw.controllerFirewallPortsFetched = true
 	fw.controllerFirewallPortRanges = ports
 	return ports, nil
+}
+
+// controllerPortsChanged clears the cached controller firewall ports and
+// re-flushes every machine with a controller unit, so the old ssh server
+// port is closed and the new one opened.
+func (fw *Firewaller) controllerPortsChanged(ctx context.Context) error {
+	fw.controllerFirewallPortsFetched = false
+	fw.controllerFirewallPortRanges = nil
+
+	// Controller units are kept on their machine until the machine is
+	// forgotten, so look at the machines rather than the units.
+	for _, machined := range fw.machineds {
+		for _, unitd := range machined.unitds {
+			if !fw.isControllerUnit(unitd) {
+				continue
+			}
+			if err := fw.flushMachine(ctx, machined); err != nil {
+				return errors.Trace(err)
+			}
+			break
+		}
+	}
+	return nil
 }
 
 // ingressRulesForControllerUnit returns the instance firewall rules for a
