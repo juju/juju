@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v6"
 
 	coreagent "github.com/juju/juju/core/agent"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/objectstore"
 )
@@ -46,6 +47,7 @@ func NewSecretaryFinder(controllerUUID string) lease.SecretaryFinder {
 			},
 			lease.ApplicationLeadershipNamespace: LeadershipSecretary{},
 			lease.ObjectStoreNamespace:           ObjectStoreSecretary{},
+			lease.BackupCreationNamespace:        BackupCreationSecretary{},
 		},
 	}
 	return finder
@@ -128,4 +130,23 @@ func (ObjectStoreSecretary) CheckLease(key lease.Key) error {
 // CheckHolder is part of the lease.Secretary interface.
 func (ObjectStoreSecretary) CheckHolder(name string) error {
 	return objectstore.ParseLeaseHolderName(name)
+}
+
+// BackupCreationSecretary implements Secretary; it checks that leases are
+// application names, and holders are unit names.
+type BackupCreationSecretary struct {
+	baseSecretary
+}
+
+// CheckLease is part of the lease.Secretary interface.
+func (BackupCreationSecretary) CheckLease(key lease.Key) error {
+	if key.Lease == "" {
+		return errors.NewNotValid(nil, "empty lease name")
+	}
+	return nil
+}
+
+// CheckHolder is part of the lease.Secretary interface.
+func (BackupCreationSecretary) CheckHolder(name string) error {
+	return corebackups.ParseLeaseHolderName(name)
 }
