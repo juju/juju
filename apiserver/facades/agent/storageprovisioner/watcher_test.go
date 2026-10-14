@@ -95,6 +95,41 @@ func (s *stringSourcedWatcherSuite) TestWatch(c *tc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *stringSourcedWatcherSuite) TestWatchCoalescesDuplicateResults(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	mapped := make(chan struct{}, 1)
+	mockStringWatcher := NewMockStringsWatcher(ctrl)
+	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcher.EXPECT().Kill().AnyTimes()
+
+	w, err := newStringSourcedWatcher(
+		mockStringWatcher,
+		func(_ context.Context, events ...string) ([]string, error) {
+			mapped <- struct{}{}
+			return events, nil
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(w, tc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wc := watchertest.NewStringsWatcherC(c, w)
+
+	ch <- []string{"initial"}
+	<-mapped
+	ch <- []string{"duplicate", "duplicate"}
+	<-mapped
+	ch <- []string{"duplicate"}
+	<-mapped
+
+	wc.AssertChange("initial")
+	wc.AssertChange("duplicate")
+	wc.AssertNoChange()
+}
+
 type machineStorageIdsWatcherSuite struct {
 	watcherRegistry *facademocks.MockWatcherRegistry
 	authorizer      apiservertesting.FakeAuthorizer
