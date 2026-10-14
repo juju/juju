@@ -6,5 +6,4 @@ package caasfirewaller
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -mock_names=Broker=MockExtCAASBroker -destination mocks/caasbroker_mock.go github.com/juju/juju/caas Broker,ControllerServiceUpdater
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/internal/worker/caasfirewaller CAASBroker,PortMutator
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v5 Worker
-//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/domain_mocks.go github.com/juju/juju/internal/worker/caasfirewaller ApplicationService,PortService,ModelInfoService,ControllerSSHService
-//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/services_mocks.go github.com/juju/juju/internal/services ModelDomainServices,DomainServices
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/domain_mocks.go github.com/juju/juju/internal/worker/caasfirewaller ApplicationService,PortService,ModelInfoService,ControllerSSHService,DomainServices
