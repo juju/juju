@@ -454,6 +454,44 @@ func (s *OpsSuite) TestEnsureScaleSchedulesDepartures(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "try again")
 }
 
+func (s *OpsSuite) TestEnsureScaleWaitsForEveryDepartureBeforeChangingRange(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appID := tc.Must(c, application.NewUUID)
+	app := caasmocks.NewMockApplication(ctrl)
+	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
+	applicationService := mocks.NewMockApplicationService(ctrl)
+
+	gomock.InOrder(
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(map[unit.Name]life.Value{
+			"test/0": life.Dying,
+			"test/1": life.Dying,
+			"test/2": life.Alive,
+		}, nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), []string{"test/0", "test/1"}).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(map[unit.Name]life.Value{
+			"test/0": life.Dying,
+			"test/2": life.Alive,
+		}, nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), []string{"test/0"}).Return(nil),
+		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appID).Return(map[unit.Name]life.Value{
+			"test/2": life.Alive,
+		}, nil),
+		applicationService.EXPECT().ReserveCAASUnits(gomock.Any(), "test", 2, 1).Return(nil),
+		app.EXPECT().State().Return(caas.ApplicationState{DesiredReplicas: 3}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
+		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), appID.String()[:6]).Return(nil),
+		app.EXPECT().ScaleRange(gomock.Any(), 1, 2).Return(nil),
+	)
+
+	for range 3 {
+		err := caasapplicationprovisioner.AppOps.EnsureScale(c.Context(), "test", appID, app,
+			life.Alive, facade, applicationService, nil, s.logger)
+		c.Assert(err, tc.ErrorMatches, "try again")
+	}
+}
+
 func (s *OpsSuite) TestEnsureScaleReservesBeforeStartingPods(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
