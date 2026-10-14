@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package backups
 
 import (
 	"context"
@@ -31,7 +31,7 @@ const (
 	maxBackupArgsBytes = 1 << 10
 )
 
-// backupHandler creates backup archives and streams them to the
+// Handler creates backup archives and streams them to the
 // client in the same request. The archive is written to a per-request
 // temporary directory and removed when the handler returns, however
 // the transfer ends: there is no staging, so an interrupted download
@@ -40,10 +40,10 @@ const (
 // GET requests are rejected with a clear upgrade error: pre-4.1
 // clients downloaded created archives by id, a flow that no longer
 // exists.
-type backupHandler struct {
-	// createArchive builds a fresh backup archive and returns its
+type Handler struct {
+	// backupCreator builds a fresh backup archive and returns its
 	// metadata, its path, and a cleanup that removes it.
-	createArchive corebackups.CreateFunc
+	backupCreator corebackups.BackupCreator
 	// shutdownCtx is canceled when the apiserver starts shutting down.
 	// Creation requests are tracked, so shutdownCtx waits for them: the
 	// handler then cancels archive creation and expires the request's
@@ -52,8 +52,17 @@ type backupHandler struct {
 	logger      corelogger.Logger
 }
 
+// NewHandler returns a handler that creates and streams backup archives.
+func NewHandler(backupCreator corebackups.BackupCreator, shutdownCtx context.Context, logger corelogger.Logger) *Handler {
+	return &Handler{
+		backupCreator: backupCreator,
+		shutdownCtx:   shutdownCtx,
+		logger:        logger,
+	}
+}
+
 // ServeHTTP implements [http.Handler].
-func (h *backupHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
 	req.Body = http.MaxBytesReader(w, req.Body, maxBackupArgsBytes)
@@ -87,8 +96,8 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // response headers, and streams the archive as the response body. The
 // archive is removed when the handler returns: on a completed
 // transfer, on a mid-transfer failure, and on client disconnect.
-func (h *backupHandler) createAndServe(ctx context.Context, w http.ResponseWriter, notes string) {
-	meta, archivePath, cleanup, err := h.createArchive(ctx, notes)
+func (h *Handler) createAndServe(ctx context.Context, w http.ResponseWriter, notes string) {
+	meta, archivePath, cleanup, err := h.backupCreator.Create(ctx, notes)
 	if err != nil {
 		h.sendError(ctx, w, internalerrors.Capture(err))
 		return
@@ -134,7 +143,7 @@ func (h *backupHandler) createAndServe(ctx context.Context, w http.ResponseWrite
 // and a client that stops reading would otherwise hold the tracked
 // request open forever. The returned stop must be called before the
 // handler returns.
-func (h *backupHandler) cancelOnShutdown(ctx context.Context, w http.ResponseWriter) (context.Context, func()) {
+func (h *Handler) cancelOnShutdown(ctx context.Context, w http.ResponseWriter) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(ctx)
 	interrupted := make(chan struct{})
 	stopInterrupt := context.AfterFunc(h.shutdownCtx, func() {
@@ -164,7 +173,7 @@ func (h *backupHandler) cancelOnShutdown(ctx context.Context, w http.ResponseWri
 // the client only ever sees an opaque 500, so the controller log is
 // the only place the cause is recorded. Client errors (4xx) stay at
 // debug level: they are fully conveyed to the client.
-func (h *backupHandler) sendError(ctx context.Context, w http.ResponseWriter, err error) {
+func (h *Handler) sendError(ctx context.Context, w http.ResponseWriter, err error) {
 	if _, status := apiservererrors.ServerErrorAndStatus(err); status >= http.StatusInternalServerError {
 		h.logger.Errorf(ctx, "backups endpoint: %v", err)
 	} else {

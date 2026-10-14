@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package backups
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -29,7 +30,9 @@ import (
 
 type backupSuite struct {
 	backupDir string
-	handler   *backupHandler
+	handler   *Handler
+	creator   *MockBackupCreator
+	create    func(context.Context, string) (*corebackups.Metadata, string, func(), error)
 	// shutdown scripts the apiserver shutting down.
 	shutdown context.CancelFunc
 
@@ -56,11 +59,14 @@ func (s *backupSuite) SetUpTest(c *tc.C) {
 	s.archiveData = "archive data"
 	s.archiveSize = 0
 	s.cleaned = nil
-	s.handler = &backupHandler{
-		createArchive: s.createArchive,
-		shutdownCtx:   shutdownCtx,
-		logger:        loggertesting.WrapCheckLog(c),
-	}
+	s.creator = NewMockBackupCreator(gomock.NewController(c))
+	s.create = s.createArchive
+	s.creator.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+			return s.create(ctx, notes)
+		},
+	).AnyTimes()
+	s.handler = NewHandler(s.creator, shutdownCtx, loggertesting.WrapCheckLog(c))
 }
 
 // createArchive stubs archive creation: it writes a real archive into
@@ -287,7 +293,7 @@ func (s *backupSuite) testShutdownStopsStalledTransfer(c *tc.C, http2 bool) {
 func (s *backupSuite) TestShutdownCancelsArchiveCreation(c *tc.C) {
 	started := make(chan struct{})
 	served := make(chan struct{})
-	s.handler.createArchive = func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
+	s.create = func(ctx context.Context, _ string) (*corebackups.Metadata, string, func(), error) {
 		close(started)
 		<-ctx.Done()
 		return nil, "", nil, ctx.Err()
