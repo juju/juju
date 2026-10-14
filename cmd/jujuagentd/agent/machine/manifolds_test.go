@@ -91,7 +91,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"api-remote-relation-caller",
 			"api-server",
 			"audit-config-updater",
-			"backup-creation",
+			"backup-creator",
 			"bootstrap",
 			"broker-tracker",
 			"certificate-updater",
@@ -206,7 +206,7 @@ func (s *ManifoldsSuite) TestManifoldNamesK8s(c *tc.C) {
 			"api-remote-relation-caller",
 			"api-server",
 			"audit-config-updater",
-			"backup-creation",
+			"backup-creator",
 			"bootstrap",
 			"certificate-updater",
 			"certificate-watcher",
@@ -320,7 +320,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"api-remote-relation-caller",
 		"api-server",
 		"audit-config-updater",
-		"backup-creation",
+		"backup-creator",
 		"bootstrap",
 		"certificate-updater",
 		"certificate-watcher",
@@ -415,7 +415,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 	})
 
 	controllerWorkers := set.NewStrings(
-		"backup-creation",
+		"backup-creator",
 		"api-remote-caller",
 		"certificate-watcher",
 		"controller-log-router",
@@ -947,7 +947,7 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesK8s(c *tc.C) {
 }
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-	"backup-creation": {
+	"backup-creator": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -1239,7 +1239,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"watcher-registry",
-		"backup-creation",
+		"backup-creator",
 	},
 	"audit-config-updater": {
 		"agent",
@@ -1713,7 +1713,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"watcher-registry",
-		"backup-creation",
+		"backup-creator",
 	},
 	"http-server-args": {
 		"agent",
@@ -2665,7 +2665,7 @@ var expectedMachineManifoldsWithDependenciesK8s = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
-	"backup-creation": {
+	"backup-creator": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",
@@ -2998,7 +2998,7 @@ var expectedMachineManifoldsWithDependenciesK8s = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"watcher-registry",
-		"backup-creation",
+		"backup-creator",
 	},
 	"audit-config-updater": {
 		"agent",
@@ -3386,7 +3386,7 @@ var expectedMachineManifoldsWithDependenciesK8s = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"watcher-registry",
-		"backup-creation",
+		"backup-creator",
 	},
 	"http-server-args": {
 		"agent",
