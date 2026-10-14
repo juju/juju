@@ -32,7 +32,6 @@ import (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	CreateBackup corebackups.CreateFunc
 	// ControllerTag is the tag of the controller running this API server.
 	ControllerTag names.Tag
 	// DataDir is the controller process data directory.
@@ -67,6 +66,10 @@ type Config struct {
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
 
+	// BackupCreator is the name of the BackupCreator worker to use for creating
+	// backups.
+	BackupCreator corebackups.BackupCreator
+
 	// SSHProxy holds the dependencies for the SSH tunnel and relay
 	// upgrade endpoints.
 	SSHProxy *apiserver.SSHProxyConfig
@@ -82,9 +85,6 @@ type NewServerFunc func(context.Context, apiserver.ServerConfig) (worker.Worker,
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
-	if config.CreateBackup == nil {
-		return errors.NotValidf("nil CreateBackup")
-	}
 	if config.ControllerTag == nil {
 		return errors.NotValidf("nil ControllerTag")
 	}
@@ -160,6 +160,9 @@ func (config Config) Validate() error {
 	if config.SSHProxy == nil {
 		return errors.NotValidf("nil SSHProxy")
 	}
+	if config.BackupCreator == nil {
+		return errors.NotValidf("nil BackupCreator")
+	}
 	return nil
 }
 
@@ -189,7 +192,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	serverConfig := apiserver.ServerConfig{
-		CreateBackup:                  config.CreateBackup,
 		Clock:                         config.Clock,
 		Tag:                           config.ControllerTag,
 		DataDir:                       config.DataDir,
@@ -220,6 +222,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 		EphemeralProviderFactory:      config.EphemeralProviderFactory,
 		SSHProxyConfig:                *config.SSHProxy,
+		BackupCreator:                 config.BackupCreator,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

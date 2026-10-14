@@ -98,7 +98,7 @@ func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelService = NewMockModelService(ctrl)
 
 	s.config = apiserver.Config{
-		CreateBackup:                      stubCreateBackup,
+		BackupCreator:                     backupCreatorFunc(stubCreateBackup),
 		ControllerTag:                     s.controllerTag,
 		DataDir:                           s.dataDir,
 		LogDir:                            s.logDir,
@@ -181,8 +181,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
-		f:      func(cfg *apiserver.Config) { cfg.CreateBackup = nil },
-		expect: "nil CreateBackup not valid",
+		f:      func(cfg *apiserver.Config) { cfg.BackupCreator = nil },
+		expect: "nil BackupCreator not valid",
 	}, {
 		f:      func(cfg *apiserver.Config) { cfg.ControllerTag = nil },
 		expect: "nil ControllerTag not valid",

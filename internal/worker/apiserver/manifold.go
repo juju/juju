@@ -77,7 +77,6 @@ type LocalConfigReader interface {
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	BackupCreationName     string
 	AuthenticatorName      string
 	MuxName                string
 	UpgradeGateName        string
@@ -96,6 +95,7 @@ type ManifoldConfig struct {
 	JWTParserName      string
 	SSHTunnelerName    string
 	SSHServerName      string
+	BackupCreator      string
 
 	// Clock is the clock used for timekeeping within the manifold.
 	Clock clock.Clock
@@ -115,9 +115,6 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.BackupCreationName == "" {
-		return errors.NotValidf("empty BackupCreationName")
-	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -196,6 +193,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetModelService == nil {
 		return errors.NotValidf("nil GetModelService")
 	}
+	if config.BackupCreator == "" {
+		return errors.NotValidf("empty BackupCreator")
+	}
 
 	return nil
 }
@@ -206,7 +206,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.BackupCreationName,
+			config.BackupCreator,
 			config.AuthenticatorName,
 			config.MuxName,
 			config.UpgradeGateName,
@@ -266,8 +266,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var createBackup corebackups.CreateFunc
-	if err := getter.Get(config.BackupCreationName, &createBackup); err != nil {
+	var backupCreator corebackups.BackupCreator
+	if err := getter.Get(config.BackupCreator, &backupCreator); err != nil {
 		return nil, err
 	}
 
@@ -365,7 +365,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	w, err := config.NewWorker(ctx, Config{
-		CreateBackup:                      createBackup,
 		ControllerTag:                     config.ControllerTag,
 		DataDir:                           localValues.DataDir,
 		LogDir:                            localValues.LogDir,
@@ -396,6 +395,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 			TunnelTracker: tunnelTracker,
 			ServerFactory: serverFactory,
 		},
+		BackupCreator: backupCreator,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes
