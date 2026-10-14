@@ -125,11 +125,6 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	if len(grants) == 0 {
-		return "", errors.Errorf(
-			"no grant of secret %q to consuming application UUID %q", uri, arg.ApplicationToken,
-		).Add(secreterrors.SecretAccessScopeNotFound)
-	}
 
 	// The grants are ordered by the name of the synthetic application, so
 	// the choice is deterministic.
@@ -282,10 +277,6 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.
 		return nil, nil, 0, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, nil, 0, errors.Capture(err)
-	}
-
-	if len(grants) == 0 {
-		return nil, nil, 0, apiservererrors.ErrPerm
 	}
 
 	// Prefer the grant of the connection the macaroons identify, so the
