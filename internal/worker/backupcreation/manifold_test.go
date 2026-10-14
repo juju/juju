@@ -6,6 +6,7 @@ package backupcreation
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -15,7 +16,6 @@ import (
 
 	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/lease"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/services"
@@ -28,40 +28,38 @@ func TestManifoldSuite(t *testing.T) { tc.Run(t, &manifoldSuite{}) }
 func manifoldConfig(c *tc.C) ManifoldConfig {
 	worker := workerConfig(c)
 	return ManifoldConfig{
-		DBAccessorName: "db", DomainServicesName: "services", ObjectStoreName: "objects",
+		LeaseManagerName: "leases", DomainServicesName: "services", ObjectStoreName: "objects",
 		ControllerUUID: worker.ControllerUUID, ControllerModelUUID: worker.ControllerModelUUID,
+		ControllerNodeID:  worker.ControllerNodeID,
 		ControllerTag:     names.NewControllerAgentTag("0"),
 		LocalConfigReader: localConfigStub{values: LocalValues{DataDir: "/data", LogDir: "/logs"}},
 		Clock:             worker.Clock, Logger: worker.Logger,
-		NewLeaseService: func(database.DBGetter) LeaseService { return leaseStub{} },
-		NewWorker:       NewWorker,
+		NewWorker: NewWorker,
 	}
 }
 
 func manifoldResources() map[string]any {
 	return map[string]any{
-		"db":       dbGetterStub{},
+		"leases":   leaseManagerStub{},
 		"services": servicesGetterStub{},
 		"objects":  objectGetterStub{},
 	}
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
-	c.Check(Manifold(manifoldConfig(c)).Inputs, tc.SameContents, []string{"db", "services", "objects"})
+	c.Check(Manifold(manifoldConfig(c)).Inputs, tc.SameContents, []string{"leases", "services", "objects"})
 }
 
 func (s *manifoldSuite) TestStartAndOutputDeferServicesUntilCreation(c *tc.C) {
 	cfg := manifoldConfig(c)
 	failure := errors.New("services unavailable")
 	var claimed, revoked bool
-	cfg.NewLeaseService = func(database.DBGetter) LeaseService {
-		return leaseStub{
-			claim:  func(context.Context, lease.Key, lease.Request) error { claimed = true; return nil },
-			revoke: func(context.Context, lease.Key, string) error { revoked = true; return nil },
-		}
-	}
-	type contextKey struct{}
 	resources := manifoldResources()
+	resources["leases"] = leaseManagerStub{operations: leaseOperations{
+		claim:  func(string, string, time.Duration) error { claimed = true; return nil },
+		revoke: func(string, string) error { revoked = true; return nil },
+	}}
+	type contextKey struct{}
 	resources["services"] = servicesGetterStub{get: func(ctx context.Context, model coremodel.UUID) (services.DomainServices, error) {
 		c.Check(claimed, tc.IsTrue)
 		c.Check(model.String(), tc.Equals, cfg.ControllerModelUUID)
@@ -73,9 +71,9 @@ func (s *manifoldSuite) TestStartAndOutputDeferServicesUntilCreation(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Cleanup(func() { w.Kill(); c.Check(w.Wait(), tc.ErrorIsNil) })
 	c.Check(claimed, tc.IsFalse)
-	var create corebackups.CreateFunc
+	var create corebackups.BackupCreator
 	c.Assert(manifold.Output(w, &create), tc.ErrorIsNil)
-	_, _, _, err = create(context.WithValue(c.Context(), contextKey{}, "request"), "notes")
+	_, _, _, err = create.Create(context.WithValue(c.Context(), contextKey{}, "request"), "notes")
 	c.Check(err, tc.ErrorIs, failure)
 	c.Check(revoked, tc.IsTrue)
 	var wrong string
@@ -99,14 +97,14 @@ func (s *manifoldSuite) TestObjectStoreFailure(c *tc.C) {
 	w, err := manifold.Start(c.Context(), dt.StubGetter(resources))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Cleanup(func() { w.Kill(); c.Check(w.Wait(), tc.ErrorIsNil) })
-	var create corebackups.CreateFunc
+	var create corebackups.BackupCreator
 	c.Assert(manifold.Output(w, &create), tc.ErrorIsNil)
-	_, _, _, err = create(c.Context(), "notes")
+	_, _, _, err = create.Create(c.Context(), "notes")
 	c.Check(err, tc.ErrorIs, failure)
 }
 
 func (s *manifoldSuite) TestMissingDependencies(c *tc.C) {
-	for _, name := range []string{"db", "services", "objects"} {
+	for _, name := range []string{"leases", "services", "objects"} {
 		resources := manifoldResources()
 		delete(resources, name)
 		_, err := Manifold(manifoldConfig(c)).Start(c.Context(), dt.StubGetter(resources))
@@ -119,14 +117,14 @@ func (s *manifoldSuite) TestInvalidConfiguration(c *tc.C) {
 		change  func(*ManifoldConfig)
 		message string
 	}{
-		{func(c *ManifoldConfig) { c.DBAccessorName = "" }, "empty DBAccessorName not valid"},
+		{func(c *ManifoldConfig) { c.LeaseManagerName = "" }, "empty LeaseManagerName not valid"},
 		{func(c *ManifoldConfig) { c.DomainServicesName = "" }, "empty DomainServicesName not valid"},
 		{func(c *ManifoldConfig) { c.ObjectStoreName = "" }, "empty ObjectStoreName not valid"},
 		{func(c *ManifoldConfig) { c.ControllerTag = nil }, "nil ControllerTag not valid"},
+		{func(c *ManifoldConfig) { c.ControllerNodeID = "" }, "empty ControllerNodeID not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = nil }, "nil LocalConfigReader not valid"},
 		{func(c *ManifoldConfig) { c.Clock = nil }, "nil Clock not valid"},
 		{func(c *ManifoldConfig) { c.Logger = nil }, "nil Logger not valid"},
-		{func(c *ManifoldConfig) { c.NewLeaseService = nil }, "nil NewLeaseService not valid"},
 		{func(c *ManifoldConfig) { c.NewWorker = nil }, "nil NewWorker not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{} }, "empty backup paths not valid"},
 		{func(c *ManifoldConfig) { c.LocalConfigReader = localConfigStub{err: errors.New("paths failed")} }, "reading backup paths: paths failed"},
@@ -154,7 +152,6 @@ type localConfigStub struct {
 
 func (s localConfigStub) BackupLocalValues() (LocalValues, error) { return s.values, s.err }
 
-type dbGetterStub struct{ database.DBGetter }
 type domainServicesStub struct{ services.DomainServices }
 type servicesGetterStub struct {
 	get func(context.Context, coremodel.UUID) (services.DomainServices, error)
