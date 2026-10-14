@@ -83,7 +83,7 @@ func (b *IAASDeployer) EnsureControllerApplication(ctx context.Context, info Dep
 
 	origin := *info.Origin
 
-	cfg, err := b.createCharmSettings()
+	cfg, err := b.createCharmSettings(info.Charm)
 	if err != nil {
 		return errors.Errorf("creating charm settings: %w", err)
 	}
