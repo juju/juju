@@ -1,0 +1,2 @@
+This test charm publishes one configured token over two relation endpoints.
+It is used to exercise migration of a multi-endpoint application offer.

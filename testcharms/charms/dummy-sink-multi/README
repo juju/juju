@@ -1,0 +1,2 @@
+This test charm receives tokens over two relations on one endpoint. It reports
+active only after both relations have published a token.
