@@ -97,10 +97,13 @@ func (s *integrationSuite) TestPutMetadataAndGetBySHA256Prefix(c *tc.C) {
 	_, err := svc.PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Retrieve by 7-character prefix.
-	got, err := svc.GetMetadataBySHA256Prefix(c.Context(), metadata.SHA256[:7])
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got.Path, tc.Equals, metadata.Path)
+	// Exercise short prefixes and the full hash used by backup creation
+	// through both service validation and the persisted metadata lookup.
+	for _, length := range []int{7, 8, 9, 63, 64} {
+		got, err := svc.GetMetadataBySHA256Prefix(c.Context(), metadata.SHA256[:length])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(got, tc.DeepEquals, metadata)
+	}
 }
 
 // TestPutAndRemoveMetadata verifies that metadata can be stored and then

@@ -22,8 +22,8 @@ import (
 const (
 	hashLength = 64
 
-	// minHashPrefixLength is the minimum length of the hash prefix. We allow
-	// either 7 or 8 characters.
+	// minHashPrefixLength is the minimum length of the hash prefix. Prefixes
+	// may extend up to the full SHA256 hash.
 	minHashPrefixLength = 7
 )
 
@@ -33,7 +33,7 @@ var (
 
 	// The hashPrefixRegexp is used to validate the SHA256 hash prefix.
 	// Note: this should include the length of the hash prefix.
-	hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]{7,8}$`)
+	hashPrefixRegexp = regexp.MustCompile(`^[a-f0-9]{7,64}$`)
 )
 
 // State describes retrieval and persistence methods for the objectstore.

@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/internal/crossmodel"
 	crossmodelbakery "github.com/juju/juju/apiserver/internal/crossmodel/bakery"
+	backuphandlers "github.com/juju/juju/apiserver/internal/handlers/backups"
 	handlerscrossmodel "github.com/juju/juju/apiserver/internal/handlers/crossmodel"
 	"github.com/juju/juju/apiserver/internal/handlers/objects"
 	handlersresources "github.com/juju/juju/apiserver/internal/handlers/resources"
@@ -47,6 +48,7 @@ import (
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/flightrecorder"
@@ -160,6 +162,8 @@ type Server struct {
 	// resourceLock is used to limit the number of
 	// concurrent resource downloads to units.
 	resourceLock resource.ResourceDownloadLock
+
+	backupCreator corebackups.BackupCreator
 
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
@@ -275,6 +279,9 @@ type ServerConfig struct {
 	// SSHProxyConfig configures the SSH reverse tunnel and relay upgrade
 	// endpoints.
 	SSHProxyConfig SSHProxyConfig
+
+	// BackupCreator creates an archive.
+	BackupCreator corebackups.BackupCreator
 }
 
 // SSHProxyConfig holds the dependencies for the SSH tunnel and relay
@@ -352,6 +359,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.SSHProxyConfig.ServerFactory == nil {
 		return errors.NotValidf("missing SSHProxyConfig.ServerFactory")
+	}
+	if c.BackupCreator == nil {
+		return errors.NotValidf("nil BackupCreator")
 	}
 	return nil
 }
@@ -456,6 +466,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		getAuditConfig:   cfg.GetAuditConfig,
 		logSink:          cfg.LogSink,
 		metricsCollector: cfg.MetricsCollector,
+		backupCreator:    cfg.BackupCreator,
 
 		healthStatus:   "starting",
 		sshProxyConfig: cfg.SSHProxyConfig,
@@ -857,11 +868,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		debuglogAuth,
 		srv.logDir,
 	), "log")
-	backupHandler := srv.monitoredHandler(&backupHandler{
-		createArchive: srv.createBackupArchive,
-		shutdownCtx:   srv.catacomb.Context(context.Background()),
-		logger:        logger,
-	}, "backup")
+	backupHandler := srv.monitoredHandler(backuphandlers.NewHandler(
+		srv.backupCreator,
+		srv.catacomb.Context(context.Background()),
+		logger,
+	), "backup")
 	logSinkHandler := logsink.NewHTTPHandler(
 		newAgentLogWriteFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),

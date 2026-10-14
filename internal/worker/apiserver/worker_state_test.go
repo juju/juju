@@ -102,6 +102,10 @@ func (s *WorkerStateSuite) TestStart(c *tc.C) {
 	c.Assert(args, tc.HasLen, 1)
 	c.Assert(args[0], tc.FitsTypeOf, coreapiserver.ServerConfig{})
 	config := args[0].(coreapiserver.ServerConfig)
+	c.Assert(config.BackupCreator, tc.NotNil)
+	_, _, _, err = config.BackupCreator.Create(c.Context(), "backup notes")
+	c.Check(err, tc.ErrorMatches, "backup notes")
+	config.BackupCreator = nil
 
 	c.Assert(config.RegisterIntrospectionHandlers, tc.NotNil)
 	config.RegisterIntrospectionHandlers = nil

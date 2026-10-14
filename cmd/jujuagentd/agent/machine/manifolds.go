@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
+	"github.com/juju/juju/internal/worker/backupcreation"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/certupdater"
@@ -769,6 +770,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NonControllerLogSinkName: nonControllerLogSinkName,
 		}),
 
+		backupCreatorName: ifController(backupcreation.Manifold(backupcreation.ManifoldConfig{
+			LeaseManagerName:    leaseManagerName,
+			DomainServicesName:  domainServicesName,
+			ObjectStoreName:     objectStoreFacadeName,
+			ControllerUUID:      config.ControllerUUID,
+			ControllerModelUUID: config.ControllerModelUUID,
+			ControllerNodeID:    config.ControllerID,
+			ControllerTag:       config.ControllerAgentTag,
+			LocalConfigReader:   config.StartupValueProvider,
+			Clock:               config.Clock,
+			Logger:              internallogger.GetLogger("juju.worker.backupcreation"),
+			NewWorker:           backupcreation.NewWorker,
+		})),
+
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
@@ -788,6 +803,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,
+			BackupCreator:          backupCreatorName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -1660,6 +1676,7 @@ var ifControllerAgentConfigNeededAndReady = engine.Housing{
 // startup values to controller-only workers. This is implemented by the
 // config.StartupValueProvider, which is passed to the manifolds in the config.
 type ControllerStartupValueProvider interface {
+	backupcreation.LocalConfigReader
 	objectstore.RootDirReader
 	dbaccessor.ControllerStartupValuesProvider
 	apiservercertwatcher.CertReader
@@ -1705,20 +1722,23 @@ const (
 
 	apiAddressSetterName               = "api-address-setter"
 	apiAddressUpdaterName              = "api-address-updater"
-	apiServerName                      = "api-server"
 	apiRemoteCallerName                = "api-remote-caller"
 	apiRemoteRelationCallerName        = "api-remote-relation-caller"
+	apiServerName                      = "api-server"
 	auditConfigUpdaterName             = "audit-config-updater"
-	sshKeyUpdaterWorkerName            = "ssh-authkeys-updater"
+	backupCreatorName                  = "backup-creator"
 	brokerTrackerName                  = "broker-tracker"
 	certificateUpdaterName             = "certificate-updater"
 	certificateWatcherName             = "certificate-watcher"
 	changeStreamName                   = "change-stream"
 	changeStreamPrunerName             = "change-stream-pruner"
 	controllerAgentConfigName          = "controller-agent-config"
-	controllerAgentConfigReadyGateName = "controller-agent-config-ready-gate"
 	controllerAgentConfigReadyFlagName = "controller-agent-config-ready-flag"
+	controllerAgentConfigReadyGateName = "controller-agent-config-ready-gate"
+	controllerLogRouterName            = "controller-log-router"
+	controllerLogSinkName              = "controller-log-sink"
 	controllerPresenceName             = "controller-presence"
+	controllerTraceName                = "controller-trace"
 	controlSocketName                  = "control-socket"
 	dbAccessorName                     = "db-accessor"
 	deployerName                       = "deployer"
@@ -1739,23 +1759,22 @@ const (
 	leaseExpiryName                    = "lease-expiry"
 	leaseManagerName                   = "lease-manager"
 	loggingConfigUpdaterName           = "logging-config-updater"
-	lokiEndpointUpdaterName            = "loki-endpoint-updater"
-	traceConfigUpdaterName             = "trace-config-updater"
-	logSinkName                        = "log-sink"
-	controllerLogSinkName              = "controller-log-sink"
-	nonControllerLogSinkName           = "non-controller-log-sink"
-	controllerLogRouterName            = "controller-log-router"
 	logRouterName                      = "log-router"
+	logSinkName                        = "log-sink"
+	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"
+	machineConverterName               = "machine-converter"
 	machinerName                       = "machiner"
+	machineSetupName                   = "machine-setup"
 	modelWorkerManagerName             = "model-worker-manager"
+	nonControllerLogSinkName           = "non-controller-log-sink"
+	objectStoreDrainerName             = "object-store-drainer"
+	objectStoreFacadeName              = "object-store-facade"
+	objectStoreFortressName            = "object-store-fortress"
 	objectStoreName                    = "object-store"
 	objectStoreS3CallerName            = "object-store-s3-caller"
 	objectStoreServicesName            = "object-store-services"
-	objectStoreFortressName            = "object-store-fortress"
-	objectStoreFacadeName              = "object-store-facade"
-	objectStoreDrainerName             = "object-store-drainer"
 	objectStoreGuardName               = "object-store-guard"
 	providerDomainServicesName         = "provider-services"
 	providerTrackerName                = "provider-tracker"
@@ -1763,18 +1782,17 @@ const (
 	queryLoggerName                    = "query-logger"
 	rebootName                         = "reboot-executor"
 	secretBackendRotateName            = "secret-backend-rotate"
+	sshKeyUpdaterWorkerName            = "ssh-authkeys-updater"
 	sshServerName                      = "ssh-server"
-	sshTunnelerName                    = "ssh-tunneler"
 	sshSessionName                     = "ssh-session"
-	machineConverterName               = "machine-converter"
+	sshTunnelerName                    = "ssh-tunneler"
 	storageProvisionerName             = "storage-provisioner"
 	storageRegistryName                = "storage-registry"
 	toolsVersionCheckerName            = "tools-version-checker"
-	controllerTraceName                = "controller-trace"
+	traceConfigUpdaterName             = "trace-config-updater"
 	traceName                          = "trace"
 	traceServicesName                  = "trace-services"
-	validCredentialFlagName            = "valid-credential-flag"
 	undertakerName                     = "undertaker"
-	machineSetupName                   = "machine-setup"
+	validCredentialFlagName            = "valid-credential-flag"
 	watcherRegistryName                = "watcher-registry"
 )

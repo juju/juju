@@ -58,8 +58,8 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 				return err
 			}
 
-			if count != 2 {
-				return fmt.Errorf("expected 2 rows, got %d", count)
+			if count != 3 {
+				return fmt.Errorf("expected 3 rows, got %d", count)
 			}
 
 			// Ensure we have a nodeID in the controller node.

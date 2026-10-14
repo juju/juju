@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -525,12 +526,21 @@ func SeedDatabase(c *tc.C, controller database.TxnRunner, domainServices service
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+type backupCreatorFunc func(context.Context, string) (*corebackups.Metadata, string, func(), error)
+
+func (f backupCreatorFunc) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
+	return f(ctx, notes)
+}
+
 // DefaultServerConfig returns a minimal server config.
 func DefaultServerConfig(c *tc.C, testclock clock.Clock) apiserver.ServerConfig {
 	if testclock == nil {
 		testclock = clock.WallClock
 	}
 	return apiserver.ServerConfig{
+		BackupCreator: backupCreatorFunc(func(context.Context, string) (*corebackups.Metadata, string, func(), error) {
+			return nil, "", nil, errors.NotSupportedf("backup creation in this test fixture")
+		}),
 		Clock:                      testclock,
 		Tag:                        names.NewMachineTag("0"),
 		LogDir:                     c.MkDir(),

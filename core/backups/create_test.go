@@ -41,6 +41,29 @@ func TestCreateSuite(t *stdtesting.T) {
 	tc.Run(t, &createSuite{})
 }
 
+func (s *createSuite) TestCancelledCreateLeavesNoArchive(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	destDir := c.MkDir()
+	file := s.writeFile(c, "system-identity", "identity")
+	_, err := backups.Create(ctx, backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file},
+		DumpEntries:    []backups.DumpEntry{{Name: "controller.yaml", Reader: cancellingReader{cancel: cancel}}},
+	})
+	c.Check(err, tc.ErrorIs, context.Canceled)
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+type cancellingReader struct{ cancel context.CancelFunc }
+
+func (r cancellingReader) Read(p []byte) (int, error) {
+	r.cancel()
+	return 0, context.Canceled
+}
+
 func (s *createSuite) writeFile(c *tc.C, name, content string) string {
 	path := filepath.Join(c.MkDir(), name)
 	err := os.WriteFile(path, []byte(content), 0644)
@@ -384,7 +407,7 @@ func (s *createSuite) TestBuildArchiveAndChecksumFailureRemovesArchive(c *tc.C) 
 	// A missing content directory fails the tar build after the
 	// archive file has been created; the partial archive must not be
 	// left behind.
-	_, _, err := backups.BuildArchiveAndChecksum(filename, dir,
+	_, _, err := backups.BuildArchiveAndChecksum(c.Context(), filename, dir,
 		filepath.Join(dir, "missing"))
 	c.Assert(err, tc.NotNil)
 

@@ -120,6 +120,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
+		BackupCreator:                     "backup-creation",
 		AuthenticatorName:                 "authenticator",
 		Clock:                             clock.WallClock,
 		ControllerTag:                     names.NewControllerAgentTag("0"),
@@ -174,6 +175,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
+		"backup-creation":     backupCreatorFunc(stubCreateBackup),
 		"authenticator":       s.authenticator,
 		"mux":                 s.mux,
 		"upgrade":             &s.upgradeGate,
@@ -219,6 +221,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 }
 
 var expectedInputs = []string{
+	"backup-creation",
 	"authenticator", "mux",
 	"upgrade", "auditconfig-updater", "lease-manager",
 	"http-client", "change-stream",
@@ -242,6 +245,10 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(args, tc.HasLen, 1)
 	c.Assert(args[0], tc.FitsTypeOf, apiserver.Config{})
 	config := args[0].(apiserver.Config)
+	c.Assert(config.BackupCreator, tc.NotNil)
+	_, _, _, err := config.BackupCreator.Create(c.Context(), "backup notes")
+	c.Check(err, tc.ErrorMatches, "backup notes")
+	config.BackupCreator = nil
 
 	c.Assert(config.GetAuditConfig, tc.NotNil)
 	c.Assert(config.GetAuditConfig(), tc.DeepEquals, s.auditConfig.config)
