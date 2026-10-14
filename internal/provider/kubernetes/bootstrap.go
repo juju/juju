@@ -706,7 +706,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 					Port:       int32(c.portAPIServer),
 				},
 				{
-					Name:       "ssh-server",
+					Name:       controllerServiceSSHPortName,
 					TargetPort: intstr.FromInt(c.portSSHServer),
 					Port:       int32(c.portSSHServer),
 				},

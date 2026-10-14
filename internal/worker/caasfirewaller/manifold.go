@@ -92,7 +92,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
-	var domainServices services.ModelDomainServices
+	var domainServices services.DomainServices
 	if err := getter.Get(config.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Errorf(
 			"getting domain services for input name %q: %w",
@@ -113,11 +113,17 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		)
 	}
 
+	// Only the Kubernetes broker can update the controller Service.
+	controllerServiceUpdater, _ := broker.(caas.ControllerServiceUpdater)
+
 	w, err := config.NewFirewallWorker(FirewallerConfig{
-		ApplicationService: domainServices.Application(),
-		Clock:              clock,
-		Logger:             config.Logger,
-		WorkerCreator:      appFirewallCreator,
+		ApplicationService:       domainServices.Application(),
+		Clock:                    clock,
+		Logger:                   config.Logger,
+		WorkerCreator:            appFirewallCreator,
+		ModelInfoService:         domainServices.ModelInfo(),
+		ControllerSSHService:     domainServices.ControllerSSH(),
+		ControllerServiceUpdater: controllerServiceUpdater,
 	})
 	if err != nil {
 		return nil, errors.Errorf("starting new worker for manifold: %w", err)

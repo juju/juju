@@ -10,10 +10,12 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -31,6 +33,13 @@ type FirewallerConfig struct {
 	Clock              clock.Clock
 	Logger             logger.Logger
 	WorkerCreator      AppFirewallerWokerCreator
+
+	// ModelInfoService, ControllerSSHService and ControllerServiceUpdater
+	// keep the controller Service's SSH port in step with the SSH server port
+	// in the controller model. If any are nil this is skipped.
+	ModelInfoService         ModelInfoService
+	ControllerSSHService     ControllerSSHService
+	ControllerServiceUpdater caas.ControllerServiceUpdater
 }
 
 // firewaller is a worker responsible for watching applications in the model and
@@ -42,6 +51,10 @@ type firewaller struct {
 	logger          logger.Logger
 
 	workerCreator AppFirewallerWokerCreator
+
+	modelInfoService         ModelInfoService
+	controllerSSHService     ControllerSSHService
+	controllerServiceUpdater caas.ControllerServiceUpdater
 }
 
 // applicationWorkerNamePrefix is the prefix used for naming application
@@ -70,10 +83,25 @@ func (p *firewaller) loop() error {
 		)
 	}
 
+	sshServerPortChanges, err := p.watchControllerSSHServerPort(ctx)
+	if err != nil {
+		return err
+	}
+
 	for {
 		select {
 		case <-p.catacomb.Dying():
 			return p.catacomb.ErrDying()
+
+		case _, ok := <-sshServerPortChanges:
+			if !ok {
+				return errors.New(
+					"controller ssh server port watcher's channel closed unexpectedly",
+				)
+			}
+			if err := p.updateControllerServiceSSHPort(ctx); err != nil {
+				return err
+			}
 
 		case apps, ok := <-w.Changes():
 			if !ok {
@@ -122,6 +150,10 @@ func NewFirewallerWorker(config FirewallerConfig) (worker.Worker, error) {
 		appService:      config.ApplicationService,
 		logger:          config.Logger,
 		workerCreator:   config.WorkerCreator,
+
+		modelInfoService:         config.ModelInfoService,
+		controllerSSHService:     config.ControllerSSHService,
+		controllerServiceUpdater: config.ControllerServiceUpdater,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
@@ -251,6 +283,46 @@ func (config FirewallerConfig) Validate() error {
 		return errors.New("not valid nil WorkerCreator").Add(
 			coreerrors.NotValid,
 		)
+	}
+	return nil
+}
+
+// watchControllerSSHServerPort watches the controller SSH server port in the
+// controller model, returning a nil channel if there's nothing to watch.
+func (p *firewaller) watchControllerSSHServerPort(ctx context.Context) (watcher.NotifyChannel, error) {
+	if p.modelInfoService == nil || p.controllerSSHService == nil || p.controllerServiceUpdater == nil {
+		return nil, nil
+	}
+	isControllerModel, err := p.modelInfoService.IsControllerModel(ctx)
+	if err != nil {
+		return nil, errors.Errorf("checking if the model is the controller model: %w", err)
+	}
+	if !isControllerModel {
+		return nil, nil
+	}
+
+	w, err := p.controllerSSHService.WatchSSHServerPort(ctx)
+	if err != nil {
+		return nil, errors.Errorf("getting controller ssh server port watcher: %w", err)
+	}
+	if err := p.catacomb.Add(w); err != nil {
+		return nil, errors.Errorf(
+			"adding controller ssh server port watcher to the worker's catacomb: %w", err,
+		)
+	}
+	return w.Changes(), nil
+}
+
+// updateControllerServiceSSHPort sets the controller Service's SSH port to the
+// current SSH server port, so it follows changes made by the controller charm.
+func (p *firewaller) updateControllerServiceSSHPort(ctx context.Context) error {
+	port, err := p.controllerSSHService.GetSSHServerPort(ctx)
+	if err != nil {
+		return errors.Errorf("getting controller ssh server port: %w", err)
+	}
+	p.logger.Debugf(ctx, "setting controller service ssh port to %d", port)
+	if err := p.controllerServiceUpdater.UpdateControllerServiceSSHPort(ctx, port); err != nil {
+		return errors.Errorf("updating controller service ssh port: %w", err)
 	}
 	return nil
 }
