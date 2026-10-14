@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"context"
 	"testing"
 	"testing/synctest"
 
@@ -303,4 +304,79 @@ func (s *firewallerSuite) TestFailedApplicationWorkerStopsFirewaller(c *tc.C) {
 	// Trigger to start app workers.
 	appWatcherChan <- []string{app1UUID.String()}
 	c.Check(w.Wait(), tc.ErrorIs, FailingWorkerError)
+}
+
+// TestControllerServiceSSHPortFollowsSSHServerPort asserts that in the
+// controller model the controller Service's SSH port is set from the SSH server
+// port when the worker starts and again whenever it changes.
+func (s *firewallerSuite) TestControllerServiceSSHPortFollowsSSHServerPort(c *tc.C) {
+	synctest.Test(c.T, func(c *testing.T) {
+		ctrl := s.setupMocks(c)
+		defer ctrl.Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+
+		portCh := make(chan struct{}, 2)
+		modelInfoService := mocks.NewMockModelInfoService(ctrl)
+		modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(true, nil)
+		sshService := mocks.NewMockControllerSSHService(ctrl)
+		sshService.EXPECT().WatchSSHServerPort(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(portCh), nil)
+		gomock.InOrder(
+			sshService.EXPECT().GetSSHServerPort(gomock.Any()).Return(17022, nil),
+			sshService.EXPECT().GetSSHServerPort(gomock.Any()).Return(17099, nil),
+		)
+
+		updated := make(chan int, 2)
+		updater := mocks.NewMockControllerServiceUpdater(ctrl)
+		updater.EXPECT().UpdateControllerServiceSSHPort(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, port int) error {
+				updated <- port
+				return nil
+			},
+		).Times(2)
+
+		config := s.getValidConfig(c)
+		config.ModelInfoService = modelInfoService
+		config.ControllerSSHService = sshService
+		config.ControllerServiceUpdater = updater
+		w, err := NewFirewallerWorker(config)
+		tc.Assert(c, err, tc.ErrorIsNil)
+
+		// The initial event sets the current port, then a change moves it.
+		portCh <- struct{}{}
+		tc.Check(c, <-updated, tc.Equals, 17022)
+		portCh <- struct{}{}
+		tc.Check(c, <-updated, tc.Equals, 17099)
+
+		w.Kill()
+		tc.Check(c, w.Wait(), tc.ErrorIsNil)
+	})
+}
+
+// TestControllerServiceSSHPortNotControllerModel asserts that outside the
+// controller model the SSH server port isn't watched and the controller Service
+// isn't touched.
+func (s *firewallerSuite) TestControllerServiceSSHPortNotControllerModel(c *tc.C) {
+	synctest.Test(c.T, func(c *testing.T) {
+		ctrl := s.setupMocks(c)
+		defer ctrl.Finish()
+
+		appWatcher := watchertest.NewMockStringsWatcher(make(chan []string))
+		s.applicationService.EXPECT().WatchApplications(gomock.Any()).Return(appWatcher, nil)
+
+		modelInfoService := mocks.NewMockModelInfoService(ctrl)
+		modelInfoService.EXPECT().IsControllerModel(gomock.Any()).Return(false, nil)
+
+		config := s.getValidConfig(c)
+		config.ModelInfoService = modelInfoService
+		config.ControllerSSHService = mocks.NewMockControllerSSHService(ctrl)
+		config.ControllerServiceUpdater = mocks.NewMockControllerServiceUpdater(ctrl)
+		w, err := NewFirewallerWorker(config)
+		tc.Assert(c, err, tc.ErrorIsNil)
+
+		synctest.Wait()
+		w.Kill()
+		tc.Check(c, w.Wait(), tc.ErrorIsNil)
+	})
 }

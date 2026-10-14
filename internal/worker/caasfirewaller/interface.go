@@ -43,3 +43,20 @@ type ApplicationService interface {
 	// applications are added or removed.
 	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 }
+
+// ModelInfoService reports facts about the model the worker is running in.
+type ModelInfoService interface {
+	// IsControllerModel returns true if the model is the controller model.
+	IsControllerModel(context.Context) (bool, error)
+}
+
+// ControllerSSHService provides the controller SSH server port, which the
+// controller charm can change after bootstrap.
+type ControllerSSHService interface {
+	// GetSSHServerPort returns the port the controller SSH server listens on.
+	GetSSHServerPort(context.Context) (int, error)
+
+	// WatchSSHServerPort returns a watcher that notifies when the controller
+	// SSH server port changes.
+	WatchSSHServerPort(context.Context) (watcher.NotifyWatcher, error)
+}
