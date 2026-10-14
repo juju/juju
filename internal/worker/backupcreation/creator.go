@@ -10,6 +10,7 @@ import (
 	"path"
 
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 
 	corebackups "github.com/juju/juju/core/backups"
@@ -45,37 +46,91 @@ type Creator struct {
 	logger corelogger.Logger
 }
 
+// CreatorConfig supplies the dependencies needed to create backup archives.
+type CreatorConfig struct {
+	MachineTag            names.Tag
+	ControllerUUID        string
+	ControllerModelUUID   coremodel.UUID
+	DataDir               string
+	LogDir                string
+	ControllerExport      ControllerExportService
+	ModelServicesFor      ModelServicesForFunc
+	ModelConfig           ModelConfigService
+	Controller            ControllerModelLister
+	ControllerNodes       ControllerNodeLister
+	ControllerObjectStore ReadObjectStore
+	ObjectStoreForModel   ObjectStoreForModelFunc
+	Clock                 clock.Clock
+	Logger                corelogger.Logger
+}
+
+// Validate checks that archive creation dependencies are complete.
+func (c CreatorConfig) Validate() error {
+	if c.MachineTag == nil {
+		return jujuerrors.NotValidf("nil MachineTag")
+	}
+	if c.ControllerUUID == "" {
+		return jujuerrors.NotValidf("empty ControllerUUID")
+	}
+	if err := c.ControllerModelUUID.Validate(); err != nil {
+		return jujuerrors.Annotate(err, "controller model UUID")
+	}
+	if c.DataDir == "" {
+		return jujuerrors.NotValidf("empty DataDir")
+	}
+	if c.LogDir == "" {
+		return jujuerrors.NotValidf("empty LogDir")
+	}
+	if c.ControllerExport == nil {
+		return jujuerrors.NotValidf("nil ControllerExport")
+	}
+	if c.ModelServicesFor == nil {
+		return jujuerrors.NotValidf("nil ModelServicesFor")
+	}
+	if c.ModelConfig == nil {
+		return jujuerrors.NotValidf("nil ModelConfig")
+	}
+	if c.Controller == nil {
+		return jujuerrors.NotValidf("nil Controller")
+	}
+	if c.ControllerNodes == nil {
+		return jujuerrors.NotValidf("nil ControllerNodes")
+	}
+	if c.ControllerObjectStore == nil {
+		return jujuerrors.NotValidf("nil ControllerObjectStore")
+	}
+	if c.ObjectStoreForModel == nil {
+		return jujuerrors.NotValidf("nil ObjectStoreForModel")
+	}
+	if c.Clock == nil {
+		return jujuerrors.NotValidf("nil Clock")
+	}
+	if c.Logger == nil {
+		return jujuerrors.NotValidf("nil Logger")
+	}
+	return nil
+}
+
 // NewCreator creates a new backup archive creator.
-func NewCreator(
-	machineTag names.Tag,
-	controllerUUID string,
-	controllerModelUUID coremodel.UUID,
-	dataDir, logDir string,
-	controllerExport ControllerExportService,
-	modelServicesFor ModelServicesForFunc,
-	modelConfig ModelConfigService,
-	controller ControllerModelLister,
-	controllerNodes ControllerNodeLister,
-	controllerObjectStore ReadObjectStore,
-	objectStoreForModel ObjectStoreForModelFunc,
-	clock clock.Clock,
-	logger corelogger.Logger,
-) (*Creator, error) {
+func NewCreator(cfg CreatorConfig) (*Creator, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
 	return &Creator{
-		controllerUUID:        controllerUUID,
-		controllerModelUUID:   controllerModelUUID,
-		machineID:             machineTag.Id(),
-		dataDir:               dataDir,
-		logDir:                logDir,
-		controllerExport:      controllerExport,
-		modelServicesFor:      modelServicesFor,
-		modelConfig:           modelConfig,
-		controller:            controller,
-		controllerNodes:       controllerNodes,
-		controllerObjectStore: controllerObjectStore,
-		objectStoreForModel:   objectStoreForModel,
-		clock:                 clock,
-		logger:                logger,
+		controllerUUID:        cfg.ControllerUUID,
+		controllerModelUUID:   cfg.ControllerModelUUID,
+		machineID:             cfg.MachineTag.Id(),
+		dataDir:               cfg.DataDir,
+		logDir:                cfg.LogDir,
+		controllerExport:      cfg.ControllerExport,
+		modelServicesFor:      cfg.ModelServicesFor,
+		modelConfig:           cfg.ModelConfig,
+		controller:            cfg.Controller,
+		controllerNodes:       cfg.ControllerNodes,
+		controllerObjectStore: cfg.ControllerObjectStore,
+		objectStoreForModel:   cfg.ObjectStoreForModel,
+		clock:                 cfg.Clock,
+		logger:                cfg.Logger,
 	}, nil
 }
 

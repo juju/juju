@@ -141,6 +141,14 @@ func (w *Worker) Create(ctx context.Context, notes string) (*corebackups.Metadat
 	case <-w.tomb.Dying():
 		return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
 	case res := <-req.result:
+		select {
+		case <-w.tomb.Dying():
+			if res.cleanup != nil {
+				res.cleanup()
+			}
+			return nil, "", nil, corebackups.ErrBackupCreationWorkerDying
+		default:
+		}
 		return res.meta, res.archive, res.cleanup, res.err
 	}
 }

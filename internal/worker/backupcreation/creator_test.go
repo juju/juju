@@ -113,26 +113,74 @@ func (s *backupsSuite) setupMocks(c *tc.C) *gomock.Controller {
 // newCreator returns a Creator wired to the suite's mocked dependencies
 // and the given model services resolver.
 func (s *backupsSuite) newCreator(c *tc.C, modelServicesFor ModelServicesForFunc) *Creator {
-	creator, err := NewCreator(
-		names.NewMachineTag("0"),
-		s.controllerUUID,
-		s.controllerModelUUID,
-		s.dataDirPath,
-		s.logDirPath,
-		s.controllerExport,
-		modelServicesFor,
-		s.modelConfig,
-		s.controller,
-		s.controllerNodes,
-		s.controllerStore,
-		ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
+	creator, err := NewCreator(CreatorConfig{
+		MachineTag:            names.NewMachineTag("0"),
+		ControllerUUID:        s.controllerUUID,
+		ControllerModelUUID:   s.controllerModelUUID,
+		DataDir:               s.dataDirPath,
+		LogDir:                s.logDirPath,
+		ControllerExport:      s.controllerExport,
+		ModelServicesFor:      modelServicesFor,
+		ModelConfig:           s.modelConfig,
+		Controller:            s.controller,
+		ControllerNodes:       s.controllerNodes,
+		ControllerObjectStore: s.controllerStore,
+		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
 			return s.modelStore, nil
 		}),
-		clock.WallClock,
-		loggertesting.WrapCheckLog(c),
-	)
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	return creator
+}
+
+func (s *backupsSuite) TestCreatorConfigValidate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	config := CreatorConfig{
+		MachineTag:            names.NewMachineTag("0"),
+		ControllerUUID:        s.controllerUUID,
+		ControllerModelUUID:   s.controllerModelUUID,
+		DataDir:               s.dataDirPath,
+		LogDir:                s.logDirPath,
+		ControllerExport:      s.controllerExport,
+		ModelServicesFor:      s.modelServicesFor(),
+		ModelConfig:           s.modelConfig,
+		Controller:            s.controller,
+		ControllerNodes:       s.controllerNodes,
+		ControllerObjectStore: s.controllerStore,
+		ObjectStoreForModel: ObjectStoreForModelFunc(func(context.Context, string) (ReadObjectStore, error) {
+			return s.modelStore, nil
+		}),
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
+	}
+	tests := []struct {
+		change  func(*CreatorConfig)
+		message string
+	}{
+		{func(c *CreatorConfig) { c.MachineTag = nil }, "nil MachineTag not valid"},
+		{func(c *CreatorConfig) { c.ControllerUUID = "" }, "empty ControllerUUID not valid"},
+		{func(c *CreatorConfig) { c.ControllerModelUUID = "bad" }, "controller model UUID: .*"},
+		{func(c *CreatorConfig) { c.DataDir = "" }, "empty DataDir not valid"},
+		{func(c *CreatorConfig) { c.LogDir = "" }, "empty LogDir not valid"},
+		{func(c *CreatorConfig) { c.ControllerExport = nil }, "nil ControllerExport not valid"},
+		{func(c *CreatorConfig) { c.ModelServicesFor = nil }, "nil ModelServicesFor not valid"},
+		{func(c *CreatorConfig) { c.ModelConfig = nil }, "nil ModelConfig not valid"},
+		{func(c *CreatorConfig) { c.Controller = nil }, "nil Controller not valid"},
+		{func(c *CreatorConfig) { c.ControllerNodes = nil }, "nil ControllerNodes not valid"},
+		{func(c *CreatorConfig) { c.ControllerObjectStore = nil }, "nil ControllerObjectStore not valid"},
+		{func(c *CreatorConfig) { c.ObjectStoreForModel = nil }, "nil ObjectStoreForModel not valid"},
+		{func(c *CreatorConfig) { c.Clock = nil }, "nil Clock not valid"},
+		{func(c *CreatorConfig) { c.Logger = nil }, "nil Logger not valid"},
+	}
+	for _, test := range tests {
+		cfg := config
+		test.change(&cfg)
+		err := cfg.Validate()
+		c.Check(err, tc.ErrorMatches, test.message)
+	}
 }
 
 // modelServicesFor returns a ModelServicesForFunc handing back the

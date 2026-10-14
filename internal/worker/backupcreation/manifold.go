@@ -105,15 +105,20 @@ func Manifold(c ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(c.ObjectStoreName, &objectStores); err != nil {
 				return nil, err
 			}
-			generator := archiveGenerator{config: c, paths: paths, domainServices: domainServices, objectStores: objectStores}
+
 			return c.NewWorker(Config{
 				LeaseManager:        leaseManager,
 				ControllerUUID:      c.ControllerUUID,
 				ControllerModelUUID: c.ControllerModelUUID,
 				ControllerNodeID:    c.ControllerNodeID,
-				CreateArchive:       generator,
-				Clock:               c.Clock,
-				Logger:              c.Logger,
+				CreateArchive: archiveGenerator{
+					config:         c,
+					paths:          paths,
+					domainServices: domainServices,
+					objectStores:   objectStores,
+				},
+				Clock:  c.Clock,
+				Logger: c.Logger,
 			})
 		},
 		Output: output,
@@ -142,11 +147,14 @@ type archiveGenerator struct {
 	objectStores   objectstore.ObjectStoreGetter
 }
 
+// Create creates a backup archive and returns its metadata, its path, and a
+// cleanup that removes it.
 func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackups.Metadata, string, func(), error) {
 	controllerServices, err := g.domainServices.ServicesForModel(ctx, coremodel.UUID(g.config.ControllerModelUUID))
 	if err != nil {
 		return nil, "", nil, err
 	}
+
 	modelServicesFor := ModelServicesForFunc(func(ctx context.Context, modelUUID coremodel.UUID) (ModelExportDomainServices, error) {
 		modelServices, err := g.domainServices.ServicesForModel(ctx, modelUUID)
 		if err != nil {
@@ -154,19 +162,32 @@ func (g archiveGenerator) Create(ctx context.Context, notes string) (*corebackup
 		}
 		return modelExportDomainServices{modelServices}, nil
 	})
+
 	controllerStore, err := g.objectStores.GetObjectStore(ctx, database.ControllerNS)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	modelStoreFor := ObjectStoreForModelFunc(func(ctx context.Context, modelUUID string) (ReadObjectStore, error) {
+
+	modelObjectStoreFor := ObjectStoreForModelFunc(func(ctx context.Context, modelUUID string) (ReadObjectStore, error) {
 		return g.objectStores.GetObjectStore(ctx, modelUUID)
 	})
-	creator, err := NewCreator(g.config.ControllerTag, g.config.ControllerUUID,
-		coremodel.UUID(g.config.ControllerModelUUID), g.paths.DataDir, g.paths.LogDir,
-		controllerServices.ControllerExport(), modelServicesFor,
-		controllerServices.Config(), controllerServices.Controller(),
-		controllerServices.ControllerNode(), controllerStore, modelStoreFor,
-		g.config.Clock, g.config.Logger)
+
+	creator, err := NewCreator(CreatorConfig{
+		MachineTag:            g.config.ControllerTag,
+		ControllerUUID:        g.config.ControllerUUID,
+		ControllerModelUUID:   coremodel.UUID(g.config.ControllerModelUUID),
+		DataDir:               g.paths.DataDir,
+		LogDir:                g.paths.LogDir,
+		ControllerExport:      controllerServices.ControllerExport(),
+		ModelServicesFor:      modelServicesFor,
+		ModelConfig:           controllerServices.Config(),
+		Controller:            controllerServices.Controller(),
+		ControllerNodes:       controllerServices.ControllerNode(),
+		ControllerObjectStore: controllerStore,
+		ObjectStoreForModel:   modelObjectStoreFor,
+		Clock:                 g.config.Clock,
+		Logger:                g.config.Logger,
+	})
 	if err != nil {
 		return nil, "", nil, err
 	}
