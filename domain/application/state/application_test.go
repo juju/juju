@@ -1722,6 +1722,26 @@ UPDATE charm SET source_id = 2, architecture_id = NULL WHERE uuid = (
 	c.Check(lives, tc.HasLen, 0)
 }
 
+func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleRejectsDyingApplication(c *tc.C) {
+	appUUID := s.createCAASScalingApplication(c, "foo", life.Dying, 0)
+
+	_, err := s.state.SetCAASApplicationUnitScale(
+		c.Context(), appUUID.String(), nil, nil,
+		[]applicationinternal.ScaleCAASUnitArg{{
+			ExpectedName: "foo/0",
+			AddCAASUnitArg: applicationinternal.AddCAASUnitArg{
+				UnitUUID:    tc.Must(c, unit.NewUUID).String(),
+				NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID).String(),
+			},
+		}},
+	)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+
+	lives, err := s.state.GetAllUnitLifeForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lives, tc.HasLen, 0)
+}
+
 func (s *applicationStateSuite) TestSetCAASApplicationUnitScaleRejectsStaleMembership(c *tc.C) {
 	appUUID := s.createCAASScalingApplication(c, "foo", life.Alive, 0)
 	newUnits := func(names ...string) []applicationinternal.ScaleCAASUnitArg {
