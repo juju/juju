@@ -4,13 +4,12 @@
 package model
 
 import (
-	"context"
-	"database/sql"
 	"testing"
 	"time"
 
 	"github.com/juju/tc"
 
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/life"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -58,7 +57,7 @@ func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliv
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	artifacts, err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), relUUID.String())
+	err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), relUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	var lifeID int
@@ -73,40 +72,116 @@ func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliv
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lifeID, tc.Equals, int(life.Alive))
 
-	// But the synth units should all be dead
-	rows, err := s.DB().QueryContext(c.Context(), "SELECT life_id FROM unit where application_uuid = ?", synthAppUUID.String())
+	// The synthetic units are departed and deleted in the same transaction,
+	// and their settings are archived.
+	var units int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM unit WHERE application_uuid = ?`, synthAppUUID.String()).Scan(&units)
 	c.Assert(err, tc.ErrorIsNil)
-	defer func() { _ = rows.Close() }()
-	for rows.Next() {
-		var lifeID int
-		err := rows.Scan(&lifeID)
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(lifeID, tc.Equals, int(life.Dead))
-	}
-
-	// Check the returned synth rel units
-	synthRelUnitUUIDs := artifacts.SyntheticRelationUnitUUIDs
-	c.Check(len(synthRelUnitUUIDs), tc.Equals, 3)
-
-	var gotAppUUID string
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, `
-SELECT DISTINCT u.application_uuid
-FROM            relation_unit AS ru
-JOIN            unit AS u ON ru.unit_uuid = u.uuid
-WHERE           ru.uuid IN (?, ?, ?)
-`, synthRelUnitUUIDs[0], synthRelUnitUUIDs[1], synthRelUnitUUIDs[2]).Scan(&gotAppUUID)
-		return err
-	})
+	c.Check(units, tc.Equals, 0)
+	var settings int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_setting`).Scan(&settings)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotAppUUID, tc.Equals, synthAppUUID.String())
+	c.Check(settings, tc.Equals, 0)
+	var settingsHash int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_settings_hash`).Scan(&settingsHash)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settingsHash, tc.Equals, 0)
+	var archived int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_setting_archive
+WHERE relation_uuid = ? AND key = 'do' AND value = 'da'`, relUUID.String()).Scan(&archived)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archived, tc.Equals, 3)
+}
+
+// TestEnsureRelationWithRemoteConsumerNotAliveCascadeSharedSyntheticUnits
+// checks that removing one relation departs only its own synthetic relation
+// units, retaining units that remain in scope of another relation.
+func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeSharedSyntheticUnits(c *tc.C) {
+	rel1UUID, synthAppUUID, _ := s.createRelationWithRemoteConsumer(c)
+	rel2UUID := s.addRelationSharingSyntheticApp(c, rel1UUID.String(), synthAppUUID.String())
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), rel1UUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The first relation's synthetic relation units are gone, the second
+	// relation is untouched.
+	var inScope int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit AS ru
+JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+WHERE re.relation_uuid = ?`, rel1UUID.String()).Scan(&inScope)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inScope, tc.Equals, 0)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit AS ru
+JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+WHERE re.relation_uuid = ?`, rel2UUID).Scan(&inScope)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inScope, tc.Equals, 3)
+
+	// The shared synthetic units are retained while the second relation is
+	// alive.
+	var aliveUnits int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM unit WHERE application_uuid = ? AND life_id = 0`, synthAppUUID.String()).Scan(&aliveUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(aliveUnits, tc.Equals, 3)
+	relationLife, err := st.GetRelationLife(c.Context(), rel2UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(relationLife, tc.Equals, life.Alive)
+
+	// Removing the second relation departs the remaining relation units and
+	// deletes the synthetic units.
+	err = st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), rel2UUID)
+	c.Assert(err, tc.ErrorIsNil)
+	var units int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM unit WHERE application_uuid = ?`, synthAppUUID.String()).Scan(&units)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(units, tc.Equals, 0)
+}
+
+// addRelationSharingSyntheticApp adds a second relation over the synthetic
+// consumer application's endpoint, placing the same synthetic units in scope
+// of both relations.
+func (s *relationWithRemoteConsumer) addRelationSharingSyntheticApp(c *tc.C, relUUID, synthAppUUID string) string {
+	rel2UUID := tc.Must(c, corerelation.NewUUID)
+	rel2EndpointUUID := tc.Must(c, corerelation.NewUUID)
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO relation (uuid, life_id, relation_id, scope_id)
+SELECT ?, life_id, (SELECT MAX(relation_id) + 1 FROM relation), scope_id
+FROM   relation
+WHERE  uuid = ?`, rel2UUID.String(), relUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO relation_endpoint (uuid, relation_uuid, endpoint_uuid)
+SELECT ?, ?, re.endpoint_uuid
+FROM   relation_endpoint AS re
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+WHERE  re.relation_uuid = ? AND a.uuid = ?`, rel2EndpointUUID.String(), rel2UUID.String(), relUUID, synthAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO relation_unit (uuid, relation_endpoint_uuid, unit_uuid)
+SELECT ru.uuid || '-rel2', ?, ru.unit_uuid
+FROM   relation_unit AS ru
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+WHERE  re.relation_uuid = ?`, rel2EndpointUUID.String(), relUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return rel2UUID.String()
 }
 
 func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// We don't care if it's already gone.
-	_, err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), "some-relation-uuid")
+	err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), "some-relation-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 }
 

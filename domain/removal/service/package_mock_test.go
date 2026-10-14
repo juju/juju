@@ -303,7 +303,7 @@ type MockModelDBStateMockRecorder struct {
 	ensureModelNotAliveExpects                              []*gomock.Call3_1[context.Context, string, bool, error]
 	ensureModelNotAliveCascadeExpects                       []*gomock.Call3_2[context.Context, string, *bool, removal.ModelArtifacts, error]
 	ensureRelationNotAliveExpects                           []*gomock.Call2_1[context.Context, string, error]
-	ensureRelationWithRemoteConsumerNotAliveCascadeExpects  []*gomock.Call2_2[context.Context, string, internal.CascadedRelationWithRemoteConsumerLives, error]
+	ensureRelationWithRemoteConsumerNotAliveCascadeExpects  []*gomock.Call2_1[context.Context, string, error]
 	ensureRelationWithRemoteOffererNotAliveCascadeExpects   []*gomock.Call2_1[context.Context, string, error]
 	ensureRemoteApplicationOffererNotAliveCascadeExpects    []*gomock.Call2_2[context.Context, string, internal.CascadedRemoteApplicationOffererLives, error]
 	ensureStorageAttachmentDeadCascadeExpects               []*gomock.Call2_2[context.Context, string, internal.CascadedStorageProvisionedAttachmentLives, error]
@@ -1044,22 +1044,22 @@ func (mr *MockModelDBStateMockRecorder) EnsureRelationNotAlive(ctx, rUUID any) *
 type MockModelDBStateEnsureRelationNotAliveCall = gomock.Call2_1[context.Context, string, error]
 
 // EnsureRelationWithRemoteConsumerNotAliveCascade mocks base method.
-func (m *MockModelDBState) EnsureRelationWithRemoteConsumerNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteConsumerLives, error) {
+func (m *MockModelDBState) EnsureRelationWithRemoteConsumerNotAliveCascade(ctx context.Context, rUUID string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.ensureRelationWithRemoteConsumerNotAliveCascadeExpects, m.ctrl, m, "EnsureRelationWithRemoteConsumerNotAliveCascade", ctx, rUUID)
+	return gomock.Dispatch2_1(&m.recorder.ensureRelationWithRemoteConsumerNotAliveCascadeExpects, m.ctrl, m, "EnsureRelationWithRemoteConsumerNotAliveCascade", ctx, rUUID)
 }
 
 // EnsureRelationWithRemoteConsumerNotAliveCascade indicates an expected call of EnsureRelationWithRemoteConsumerNotAliveCascade.
 func (mr *MockModelDBStateMockRecorder) EnsureRelationWithRemoteConsumerNotAliveCascade(ctx, rUUID any) *MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, internal.CascadedRelationWithRemoteConsumerLives, error](mr.mock.ctrl.T, mr.mock, "EnsureRelationWithRemoteConsumerNotAliveCascade", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(rUUID))
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "EnsureRelationWithRemoteConsumerNotAliveCascade", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(rUUID))
 	mr.ensureRelationWithRemoteConsumerNotAliveCascadeExpects = append(mr.ensureRelationWithRemoteConsumerNotAliveCascadeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall is the typed call wrapper for EnsureRelationWithRemoteConsumerNotAliveCascade.
-type MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall = gomock.Call2_2[context.Context, string, internal.CascadedRelationWithRemoteConsumerLives, error]
+type MockModelDBStateEnsureRelationWithRemoteConsumerNotAliveCascadeCall = gomock.Call2_1[context.Context, string, error]
 
 // EnsureRelationWithRemoteOffererNotAliveCascade mocks base method.
 func (m *MockModelDBState) EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Context, rUUID string) error {
