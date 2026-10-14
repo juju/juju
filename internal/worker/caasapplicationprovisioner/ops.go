@@ -6,7 +6,6 @@ package caasapplicationprovisioner
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -290,8 +289,8 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		Containers:           containers,
 		CharmModifiedVersion: pi.CharmModifiedVersion,
 		Trust:                pi.Trust,
-		InitialScale:    0,
-		StorageUniqueID: storageUniqueID,
+		InitialScale:         0,
+		StorageUniqueID:      storageUniqueID,
 	}
 	switch pi.CharmMeta.CharmUser {
 	case charm.RunAsDefault:
@@ -745,15 +744,29 @@ func ensureScale(
 }
 
 func hasExactPodRange(appName string, podNames []string, start, count int) bool {
-	if len(podNames) != count {
-		return false
-	}
-	observed := make(map[string]struct{}, len(podNames))
-	for _, podName := range podNames {
-		observed[podName] = struct{}{}
-	}
+	expected := make(map[int]struct{}, count)
 	for ordinal := start; ordinal < start+count; ordinal++ {
-		if _, ok := observed[fmt.Sprintf("%s-%d", appName, ordinal)]; !ok {
+		expected[ordinal] = struct{}{}
+	}
+
+	observed := make(map[int]struct{}, count)
+	prefix := appName + "-"
+	for _, podName := range podNames {
+		ordinalText, ok := strings.CutPrefix(podName, prefix)
+		if !ok {
+			continue
+		}
+		ordinal, err := strconv.Atoi(ordinalText)
+		if err != nil || ordinal < 0 {
+			continue
+		}
+		if _, ok := expected[ordinal]; !ok {
+			return false
+		}
+		observed[ordinal] = struct{}{}
+	}
+	for ordinal := range expected {
+		if _, ok := observed[ordinal]; !ok {
 			return false
 		}
 	}
