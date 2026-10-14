@@ -208,11 +208,22 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
 		}),
 
-		// scaleChan fired
+		// scaleChan fired; each EnsureScale attempt re-renders the
+		// application spec first so constraint/config changes are applied
+		// before scaling.
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.NotFound),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.ConstError("try again")),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s string, i application.UUID,
 				a caas.Application, v life.Value, cf CAASProvisionerFacade,
@@ -345,9 +356,9 @@ func (s *ApplicationWorkerSuite) TestWorkerAppRemovedWhileOperating(c *tc.C) {
 			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
 		}),
 
-		// scaleChan fired: the application rows are gone from state while
-		// the worker operates on it. The worker must not die.
-		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
+		// The application is removed while refreshing the spec for scaling.
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).
 			Return(applicationerrors.ApplicationNotFound),
 
 		// The dead cleanup path is triggered: handleChange maps
@@ -511,8 +522,8 @@ func (s *ApplicationWorkerSuite) TestWorkerAppRemovedDuringInitialHandleChange(c
 // TestWorkerAppRemovedDuringAlivePath pins the Alive-path gap: the rows
 // vanish between GetApplicationLife (Alive) and
 // SetApplicationHasK8sResources, which returns ApplicationNotFound. The
-// handleChange error surfaces as tryAgain, and the retry observes the
-// removal and converges to the dead cleanup.
+// error is preserved so the retry observes the removal and converges to
+// the dead cleanup.
 func (s *ApplicationWorkerSuite) TestWorkerAppRemovedDuringAlivePath(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -558,8 +569,7 @@ func (s *ApplicationWorkerSuite) TestWorkerAppRemovedDuringAlivePath(c *tc.C) {
 		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).
 			Return(applicationerrors.ApplicationNotFound),
 
-		// handleChange 2 (tryAgain retry): the removal is now observed and
-		// the dead cleanup runs.
+		// handleChange 2: the removal is now observed and the dead cleanup runs.
 		applicationService.EXPECT().GetApplicationLife(x, s.appUUID).
 			Return(life.Dead, applicationerrors.ApplicationNotFound),
 		ops.EXPECT().AppDying(x, "test", s.appUUID, app, life.Dead, x, x, x, x).Return(nil),
@@ -722,11 +732,24 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 			return watchertest.NewMockNotifyWatcher(appReplicasChan), nil
 		}),
 
-		// scaleChan fired
+		// Retry scaling when the refreshed spec is not yet available.
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).
+			Return(nil, errors.NotProvisioned),
+
+		// The retried spec refresh succeeds.
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.NotFound),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			Return(errors.ConstError("try again")),
+		ops.EXPECT().ProvisioningInfo(x, "test", s.appUUID, x, x, x, x, x, x).Return(&ProvisioningInfo{}, nil),
+		applicationService.EXPECT().SetApplicationHasK8sResources(x, s.appUUID).Return(nil),
+		ops.EXPECT().AppAlive(x, "test", s.appUUID, app, x, x, x, x, x, x).Return(nil),
 		ops.EXPECT().EnsureScale(x, "test", s.appUUID, app, life.Alive, x, x, x, x).
 			DoAndReturn(func(ctx context.Context, s string,
 				i application.UUID, a caas.Application, v life.Value, cf CAASProvisionerFacade,
