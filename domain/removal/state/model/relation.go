@@ -440,8 +440,9 @@ WHERE  unit_uuid = $entityUUID.uuid
 
 	var synthUnitUUID entityUUID
 	err = tx.Query(ctx, isSyntheticStmt, id).Get(&synthUnitUUID)
-	if errors.Is(err, sqlair.ErrNoRows) {
-	} else if err != nil {
+	// A missing row means the unit is not synthetic, so there is nothing
+	// to clean up beyond the relation unit itself.
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Errorf("checking if unit is synthetic: %w", err)
 	}
 

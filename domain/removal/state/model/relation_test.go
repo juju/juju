@@ -542,7 +542,10 @@ func (s *relationSuite) TestRemoveSharedRemoteOffererRelationsConcurrentRecreate
 			go func() {
 				<-start
 				err := st.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, relUUID.String())
-				results <- err
+				select {
+				case results <- err:
+				case <-ctx.Done():
+				}
 			}()
 		}
 		close(start)

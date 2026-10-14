@@ -66,7 +66,7 @@ func (st *State) EnsureRelationWithRemoteOffererNotAliveCascade(ctx context.Cont
 UPDATE relation
 SET    life_id = 1
 WHERE  uuid = $entityUUID.uuid
-	AND    life_id = 0`, remoteRelationUUID)
+AND    life_id = 0`, remoteRelationUUID)
 	if err != nil {
 		return errors.Errorf("preparing remote relation life update: %w", err)
 	}
@@ -79,36 +79,10 @@ JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 JOIN   charm AS c ON u.charm_uuid = c.uuid
 JOIN   charm_source AS cs ON c.source_id = cs.id
 WHERE  re.relation_uuid = $entityUUID.uuid
-	AND    cs.name = 'cmr'
-	`, remoteRelationUUID)
-	if err != nil {
-		return errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
-	}
-
-	updateSyntheticUnitStmt, err := st.Prepare(`
-WITH departing_units AS (
-	SELECT ru.unit_uuid AS uuid
-	FROM   relation_unit AS ru
-	JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
-	JOIN   unit AS u ON ru.unit_uuid = u.uuid
-	JOIN   charm AS c ON u.charm_uuid = c.uuid
-	JOIN   charm_source AS cs ON c.source_id = cs.id
-	WHERE  re.relation_uuid = $entityUUID.uuid
-	AND    cs.name = 'cmr'
-	EXCEPT
-	SELECT ru.unit_uuid AS uuid
-	FROM   relation_unit AS ru
-	JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
-	JOIN   relation AS r ON re.relation_uuid = r.uuid
-	WHERE  r.life_id = 0
-)
-UPDATE unit AS u
-SET    life_id = 2
-WHERE  u.life_id = 0
-AND    u.uuid IN (SELECT du.uuid FROM departing_units AS du)
+AND    cs.name = 'cmr'
 `, remoteRelationUUID)
 	if err != nil {
-		return errors.Errorf("preparing remote relation synthetic unit update: %w", err)
+		return errors.Errorf("preparing remote relation synthetic unit UUID query: %w", err)
 	}
 
 	var synthRelationUnitUUIDs []entityUUID
@@ -125,14 +99,9 @@ AND    u.uuid IN (SELECT du.uuid FROM departing_units AS du)
 			return errors.Errorf("getting synthetic relation unit UUIDs: %w", err)
 		}
 
-		err = tx.Query(ctx, updateSyntheticUnitStmt, remoteRelationUUID).Run()
-		if err != nil {
-			return errors.Errorf("advancing remote relation synthetic unit life: %w", err)
-		}
-
 		for _, relationUnitUUID := range synthRelationUnitUUIDs {
 			if err := st.leaveScope(ctx, tx, relationUnitUUID); err != nil {
-				return errors.Errorf("departing synthetic relation unit: %w", err)
+				return errors.Errorf("departing synthetic relation unit %q: %w", relationUnitUUID.UUID, err)
 			}
 		}
 
