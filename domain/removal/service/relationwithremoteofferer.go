@@ -114,20 +114,6 @@ func (s *Service) processRelationWithRemoteOffererRemovalJob(ctx context.Context
 		return errors.Errorf("remote relation %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
 	}
 
-	// Synthetic units don't have a uniter of their own, so will never leave
-	// the relation scope by themselves. Depart them here, otherwise they
-	// would block the relation deletion below forever. Real units are
-	// departed by their uniters, or by the force handling below.
-	cascaded, err := s.modelState.EnsureRelationWithRemoteOffererNotAliveCascade(ctx, job.EntityUUID)
-	if err != nil {
-		return errors.Errorf("setting remote relation %q synthetic units to dying: %w", job.EntityUUID, err)
-	}
-	for _, r := range cascaded.SyntheticRelationUnitUUIDs {
-		if err := s.modelState.LeaveScope(ctx, r); err != nil && !errors.Is(err, relationerrors.RelationUnitNotFound) {
-			return errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
-		}
-	}
-
 	inScope, err := s.modelState.UnitNamesInScope(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Capture(err)
