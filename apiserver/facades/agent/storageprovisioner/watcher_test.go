@@ -118,16 +118,31 @@ func (s *stringSourcedWatcherSuite) TestWatchCoalescesDuplicateResults(c *tc.C) 
 	defer workertest.CleanKill(c, w)
 	wc := watchertest.NewStringsWatcherC(c, w)
 
-	ch <- []string{"initial"}
-	<-mapped
-	ch <- []string{"duplicate", "duplicate"}
-	<-mapped
-	ch <- []string{"duplicate"}
-	<-mapped
-
+	sendWatcherChanges(c, ch, []string{"initial"})
+	waitForMapped(c, mapped)
 	wc.AssertChange("initial")
-	wc.AssertChange("duplicate")
 	wc.AssertNoChange()
+
+	sendWatcherChanges(c, ch, []string{"duplicate", "duplicate"})
+	waitForMapped(c, mapped)
+	wc.AssertChangeInSingleEvent("duplicate")
+	wc.AssertNoChange()
+}
+
+func sendWatcherChanges(c *tc.C, ch chan<- []string, changes []string) {
+	select {
+	case ch <- changes:
+	case <-c.Context().Done():
+		c.Fatal("source watcher did not receive changes")
+	}
+}
+
+func waitForMapped(c *tc.C, mapped <-chan struct{}) {
+	select {
+	case <-mapped:
+	case <-c.Context().Done():
+		c.Fatal("watcher did not map changes")
+	}
 }
 
 type machineStorageIdsWatcherSuite struct {
