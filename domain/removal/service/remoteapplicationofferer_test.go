@@ -138,7 +138,14 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForc
 	}, nil)
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
 
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindWithRemoteOfferer, nil)
+	exp.RelationWithRemoteOffererExists(gomock.Any(), "relation-1").Return(true, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), "relation-1").Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
+
+	exp.GetRelationKind(gomock.Any(), "relation-2").Return(internal.RelationKindWithRemoteOfferer, nil)
+	exp.RelationWithRemoteOffererExists(gomock.Any(), "relation-2").Return(true, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), "relation-2").Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-2", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, false, 0)
@@ -165,6 +172,9 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererNoForc
 	}, nil)
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
 
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindWithRemoteOfferer, nil)
+	exp.RelationWithRemoteOffererExists(gomock.Any(), "relation-1").Return(true, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), "relation-1").Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRemoteApplicationOfferer(c.Context(), remoteAppUUID, false, time.Minute)
@@ -198,7 +208,11 @@ func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererForceW
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), false, when.UTC()).Return(nil)
 	exp.RemoteApplicationOffererScheduleRemoval(gomock.Any(), gomock.Any(), remoteAppUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
-	// The cascaded relation jobs follow the same pattern.
+	// The cascaded relation is removed through its public CMR path before
+	// its normal and forced removal jobs are scheduled.
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindWithRemoteOfferer, nil)
+	exp.RelationWithRemoteOffererExists(gomock.Any(), "relation-1").Return(true, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), "relation-1").Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
 

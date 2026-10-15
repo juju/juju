@@ -113,9 +113,11 @@ func (s *applicationSuite) TestRemoveApplicationNoForceIgnoresWaitForCascadedJob
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
-	// The cascaded relation is scheduled through the relation scheduler,
-	// which routes it to the plain relation removal path.
-	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil)
+	// The cascaded relation is removed through its public path before its
+	// removal job is scheduled.
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(2)
+	exp.RelationExists(gomock.Any(), "relation-1").Return(true, nil)
+	exp.EnsureRelationNotAlive(gomock.Any(), "relation-1").Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil)
@@ -153,9 +155,11 @@ func (s *applicationSuite) TestRemoveApplicationForceWaitSchedulesCascadedJobsIm
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
-	// The cascaded relation jobs follow the same pattern. The relation
-	// scheduler routes the relation to the plain relation removal path.
-	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(2)
+	// The cascaded relation is removed through its public path before its
+	// normal and forced removal jobs are scheduled.
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(3)
+	exp.RelationExists(gomock.Any(), "relation-1").Return(true, nil)
+	exp.EnsureRelationNotAlive(gomock.Any(), "relation-1").Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC().Add(time.Minute)).Return(nil)
 
@@ -193,9 +197,11 @@ func (s *applicationSuite) TestRemoveApplicationCMRRelationRoutesToRemoteOfferer
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
-	// The relation scheduler routes the cross-model relation to the
-	// remote offerer removal path.
+	// The public remote offerer removal path cascades synthetic units
+	// before it schedules the relation removal job.
 	exp.GetRelationKind(gomock.Any(), relUUID.String()).Return(internal.RelationKindWithRemoteOfferer, nil)
+	exp.RelationWithRemoteOffererExists(gomock.Any(), relUUID.String()).Return(true, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
@@ -224,9 +230,13 @@ func (s *applicationSuite) TestRemoveApplicationCMRRelationRoutesToRemoteConsume
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
-	// The relation scheduler routes the cross-model relation to the
-	// remote consumer removal path.
+	// The public remote consumer removal path cascades and departs
+	// synthetic units before it schedules the relation removal job.
 	exp.GetRelationKind(gomock.Any(), relUUID.String()).Return(internal.RelationKindWithRemoteConsumer, nil)
+	exp.RelationWithRemoteConsumerExists(gomock.Any(), relUUID.String()).Return(true, nil)
+	exp.EnsureRelationWithRemoteConsumerNotAliveCascade(gomock.Any(), relUUID.String()).Return(
+		internal.CascadedRelationWithRemoteConsumerLives{}, nil,
+	)
 	exp.RelationWithRemoteConsumerScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveApplication(c.Context(), appUUID, false, false, 0)
@@ -264,7 +274,9 @@ func (s *applicationSuite) TestRemoveApplicationRetrySchedulesRemovalJobs(c *tc.
 	exp.ApplicationExists(gomock.Any(), appUUID.String()).Return(true, nil).Times(2)
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(cascaded, nil).Times(2)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil).Times(2)
-	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(2)
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(4)
+	exp.RelationExists(gomock.Any(), "relation-1").Return(true, nil).Times(2)
+	exp.EnsureRelationNotAlive(gomock.Any(), "relation-1").Return(nil).Times(2)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil).Times(2)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil).Times(2)
 	exp.MachineScheduleRemoval(gomock.Any(), gomock.Any(), "machine-1", false, when.UTC()).Return(nil).Times(2)
@@ -317,7 +329,9 @@ func (s *applicationSuite) TestRemoveApplicationRetryWithForceSchedulesRemovalJo
 	exp.EnsureApplicationNotAliveCascade(gomock.Any(), appUUID.String(), false).Return(cascaded, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), true, when.UTC()).Return(nil)
-	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(2)
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(4)
+	exp.RelationExists(gomock.Any(), "relation-1").Return(true, nil).Times(2)
+	exp.EnsureRelationNotAlive(gomock.Any(), "relation-1").Return(nil).Times(2)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", true, when.UTC()).Return(nil)
 	exp.UnitScheduleRemoval(gomock.Any(), gomock.Any(), "unit-1", false, when.UTC()).Return(nil)
@@ -427,8 +441,12 @@ func (s *applicationSuite) TestRemoveApplicationNoForceSuccessWithRelations(c *t
 	}, nil)
 	exp.ApplicationScheduleRemoval(gomock.Any(), gomock.Any(), appUUID.String(), false, when.UTC()).Return(nil)
 
-	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil)
-	exp.GetRelationKind(gomock.Any(), "relation-2").Return(internal.RelationKindOrdinary, nil)
+	exp.GetRelationKind(gomock.Any(), "relation-1").Return(internal.RelationKindOrdinary, nil).Times(2)
+	exp.RelationExists(gomock.Any(), "relation-1").Return(true, nil)
+	exp.EnsureRelationNotAlive(gomock.Any(), "relation-1").Return(nil)
+	exp.GetRelationKind(gomock.Any(), "relation-2").Return(internal.RelationKindOrdinary, nil).Times(2)
+	exp.RelationExists(gomock.Any(), "relation-2").Return(true, nil)
+	exp.EnsureRelationNotAlive(gomock.Any(), "relation-2").Return(nil)
 
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-1", false, when.UTC()).Return(nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "relation-2", false, when.UTC()).Return(nil)

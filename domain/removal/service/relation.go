@@ -170,6 +170,44 @@ func (s *Service) relationScheduleRemoval(
 	return jobUUID, nil
 }
 
+// scheduleCascadedRelations schedules removal of relations that another
+// entity's removal has cascaded into dying. Cross-model relations must be
+// removed through their public removal paths, which prepare synthetic units
+// and CMR-specific children before scheduling their removal jobs.
+func (s *Service) scheduleCascadedRelations(
+	ctx context.Context, relationUUIDs []string, force bool, wait time.Duration,
+) error {
+	for _, relationUUID := range relationUUIDs {
+		relUUID := corerelation.UUID(relationUUID)
+
+		kind, err := s.modelState.GetRelationKind(ctx, relationUUID)
+		if errors.Is(err, relationerrors.RelationNotFound) {
+			continue
+		} else if err != nil {
+			return errors.Errorf("getting kind of relation %q: %w", relUUID, err)
+		}
+
+		var removeErr error
+		switch kind {
+		case internal.RelationKindOrdinary:
+			_, removeErr = s.RemoveRelation(ctx, relUUID, force, wait)
+		case internal.RelationKindWithRemoteOfferer:
+			_, removeErr = s.RemoveRelationWithRemoteOfferer(ctx, relUUID, force, wait)
+		case internal.RelationKindWithRemoteConsumer:
+			_, removeErr = s.RemoveRelationWithRemoteConsumer(ctx, relUUID, force, wait)
+		default:
+			return errors.Errorf("relation %q has unknown kind %d", relUUID, kind)
+		}
+
+		if errors.Is(removeErr, relationerrors.RelationNotFound) {
+			continue
+		} else if removeErr != nil {
+			return errors.Capture(removeErr)
+		}
+	}
+	return nil
+}
+
 // processRelationRemovalJob deletes a relation if it is dying, and there are no
 // units in scope.
 // If force is true, the units are forcefully departed by deleting the
