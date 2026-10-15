@@ -2878,6 +2878,71 @@ func (s *uniterRelationSuite) TestReadRemoteSettingsRelationNotFound(c *tc.C) {
 	c.Check(result.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
+// TestReadRemoteSettingsRelationKeyLookupError checks that an unexpected
+// error from the relation UUID lookup, unlike RelationNotFound, is surfaced
+// in the per-argument result and no settings are read.
+func (s *uniterRelationSuite) TestReadRemoteSettingsRelationKeyLookupError(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	relTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	boom := internalerrors.New("boom")
+	s.expectGetRelationUUIDByKey(
+		tc.Must1(c, corerelation.NewKeyFromString, relTag.Id()), "", boom,
+	)
+
+	// act
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
+		{Relation: relTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewUnitTag("mysql/2").String()},
+	}}
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.DeepEquals, apiservererrors.ServerError(boom))
+}
+
+// TestReadRemoteSettingsMixedBatch checks that, in one batch, a relation the
+// caller is part of returns its settings while a relation it is not part of
+// is refused, so a denied argument neither leaks into nor blocks the others.
+func (s *uniterRelationSuite) TestReadRemoteSettingsMixedBatch(c *tc.C) {
+	// arrange
+	defer s.setupMocks(c).Finish()
+	ownRelTag := names.NewRelationTag("mysql:database wordpress:mysql")
+	ownRelUUID := tc.Must(c, corerelation.NewUUID)
+	otherRelTag := names.NewRelationTag("keycloak:database mysql:db")
+	otherRelUUID := tc.Must(c, corerelation.NewUUID)
+	remoteUnitTag := names.NewUnitTag("mysql/2")
+	settings := map[string]string{"wanda": "firebaugh"}
+
+	s.expectGetRelationUUIDByKey(
+		tc.Must1(c, corerelation.NewKeyFromString, ownRelTag.Id()), ownRelUUID, nil,
+	)
+	s.expectGetRelationDetails(c, ownRelUUID, 31, ownRelTag)
+	s.relationService.EXPECT().GetRelationUnitSettings(
+		gomock.Any(), ownRelUUID, coreunit.Name(remoteUnitTag.Id())).Return(settings, nil)
+	s.expectGetRelationUUIDByKey(
+		tc.Must1(c, corerelation.NewKeyFromString, otherRelTag.Id()), otherRelUUID, nil,
+	)
+	s.expectGetRelationDetailsUnexpectedAppName(c, otherRelUUID)
+
+	// act: no settings lookup is expected for the second relation.
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
+		{Relation: ownRelTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: remoteUnitTag.String()},
+		{Relation: otherRelTag.String(), LocalUnit: s.wordpressUnitTag.String(), RemoteUnit: names.NewUnitTag("mysql/0").String()},
+	}}
+	result, err := s.uniter.ReadRemoteSettings(c.Context(), args)
+
+	// assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{"wanda": "firebaugh"}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *uniterRelationSuite) TestRelationStatus(c *tc.C) {
 	// arrange
 	defer s.setupMocks(c).Finish()
