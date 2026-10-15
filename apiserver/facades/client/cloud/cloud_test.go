@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/facades/client/cloud/mocks"
@@ -433,6 +435,37 @@ func (s *cloudSuite) TestCloudInfoNoAccessDenied(c *tc.C) {
 	c.Assert(result.Results, tc.HasLen, 1)
 	c.Check(result.Results[0].Result, tc.IsNil)
 	c.Check(result.Results[0].Error, tc.ErrorMatches, "permission denied")
+}
+
+// TestRemoveCloudsReturnsAuthorizerError asserts that a denied removal
+// returns the authorizer's error, so JWT callers learn the missing grant.
+func (s *cloudSuite) TestRemoveCloudsReturnsAuthorizerError(c *tc.C) {
+	defer s.setup(c, names.NewUserTag("fred")).Finish()
+	api, err := cloud.NewCloudAPI(
+		c.Context(),
+		coretesting.ControllerTag, "dummy",
+		s.cloudService, s.cloudAccessService, s.credService, s.modelConfigService,
+		accessRequiredAuthorizer{s.authorizer}, loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := api.RemoveClouds(c.Context(), params.Entities{Entities: []params.Entity{{
+		Tag: "cloud-my-cloud",
+	}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Assert(result.Results[0].Error, tc.NotNil)
+	c.Check(result.Results[0].Error.Code, tc.Equals, params.CodeAccessRequired)
+}
+
+// accessRequiredAuthorizer denies every check like the JWT delegator does.
+type accessRequiredAuthorizer struct {
+	*apiservertesting.FakeAuthorizer
+}
+
+func (accessRequiredAuthorizer) HasPermission(_ context.Context, access permission.Access, target names.Tag) error {
+	return errors.WithType(&apiservererrors.AccessRequiredError{
+		RequiredAccess: map[names.Tag]permission.Access{target: access},
+	}, authentication.ErrorEntityMissingPermission)
 }
 
 func (s *cloudSuite) TestCloudInfoNotFound(c *tc.C) {
