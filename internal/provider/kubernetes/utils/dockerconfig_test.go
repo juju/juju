@@ -66,7 +66,16 @@ func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
 				Username: "docker-registry",
 				Password: "hunter2",
 				Email:    "",
+				Auth:     "",
 			},
 		},
 	})
+
+	var rawMap map[string]map[string]map[string]string
+	err = json.Unmarshal(config, &rawMap)
+	c.Assert(err, jc.ErrorIsNil)
+	entry := rawMap["auths"]["registry.staging.jujucharms.com"]
+	c.Assert(entry, gc.HasLen, 2)
+	c.Assert(entry["username"], gc.Equals, "docker-registry")
+	c.Assert(entry["password"], gc.Equals, "hunter2")
 }
