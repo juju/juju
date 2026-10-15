@@ -1186,6 +1186,7 @@ func (s *Service) makeCAASUnitScalePlan(
 func (s *Service) nextCAASUnitOrdinal(
 	ctx context.Context, appName string, alive []coreunit.Name,
 ) (int, error) {
+	nextOrdinal := 0
 	for i := 1; i < len(alive); i++ {
 		if alive[i].Number() != alive[i-1].Number()+1 {
 			return 0, applicationerrors.ScaleChangeInvalid
@@ -1196,21 +1197,25 @@ func (s *Service) nextCAASUnitOrdinal(
 		if lastOrdinal == math.MaxInt {
 			return 0, applicationerrors.ScaleChangeInvalid
 		}
-		return lastOrdinal + 1, nil
+		nextOrdinal = lastOrdinal + 1
 	}
 
-	// The sequence retains ordinal history after the last Alive unit leaves.
+	// The sequence retains ordinal history when units have been removed,
+	// including when Alive units with lower ordinals remain.
 	lastOrdinal, hasSequence, err := s.st.GetApplicationUnitSequence(ctx, appName)
 	if err != nil {
 		return 0, errors.Capture(err)
 	}
-	if !hasSequence {
-		return 0, nil
+	if hasSequence {
+		if lastOrdinal >= uint64(math.MaxInt) {
+			return 0, applicationerrors.ScaleChangeInvalid
+		}
+		sequenceNextOrdinal := int(lastOrdinal) + 1
+		if sequenceNextOrdinal > nextOrdinal {
+			nextOrdinal = sequenceNextOrdinal
+		}
 	}
-	if lastOrdinal >= uint64(math.MaxInt) {
-		return 0, applicationerrors.ScaleChangeInvalid
-	}
-	return int(lastOrdinal) + 1, nil
+	return nextOrdinal, nil
 }
 
 func (s *Service) makeCAASScaleUnitArgs(

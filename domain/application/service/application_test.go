@@ -1324,9 +1324,27 @@ func (s *applicationServiceSuite) TestSetApplicationScaleNonController(c *tc.C) 
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
 	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{"foo/0": 0, "foo/1": 0}, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "foo").Return(uint64(1), true, nil)
 	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{"foo/0", "foo/1"}, []string{}, tc.Bind(tc.HasLen, 1)).DoAndReturn(
 		func(_ context.Context, _ string, _, _ []string, units []internal.ScaleCAASUnitArg) ([]string, error) {
 			c.Check(units[0].ExpectedName, tc.Equals, "foo/2")
+			return nil, nil
+		},
+	)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 3)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleUsesSequenceWithAliveUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{"foo/0": 0, "foo/1": 0}, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "foo").Return(uint64(5), true, nil)
+	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{"foo/0", "foo/1"}, []string{}, tc.Bind(tc.HasLen, 1)).DoAndReturn(
+		func(_ context.Context, _ string, _, _ []string, units []internal.ScaleCAASUnitArg) ([]string, error) {
+			c.Check(units[0].ExpectedName, tc.Equals, "foo/6")
 			return nil, nil
 		},
 	)
