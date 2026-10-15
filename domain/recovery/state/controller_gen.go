@@ -260,6 +260,17 @@ func (st *State) LoadControllerDump(ctx context.Context, dump *recovery.Controll
 			},
 		})
 	}
+	if dump.Present["controller_ssh_server_port"] {
+		tables = append(tables, replayTable{
+			name:      "controller_ssh_server_port",
+			deleteSQL: `DELETE FROM "controller_ssh_server_port" AS t`,
+			insertSQL: `INSERT INTO "controller_ssh_server_port" ("port") SELECT $ControllerSshServerPort.port AS "port"`,
+			sample:    exporttypes.ControllerSshServerPort{},
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				return insertRows(ctx, tx, stmt, dump.ControllerSshServerPort, nil)
+			},
+		})
+	}
 	if dump.Present["external_controller"] {
 		tables = append(tables, replayTable{
 			name:      "external_controller",

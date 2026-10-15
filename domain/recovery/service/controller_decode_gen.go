@@ -183,6 +183,12 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.ControllerSshHostKey = decoded
+		case "controller_ssh_server_port":
+			decoded, err := decodeRows[exporttypes.ControllerSshServerPort](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ControllerSshServerPort = decoded
 		case "external_controller":
 			decoded, err := decodeRows[exporttypes.ExternalController](rows)
 			if err != nil {

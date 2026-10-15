@@ -26,6 +26,7 @@ func (s *storageSuite) TestBinaryTextColumnsMatchSchemas(c *tc.C) {
 			rows, err := db.QueryContext(c.Context(), `SELECT pti.name, pti.type
 FROM pragma_table_info(?) AS pti`, table)
 			c.Assert(err, tc.ErrorIsNil)
+			defer rows.Close()
 			for rows.Next() {
 				var column, typ string
 				c.Assert(rows.Scan(&column, &typ), tc.ErrorIsNil)

@@ -34,6 +34,7 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	key := []byte{0, 128, 255}
 	execSQL(c, s.DB(), `INSERT INTO macaroon_root_key VALUES (?, '2026-01-01', '2027-01-01', ?)`, key, key)
 	execSQL(c, s.DB(), `INSERT INTO controller_ssh_host_key VALUES ('key', 0, 'ssh-key', ?)`, key)
+	execSQL(c, s.DB(), `INSERT INTO controller_ssh_server_port VALUES (8022)`)
 	seedBlob(c, s.DB(), "0")
 	execSQL(c, s.DB(), `INSERT INTO controller_node_password (controller_id, password_hash) VALUES ('0', 'source')`)
 	exporter := exportcontroller.NewState(s.TxnRunnerFactory())
@@ -44,6 +45,7 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	dump, err := service.DecodeControllerDump(data)
 	c.Assert(err, tc.ErrorIsNil)
 	execSQL(c, s.DB(), `DELETE FROM macaroon_root_key`)
+	execSQL(c, s.DB(), `DELETE FROM controller_ssh_server_port`)
 	execSQL(c, s.DB(), `UPDATE controller_node_password SET password_hash = 'target'`)
 	// Direct callers cannot override the exclusion policy through Present.
 	dump.Present["controller_node_password"] = true
@@ -53,6 +55,7 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(after.MacaroonRootKey, tc.DeepEquals, before.MacaroonRootKey)
 	c.Check(after.ControllerSshHostKey, tc.DeepEquals, before.ControllerSshHostKey)
+	c.Check(after.ControllerSshServerPort, tc.DeepEquals, before.ControllerSshServerPort)
 	c.Check(after.Schema, tc.DeepEquals, before.Schema)
 	c.Check(after.ControllerNode, tc.DeepEquals, before.ControllerNode)
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
