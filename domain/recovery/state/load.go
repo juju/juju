@@ -28,6 +28,7 @@ const maxForeignKeyViolations = 10
 // need restoring after success, cancellation or rollback.
 // This uses the same deferral as the model import loader; it never switches
 // PRAGMA foreign_keys off. Invalid archives fail without changing the target.
+// All foreign key violations are read; only the error details are bounded.
 func (st *State) loadTables(ctx context.Context, tables []replayTable, nodeID string) error {
 	if nodeID == "" {
 		return errors.Errorf("target object store node ID is required")
@@ -76,7 +77,7 @@ SELECT fkc."table" AS &violation.table_name,
        fkc.rowid AS &violation.row_id,
        fkc.parent AS &violation.parent_name,
        fkc.fkid AS &violation.foreign_key
-FROM pragma_foreign_key_check AS fkc LIMIT `+fmt.Sprint(maxForeignKeyViolations+1), violation{})
+FROM pragma_foreign_key_check AS fkc`, violation{})
 	if err != nil {
 		return errors.Capture(err)
 	}
