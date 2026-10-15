@@ -20,6 +20,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	removalinternal "github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/errors"
@@ -491,32 +492,40 @@ func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool
 // removeRelations schedules removal for each input relation.
 func (s *Service) removeRelations(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, relationUUID := range uuids {
-		if _, err := s.RemoveRelation(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
-			// There could be a chance that the relation has already been
-			// removed by another process. We can safely ignore this error and
-			// continue with the next relation.
-			continue
-		} else if err != nil && !errors.Is(err, removalerrors.RelationIsCrossModel) {
-			// If the unit fails to be scheduled for removal, we log out the
-			// error. The relations are already transitioned to dying and there
-			// is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
-		} else if err == nil {
-			continue
-		}
-
-		// This is a CMR relation, so use its public removal path to perform
-		// the CMR lifecycle cascade before scheduling the removal job.
-		if _, err := s.RemoveRelationWithRemoteOfferer(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
+		kind, err := s.modelState.GetRelationKind(ctx, relationUUID)
+		if errors.Is(err, relationerrors.RelationNotFound) {
 			// There could be a chance that the relation has already been
 			// removed by another process. We can safely ignore this error and
 			// continue with the next relation.
 			continue
 		} else if err != nil {
+			s.logger.Errorf(ctx, "getting kind of relation %q: %v", relationUUID, err)
+			continue
+		}
+
+		var removeErr error
+		switch kind {
+		case removalinternal.RelationKindOrdinary:
+			_, removeErr = s.RemoveRelation(ctx, relation.UUID(relationUUID), force, wait)
+		case removalinternal.RelationKindWithRemoteOfferer:
+			_, removeErr = s.RemoveRelationWithRemoteOfferer(ctx, relation.UUID(relationUUID), force, wait)
+		case removalinternal.RelationKindWithRemoteConsumer:
+			_, removeErr = s.RemoveRelationWithRemoteConsumer(ctx, relation.UUID(relationUUID), force, wait)
+		default:
+			s.logger.Errorf(ctx, "relation %q has unknown kind %d", relationUUID, kind)
+			continue
+		}
+
+		if errors.Is(removeErr, relationerrors.RelationNotFound) {
+			// There could be a chance that the relation has already been
+			// removed by another process. We can safely ignore this error and
+			// continue with the next relation.
+			continue
+		} else if removeErr != nil {
 			// If the unit fails to be scheduled for removal, we log out the
 			// error. The relations are already transitioned to dying and there
 			// is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
+			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, removeErr)
 		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	coreremoteapplication "github.com/juju/juju/core/remoteapplication"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	removalinternal "github.com/juju/juju/domain/removal/internal"
@@ -63,7 +64,9 @@ func (s *modelSuite) TestRemoveModelNoForceSuccess(c *tc.C) {
 	// unit/relation/application no longer exists, to prevent this test
 	// from depending on the unit/relation/application removal logic.
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
-	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(false, nil)
+	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(
+		removalinternal.RelationKindOrdinary, relationerrors.RelationNotFound,
+	)
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(false, nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
@@ -99,7 +102,7 @@ func (s *modelSuite) TestRemoveModelRetrySchedulesRemovalJobs(c *tc.C) {
 
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(true, nil).Times(2)
 	mExp.EnsureRelationNotAlive(gomock.Any(), "some-relation-id").Return(nil).Times(2)
-	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(removalinternal.RelationKindOrdinary, nil).Times(2)
+	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(removalinternal.RelationKindOrdinary, nil).Times(4)
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", false, when.UTC()).Return(nil).Times(2)
 
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(true, nil).Times(2)
@@ -153,7 +156,7 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 
 	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(true, nil).Times(2)
 	mExp.EnsureRelationNotAlive(gomock.Any(), "some-relation-id").Return(nil).Times(2)
-	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(removalinternal.RelationKindOrdinary, nil).Times(2)
+	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(removalinternal.RelationKindOrdinary, nil).Times(4)
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", false, when.UTC()).Return(nil)
 	mExp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), "some-relation-id", true, when.UTC()).Return(nil)
 
@@ -182,15 +185,15 @@ func (s *modelSuite) TestRemoveModelRetryWithForceSchedulesRemovalJobs(c *tc.C) 
 	c.Assert(jobUUID2.Validate(), tc.ErrorIsNil)
 }
 
-func (s *modelSuite) TestRemoveModelCascadesRelationWithRemoteOfferer(c *tc.C) {
+func (s *modelSuite) TestRemoveModelCascadesCrossModelRelations(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	mUUID := tc.Must0(c, coremodel.NewUUID)
 	destroyStorage := true
 
 	when := time.Now()
-	// One call schedules the model job and the other the remote relation job.
-	s.clock.EXPECT().Now().Return(when).Times(2)
+	// One call schedules the model job and each cross-model relation job.
+	s.clock.EXPECT().Now().Return(when).Times(3)
 
 	cExp := s.controllerState.EXPECT()
 	cExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
@@ -200,19 +203,30 @@ func (s *modelSuite) TestRemoveModelCascadesRelationWithRemoteOfferer(c *tc.C) {
 	mExp.IsControllerModel(gomock.Any(), mUUID.String()).Return(false, nil)
 	mExp.ModelExists(gomock.Any(), mUUID.String()).Return(true, nil)
 	mExp.EnsureModelNotAliveCascade(gomock.Any(), mUUID.String(), &destroyStorage).Return(removal.ModelArtifacts{
-		RelationUUIDs: []string{"some-remote-relation-id"},
+		RelationUUIDs: []string{"some-offerer-relation-id", "some-consumer-relation-id"},
 	}, nil)
 	mExp.ModelScheduleRemoval(gomock.Any(), gomock.Any(), mUUID.String(), false, when.UTC()).Return(nil)
 
-	// A CMR relation must use its public removal path to cascade synthetic
-	// units before the remote relation removal job is scheduled.
-	mExp.RelationExists(gomock.Any(), "some-remote-relation-id").Return(
-		false, errors.Errorf("relation is cross model").Add(removalerrors.RelationIsCrossModel),
+	// Every CMR relation uses its public removal path to cascade synthetic
+	// units before its remote relation removal job is scheduled.
+	mExp.GetRelationKind(gomock.Any(), "some-offerer-relation-id").Return(
+		removalinternal.RelationKindWithRemoteOfferer, nil,
 	)
-	mExp.RelationWithRemoteOffererExists(gomock.Any(), "some-remote-relation-id").Return(true, nil)
-	mExp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), "some-remote-relation-id").Return(nil)
+	mExp.RelationWithRemoteOffererExists(gomock.Any(), "some-offerer-relation-id").Return(true, nil)
+	mExp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), "some-offerer-relation-id").Return(nil)
 	mExp.RelationWithRemoteOffererScheduleRemoval(
-		gomock.Any(), gomock.Any(), "some-remote-relation-id", false, when.UTC(),
+		gomock.Any(), gomock.Any(), "some-offerer-relation-id", false, when.UTC(),
+	).Return(nil)
+
+	mExp.GetRelationKind(gomock.Any(), "some-consumer-relation-id").Return(
+		removalinternal.RelationKindWithRemoteConsumer, nil,
+	)
+	mExp.RelationWithRemoteConsumerExists(gomock.Any(), "some-consumer-relation-id").Return(true, nil)
+	mExp.EnsureRelationWithRemoteConsumerNotAliveCascade(gomock.Any(), "some-consumer-relation-id").Return(
+		removalinternal.CascadedRelationWithRemoteConsumerLives{}, nil,
+	)
+	mExp.RelationWithRemoteConsumerScheduleRemoval(
+		gomock.Any(), gomock.Any(), "some-consumer-relation-id", false, when.UTC(),
 	).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, false, 0, &destroyStorage)
@@ -267,7 +281,9 @@ func (s *modelSuite) TestRemoveModelNoForceSuccessControllerModel(c *tc.C) {
 	// unit/relation/application no longer exists, to prevent this test
 	// from depending on the unit/relation/application removal logic.
 	mExp.UnitExists(gomock.Any(), "some-unit-id").Return(false, nil)
-	mExp.RelationExists(gomock.Any(), "some-relation-id").Return(false, nil)
+	mExp.GetRelationKind(gomock.Any(), "some-relation-id").Return(
+		removalinternal.RelationKindOrdinary, relationerrors.RelationNotFound,
+	)
 	mExp.ApplicationExists(gomock.Any(), "some-application-id").Return(false, nil)
 
 	jobUUID, err := s.newService(c).RemoveModel(c.Context(), mUUID, true, 0, &destroyStorage)
