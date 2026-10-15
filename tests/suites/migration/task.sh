@@ -28,7 +28,7 @@ test_migration() {
 		export KILL_CONTROLLER=true
 		destroy_controller "test-migration-k8s"
 		;;
-	"lxd"|"ec2")
+	"ec2")
 		file="${TEST_DIR}/test-migration.log"
 
 		bootstrap "test-migration" "${file}"
@@ -46,7 +46,7 @@ test_migration() {
 		destroy_controller "test-migration"
 		;;
 	*)
-		echo "==> TEST SKIPPED: test_migration test runs on the lxd, ec2 or k8s provider"
+		echo "==> TEST SKIPPED: test_migration test runs on the ec2 or k8s provider"
 		return
 		;;
 	esac
