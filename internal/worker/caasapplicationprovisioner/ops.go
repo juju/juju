@@ -777,28 +777,6 @@ func getStorageUniqueID(appUUID coreapplication.UUID) string {
 	return appUUID.String()[:6]
 }
 
-// unitRemovalThreshold returns the lowest ordinal that should be kept when
-// scaling down to targetScale units. Unit ordinals lower than the returned
-// threshold are removed, keeping the highest targetScale ordinals. The
-// threshold is derived from the sorted ordinal set rather than assuming
-// ordinals are contiguous (0..N-1), so it remains correct when ordinals are
-// sparse (e.g. 0, 2, 4).
-func unitRemovalThreshold(units map[coreunit.Name]life.Value, targetScale int) int {
-	ordinals := make([]int, 0, len(units))
-	for unitName := range units {
-		ordinals = append(ordinals, unitName.Number())
-	}
-	sort.Ints(ordinals)
-
-	if targetScale >= len(ordinals) {
-		return 0
-	}
-	if targetScale <= 0 {
-		return ordinals[len(ordinals)-1] + 1
-	}
-	return ordinals[len(ordinals)-targetScale]
-}
-
 func setOperatorStatus(
 	ctx context.Context,
 	appName string, s status.Status, reason string, data map[string]any,
