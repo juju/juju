@@ -303,17 +303,16 @@ func (st *State) InsertMigratingCAASUnits(ctx context.Context, appUUID coreappli
 	})
 }
 
-type importedUnitSequence struct {
-	Namespace string `db:"namespace"`
-	Value     uint64 `db:"value"`
-}
-
 // GetApplicationUnitSequence returns the last allocated unit ordinal. A
 // missing sequence is distinct from one that has allocated ordinal zero.
 func (st *State) GetApplicationUnitSequence(ctx context.Context, appName string) (uint64, bool, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return 0, false, errors.Capture(err)
+	}
+	type importedUnitSequence struct {
+		Namespace string `db:"namespace"`
+		Value     uint64 `db:"value"`
 	}
 	arg := importedUnitSequence{
 		Namespace: domainsequence.MakePrefixNamespace(application.ApplicationSequenceNamespace, appName).String(),
