@@ -92,11 +92,7 @@ type CrossModelService interface {
 	CrossModelRelationService
 	RelationService
 	RemovalService
-
-	// SetRemoteApplicationOffererStatusByApplicationUUID sets the status of
-	// the remote application offerer associated with the specified application
-	// UUID.
-	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
+	StatusService
 }
 
 // ApplicationService is an interface that defines the methods for
@@ -182,6 +178,15 @@ type CrossModelRelationService interface {
 	// EnsureUnitsExist ensures that the specified units exist in the local
 	// model, creating any that are missing.
 	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
+}
+
+// StatusService is the subset of the domain status service used by the remote
+// relation consumer worker to update remote application offerer status.
+type StatusService interface {
+	// SetRemoteApplicationOffererStatusByApplicationUUID uses the immutable
+	// application identity so a stale worker cannot apply a status update to a
+	// replacement application that reused the same name.
+	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
 }
 
 // RemovalService is an interface that defines the methods for
