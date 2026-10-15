@@ -13,6 +13,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -22,6 +23,17 @@ type RelationState interface {
 	// RelationExists returns true if a relation exists with the input UUID.
 	// Returns false (with an error) if the relation is a cross model relation.
 	RelationExists(ctx context.Context, rUUID string) (bool, error)
+
+	// GetRelationKind returns the removal kind of the relation with the
+	// input UUID, which routes the relation to the correct removal path:
+	// ordinary relations are removed by the plain relation removal job,
+	// while cross-model relations are removed by the remote offerer or
+	// the remote consumer removal paths, which also delete the
+	// CMR-specific children of the relation.
+	//
+	// The following error types can be expected to be returned:
+	//   - [relationerrors.RelationNotFound] if no such relation exists.
+	GetRelationKind(ctx context.Context, rUUID string) (internal.RelationKind, error)
 
 	// EnsureRelationNotAlive ensures that there is no relation
 	// identified by the input UUID, that is still alive.
@@ -112,9 +124,35 @@ func (s *Service) LeaveScope(ctx context.Context, relationUnitUUID corerelation.
 	return errors.Capture(s.modelState.LeaveScope(ctx, relationUnitUUID.String()))
 }
 
+// relationScheduleRemoval schedules a removal job for the relation with the
+// input UUID, qualified with the input force boolean and wait duration.
+//
+// Cross-model relations cannot be removed by the plain relation removal
+// job: their CMR-specific children (offer connections, remote application
+// records and synthetic units) are only deleted by the CMR-aware removal
+// paths. The relation kind is resolved here, and the job is scheduled
+// through the matching removal path, so that relations cascaded into dying
+// by another entity's removal (see [Service.RemoveApplication]) can be
+// scheduled uniformly.
 func (s *Service) relationScheduleRemoval(
 	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
 ) (removal.UUID, error) {
+	kind, err := s.modelState.GetRelationKind(ctx, relUUID.String())
+	if errors.Is(err, relationerrors.RelationNotFound) {
+		// The relation has already been removed by another process.
+		// Schedule the plain relation removal job anyway: its executor
+		// sees the relation is gone and deletes the job.
+		kind = internal.RelationKindOrdinary
+	} else if err != nil {
+		return "", errors.Errorf("getting kind of relation %q: %w", relUUID, err)
+	}
+
+	if kind == internal.RelationKindWithRemoteOfferer {
+		return s.relationWithRemoteOffererScheduleRemoval(ctx, relUUID, force, wait)
+	} else if kind == internal.RelationKindWithRemoteConsumer {
+		return s.relationWithRemoteConsumerScheduleRemoval(ctx, relUUID, force, wait)
+	}
+
 	jobUUID, err := removal.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)
@@ -128,36 +166,6 @@ func (s *Service) relationScheduleRemoval(
 
 	s.logger.Infof(ctx, "scheduled removal job %q for relation %q", jobUUID, relUUID)
 	return jobUUID, nil
-}
-
-// scheduleCascadedRelations schedules removal jobs for relations that were
-// cascaded into dying by another entity's removal, such as an application.
-// Cross-model relations cannot be removed via the plain relation removal
-// path, and are routed to the CMR-aware removal. This matches the CMR routing
-// in the model removal cascade (see removeRelations in model.go). Scheduling a
-// relation that has already been removed by another process is not an error.
-func (s *Service) scheduleCascadedRelations(ctx context.Context, relationUUIDs []string, force bool, wait time.Duration) error {
-	for _, relationUUID := range relationUUIDs {
-		relUUID := corerelation.UUID(relationUUID)
-		if _, err := s.RemoveRelation(ctx, relUUID, force, wait); errors.Is(err, relationerrors.RelationNotFound) {
-			// There could be a chance that the relation has already been
-			// removed by another process. We can safely ignore this error
-			// and continue with the next relation.
-			continue
-		} else if err != nil && !errors.Is(err, removalerrors.RelationIsCrossModel) {
-			return errors.Capture(err)
-		} else if err == nil {
-			continue
-		}
-
-		// This is a CMR relation, so we need to remove it with
-		// RemoveRelationWithRemoteOfferer.
-		if _, err := s.RemoveRelationWithRemoteOfferer(ctx, relUUID, force, wait); err != nil &&
-			!errors.Is(err, relationerrors.RelationNotFound) {
-			return errors.Capture(err)
-		}
-	}
-	return nil
 }
 
 // processRelationRemovalJob deletes a relation if it is dying, and there are no

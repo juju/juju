@@ -17,7 +17,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/storage"
@@ -488,33 +487,28 @@ func (s *Service) removeMachines(ctx context.Context, uuids []string, force bool
 	}
 }
 
+// removeRelations schedules a removal job for each of the input relations.
+//
+// The model removal cascade has already transitioned every relation of
+// the model to the dying state, so the relations are scheduled through the
+// kind-aware [Service.relationScheduleRemoval] scheduler rather than
+// [Service.RemoveRelation]: cross-model relations must be scheduled on
+// their matching CMR removal path (remote offerer or remote consumer),
+// which also deletes the CMR-specific children of the relation.
+//
+// Scheduling failures are logged and dropped, like for every other
+// entity the cascade schedules: the relations are already dying, and
+// [Service.RemoveModel] is re-entrant, so a re-run of destroy-model
+// re-runs the cascade and reschedules the missing jobs.
 func (s *Service) removeRelations(ctx context.Context, uuids []string, force bool, wait time.Duration) {
 	for _, relationUUID := range uuids {
-		if _, err := s.RemoveRelation(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
-			// There could be a chance that the relation has already been
-			// removed by another process. We can safely ignore this error and
-			// continue with the next relation.
-			continue
-		} else if err != nil && !errors.Is(err, removalerrors.RelationIsCrossModel) {
-			// If the unit fails to be scheduled for removal, we log out the
-			// error. The relations are already transitioned to dying and there
-			// is no way to transition them back to alive.
-			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
-		} else if err == nil {
-			continue
-		}
-
-		// This is a CMR relation, so we need to remove it with
-		// RemoveRemoteRelation.
-		if _, err := s.RemoveRelationWithRemoteOfferer(ctx, relation.UUID(relationUUID), force, wait); errors.Is(err, relationerrors.RelationNotFound) {
-			// There could be a chance that the relation has already been
-			// removed by another process. We can safely ignore this error and
-			// continue with the next relation.
-			continue
-		} else if err != nil {
-			// If the unit fails to be scheduled for removal, we log out the
-			// error. The relations are already transitioned to dying and there
-			// is no way to transition them back to alive.
+		// If a relation fails to be scheduled for removal, we log out the
+		// error. The relations are already transitioned to dying and there
+		// is no way to transition them back to alive.
+		_, err := s.scheduleWithForceWait(
+			ctx, relation.UUID(relationUUID), force, wait, s.relationScheduleRemoval,
+		)
+		if err != nil {
 			s.logger.Errorf(ctx, "scheduling removal of relation %q: %v", relationUUID, err)
 		}
 	}
