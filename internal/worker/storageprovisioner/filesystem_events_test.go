@@ -23,6 +23,30 @@ func TestFilesystemEventsSuite(t *testing.T) {
 	tc.Run(t, &filesystemEventsSuite{})
 }
 
+func (*filesystemEventsSuite) TestUpdatesPendingFilesystemOperation(c *tc.C) {
+	clock := testclock.NewClock(time.Time{})
+	filesystem := names.NewFilesystemTag("0")
+	deps := dependencies{
+		config:   Config{Clock: clock, Logger: loggertesting.WrapCheckLog(c)},
+		schedule: schedule.NewSchedule(clock),
+	}
+	first := storage.FilesystemParams{
+		Tag:  filesystem,
+		Size: 1024,
+	}
+	updated := first
+	updated.Size = 2048
+
+	updatePendingFilesystem(c.Context(), &deps, first)
+	updatePendingFilesystem(c.Context(), &deps, updated)
+
+	ready := deps.schedule.Ready(clock.Now())
+	c.Assert(ready, tc.HasLen, 1)
+	op, ok := ready[0].(*createFilesystemOp)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(op.args, tc.DeepEquals, updated)
+}
+
 func (*filesystemEventsSuite) TestUpdatesPendingFilesystemAttachmentOperation(c *tc.C) {
 	clock := testclock.NewClock(time.Time{})
 	machine := names.NewMachineTag("0")

@@ -153,6 +153,13 @@ func updatePendingFilesystem(ctx context.Context, deps *dependencies, params sto
 	deps.config.Logger.Debugf(ctx,
 		"pending filesystem %v scheduled create", params.Tag)
 	delete(deps.incompleteFilesystemParams, params.Tag)
+
+	if pending, ok := deps.schedule.Get(params.Tag); ok {
+		if op, ok := pending.(*createFilesystemOp); ok {
+			op.args = params
+			return
+		}
+	}
 	scheduleOperations(deps, &createFilesystemOp{args: params})
 }
 
