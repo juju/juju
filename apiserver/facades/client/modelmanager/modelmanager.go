@@ -968,6 +968,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 				return params.ModelInfo{}, errors.Trace(err)
 			}
 		}
+		canWrite := access.EqualOrGreaterModelAccessThan(permission.WriteAccess)
 
 		modelUUID := coremodel.UUID(tag.Id())
 		modelDomainServices, err := m.domainServicesGetter.DomainServicesForModel(ctx, modelUUID)
@@ -990,7 +991,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			}
 			modelInfo.CloudCredentialValidity = new(!cred.Invalid)
 		}
-		if !access.EqualOrGreaterModelAccessThan(permission.WriteAccess) {
+		if !canWrite {
 			return modelInfo, nil
 		}
 
