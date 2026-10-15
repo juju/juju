@@ -88,7 +88,8 @@ type RelationState interface {
 //   - [removalerrors.RelationIsCrossModel] is returned if the relation is a
 //     cross model relation.
 func (s *Service) RemoveRelation(
-	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration) (removal.UUID, error) {
+	ctx context.Context, relUUID corerelation.UUID, force bool, wait time.Duration,
+) (removal.UUID, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -153,6 +154,7 @@ func (s *Service) relationScheduleRemoval(
 		return s.relationWithRemoteConsumerScheduleRemoval(ctx, relUUID, force, wait)
 	}
 
+	// Remove ordinary relation kind
 	jobUUID, err := removal.NewUUID()
 	if err != nil {
 		return "", errors.Capture(err)

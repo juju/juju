@@ -511,8 +511,8 @@ func (w *localConsumerWorker) setApplicationOffererStatusMacaroonError(ctx conte
 func (w *localConsumerWorker) remoteOfferRemoved(ctx context.Context) error {
 	w.logger.Debugf(ctx, "remote offer for %s has been removed", w.applicationName)
 
-	// If the offerer has already been removed locally, there is nothing
-	// left to clean up.
+	// If the offerer has already been removed from the offering side, there is
+	// nothing left to do but force the clean up.
 	if _, err := w.crossModelService.RemoveRemoteApplicationOffererByApplicationUUID(ctx, w.applicationUUID, true, time.Minute); err != nil &&
 		!errors.Is(err, crossmodelrelationerrors.RemoteApplicationNotFound) {
 		return errors.Annotatef(err, "removing remote application offerer for %q", w.applicationName)
