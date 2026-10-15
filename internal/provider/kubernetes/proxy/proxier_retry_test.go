@@ -6,12 +6,12 @@ package proxy
 import (
 	"context"
 	stderrors "errors"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/retry"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -29,10 +29,9 @@ func TestRetryProxyConnectionRetriesTransientError(t *testing.T) {
 				attempted <- struct{}{}
 
 				if attempts < 3 {
-					return fmt.Errorf(
-						"forwarding ports: %v",
-						stderrors.New("etcdserver: leader changed"),
-					)
+					return &kubernetes.PortForwardError{
+						Err: stderrors.New("etcdserver: leader changed"),
+					}
 				}
 				return nil
 			},
@@ -46,10 +45,10 @@ func TestRetryProxyConnectionRetriesTransientError(t *testing.T) {
 	}()
 
 	<-attempted
-	clock.Advance(time.Second)
+	clock.WaitAdvance(time.Second, time.Second, 1)
 
 	<-attempted
-	clock.Advance(time.Second)
+	clock.WaitAdvance(time.Second, time.Second, 1)
 
 	err := <-done
 	if err != nil {
@@ -91,22 +90,16 @@ func TestRetryProxyConnectionDoesNotRetryNonTransientError(t *testing.T) {
 func TestRetryProxyConnectionStopsAfterMaxAttempts(t *testing.T) {
 	clock := testclock.NewClock(time.Time{})
 	attempts := 0
-	attempted := make(chan struct{}, 3)
+	transientError := apierrors.NewInternalError(
+		stderrors.New("etcdserver: leader changed"),
+	)
 
 	done := make(chan error, 1)
 	go func() {
 		done <- retry.Call(retry.CallArgs{
 			Func: func() error {
 				attempts++
-				attempted <- struct{}{}
-
-				return fmt.Errorf(
-					"forwarding ports: %v",
-					stderrors.New("etcdserver: leader changed"),
-				)
-			},
-			IsFatalError: func(err error) bool {
-				return !isRetryableProxyError(err)
+				return transientError
 			},
 			Attempts: 3,
 			Delay:    time.Second,
@@ -114,28 +107,19 @@ func TestRetryProxyConnectionStopsAfterMaxAttempts(t *testing.T) {
 		})
 	}()
 
-	<-attempted
-	clock.Advance(time.Second)
-
-	<-attempted
-	clock.Advance(time.Second)
+	clock.WaitAdvance(time.Second, time.Second, 1)
+	clock.WaitAdvance(time.Second, time.Second, 1)
 
 	err := <-done
-	if err == nil {
-		t.Fatal("expected retry.Call to return an error")
-	}
-
-	if !retry.IsAttemptsExceeded(err) {
-		t.Fatalf("expected attempts exceeded error, got %v", err)
-	}
 
 	if attempts != 3 {
 		t.Fatalf("expected 3 attempts, got %d", attempts)
 	}
-
-	lastErr := retry.LastError(err)
-	if lastErr == nil {
-		t.Fatal("expected last retry error")
+	if err == nil {
+		t.Fatal("expected an error after exhausting attempts")
+	}
+	if !isRetryableProxyError(retry.LastError(err)) {
+		t.Fatalf("expected last error to be retryable, got: %v", retry.LastError(err))
 	}
 }
 
@@ -153,12 +137,27 @@ func TestIsRetryableProxyError(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "wrapped kubernetes internal error",
-			err: fmt.Errorf(
-				"forwarding ports: %w",
-				apierrors.NewInternalError(stderrors.New("etcdserver: leader changed")),
+			name: "traced kubernetes internal error",
+			err: jujuerrors.Trace(
+				apierrors.NewInternalError(
+					stderrors.New("etcdserver: leader changed"),
+				),
 			),
 			want: true,
+		},
+		{
+			name: "port forward error",
+			err: &kubernetes.PortForwardError{
+				Err: stderrors.New("etcdserver: leader changed"),
+			},
+			want: true,
+		},
+		{
+			name: "port forward error with unrelated cause",
+			err: &kubernetes.PortForwardError{
+				Err: stderrors.New("error upgrading connection: error sending request: connection refused"),
+			},
+			want: false,
 		},
 		{
 			name: "unrelated error",
@@ -169,23 +168,6 @@ func TestIsRetryableProxyError(t *testing.T) {
 			name: "leader changed without port forward context",
 			err:  stderrors.New("etcdserver: leader changed"),
 			want: false,
-		},
-		{
-			name: "forwarding ports error",
-			err: fmt.Errorf(
-				"forwarding ports: %v",
-				apierrors.NewInternalError(stderrors.New("etcdserver: leader changed")),
-			),
-			want: true,
-		},
-		{
-			name: "traced kubernetes internal error",
-			err: jujuerrors.Trace(
-				apierrors.NewInternalError(
-					stderrors.New("etcdserver: leader changed"),
-				),
-			),
-			want: true,
 		},
 	}
 
@@ -210,10 +192,9 @@ func TestRetryProxyConnectionContextCancellation(t *testing.T) {
 			attempts++
 			cancel()
 
-			return fmt.Errorf(
-				"forwarding ports: %v",
-				stderrors.New("etcdserver: leader changed"),
-			)
+			return &kubernetes.PortForwardError{
+				Err: stderrors.New("etcdserver: leader changed"),
+			}
 		},
 		IsFatalError: func(err error) bool {
 			return !isRetryableProxyError(err)
