@@ -310,6 +310,7 @@ extensions = [
     "ibnote",
     "sphinx_structured_toc",
     "ggarch.sphinxcontrib_ggarch",
+    "sphinx_unified_search",
 ]
 
 # Customize sphinx_llm.txt
@@ -423,3 +424,21 @@ intersphinx_mapping = {
 new_tab_link_show_external_link_icon = True
 
 rediraffe_redirects = "redirects.txt"
+
+# Downloads remote docs index once per `make run` to reduce rebuild time
+unified_search_cache_remote_indexes = True
+
+# Remote documentation projects that are part of the Juju ecosystem
+unified_search_projects = [
+    # Public project - no auth needed, plain HTTP fetch
+    {
+        "name": "Charmcraft",
+        "base_url": "https://canonical.com/juju/docs/charmcraft/4/",
+        "searchindex_url": "https://canonical.com/juju/docs/charmcraft/4/searchindex.js",
+    },
+    {
+        "name": "OPS",
+        "base_url": "https://canonical.com/juju/docs/ops/latest/",
+        "searchindex_url": "https://canonical.com/juju/docs/ops/latest/searchindex.js",
+    }
+]
