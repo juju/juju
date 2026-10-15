@@ -170,6 +170,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // SetRemoteApplicationOffererStatusByApplicationUUID method on
 // CrossModelService.
 type setRemoteApplicationOffererStatusByUUIDService interface {
+	// SetRemoteApplicationOffererStatusByApplicationUUID uses immutable
+	// application identity to prevent a stale worker status update from being
+	// applied to a replacement application that reuses the same name.
 	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
 }
 

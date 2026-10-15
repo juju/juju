@@ -102,6 +102,40 @@ WHERE           ru.uuid IN (?, ?, ?)
 	c.Check(gotAppUUID, tc.Equals, synthAppUUID.String())
 }
 
+func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadePartialSyntheticUnitRemovalSuccess(c *tc.C) {
+	relUUID, synthAppUUID, _ := s.createRelationWithRemoteConsumer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	var departedRelationUnitUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT ru.uuid
+FROM   relation_unit AS ru
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+WHERE  u.application_uuid = ?
+LIMIT  1`, synthAppUUID.String()).Scan(&departedRelationUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.LeaveScope(c.Context(), departedRelationUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	artifacts, err := st.EnsureRelationWithRemoteConsumerNotAliveCascade(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(len(artifacts.SyntheticRelationUnitUUIDs), tc.Equals, 2)
+	for _, relationUnitUUID := range artifacts.SyntheticRelationUnitUUIDs {
+		c.Check(relationUnitUUID != departedRelationUnitUUID, tc.IsTrue)
+	}
+
+	var remainingSyntheticUnits int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*)
+FROM   unit
+WHERE  application_uuid = ?
+AND    life_id = ?`, synthAppUUID.String(), int(life.Dead)).Scan(&remainingSyntheticUnits)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(remainingSyntheticUnits, tc.Equals, 2)
+}
+
 func (s *relationWithRemoteConsumer) TestEnsureRelationWithRemoteConsumerNotAliveCascadeNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 

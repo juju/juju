@@ -128,6 +128,10 @@ func (s *Service) processRelationWithRemoteConsumerRemovalJob(ctx context.Contex
 	// the relation scope by themselves. Depart them here, otherwise they
 	// would block the relation deletion below forever. Real units are
 	// departed by their uniters, or by the force handling below.
+	//
+	// LeaveScope is intentionally outside the cascade transaction. If a
+	// removal job only departs some synthetic relation units, the next
+	// scheduled job reruns the cascade and departs the units still in scope.
 	cascaded, err := s.modelState.EnsureRelationWithRemoteConsumerNotAliveCascade(ctx, job.EntityUUID)
 	if err != nil {
 		return errors.Errorf("setting remote relation %q synthetic units to dying: %w", job.EntityUUID, err)
