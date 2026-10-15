@@ -157,11 +157,11 @@ func (fa FakeAuthorizer) EntityHasPermission(ctx context.Context, entity names.T
 	return errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission)
 }
 
-// UserAccess returns the first access level, from the ordered candidate
+// userAccess returns the first access level, from the ordered candidate
 // list for target's tag kind (highest first), for which HasPermission
 // succeeds. Returns permission.NoAccess if the tag kind is unrecognised
 // or none match.
-func (fa FakeAuthorizer) UserAccess(ctx context.Context, target names.Tag) (permission.Access, error) {
+func (fa FakeAuthorizer) userAccess(ctx context.Context, target names.Tag) (permission.Access, error) {
 	var levels []permission.Access
 	switch target.Kind() {
 	case names.ControllerTagKind:
@@ -187,10 +187,10 @@ func (fa FakeAuthorizer) UserAccess(ctx context.Context, target names.Tag) (perm
 	return permission.NoAccess, nil
 }
 
-// RequireAccess returns the access level from UserAccess, or a permission
+// RequireAccess returns the access level from userAccess, or a permission
 // error if it is below required.
 func (fa FakeAuthorizer) RequireAccess(ctx context.Context, required permission.Access, target names.Tag) (permission.Access, error) {
-	access, err := fa.UserAccess(ctx, target)
+	access, err := fa.userAccess(ctx, target)
 	if err != nil {
 		return permission.NoAccess, err
 	}

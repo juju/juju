@@ -363,10 +363,10 @@ func (r *apiHandler) EntityHasPermission(
 	return nil
 }
 
-// UserAccess is responsible for reporting the access level the
+// userAccess is responsible for reporting the access level the
 // authenticated entity has on target, resolved in a single call rather
 // than probing candidate levels one at a time via HasPermission.
-func (r *apiHandler) UserAccess(ctx context.Context, target names.Tag) (permission.Access, error) {
+func (r *apiHandler) userAccess(ctx context.Context, target names.Tag) (permission.Access, error) {
 	access, err := common.UserAccessLevel(ctx, r.subjectPermissions, r.GetAuthTag(), target)
 	if err != nil {
 		return permission.NoAccess, fmt.Errorf("resolving user access: %w", err)
@@ -379,7 +379,7 @@ func (r *apiHandler) UserAccess(ctx context.Context, target names.Tag) (permissi
 func (r *apiHandler) RequireAccess(
 	ctx context.Context, required permission.Access, target names.Tag,
 ) (permission.Access, error) {
-	access, err := r.UserAccess(ctx, target)
+	access, err := r.userAccess(ctx, target)
 	if err != nil {
 		return permission.NoAccess, err
 	}
