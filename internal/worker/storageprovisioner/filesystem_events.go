@@ -219,6 +219,17 @@ func updatePendingFilesystemAttachment(
 		return
 	}
 	delete(deps.incompleteFilesystemAttachmentParams, id)
+
+	// If the filesystem attachment is already scheduled, update its parameters.
+	// We do this to ensure that if the filesystem attachment was scheduled
+	// before the filesystem was provisioned, we now have the correct parameters
+	// to attach it.
+	if pending, ok := deps.schedule.Get(id); ok {
+		if op, ok := pending.(*attachFilesystemOp); ok {
+			op.args = params
+			return
+		}
+	}
 	scheduleOperations(deps, &attachFilesystemOp{args: params})
 }
 

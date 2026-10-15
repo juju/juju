@@ -53,10 +53,13 @@ func (s *Schedule) Ready(now time.Time) []any {
 	return ready
 }
 
-// Contains reports whether an item with the specified key is scheduled.
-func (s *Schedule) Contains(key any) bool {
-	_, ok := s.m[key]
-	return ok
+// Get returns the item scheduled with the specified key.
+func (s *Schedule) Get(key any) (any, bool) {
+	item, ok := s.m[key]
+	if !ok {
+		return nil, false
+	}
+	return item.value, true
 }
 
 // Add adds an item with the specified value, with the corresponding key
