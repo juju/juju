@@ -1117,7 +1117,10 @@ func (m *ModelManagerAPI) getModelInfo(
 		}
 	}
 
-	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, coreuser.NameFromTag(m.apiUser), m.isAdmin, access)
+	info.Users, err = commonmodel.ModelUserInfo(ctx, m.modelService, modelTag, commonmodel.APIUser{
+		Name:   coreuser.NameFromTag(m.apiUser),
+		Access: access,
+	}, m.isAdmin)
 	if err != nil {
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}

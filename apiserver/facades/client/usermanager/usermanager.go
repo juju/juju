@@ -442,14 +442,14 @@ func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.Mod
 		return results, errors.Trace(err)
 	}
 
+	caller := commonmodel.APIUser{Name: api.apiUser.Name, Access: access}
 	isAdmin := api.isAdmin || access == permission.AdminAccess
 	modelUserInfo, err := commonmodel.ModelUserInfo(
 		ctx,
 		api.modelService,
 		modelTag,
-		api.apiUser.Name,
+		caller,
 		isAdmin,
-		access,
 	)
 	if err != nil {
 		return results, errors.Trace(err)
@@ -460,7 +460,7 @@ func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.Mod
 		return u.UserName == api.apiUser.Name.Name()
 	}) {
 		own, err := commonmodel.ModelUserInfo(
-			ctx, api.modelService, modelTag, api.apiUser.Name, false, access,
+			ctx, api.modelService, modelTag, caller, false,
 		)
 		if err != nil {
 			return results, errors.Trace(err)
