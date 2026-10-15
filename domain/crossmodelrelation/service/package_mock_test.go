@@ -218,6 +218,7 @@ type MockModelStateMockRecorder struct {
 	isRemoteApplicationConsumerExpects                                          []*gomock.Call2_2[context.Context, string, bool, error]
 	modelUUIDExpects                                                            []*gomock.Call0_1[model.UUID]
 	namespaceForRelationIngressNetworksWatcherExpects                           []*gomock.Call0_1[string]
+	namespaceModelLifeExpects                                                   []*gomock.Call0_1[string]
 	namespaceRemoteApplicationConsumersExpects                                  []*gomock.Call0_1[string]
 	namespaceRemoteApplicationOfferersExpects                                   []*gomock.Call0_1[string]
 	namespaceRemoteConsumerRelationsExpects                                     []*gomock.Call0_1[string]
@@ -1018,6 +1019,24 @@ func (mr *MockModelStateMockRecorder) NamespaceForRelationIngressNetworksWatcher
 
 // MockModelStateNamespaceForRelationIngressNetworksWatcherCall is the typed call wrapper for NamespaceForRelationIngressNetworksWatcher.
 type MockModelStateNamespaceForRelationIngressNetworksWatcherCall = gomock.Call0_1[string]
+
+// NamespaceModelLife mocks base method.
+func (m *MockModelState) NamespaceModelLife() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceModelLifeExpects, m.ctrl, m, "NamespaceModelLife")
+}
+
+// NamespaceModelLife indicates an expected call of NamespaceModelLife.
+func (mr *MockModelStateMockRecorder) NamespaceModelLife() *MockModelStateNamespaceModelLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceModelLife")
+	mr.namespaceModelLifeExpects = append(mr.namespaceModelLifeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateNamespaceModelLifeCall is the typed call wrapper for NamespaceModelLife.
+type MockModelStateNamespaceModelLifeCall = gomock.Call0_1[string]
 
 // NamespaceRemoteApplicationConsumers mocks base method.
 func (m *MockModelState) NamespaceRemoteApplicationConsumers() string {

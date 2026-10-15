@@ -24,6 +24,7 @@ import (
 	domainrelation "github.com/juju/juju/domain/relation"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -61,6 +62,43 @@ func (s *relationSuite) TestRelationExistsCrossModelRelation(c *tc.C) {
 	exists, err := st.RelationExists(c.Context(), relUUID.String())
 	c.Check(exists, tc.Equals, false)
 	c.Check(err, tc.ErrorIs, removalerrors.RelationIsCrossModel)
+}
+
+func (s *relationSuite) TestGetRelationKindOrdinaryRelation(c *tc.C) {
+	relUUID := s.createRelation(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	kind, err := st.GetRelationKind(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(kind, tc.Equals, internal.RelationKindOrdinary)
+}
+
+func (s *relationSuite) TestGetRelationKindRelationWithRemoteOfferer(c *tc.C) {
+	relUUID, _ := s.createRelationWithRemoteOfferer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	kind, err := st.GetRelationKind(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(kind, tc.Equals, internal.RelationKindWithRemoteOfferer)
+}
+
+func (s *relationSuite) TestGetRelationKindRelationWithRemoteConsumer(c *tc.C) {
+	relUUID, _, _ := s.createRelationWithRemoteConsumer(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	kind, err := st.GetRelationKind(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(kind, tc.Equals, internal.RelationKindWithRemoteConsumer)
+}
+
+func (s *relationSuite) TestGetRelationKindNotExists(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.GetRelationKind(c.Context(), "not-today-henry")
+	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
 func (s *relationSuite) TestEnsureRelationNotAliveNormalSuccess(c *tc.C) {

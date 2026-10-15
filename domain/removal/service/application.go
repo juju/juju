@@ -117,7 +117,10 @@ func (s *Service) RemoveApplication(
 		return appJobUUID, nil
 	}
 
-	if err := s.scheduleCascaded(ctx, cascaded.RelationUUIDs, force, wait, s.relationScheduleRemoval); err != nil {
+	// Relations use their public removal paths: CMR removers must cascade
+	// synthetic units before scheduling relation jobs. They also own their
+	// force/wait scheduling, so cannot be passed to scheduleCascaded.
+	if err := s.scheduleCascadedRelations(ctx, cascaded.RelationUUIDs, force, wait); err != nil {
 		return "", errors.Capture(err)
 	}
 

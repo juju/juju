@@ -268,6 +268,37 @@ func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererUnits(c *
 	c.Check(count, tc.Equals, 0)
 }
 
+func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererDeletesCMRDependencies(c *tc.C) {
+	relUUID, _ := s.createRelationWithRemoteOfferer(c)
+
+	_, err := s.DB().Exec(`
+INSERT INTO application_remote_offerer_relation_macaroon (relation_uuid, macaroon)
+VALUES (?, ?)`, relUUID.String(), "macaroon")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(`
+INSERT INTO relation_network_egress (relation_uuid, cidr)
+VALUES (?, ?)`, relUUID.String(), "10.0.0.0/24")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.advanceRelationLife(c, relUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteRelationWithRemoteOfferer(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, table := range []string{
+		"application_remote_offerer_relation_macaroon",
+		"relation_network_egress",
+	} {
+		var count int
+		err = s.DB().QueryRow("SELECT COUNT(*) FROM "+table+" WHERE relation_uuid = ?", relUUID.String()).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0)
+	}
+}
+
 func (s *relationWithRemoteOfferer) TestDeleteRelationWithRemoteOffererWhenRemoteAppHasMultipleRelations(c *tc.C) {
 	synthAppUUID, _ := s.createRemoteApplicationOfferer(c, "foo")
 	s.createIAASApplication(c, s.setupApplicationService(c), "app1",

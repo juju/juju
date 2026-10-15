@@ -14,6 +14,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -79,6 +80,93 @@ AND    cs.name = 'cmr'
 	}
 
 	return relationExists, errors.Capture(err)
+}
+
+// GetRelationKind returns the removal kind of the relation with the input
+// UUID, which routes the relation to the correct removal path. The kind is
+// resolved by checking which of the cross-model relation tables the
+// relation's synthetic application is registered in: an application
+// registered in application_remote_offerer is offered by a remote model,
+// while one referenced by application_remote_consumer is consumed by a
+// remote model. A relation with no synthetic application is ordinary.
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.RelationNotFound] if no such relation exists.
+func (st *State) GetRelationKind(ctx context.Context, rUUID string) (internal.RelationKind, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return internal.RelationKindOrdinary, errors.Capture(err)
+	}
+
+	relationUUID := entityUUID{UUID: rUUID}
+
+	existsStmt, err := st.Prepare(`
+SELECT &entityUUID.uuid
+FROM   relation
+WHERE  uuid = $entityUUID.uuid`, relationUUID)
+	if err != nil {
+		return internal.RelationKindOrdinary, errors.Errorf("preparing relation exists query: %w", err)
+	}
+
+	countRemoteOffererStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   relation AS r
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   application_remote_offerer AS aro ON aro.application_uuid = a.uuid
+WHERE  r.uuid = $entityUUID.uuid`, count{}, relationUUID)
+	if err != nil {
+		return internal.RelationKindOrdinary, errors.Errorf("preparing remote offerer count query: %w", err)
+	}
+
+	countRemoteConsumerStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &count.count
+FROM   relation AS r
+JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = a.uuid
+WHERE  r.uuid = $entityUUID.uuid`, count{}, relationUUID)
+	if err != nil {
+		return internal.RelationKindOrdinary, errors.Errorf("preparing remote consumer count query: %w", err)
+	}
+
+	var kind internal.RelationKind
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		kind = internal.RelationKindOrdinary
+
+		err := tx.Query(ctx, existsStmt, relationUUID).Get(&relationUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return relationerrors.RelationNotFound
+		} else if err != nil {
+			return errors.Errorf("running relation exists query: %w", err)
+		}
+
+		var remoteOffererCount count
+		err = tx.Query(ctx, countRemoteOffererStmt, relationUUID).Get(&remoteOffererCount)
+		if err != nil {
+			return errors.Errorf("counting remote offerer endpoints: %w", err)
+		} else if remoteOffererCount.Count > 0 {
+			kind = internal.RelationKindWithRemoteOfferer
+			return nil
+		}
+
+		var remoteConsumerCount count
+		err = tx.Query(ctx, countRemoteConsumerStmt, relationUUID).Get(&remoteConsumerCount)
+		if err != nil {
+			return errors.Errorf("counting remote consumer endpoints: %w", err)
+		} else if remoteConsumerCount.Count > 0 {
+			kind = internal.RelationKindWithRemoteConsumer
+		}
+
+		return nil
+	})
+	if err != nil {
+		return internal.RelationKindOrdinary, errors.Capture(err)
+	}
+
+	return kind, nil
 }
 
 // EnsureRelationNotAlive ensures that there is no relation
