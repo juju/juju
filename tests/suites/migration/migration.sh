@@ -1033,10 +1033,10 @@ test_migration_36() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration test needs the ec2 provider"
 		return
 		;;
 	esac
@@ -1063,10 +1063,10 @@ test_migration_36_cmr_offering() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration CMR offering migration test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration CMR offering migration test needs the ec2 provider"
 		return
 		;;
 	esac
@@ -1093,10 +1093,10 @@ test_migration_36_cmr_consuming() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration CMR consuming migration test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration CMR consuming migration test needs the ec2 provider"
 		return
 		;;
 	esac
@@ -1152,10 +1152,10 @@ test_migration_36_abort() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration abort test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration abort test needs the ec2 provider"
 		return
 		;;
 	esac
@@ -1181,10 +1181,10 @@ test_migration_36_users_permissions() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration users/permissions test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration users/permissions test needs the ec2 provider"
 		return
 		;;
 	esac
@@ -1269,10 +1269,10 @@ test_migration_36_relation_egress_override() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration relation egress override test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration relation egress override test needs the ec2 provider"
 		return
 		;;
 	esac
@@ -1299,10 +1299,10 @@ test_migration_36_image_metadata() {
 	fi
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd"|"ec2")
+	"ec2")
 		;;
 	*)
-		echo "==> SKIP: juju 3.6 model migration cloud image metadata test needs the lxd or ec2 provider"
+		echo "==> SKIP: juju 3.6 model migration cloud image metadata test needs the ec2 provider"
 		return
 		;;
 	esac
