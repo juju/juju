@@ -6,11 +6,13 @@
 package service
 
 import (
+	exporttypes "github.com/juju/juju/domain/export/types/v4_1_0"
 	recovery "github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/errors"
 )
 
 // DecodeModelDump decodes an archive and selects recoverable tables.
+// Rows must contain every exported column; omitted defaults are not applied.
 // Version compatibility must be checked by the caller before replay.
 func DecodeModelDump(data []byte) (*recovery.ModelDump, error) {
 	dump, err := decodeDump(data)
@@ -26,275 +28,257 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 	for table, rows := range dump.Tables {
 		switch table {
 		case "agent_binary_store":
-			decoded, err := decodeRows[recovery.ModelAgentBinaryStore](rows)
+			decoded, err := decodeRows[exporttypes.AgentBinaryStore](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAgentBinaryStore = decoded
+			out.AgentBinaryStore = decoded
 		case "agent_stream":
-			decoded, err := decodeRows[recovery.ModelAgentStream](rows)
+			decoded, err := decodeRows[exporttypes.AgentStream](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAgentStream = decoded
+			out.AgentStream = decoded
 		case "agent_version":
-			decoded, err := decodeRows[recovery.ModelAgentVersion](rows)
+			decoded, err := decodeRows[exporttypes.AgentVersion](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAgentVersion = decoded
+			out.AgentVersion = decoded
 		case "annotation_application":
-			decoded, err := decodeRows[recovery.ModelAnnotationApplication](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationApplication](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationApplication = decoded
+			out.AnnotationApplication = decoded
 		case "annotation_charm":
-			decoded, err := decodeRows[recovery.ModelAnnotationCharm](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationCharm](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationCharm = decoded
+			out.AnnotationCharm = decoded
 		case "annotation_machine":
-			decoded, err := decodeRows[recovery.ModelAnnotationMachine](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationMachine](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationMachine = decoded
+			out.AnnotationMachine = decoded
 		case "annotation_model":
-			decoded, err := decodeRows[recovery.ModelAnnotationModel](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationModel](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationModel = decoded
+			out.AnnotationModel = decoded
 		case "annotation_storage_filesystem":
-			decoded, err := decodeRows[recovery.ModelAnnotationStorageFilesystem](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationStorageFilesystem](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationStorageFilesystem = decoded
+			out.AnnotationStorageFilesystem = decoded
 		case "annotation_storage_instance":
-			decoded, err := decodeRows[recovery.ModelAnnotationStorageInstance](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationStorageInstance](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationStorageInstance = decoded
+			out.AnnotationStorageInstance = decoded
 		case "annotation_storage_volume":
-			decoded, err := decodeRows[recovery.ModelAnnotationStorageVolume](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationStorageVolume](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationStorageVolume = decoded
+			out.AnnotationStorageVolume = decoded
 		case "annotation_unit":
-			decoded, err := decodeRows[recovery.ModelAnnotationUnit](rows)
+			decoded, err := decodeRows[exporttypes.AnnotationUnit](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAnnotationUnit = decoded
+			out.AnnotationUnit = decoded
 		case "application":
-			decoded, err := decodeRows[recovery.ModelApplication](rows)
+			decoded, err := decodeRows[exporttypes.Application](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasCharmModifiedVersion = rows[i]["charm_modified_version"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasCharmUpgradeOnError = rows[i]["charm_upgrade_on_error"]
-			}
-			out.ModelApplication = decoded
+			out.Application = decoded
 		case "application_agent":
-			decoded, err := decodeRows[recovery.ModelApplicationAgent](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationAgent](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationAgent = decoded
+			out.ApplicationAgent = decoded
 		case "application_channel":
-			decoded, err := decodeRows[recovery.ModelApplicationChannel](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationChannel](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationChannel = decoded
+			out.ApplicationChannel = decoded
 		case "application_config":
-			decoded, err := decodeRows[recovery.ModelApplicationConfig](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationConfig = decoded
+			out.ApplicationConfig = decoded
 		case "application_config_hash":
-			decoded, err := decodeRows[recovery.ModelApplicationConfigHash](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationConfigHash](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationConfigHash = decoded
+			out.ApplicationConfigHash = decoded
 		case "application_constraint":
-			decoded, err := decodeRows[recovery.ModelApplicationConstraint](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationConstraint](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationConstraint = decoded
+			out.ApplicationConstraint = decoded
 		case "application_controller":
-			decoded, err := decodeRows[recovery.ModelApplicationController](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationController](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationController = decoded
+			out.ApplicationController = decoded
 		case "application_endpoint":
-			decoded, err := decodeRows[recovery.ModelApplicationEndpoint](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationEndpoint](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationEndpoint = decoded
+			out.ApplicationEndpoint = decoded
 		case "application_exposed_endpoint_cidr":
-			decoded, err := decodeRows[recovery.ModelApplicationExposedEndpointCidr](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationExposedEndpointCidr](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationExposedEndpointCidr = decoded
+			out.ApplicationExposedEndpointCidr = decoded
 		case "application_exposed_endpoint_space":
-			decoded, err := decodeRows[recovery.ModelApplicationExposedEndpointSpace](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationExposedEndpointSpace](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationExposedEndpointSpace = decoded
+			out.ApplicationExposedEndpointSpace = decoded
 		case "application_extra_endpoint":
-			decoded, err := decodeRows[recovery.ModelApplicationExtraEndpoint](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationExtraEndpoint](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationExtraEndpoint = decoded
+			out.ApplicationExtraEndpoint = decoded
 		case "application_k8s_resources_managed":
-			decoded, err := decodeRows[recovery.ModelApplicationK8sResourcesManaged](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationK8sResourcesManaged](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationK8sResourcesManaged = decoded
+			out.ApplicationK8sResourcesManaged = decoded
 		case "application_platform":
-			decoded, err := decodeRows[recovery.ModelApplicationPlatform](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationPlatform](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationPlatform = decoded
+			out.ApplicationPlatform = decoded
 		case "application_remote_consumer":
-			decoded, err := decodeRows[recovery.ModelApplicationRemoteConsumer](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationRemoteConsumer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationRemoteConsumer = decoded
+			out.ApplicationRemoteConsumer = decoded
 		case "application_remote_offerer":
-			decoded, err := decodeRows[recovery.ModelApplicationRemoteOfferer](rows, "macaroon")
+			decoded, err := decodeRows[exporttypes.ApplicationRemoteOfferer](rows, "macaroon")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationRemoteOfferer = decoded
+			out.ApplicationRemoteOfferer = decoded
 		case "application_remote_offerer_relation_macaroon":
-			decoded, err := decodeRows[recovery.ModelApplicationRemoteOffererRelationMacaroon](rows, "macaroon")
+			decoded, err := decodeRows[exporttypes.ApplicationRemoteOffererRelationMacaroon](rows, "macaroon")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationRemoteOffererRelationMacaroon = decoded
+			out.ApplicationRemoteOffererRelationMacaroon = decoded
 		case "application_remote_offerer_status":
-			decoded, err := decodeRows[recovery.ModelApplicationRemoteOffererStatus](rows, "data")
+			decoded, err := decodeRows[exporttypes.ApplicationRemoteOffererStatus](rows, "data")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationRemoteOffererStatus = decoded
+			out.ApplicationRemoteOffererStatus = decoded
 		case "application_resource":
-			decoded, err := decodeRows[recovery.ModelApplicationResource](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationResource](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationResource = decoded
+			out.ApplicationResource = decoded
 		case "application_scale":
-			decoded, err := decodeRows[recovery.ModelApplicationScale](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationScale](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasScaling = rows[i]["scaling"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasStartOrdinal = rows[i]["start_ordinal"]
-			}
-			out.ModelApplicationScale = decoded
+			out.ApplicationScale = decoded
 		case "application_setting":
-			decoded, err := decodeRows[recovery.ModelApplicationSetting](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationSetting](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasTrust = rows[i]["trust"]
-			}
-			out.ModelApplicationSetting = decoded
+			out.ApplicationSetting = decoded
 		case "application_status":
-			decoded, err := decodeRows[recovery.ModelApplicationStatus](rows, "data")
+			decoded, err := decodeRows[exporttypes.ApplicationStatus](rows, "data")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationStatus = decoded
+			out.ApplicationStatus = decoded
 		case "application_storage_directive":
-			decoded, err := decodeRows[recovery.ModelApplicationStorageDirective](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationStorageDirective](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationStorageDirective = decoded
+			out.ApplicationStorageDirective = decoded
 		case "application_workload_version":
-			decoded, err := decodeRows[recovery.ModelApplicationWorkloadVersion](rows)
+			decoded, err := decodeRows[exporttypes.ApplicationWorkloadVersion](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelApplicationWorkloadVersion = decoded
+			out.ApplicationWorkloadVersion = decoded
 		case "architecture":
-			decoded, err := decodeRows[recovery.ModelArchitecture](rows)
+			decoded, err := decodeRows[exporttypes.Architecture](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelArchitecture = decoded
+			out.Architecture = decoded
 		case "availability_zone":
-			decoded, err := decodeRows[recovery.ModelAvailabilityZone](rows)
+			decoded, err := decodeRows[exporttypes.AvailabilityZone](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAvailabilityZone = decoded
+			out.AvailabilityZone = decoded
 		case "availability_zone_subnet":
-			decoded, err := decodeRows[recovery.ModelAvailabilityZoneSubnet](rows)
+			decoded, err := decodeRows[exporttypes.AvailabilityZoneSubnet](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelAvailabilityZoneSubnet = decoded
+			out.AvailabilityZoneSubnet = decoded
 		case "block_command":
-			decoded, err := decodeRows[recovery.ModelBlockCommand](rows)
+			decoded, err := decodeRows[exporttypes.BlockCommand](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelBlockCommand = decoded
+			out.BlockCommand = decoded
 		case "block_command_type":
-			decoded, err := decodeRows[recovery.ModelBlockCommandType](rows)
+			decoded, err := decodeRows[exporttypes.BlockCommandType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelBlockCommandType = decoded
+			out.BlockCommandType = decoded
 		case "block_device":
-			decoded, err := decodeRows[recovery.ModelBlockDevice](rows)
+			decoded, err := decodeRows[exporttypes.BlockDevice](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasProvenanceID = rows[i]["provenance_id"]
-			}
-			out.ModelBlockDevice = decoded
+			out.BlockDevice = decoded
 		case "block_device_link_device":
-			decoded, err := decodeRows[recovery.ModelBlockDeviceLinkDevice](rows)
+			decoded, err := decodeRows[exporttypes.BlockDeviceLinkDevice](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelBlockDeviceLinkDevice = decoded
+			out.BlockDeviceLinkDevice = decoded
 		case "block_device_provenance":
-			decoded, err := decodeRows[recovery.ModelBlockDeviceProvenance](rows)
+			decoded, err := decodeRows[exporttypes.BlockDeviceProvenance](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelBlockDeviceProvenance = decoded
+			out.BlockDeviceProvenance = decoded
 		case "change_log":
 			// Do not replay source change notifications.
 			continue
@@ -308,1316 +292,1226 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 			// Keep target watcher progress.
 			continue
 		case "charm":
-			decoded, err := decodeRows[recovery.ModelCharm](rows, "lxd_profile")
+			decoded, err := decodeRows[exporttypes.Charm](rows, "lxd_profile")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasAvailable = rows[i]["available"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasSourceID = rows[i]["source_id"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasRevision = rows[i]["revision"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasCreateTime = rows[i]["create_time"]
-			}
-			out.ModelCharm = decoded
+			out.Charm = decoded
 		case "charm_action":
-			decoded, err := decodeRows[recovery.ModelCharmAction](rows, "params")
+			decoded, err := decodeRows[exporttypes.CharmAction](rows, "params")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmAction = decoded
+			out.CharmAction = decoded
 		case "charm_category":
-			decoded, err := decodeRows[recovery.ModelCharmCategory](rows)
+			decoded, err := decodeRows[exporttypes.CharmCategory](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmCategory = decoded
+			out.CharmCategory = decoded
 		case "charm_config":
-			decoded, err := decodeRows[recovery.ModelCharmConfig](rows)
+			decoded, err := decodeRows[exporttypes.CharmConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmConfig = decoded
+			out.CharmConfig = decoded
 		case "charm_config_type":
-			decoded, err := decodeRows[recovery.ModelCharmConfigType](rows)
+			decoded, err := decodeRows[exporttypes.CharmConfigType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmConfigType = decoded
+			out.CharmConfigType = decoded
 		case "charm_container":
-			decoded, err := decodeRows[recovery.ModelCharmContainer](rows)
+			decoded, err := decodeRows[exporttypes.CharmContainer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasUid = rows[i]["uid"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasGid = rows[i]["gid"]
-			}
-			out.ModelCharmContainer = decoded
+			out.CharmContainer = decoded
 		case "charm_container_mount":
-			decoded, err := decodeRows[recovery.ModelCharmContainerMount](rows)
+			decoded, err := decodeRows[exporttypes.CharmContainerMount](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmContainerMount = decoded
+			out.CharmContainerMount = decoded
 		case "charm_device":
-			decoded, err := decodeRows[recovery.ModelCharmDevice](rows)
+			decoded, err := decodeRows[exporttypes.CharmDevice](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmDevice = decoded
+			out.CharmDevice = decoded
 		case "charm_download_info":
-			decoded, err := decodeRows[recovery.ModelCharmDownloadInfo](rows)
+			decoded, err := decodeRows[exporttypes.CharmDownloadInfo](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmDownloadInfo = decoded
+			out.CharmDownloadInfo = decoded
 		case "charm_extra_binding":
-			decoded, err := decodeRows[recovery.ModelCharmExtraBinding](rows)
+			decoded, err := decodeRows[exporttypes.CharmExtraBinding](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmExtraBinding = decoded
+			out.CharmExtraBinding = decoded
 		case "charm_hash":
-			decoded, err := decodeRows[recovery.ModelCharmHash](rows)
+			decoded, err := decodeRows[exporttypes.CharmHash](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasHashKindID = rows[i]["hash_kind_id"]
-			}
-			out.ModelCharmHash = decoded
+			out.CharmHash = decoded
 		case "charm_manifest_base":
-			decoded, err := decodeRows[recovery.ModelCharmManifestBase](rows)
+			decoded, err := decodeRows[exporttypes.CharmManifestBase](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasOsID = rows[i]["os_id"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasArchitectureID = rows[i]["architecture_id"]
-			}
-			out.ModelCharmManifestBase = decoded
+			out.CharmManifestBase = decoded
 		case "charm_metadata":
-			decoded, err := decodeRows[recovery.ModelCharmMetadata](rows, "assumes")
+			decoded, err := decodeRows[exporttypes.CharmMetadata](rows, "assumes")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasSubordinate = rows[i]["subordinate"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasRunAsID = rows[i]["run_as_id"]
-			}
-			out.ModelCharmMetadata = decoded
+			out.CharmMetadata = decoded
 		case "charm_provenance":
-			decoded, err := decodeRows[recovery.ModelCharmProvenance](rows)
+			decoded, err := decodeRows[exporttypes.CharmProvenance](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmProvenance = decoded
+			out.CharmProvenance = decoded
 		case "charm_relation":
-			decoded, err := decodeRows[recovery.ModelCharmRelation](rows)
+			decoded, err := decodeRows[exporttypes.CharmRelation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmRelation = decoded
+			out.CharmRelation = decoded
 		case "charm_relation_role":
-			decoded, err := decodeRows[recovery.ModelCharmRelationRole](rows)
+			decoded, err := decodeRows[exporttypes.CharmRelationRole](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmRelationRole = decoded
+			out.CharmRelationRole = decoded
 		case "charm_relation_scope":
-			decoded, err := decodeRows[recovery.ModelCharmRelationScope](rows)
+			decoded, err := decodeRows[exporttypes.CharmRelationScope](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmRelationScope = decoded
+			out.CharmRelationScope = decoded
 		case "charm_resource":
-			decoded, err := decodeRows[recovery.ModelCharmResource](rows)
+			decoded, err := decodeRows[exporttypes.CharmResource](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmResource = decoded
+			out.CharmResource = decoded
 		case "charm_resource_kind":
-			decoded, err := decodeRows[recovery.ModelCharmResourceKind](rows)
+			decoded, err := decodeRows[exporttypes.CharmResourceKind](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmResourceKind = decoded
+			out.CharmResourceKind = decoded
 		case "charm_run_as_kind":
-			decoded, err := decodeRows[recovery.ModelCharmRunAsKind](rows)
+			decoded, err := decodeRows[exporttypes.CharmRunAsKind](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmRunAsKind = decoded
+			out.CharmRunAsKind = decoded
 		case "charm_source":
-			decoded, err := decodeRows[recovery.ModelCharmSource](rows)
+			decoded, err := decodeRows[exporttypes.CharmSource](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmSource = decoded
+			out.CharmSource = decoded
 		case "charm_storage":
-			decoded, err := decodeRows[recovery.ModelCharmStorage](rows)
+			decoded, err := decodeRows[exporttypes.CharmStorage](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmStorage = decoded
+			out.CharmStorage = decoded
 		case "charm_storage_kind":
-			decoded, err := decodeRows[recovery.ModelCharmStorageKind](rows)
+			decoded, err := decodeRows[exporttypes.CharmStorageKind](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmStorageKind = decoded
+			out.CharmStorageKind = decoded
 		case "charm_storage_property":
-			decoded, err := decodeRows[recovery.ModelCharmStorageProperty](rows)
+			decoded, err := decodeRows[exporttypes.CharmStorageProperty](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmStorageProperty = decoded
+			out.CharmStorageProperty = decoded
 		case "charm_tag":
-			decoded, err := decodeRows[recovery.ModelCharmTag](rows)
+			decoded, err := decodeRows[exporttypes.CharmTag](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmTag = decoded
+			out.CharmTag = decoded
 		case "charm_term":
-			decoded, err := decodeRows[recovery.ModelCharmTerm](rows)
+			decoded, err := decodeRows[exporttypes.CharmTerm](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelCharmTerm = decoded
+			out.CharmTerm = decoded
 		case "constraint":
-			decoded, err := decodeRows[recovery.ModelConstraint](rows)
+			decoded, err := decodeRows[exporttypes.Constraint](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.Constraint = decoded
+		case "constraint_space":
+			decoded, err := decodeRows[exporttypes.ConstraintSpace](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ConstraintSpace = decoded
+		case "constraint_tag":
+			decoded, err := decodeRows[exporttypes.ConstraintTag](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ConstraintTag = decoded
+		case "constraint_zone":
+			decoded, err := decodeRows[exporttypes.ConstraintZone](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ConstraintZone = decoded
+		case "container_type":
+			decoded, err := decodeRows[exporttypes.ContainerType](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ContainerType = decoded
+		case "device_constraint":
+			decoded, err := decodeRows[exporttypes.DeviceConstraint](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.DeviceConstraint = decoded
+		case "device_constraint_attribute":
+			decoded, err := decodeRows[exporttypes.DeviceConstraintAttribute](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.DeviceConstraintAttribute = decoded
+		case "fqdn_address":
+			decoded, err := decodeRows[exporttypes.FqdnAddress](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.FqdnAddress = decoded
+		case "hash_kind":
+			decoded, err := decodeRows[exporttypes.HashKind](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.HashKind = decoded
+		case "hostname_address":
+			decoded, err := decodeRows[exporttypes.HostnameAddress](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.HostnameAddress = decoded
+		case "instance_tag":
+			decoded, err := decodeRows[exporttypes.InstanceTag](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.InstanceTag = decoded
+		case "ip_address":
+			decoded, err := decodeRows[exporttypes.IpAddress](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.IpAddress = decoded
+		case "ip_address_config_type":
+			decoded, err := decodeRows[exporttypes.IpAddressConfigType](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.IpAddressConfigType = decoded
+		case "ip_address_origin":
+			decoded, err := decodeRows[exporttypes.IpAddressOrigin](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.IpAddressOrigin = decoded
+		case "ip_address_scope":
+			decoded, err := decodeRows[exporttypes.IpAddressScope](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.IpAddressScope = decoded
+		case "ip_address_type":
+			decoded, err := decodeRows[exporttypes.IpAddressType](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.IpAddressType = decoded
+		case "k8s_pod":
+			decoded, err := decodeRows[exporttypes.K8sPod](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.K8sPod = decoded
+		case "k8s_pod_port":
+			decoded, err := decodeRows[exporttypes.K8sPodPort](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.K8sPodPort = decoded
+		case "k8s_pod_status":
+			decoded, err := decodeRows[exporttypes.K8sPodStatus](rows, "data")
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.K8sPodStatus = decoded
+		case "k8s_pod_status_value":
+			decoded, err := decodeRows[exporttypes.K8sPodStatusValue](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.K8sPodStatusValue = decoded
+		case "k8s_service":
+			decoded, err := decodeRows[exporttypes.K8sService](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.K8sService = decoded
+		case "life":
+			decoded, err := decodeRows[exporttypes.Life](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.Life = decoded
+		case "link_layer_device":
+			decoded, err := decodeRows[exporttypes.LinkLayerDevice](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.LinkLayerDevice = decoded
+		case "link_layer_device_dns_address":
+			decoded, err := decodeRows[exporttypes.LinkLayerDeviceDnsAddress](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.LinkLayerDeviceDnsAddress = decoded
+		case "link_layer_device_dns_domain":
+			decoded, err := decodeRows[exporttypes.LinkLayerDeviceDnsDomain](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.LinkLayerDeviceDnsDomain = decoded
+		case "link_layer_device_parent":
+			decoded, err := decodeRows[exporttypes.LinkLayerDeviceParent](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.LinkLayerDeviceParent = decoded
+		case "link_layer_device_route":
+			decoded, err := decodeRows[exporttypes.LinkLayerDeviceRoute](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.LinkLayerDeviceRoute = decoded
+		case "link_layer_device_type":
+			decoded, err := decodeRows[exporttypes.LinkLayerDeviceType](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.LinkLayerDeviceType = decoded
+		case "log_transfer_progress":
+			// Controller-local transfer progress is not exported.
+			continue
+		case "machine":
+			decoded, err := decodeRows[exporttypes.Machine](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.Machine = decoded
+		case "machine_agent_presence":
+			decoded, err := decodeRows[exporttypes.MachineAgentPresence](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineAgentPresence = decoded
+		case "machine_agent_version":
+			decoded, err := decodeRows[exporttypes.MachineAgentVersion](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineAgentVersion = decoded
+		case "machine_cloud_instance":
+			decoded, err := decodeRows[exporttypes.MachineCloudInstance](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineCloudInstance = decoded
+		case "machine_cloud_instance_status":
+			decoded, err := decodeRows[exporttypes.MachineCloudInstanceStatus](rows, "data")
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineCloudInstanceStatus = decoded
+		case "machine_cloud_instance_status_value":
+			decoded, err := decodeRows[exporttypes.MachineCloudInstanceStatusValue](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineCloudInstanceStatusValue = decoded
+		case "machine_constraint":
+			decoded, err := decodeRows[exporttypes.MachineConstraint](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineConstraint = decoded
+		case "machine_container_type":
+			decoded, err := decodeRows[exporttypes.MachineContainerType](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineContainerType = decoded
+		case "machine_filesystem":
+			decoded, err := decodeRows[exporttypes.MachineFilesystem](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineFilesystem = decoded
+		case "machine_lxd_profile":
+			decoded, err := decodeRows[exporttypes.MachineLxdProfile](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineLxdProfile = decoded
+		case "machine_manual":
+			decoded, err := decodeRows[exporttypes.MachineManual](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineManual = decoded
+		case "machine_parent":
+			decoded, err := decodeRows[exporttypes.MachineParent](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineParent = decoded
+		case "machine_placement":
+			decoded, err := decodeRows[exporttypes.MachinePlacement](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachinePlacement = decoded
+		case "machine_placement_scope":
+			decoded, err := decodeRows[exporttypes.MachinePlacementScope](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachinePlacementScope = decoded
+		case "machine_platform":
+			decoded, err := decodeRows[exporttypes.MachinePlatform](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachinePlatform = decoded
+		case "machine_reprovision":
+			decoded, err := decodeRows[exporttypes.MachineReprovision](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineReprovision = decoded
+		case "machine_requires_reboot":
+			decoded, err := decodeRows[exporttypes.MachineRequiresReboot](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineRequiresReboot = decoded
+		case "machine_ssh_host_key":
+			decoded, err := decodeRows[exporttypes.MachineSshHostKey](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineSshHostKey = decoded
+		case "machine_status":
+			decoded, err := decodeRows[exporttypes.MachineStatus](rows, "data")
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineStatus = decoded
+		case "machine_status_value":
+			decoded, err := decodeRows[exporttypes.MachineStatusValue](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineStatusValue = decoded
+		case "machine_virtual_ssh_host_key":
+			decoded, err := decodeRows[exporttypes.MachineVirtualSshHostKey](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineVirtualSshHostKey = decoded
+		case "machine_volume":
+			decoded, err := decodeRows[exporttypes.MachineVolume](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.MachineVolume = decoded
+		case "model":
+			decoded, err := decodeRows[exporttypes.Model](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.Model = decoded
+		case "model_agent":
+			decoded, err := decodeRows[exporttypes.ModelAgent](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ModelAgent = decoded
+		case "model_config":
+			decoded, err := decodeRows[exporttypes.ModelConfig](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ModelConfig = decoded
+		case "model_constraint":
+			decoded, err := decodeRows[exporttypes.ModelConstraint](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.ModelConstraint = decoded
-		case "constraint_space":
-			decoded, err := decodeRows[recovery.ModelConstraintSpace](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelConstraintSpace = decoded
-		case "constraint_tag":
-			decoded, err := decodeRows[recovery.ModelConstraintTag](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelConstraintTag = decoded
-		case "constraint_zone":
-			decoded, err := decodeRows[recovery.ModelConstraintZone](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelConstraintZone = decoded
-		case "container_type":
-			decoded, err := decodeRows[recovery.ModelContainerType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelContainerType = decoded
-		case "device_constraint":
-			decoded, err := decodeRows[recovery.ModelDeviceConstraint](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelDeviceConstraint = decoded
-		case "device_constraint_attribute":
-			decoded, err := decodeRows[recovery.ModelDeviceConstraintAttribute](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelDeviceConstraintAttribute = decoded
-		case "fqdn_address":
-			decoded, err := decodeRows[recovery.ModelFqdnAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelFqdnAddress = decoded
-		case "hash_kind":
-			decoded, err := decodeRows[recovery.ModelHashKind](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelHashKind = decoded
-		case "hostname_address":
-			decoded, err := decodeRows[recovery.ModelHostnameAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelHostnameAddress = decoded
-		case "instance_tag":
-			decoded, err := decodeRows[recovery.ModelInstanceTag](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelInstanceTag = decoded
-		case "ip_address":
-			decoded, err := decodeRows[recovery.ModelIpAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsSecondary = rows[i]["is_secondary"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsShadow = rows[i]["is_shadow"]
-			}
-			out.ModelIpAddress = decoded
-		case "ip_address_config_type":
-			decoded, err := decodeRows[recovery.ModelIpAddressConfigType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelIpAddressConfigType = decoded
-		case "ip_address_origin":
-			decoded, err := decodeRows[recovery.ModelIpAddressOrigin](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelIpAddressOrigin = decoded
-		case "ip_address_scope":
-			decoded, err := decodeRows[recovery.ModelIpAddressScope](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelIpAddressScope = decoded
-		case "ip_address_type":
-			decoded, err := decodeRows[recovery.ModelIpAddressType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelIpAddressType = decoded
-		case "k8s_pod":
-			decoded, err := decodeRows[recovery.ModelK8sPod](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelK8sPod = decoded
-		case "k8s_pod_port":
-			decoded, err := decodeRows[recovery.ModelK8sPodPort](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelK8sPodPort = decoded
-		case "k8s_pod_status":
-			decoded, err := decodeRows[recovery.ModelK8sPodStatus](rows, "data")
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelK8sPodStatus = decoded
-		case "k8s_pod_status_value":
-			decoded, err := decodeRows[recovery.ModelK8sPodStatusValue](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelK8sPodStatusValue = decoded
-		case "k8s_service":
-			decoded, err := decodeRows[recovery.ModelK8sService](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelK8sService = decoded
-		case "life":
-			decoded, err := decodeRows[recovery.ModelLife](rows)
+		case "model_life":
+			decoded, err := decodeRows[exporttypes.ModelLife](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.ModelLife = decoded
-		case "link_layer_device":
-			decoded, err := decodeRows[recovery.ModelLinkLayerDevice](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsAutoStart = rows[i]["is_auto_start"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsEnabled = rows[i]["is_enabled"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsDefaultGateway = rows[i]["is_default_gateway"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasVlanTag = rows[i]["vlan_tag"]
-			}
-			out.ModelLinkLayerDevice = decoded
-		case "link_layer_device_dns_address":
-			decoded, err := decodeRows[recovery.ModelLinkLayerDeviceDnsAddress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelLinkLayerDeviceDnsAddress = decoded
-		case "link_layer_device_dns_domain":
-			decoded, err := decodeRows[recovery.ModelLinkLayerDeviceDnsDomain](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelLinkLayerDeviceDnsDomain = decoded
-		case "link_layer_device_parent":
-			decoded, err := decodeRows[recovery.ModelLinkLayerDeviceParent](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelLinkLayerDeviceParent = decoded
-		case "link_layer_device_route":
-			decoded, err := decodeRows[recovery.ModelLinkLayerDeviceRoute](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelLinkLayerDeviceRoute = decoded
-		case "link_layer_device_type":
-			decoded, err := decodeRows[recovery.ModelLinkLayerDeviceType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelLinkLayerDeviceType = decoded
-		case "log_transfer_progress":
-			decoded, err := decodeRows[recovery.ModelLogTransferProgress](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelLogTransferProgress = decoded
-		case "machine":
-			decoded, err := decodeRows[recovery.ModelMachine](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasForceDestroyed = rows[i]["force_destroyed"]
-			}
-			out.ModelMachine = decoded
-		case "machine_agent_presence":
-			decoded, err := decodeRows[recovery.ModelMachineAgentPresence](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineAgentPresence = decoded
-		case "machine_agent_version":
-			decoded, err := decodeRows[recovery.ModelMachineAgentVersion](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineAgentVersion = decoded
-		case "machine_cloud_instance":
-			decoded, err := decodeRows[recovery.ModelMachineCloudInstance](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineCloudInstance = decoded
-		case "machine_cloud_instance_status":
-			decoded, err := decodeRows[recovery.ModelMachineCloudInstanceStatus](rows, "data")
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineCloudInstanceStatus = decoded
-		case "machine_cloud_instance_status_value":
-			decoded, err := decodeRows[recovery.ModelMachineCloudInstanceStatusValue](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineCloudInstanceStatusValue = decoded
-		case "machine_constraint":
-			decoded, err := decodeRows[recovery.ModelMachineConstraint](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineConstraint = decoded
-		case "machine_container_type":
-			decoded, err := decodeRows[recovery.ModelMachineContainerType](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineContainerType = decoded
-		case "machine_filesystem":
-			decoded, err := decodeRows[recovery.ModelMachineFilesystem](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineFilesystem = decoded
-		case "machine_lxd_profile":
-			decoded, err := decodeRows[recovery.ModelMachineLxdProfile](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineLxdProfile = decoded
-		case "machine_manual":
-			decoded, err := decodeRows[recovery.ModelMachineManual](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineManual = decoded
-		case "machine_parent":
-			decoded, err := decodeRows[recovery.ModelMachineParent](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineParent = decoded
-		case "machine_placement":
-			decoded, err := decodeRows[recovery.ModelMachinePlacement](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachinePlacement = decoded
-		case "machine_placement_scope":
-			decoded, err := decodeRows[recovery.ModelMachinePlacementScope](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachinePlacementScope = decoded
-		case "machine_platform":
-			decoded, err := decodeRows[recovery.ModelMachinePlatform](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachinePlatform = decoded
-		case "machine_reprovision":
-			decoded, err := decodeRows[recovery.ModelMachineReprovision](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineReprovision = decoded
-		case "machine_requires_reboot":
-			decoded, err := decodeRows[recovery.ModelMachineRequiresReboot](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasCreatedAt = rows[i]["created_at"]
-			}
-			out.ModelMachineRequiresReboot = decoded
-		case "machine_ssh_host_key":
-			decoded, err := decodeRows[recovery.ModelMachineSshHostKey](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineSshHostKey = decoded
-		case "machine_status":
-			decoded, err := decodeRows[recovery.ModelMachineStatus](rows, "data")
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineStatus = decoded
-		case "machine_status_value":
-			decoded, err := decodeRows[recovery.ModelMachineStatusValue](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineStatusValue = decoded
-		case "machine_virtual_ssh_host_key":
-			decoded, err := decodeRows[recovery.ModelMachineVirtualSshHostKey](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineVirtualSshHostKey = decoded
-		case "machine_volume":
-			decoded, err := decodeRows[recovery.ModelMachineVolume](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelMachineVolume = decoded
-		case "model":
-			decoded, err := decodeRows[recovery.ModelModel](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			for i := range decoded {
-				_, decoded[i].HasIsControllerModel = rows[i]["is_controller_model"]
-			}
-			out.ModelModel = decoded
-		case "model_agent":
-			decoded, err := decodeRows[recovery.ModelModelAgent](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelModelAgent = decoded
-		case "model_config":
-			decoded, err := decodeRows[recovery.ModelModelConfig](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelModelConfig = decoded
-		case "model_constraint":
-			decoded, err := decodeRows[recovery.ModelModelConstraint](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelModelConstraint = decoded
-		case "model_life":
-			decoded, err := decodeRows[recovery.ModelModelLife](rows)
-			if err != nil {
-				return nil, errors.Errorf("table %q: %w", table, err)
-			}
-			out.ModelModelLife = decoded
 		case "model_migrating":
-			decoded, err := decodeRows[recovery.ModelModelMigrating](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrating](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelModelMigrating = decoded
+			out.ModelMigrating = decoded
 		case "model_storage_pool":
-			decoded, err := decodeRows[recovery.ModelModelStoragePool](rows)
+			decoded, err := decodeRows[exporttypes.ModelStoragePool](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelModelStoragePool = decoded
+			out.ModelStoragePool = decoded
 		case "net_node":
-			decoded, err := decodeRows[recovery.ModelNetNode](rows)
+			decoded, err := decodeRows[exporttypes.NetNode](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelNetNode = decoded
+			out.NetNode = decoded
 		case "net_node_fqdn_address":
-			decoded, err := decodeRows[recovery.ModelNetNodeFqdnAddress](rows)
+			decoded, err := decodeRows[exporttypes.NetNodeFqdnAddress](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelNetNodeFqdnAddress = decoded
+			out.NetNodeFqdnAddress = decoded
 		case "net_node_hostname_address":
-			decoded, err := decodeRows[recovery.ModelNetNodeHostnameAddress](rows)
+			decoded, err := decodeRows[exporttypes.NetNodeHostnameAddress](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelNetNodeHostnameAddress = decoded
+			out.NetNodeHostnameAddress = decoded
 		case "network_address_scope":
-			decoded, err := decodeRows[recovery.ModelNetworkAddressScope](rows)
+			decoded, err := decodeRows[exporttypes.NetworkAddressScope](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelNetworkAddressScope = decoded
+			out.NetworkAddressScope = decoded
 		case "object_store_metadata":
-			decoded, err := decodeRows[recovery.ModelObjectStoreMetadata](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreMetadata](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelObjectStoreMetadata = decoded
+			out.ObjectStoreMetadata = decoded
 		case "object_store_metadata_path":
-			decoded, err := decodeRows[recovery.ModelObjectStoreMetadataPath](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreMetadataPath](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelObjectStoreMetadataPath = decoded
+			out.ObjectStoreMetadataPath = decoded
 		case "object_store_placement":
 			// Rebuild placements using the supplied target node.
 			continue
 		case "offer":
-			decoded, err := decodeRows[recovery.ModelOffer](rows)
+			decoded, err := decodeRows[exporttypes.Offer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOffer = decoded
+			out.Offer = decoded
 		case "offer_connection":
-			decoded, err := decodeRows[recovery.ModelOfferConnection](rows)
+			decoded, err := decodeRows[exporttypes.OfferConnection](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOfferConnection = decoded
+			out.OfferConnection = decoded
 		case "offer_endpoint":
-			decoded, err := decodeRows[recovery.ModelOfferEndpoint](rows)
+			decoded, err := decodeRows[exporttypes.OfferEndpoint](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOfferEndpoint = decoded
+			out.OfferEndpoint = decoded
 		case "operation":
-			decoded, err := decodeRows[recovery.ModelOperation](rows)
+			decoded, err := decodeRows[exporttypes.Operation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasParallel = rows[i]["parallel"]
-			}
-			out.ModelOperation = decoded
+			out.Operation = decoded
 		case "operation_action":
-			decoded, err := decodeRows[recovery.ModelOperationAction](rows)
+			decoded, err := decodeRows[exporttypes.OperationAction](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationAction = decoded
+			out.OperationAction = decoded
 		case "operation_machine_task":
-			decoded, err := decodeRows[recovery.ModelOperationMachineTask](rows)
+			decoded, err := decodeRows[exporttypes.OperationMachineTask](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationMachineTask = decoded
+			out.OperationMachineTask = decoded
 		case "operation_parameter":
-			decoded, err := decodeRows[recovery.ModelOperationParameter](rows)
+			decoded, err := decodeRows[exporttypes.OperationParameter](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationParameter = decoded
+			out.OperationParameter = decoded
 		case "operation_task":
-			decoded, err := decodeRows[recovery.ModelOperationTask](rows)
+			decoded, err := decodeRows[exporttypes.OperationTask](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationTask = decoded
+			out.OperationTask = decoded
 		case "operation_task_log":
-			decoded, err := decodeRows[recovery.ModelOperationTaskLog](rows)
+			decoded, err := decodeRows[exporttypes.OperationTaskLog](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationTaskLog = decoded
+			out.OperationTaskLog = decoded
 		case "operation_task_output":
-			decoded, err := decodeRows[recovery.ModelOperationTaskOutput](rows)
+			decoded, err := decodeRows[exporttypes.OperationTaskOutput](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationTaskOutput = decoded
+			out.OperationTaskOutput = decoded
 		case "operation_task_status":
-			decoded, err := decodeRows[recovery.ModelOperationTaskStatus](rows)
+			decoded, err := decodeRows[exporttypes.OperationTaskStatus](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationTaskStatus = decoded
+			out.OperationTaskStatus = decoded
 		case "operation_task_status_value":
-			decoded, err := decodeRows[recovery.ModelOperationTaskStatusValue](rows)
+			decoded, err := decodeRows[exporttypes.OperationTaskStatusValue](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationTaskStatusValue = decoded
+			out.OperationTaskStatusValue = decoded
 		case "operation_unit_task":
-			decoded, err := decodeRows[recovery.ModelOperationUnitTask](rows)
+			decoded, err := decodeRows[exporttypes.OperationUnitTask](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperationUnitTask = decoded
+			out.OperationUnitTask = decoded
 		case "operator_status":
-			decoded, err := decodeRows[recovery.ModelOperatorStatus](rows, "data")
+			decoded, err := decodeRows[exporttypes.OperatorStatus](rows, "data")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOperatorStatus = decoded
+			out.OperatorStatus = decoded
 		case "os":
-			decoded, err := decodeRows[recovery.ModelOs](rows)
+			decoded, err := decodeRows[exporttypes.Os](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelOs = decoded
+			out.Os = decoded
 		case "password_hash_algorithm":
-			decoded, err := decodeRows[recovery.ModelPasswordHashAlgorithm](rows)
+			decoded, err := decodeRows[exporttypes.PasswordHashAlgorithm](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelPasswordHashAlgorithm = decoded
+			out.PasswordHashAlgorithm = decoded
 		case "pending_application_resource":
-			decoded, err := decodeRows[recovery.ModelPendingApplicationResource](rows)
+			decoded, err := decodeRows[exporttypes.PendingApplicationResource](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelPendingApplicationResource = decoded
+			out.PendingApplicationResource = decoded
 		case "port_range":
-			decoded, err := decodeRows[recovery.ModelPortRange](rows)
+			decoded, err := decodeRows[exporttypes.PortRange](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelPortRange = decoded
+			out.PortRange = decoded
 		case "protocol":
-			decoded, err := decodeRows[recovery.ModelProtocol](rows)
+			decoded, err := decodeRows[exporttypes.Protocol](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProtocol = decoded
+			out.Protocol = decoded
 		case "provider_ip_address":
-			decoded, err := decodeRows[recovery.ModelProviderIpAddress](rows)
+			decoded, err := decodeRows[exporttypes.ProviderIpAddress](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProviderIpAddress = decoded
+			out.ProviderIpAddress = decoded
 		case "provider_link_layer_device":
-			decoded, err := decodeRows[recovery.ModelProviderLinkLayerDevice](rows)
+			decoded, err := decodeRows[exporttypes.ProviderLinkLayerDevice](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProviderLinkLayerDevice = decoded
+			out.ProviderLinkLayerDevice = decoded
 		case "provider_network":
-			decoded, err := decodeRows[recovery.ModelProviderNetwork](rows)
+			decoded, err := decodeRows[exporttypes.ProviderNetwork](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProviderNetwork = decoded
+			out.ProviderNetwork = decoded
 		case "provider_network_subnet":
-			decoded, err := decodeRows[recovery.ModelProviderNetworkSubnet](rows)
+			decoded, err := decodeRows[exporttypes.ProviderNetworkSubnet](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProviderNetworkSubnet = decoded
+			out.ProviderNetworkSubnet = decoded
 		case "provider_space":
-			decoded, err := decodeRows[recovery.ModelProviderSpace](rows)
+			decoded, err := decodeRows[exporttypes.ProviderSpace](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProviderSpace = decoded
+			out.ProviderSpace = decoded
 		case "provider_subnet":
-			decoded, err := decodeRows[recovery.ModelProviderSubnet](rows)
+			decoded, err := decodeRows[exporttypes.ProviderSubnet](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelProviderSubnet = decoded
+			out.ProviderSubnet = decoded
 		case "relation":
-			decoded, err := decodeRows[recovery.ModelRelation](rows)
+			decoded, err := decodeRows[exporttypes.Relation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasSuspended = rows[i]["suspended"]
-			}
-			out.ModelRelation = decoded
+			out.Relation = decoded
 		case "relation_application_setting":
-			decoded, err := decodeRows[recovery.ModelRelationApplicationSetting](rows)
+			decoded, err := decodeRows[exporttypes.RelationApplicationSetting](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationApplicationSetting = decoded
+			out.RelationApplicationSetting = decoded
 		case "relation_application_settings_hash":
-			decoded, err := decodeRows[recovery.ModelRelationApplicationSettingsHash](rows)
+			decoded, err := decodeRows[exporttypes.RelationApplicationSettingsHash](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationApplicationSettingsHash = decoded
+			out.RelationApplicationSettingsHash = decoded
 		case "relation_endpoint":
-			decoded, err := decodeRows[recovery.ModelRelationEndpoint](rows)
+			decoded, err := decodeRows[exporttypes.RelationEndpoint](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationEndpoint = decoded
+			out.RelationEndpoint = decoded
 		case "relation_network_egress":
-			decoded, err := decodeRows[recovery.ModelRelationNetworkEgress](rows)
+			decoded, err := decodeRows[exporttypes.RelationNetworkEgress](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationNetworkEgress = decoded
+			out.RelationNetworkEgress = decoded
 		case "relation_network_ingress":
-			decoded, err := decodeRows[recovery.ModelRelationNetworkIngress](rows)
+			decoded, err := decodeRows[exporttypes.RelationNetworkIngress](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationNetworkIngress = decoded
+			out.RelationNetworkIngress = decoded
 		case "relation_status":
-			decoded, err := decodeRows[recovery.ModelRelationStatus](rows)
+			decoded, err := decodeRows[exporttypes.RelationStatus](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationStatus = decoded
+			out.RelationStatus = decoded
 		case "relation_status_type":
-			decoded, err := decodeRows[recovery.ModelRelationStatusType](rows)
+			decoded, err := decodeRows[exporttypes.RelationStatusType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationStatusType = decoded
+			out.RelationStatusType = decoded
 		case "relation_unit":
-			decoded, err := decodeRows[recovery.ModelRelationUnit](rows)
+			decoded, err := decodeRows[exporttypes.RelationUnit](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationUnit = decoded
+			out.RelationUnit = decoded
 		case "relation_unit_departure":
-			decoded, err := decodeRows[recovery.ModelRelationUnitDeparture](rows)
+			decoded, err := decodeRows[exporttypes.RelationUnitDeparture](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationUnitDeparture = decoded
+			out.RelationUnitDeparture = decoded
 		case "relation_unit_setting":
-			decoded, err := decodeRows[recovery.ModelRelationUnitSetting](rows)
+			decoded, err := decodeRows[exporttypes.RelationUnitSetting](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationUnitSetting = decoded
+			out.RelationUnitSetting = decoded
 		case "relation_unit_setting_archive":
-			decoded, err := decodeRows[recovery.ModelRelationUnitSettingArchive](rows)
+			decoded, err := decodeRows[exporttypes.RelationUnitSettingArchive](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationUnitSettingArchive = decoded
+			out.RelationUnitSettingArchive = decoded
 		case "relation_unit_settings_hash":
-			decoded, err := decodeRows[recovery.ModelRelationUnitSettingsHash](rows)
+			decoded, err := decodeRows[exporttypes.RelationUnitSettingsHash](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRelationUnitSettingsHash = decoded
+			out.RelationUnitSettingsHash = decoded
 		case "removal":
-			decoded, err := decodeRows[recovery.ModelRemoval](rows)
+			decoded, err := decodeRows[exporttypes.Removal](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasForce = rows[i]["force"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasScheduledFor = rows[i]["scheduled_for"]
-			}
-			out.ModelRemoval = decoded
+			out.Removal = decoded
 		case "removal_type":
-			decoded, err := decodeRows[recovery.ModelRemovalType](rows)
+			decoded, err := decodeRows[exporttypes.RemovalType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelRemovalType = decoded
+			out.RemovalType = decoded
 		case "resolve_mode":
-			decoded, err := decodeRows[recovery.ModelResolveMode](rows)
+			decoded, err := decodeRows[exporttypes.ResolveMode](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResolveMode = decoded
+			out.ResolveMode = decoded
 		case "resource":
-			decoded, err := decodeRows[recovery.ModelResource](rows)
+			decoded, err := decodeRows[exporttypes.Resource](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResource = decoded
+			out.Resource = decoded
 		case "resource_container_image_metadata_store":
-			decoded, err := decodeRows[recovery.ModelResourceContainerImageMetadataStore](rows)
+			decoded, err := decodeRows[exporttypes.ResourceContainerImageMetadataStore](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceContainerImageMetadataStore = decoded
+			out.ResourceContainerImageMetadataStore = decoded
 		case "resource_file_store":
-			decoded, err := decodeRows[recovery.ModelResourceFileStore](rows)
+			decoded, err := decodeRows[exporttypes.ResourceFileStore](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceFileStore = decoded
+			out.ResourceFileStore = decoded
 		case "resource_image_store":
-			decoded, err := decodeRows[recovery.ModelResourceImageStore](rows)
+			decoded, err := decodeRows[exporttypes.ResourceImageStore](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceImageStore = decoded
+			out.ResourceImageStore = decoded
 		case "resource_origin_type":
-			decoded, err := decodeRows[recovery.ModelResourceOriginType](rows)
+			decoded, err := decodeRows[exporttypes.ResourceOriginType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceOriginType = decoded
+			out.ResourceOriginType = decoded
 		case "resource_retrieved_by":
-			decoded, err := decodeRows[recovery.ModelResourceRetrievedBy](rows)
+			decoded, err := decodeRows[exporttypes.ResourceRetrievedBy](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceRetrievedBy = decoded
+			out.ResourceRetrievedBy = decoded
 		case "resource_retrieved_by_type":
-			decoded, err := decodeRows[recovery.ModelResourceRetrievedByType](rows)
+			decoded, err := decodeRows[exporttypes.ResourceRetrievedByType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceRetrievedByType = decoded
+			out.ResourceRetrievedByType = decoded
 		case "resource_state":
-			decoded, err := decodeRows[recovery.ModelResourceState](rows)
+			decoded, err := decodeRows[exporttypes.ResourceState](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelResourceState = decoded
+			out.ResourceState = decoded
 		case "schema":
 			// Keep the target's applied migration bookkeeping.
 			continue
 		case "secret":
-			decoded, err := decodeRows[recovery.ModelSecret](rows)
+			decoded, err := decodeRows[exporttypes.Secret](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecret = decoded
+			out.Secret = decoded
 		case "secret_application_owner":
-			decoded, err := decodeRows[recovery.ModelSecretApplicationOwner](rows)
+			decoded, err := decodeRows[exporttypes.SecretApplicationOwner](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretApplicationOwner = decoded
+			out.SecretApplicationOwner = decoded
 		case "secret_content":
-			decoded, err := decodeRows[recovery.ModelSecretContent](rows)
+			decoded, err := decodeRows[exporttypes.SecretContent](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretContent = decoded
+			out.SecretContent = decoded
 		case "secret_deleted_value_ref":
-			decoded, err := decodeRows[recovery.ModelSecretDeletedValueRef](rows)
+			decoded, err := decodeRows[exporttypes.SecretDeletedValueRef](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretDeletedValueRef = decoded
+			out.SecretDeletedValueRef = decoded
 		case "secret_grant_scope_type":
-			decoded, err := decodeRows[recovery.ModelSecretGrantScopeType](rows)
+			decoded, err := decodeRows[exporttypes.SecretGrantScopeType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretGrantScopeType = decoded
+			out.SecretGrantScopeType = decoded
 		case "secret_grant_subject_type":
-			decoded, err := decodeRows[recovery.ModelSecretGrantSubjectType](rows)
+			decoded, err := decodeRows[exporttypes.SecretGrantSubjectType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretGrantSubjectType = decoded
+			out.SecretGrantSubjectType = decoded
 		case "secret_metadata":
-			decoded, err := decodeRows[recovery.ModelSecretMetadata](rows)
+			decoded, err := decodeRows[exporttypes.SecretMetadata](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasAutoPrune = rows[i]["auto_prune"]
-			}
-			out.ModelSecretMetadata = decoded
+			out.SecretMetadata = decoded
 		case "secret_model_owner":
-			decoded, err := decodeRows[recovery.ModelSecretModelOwner](rows)
+			decoded, err := decodeRows[exporttypes.SecretModelOwner](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretModelOwner = decoded
+			out.SecretModelOwner = decoded
 		case "secret_permission":
-			decoded, err := decodeRows[recovery.ModelSecretPermission](rows)
+			decoded, err := decodeRows[exporttypes.SecretPermission](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretPermission = decoded
+			out.SecretPermission = decoded
 		case "secret_reference":
-			decoded, err := decodeRows[recovery.ModelSecretReference](rows)
+			decoded, err := decodeRows[exporttypes.SecretReference](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasMigrated = rows[i]["migrated"]
-			}
-			out.ModelSecretReference = decoded
+			out.SecretReference = decoded
 		case "secret_remote_unit_consumer":
-			decoded, err := decodeRows[recovery.ModelSecretRemoteUnitConsumer](rows)
+			decoded, err := decodeRows[exporttypes.SecretRemoteUnitConsumer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretRemoteUnitConsumer = decoded
+			out.SecretRemoteUnitConsumer = decoded
 		case "secret_reservation":
-			decoded, err := decodeRows[recovery.ModelSecretReservation](rows)
+			decoded, err := decodeRows[exporttypes.SecretReservation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretReservation = decoded
+			out.SecretReservation = decoded
 		case "secret_revision":
-			decoded, err := decodeRows[recovery.ModelSecretRevision](rows)
+			decoded, err := decodeRows[exporttypes.SecretRevision](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretRevision = decoded
+			out.SecretRevision = decoded
 		case "secret_revision_expire":
-			decoded, err := decodeRows[recovery.ModelSecretRevisionExpire](rows)
+			decoded, err := decodeRows[exporttypes.SecretRevisionExpire](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretRevisionExpire = decoded
+			out.SecretRevisionExpire = decoded
 		case "secret_revision_obsolete":
-			decoded, err := decodeRows[recovery.ModelSecretRevisionObsolete](rows)
+			decoded, err := decodeRows[exporttypes.SecretRevisionObsolete](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasObsolete = rows[i]["obsolete"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasPendingDelete = rows[i]["pending_delete"]
-			}
-			out.ModelSecretRevisionObsolete = decoded
+			out.SecretRevisionObsolete = decoded
 		case "secret_role":
-			decoded, err := decodeRows[recovery.ModelSecretRole](rows)
+			decoded, err := decodeRows[exporttypes.SecretRole](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretRole = decoded
+			out.SecretRole = decoded
 		case "secret_rotate_policy":
-			decoded, err := decodeRows[recovery.ModelSecretRotatePolicy](rows)
+			decoded, err := decodeRows[exporttypes.SecretRotatePolicy](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretRotatePolicy = decoded
+			out.SecretRotatePolicy = decoded
 		case "secret_rotation":
-			decoded, err := decodeRows[recovery.ModelSecretRotation](rows)
+			decoded, err := decodeRows[exporttypes.SecretRotation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretRotation = decoded
+			out.SecretRotation = decoded
 		case "secret_unit_consumer":
-			decoded, err := decodeRows[recovery.ModelSecretUnitConsumer](rows)
+			decoded, err := decodeRows[exporttypes.SecretUnitConsumer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretUnitConsumer = decoded
+			out.SecretUnitConsumer = decoded
 		case "secret_unit_owner":
-			decoded, err := decodeRows[recovery.ModelSecretUnitOwner](rows)
+			decoded, err := decodeRows[exporttypes.SecretUnitOwner](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretUnitOwner = decoded
+			out.SecretUnitOwner = decoded
 		case "secret_value_ref":
-			decoded, err := decodeRows[recovery.ModelSecretValueRef](rows)
+			decoded, err := decodeRows[exporttypes.SecretValueRef](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSecretValueRef = decoded
+			out.SecretValueRef = decoded
 		case "sequence":
-			decoded, err := decodeRows[recovery.ModelSequence](rows)
+			decoded, err := decodeRows[exporttypes.Sequence](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSequence = decoded
+			out.Sequence = decoded
 		case "space":
-			decoded, err := decodeRows[recovery.ModelSpace](rows)
+			decoded, err := decodeRows[exporttypes.Space](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSpace = decoded
+			out.Space = decoded
 		case "ssh_connection_request":
-			decoded, err := decodeRows[recovery.ModelSshConnectionRequest](rows, "ephemeral_public_key")
+			decoded, err := decodeRows[exporttypes.SshConnectionRequest](rows, "ephemeral_public_key")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSshConnectionRequest = decoded
+			out.SshConnectionRequest = decoded
 		case "ssh_key_algorithm_type":
-			decoded, err := decodeRows[recovery.ModelSshKeyAlgorithmType](rows)
+			decoded, err := decodeRows[exporttypes.SshKeyAlgorithmType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSshKeyAlgorithmType = decoded
+			out.SshKeyAlgorithmType = decoded
 		case "storage_attachment":
-			decoded, err := decodeRows[recovery.ModelStorageAttachment](rows)
+			decoded, err := decodeRows[exporttypes.StorageAttachment](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageAttachment = decoded
+			out.StorageAttachment = decoded
 		case "storage_filesystem":
-			decoded, err := decodeRows[recovery.ModelStorageFilesystem](rows)
+			decoded, err := decodeRows[exporttypes.StorageFilesystem](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageFilesystem = decoded
+			out.StorageFilesystem = decoded
 		case "storage_filesystem_attachment":
-			decoded, err := decodeRows[recovery.ModelStorageFilesystemAttachment](rows)
+			decoded, err := decodeRows[exporttypes.StorageFilesystemAttachment](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageFilesystemAttachment = decoded
+			out.StorageFilesystemAttachment = decoded
 		case "storage_filesystem_status":
-			decoded, err := decodeRows[recovery.ModelStorageFilesystemStatus](rows)
+			decoded, err := decodeRows[exporttypes.StorageFilesystemStatus](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageFilesystemStatus = decoded
+			out.StorageFilesystemStatus = decoded
 		case "storage_filesystem_status_value":
-			decoded, err := decodeRows[recovery.ModelStorageFilesystemStatusValue](rows)
+			decoded, err := decodeRows[exporttypes.StorageFilesystemStatusValue](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageFilesystemStatusValue = decoded
+			out.StorageFilesystemStatusValue = decoded
 		case "storage_instance":
-			decoded, err := decodeRows[recovery.ModelStorageInstance](rows)
+			decoded, err := decodeRows[exporttypes.StorageInstance](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageInstance = decoded
+			out.StorageInstance = decoded
 		case "storage_instance_filesystem":
-			decoded, err := decodeRows[recovery.ModelStorageInstanceFilesystem](rows)
+			decoded, err := decodeRows[exporttypes.StorageInstanceFilesystem](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageInstanceFilesystem = decoded
+			out.StorageInstanceFilesystem = decoded
 		case "storage_instance_volume":
-			decoded, err := decodeRows[recovery.ModelStorageInstanceVolume](rows)
+			decoded, err := decodeRows[exporttypes.StorageInstanceVolume](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageInstanceVolume = decoded
+			out.StorageInstanceVolume = decoded
 		case "storage_kind":
-			decoded, err := decodeRows[recovery.ModelStorageKind](rows)
+			decoded, err := decodeRows[exporttypes.StorageKind](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageKind = decoded
+			out.StorageKind = decoded
 		case "storage_pool":
-			decoded, err := decodeRows[recovery.ModelStoragePool](rows)
+			decoded, err := decodeRows[exporttypes.StoragePool](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasOriginID = rows[i]["origin_id"]
-			}
-			out.ModelStoragePool = decoded
+			out.StoragePool = decoded
 		case "storage_pool_attribute":
-			decoded, err := decodeRows[recovery.ModelStoragePoolAttribute](rows)
+			decoded, err := decodeRows[exporttypes.StoragePoolAttribute](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStoragePoolAttribute = decoded
+			out.StoragePoolAttribute = decoded
 		case "storage_pool_origin":
-			decoded, err := decodeRows[recovery.ModelStoragePoolOrigin](rows)
+			decoded, err := decodeRows[exporttypes.StoragePoolOrigin](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStoragePoolOrigin = decoded
+			out.StoragePoolOrigin = decoded
 		case "storage_provision_scope":
-			decoded, err := decodeRows[recovery.ModelStorageProvisionScope](rows)
+			decoded, err := decodeRows[exporttypes.StorageProvisionScope](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageProvisionScope = decoded
+			out.StorageProvisionScope = decoded
 		case "storage_unit_owner":
-			decoded, err := decodeRows[recovery.ModelStorageUnitOwner](rows)
+			decoded, err := decodeRows[exporttypes.StorageUnitOwner](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageUnitOwner = decoded
+			out.StorageUnitOwner = decoded
 		case "storage_volume":
-			decoded, err := decodeRows[recovery.ModelStorageVolume](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolume](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolume = decoded
+			out.StorageVolume = decoded
 		case "storage_volume_attachment":
-			decoded, err := decodeRows[recovery.ModelStorageVolumeAttachment](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolumeAttachment](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolumeAttachment = decoded
+			out.StorageVolumeAttachment = decoded
 		case "storage_volume_attachment_plan":
-			decoded, err := decodeRows[recovery.ModelStorageVolumeAttachmentPlan](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolumeAttachmentPlan](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolumeAttachmentPlan = decoded
+			out.StorageVolumeAttachmentPlan = decoded
 		case "storage_volume_attachment_plan_attr":
-			decoded, err := decodeRows[recovery.ModelStorageVolumeAttachmentPlanAttr](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolumeAttachmentPlanAttr](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolumeAttachmentPlanAttr = decoded
+			out.StorageVolumeAttachmentPlanAttr = decoded
 		case "storage_volume_device_type":
-			decoded, err := decodeRows[recovery.ModelStorageVolumeDeviceType](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolumeDeviceType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolumeDeviceType = decoded
+			out.StorageVolumeDeviceType = decoded
 		case "storage_volume_status":
-			decoded, err := decodeRows[recovery.ModelStorageVolumeStatus](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolumeStatus](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolumeStatus = decoded
+			out.StorageVolumeStatus = decoded
 		case "storage_volume_status_value":
-			decoded, err := decodeRows[recovery.ModelStorageVolumeStatusValue](rows)
+			decoded, err := decodeRows[exporttypes.StorageVolumeStatusValue](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelStorageVolumeStatusValue = decoded
+			out.StorageVolumeStatusValue = decoded
 		case "subnet":
-			decoded, err := decodeRows[recovery.ModelSubnet](rows)
+			decoded, err := decodeRows[exporttypes.Subnet](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelSubnet = decoded
+			out.Subnet = decoded
 		case "unit":
-			decoded, err := decodeRows[recovery.ModelUnit](rows)
+			decoded, err := decodeRows[exporttypes.Unit](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnit = decoded
+			out.Unit = decoded
 		case "unit_agent_presence":
-			decoded, err := decodeRows[recovery.ModelUnitAgentPresence](rows)
+			decoded, err := decodeRows[exporttypes.UnitAgentPresence](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitAgentPresence = decoded
+			out.UnitAgentPresence = decoded
 		case "unit_agent_status":
-			decoded, err := decodeRows[recovery.ModelUnitAgentStatus](rows, "data")
+			decoded, err := decodeRows[exporttypes.UnitAgentStatus](rows, "data")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitAgentStatus = decoded
+			out.UnitAgentStatus = decoded
 		case "unit_agent_status_value":
-			decoded, err := decodeRows[recovery.ModelUnitAgentStatusValue](rows)
+			decoded, err := decodeRows[exporttypes.UnitAgentStatusValue](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitAgentStatusValue = decoded
+			out.UnitAgentStatusValue = decoded
 		case "unit_agent_version":
-			decoded, err := decodeRows[recovery.ModelUnitAgentVersion](rows)
+			decoded, err := decodeRows[exporttypes.UnitAgentVersion](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitAgentVersion = decoded
+			out.UnitAgentVersion = decoded
 		case "unit_principal":
-			decoded, err := decodeRows[recovery.ModelUnitPrincipal](rows)
+			decoded, err := decodeRows[exporttypes.UnitPrincipal](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitPrincipal = decoded
+			out.UnitPrincipal = decoded
 		case "unit_resolved":
-			decoded, err := decodeRows[recovery.ModelUnitResolved](rows)
+			decoded, err := decodeRows[exporttypes.UnitResolved](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitResolved = decoded
+			out.UnitResolved = decoded
 		case "unit_resource":
-			decoded, err := decodeRows[recovery.ModelUnitResource](rows)
+			decoded, err := decodeRows[exporttypes.UnitResource](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitResource = decoded
+			out.UnitResource = decoded
 		case "unit_state":
-			decoded, err := decodeRows[recovery.ModelUnitState](rows)
+			decoded, err := decodeRows[exporttypes.UnitState](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitState = decoded
+			out.UnitState = decoded
 		case "unit_state_charm":
-			decoded, err := decodeRows[recovery.ModelUnitStateCharm](rows)
+			decoded, err := decodeRows[exporttypes.UnitStateCharm](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitStateCharm = decoded
+			out.UnitStateCharm = decoded
 		case "unit_state_relation":
-			decoded, err := decodeRows[recovery.ModelUnitStateRelation](rows)
+			decoded, err := decodeRows[exporttypes.UnitStateRelation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitStateRelation = decoded
+			out.UnitStateRelation = decoded
 		case "unit_storage_directive":
-			decoded, err := decodeRows[recovery.ModelUnitStorageDirective](rows)
+			decoded, err := decodeRows[exporttypes.UnitStorageDirective](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitStorageDirective = decoded
+			out.UnitStorageDirective = decoded
 		case "unit_virtual_ssh_host_key":
-			decoded, err := decodeRows[recovery.ModelUnitVirtualSshHostKey](rows)
+			decoded, err := decodeRows[exporttypes.UnitVirtualSshHostKey](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitVirtualSshHostKey = decoded
+			out.UnitVirtualSshHostKey = decoded
 		case "unit_workload_status":
-			decoded, err := decodeRows[recovery.ModelUnitWorkloadStatus](rows, "data")
+			decoded, err := decodeRows[exporttypes.UnitWorkloadStatus](rows, "data")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitWorkloadStatus = decoded
+			out.UnitWorkloadStatus = decoded
 		case "unit_workload_version":
-			decoded, err := decodeRows[recovery.ModelUnitWorkloadVersion](rows)
+			decoded, err := decodeRows[exporttypes.UnitWorkloadVersion](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelUnitWorkloadVersion = decoded
+			out.UnitWorkloadVersion = decoded
 		case "virtual_port_type":
-			decoded, err := decodeRows[recovery.ModelVirtualPortType](rows)
+			decoded, err := decodeRows[exporttypes.VirtualPortType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelVirtualPortType = decoded
+			out.VirtualPortType = decoded
 		case "workload_status_value":
-			decoded, err := decodeRows[recovery.ModelWorkloadStatusValue](rows)
+			decoded, err := decodeRows[exporttypes.WorkloadStatusValue](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ModelWorkloadStatusValue = decoded
+			out.WorkloadStatusValue = decoded
 		default:
 			return nil, errors.Errorf("unknown recovery table %q", table)
 		}

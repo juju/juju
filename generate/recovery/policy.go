@@ -31,4 +31,5 @@ var recoveryExclusions = map[string]string{
 	"upgrade_info_controller_node": "Keep target node upgrade progress.",
 
 	"object_store_placement": "Rebuild placements using the supplied target node.",
+	"log_transfer_progress":  "Controller-local transfer progress is not exported.",
 }

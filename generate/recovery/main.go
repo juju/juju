@@ -41,8 +41,8 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 func (r *txnRunner) Dying() <-chan struct{} { return nil }
 
 type column struct {
-	Name, Field, Type, Default string
-	HasDefault                 bool
+	Name               string
+	Binary, BinaryText bool
 }
 
 type table struct {
@@ -52,8 +52,8 @@ type table struct {
 }
 
 type pass struct {
-	Kind, Prefix, Version string
-	Tables                []table
+	Kind, Prefix, Version, ExportPath string
+	Tables                            []table
 }
 
 func main() {
@@ -87,10 +87,15 @@ func generate(ctx context.Context, kind string) error {
 		p.Prefix = "Controller"
 		p.Version = export.LatestControllerExportVersion().String()
 	}
+	p.ExportPath = "github.com/juju/juju/domain/export/types/"
+	if kind == "controller" {
+		p.ExportPath += "controller/"
+	}
+	p.ExportPath += "v" + strings.ReplaceAll(p.Version, ".", "_")
 	if err := database.NewDBMigration(runner, logger.Noop(), ddl).Apply(ctx); err != nil {
 		return err
 	}
-	p.Tables, err = inspect(ctx, db, p.Prefix)
+	p.Tables, err = inspect(ctx, db)
 	if err != nil {
 		return err
 	}
@@ -112,7 +117,7 @@ func generate(ctx context.Context, kind string) error {
 	return nil
 }
 
-func inspect(ctx context.Context, db *sql.DB, prefix string) ([]table, error) {
+func inspect(ctx context.Context, db *sql.DB) ([]table, error) {
 	rows, err := db.QueryContext(ctx, `SELECT sm.name FROM sqlite_master AS sm
 WHERE sm.type = 'table' AND sm.name NOT LIKE 'sqlite_%' ORDER BY sm.name`)
 	if err != nil {
@@ -135,7 +140,7 @@ WHERE sm.type = 'table' AND sm.name NOT LIKE 'sqlite_%' ORDER BY sm.name`)
 	}
 	var tables []table
 	for _, name := range names {
-		t, err := inspectTable(ctx, db, prefix, name)
+		t, err := inspectTable(ctx, db, name)
 		if err != nil {
 			return nil, err
 		}
@@ -144,8 +149,8 @@ WHERE sm.type = 'table' AND sm.name NOT LIKE 'sqlite_%' ORDER BY sm.name`)
 	return tables, nil
 }
 
-func inspectTable(ctx context.Context, db *sql.DB, prefix, name string) (table, error) {
-	t := table{Name: name, Struct: prefix + camel(name)}
+func inspectTable(ctx context.Context, db *sql.DB, name string) (table, error) {
+	t := table{Name: name, Struct: camel(name)}
 	cols, err := db.QueryContext(ctx, `PRAGMA table_info("`+name+`")`)
 	if err != nil {
 		return table{}, err
@@ -158,13 +163,11 @@ func inspectTable(ctx context.Context, db *sql.DB, prefix, name string) (table, 
 		if err := cols.Scan(&id, &name, &typ, &notNull, &def, &primaryKey); err != nil {
 			return table{}, err
 		}
-		binding, err := bindingType(t.Name, name, typ)
-		if err != nil {
-			return table{}, err
-		}
+		binaryText := slices.Contains(binaryTextColumns[t.Name], name)
 		t.Columns = append(t.Columns, column{
-			Name: name, Field: camel(name), Type: binding,
-			HasDefault: def.Valid, Default: def.String,
+			Name:       name,
+			Binary:     binaryText || strings.EqualFold(typ, "BLOB"),
+			BinaryText: binaryText,
 		})
 	}
 	if err := cols.Err(); err != nil {
@@ -206,35 +209,13 @@ var binaryTextColumns = map[string][]string{
 	"application_remote_offerer_relation_macaroon": {"macaroon"},
 }
 
-func bindingType(table, name, typ string) (string, error) {
-	if slices.Contains(binaryTextColumns[table], name) {
-		return "[]byte", nil
-	}
-	switch strings.ToUpper(typ) {
-	case "INTEGER", "INT":
-		return "int64", nil
-	case "BOOLEAN":
-		return "bool", nil
-	case "DATETIME", "TIMESTAMP", "DATE":
-		return "time.Time", nil
-	case "BLOB":
-		return "[]byte", nil
-	case "REAL", "FLOAT", "DOUBLE":
-		return "float64", nil
-	case "TEXT", "TXT": // controller_api_address.scope uses legacy TXT.
-		return "string", nil
-	default:
-		return "", fmt.Errorf("unsupported SQL type %q for %s.%s", typ, table, name)
-	}
-}
-
 func insertSQL(t table) string {
 	var names, values []string
 	for _, col := range t.Columns {
 		names = append(names, `"`+col.Name+`"`)
 		value := "$" + t.Struct + "." + col.Name
-		if col.HasDefault {
-			value = "CASE WHEN $" + t.Struct + ".has_" + col.Name + " THEN " + value + " ELSE " + col.Default + " END"
+		if col.BinaryText {
+			value = "CAST(" + value + " AS BLOB)"
 		}
 		values = append(values, value+` AS "`+col.Name+`"`)
 	}

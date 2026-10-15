@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 	"gopkg.in/yaml.v3"
@@ -30,6 +31,7 @@ func TestModelSuite(t *testing.T)      { tc.Run(t, &modelSuite{}) }
 func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	key := []byte{0, 128, 255}
 	execSQL(c, s.DB(), `INSERT INTO macaroon_root_key VALUES (?, '2026-01-01', '2027-01-01', ?)`, key, key)
+	execSQL(c, s.DB(), `INSERT INTO controller_ssh_host_key VALUES ('key', 0, 'ssh-key', ?)`, key)
 	seedBlob(c, s.DB(), "0")
 	execSQL(c, s.DB(), `INSERT INTO controller_node_password (controller_id, password_hash) VALUES ('0', 'source')`)
 	exporter := exportcontroller.NewState(s.TxnRunnerFactory())
@@ -48,12 +50,21 @@ func (s *controllerSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	after, err := exporter.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(after.MacaroonRootKey, tc.DeepEquals, before.MacaroonRootKey)
+	c.Check(after.ControllerSshHostKey, tc.DeepEquals, before.ControllerSshHostKey)
 	c.Check(after.Schema, tc.DeepEquals, before.Schema)
 	c.Check(after.ControllerNode, tc.DeepEquals, before.ControllerNode)
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
 	c.Check(after.ObjectStorePlacement, tc.DeepEquals, before.ObjectStorePlacement)
 	checkString(c, s.DB(), `SELECT password_hash FROM controller_node_password WHERE controller_id = '0'`, "target")
 	checkPlacement(c, s.DB(), "0")
+	// Consumers bind the key ID as bytes, so restoring it as TEXT would make
+	// the lookup fail even though a second export looks identical.
+	var restored []byte
+	err = s.DB().QueryRowContext(c.Context(), `SELECT root_key FROM macaroon_root_key WHERE id = ?`, key).Scan(&restored)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(restored, tc.DeepEquals, key)
+	checkString(c, s.DB(), `SELECT typeof(root_key) FROM macaroon_root_key`, "blob")
+	checkString(c, s.DB(), `SELECT typeof(public_key) FROM controller_ssh_host_key`, "blob")
 }
 
 func (s *modelSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
@@ -61,6 +72,16 @@ func (s *modelSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	execSQL(c, s.DB(), `INSERT INTO sequence (namespace, value) VALUES ('machine', 7)`)
 	execSQL(c, s.DB(), `INSERT INTO space (uuid, name) VALUES ('space', 'restored')`)
 	execSQL(c, s.DB(), `INSERT INTO provider_space (provider_id, space_uuid) VALUES ('provider', 'space')`)
+	execSQL(c, s.DB(), `INSERT INTO net_node (uuid) VALUES ('node1'), ('node2'), ('node3')`)
+	execSQL(c, s.DB(), `INSERT INTO machine (uuid, name, net_node_uuid, life_id, keep_instance)
+VALUES ('machine1', '0', 'node1', 0, NULL),
+       ('machine2', '1', 'node2', 0, FALSE),
+       ('machine3', '2', 'node3', 0, TRUE)`)
+	updated := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	execSQL(c, s.DB(), `UPDATE machine SET agent_started_at = ? WHERE uuid = 'machine3'`, updated)
+	execSQL(c, s.DB(), `INSERT INTO machine_status (machine_uuid, status_id, data, updated_at)
+VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?, ?)`,
+		[]byte{}, []byte{0, 128, 255}, updated)
 	exporter := exportmodel.NewState(s.TxnRunnerFactory())
 	before, err := exporter.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -82,13 +103,17 @@ func (s *modelSuite) TestExportDecodeLoadRoundTrip(c *tc.C) {
 	c.Check(after.Space, tc.SameContents, before.Space)
 	c.Check(after.ProviderSpace, tc.DeepEquals, before.ProviderSpace)
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
+	c.Check(after.Machine, tc.SameContents, before.Machine)
+	c.Check(after.MachineStatus, tc.SameContents, before.MachineStatus)
+	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine1'`, "null")
+	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine2'`, "blob")
+	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine3'`, "blob")
 	checkPlacement(c, s.DB(), "replacement")
 }
 
-func (s *controllerSuite) TestDefaultsAndExplicitNull(c *tc.C) {
+func (s *controllerSuite) TestExplicitNullAndBooleanValues(c *tc.C) {
 	dump, err := service.DecodeControllerDump([]byte(`payload:
   flag:
-    - {name: missing, description: default}
     - {name: explicit-null, value: null, description: null-value}
     - {name: explicit-false, value: false, description: false-value}
     - {name: explicit-true, value: true, description: true-value}
@@ -99,7 +124,6 @@ func (s *controllerSuite) TestDefaultsAndExplicitNull(c *tc.C) {
 		name string
 		want sql.NullBool
 	}{
-		{"missing", sql.NullBool{Valid: true}},
 		{"explicit-null", sql.NullBool{}},
 		{"explicit-false", sql.NullBool{Valid: true}},
 		{"explicit-true", sql.NullBool{Bool: true, Valid: true}},
@@ -148,11 +172,13 @@ func (s *modelSuite) TestForeignKeyFailureRollsBack(c *tc.C) {
 func (s *controllerSuite) TestInsertFailureRollsBack(c *tc.C) {
 	execSQL(c, s.DB(), `INSERT INTO flag VALUES ('original', 1, 'original')`)
 	dump, err := service.DecodeControllerDump([]byte(`payload:
-  flag: [{name: broken}]
+  flag:
+    - {name: duplicate, value: false, description: first}
+    - {name: duplicate, value: true, description: second}
 `))
 	c.Assert(err, tc.ErrorIsNil)
 	err = state.NewState(s.TxnRunnerFactory()).LoadControllerDump(c.Context(), dump, "target")
-	c.Check(err, tc.ErrorMatches, `(?s)inserting table "flag":.*NOT NULL constraint failed: flag.description.*`)
+	c.Check(err, tc.ErrorMatches, `(?s)inserting table "flag":.*UNIQUE constraint failed: flag.name.*`)
 	checkString(c, s.DB(), `SELECT name FROM flag`, "original")
 }
 
@@ -163,6 +189,18 @@ func (s *controllerSuite) TestMissingNodeRejectedBeforeWrites(c *tc.C) {
 	err = state.NewState(s.TxnRunnerFactory()).LoadControllerDump(c.Context(), dump, "")
 	c.Check(err, tc.ErrorMatches, "target object store node ID is required")
 	checkString(c, s.DB(), `SELECT name FROM flag`, "original")
+}
+
+func (s *controllerSuite) TestNullBinaryDoesNotUseDefault(c *tc.C) {
+	execSQL(c, s.DB(), `INSERT INTO controller_ssh_host_key VALUES ('original', 0, 'key', ?)`, []byte{1})
+	dump, err := service.DecodeControllerDump([]byte(`payload:
+  controller_ssh_host_key:
+    - {id: replacement, algorithm_type_id: 0, ssh_key: key, public_key: null}
+`))
+	c.Assert(err, tc.ErrorIsNil)
+	err = state.NewState(s.TxnRunnerFactory()).LoadControllerDump(c.Context(), dump, "target")
+	c.Check(err, tc.ErrorMatches, `(?s)inserting table "controller_ssh_host_key":.*NOT NULL constraint failed: controller_ssh_host_key.public_key.*`)
+	checkString(c, s.DB(), `SELECT id FROM controller_ssh_host_key`, "original")
 }
 
 func (s *modelSuite) TestMissingNodeRejected(c *tc.C) {

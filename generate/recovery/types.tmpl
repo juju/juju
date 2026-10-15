@@ -5,25 +5,11 @@
 
 package recovery
 
-import "time"
+import exporttypes "{{ .ExportPath }}"
 
-// {{ .Prefix }}Dump contains native {{ .Version }} recovery bindings.
+// {{ .Prefix }}Dump contains the native {{ .Version }} export payload for replay.
 // Present distinguishes absent tables from explicitly empty tables.
 type {{ .Prefix }}Dump struct {
+    exporttypes.{{ .Prefix }}Export
     Present map[string]bool
-{{- range .Tables }}
-    {{ .Struct }} []{{ .Struct }}
-{{- end }}
 }
-
-{{ range .Tables }}
-type {{ .Struct }} struct {
-{{- range .Columns }}
-    {{ .Field }} *{{ .Type }} `db:"{{ .Name }}" yaml:"{{ .Name }}"`
-{{- if .HasDefault }}
-    Has{{ .Field }} bool `db:"has_{{ .Name }}" yaml:"-"`
-{{- end }}
-{{- end }}
-}
-{{ end }}
-

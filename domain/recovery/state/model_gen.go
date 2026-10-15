@@ -10,10 +10,13 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	exporttypes "github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/recovery"
 )
 
 // LoadModelDump replaces the selected tables in one transaction.
+// The target must have its schema applied but no normal bootstrap data:
+// immutable tables must be empty so their row-level delete guards do not fire.
 // Runtime tables are excluded by the generated recovery policy. The caller
 // supplies the target node ID where the archived blobs have been restored.
 func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, nodeID string) error {
@@ -22,10 +25,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "agent_binary_store",
 			deleteSQL: `DELETE FROM "agent_binary_store" AS t`,
-			insertSQL: `INSERT INTO "agent_binary_store" ("version", "architecture_id", "object_store_uuid") SELECT $ModelAgentBinaryStore.version AS "version", $ModelAgentBinaryStore.architecture_id AS "architecture_id", $ModelAgentBinaryStore.object_store_uuid AS "object_store_uuid"`,
-			sample:    recovery.ModelAgentBinaryStore{},
+			insertSQL: `INSERT INTO "agent_binary_store" ("version", "architecture_id", "object_store_uuid") SELECT $AgentBinaryStore.version AS "version", $AgentBinaryStore.architecture_id AS "architecture_id", $AgentBinaryStore.object_store_uuid AS "object_store_uuid"`,
+			sample:    exporttypes.AgentBinaryStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAgentBinaryStore)
+				return insertRows(ctx, tx, stmt, dump.AgentBinaryStore)
 			},
 		})
 	}
@@ -33,10 +36,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "agent_stream",
 			deleteSQL: `DELETE FROM "agent_stream" AS t`,
-			insertSQL: `INSERT INTO "agent_stream" ("id", "name") SELECT $ModelAgentStream.id AS "id", $ModelAgentStream.name AS "name"`,
-			sample:    recovery.ModelAgentStream{},
+			insertSQL: `INSERT INTO "agent_stream" ("id", "name") SELECT $AgentStream.id AS "id", $AgentStream.name AS "name"`,
+			sample:    exporttypes.AgentStream{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAgentStream)
+				return insertRows(ctx, tx, stmt, dump.AgentStream)
 			},
 		})
 	}
@@ -44,10 +47,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "agent_version",
 			deleteSQL: `DELETE FROM "agent_version" AS t`,
-			insertSQL: `INSERT INTO "agent_version" ("stream_id", "target_version", "latest_version") SELECT $ModelAgentVersion.stream_id AS "stream_id", $ModelAgentVersion.target_version AS "target_version", $ModelAgentVersion.latest_version AS "latest_version"`,
-			sample:    recovery.ModelAgentVersion{},
+			insertSQL: `INSERT INTO "agent_version" ("stream_id", "target_version", "latest_version") SELECT $AgentVersion.stream_id AS "stream_id", $AgentVersion.target_version AS "target_version", $AgentVersion.latest_version AS "latest_version"`,
+			sample:    exporttypes.AgentVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAgentVersion)
+				return insertRows(ctx, tx, stmt, dump.AgentVersion)
 			},
 		})
 	}
@@ -55,10 +58,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_application",
 			deleteSQL: `DELETE FROM "annotation_application" AS t`,
-			insertSQL: `INSERT INTO "annotation_application" ("uuid", "key", "value") SELECT $ModelAnnotationApplication.uuid AS "uuid", $ModelAnnotationApplication.key AS "key", $ModelAnnotationApplication.value AS "value"`,
-			sample:    recovery.ModelAnnotationApplication{},
+			insertSQL: `INSERT INTO "annotation_application" ("uuid", "key", "value") SELECT $AnnotationApplication.uuid AS "uuid", $AnnotationApplication.key AS "key", $AnnotationApplication.value AS "value"`,
+			sample:    exporttypes.AnnotationApplication{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationApplication)
+				return insertRows(ctx, tx, stmt, dump.AnnotationApplication)
 			},
 		})
 	}
@@ -66,10 +69,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_charm",
 			deleteSQL: `DELETE FROM "annotation_charm" AS t`,
-			insertSQL: `INSERT INTO "annotation_charm" ("uuid", "key", "value") SELECT $ModelAnnotationCharm.uuid AS "uuid", $ModelAnnotationCharm.key AS "key", $ModelAnnotationCharm.value AS "value"`,
-			sample:    recovery.ModelAnnotationCharm{},
+			insertSQL: `INSERT INTO "annotation_charm" ("uuid", "key", "value") SELECT $AnnotationCharm.uuid AS "uuid", $AnnotationCharm.key AS "key", $AnnotationCharm.value AS "value"`,
+			sample:    exporttypes.AnnotationCharm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationCharm)
+				return insertRows(ctx, tx, stmt, dump.AnnotationCharm)
 			},
 		})
 	}
@@ -77,10 +80,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_machine",
 			deleteSQL: `DELETE FROM "annotation_machine" AS t`,
-			insertSQL: `INSERT INTO "annotation_machine" ("uuid", "key", "value") SELECT $ModelAnnotationMachine.uuid AS "uuid", $ModelAnnotationMachine.key AS "key", $ModelAnnotationMachine.value AS "value"`,
-			sample:    recovery.ModelAnnotationMachine{},
+			insertSQL: `INSERT INTO "annotation_machine" ("uuid", "key", "value") SELECT $AnnotationMachine.uuid AS "uuid", $AnnotationMachine.key AS "key", $AnnotationMachine.value AS "value"`,
+			sample:    exporttypes.AnnotationMachine{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationMachine)
+				return insertRows(ctx, tx, stmt, dump.AnnotationMachine)
 			},
 		})
 	}
@@ -88,10 +91,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_model",
 			deleteSQL: `DELETE FROM "annotation_model" AS t`,
-			insertSQL: `INSERT INTO "annotation_model" ("key", "value") SELECT $ModelAnnotationModel.key AS "key", $ModelAnnotationModel.value AS "value"`,
-			sample:    recovery.ModelAnnotationModel{},
+			insertSQL: `INSERT INTO "annotation_model" ("key", "value") SELECT $AnnotationModel.key AS "key", $AnnotationModel.value AS "value"`,
+			sample:    exporttypes.AnnotationModel{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationModel)
+				return insertRows(ctx, tx, stmt, dump.AnnotationModel)
 			},
 		})
 	}
@@ -99,10 +102,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_storage_filesystem",
 			deleteSQL: `DELETE FROM "annotation_storage_filesystem" AS t`,
-			insertSQL: `INSERT INTO "annotation_storage_filesystem" ("uuid", "key", "value") SELECT $ModelAnnotationStorageFilesystem.uuid AS "uuid", $ModelAnnotationStorageFilesystem.key AS "key", $ModelAnnotationStorageFilesystem.value AS "value"`,
-			sample:    recovery.ModelAnnotationStorageFilesystem{},
+			insertSQL: `INSERT INTO "annotation_storage_filesystem" ("uuid", "key", "value") SELECT $AnnotationStorageFilesystem.uuid AS "uuid", $AnnotationStorageFilesystem.key AS "key", $AnnotationStorageFilesystem.value AS "value"`,
+			sample:    exporttypes.AnnotationStorageFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationStorageFilesystem)
+				return insertRows(ctx, tx, stmt, dump.AnnotationStorageFilesystem)
 			},
 		})
 	}
@@ -110,10 +113,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_storage_instance",
 			deleteSQL: `DELETE FROM "annotation_storage_instance" AS t`,
-			insertSQL: `INSERT INTO "annotation_storage_instance" ("uuid", "key", "value") SELECT $ModelAnnotationStorageInstance.uuid AS "uuid", $ModelAnnotationStorageInstance.key AS "key", $ModelAnnotationStorageInstance.value AS "value"`,
-			sample:    recovery.ModelAnnotationStorageInstance{},
+			insertSQL: `INSERT INTO "annotation_storage_instance" ("uuid", "key", "value") SELECT $AnnotationStorageInstance.uuid AS "uuid", $AnnotationStorageInstance.key AS "key", $AnnotationStorageInstance.value AS "value"`,
+			sample:    exporttypes.AnnotationStorageInstance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationStorageInstance)
+				return insertRows(ctx, tx, stmt, dump.AnnotationStorageInstance)
 			},
 		})
 	}
@@ -121,10 +124,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_storage_volume",
 			deleteSQL: `DELETE FROM "annotation_storage_volume" AS t`,
-			insertSQL: `INSERT INTO "annotation_storage_volume" ("uuid", "key", "value") SELECT $ModelAnnotationStorageVolume.uuid AS "uuid", $ModelAnnotationStorageVolume.key AS "key", $ModelAnnotationStorageVolume.value AS "value"`,
-			sample:    recovery.ModelAnnotationStorageVolume{},
+			insertSQL: `INSERT INTO "annotation_storage_volume" ("uuid", "key", "value") SELECT $AnnotationStorageVolume.uuid AS "uuid", $AnnotationStorageVolume.key AS "key", $AnnotationStorageVolume.value AS "value"`,
+			sample:    exporttypes.AnnotationStorageVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationStorageVolume)
+				return insertRows(ctx, tx, stmt, dump.AnnotationStorageVolume)
 			},
 		})
 	}
@@ -132,10 +135,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "annotation_unit",
 			deleteSQL: `DELETE FROM "annotation_unit" AS t`,
-			insertSQL: `INSERT INTO "annotation_unit" ("uuid", "key", "value") SELECT $ModelAnnotationUnit.uuid AS "uuid", $ModelAnnotationUnit.key AS "key", $ModelAnnotationUnit.value AS "value"`,
-			sample:    recovery.ModelAnnotationUnit{},
+			insertSQL: `INSERT INTO "annotation_unit" ("uuid", "key", "value") SELECT $AnnotationUnit.uuid AS "uuid", $AnnotationUnit.key AS "key", $AnnotationUnit.value AS "value"`,
+			sample:    exporttypes.AnnotationUnit{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAnnotationUnit)
+				return insertRows(ctx, tx, stmt, dump.AnnotationUnit)
 			},
 		})
 	}
@@ -143,10 +146,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application",
 			deleteSQL: `DELETE FROM "application" AS t`,
-			insertSQL: `INSERT INTO "application" ("uuid", "name", "life_id", "charm_uuid", "charm_modified_version", "charm_upgrade_on_error", "space_uuid") SELECT $ModelApplication.uuid AS "uuid", $ModelApplication.name AS "name", $ModelApplication.life_id AS "life_id", $ModelApplication.charm_uuid AS "charm_uuid", CASE WHEN $ModelApplication.has_charm_modified_version THEN $ModelApplication.charm_modified_version ELSE 0 END AS "charm_modified_version", CASE WHEN $ModelApplication.has_charm_upgrade_on_error THEN $ModelApplication.charm_upgrade_on_error ELSE FALSE END AS "charm_upgrade_on_error", $ModelApplication.space_uuid AS "space_uuid"`,
-			sample:    recovery.ModelApplication{},
+			insertSQL: `INSERT INTO "application" ("uuid", "name", "life_id", "charm_uuid", "charm_modified_version", "charm_upgrade_on_error", "space_uuid") SELECT $Application.uuid AS "uuid", $Application.name AS "name", $Application.life_id AS "life_id", $Application.charm_uuid AS "charm_uuid", $Application.charm_modified_version AS "charm_modified_version", $Application.charm_upgrade_on_error AS "charm_upgrade_on_error", $Application.space_uuid AS "space_uuid"`,
+			sample:    exporttypes.Application{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplication)
+				return insertRows(ctx, tx, stmt, dump.Application)
 			},
 		})
 	}
@@ -154,10 +157,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_agent",
 			deleteSQL: `DELETE FROM "application_agent" AS t`,
-			insertSQL: `INSERT INTO "application_agent" ("application_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ModelApplicationAgent.application_uuid AS "application_uuid", $ModelApplicationAgent.password_hash_algorithm_id AS "password_hash_algorithm_id", $ModelApplicationAgent.password_hash AS "password_hash"`,
-			sample:    recovery.ModelApplicationAgent{},
+			insertSQL: `INSERT INTO "application_agent" ("application_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ApplicationAgent.application_uuid AS "application_uuid", $ApplicationAgent.password_hash_algorithm_id AS "password_hash_algorithm_id", $ApplicationAgent.password_hash AS "password_hash"`,
+			sample:    exporttypes.ApplicationAgent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationAgent)
+				return insertRows(ctx, tx, stmt, dump.ApplicationAgent)
 			},
 		})
 	}
@@ -165,10 +168,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_channel",
 			deleteSQL: `DELETE FROM "application_channel" AS t`,
-			insertSQL: `INSERT INTO "application_channel" ("application_uuid", "track", "risk", "branch") SELECT $ModelApplicationChannel.application_uuid AS "application_uuid", $ModelApplicationChannel.track AS "track", $ModelApplicationChannel.risk AS "risk", $ModelApplicationChannel.branch AS "branch"`,
-			sample:    recovery.ModelApplicationChannel{},
+			insertSQL: `INSERT INTO "application_channel" ("application_uuid", "track", "risk", "branch") SELECT $ApplicationChannel.application_uuid AS "application_uuid", $ApplicationChannel.track AS "track", $ApplicationChannel.risk AS "risk", $ApplicationChannel.branch AS "branch"`,
+			sample:    exporttypes.ApplicationChannel{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationChannel)
+				return insertRows(ctx, tx, stmt, dump.ApplicationChannel)
 			},
 		})
 	}
@@ -176,10 +179,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_config",
 			deleteSQL: `DELETE FROM "application_config" AS t`,
-			insertSQL: `INSERT INTO "application_config" ("application_uuid", "key", "type_id", "value") SELECT $ModelApplicationConfig.application_uuid AS "application_uuid", $ModelApplicationConfig.key AS "key", $ModelApplicationConfig.type_id AS "type_id", $ModelApplicationConfig.value AS "value"`,
-			sample:    recovery.ModelApplicationConfig{},
+			insertSQL: `INSERT INTO "application_config" ("application_uuid", "key", "type_id", "value") SELECT $ApplicationConfig.application_uuid AS "application_uuid", $ApplicationConfig.key AS "key", $ApplicationConfig.type_id AS "type_id", $ApplicationConfig.value AS "value"`,
+			sample:    exporttypes.ApplicationConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationConfig)
+				return insertRows(ctx, tx, stmt, dump.ApplicationConfig)
 			},
 		})
 	}
@@ -187,10 +190,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_config_hash",
 			deleteSQL: `DELETE FROM "application_config_hash" AS t`,
-			insertSQL: `INSERT INTO "application_config_hash" ("application_uuid", "sha256") SELECT $ModelApplicationConfigHash.application_uuid AS "application_uuid", $ModelApplicationConfigHash.sha256 AS "sha256"`,
-			sample:    recovery.ModelApplicationConfigHash{},
+			insertSQL: `INSERT INTO "application_config_hash" ("application_uuid", "sha256") SELECT $ApplicationConfigHash.application_uuid AS "application_uuid", $ApplicationConfigHash.sha256 AS "sha256"`,
+			sample:    exporttypes.ApplicationConfigHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationConfigHash)
+				return insertRows(ctx, tx, stmt, dump.ApplicationConfigHash)
 			},
 		})
 	}
@@ -198,10 +201,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_constraint",
 			deleteSQL: `DELETE FROM "application_constraint" AS t`,
-			insertSQL: `INSERT INTO "application_constraint" ("application_uuid", "constraint_uuid") SELECT $ModelApplicationConstraint.application_uuid AS "application_uuid", $ModelApplicationConstraint.constraint_uuid AS "constraint_uuid"`,
-			sample:    recovery.ModelApplicationConstraint{},
+			insertSQL: `INSERT INTO "application_constraint" ("application_uuid", "constraint_uuid") SELECT $ApplicationConstraint.application_uuid AS "application_uuid", $ApplicationConstraint.constraint_uuid AS "constraint_uuid"`,
+			sample:    exporttypes.ApplicationConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationConstraint)
+				return insertRows(ctx, tx, stmt, dump.ApplicationConstraint)
 			},
 		})
 	}
@@ -209,10 +212,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_controller",
 			deleteSQL: `DELETE FROM "application_controller" AS t`,
-			insertSQL: `INSERT INTO "application_controller" ("application_uuid") SELECT $ModelApplicationController.application_uuid AS "application_uuid"`,
-			sample:    recovery.ModelApplicationController{},
+			insertSQL: `INSERT INTO "application_controller" ("application_uuid") SELECT $ApplicationController.application_uuid AS "application_uuid"`,
+			sample:    exporttypes.ApplicationController{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationController)
+				return insertRows(ctx, tx, stmt, dump.ApplicationController)
 			},
 		})
 	}
@@ -220,10 +223,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_endpoint",
 			deleteSQL: `DELETE FROM "application_endpoint" AS t`,
-			insertSQL: `INSERT INTO "application_endpoint" ("uuid", "application_uuid", "space_uuid", "charm_relation_uuid") SELECT $ModelApplicationEndpoint.uuid AS "uuid", $ModelApplicationEndpoint.application_uuid AS "application_uuid", $ModelApplicationEndpoint.space_uuid AS "space_uuid", $ModelApplicationEndpoint.charm_relation_uuid AS "charm_relation_uuid"`,
-			sample:    recovery.ModelApplicationEndpoint{},
+			insertSQL: `INSERT INTO "application_endpoint" ("uuid", "application_uuid", "space_uuid", "charm_relation_uuid") SELECT $ApplicationEndpoint.uuid AS "uuid", $ApplicationEndpoint.application_uuid AS "application_uuid", $ApplicationEndpoint.space_uuid AS "space_uuid", $ApplicationEndpoint.charm_relation_uuid AS "charm_relation_uuid"`,
+			sample:    exporttypes.ApplicationEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationEndpoint)
+				return insertRows(ctx, tx, stmt, dump.ApplicationEndpoint)
 			},
 		})
 	}
@@ -231,10 +234,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_exposed_endpoint_cidr",
 			deleteSQL: `DELETE FROM "application_exposed_endpoint_cidr" AS t`,
-			insertSQL: `INSERT INTO "application_exposed_endpoint_cidr" ("application_uuid", "application_endpoint_uuid", "cidr") SELECT $ModelApplicationExposedEndpointCidr.application_uuid AS "application_uuid", $ModelApplicationExposedEndpointCidr.application_endpoint_uuid AS "application_endpoint_uuid", $ModelApplicationExposedEndpointCidr.cidr AS "cidr"`,
-			sample:    recovery.ModelApplicationExposedEndpointCidr{},
+			insertSQL: `INSERT INTO "application_exposed_endpoint_cidr" ("application_uuid", "application_endpoint_uuid", "cidr") SELECT $ApplicationExposedEndpointCidr.application_uuid AS "application_uuid", $ApplicationExposedEndpointCidr.application_endpoint_uuid AS "application_endpoint_uuid", $ApplicationExposedEndpointCidr.cidr AS "cidr"`,
+			sample:    exporttypes.ApplicationExposedEndpointCidr{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationExposedEndpointCidr)
+				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointCidr)
 			},
 		})
 	}
@@ -242,10 +245,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_exposed_endpoint_space",
 			deleteSQL: `DELETE FROM "application_exposed_endpoint_space" AS t`,
-			insertSQL: `INSERT INTO "application_exposed_endpoint_space" ("application_uuid", "application_endpoint_uuid", "space_uuid") SELECT $ModelApplicationExposedEndpointSpace.application_uuid AS "application_uuid", $ModelApplicationExposedEndpointSpace.application_endpoint_uuid AS "application_endpoint_uuid", $ModelApplicationExposedEndpointSpace.space_uuid AS "space_uuid"`,
-			sample:    recovery.ModelApplicationExposedEndpointSpace{},
+			insertSQL: `INSERT INTO "application_exposed_endpoint_space" ("application_uuid", "application_endpoint_uuid", "space_uuid") SELECT $ApplicationExposedEndpointSpace.application_uuid AS "application_uuid", $ApplicationExposedEndpointSpace.application_endpoint_uuid AS "application_endpoint_uuid", $ApplicationExposedEndpointSpace.space_uuid AS "space_uuid"`,
+			sample:    exporttypes.ApplicationExposedEndpointSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationExposedEndpointSpace)
+				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointSpace)
 			},
 		})
 	}
@@ -253,10 +256,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_extra_endpoint",
 			deleteSQL: `DELETE FROM "application_extra_endpoint" AS t`,
-			insertSQL: `INSERT INTO "application_extra_endpoint" ("application_uuid", "space_uuid", "charm_extra_binding_uuid") SELECT $ModelApplicationExtraEndpoint.application_uuid AS "application_uuid", $ModelApplicationExtraEndpoint.space_uuid AS "space_uuid", $ModelApplicationExtraEndpoint.charm_extra_binding_uuid AS "charm_extra_binding_uuid"`,
-			sample:    recovery.ModelApplicationExtraEndpoint{},
+			insertSQL: `INSERT INTO "application_extra_endpoint" ("application_uuid", "space_uuid", "charm_extra_binding_uuid") SELECT $ApplicationExtraEndpoint.application_uuid AS "application_uuid", $ApplicationExtraEndpoint.space_uuid AS "space_uuid", $ApplicationExtraEndpoint.charm_extra_binding_uuid AS "charm_extra_binding_uuid"`,
+			sample:    exporttypes.ApplicationExtraEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationExtraEndpoint)
+				return insertRows(ctx, tx, stmt, dump.ApplicationExtraEndpoint)
 			},
 		})
 	}
@@ -264,10 +267,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_k8s_resources_managed",
 			deleteSQL: `DELETE FROM "application_k8s_resources_managed" AS t`,
-			insertSQL: `INSERT INTO "application_k8s_resources_managed" ("application_uuid") SELECT $ModelApplicationK8sResourcesManaged.application_uuid AS "application_uuid"`,
-			sample:    recovery.ModelApplicationK8sResourcesManaged{},
+			insertSQL: `INSERT INTO "application_k8s_resources_managed" ("application_uuid") SELECT $ApplicationK8sResourcesManaged.application_uuid AS "application_uuid"`,
+			sample:    exporttypes.ApplicationK8sResourcesManaged{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationK8sResourcesManaged)
+				return insertRows(ctx, tx, stmt, dump.ApplicationK8sResourcesManaged)
 			},
 		})
 	}
@@ -275,10 +278,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_platform",
 			deleteSQL: `DELETE FROM "application_platform" AS t`,
-			insertSQL: `INSERT INTO "application_platform" ("application_uuid", "os_id", "channel", "architecture_id") SELECT $ModelApplicationPlatform.application_uuid AS "application_uuid", $ModelApplicationPlatform.os_id AS "os_id", $ModelApplicationPlatform.channel AS "channel", $ModelApplicationPlatform.architecture_id AS "architecture_id"`,
-			sample:    recovery.ModelApplicationPlatform{},
+			insertSQL: `INSERT INTO "application_platform" ("application_uuid", "os_id", "channel", "architecture_id") SELECT $ApplicationPlatform.application_uuid AS "application_uuid", $ApplicationPlatform.os_id AS "os_id", $ApplicationPlatform.channel AS "channel", $ApplicationPlatform.architecture_id AS "architecture_id"`,
+			sample:    exporttypes.ApplicationPlatform{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationPlatform)
+				return insertRows(ctx, tx, stmt, dump.ApplicationPlatform)
 			},
 		})
 	}
@@ -286,10 +289,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_consumer",
 			deleteSQL: `DELETE FROM "application_remote_consumer" AS t`,
-			insertSQL: `INSERT INTO "application_remote_consumer" ("offer_connection_uuid", "offerer_application_uuid", "consumer_application_uuid", "consumer_model_uuid", "life_id") SELECT $ModelApplicationRemoteConsumer.offer_connection_uuid AS "offer_connection_uuid", $ModelApplicationRemoteConsumer.offerer_application_uuid AS "offerer_application_uuid", $ModelApplicationRemoteConsumer.consumer_application_uuid AS "consumer_application_uuid", $ModelApplicationRemoteConsumer.consumer_model_uuid AS "consumer_model_uuid", $ModelApplicationRemoteConsumer.life_id AS "life_id"`,
-			sample:    recovery.ModelApplicationRemoteConsumer{},
+			insertSQL: `INSERT INTO "application_remote_consumer" ("offer_connection_uuid", "offerer_application_uuid", "consumer_application_uuid", "consumer_model_uuid", "life_id") SELECT $ApplicationRemoteConsumer.offer_connection_uuid AS "offer_connection_uuid", $ApplicationRemoteConsumer.offerer_application_uuid AS "offerer_application_uuid", $ApplicationRemoteConsumer.consumer_application_uuid AS "consumer_application_uuid", $ApplicationRemoteConsumer.consumer_model_uuid AS "consumer_model_uuid", $ApplicationRemoteConsumer.life_id AS "life_id"`,
+			sample:    exporttypes.ApplicationRemoteConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationRemoteConsumer)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteConsumer)
 			},
 		})
 	}
@@ -297,10 +300,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_offerer",
 			deleteSQL: `DELETE FROM "application_remote_offerer" AS t`,
-			insertSQL: `INSERT INTO "application_remote_offerer" ("uuid", "life_id", "application_uuid", "offer_uuid", "offer_url", "offerer_controller_uuid", "offerer_model_uuid", "macaroon") SELECT $ModelApplicationRemoteOfferer.uuid AS "uuid", $ModelApplicationRemoteOfferer.life_id AS "life_id", $ModelApplicationRemoteOfferer.application_uuid AS "application_uuid", $ModelApplicationRemoteOfferer.offer_uuid AS "offer_uuid", $ModelApplicationRemoteOfferer.offer_url AS "offer_url", $ModelApplicationRemoteOfferer.offerer_controller_uuid AS "offerer_controller_uuid", $ModelApplicationRemoteOfferer.offerer_model_uuid AS "offerer_model_uuid", $ModelApplicationRemoteOfferer.macaroon AS "macaroon"`,
-			sample:    recovery.ModelApplicationRemoteOfferer{},
+			insertSQL: `INSERT INTO "application_remote_offerer" ("uuid", "life_id", "application_uuid", "offer_uuid", "offer_url", "offerer_controller_uuid", "offerer_model_uuid", "macaroon") SELECT $ApplicationRemoteOfferer.uuid AS "uuid", $ApplicationRemoteOfferer.life_id AS "life_id", $ApplicationRemoteOfferer.application_uuid AS "application_uuid", $ApplicationRemoteOfferer.offer_uuid AS "offer_uuid", $ApplicationRemoteOfferer.offer_url AS "offer_url", $ApplicationRemoteOfferer.offerer_controller_uuid AS "offerer_controller_uuid", $ApplicationRemoteOfferer.offerer_model_uuid AS "offerer_model_uuid", CAST($ApplicationRemoteOfferer.macaroon AS BLOB) AS "macaroon"`,
+			sample:    exporttypes.ApplicationRemoteOfferer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationRemoteOfferer)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOfferer)
 			},
 		})
 	}
@@ -308,10 +311,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_offerer_relation_macaroon",
 			deleteSQL: `DELETE FROM "application_remote_offerer_relation_macaroon" AS t`,
-			insertSQL: `INSERT INTO "application_remote_offerer_relation_macaroon" ("relation_uuid", "macaroon") SELECT $ModelApplicationRemoteOffererRelationMacaroon.relation_uuid AS "relation_uuid", $ModelApplicationRemoteOffererRelationMacaroon.macaroon AS "macaroon"`,
-			sample:    recovery.ModelApplicationRemoteOffererRelationMacaroon{},
+			insertSQL: `INSERT INTO "application_remote_offerer_relation_macaroon" ("relation_uuid", "macaroon") SELECT $ApplicationRemoteOffererRelationMacaroon.relation_uuid AS "relation_uuid", CAST($ApplicationRemoteOffererRelationMacaroon.macaroon AS BLOB) AS "macaroon"`,
+			sample:    exporttypes.ApplicationRemoteOffererRelationMacaroon{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationRemoteOffererRelationMacaroon)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOffererRelationMacaroon)
 			},
 		})
 	}
@@ -319,10 +322,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_offerer_status",
 			deleteSQL: `DELETE FROM "application_remote_offerer_status" AS t`,
-			insertSQL: `INSERT INTO "application_remote_offerer_status" ("application_remote_offerer_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelApplicationRemoteOffererStatus.application_remote_offerer_uuid AS "application_remote_offerer_uuid", $ModelApplicationRemoteOffererStatus.status_id AS "status_id", $ModelApplicationRemoteOffererStatus.message AS "message", $ModelApplicationRemoteOffererStatus.data AS "data", $ModelApplicationRemoteOffererStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelApplicationRemoteOffererStatus{},
+			insertSQL: `INSERT INTO "application_remote_offerer_status" ("application_remote_offerer_uuid", "status_id", "message", "data", "updated_at") SELECT $ApplicationRemoteOffererStatus.application_remote_offerer_uuid AS "application_remote_offerer_uuid", $ApplicationRemoteOffererStatus.status_id AS "status_id", $ApplicationRemoteOffererStatus.message AS "message", CAST($ApplicationRemoteOffererStatus.data AS BLOB) AS "data", $ApplicationRemoteOffererStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.ApplicationRemoteOffererStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationRemoteOffererStatus)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOffererStatus)
 			},
 		})
 	}
@@ -330,10 +333,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_resource",
 			deleteSQL: `DELETE FROM "application_resource" AS t`,
-			insertSQL: `INSERT INTO "application_resource" ("resource_uuid", "application_uuid") SELECT $ModelApplicationResource.resource_uuid AS "resource_uuid", $ModelApplicationResource.application_uuid AS "application_uuid"`,
-			sample:    recovery.ModelApplicationResource{},
+			insertSQL: `INSERT INTO "application_resource" ("resource_uuid", "application_uuid") SELECT $ApplicationResource.resource_uuid AS "resource_uuid", $ApplicationResource.application_uuid AS "application_uuid"`,
+			sample:    exporttypes.ApplicationResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationResource)
+				return insertRows(ctx, tx, stmt, dump.ApplicationResource)
 			},
 		})
 	}
@@ -341,10 +344,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_scale",
 			deleteSQL: `DELETE FROM "application_scale" AS t`,
-			insertSQL: `INSERT INTO "application_scale" ("application_uuid", "scale", "scale_target", "scaling", "start_ordinal") SELECT $ModelApplicationScale.application_uuid AS "application_uuid", $ModelApplicationScale.scale AS "scale", $ModelApplicationScale.scale_target AS "scale_target", CASE WHEN $ModelApplicationScale.has_scaling THEN $ModelApplicationScale.scaling ELSE FALSE END AS "scaling", CASE WHEN $ModelApplicationScale.has_start_ordinal THEN $ModelApplicationScale.start_ordinal ELSE 0 END AS "start_ordinal"`,
-			sample:    recovery.ModelApplicationScale{},
+			insertSQL: `INSERT INTO "application_scale" ("application_uuid", "scale", "scale_target", "scaling", "start_ordinal") SELECT $ApplicationScale.application_uuid AS "application_uuid", $ApplicationScale.scale AS "scale", $ApplicationScale.scale_target AS "scale_target", $ApplicationScale.scaling AS "scaling", $ApplicationScale.start_ordinal AS "start_ordinal"`,
+			sample:    exporttypes.ApplicationScale{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationScale)
+				return insertRows(ctx, tx, stmt, dump.ApplicationScale)
 			},
 		})
 	}
@@ -352,10 +355,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_setting",
 			deleteSQL: `DELETE FROM "application_setting" AS t`,
-			insertSQL: `INSERT INTO "application_setting" ("application_uuid", "trust") SELECT $ModelApplicationSetting.application_uuid AS "application_uuid", CASE WHEN $ModelApplicationSetting.has_trust THEN $ModelApplicationSetting.trust ELSE FALSE END AS "trust"`,
-			sample:    recovery.ModelApplicationSetting{},
+			insertSQL: `INSERT INTO "application_setting" ("application_uuid", "trust") SELECT $ApplicationSetting.application_uuid AS "application_uuid", $ApplicationSetting.trust AS "trust"`,
+			sample:    exporttypes.ApplicationSetting{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationSetting)
+				return insertRows(ctx, tx, stmt, dump.ApplicationSetting)
 			},
 		})
 	}
@@ -363,10 +366,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_status",
 			deleteSQL: `DELETE FROM "application_status" AS t`,
-			insertSQL: `INSERT INTO "application_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelApplicationStatus.application_uuid AS "application_uuid", $ModelApplicationStatus.status_id AS "status_id", $ModelApplicationStatus.message AS "message", $ModelApplicationStatus.data AS "data", $ModelApplicationStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelApplicationStatus{},
+			insertSQL: `INSERT INTO "application_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $ApplicationStatus.application_uuid AS "application_uuid", $ApplicationStatus.status_id AS "status_id", $ApplicationStatus.message AS "message", CAST($ApplicationStatus.data AS BLOB) AS "data", $ApplicationStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.ApplicationStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationStatus)
+				return insertRows(ctx, tx, stmt, dump.ApplicationStatus)
 			},
 		})
 	}
@@ -374,10 +377,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_storage_directive",
 			deleteSQL: `DELETE FROM "application_storage_directive" AS t`,
-			insertSQL: `INSERT INTO "application_storage_directive" ("application_uuid", "charm_uuid", "storage_name", "storage_pool_uuid", "size_mib", "count") SELECT $ModelApplicationStorageDirective.application_uuid AS "application_uuid", $ModelApplicationStorageDirective.charm_uuid AS "charm_uuid", $ModelApplicationStorageDirective.storage_name AS "storage_name", $ModelApplicationStorageDirective.storage_pool_uuid AS "storage_pool_uuid", $ModelApplicationStorageDirective.size_mib AS "size_mib", $ModelApplicationStorageDirective.count AS "count"`,
-			sample:    recovery.ModelApplicationStorageDirective{},
+			insertSQL: `INSERT INTO "application_storage_directive" ("application_uuid", "charm_uuid", "storage_name", "storage_pool_uuid", "size_mib", "count") SELECT $ApplicationStorageDirective.application_uuid AS "application_uuid", $ApplicationStorageDirective.charm_uuid AS "charm_uuid", $ApplicationStorageDirective.storage_name AS "storage_name", $ApplicationStorageDirective.storage_pool_uuid AS "storage_pool_uuid", $ApplicationStorageDirective.size_mib AS "size_mib", $ApplicationStorageDirective.count AS "count"`,
+			sample:    exporttypes.ApplicationStorageDirective{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationStorageDirective)
+				return insertRows(ctx, tx, stmt, dump.ApplicationStorageDirective)
 			},
 		})
 	}
@@ -385,10 +388,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_workload_version",
 			deleteSQL: `DELETE FROM "application_workload_version" AS t`,
-			insertSQL: `INSERT INTO "application_workload_version" ("application_uuid", "version") SELECT $ModelApplicationWorkloadVersion.application_uuid AS "application_uuid", $ModelApplicationWorkloadVersion.version AS "version"`,
-			sample:    recovery.ModelApplicationWorkloadVersion{},
+			insertSQL: `INSERT INTO "application_workload_version" ("application_uuid", "version") SELECT $ApplicationWorkloadVersion.application_uuid AS "application_uuid", $ApplicationWorkloadVersion.version AS "version"`,
+			sample:    exporttypes.ApplicationWorkloadVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelApplicationWorkloadVersion)
+				return insertRows(ctx, tx, stmt, dump.ApplicationWorkloadVersion)
 			},
 		})
 	}
@@ -396,10 +399,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "architecture",
 			deleteSQL: `DELETE FROM "architecture" AS t`,
-			insertSQL: `INSERT INTO "architecture" ("id", "name") SELECT $ModelArchitecture.id AS "id", $ModelArchitecture.name AS "name"`,
-			sample:    recovery.ModelArchitecture{},
+			insertSQL: `INSERT INTO "architecture" ("id", "name") SELECT $Architecture.id AS "id", $Architecture.name AS "name"`,
+			sample:    exporttypes.Architecture{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelArchitecture)
+				return insertRows(ctx, tx, stmt, dump.Architecture)
 			},
 		})
 	}
@@ -407,10 +410,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "availability_zone",
 			deleteSQL: `DELETE FROM "availability_zone" AS t`,
-			insertSQL: `INSERT INTO "availability_zone" ("uuid", "name") SELECT $ModelAvailabilityZone.uuid AS "uuid", $ModelAvailabilityZone.name AS "name"`,
-			sample:    recovery.ModelAvailabilityZone{},
+			insertSQL: `INSERT INTO "availability_zone" ("uuid", "name") SELECT $AvailabilityZone.uuid AS "uuid", $AvailabilityZone.name AS "name"`,
+			sample:    exporttypes.AvailabilityZone{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAvailabilityZone)
+				return insertRows(ctx, tx, stmt, dump.AvailabilityZone)
 			},
 		})
 	}
@@ -418,10 +421,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "availability_zone_subnet",
 			deleteSQL: `DELETE FROM "availability_zone_subnet" AS t`,
-			insertSQL: `INSERT INTO "availability_zone_subnet" ("availability_zone_uuid", "subnet_uuid") SELECT $ModelAvailabilityZoneSubnet.availability_zone_uuid AS "availability_zone_uuid", $ModelAvailabilityZoneSubnet.subnet_uuid AS "subnet_uuid"`,
-			sample:    recovery.ModelAvailabilityZoneSubnet{},
+			insertSQL: `INSERT INTO "availability_zone_subnet" ("availability_zone_uuid", "subnet_uuid") SELECT $AvailabilityZoneSubnet.availability_zone_uuid AS "availability_zone_uuid", $AvailabilityZoneSubnet.subnet_uuid AS "subnet_uuid"`,
+			sample:    exporttypes.AvailabilityZoneSubnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAvailabilityZoneSubnet)
+				return insertRows(ctx, tx, stmt, dump.AvailabilityZoneSubnet)
 			},
 		})
 	}
@@ -429,10 +432,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "block_command",
 			deleteSQL: `DELETE FROM "block_command" AS t`,
-			insertSQL: `INSERT INTO "block_command" ("uuid", "block_command_type_id", "message") SELECT $ModelBlockCommand.uuid AS "uuid", $ModelBlockCommand.block_command_type_id AS "block_command_type_id", $ModelBlockCommand.message AS "message"`,
-			sample:    recovery.ModelBlockCommand{},
+			insertSQL: `INSERT INTO "block_command" ("uuid", "block_command_type_id", "message") SELECT $BlockCommand.uuid AS "uuid", $BlockCommand.block_command_type_id AS "block_command_type_id", $BlockCommand.message AS "message"`,
+			sample:    exporttypes.BlockCommand{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelBlockCommand)
+				return insertRows(ctx, tx, stmt, dump.BlockCommand)
 			},
 		})
 	}
@@ -440,10 +443,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "block_command_type",
 			deleteSQL: `DELETE FROM "block_command_type" AS t`,
-			insertSQL: `INSERT INTO "block_command_type" ("id", "name_type") SELECT $ModelBlockCommandType.id AS "id", $ModelBlockCommandType.name_type AS "name_type"`,
-			sample:    recovery.ModelBlockCommandType{},
+			insertSQL: `INSERT INTO "block_command_type" ("id", "name_type") SELECT $BlockCommandType.id AS "id", $BlockCommandType.name_type AS "name_type"`,
+			sample:    exporttypes.BlockCommandType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelBlockCommandType)
+				return insertRows(ctx, tx, stmt, dump.BlockCommandType)
 			},
 		})
 	}
@@ -451,10 +454,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "block_device",
 			deleteSQL: `DELETE FROM "block_device" AS t`,
-			insertSQL: `INSERT INTO "block_device" ("uuid", "machine_uuid", "name", "hardware_id", "wwn", "serial_id", "bus_address", "size_mib", "mount_point", "in_use", "filesystem_label", "host_filesystem_uuid", "filesystem_type", "provenance_id") SELECT $ModelBlockDevice.uuid AS "uuid", $ModelBlockDevice.machine_uuid AS "machine_uuid", $ModelBlockDevice.name AS "name", $ModelBlockDevice.hardware_id AS "hardware_id", $ModelBlockDevice.wwn AS "wwn", $ModelBlockDevice.serial_id AS "serial_id", $ModelBlockDevice.bus_address AS "bus_address", $ModelBlockDevice.size_mib AS "size_mib", $ModelBlockDevice.mount_point AS "mount_point", $ModelBlockDevice.in_use AS "in_use", $ModelBlockDevice.filesystem_label AS "filesystem_label", $ModelBlockDevice.host_filesystem_uuid AS "host_filesystem_uuid", $ModelBlockDevice.filesystem_type AS "filesystem_type", CASE WHEN $ModelBlockDevice.has_provenance_id THEN $ModelBlockDevice.provenance_id ELSE 0 END AS "provenance_id"`,
-			sample:    recovery.ModelBlockDevice{},
+			insertSQL: `INSERT INTO "block_device" ("uuid", "machine_uuid", "name", "hardware_id", "wwn", "serial_id", "bus_address", "size_mib", "mount_point", "in_use", "filesystem_label", "host_filesystem_uuid", "filesystem_type", "provenance_id") SELECT $BlockDevice.uuid AS "uuid", $BlockDevice.machine_uuid AS "machine_uuid", $BlockDevice.name AS "name", $BlockDevice.hardware_id AS "hardware_id", $BlockDevice.wwn AS "wwn", $BlockDevice.serial_id AS "serial_id", $BlockDevice.bus_address AS "bus_address", $BlockDevice.size_mib AS "size_mib", $BlockDevice.mount_point AS "mount_point", $BlockDevice.in_use AS "in_use", $BlockDevice.filesystem_label AS "filesystem_label", $BlockDevice.host_filesystem_uuid AS "host_filesystem_uuid", $BlockDevice.filesystem_type AS "filesystem_type", $BlockDevice.provenance_id AS "provenance_id"`,
+			sample:    exporttypes.BlockDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelBlockDevice)
+				return insertRows(ctx, tx, stmt, dump.BlockDevice)
 			},
 		})
 	}
@@ -462,10 +465,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "block_device_link_device",
 			deleteSQL: `DELETE FROM "block_device_link_device" AS t`,
-			insertSQL: `INSERT INTO "block_device_link_device" ("block_device_uuid", "machine_uuid", "name") SELECT $ModelBlockDeviceLinkDevice.block_device_uuid AS "block_device_uuid", $ModelBlockDeviceLinkDevice.machine_uuid AS "machine_uuid", $ModelBlockDeviceLinkDevice.name AS "name"`,
-			sample:    recovery.ModelBlockDeviceLinkDevice{},
+			insertSQL: `INSERT INTO "block_device_link_device" ("block_device_uuid", "machine_uuid", "name") SELECT $BlockDeviceLinkDevice.block_device_uuid AS "block_device_uuid", $BlockDeviceLinkDevice.machine_uuid AS "machine_uuid", $BlockDeviceLinkDevice.name AS "name"`,
+			sample:    exporttypes.BlockDeviceLinkDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelBlockDeviceLinkDevice)
+				return insertRows(ctx, tx, stmt, dump.BlockDeviceLinkDevice)
 			},
 		})
 	}
@@ -473,10 +476,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "block_device_provenance",
 			deleteSQL: `DELETE FROM "block_device_provenance" AS t`,
-			insertSQL: `INSERT INTO "block_device_provenance" ("id", "value") SELECT $ModelBlockDeviceProvenance.id AS "id", $ModelBlockDeviceProvenance.value AS "value"`,
-			sample:    recovery.ModelBlockDeviceProvenance{},
+			insertSQL: `INSERT INTO "block_device_provenance" ("id", "value") SELECT $BlockDeviceProvenance.id AS "id", $BlockDeviceProvenance.value AS "value"`,
+			sample:    exporttypes.BlockDeviceProvenance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelBlockDeviceProvenance)
+				return insertRows(ctx, tx, stmt, dump.BlockDeviceProvenance)
 			},
 		})
 	}
@@ -484,10 +487,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm",
 			deleteSQL: `DELETE FROM "charm" AS t`,
-			insertSQL: `INSERT INTO "charm" ("uuid", "archive_path", "object_store_uuid", "available", "version", "lxd_profile", "source_id", "revision", "architecture_id", "reference_name", "create_time") SELECT $ModelCharm.uuid AS "uuid", $ModelCharm.archive_path AS "archive_path", $ModelCharm.object_store_uuid AS "object_store_uuid", CASE WHEN $ModelCharm.has_available THEN $ModelCharm.available ELSE FALSE END AS "available", $ModelCharm.version AS "version", $ModelCharm.lxd_profile AS "lxd_profile", CASE WHEN $ModelCharm.has_source_id THEN $ModelCharm.source_id ELSE 1 END AS "source_id", CASE WHEN $ModelCharm.has_revision THEN $ModelCharm.revision ELSE -1 END AS "revision", $ModelCharm.architecture_id AS "architecture_id", $ModelCharm.reference_name AS "reference_name", CASE WHEN $ModelCharm.has_create_time THEN $ModelCharm.create_time ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "create_time"`,
-			sample:    recovery.ModelCharm{},
+			insertSQL: `INSERT INTO "charm" ("uuid", "archive_path", "object_store_uuid", "available", "version", "lxd_profile", "source_id", "revision", "architecture_id", "reference_name", "create_time") SELECT $Charm.uuid AS "uuid", $Charm.archive_path AS "archive_path", $Charm.object_store_uuid AS "object_store_uuid", $Charm.available AS "available", $Charm.version AS "version", CAST($Charm.lxd_profile AS BLOB) AS "lxd_profile", $Charm.source_id AS "source_id", $Charm.revision AS "revision", $Charm.architecture_id AS "architecture_id", $Charm.reference_name AS "reference_name", $Charm.create_time AS "create_time"`,
+			sample:    exporttypes.Charm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharm)
+				return insertRows(ctx, tx, stmt, dump.Charm)
 			},
 		})
 	}
@@ -495,10 +498,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_action",
 			deleteSQL: `DELETE FROM "charm_action" AS t`,
-			insertSQL: `INSERT INTO "charm_action" ("charm_uuid", "key", "description", "parallel", "execution_group", "params") SELECT $ModelCharmAction.charm_uuid AS "charm_uuid", $ModelCharmAction.key AS "key", $ModelCharmAction.description AS "description", $ModelCharmAction.parallel AS "parallel", $ModelCharmAction.execution_group AS "execution_group", $ModelCharmAction.params AS "params"`,
-			sample:    recovery.ModelCharmAction{},
+			insertSQL: `INSERT INTO "charm_action" ("charm_uuid", "key", "description", "parallel", "execution_group", "params") SELECT $CharmAction.charm_uuid AS "charm_uuid", $CharmAction.key AS "key", $CharmAction.description AS "description", $CharmAction.parallel AS "parallel", $CharmAction.execution_group AS "execution_group", CAST($CharmAction.params AS BLOB) AS "params"`,
+			sample:    exporttypes.CharmAction{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmAction)
+				return insertRows(ctx, tx, stmt, dump.CharmAction)
 			},
 		})
 	}
@@ -506,10 +509,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_category",
 			deleteSQL: `DELETE FROM "charm_category" AS t`,
-			insertSQL: `INSERT INTO "charm_category" ("charm_uuid", "array_index", "value") SELECT $ModelCharmCategory.charm_uuid AS "charm_uuid", $ModelCharmCategory.array_index AS "array_index", $ModelCharmCategory.value AS "value"`,
-			sample:    recovery.ModelCharmCategory{},
+			insertSQL: `INSERT INTO "charm_category" ("charm_uuid", "array_index", "value") SELECT $CharmCategory.charm_uuid AS "charm_uuid", $CharmCategory.array_index AS "array_index", $CharmCategory.value AS "value"`,
+			sample:    exporttypes.CharmCategory{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmCategory)
+				return insertRows(ctx, tx, stmt, dump.CharmCategory)
 			},
 		})
 	}
@@ -517,10 +520,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_config",
 			deleteSQL: `DELETE FROM "charm_config" AS t`,
-			insertSQL: `INSERT INTO "charm_config" ("charm_uuid", "key", "type_id", "default_value", "description") SELECT $ModelCharmConfig.charm_uuid AS "charm_uuid", $ModelCharmConfig.key AS "key", $ModelCharmConfig.type_id AS "type_id", $ModelCharmConfig.default_value AS "default_value", $ModelCharmConfig.description AS "description"`,
-			sample:    recovery.ModelCharmConfig{},
+			insertSQL: `INSERT INTO "charm_config" ("charm_uuid", "key", "type_id", "default_value", "description") SELECT $CharmConfig.charm_uuid AS "charm_uuid", $CharmConfig.key AS "key", $CharmConfig.type_id AS "type_id", $CharmConfig.default_value AS "default_value", $CharmConfig.description AS "description"`,
+			sample:    exporttypes.CharmConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmConfig)
+				return insertRows(ctx, tx, stmt, dump.CharmConfig)
 			},
 		})
 	}
@@ -528,10 +531,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_config_type",
 			deleteSQL: `DELETE FROM "charm_config_type" AS t`,
-			insertSQL: `INSERT INTO "charm_config_type" ("id", "name") SELECT $ModelCharmConfigType.id AS "id", $ModelCharmConfigType.name AS "name"`,
-			sample:    recovery.ModelCharmConfigType{},
+			insertSQL: `INSERT INTO "charm_config_type" ("id", "name") SELECT $CharmConfigType.id AS "id", $CharmConfigType.name AS "name"`,
+			sample:    exporttypes.CharmConfigType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmConfigType)
+				return insertRows(ctx, tx, stmt, dump.CharmConfigType)
 			},
 		})
 	}
@@ -539,10 +542,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_container",
 			deleteSQL: `DELETE FROM "charm_container" AS t`,
-			insertSQL: `INSERT INTO "charm_container" ("charm_uuid", "key", "resource", "uid", "gid") SELECT $ModelCharmContainer.charm_uuid AS "charm_uuid", $ModelCharmContainer.key AS "key", $ModelCharmContainer.resource AS "resource", CASE WHEN $ModelCharmContainer.has_uid THEN $ModelCharmContainer.uid ELSE -1 END AS "uid", CASE WHEN $ModelCharmContainer.has_gid THEN $ModelCharmContainer.gid ELSE -1 END AS "gid"`,
-			sample:    recovery.ModelCharmContainer{},
+			insertSQL: `INSERT INTO "charm_container" ("charm_uuid", "key", "resource", "uid", "gid") SELECT $CharmContainer.charm_uuid AS "charm_uuid", $CharmContainer.key AS "key", $CharmContainer.resource AS "resource", $CharmContainer.uid AS "uid", $CharmContainer.gid AS "gid"`,
+			sample:    exporttypes.CharmContainer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmContainer)
+				return insertRows(ctx, tx, stmt, dump.CharmContainer)
 			},
 		})
 	}
@@ -550,10 +553,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_container_mount",
 			deleteSQL: `DELETE FROM "charm_container_mount" AS t`,
-			insertSQL: `INSERT INTO "charm_container_mount" ("array_index", "charm_uuid", "charm_container_key", "storage", "location") SELECT $ModelCharmContainerMount.array_index AS "array_index", $ModelCharmContainerMount.charm_uuid AS "charm_uuid", $ModelCharmContainerMount.charm_container_key AS "charm_container_key", $ModelCharmContainerMount.storage AS "storage", $ModelCharmContainerMount.location AS "location"`,
-			sample:    recovery.ModelCharmContainerMount{},
+			insertSQL: `INSERT INTO "charm_container_mount" ("array_index", "charm_uuid", "charm_container_key", "storage", "location") SELECT $CharmContainerMount.array_index AS "array_index", $CharmContainerMount.charm_uuid AS "charm_uuid", $CharmContainerMount.charm_container_key AS "charm_container_key", $CharmContainerMount.storage AS "storage", $CharmContainerMount.location AS "location"`,
+			sample:    exporttypes.CharmContainerMount{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmContainerMount)
+				return insertRows(ctx, tx, stmt, dump.CharmContainerMount)
 			},
 		})
 	}
@@ -561,10 +564,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_device",
 			deleteSQL: `DELETE FROM "charm_device" AS t`,
-			insertSQL: `INSERT INTO "charm_device" ("charm_uuid", "key", "name", "description", "device_type", "count_min", "count_max") SELECT $ModelCharmDevice.charm_uuid AS "charm_uuid", $ModelCharmDevice.key AS "key", $ModelCharmDevice.name AS "name", $ModelCharmDevice.description AS "description", $ModelCharmDevice.device_type AS "device_type", $ModelCharmDevice.count_min AS "count_min", $ModelCharmDevice.count_max AS "count_max"`,
-			sample:    recovery.ModelCharmDevice{},
+			insertSQL: `INSERT INTO "charm_device" ("charm_uuid", "key", "name", "description", "device_type", "count_min", "count_max") SELECT $CharmDevice.charm_uuid AS "charm_uuid", $CharmDevice.key AS "key", $CharmDevice.name AS "name", $CharmDevice.description AS "description", $CharmDevice.device_type AS "device_type", $CharmDevice.count_min AS "count_min", $CharmDevice.count_max AS "count_max"`,
+			sample:    exporttypes.CharmDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmDevice)
+				return insertRows(ctx, tx, stmt, dump.CharmDevice)
 			},
 		})
 	}
@@ -572,10 +575,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_download_info",
 			deleteSQL: `DELETE FROM "charm_download_info" AS t`,
-			insertSQL: `INSERT INTO "charm_download_info" ("charm_uuid", "provenance_id", "charmhub_identifier", "download_url", "download_size") SELECT $ModelCharmDownloadInfo.charm_uuid AS "charm_uuid", $ModelCharmDownloadInfo.provenance_id AS "provenance_id", $ModelCharmDownloadInfo.charmhub_identifier AS "charmhub_identifier", $ModelCharmDownloadInfo.download_url AS "download_url", $ModelCharmDownloadInfo.download_size AS "download_size"`,
-			sample:    recovery.ModelCharmDownloadInfo{},
+			insertSQL: `INSERT INTO "charm_download_info" ("charm_uuid", "provenance_id", "charmhub_identifier", "download_url", "download_size") SELECT $CharmDownloadInfo.charm_uuid AS "charm_uuid", $CharmDownloadInfo.provenance_id AS "provenance_id", $CharmDownloadInfo.charmhub_identifier AS "charmhub_identifier", $CharmDownloadInfo.download_url AS "download_url", $CharmDownloadInfo.download_size AS "download_size"`,
+			sample:    exporttypes.CharmDownloadInfo{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmDownloadInfo)
+				return insertRows(ctx, tx, stmt, dump.CharmDownloadInfo)
 			},
 		})
 	}
@@ -583,10 +586,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_extra_binding",
 			deleteSQL: `DELETE FROM "charm_extra_binding" AS t`,
-			insertSQL: `INSERT INTO "charm_extra_binding" ("uuid", "charm_uuid", "name") SELECT $ModelCharmExtraBinding.uuid AS "uuid", $ModelCharmExtraBinding.charm_uuid AS "charm_uuid", $ModelCharmExtraBinding.name AS "name"`,
-			sample:    recovery.ModelCharmExtraBinding{},
+			insertSQL: `INSERT INTO "charm_extra_binding" ("uuid", "charm_uuid", "name") SELECT $CharmExtraBinding.uuid AS "uuid", $CharmExtraBinding.charm_uuid AS "charm_uuid", $CharmExtraBinding.name AS "name"`,
+			sample:    exporttypes.CharmExtraBinding{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmExtraBinding)
+				return insertRows(ctx, tx, stmt, dump.CharmExtraBinding)
 			},
 		})
 	}
@@ -594,10 +597,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_hash",
 			deleteSQL: `DELETE FROM "charm_hash" AS t`,
-			insertSQL: `INSERT INTO "charm_hash" ("charm_uuid", "hash_kind_id", "hash") SELECT $ModelCharmHash.charm_uuid AS "charm_uuid", CASE WHEN $ModelCharmHash.has_hash_kind_id THEN $ModelCharmHash.hash_kind_id ELSE 0 END AS "hash_kind_id", $ModelCharmHash.hash AS "hash"`,
-			sample:    recovery.ModelCharmHash{},
+			insertSQL: `INSERT INTO "charm_hash" ("charm_uuid", "hash_kind_id", "hash") SELECT $CharmHash.charm_uuid AS "charm_uuid", $CharmHash.hash_kind_id AS "hash_kind_id", $CharmHash.hash AS "hash"`,
+			sample:    exporttypes.CharmHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmHash)
+				return insertRows(ctx, tx, stmt, dump.CharmHash)
 			},
 		})
 	}
@@ -605,10 +608,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_manifest_base",
 			deleteSQL: `DELETE FROM "charm_manifest_base" AS t`,
-			insertSQL: `INSERT INTO "charm_manifest_base" ("charm_uuid", "array_index", "nested_array_index", "os_id", "track", "risk", "branch", "architecture_id") SELECT $ModelCharmManifestBase.charm_uuid AS "charm_uuid", $ModelCharmManifestBase.array_index AS "array_index", $ModelCharmManifestBase.nested_array_index AS "nested_array_index", CASE WHEN $ModelCharmManifestBase.has_os_id THEN $ModelCharmManifestBase.os_id ELSE 0 END AS "os_id", $ModelCharmManifestBase.track AS "track", $ModelCharmManifestBase.risk AS "risk", $ModelCharmManifestBase.branch AS "branch", CASE WHEN $ModelCharmManifestBase.has_architecture_id THEN $ModelCharmManifestBase.architecture_id ELSE 0 END AS "architecture_id"`,
-			sample:    recovery.ModelCharmManifestBase{},
+			insertSQL: `INSERT INTO "charm_manifest_base" ("charm_uuid", "array_index", "nested_array_index", "os_id", "track", "risk", "branch", "architecture_id") SELECT $CharmManifestBase.charm_uuid AS "charm_uuid", $CharmManifestBase.array_index AS "array_index", $CharmManifestBase.nested_array_index AS "nested_array_index", $CharmManifestBase.os_id AS "os_id", $CharmManifestBase.track AS "track", $CharmManifestBase.risk AS "risk", $CharmManifestBase.branch AS "branch", $CharmManifestBase.architecture_id AS "architecture_id"`,
+			sample:    exporttypes.CharmManifestBase{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmManifestBase)
+				return insertRows(ctx, tx, stmt, dump.CharmManifestBase)
 			},
 		})
 	}
@@ -616,10 +619,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_metadata",
 			deleteSQL: `DELETE FROM "charm_metadata" AS t`,
-			insertSQL: `INSERT INTO "charm_metadata" ("charm_uuid", "name", "description", "summary", "subordinate", "min_juju_version", "run_as_id", "assumes") SELECT $ModelCharmMetadata.charm_uuid AS "charm_uuid", $ModelCharmMetadata.name AS "name", $ModelCharmMetadata.description AS "description", $ModelCharmMetadata.summary AS "summary", CASE WHEN $ModelCharmMetadata.has_subordinate THEN $ModelCharmMetadata.subordinate ELSE FALSE END AS "subordinate", $ModelCharmMetadata.min_juju_version AS "min_juju_version", CASE WHEN $ModelCharmMetadata.has_run_as_id THEN $ModelCharmMetadata.run_as_id ELSE 0 END AS "run_as_id", $ModelCharmMetadata.assumes AS "assumes"`,
-			sample:    recovery.ModelCharmMetadata{},
+			insertSQL: `INSERT INTO "charm_metadata" ("charm_uuid", "name", "description", "summary", "subordinate", "min_juju_version", "run_as_id", "assumes") SELECT $CharmMetadata.charm_uuid AS "charm_uuid", $CharmMetadata.name AS "name", $CharmMetadata.description AS "description", $CharmMetadata.summary AS "summary", $CharmMetadata.subordinate AS "subordinate", $CharmMetadata.min_juju_version AS "min_juju_version", $CharmMetadata.run_as_id AS "run_as_id", CAST($CharmMetadata.assumes AS BLOB) AS "assumes"`,
+			sample:    exporttypes.CharmMetadata{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmMetadata)
+				return insertRows(ctx, tx, stmt, dump.CharmMetadata)
 			},
 		})
 	}
@@ -627,10 +630,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_provenance",
 			deleteSQL: `DELETE FROM "charm_provenance" AS t`,
-			insertSQL: `INSERT INTO "charm_provenance" ("id", "name") SELECT $ModelCharmProvenance.id AS "id", $ModelCharmProvenance.name AS "name"`,
-			sample:    recovery.ModelCharmProvenance{},
+			insertSQL: `INSERT INTO "charm_provenance" ("id", "name") SELECT $CharmProvenance.id AS "id", $CharmProvenance.name AS "name"`,
+			sample:    exporttypes.CharmProvenance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmProvenance)
+				return insertRows(ctx, tx, stmt, dump.CharmProvenance)
 			},
 		})
 	}
@@ -638,10 +641,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_relation",
 			deleteSQL: `DELETE FROM "charm_relation" AS t`,
-			insertSQL: `INSERT INTO "charm_relation" ("uuid", "charm_uuid", "name", "role_id", "scope_id", "interface", "optional", "capacity") SELECT $ModelCharmRelation.uuid AS "uuid", $ModelCharmRelation.charm_uuid AS "charm_uuid", $ModelCharmRelation.name AS "name", $ModelCharmRelation.role_id AS "role_id", $ModelCharmRelation.scope_id AS "scope_id", $ModelCharmRelation.interface AS "interface", $ModelCharmRelation.optional AS "optional", $ModelCharmRelation.capacity AS "capacity"`,
-			sample:    recovery.ModelCharmRelation{},
+			insertSQL: `INSERT INTO "charm_relation" ("uuid", "charm_uuid", "name", "role_id", "scope_id", "interface", "optional", "capacity") SELECT $CharmRelation.uuid AS "uuid", $CharmRelation.charm_uuid AS "charm_uuid", $CharmRelation.name AS "name", $CharmRelation.role_id AS "role_id", $CharmRelation.scope_id AS "scope_id", $CharmRelation.interface AS "interface", $CharmRelation.optional AS "optional", $CharmRelation.capacity AS "capacity"`,
+			sample:    exporttypes.CharmRelation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmRelation)
+				return insertRows(ctx, tx, stmt, dump.CharmRelation)
 			},
 		})
 	}
@@ -649,10 +652,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_relation_role",
 			deleteSQL: `DELETE FROM "charm_relation_role" AS t`,
-			insertSQL: `INSERT INTO "charm_relation_role" ("id", "name") SELECT $ModelCharmRelationRole.id AS "id", $ModelCharmRelationRole.name AS "name"`,
-			sample:    recovery.ModelCharmRelationRole{},
+			insertSQL: `INSERT INTO "charm_relation_role" ("id", "name") SELECT $CharmRelationRole.id AS "id", $CharmRelationRole.name AS "name"`,
+			sample:    exporttypes.CharmRelationRole{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmRelationRole)
+				return insertRows(ctx, tx, stmt, dump.CharmRelationRole)
 			},
 		})
 	}
@@ -660,10 +663,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_relation_scope",
 			deleteSQL: `DELETE FROM "charm_relation_scope" AS t`,
-			insertSQL: `INSERT INTO "charm_relation_scope" ("id", "name") SELECT $ModelCharmRelationScope.id AS "id", $ModelCharmRelationScope.name AS "name"`,
-			sample:    recovery.ModelCharmRelationScope{},
+			insertSQL: `INSERT INTO "charm_relation_scope" ("id", "name") SELECT $CharmRelationScope.id AS "id", $CharmRelationScope.name AS "name"`,
+			sample:    exporttypes.CharmRelationScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmRelationScope)
+				return insertRows(ctx, tx, stmt, dump.CharmRelationScope)
 			},
 		})
 	}
@@ -671,10 +674,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_resource",
 			deleteSQL: `DELETE FROM "charm_resource" AS t`,
-			insertSQL: `INSERT INTO "charm_resource" ("charm_uuid", "name", "kind_id", "path", "description") SELECT $ModelCharmResource.charm_uuid AS "charm_uuid", $ModelCharmResource.name AS "name", $ModelCharmResource.kind_id AS "kind_id", $ModelCharmResource.path AS "path", $ModelCharmResource.description AS "description"`,
-			sample:    recovery.ModelCharmResource{},
+			insertSQL: `INSERT INTO "charm_resource" ("charm_uuid", "name", "kind_id", "path", "description") SELECT $CharmResource.charm_uuid AS "charm_uuid", $CharmResource.name AS "name", $CharmResource.kind_id AS "kind_id", $CharmResource.path AS "path", $CharmResource.description AS "description"`,
+			sample:    exporttypes.CharmResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmResource)
+				return insertRows(ctx, tx, stmt, dump.CharmResource)
 			},
 		})
 	}
@@ -682,10 +685,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_resource_kind",
 			deleteSQL: `DELETE FROM "charm_resource_kind" AS t`,
-			insertSQL: `INSERT INTO "charm_resource_kind" ("id", "name") SELECT $ModelCharmResourceKind.id AS "id", $ModelCharmResourceKind.name AS "name"`,
-			sample:    recovery.ModelCharmResourceKind{},
+			insertSQL: `INSERT INTO "charm_resource_kind" ("id", "name") SELECT $CharmResourceKind.id AS "id", $CharmResourceKind.name AS "name"`,
+			sample:    exporttypes.CharmResourceKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmResourceKind)
+				return insertRows(ctx, tx, stmt, dump.CharmResourceKind)
 			},
 		})
 	}
@@ -693,10 +696,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_run_as_kind",
 			deleteSQL: `DELETE FROM "charm_run_as_kind" AS t`,
-			insertSQL: `INSERT INTO "charm_run_as_kind" ("id", "name") SELECT $ModelCharmRunAsKind.id AS "id", $ModelCharmRunAsKind.name AS "name"`,
-			sample:    recovery.ModelCharmRunAsKind{},
+			insertSQL: `INSERT INTO "charm_run_as_kind" ("id", "name") SELECT $CharmRunAsKind.id AS "id", $CharmRunAsKind.name AS "name"`,
+			sample:    exporttypes.CharmRunAsKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmRunAsKind)
+				return insertRows(ctx, tx, stmt, dump.CharmRunAsKind)
 			},
 		})
 	}
@@ -704,10 +707,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_source",
 			deleteSQL: `DELETE FROM "charm_source" AS t`,
-			insertSQL: `INSERT INTO "charm_source" ("id", "name") SELECT $ModelCharmSource.id AS "id", $ModelCharmSource.name AS "name"`,
-			sample:    recovery.ModelCharmSource{},
+			insertSQL: `INSERT INTO "charm_source" ("id", "name") SELECT $CharmSource.id AS "id", $CharmSource.name AS "name"`,
+			sample:    exporttypes.CharmSource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmSource)
+				return insertRows(ctx, tx, stmt, dump.CharmSource)
 			},
 		})
 	}
@@ -715,10 +718,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_storage",
 			deleteSQL: `DELETE FROM "charm_storage" AS t`,
-			insertSQL: `INSERT INTO "charm_storage" ("charm_uuid", "name", "description", "storage_kind_id", "shared", "read_only", "count_min", "count_max", "minimum_size_mib", "location") SELECT $ModelCharmStorage.charm_uuid AS "charm_uuid", $ModelCharmStorage.name AS "name", $ModelCharmStorage.description AS "description", $ModelCharmStorage.storage_kind_id AS "storage_kind_id", $ModelCharmStorage.shared AS "shared", $ModelCharmStorage.read_only AS "read_only", $ModelCharmStorage.count_min AS "count_min", $ModelCharmStorage.count_max AS "count_max", $ModelCharmStorage.minimum_size_mib AS "minimum_size_mib", $ModelCharmStorage.location AS "location"`,
-			sample:    recovery.ModelCharmStorage{},
+			insertSQL: `INSERT INTO "charm_storage" ("charm_uuid", "name", "description", "storage_kind_id", "shared", "read_only", "count_min", "count_max", "minimum_size_mib", "location") SELECT $CharmStorage.charm_uuid AS "charm_uuid", $CharmStorage.name AS "name", $CharmStorage.description AS "description", $CharmStorage.storage_kind_id AS "storage_kind_id", $CharmStorage.shared AS "shared", $CharmStorage.read_only AS "read_only", $CharmStorage.count_min AS "count_min", $CharmStorage.count_max AS "count_max", $CharmStorage.minimum_size_mib AS "minimum_size_mib", $CharmStorage.location AS "location"`,
+			sample:    exporttypes.CharmStorage{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmStorage)
+				return insertRows(ctx, tx, stmt, dump.CharmStorage)
 			},
 		})
 	}
@@ -726,10 +729,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_storage_kind",
 			deleteSQL: `DELETE FROM "charm_storage_kind" AS t`,
-			insertSQL: `INSERT INTO "charm_storage_kind" ("id", "kind") SELECT $ModelCharmStorageKind.id AS "id", $ModelCharmStorageKind.kind AS "kind"`,
-			sample:    recovery.ModelCharmStorageKind{},
+			insertSQL: `INSERT INTO "charm_storage_kind" ("id", "kind") SELECT $CharmStorageKind.id AS "id", $CharmStorageKind.kind AS "kind"`,
+			sample:    exporttypes.CharmStorageKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmStorageKind)
+				return insertRows(ctx, tx, stmt, dump.CharmStorageKind)
 			},
 		})
 	}
@@ -737,10 +740,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_storage_property",
 			deleteSQL: `DELETE FROM "charm_storage_property" AS t`,
-			insertSQL: `INSERT INTO "charm_storage_property" ("charm_uuid", "charm_storage_name", "array_index", "value") SELECT $ModelCharmStorageProperty.charm_uuid AS "charm_uuid", $ModelCharmStorageProperty.charm_storage_name AS "charm_storage_name", $ModelCharmStorageProperty.array_index AS "array_index", $ModelCharmStorageProperty.value AS "value"`,
-			sample:    recovery.ModelCharmStorageProperty{},
+			insertSQL: `INSERT INTO "charm_storage_property" ("charm_uuid", "charm_storage_name", "array_index", "value") SELECT $CharmStorageProperty.charm_uuid AS "charm_uuid", $CharmStorageProperty.charm_storage_name AS "charm_storage_name", $CharmStorageProperty.array_index AS "array_index", $CharmStorageProperty.value AS "value"`,
+			sample:    exporttypes.CharmStorageProperty{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmStorageProperty)
+				return insertRows(ctx, tx, stmt, dump.CharmStorageProperty)
 			},
 		})
 	}
@@ -748,10 +751,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_tag",
 			deleteSQL: `DELETE FROM "charm_tag" AS t`,
-			insertSQL: `INSERT INTO "charm_tag" ("charm_uuid", "array_index", "value") SELECT $ModelCharmTag.charm_uuid AS "charm_uuid", $ModelCharmTag.array_index AS "array_index", $ModelCharmTag.value AS "value"`,
-			sample:    recovery.ModelCharmTag{},
+			insertSQL: `INSERT INTO "charm_tag" ("charm_uuid", "array_index", "value") SELECT $CharmTag.charm_uuid AS "charm_uuid", $CharmTag.array_index AS "array_index", $CharmTag.value AS "value"`,
+			sample:    exporttypes.CharmTag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmTag)
+				return insertRows(ctx, tx, stmt, dump.CharmTag)
 			},
 		})
 	}
@@ -759,10 +762,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_term",
 			deleteSQL: `DELETE FROM "charm_term" AS t`,
-			insertSQL: `INSERT INTO "charm_term" ("charm_uuid", "array_index", "value") SELECT $ModelCharmTerm.charm_uuid AS "charm_uuid", $ModelCharmTerm.array_index AS "array_index", $ModelCharmTerm.value AS "value"`,
-			sample:    recovery.ModelCharmTerm{},
+			insertSQL: `INSERT INTO "charm_term" ("charm_uuid", "array_index", "value") SELECT $CharmTerm.charm_uuid AS "charm_uuid", $CharmTerm.array_index AS "array_index", $CharmTerm.value AS "value"`,
+			sample:    exporttypes.CharmTerm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelCharmTerm)
+				return insertRows(ctx, tx, stmt, dump.CharmTerm)
 			},
 		})
 	}
@@ -770,10 +773,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "constraint",
 			deleteSQL: `DELETE FROM "constraint" AS t`,
-			insertSQL: `INSERT INTO "constraint" ("uuid", "arch", "cpu_cores", "cpu_power", "mem", "root_disk", "root_disk_source", "instance_role", "instance_type", "container_type_id", "virt_type", "allocate_public_ip", "image_id", "ip_family") SELECT $ModelConstraint.uuid AS "uuid", $ModelConstraint.arch AS "arch", $ModelConstraint.cpu_cores AS "cpu_cores", $ModelConstraint.cpu_power AS "cpu_power", $ModelConstraint.mem AS "mem", $ModelConstraint.root_disk AS "root_disk", $ModelConstraint.root_disk_source AS "root_disk_source", $ModelConstraint.instance_role AS "instance_role", $ModelConstraint.instance_type AS "instance_type", $ModelConstraint.container_type_id AS "container_type_id", $ModelConstraint.virt_type AS "virt_type", $ModelConstraint.allocate_public_ip AS "allocate_public_ip", $ModelConstraint.image_id AS "image_id", $ModelConstraint.ip_family AS "ip_family"`,
-			sample:    recovery.ModelConstraint{},
+			insertSQL: `INSERT INTO "constraint" ("uuid", "arch", "cpu_cores", "cpu_power", "mem", "root_disk", "root_disk_source", "instance_role", "instance_type", "container_type_id", "virt_type", "allocate_public_ip", "image_id", "ip_family") SELECT $Constraint.uuid AS "uuid", $Constraint.arch AS "arch", $Constraint.cpu_cores AS "cpu_cores", $Constraint.cpu_power AS "cpu_power", $Constraint.mem AS "mem", $Constraint.root_disk AS "root_disk", $Constraint.root_disk_source AS "root_disk_source", $Constraint.instance_role AS "instance_role", $Constraint.instance_type AS "instance_type", $Constraint.container_type_id AS "container_type_id", $Constraint.virt_type AS "virt_type", $Constraint.allocate_public_ip AS "allocate_public_ip", $Constraint.image_id AS "image_id", $Constraint.ip_family AS "ip_family"`,
+			sample:    exporttypes.Constraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelConstraint)
+				return insertRows(ctx, tx, stmt, dump.Constraint)
 			},
 		})
 	}
@@ -781,10 +784,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "constraint_space",
 			deleteSQL: `DELETE FROM "constraint_space" AS t`,
-			insertSQL: `INSERT INTO "constraint_space" ("constraint_uuid", "space", "exclude") SELECT $ModelConstraintSpace.constraint_uuid AS "constraint_uuid", $ModelConstraintSpace.space AS "space", $ModelConstraintSpace.exclude AS "exclude"`,
-			sample:    recovery.ModelConstraintSpace{},
+			insertSQL: `INSERT INTO "constraint_space" ("constraint_uuid", "space", "exclude") SELECT $ConstraintSpace.constraint_uuid AS "constraint_uuid", $ConstraintSpace.space AS "space", $ConstraintSpace.exclude AS "exclude"`,
+			sample:    exporttypes.ConstraintSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelConstraintSpace)
+				return insertRows(ctx, tx, stmt, dump.ConstraintSpace)
 			},
 		})
 	}
@@ -792,10 +795,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "constraint_tag",
 			deleteSQL: `DELETE FROM "constraint_tag" AS t`,
-			insertSQL: `INSERT INTO "constraint_tag" ("constraint_uuid", "tag") SELECT $ModelConstraintTag.constraint_uuid AS "constraint_uuid", $ModelConstraintTag.tag AS "tag"`,
-			sample:    recovery.ModelConstraintTag{},
+			insertSQL: `INSERT INTO "constraint_tag" ("constraint_uuid", "tag") SELECT $ConstraintTag.constraint_uuid AS "constraint_uuid", $ConstraintTag.tag AS "tag"`,
+			sample:    exporttypes.ConstraintTag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelConstraintTag)
+				return insertRows(ctx, tx, stmt, dump.ConstraintTag)
 			},
 		})
 	}
@@ -803,10 +806,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "constraint_zone",
 			deleteSQL: `DELETE FROM "constraint_zone" AS t`,
-			insertSQL: `INSERT INTO "constraint_zone" ("constraint_uuid", "zone") SELECT $ModelConstraintZone.constraint_uuid AS "constraint_uuid", $ModelConstraintZone.zone AS "zone"`,
-			sample:    recovery.ModelConstraintZone{},
+			insertSQL: `INSERT INTO "constraint_zone" ("constraint_uuid", "zone") SELECT $ConstraintZone.constraint_uuid AS "constraint_uuid", $ConstraintZone.zone AS "zone"`,
+			sample:    exporttypes.ConstraintZone{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelConstraintZone)
+				return insertRows(ctx, tx, stmt, dump.ConstraintZone)
 			},
 		})
 	}
@@ -814,10 +817,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "container_type",
 			deleteSQL: `DELETE FROM "container_type" AS t`,
-			insertSQL: `INSERT INTO "container_type" ("id", "value") SELECT $ModelContainerType.id AS "id", $ModelContainerType.value AS "value"`,
-			sample:    recovery.ModelContainerType{},
+			insertSQL: `INSERT INTO "container_type" ("id", "value") SELECT $ContainerType.id AS "id", $ContainerType.value AS "value"`,
+			sample:    exporttypes.ContainerType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelContainerType)
+				return insertRows(ctx, tx, stmt, dump.ContainerType)
 			},
 		})
 	}
@@ -825,10 +828,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "device_constraint",
 			deleteSQL: `DELETE FROM "device_constraint" AS t`,
-			insertSQL: `INSERT INTO "device_constraint" ("uuid", "application_uuid", "name", "type", "count") SELECT $ModelDeviceConstraint.uuid AS "uuid", $ModelDeviceConstraint.application_uuid AS "application_uuid", $ModelDeviceConstraint.name AS "name", $ModelDeviceConstraint.type AS "type", $ModelDeviceConstraint.count AS "count"`,
-			sample:    recovery.ModelDeviceConstraint{},
+			insertSQL: `INSERT INTO "device_constraint" ("uuid", "application_uuid", "name", "type", "count") SELECT $DeviceConstraint.uuid AS "uuid", $DeviceConstraint.application_uuid AS "application_uuid", $DeviceConstraint.name AS "name", $DeviceConstraint.type AS "type", $DeviceConstraint.count AS "count"`,
+			sample:    exporttypes.DeviceConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelDeviceConstraint)
+				return insertRows(ctx, tx, stmt, dump.DeviceConstraint)
 			},
 		})
 	}
@@ -836,10 +839,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "device_constraint_attribute",
 			deleteSQL: `DELETE FROM "device_constraint_attribute" AS t`,
-			insertSQL: `INSERT INTO "device_constraint_attribute" ("device_constraint_uuid", "key", "value") SELECT $ModelDeviceConstraintAttribute.device_constraint_uuid AS "device_constraint_uuid", $ModelDeviceConstraintAttribute.key AS "key", $ModelDeviceConstraintAttribute.value AS "value"`,
-			sample:    recovery.ModelDeviceConstraintAttribute{},
+			insertSQL: `INSERT INTO "device_constraint_attribute" ("device_constraint_uuid", "key", "value") SELECT $DeviceConstraintAttribute.device_constraint_uuid AS "device_constraint_uuid", $DeviceConstraintAttribute.key AS "key", $DeviceConstraintAttribute.value AS "value"`,
+			sample:    exporttypes.DeviceConstraintAttribute{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelDeviceConstraintAttribute)
+				return insertRows(ctx, tx, stmt, dump.DeviceConstraintAttribute)
 			},
 		})
 	}
@@ -847,10 +850,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "fqdn_address",
 			deleteSQL: `DELETE FROM "fqdn_address" AS t`,
-			insertSQL: `INSERT INTO "fqdn_address" ("uuid", "address", "scope_id") SELECT $ModelFqdnAddress.uuid AS "uuid", $ModelFqdnAddress.address AS "address", $ModelFqdnAddress.scope_id AS "scope_id"`,
-			sample:    recovery.ModelFqdnAddress{},
+			insertSQL: `INSERT INTO "fqdn_address" ("uuid", "address", "scope_id") SELECT $FqdnAddress.uuid AS "uuid", $FqdnAddress.address AS "address", $FqdnAddress.scope_id AS "scope_id"`,
+			sample:    exporttypes.FqdnAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelFqdnAddress)
+				return insertRows(ctx, tx, stmt, dump.FqdnAddress)
 			},
 		})
 	}
@@ -858,10 +861,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "hash_kind",
 			deleteSQL: `DELETE FROM "hash_kind" AS t`,
-			insertSQL: `INSERT INTO "hash_kind" ("id", "name") SELECT $ModelHashKind.id AS "id", $ModelHashKind.name AS "name"`,
-			sample:    recovery.ModelHashKind{},
+			insertSQL: `INSERT INTO "hash_kind" ("id", "name") SELECT $HashKind.id AS "id", $HashKind.name AS "name"`,
+			sample:    exporttypes.HashKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelHashKind)
+				return insertRows(ctx, tx, stmt, dump.HashKind)
 			},
 		})
 	}
@@ -869,10 +872,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "hostname_address",
 			deleteSQL: `DELETE FROM "hostname_address" AS t`,
-			insertSQL: `INSERT INTO "hostname_address" ("uuid", "hostname", "scope_id") SELECT $ModelHostnameAddress.uuid AS "uuid", $ModelHostnameAddress.hostname AS "hostname", $ModelHostnameAddress.scope_id AS "scope_id"`,
-			sample:    recovery.ModelHostnameAddress{},
+			insertSQL: `INSERT INTO "hostname_address" ("uuid", "hostname", "scope_id") SELECT $HostnameAddress.uuid AS "uuid", $HostnameAddress.hostname AS "hostname", $HostnameAddress.scope_id AS "scope_id"`,
+			sample:    exporttypes.HostnameAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelHostnameAddress)
+				return insertRows(ctx, tx, stmt, dump.HostnameAddress)
 			},
 		})
 	}
@@ -880,10 +883,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "instance_tag",
 			deleteSQL: `DELETE FROM "instance_tag" AS t`,
-			insertSQL: `INSERT INTO "instance_tag" ("machine_uuid", "tag") SELECT $ModelInstanceTag.machine_uuid AS "machine_uuid", $ModelInstanceTag.tag AS "tag"`,
-			sample:    recovery.ModelInstanceTag{},
+			insertSQL: `INSERT INTO "instance_tag" ("machine_uuid", "tag") SELECT $InstanceTag.machine_uuid AS "machine_uuid", $InstanceTag.tag AS "tag"`,
+			sample:    exporttypes.InstanceTag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelInstanceTag)
+				return insertRows(ctx, tx, stmt, dump.InstanceTag)
 			},
 		})
 	}
@@ -891,10 +894,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ip_address",
 			deleteSQL: `DELETE FROM "ip_address" AS t`,
-			insertSQL: `INSERT INTO "ip_address" ("uuid", "net_node_uuid", "device_uuid", "address_value", "subnet_uuid", "type_id", "config_type_id", "origin_id", "scope_id", "is_secondary", "is_shadow") SELECT $ModelIpAddress.uuid AS "uuid", $ModelIpAddress.net_node_uuid AS "net_node_uuid", $ModelIpAddress.device_uuid AS "device_uuid", $ModelIpAddress.address_value AS "address_value", $ModelIpAddress.subnet_uuid AS "subnet_uuid", $ModelIpAddress.type_id AS "type_id", $ModelIpAddress.config_type_id AS "config_type_id", $ModelIpAddress.origin_id AS "origin_id", $ModelIpAddress.scope_id AS "scope_id", CASE WHEN $ModelIpAddress.has_is_secondary THEN $ModelIpAddress.is_secondary ELSE false END AS "is_secondary", CASE WHEN $ModelIpAddress.has_is_shadow THEN $ModelIpAddress.is_shadow ELSE false END AS "is_shadow"`,
-			sample:    recovery.ModelIpAddress{},
+			insertSQL: `INSERT INTO "ip_address" ("uuid", "net_node_uuid", "device_uuid", "address_value", "subnet_uuid", "type_id", "config_type_id", "origin_id", "scope_id", "is_secondary", "is_shadow") SELECT $IpAddress.uuid AS "uuid", $IpAddress.net_node_uuid AS "net_node_uuid", $IpAddress.device_uuid AS "device_uuid", $IpAddress.address_value AS "address_value", $IpAddress.subnet_uuid AS "subnet_uuid", $IpAddress.type_id AS "type_id", $IpAddress.config_type_id AS "config_type_id", $IpAddress.origin_id AS "origin_id", $IpAddress.scope_id AS "scope_id", $IpAddress.is_secondary AS "is_secondary", $IpAddress.is_shadow AS "is_shadow"`,
+			sample:    exporttypes.IpAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelIpAddress)
+				return insertRows(ctx, tx, stmt, dump.IpAddress)
 			},
 		})
 	}
@@ -902,10 +905,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ip_address_config_type",
 			deleteSQL: `DELETE FROM "ip_address_config_type" AS t`,
-			insertSQL: `INSERT INTO "ip_address_config_type" ("id", "name") SELECT $ModelIpAddressConfigType.id AS "id", $ModelIpAddressConfigType.name AS "name"`,
-			sample:    recovery.ModelIpAddressConfigType{},
+			insertSQL: `INSERT INTO "ip_address_config_type" ("id", "name") SELECT $IpAddressConfigType.id AS "id", $IpAddressConfigType.name AS "name"`,
+			sample:    exporttypes.IpAddressConfigType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelIpAddressConfigType)
+				return insertRows(ctx, tx, stmt, dump.IpAddressConfigType)
 			},
 		})
 	}
@@ -913,10 +916,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ip_address_origin",
 			deleteSQL: `DELETE FROM "ip_address_origin" AS t`,
-			insertSQL: `INSERT INTO "ip_address_origin" ("id", "name") SELECT $ModelIpAddressOrigin.id AS "id", $ModelIpAddressOrigin.name AS "name"`,
-			sample:    recovery.ModelIpAddressOrigin{},
+			insertSQL: `INSERT INTO "ip_address_origin" ("id", "name") SELECT $IpAddressOrigin.id AS "id", $IpAddressOrigin.name AS "name"`,
+			sample:    exporttypes.IpAddressOrigin{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelIpAddressOrigin)
+				return insertRows(ctx, tx, stmt, dump.IpAddressOrigin)
 			},
 		})
 	}
@@ -924,10 +927,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ip_address_scope",
 			deleteSQL: `DELETE FROM "ip_address_scope" AS t`,
-			insertSQL: `INSERT INTO "ip_address_scope" ("id", "name") SELECT $ModelIpAddressScope.id AS "id", $ModelIpAddressScope.name AS "name"`,
-			sample:    recovery.ModelIpAddressScope{},
+			insertSQL: `INSERT INTO "ip_address_scope" ("id", "name") SELECT $IpAddressScope.id AS "id", $IpAddressScope.name AS "name"`,
+			sample:    exporttypes.IpAddressScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelIpAddressScope)
+				return insertRows(ctx, tx, stmt, dump.IpAddressScope)
 			},
 		})
 	}
@@ -935,10 +938,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ip_address_type",
 			deleteSQL: `DELETE FROM "ip_address_type" AS t`,
-			insertSQL: `INSERT INTO "ip_address_type" ("id", "name") SELECT $ModelIpAddressType.id AS "id", $ModelIpAddressType.name AS "name"`,
-			sample:    recovery.ModelIpAddressType{},
+			insertSQL: `INSERT INTO "ip_address_type" ("id", "name") SELECT $IpAddressType.id AS "id", $IpAddressType.name AS "name"`,
+			sample:    exporttypes.IpAddressType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelIpAddressType)
+				return insertRows(ctx, tx, stmt, dump.IpAddressType)
 			},
 		})
 	}
@@ -946,10 +949,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "k8s_pod",
 			deleteSQL: `DELETE FROM "k8s_pod" AS t`,
-			insertSQL: `INSERT INTO "k8s_pod" ("unit_uuid", "provider_id") SELECT $ModelK8sPod.unit_uuid AS "unit_uuid", $ModelK8sPod.provider_id AS "provider_id"`,
-			sample:    recovery.ModelK8sPod{},
+			insertSQL: `INSERT INTO "k8s_pod" ("unit_uuid", "provider_id") SELECT $K8sPod.unit_uuid AS "unit_uuid", $K8sPod.provider_id AS "provider_id"`,
+			sample:    exporttypes.K8sPod{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelK8sPod)
+				return insertRows(ctx, tx, stmt, dump.K8sPod)
 			},
 		})
 	}
@@ -957,10 +960,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "k8s_pod_port",
 			deleteSQL: `DELETE FROM "k8s_pod_port" AS t`,
-			insertSQL: `INSERT INTO "k8s_pod_port" ("unit_uuid", "port") SELECT $ModelK8sPodPort.unit_uuid AS "unit_uuid", $ModelK8sPodPort.port AS "port"`,
-			sample:    recovery.ModelK8sPodPort{},
+			insertSQL: `INSERT INTO "k8s_pod_port" ("unit_uuid", "port") SELECT $K8sPodPort.unit_uuid AS "unit_uuid", $K8sPodPort.port AS "port"`,
+			sample:    exporttypes.K8sPodPort{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelK8sPodPort)
+				return insertRows(ctx, tx, stmt, dump.K8sPodPort)
 			},
 		})
 	}
@@ -968,10 +971,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "k8s_pod_status",
 			deleteSQL: `DELETE FROM "k8s_pod_status" AS t`,
-			insertSQL: `INSERT INTO "k8s_pod_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelK8sPodStatus.unit_uuid AS "unit_uuid", $ModelK8sPodStatus.status_id AS "status_id", $ModelK8sPodStatus.message AS "message", $ModelK8sPodStatus.data AS "data", $ModelK8sPodStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelK8sPodStatus{},
+			insertSQL: `INSERT INTO "k8s_pod_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $K8sPodStatus.unit_uuid AS "unit_uuid", $K8sPodStatus.status_id AS "status_id", $K8sPodStatus.message AS "message", CAST($K8sPodStatus.data AS BLOB) AS "data", $K8sPodStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.K8sPodStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelK8sPodStatus)
+				return insertRows(ctx, tx, stmt, dump.K8sPodStatus)
 			},
 		})
 	}
@@ -979,10 +982,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "k8s_pod_status_value",
 			deleteSQL: `DELETE FROM "k8s_pod_status_value" AS t`,
-			insertSQL: `INSERT INTO "k8s_pod_status_value" ("id", "status") SELECT $ModelK8sPodStatusValue.id AS "id", $ModelK8sPodStatusValue.status AS "status"`,
-			sample:    recovery.ModelK8sPodStatusValue{},
+			insertSQL: `INSERT INTO "k8s_pod_status_value" ("id", "status") SELECT $K8sPodStatusValue.id AS "id", $K8sPodStatusValue.status AS "status"`,
+			sample:    exporttypes.K8sPodStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelK8sPodStatusValue)
+				return insertRows(ctx, tx, stmt, dump.K8sPodStatusValue)
 			},
 		})
 	}
@@ -990,10 +993,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "k8s_service",
 			deleteSQL: `DELETE FROM "k8s_service" AS t`,
-			insertSQL: `INSERT INTO "k8s_service" ("uuid", "application_uuid", "net_node_uuid", "provider_id") SELECT $ModelK8sService.uuid AS "uuid", $ModelK8sService.application_uuid AS "application_uuid", $ModelK8sService.net_node_uuid AS "net_node_uuid", $ModelK8sService.provider_id AS "provider_id"`,
-			sample:    recovery.ModelK8sService{},
+			insertSQL: `INSERT INTO "k8s_service" ("uuid", "application_uuid", "net_node_uuid", "provider_id") SELECT $K8sService.uuid AS "uuid", $K8sService.application_uuid AS "application_uuid", $K8sService.net_node_uuid AS "net_node_uuid", $K8sService.provider_id AS "provider_id"`,
+			sample:    exporttypes.K8sService{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelK8sService)
+				return insertRows(ctx, tx, stmt, dump.K8sService)
 			},
 		})
 	}
@@ -1001,10 +1004,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "life",
 			deleteSQL: `DELETE FROM "life" AS t`,
-			insertSQL: `INSERT INTO "life" ("id", "value") SELECT $ModelLife.id AS "id", $ModelLife.value AS "value"`,
-			sample:    recovery.ModelLife{},
+			insertSQL: `INSERT INTO "life" ("id", "value") SELECT $Life.id AS "id", $Life.value AS "value"`,
+			sample:    exporttypes.Life{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLife)
+				return insertRows(ctx, tx, stmt, dump.Life)
 			},
 		})
 	}
@@ -1012,10 +1015,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "link_layer_device",
 			deleteSQL: `DELETE FROM "link_layer_device" AS t`,
-			insertSQL: `INSERT INTO "link_layer_device" ("uuid", "net_node_uuid", "name", "mtu", "mac_address", "device_type_id", "virtual_port_type_id", "is_auto_start", "is_enabled", "is_default_gateway", "gateway_address", "vlan_tag") SELECT $ModelLinkLayerDevice.uuid AS "uuid", $ModelLinkLayerDevice.net_node_uuid AS "net_node_uuid", $ModelLinkLayerDevice.name AS "name", $ModelLinkLayerDevice.mtu AS "mtu", $ModelLinkLayerDevice.mac_address AS "mac_address", $ModelLinkLayerDevice.device_type_id AS "device_type_id", $ModelLinkLayerDevice.virtual_port_type_id AS "virtual_port_type_id", CASE WHEN $ModelLinkLayerDevice.has_is_auto_start THEN $ModelLinkLayerDevice.is_auto_start ELSE true END AS "is_auto_start", CASE WHEN $ModelLinkLayerDevice.has_is_enabled THEN $ModelLinkLayerDevice.is_enabled ELSE true END AS "is_enabled", CASE WHEN $ModelLinkLayerDevice.has_is_default_gateway THEN $ModelLinkLayerDevice.is_default_gateway ELSE false END AS "is_default_gateway", $ModelLinkLayerDevice.gateway_address AS "gateway_address", CASE WHEN $ModelLinkLayerDevice.has_vlan_tag THEN $ModelLinkLayerDevice.vlan_tag ELSE 0 END AS "vlan_tag"`,
-			sample:    recovery.ModelLinkLayerDevice{},
+			insertSQL: `INSERT INTO "link_layer_device" ("uuid", "net_node_uuid", "name", "mtu", "mac_address", "device_type_id", "virtual_port_type_id", "is_auto_start", "is_enabled", "is_default_gateway", "gateway_address", "vlan_tag") SELECT $LinkLayerDevice.uuid AS "uuid", $LinkLayerDevice.net_node_uuid AS "net_node_uuid", $LinkLayerDevice.name AS "name", $LinkLayerDevice.mtu AS "mtu", $LinkLayerDevice.mac_address AS "mac_address", $LinkLayerDevice.device_type_id AS "device_type_id", $LinkLayerDevice.virtual_port_type_id AS "virtual_port_type_id", $LinkLayerDevice.is_auto_start AS "is_auto_start", $LinkLayerDevice.is_enabled AS "is_enabled", $LinkLayerDevice.is_default_gateway AS "is_default_gateway", $LinkLayerDevice.gateway_address AS "gateway_address", $LinkLayerDevice.vlan_tag AS "vlan_tag"`,
+			sample:    exporttypes.LinkLayerDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLinkLayerDevice)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDevice)
 			},
 		})
 	}
@@ -1023,10 +1026,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "link_layer_device_dns_address",
 			deleteSQL: `DELETE FROM "link_layer_device_dns_address" AS t`,
-			insertSQL: `INSERT INTO "link_layer_device_dns_address" ("device_uuid", "dns_address") SELECT $ModelLinkLayerDeviceDnsAddress.device_uuid AS "device_uuid", $ModelLinkLayerDeviceDnsAddress.dns_address AS "dns_address"`,
-			sample:    recovery.ModelLinkLayerDeviceDnsAddress{},
+			insertSQL: `INSERT INTO "link_layer_device_dns_address" ("device_uuid", "dns_address") SELECT $LinkLayerDeviceDnsAddress.device_uuid AS "device_uuid", $LinkLayerDeviceDnsAddress.dns_address AS "dns_address"`,
+			sample:    exporttypes.LinkLayerDeviceDnsAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLinkLayerDeviceDnsAddress)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceDnsAddress)
 			},
 		})
 	}
@@ -1034,10 +1037,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "link_layer_device_dns_domain",
 			deleteSQL: `DELETE FROM "link_layer_device_dns_domain" AS t`,
-			insertSQL: `INSERT INTO "link_layer_device_dns_domain" ("device_uuid", "search_domain") SELECT $ModelLinkLayerDeviceDnsDomain.device_uuid AS "device_uuid", $ModelLinkLayerDeviceDnsDomain.search_domain AS "search_domain"`,
-			sample:    recovery.ModelLinkLayerDeviceDnsDomain{},
+			insertSQL: `INSERT INTO "link_layer_device_dns_domain" ("device_uuid", "search_domain") SELECT $LinkLayerDeviceDnsDomain.device_uuid AS "device_uuid", $LinkLayerDeviceDnsDomain.search_domain AS "search_domain"`,
+			sample:    exporttypes.LinkLayerDeviceDnsDomain{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLinkLayerDeviceDnsDomain)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceDnsDomain)
 			},
 		})
 	}
@@ -1045,10 +1048,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "link_layer_device_parent",
 			deleteSQL: `DELETE FROM "link_layer_device_parent" AS t`,
-			insertSQL: `INSERT INTO "link_layer_device_parent" ("device_uuid", "parent_uuid") SELECT $ModelLinkLayerDeviceParent.device_uuid AS "device_uuid", $ModelLinkLayerDeviceParent.parent_uuid AS "parent_uuid"`,
-			sample:    recovery.ModelLinkLayerDeviceParent{},
+			insertSQL: `INSERT INTO "link_layer_device_parent" ("device_uuid", "parent_uuid") SELECT $LinkLayerDeviceParent.device_uuid AS "device_uuid", $LinkLayerDeviceParent.parent_uuid AS "parent_uuid"`,
+			sample:    exporttypes.LinkLayerDeviceParent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLinkLayerDeviceParent)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceParent)
 			},
 		})
 	}
@@ -1056,10 +1059,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "link_layer_device_route",
 			deleteSQL: `DELETE FROM "link_layer_device_route" AS t`,
-			insertSQL: `INSERT INTO "link_layer_device_route" ("device_uuid", "destination_cidr", "gateway_ip", "metric") SELECT $ModelLinkLayerDeviceRoute.device_uuid AS "device_uuid", $ModelLinkLayerDeviceRoute.destination_cidr AS "destination_cidr", $ModelLinkLayerDeviceRoute.gateway_ip AS "gateway_ip", $ModelLinkLayerDeviceRoute.metric AS "metric"`,
-			sample:    recovery.ModelLinkLayerDeviceRoute{},
+			insertSQL: `INSERT INTO "link_layer_device_route" ("device_uuid", "destination_cidr", "gateway_ip", "metric") SELECT $LinkLayerDeviceRoute.device_uuid AS "device_uuid", $LinkLayerDeviceRoute.destination_cidr AS "destination_cidr", $LinkLayerDeviceRoute.gateway_ip AS "gateway_ip", $LinkLayerDeviceRoute.metric AS "metric"`,
+			sample:    exporttypes.LinkLayerDeviceRoute{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLinkLayerDeviceRoute)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceRoute)
 			},
 		})
 	}
@@ -1067,21 +1070,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "link_layer_device_type",
 			deleteSQL: `DELETE FROM "link_layer_device_type" AS t`,
-			insertSQL: `INSERT INTO "link_layer_device_type" ("id", "name") SELECT $ModelLinkLayerDeviceType.id AS "id", $ModelLinkLayerDeviceType.name AS "name"`,
-			sample:    recovery.ModelLinkLayerDeviceType{},
+			insertSQL: `INSERT INTO "link_layer_device_type" ("id", "name") SELECT $LinkLayerDeviceType.id AS "id", $LinkLayerDeviceType.name AS "name"`,
+			sample:    exporttypes.LinkLayerDeviceType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLinkLayerDeviceType)
-			},
-		})
-	}
-	if dump.Present["log_transfer_progress"] {
-		tables = append(tables, replayTable{
-			name:      "log_transfer_progress",
-			deleteSQL: `DELETE FROM "log_transfer_progress" AS t`,
-			insertSQL: `INSERT INTO "log_transfer_progress" ("uuid", "last_time") SELECT $ModelLogTransferProgress.uuid AS "uuid", $ModelLogTransferProgress.last_time AS "last_time"`,
-			sample:    recovery.ModelLogTransferProgress{},
-			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLogTransferProgress)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceType)
 			},
 		})
 	}
@@ -1089,10 +1081,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine",
 			deleteSQL: `DELETE FROM "machine" AS t`,
-			insertSQL: `INSERT INTO "machine" ("uuid", "name", "net_node_uuid", "life_id", "nonce", "password_hash_algorithm_id", "password_hash", "force_destroyed", "agent_started_at", "hostname", "keep_instance") SELECT $ModelMachine.uuid AS "uuid", $ModelMachine.name AS "name", $ModelMachine.net_node_uuid AS "net_node_uuid", $ModelMachine.life_id AS "life_id", $ModelMachine.nonce AS "nonce", $ModelMachine.password_hash_algorithm_id AS "password_hash_algorithm_id", $ModelMachine.password_hash AS "password_hash", CASE WHEN $ModelMachine.has_force_destroyed THEN $ModelMachine.force_destroyed ELSE FALSE END AS "force_destroyed", $ModelMachine.agent_started_at AS "agent_started_at", $ModelMachine.hostname AS "hostname", $ModelMachine.keep_instance AS "keep_instance"`,
-			sample:    recovery.ModelMachine{},
+			insertSQL: `INSERT INTO "machine" ("uuid", "name", "net_node_uuid", "life_id", "nonce", "password_hash_algorithm_id", "password_hash", "force_destroyed", "agent_started_at", "hostname", "keep_instance") SELECT $Machine.uuid AS "uuid", $Machine.name AS "name", $Machine.net_node_uuid AS "net_node_uuid", $Machine.life_id AS "life_id", $Machine.nonce AS "nonce", $Machine.password_hash_algorithm_id AS "password_hash_algorithm_id", $Machine.password_hash AS "password_hash", $Machine.force_destroyed AS "force_destroyed", $Machine.agent_started_at AS "agent_started_at", $Machine.hostname AS "hostname", $Machine.keep_instance AS "keep_instance"`,
+			sample:    exporttypes.Machine{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachine)
+				return insertRows(ctx, tx, stmt, dump.Machine)
 			},
 		})
 	}
@@ -1100,10 +1092,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_agent_presence",
 			deleteSQL: `DELETE FROM "machine_agent_presence" AS t`,
-			insertSQL: `INSERT INTO "machine_agent_presence" ("machine_uuid", "last_seen") SELECT $ModelMachineAgentPresence.machine_uuid AS "machine_uuid", $ModelMachineAgentPresence.last_seen AS "last_seen"`,
-			sample:    recovery.ModelMachineAgentPresence{},
+			insertSQL: `INSERT INTO "machine_agent_presence" ("machine_uuid", "last_seen") SELECT $MachineAgentPresence.machine_uuid AS "machine_uuid", $MachineAgentPresence.last_seen AS "last_seen"`,
+			sample:    exporttypes.MachineAgentPresence{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineAgentPresence)
+				return insertRows(ctx, tx, stmt, dump.MachineAgentPresence)
 			},
 		})
 	}
@@ -1111,10 +1103,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_agent_version",
 			deleteSQL: `DELETE FROM "machine_agent_version" AS t`,
-			insertSQL: `INSERT INTO "machine_agent_version" ("machine_uuid", "version", "architecture_id") SELECT $ModelMachineAgentVersion.machine_uuid AS "machine_uuid", $ModelMachineAgentVersion.version AS "version", $ModelMachineAgentVersion.architecture_id AS "architecture_id"`,
-			sample:    recovery.ModelMachineAgentVersion{},
+			insertSQL: `INSERT INTO "machine_agent_version" ("machine_uuid", "version", "architecture_id") SELECT $MachineAgentVersion.machine_uuid AS "machine_uuid", $MachineAgentVersion.version AS "version", $MachineAgentVersion.architecture_id AS "architecture_id"`,
+			sample:    exporttypes.MachineAgentVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineAgentVersion)
+				return insertRows(ctx, tx, stmt, dump.MachineAgentVersion)
 			},
 		})
 	}
@@ -1122,10 +1114,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_cloud_instance",
 			deleteSQL: `DELETE FROM "machine_cloud_instance" AS t`,
-			insertSQL: `INSERT INTO "machine_cloud_instance" ("machine_uuid", "life_id", "instance_id", "display_name", "arch", "availability_zone_uuid", "cpu_cores", "cpu_power", "mem", "root_disk", "root_disk_source", "virt_type") SELECT $ModelMachineCloudInstance.machine_uuid AS "machine_uuid", $ModelMachineCloudInstance.life_id AS "life_id", $ModelMachineCloudInstance.instance_id AS "instance_id", $ModelMachineCloudInstance.display_name AS "display_name", $ModelMachineCloudInstance.arch AS "arch", $ModelMachineCloudInstance.availability_zone_uuid AS "availability_zone_uuid", $ModelMachineCloudInstance.cpu_cores AS "cpu_cores", $ModelMachineCloudInstance.cpu_power AS "cpu_power", $ModelMachineCloudInstance.mem AS "mem", $ModelMachineCloudInstance.root_disk AS "root_disk", $ModelMachineCloudInstance.root_disk_source AS "root_disk_source", $ModelMachineCloudInstance.virt_type AS "virt_type"`,
-			sample:    recovery.ModelMachineCloudInstance{},
+			insertSQL: `INSERT INTO "machine_cloud_instance" ("machine_uuid", "life_id", "instance_id", "display_name", "arch", "availability_zone_uuid", "cpu_cores", "cpu_power", "mem", "root_disk", "root_disk_source", "virt_type") SELECT $MachineCloudInstance.machine_uuid AS "machine_uuid", $MachineCloudInstance.life_id AS "life_id", $MachineCloudInstance.instance_id AS "instance_id", $MachineCloudInstance.display_name AS "display_name", $MachineCloudInstance.arch AS "arch", $MachineCloudInstance.availability_zone_uuid AS "availability_zone_uuid", $MachineCloudInstance.cpu_cores AS "cpu_cores", $MachineCloudInstance.cpu_power AS "cpu_power", $MachineCloudInstance.mem AS "mem", $MachineCloudInstance.root_disk AS "root_disk", $MachineCloudInstance.root_disk_source AS "root_disk_source", $MachineCloudInstance.virt_type AS "virt_type"`,
+			sample:    exporttypes.MachineCloudInstance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineCloudInstance)
+				return insertRows(ctx, tx, stmt, dump.MachineCloudInstance)
 			},
 		})
 	}
@@ -1133,10 +1125,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_cloud_instance_status",
 			deleteSQL: `DELETE FROM "machine_cloud_instance_status" AS t`,
-			insertSQL: `INSERT INTO "machine_cloud_instance_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelMachineCloudInstanceStatus.machine_uuid AS "machine_uuid", $ModelMachineCloudInstanceStatus.status_id AS "status_id", $ModelMachineCloudInstanceStatus.message AS "message", $ModelMachineCloudInstanceStatus.data AS "data", $ModelMachineCloudInstanceStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelMachineCloudInstanceStatus{},
+			insertSQL: `INSERT INTO "machine_cloud_instance_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $MachineCloudInstanceStatus.machine_uuid AS "machine_uuid", $MachineCloudInstanceStatus.status_id AS "status_id", $MachineCloudInstanceStatus.message AS "message", CAST($MachineCloudInstanceStatus.data AS BLOB) AS "data", $MachineCloudInstanceStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.MachineCloudInstanceStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineCloudInstanceStatus)
+				return insertRows(ctx, tx, stmt, dump.MachineCloudInstanceStatus)
 			},
 		})
 	}
@@ -1144,10 +1136,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_cloud_instance_status_value",
 			deleteSQL: `DELETE FROM "machine_cloud_instance_status_value" AS t`,
-			insertSQL: `INSERT INTO "machine_cloud_instance_status_value" ("id", "status") SELECT $ModelMachineCloudInstanceStatusValue.id AS "id", $ModelMachineCloudInstanceStatusValue.status AS "status"`,
-			sample:    recovery.ModelMachineCloudInstanceStatusValue{},
+			insertSQL: `INSERT INTO "machine_cloud_instance_status_value" ("id", "status") SELECT $MachineCloudInstanceStatusValue.id AS "id", $MachineCloudInstanceStatusValue.status AS "status"`,
+			sample:    exporttypes.MachineCloudInstanceStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineCloudInstanceStatusValue)
+				return insertRows(ctx, tx, stmt, dump.MachineCloudInstanceStatusValue)
 			},
 		})
 	}
@@ -1155,10 +1147,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_constraint",
 			deleteSQL: `DELETE FROM "machine_constraint" AS t`,
-			insertSQL: `INSERT INTO "machine_constraint" ("machine_uuid", "constraint_uuid") SELECT $ModelMachineConstraint.machine_uuid AS "machine_uuid", $ModelMachineConstraint.constraint_uuid AS "constraint_uuid"`,
-			sample:    recovery.ModelMachineConstraint{},
+			insertSQL: `INSERT INTO "machine_constraint" ("machine_uuid", "constraint_uuid") SELECT $MachineConstraint.machine_uuid AS "machine_uuid", $MachineConstraint.constraint_uuid AS "constraint_uuid"`,
+			sample:    exporttypes.MachineConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineConstraint)
+				return insertRows(ctx, tx, stmt, dump.MachineConstraint)
 			},
 		})
 	}
@@ -1166,10 +1158,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_container_type",
 			deleteSQL: `DELETE FROM "machine_container_type" AS t`,
-			insertSQL: `INSERT INTO "machine_container_type" ("machine_uuid", "container_type_id") SELECT $ModelMachineContainerType.machine_uuid AS "machine_uuid", $ModelMachineContainerType.container_type_id AS "container_type_id"`,
-			sample:    recovery.ModelMachineContainerType{},
+			insertSQL: `INSERT INTO "machine_container_type" ("machine_uuid", "container_type_id") SELECT $MachineContainerType.machine_uuid AS "machine_uuid", $MachineContainerType.container_type_id AS "container_type_id"`,
+			sample:    exporttypes.MachineContainerType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineContainerType)
+				return insertRows(ctx, tx, stmt, dump.MachineContainerType)
 			},
 		})
 	}
@@ -1177,10 +1169,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_filesystem",
 			deleteSQL: `DELETE FROM "machine_filesystem" AS t`,
-			insertSQL: `INSERT INTO "machine_filesystem" ("machine_uuid", "filesystem_uuid") SELECT $ModelMachineFilesystem.machine_uuid AS "machine_uuid", $ModelMachineFilesystem.filesystem_uuid AS "filesystem_uuid"`,
-			sample:    recovery.ModelMachineFilesystem{},
+			insertSQL: `INSERT INTO "machine_filesystem" ("machine_uuid", "filesystem_uuid") SELECT $MachineFilesystem.machine_uuid AS "machine_uuid", $MachineFilesystem.filesystem_uuid AS "filesystem_uuid"`,
+			sample:    exporttypes.MachineFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineFilesystem)
+				return insertRows(ctx, tx, stmt, dump.MachineFilesystem)
 			},
 		})
 	}
@@ -1188,10 +1180,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_lxd_profile",
 			deleteSQL: `DELETE FROM "machine_lxd_profile" AS t`,
-			insertSQL: `INSERT INTO "machine_lxd_profile" ("machine_uuid", "name", "array_index") SELECT $ModelMachineLxdProfile.machine_uuid AS "machine_uuid", $ModelMachineLxdProfile.name AS "name", $ModelMachineLxdProfile.array_index AS "array_index"`,
-			sample:    recovery.ModelMachineLxdProfile{},
+			insertSQL: `INSERT INTO "machine_lxd_profile" ("machine_uuid", "name", "array_index") SELECT $MachineLxdProfile.machine_uuid AS "machine_uuid", $MachineLxdProfile.name AS "name", $MachineLxdProfile.array_index AS "array_index"`,
+			sample:    exporttypes.MachineLxdProfile{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineLxdProfile)
+				return insertRows(ctx, tx, stmt, dump.MachineLxdProfile)
 			},
 		})
 	}
@@ -1199,10 +1191,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_manual",
 			deleteSQL: `DELETE FROM "machine_manual" AS t`,
-			insertSQL: `INSERT INTO "machine_manual" ("machine_uuid") SELECT $ModelMachineManual.machine_uuid AS "machine_uuid"`,
-			sample:    recovery.ModelMachineManual{},
+			insertSQL: `INSERT INTO "machine_manual" ("machine_uuid") SELECT $MachineManual.machine_uuid AS "machine_uuid"`,
+			sample:    exporttypes.MachineManual{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineManual)
+				return insertRows(ctx, tx, stmt, dump.MachineManual)
 			},
 		})
 	}
@@ -1210,10 +1202,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_parent",
 			deleteSQL: `DELETE FROM "machine_parent" AS t`,
-			insertSQL: `INSERT INTO "machine_parent" ("machine_uuid", "parent_uuid") SELECT $ModelMachineParent.machine_uuid AS "machine_uuid", $ModelMachineParent.parent_uuid AS "parent_uuid"`,
-			sample:    recovery.ModelMachineParent{},
+			insertSQL: `INSERT INTO "machine_parent" ("machine_uuid", "parent_uuid") SELECT $MachineParent.machine_uuid AS "machine_uuid", $MachineParent.parent_uuid AS "parent_uuid"`,
+			sample:    exporttypes.MachineParent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineParent)
+				return insertRows(ctx, tx, stmt, dump.MachineParent)
 			},
 		})
 	}
@@ -1221,10 +1213,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_placement",
 			deleteSQL: `DELETE FROM "machine_placement" AS t`,
-			insertSQL: `INSERT INTO "machine_placement" ("machine_uuid", "scope_id", "directive") SELECT $ModelMachinePlacement.machine_uuid AS "machine_uuid", $ModelMachinePlacement.scope_id AS "scope_id", $ModelMachinePlacement.directive AS "directive"`,
-			sample:    recovery.ModelMachinePlacement{},
+			insertSQL: `INSERT INTO "machine_placement" ("machine_uuid", "scope_id", "directive") SELECT $MachinePlacement.machine_uuid AS "machine_uuid", $MachinePlacement.scope_id AS "scope_id", $MachinePlacement.directive AS "directive"`,
+			sample:    exporttypes.MachinePlacement{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachinePlacement)
+				return insertRows(ctx, tx, stmt, dump.MachinePlacement)
 			},
 		})
 	}
@@ -1232,10 +1224,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_placement_scope",
 			deleteSQL: `DELETE FROM "machine_placement_scope" AS t`,
-			insertSQL: `INSERT INTO "machine_placement_scope" ("id", "value") SELECT $ModelMachinePlacementScope.id AS "id", $ModelMachinePlacementScope.value AS "value"`,
-			sample:    recovery.ModelMachinePlacementScope{},
+			insertSQL: `INSERT INTO "machine_placement_scope" ("id", "value") SELECT $MachinePlacementScope.id AS "id", $MachinePlacementScope.value AS "value"`,
+			sample:    exporttypes.MachinePlacementScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachinePlacementScope)
+				return insertRows(ctx, tx, stmt, dump.MachinePlacementScope)
 			},
 		})
 	}
@@ -1243,10 +1235,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_platform",
 			deleteSQL: `DELETE FROM "machine_platform" AS t`,
-			insertSQL: `INSERT INTO "machine_platform" ("machine_uuid", "os_id", "channel", "architecture_id") SELECT $ModelMachinePlatform.machine_uuid AS "machine_uuid", $ModelMachinePlatform.os_id AS "os_id", $ModelMachinePlatform.channel AS "channel", $ModelMachinePlatform.architecture_id AS "architecture_id"`,
-			sample:    recovery.ModelMachinePlatform{},
+			insertSQL: `INSERT INTO "machine_platform" ("machine_uuid", "os_id", "channel", "architecture_id") SELECT $MachinePlatform.machine_uuid AS "machine_uuid", $MachinePlatform.os_id AS "os_id", $MachinePlatform.channel AS "channel", $MachinePlatform.architecture_id AS "architecture_id"`,
+			sample:    exporttypes.MachinePlatform{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachinePlatform)
+				return insertRows(ctx, tx, stmt, dump.MachinePlatform)
 			},
 		})
 	}
@@ -1254,10 +1246,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_reprovision",
 			deleteSQL: `DELETE FROM "machine_reprovision" AS t`,
-			insertSQL: `INSERT INTO "machine_reprovision" ("machine_name", "requested_at") SELECT $ModelMachineReprovision.machine_name AS "machine_name", $ModelMachineReprovision.requested_at AS "requested_at"`,
-			sample:    recovery.ModelMachineReprovision{},
+			insertSQL: `INSERT INTO "machine_reprovision" ("machine_name", "requested_at") SELECT $MachineReprovision.machine_name AS "machine_name", $MachineReprovision.requested_at AS "requested_at"`,
+			sample:    exporttypes.MachineReprovision{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineReprovision)
+				return insertRows(ctx, tx, stmt, dump.MachineReprovision)
 			},
 		})
 	}
@@ -1265,10 +1257,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_requires_reboot",
 			deleteSQL: `DELETE FROM "machine_requires_reboot" AS t`,
-			insertSQL: `INSERT INTO "machine_requires_reboot" ("machine_uuid", "created_at") SELECT $ModelMachineRequiresReboot.machine_uuid AS "machine_uuid", CASE WHEN $ModelMachineRequiresReboot.has_created_at THEN $ModelMachineRequiresReboot.created_at ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "created_at"`,
-			sample:    recovery.ModelMachineRequiresReboot{},
+			insertSQL: `INSERT INTO "machine_requires_reboot" ("machine_uuid", "created_at") SELECT $MachineRequiresReboot.machine_uuid AS "machine_uuid", $MachineRequiresReboot.created_at AS "created_at"`,
+			sample:    exporttypes.MachineRequiresReboot{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineRequiresReboot)
+				return insertRows(ctx, tx, stmt, dump.MachineRequiresReboot)
 			},
 		})
 	}
@@ -1276,10 +1268,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_ssh_host_key",
 			deleteSQL: `DELETE FROM "machine_ssh_host_key" AS t`,
-			insertSQL: `INSERT INTO "machine_ssh_host_key" ("uuid", "machine_uuid", "ssh_key") SELECT $ModelMachineSshHostKey.uuid AS "uuid", $ModelMachineSshHostKey.machine_uuid AS "machine_uuid", $ModelMachineSshHostKey.ssh_key AS "ssh_key"`,
-			sample:    recovery.ModelMachineSshHostKey{},
+			insertSQL: `INSERT INTO "machine_ssh_host_key" ("uuid", "machine_uuid", "ssh_key") SELECT $MachineSshHostKey.uuid AS "uuid", $MachineSshHostKey.machine_uuid AS "machine_uuid", $MachineSshHostKey.ssh_key AS "ssh_key"`,
+			sample:    exporttypes.MachineSshHostKey{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineSshHostKey)
+				return insertRows(ctx, tx, stmt, dump.MachineSshHostKey)
 			},
 		})
 	}
@@ -1287,10 +1279,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_status",
 			deleteSQL: `DELETE FROM "machine_status" AS t`,
-			insertSQL: `INSERT INTO "machine_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelMachineStatus.machine_uuid AS "machine_uuid", $ModelMachineStatus.status_id AS "status_id", $ModelMachineStatus.message AS "message", $ModelMachineStatus.data AS "data", $ModelMachineStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelMachineStatus{},
+			insertSQL: `INSERT INTO "machine_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $MachineStatus.machine_uuid AS "machine_uuid", $MachineStatus.status_id AS "status_id", $MachineStatus.message AS "message", CAST($MachineStatus.data AS BLOB) AS "data", $MachineStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.MachineStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineStatus)
+				return insertRows(ctx, tx, stmt, dump.MachineStatus)
 			},
 		})
 	}
@@ -1298,10 +1290,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_status_value",
 			deleteSQL: `DELETE FROM "machine_status_value" AS t`,
-			insertSQL: `INSERT INTO "machine_status_value" ("id", "status") SELECT $ModelMachineStatusValue.id AS "id", $ModelMachineStatusValue.status AS "status"`,
-			sample:    recovery.ModelMachineStatusValue{},
+			insertSQL: `INSERT INTO "machine_status_value" ("id", "status") SELECT $MachineStatusValue.id AS "id", $MachineStatusValue.status AS "status"`,
+			sample:    exporttypes.MachineStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineStatusValue)
+				return insertRows(ctx, tx, stmt, dump.MachineStatusValue)
 			},
 		})
 	}
@@ -1309,10 +1301,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_virtual_ssh_host_key",
 			deleteSQL: `DELETE FROM "machine_virtual_ssh_host_key" AS t`,
-			insertSQL: `INSERT INTO "machine_virtual_ssh_host_key" ("machine_uuid", "algorithm_type_id", "ssh_key") SELECT $ModelMachineVirtualSshHostKey.machine_uuid AS "machine_uuid", $ModelMachineVirtualSshHostKey.algorithm_type_id AS "algorithm_type_id", $ModelMachineVirtualSshHostKey.ssh_key AS "ssh_key"`,
-			sample:    recovery.ModelMachineVirtualSshHostKey{},
+			insertSQL: `INSERT INTO "machine_virtual_ssh_host_key" ("machine_uuid", "algorithm_type_id", "ssh_key") SELECT $MachineVirtualSshHostKey.machine_uuid AS "machine_uuid", $MachineVirtualSshHostKey.algorithm_type_id AS "algorithm_type_id", $MachineVirtualSshHostKey.ssh_key AS "ssh_key"`,
+			sample:    exporttypes.MachineVirtualSshHostKey{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineVirtualSshHostKey)
+				return insertRows(ctx, tx, stmt, dump.MachineVirtualSshHostKey)
 			},
 		})
 	}
@@ -1320,10 +1312,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_volume",
 			deleteSQL: `DELETE FROM "machine_volume" AS t`,
-			insertSQL: `INSERT INTO "machine_volume" ("machine_uuid", "volume_uuid") SELECT $ModelMachineVolume.machine_uuid AS "machine_uuid", $ModelMachineVolume.volume_uuid AS "volume_uuid"`,
-			sample:    recovery.ModelMachineVolume{},
+			insertSQL: `INSERT INTO "machine_volume" ("machine_uuid", "volume_uuid") SELECT $MachineVolume.machine_uuid AS "machine_uuid", $MachineVolume.volume_uuid AS "volume_uuid"`,
+			sample:    exporttypes.MachineVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMachineVolume)
+				return insertRows(ctx, tx, stmt, dump.MachineVolume)
 			},
 		})
 	}
@@ -1331,10 +1323,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model",
 			deleteSQL: `DELETE FROM "model" AS t`,
-			insertSQL: `INSERT INTO "model" ("uuid", "controller_uuid", "name", "qualifier", "type", "cloud", "cloud_type", "cloud_region", "credential_owner", "credential_name", "is_controller_model") SELECT $ModelModel.uuid AS "uuid", $ModelModel.controller_uuid AS "controller_uuid", $ModelModel.name AS "name", $ModelModel.qualifier AS "qualifier", $ModelModel.type AS "type", $ModelModel.cloud AS "cloud", $ModelModel.cloud_type AS "cloud_type", $ModelModel.cloud_region AS "cloud_region", $ModelModel.credential_owner AS "credential_owner", $ModelModel.credential_name AS "credential_name", CASE WHEN $ModelModel.has_is_controller_model THEN $ModelModel.is_controller_model ELSE FALSE END AS "is_controller_model"`,
-			sample:    recovery.ModelModel{},
+			insertSQL: `INSERT INTO "model" ("uuid", "controller_uuid", "name", "qualifier", "type", "cloud", "cloud_type", "cloud_region", "credential_owner", "credential_name", "is_controller_model") SELECT $Model.uuid AS "uuid", $Model.controller_uuid AS "controller_uuid", $Model.name AS "name", $Model.qualifier AS "qualifier", $Model.type AS "type", $Model.cloud AS "cloud", $Model.cloud_type AS "cloud_type", $Model.cloud_region AS "cloud_region", $Model.credential_owner AS "credential_owner", $Model.credential_name AS "credential_name", $Model.is_controller_model AS "is_controller_model"`,
+			sample:    exporttypes.Model{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModel)
+				return insertRows(ctx, tx, stmt, dump.Model)
 			},
 		})
 	}
@@ -1342,10 +1334,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model_agent",
 			deleteSQL: `DELETE FROM "model_agent" AS t`,
-			insertSQL: `INSERT INTO "model_agent" ("model_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ModelModelAgent.model_uuid AS "model_uuid", $ModelModelAgent.password_hash_algorithm_id AS "password_hash_algorithm_id", $ModelModelAgent.password_hash AS "password_hash"`,
-			sample:    recovery.ModelModelAgent{},
+			insertSQL: `INSERT INTO "model_agent" ("model_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ModelAgent.model_uuid AS "model_uuid", $ModelAgent.password_hash_algorithm_id AS "password_hash_algorithm_id", $ModelAgent.password_hash AS "password_hash"`,
+			sample:    exporttypes.ModelAgent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModelAgent)
+				return insertRows(ctx, tx, stmt, dump.ModelAgent)
 			},
 		})
 	}
@@ -1353,10 +1345,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model_config",
 			deleteSQL: `DELETE FROM "model_config" AS t`,
-			insertSQL: `INSERT INTO "model_config" ("key", "value") SELECT $ModelModelConfig.key AS "key", $ModelModelConfig.value AS "value"`,
-			sample:    recovery.ModelModelConfig{},
+			insertSQL: `INSERT INTO "model_config" ("key", "value") SELECT $ModelConfig.key AS "key", $ModelConfig.value AS "value"`,
+			sample:    exporttypes.ModelConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModelConfig)
+				return insertRows(ctx, tx, stmt, dump.ModelConfig)
 			},
 		})
 	}
@@ -1364,10 +1356,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model_constraint",
 			deleteSQL: `DELETE FROM "model_constraint" AS t`,
-			insertSQL: `INSERT INTO "model_constraint" ("model_uuid", "constraint_uuid") SELECT $ModelModelConstraint.model_uuid AS "model_uuid", $ModelModelConstraint.constraint_uuid AS "constraint_uuid"`,
-			sample:    recovery.ModelModelConstraint{},
+			insertSQL: `INSERT INTO "model_constraint" ("model_uuid", "constraint_uuid") SELECT $ModelConstraint.model_uuid AS "model_uuid", $ModelConstraint.constraint_uuid AS "constraint_uuid"`,
+			sample:    exporttypes.ModelConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModelConstraint)
+				return insertRows(ctx, tx, stmt, dump.ModelConstraint)
 			},
 		})
 	}
@@ -1375,10 +1367,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model_life",
 			deleteSQL: `DELETE FROM "model_life" AS t`,
-			insertSQL: `INSERT INTO "model_life" ("model_uuid", "life_id") SELECT $ModelModelLife.model_uuid AS "model_uuid", $ModelModelLife.life_id AS "life_id"`,
-			sample:    recovery.ModelModelLife{},
+			insertSQL: `INSERT INTO "model_life" ("model_uuid", "life_id") SELECT $ModelLife.model_uuid AS "model_uuid", $ModelLife.life_id AS "life_id"`,
+			sample:    exporttypes.ModelLife{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModelLife)
+				return insertRows(ctx, tx, stmt, dump.ModelLife)
 			},
 		})
 	}
@@ -1386,10 +1378,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model_migrating",
 			deleteSQL: `DELETE FROM "model_migrating" AS t`,
-			insertSQL: `INSERT INTO "model_migrating" ("uuid", "model_uuid") SELECT $ModelModelMigrating.uuid AS "uuid", $ModelModelMigrating.model_uuid AS "model_uuid"`,
-			sample:    recovery.ModelModelMigrating{},
+			insertSQL: `INSERT INTO "model_migrating" ("uuid", "model_uuid") SELECT $ModelMigrating.uuid AS "uuid", $ModelMigrating.model_uuid AS "model_uuid"`,
+			sample:    exporttypes.ModelMigrating{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModelMigrating)
+				return insertRows(ctx, tx, stmt, dump.ModelMigrating)
 			},
 		})
 	}
@@ -1397,10 +1389,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "model_storage_pool",
 			deleteSQL: `DELETE FROM "model_storage_pool" AS t`,
-			insertSQL: `INSERT INTO "model_storage_pool" ("storage_kind_id", "storage_pool_uuid") SELECT $ModelModelStoragePool.storage_kind_id AS "storage_kind_id", $ModelModelStoragePool.storage_pool_uuid AS "storage_pool_uuid"`,
-			sample:    recovery.ModelModelStoragePool{},
+			insertSQL: `INSERT INTO "model_storage_pool" ("storage_kind_id", "storage_pool_uuid") SELECT $ModelStoragePool.storage_kind_id AS "storage_kind_id", $ModelStoragePool.storage_pool_uuid AS "storage_pool_uuid"`,
+			sample:    exporttypes.ModelStoragePool{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelModelStoragePool)
+				return insertRows(ctx, tx, stmt, dump.ModelStoragePool)
 			},
 		})
 	}
@@ -1408,10 +1400,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "net_node",
 			deleteSQL: `DELETE FROM "net_node" AS t`,
-			insertSQL: `INSERT INTO "net_node" ("uuid") SELECT $ModelNetNode.uuid AS "uuid"`,
-			sample:    recovery.ModelNetNode{},
+			insertSQL: `INSERT INTO "net_node" ("uuid") SELECT $NetNode.uuid AS "uuid"`,
+			sample:    exporttypes.NetNode{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelNetNode)
+				return insertRows(ctx, tx, stmt, dump.NetNode)
 			},
 		})
 	}
@@ -1419,10 +1411,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "net_node_fqdn_address",
 			deleteSQL: `DELETE FROM "net_node_fqdn_address" AS t`,
-			insertSQL: `INSERT INTO "net_node_fqdn_address" ("net_node_uuid", "address_uuid") SELECT $ModelNetNodeFqdnAddress.net_node_uuid AS "net_node_uuid", $ModelNetNodeFqdnAddress.address_uuid AS "address_uuid"`,
-			sample:    recovery.ModelNetNodeFqdnAddress{},
+			insertSQL: `INSERT INTO "net_node_fqdn_address" ("net_node_uuid", "address_uuid") SELECT $NetNodeFqdnAddress.net_node_uuid AS "net_node_uuid", $NetNodeFqdnAddress.address_uuid AS "address_uuid"`,
+			sample:    exporttypes.NetNodeFqdnAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelNetNodeFqdnAddress)
+				return insertRows(ctx, tx, stmt, dump.NetNodeFqdnAddress)
 			},
 		})
 	}
@@ -1430,10 +1422,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "net_node_hostname_address",
 			deleteSQL: `DELETE FROM "net_node_hostname_address" AS t`,
-			insertSQL: `INSERT INTO "net_node_hostname_address" ("net_node_uuid", "address_uuid") SELECT $ModelNetNodeHostnameAddress.net_node_uuid AS "net_node_uuid", $ModelNetNodeHostnameAddress.address_uuid AS "address_uuid"`,
-			sample:    recovery.ModelNetNodeHostnameAddress{},
+			insertSQL: `INSERT INTO "net_node_hostname_address" ("net_node_uuid", "address_uuid") SELECT $NetNodeHostnameAddress.net_node_uuid AS "net_node_uuid", $NetNodeHostnameAddress.address_uuid AS "address_uuid"`,
+			sample:    exporttypes.NetNodeHostnameAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelNetNodeHostnameAddress)
+				return insertRows(ctx, tx, stmt, dump.NetNodeHostnameAddress)
 			},
 		})
 	}
@@ -1441,10 +1433,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "network_address_scope",
 			deleteSQL: `DELETE FROM "network_address_scope" AS t`,
-			insertSQL: `INSERT INTO "network_address_scope" ("id", "name") SELECT $ModelNetworkAddressScope.id AS "id", $ModelNetworkAddressScope.name AS "name"`,
-			sample:    recovery.ModelNetworkAddressScope{},
+			insertSQL: `INSERT INTO "network_address_scope" ("id", "name") SELECT $NetworkAddressScope.id AS "id", $NetworkAddressScope.name AS "name"`,
+			sample:    exporttypes.NetworkAddressScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelNetworkAddressScope)
+				return insertRows(ctx, tx, stmt, dump.NetworkAddressScope)
 			},
 		})
 	}
@@ -1452,10 +1444,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "object_store_metadata",
 			deleteSQL: `DELETE FROM "object_store_metadata" AS t`,
-			insertSQL: `INSERT INTO "object_store_metadata" ("uuid", "sha_256", "sha_384", "size") SELECT $ModelObjectStoreMetadata.uuid AS "uuid", $ModelObjectStoreMetadata.sha_256 AS "sha_256", $ModelObjectStoreMetadata.sha_384 AS "sha_384", $ModelObjectStoreMetadata.size AS "size"`,
-			sample:    recovery.ModelObjectStoreMetadata{},
+			insertSQL: `INSERT INTO "object_store_metadata" ("uuid", "sha_256", "sha_384", "size") SELECT $ObjectStoreMetadata.uuid AS "uuid", $ObjectStoreMetadata.sha_256 AS "sha_256", $ObjectStoreMetadata.sha_384 AS "sha_384", $ObjectStoreMetadata.size AS "size"`,
+			sample:    exporttypes.ObjectStoreMetadata{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelObjectStoreMetadata)
+				return insertRows(ctx, tx, stmt, dump.ObjectStoreMetadata)
 			},
 		})
 	}
@@ -1463,10 +1455,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "object_store_metadata_path",
 			deleteSQL: `DELETE FROM "object_store_metadata_path" AS t`,
-			insertSQL: `INSERT INTO "object_store_metadata_path" ("path", "metadata_uuid") SELECT $ModelObjectStoreMetadataPath.path AS "path", $ModelObjectStoreMetadataPath.metadata_uuid AS "metadata_uuid"`,
-			sample:    recovery.ModelObjectStoreMetadataPath{},
+			insertSQL: `INSERT INTO "object_store_metadata_path" ("path", "metadata_uuid") SELECT $ObjectStoreMetadataPath.path AS "path", $ObjectStoreMetadataPath.metadata_uuid AS "metadata_uuid"`,
+			sample:    exporttypes.ObjectStoreMetadataPath{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelObjectStoreMetadataPath)
+				return insertRows(ctx, tx, stmt, dump.ObjectStoreMetadataPath)
 			},
 		})
 	}
@@ -1474,10 +1466,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "offer",
 			deleteSQL: `DELETE FROM "offer" AS t`,
-			insertSQL: `INSERT INTO "offer" ("uuid", "name", "description") SELECT $ModelOffer.uuid AS "uuid", $ModelOffer.name AS "name", $ModelOffer.description AS "description"`,
-			sample:    recovery.ModelOffer{},
+			insertSQL: `INSERT INTO "offer" ("uuid", "name", "description") SELECT $Offer.uuid AS "uuid", $Offer.name AS "name", $Offer.description AS "description"`,
+			sample:    exporttypes.Offer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOffer)
+				return insertRows(ctx, tx, stmt, dump.Offer)
 			},
 		})
 	}
@@ -1485,10 +1477,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "offer_connection",
 			deleteSQL: `DELETE FROM "offer_connection" AS t`,
-			insertSQL: `INSERT INTO "offer_connection" ("uuid", "offer_uuid", "remote_relation_uuid", "username") SELECT $ModelOfferConnection.uuid AS "uuid", $ModelOfferConnection.offer_uuid AS "offer_uuid", $ModelOfferConnection.remote_relation_uuid AS "remote_relation_uuid", $ModelOfferConnection.username AS "username"`,
-			sample:    recovery.ModelOfferConnection{},
+			insertSQL: `INSERT INTO "offer_connection" ("uuid", "offer_uuid", "remote_relation_uuid", "username") SELECT $OfferConnection.uuid AS "uuid", $OfferConnection.offer_uuid AS "offer_uuid", $OfferConnection.remote_relation_uuid AS "remote_relation_uuid", $OfferConnection.username AS "username"`,
+			sample:    exporttypes.OfferConnection{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOfferConnection)
+				return insertRows(ctx, tx, stmt, dump.OfferConnection)
 			},
 		})
 	}
@@ -1496,10 +1488,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "offer_endpoint",
 			deleteSQL: `DELETE FROM "offer_endpoint" AS t`,
-			insertSQL: `INSERT INTO "offer_endpoint" ("offer_uuid", "endpoint_uuid") SELECT $ModelOfferEndpoint.offer_uuid AS "offer_uuid", $ModelOfferEndpoint.endpoint_uuid AS "endpoint_uuid"`,
-			sample:    recovery.ModelOfferEndpoint{},
+			insertSQL: `INSERT INTO "offer_endpoint" ("offer_uuid", "endpoint_uuid") SELECT $OfferEndpoint.offer_uuid AS "offer_uuid", $OfferEndpoint.endpoint_uuid AS "endpoint_uuid"`,
+			sample:    exporttypes.OfferEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOfferEndpoint)
+				return insertRows(ctx, tx, stmt, dump.OfferEndpoint)
 			},
 		})
 	}
@@ -1507,10 +1499,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation",
 			deleteSQL: `DELETE FROM "operation" AS t`,
-			insertSQL: `INSERT INTO "operation" ("uuid", "operation_id", "summary", "enqueued_at", "started_at", "completed_at", "parallel", "execution_group") SELECT $ModelOperation.uuid AS "uuid", $ModelOperation.operation_id AS "operation_id", $ModelOperation.summary AS "summary", $ModelOperation.enqueued_at AS "enqueued_at", $ModelOperation.started_at AS "started_at", $ModelOperation.completed_at AS "completed_at", CASE WHEN $ModelOperation.has_parallel THEN $ModelOperation.parallel ELSE false END AS "parallel", $ModelOperation.execution_group AS "execution_group"`,
-			sample:    recovery.ModelOperation{},
+			insertSQL: `INSERT INTO "operation" ("uuid", "operation_id", "summary", "enqueued_at", "started_at", "completed_at", "parallel", "execution_group") SELECT $Operation.uuid AS "uuid", $Operation.operation_id AS "operation_id", $Operation.summary AS "summary", $Operation.enqueued_at AS "enqueued_at", $Operation.started_at AS "started_at", $Operation.completed_at AS "completed_at", $Operation.parallel AS "parallel", $Operation.execution_group AS "execution_group"`,
+			sample:    exporttypes.Operation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperation)
+				return insertRows(ctx, tx, stmt, dump.Operation)
 			},
 		})
 	}
@@ -1518,10 +1510,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_action",
 			deleteSQL: `DELETE FROM "operation_action" AS t`,
-			insertSQL: `INSERT INTO "operation_action" ("operation_uuid", "charm_uuid", "charm_action_key") SELECT $ModelOperationAction.operation_uuid AS "operation_uuid", $ModelOperationAction.charm_uuid AS "charm_uuid", $ModelOperationAction.charm_action_key AS "charm_action_key"`,
-			sample:    recovery.ModelOperationAction{},
+			insertSQL: `INSERT INTO "operation_action" ("operation_uuid", "charm_uuid", "charm_action_key") SELECT $OperationAction.operation_uuid AS "operation_uuid", $OperationAction.charm_uuid AS "charm_uuid", $OperationAction.charm_action_key AS "charm_action_key"`,
+			sample:    exporttypes.OperationAction{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationAction)
+				return insertRows(ctx, tx, stmt, dump.OperationAction)
 			},
 		})
 	}
@@ -1529,10 +1521,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_machine_task",
 			deleteSQL: `DELETE FROM "operation_machine_task" AS t`,
-			insertSQL: `INSERT INTO "operation_machine_task" ("task_uuid", "machine_uuid") SELECT $ModelOperationMachineTask.task_uuid AS "task_uuid", $ModelOperationMachineTask.machine_uuid AS "machine_uuid"`,
-			sample:    recovery.ModelOperationMachineTask{},
+			insertSQL: `INSERT INTO "operation_machine_task" ("task_uuid", "machine_uuid") SELECT $OperationMachineTask.task_uuid AS "task_uuid", $OperationMachineTask.machine_uuid AS "machine_uuid"`,
+			sample:    exporttypes.OperationMachineTask{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationMachineTask)
+				return insertRows(ctx, tx, stmt, dump.OperationMachineTask)
 			},
 		})
 	}
@@ -1540,10 +1532,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_parameter",
 			deleteSQL: `DELETE FROM "operation_parameter" AS t`,
-			insertSQL: `INSERT INTO "operation_parameter" ("operation_uuid", "key", "value") SELECT $ModelOperationParameter.operation_uuid AS "operation_uuid", $ModelOperationParameter.key AS "key", $ModelOperationParameter.value AS "value"`,
-			sample:    recovery.ModelOperationParameter{},
+			insertSQL: `INSERT INTO "operation_parameter" ("operation_uuid", "key", "value") SELECT $OperationParameter.operation_uuid AS "operation_uuid", $OperationParameter.key AS "key", $OperationParameter.value AS "value"`,
+			sample:    exporttypes.OperationParameter{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationParameter)
+				return insertRows(ctx, tx, stmt, dump.OperationParameter)
 			},
 		})
 	}
@@ -1551,10 +1543,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_task",
 			deleteSQL: `DELETE FROM "operation_task" AS t`,
-			insertSQL: `INSERT INTO "operation_task" ("uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at") SELECT $ModelOperationTask.uuid AS "uuid", $ModelOperationTask.operation_uuid AS "operation_uuid", $ModelOperationTask.task_id AS "task_id", $ModelOperationTask.enqueued_at AS "enqueued_at", $ModelOperationTask.started_at AS "started_at", $ModelOperationTask.completed_at AS "completed_at"`,
-			sample:    recovery.ModelOperationTask{},
+			insertSQL: `INSERT INTO "operation_task" ("uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at") SELECT $OperationTask.uuid AS "uuid", $OperationTask.operation_uuid AS "operation_uuid", $OperationTask.task_id AS "task_id", $OperationTask.enqueued_at AS "enqueued_at", $OperationTask.started_at AS "started_at", $OperationTask.completed_at AS "completed_at"`,
+			sample:    exporttypes.OperationTask{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationTask)
+				return insertRows(ctx, tx, stmt, dump.OperationTask)
 			},
 		})
 	}
@@ -1562,10 +1554,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_task_log",
 			deleteSQL: `DELETE FROM "operation_task_log" AS t`,
-			insertSQL: `INSERT INTO "operation_task_log" ("task_uuid", "content", "created_at") SELECT $ModelOperationTaskLog.task_uuid AS "task_uuid", $ModelOperationTaskLog.content AS "content", $ModelOperationTaskLog.created_at AS "created_at"`,
-			sample:    recovery.ModelOperationTaskLog{},
+			insertSQL: `INSERT INTO "operation_task_log" ("task_uuid", "content", "created_at") SELECT $OperationTaskLog.task_uuid AS "task_uuid", $OperationTaskLog.content AS "content", $OperationTaskLog.created_at AS "created_at"`,
+			sample:    exporttypes.OperationTaskLog{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationTaskLog)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskLog)
 			},
 		})
 	}
@@ -1573,10 +1565,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_task_output",
 			deleteSQL: `DELETE FROM "operation_task_output" AS t`,
-			insertSQL: `INSERT INTO "operation_task_output" ("task_uuid", "store_path") SELECT $ModelOperationTaskOutput.task_uuid AS "task_uuid", $ModelOperationTaskOutput.store_path AS "store_path"`,
-			sample:    recovery.ModelOperationTaskOutput{},
+			insertSQL: `INSERT INTO "operation_task_output" ("task_uuid", "store_path") SELECT $OperationTaskOutput.task_uuid AS "task_uuid", $OperationTaskOutput.store_path AS "store_path"`,
+			sample:    exporttypes.OperationTaskOutput{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationTaskOutput)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskOutput)
 			},
 		})
 	}
@@ -1584,10 +1576,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_task_status",
 			deleteSQL: `DELETE FROM "operation_task_status" AS t`,
-			insertSQL: `INSERT INTO "operation_task_status" ("task_uuid", "status_id", "message", "updated_at") SELECT $ModelOperationTaskStatus.task_uuid AS "task_uuid", $ModelOperationTaskStatus.status_id AS "status_id", $ModelOperationTaskStatus.message AS "message", $ModelOperationTaskStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelOperationTaskStatus{},
+			insertSQL: `INSERT INTO "operation_task_status" ("task_uuid", "status_id", "message", "updated_at") SELECT $OperationTaskStatus.task_uuid AS "task_uuid", $OperationTaskStatus.status_id AS "status_id", $OperationTaskStatus.message AS "message", $OperationTaskStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.OperationTaskStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationTaskStatus)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskStatus)
 			},
 		})
 	}
@@ -1595,10 +1587,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_task_status_value",
 			deleteSQL: `DELETE FROM "operation_task_status_value" AS t`,
-			insertSQL: `INSERT INTO "operation_task_status_value" ("id", "status") SELECT $ModelOperationTaskStatusValue.id AS "id", $ModelOperationTaskStatusValue.status AS "status"`,
-			sample:    recovery.ModelOperationTaskStatusValue{},
+			insertSQL: `INSERT INTO "operation_task_status_value" ("id", "status") SELECT $OperationTaskStatusValue.id AS "id", $OperationTaskStatusValue.status AS "status"`,
+			sample:    exporttypes.OperationTaskStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationTaskStatusValue)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskStatusValue)
 			},
 		})
 	}
@@ -1606,10 +1598,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operation_unit_task",
 			deleteSQL: `DELETE FROM "operation_unit_task" AS t`,
-			insertSQL: `INSERT INTO "operation_unit_task" ("task_uuid", "unit_uuid") SELECT $ModelOperationUnitTask.task_uuid AS "task_uuid", $ModelOperationUnitTask.unit_uuid AS "unit_uuid"`,
-			sample:    recovery.ModelOperationUnitTask{},
+			insertSQL: `INSERT INTO "operation_unit_task" ("task_uuid", "unit_uuid") SELECT $OperationUnitTask.task_uuid AS "task_uuid", $OperationUnitTask.unit_uuid AS "unit_uuid"`,
+			sample:    exporttypes.OperationUnitTask{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperationUnitTask)
+				return insertRows(ctx, tx, stmt, dump.OperationUnitTask)
 			},
 		})
 	}
@@ -1617,10 +1609,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operator_status",
 			deleteSQL: `DELETE FROM "operator_status" AS t`,
-			insertSQL: `INSERT INTO "operator_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelOperatorStatus.application_uuid AS "application_uuid", $ModelOperatorStatus.status_id AS "status_id", $ModelOperatorStatus.message AS "message", $ModelOperatorStatus.data AS "data", $ModelOperatorStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelOperatorStatus{},
+			insertSQL: `INSERT INTO "operator_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $OperatorStatus.application_uuid AS "application_uuid", $OperatorStatus.status_id AS "status_id", $OperatorStatus.message AS "message", CAST($OperatorStatus.data AS BLOB) AS "data", $OperatorStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.OperatorStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOperatorStatus)
+				return insertRows(ctx, tx, stmt, dump.OperatorStatus)
 			},
 		})
 	}
@@ -1628,10 +1620,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "os",
 			deleteSQL: `DELETE FROM "os" AS t`,
-			insertSQL: `INSERT INTO "os" ("id", "name") SELECT $ModelOs.id AS "id", $ModelOs.name AS "name"`,
-			sample:    recovery.ModelOs{},
+			insertSQL: `INSERT INTO "os" ("id", "name") SELECT $Os.id AS "id", $Os.name AS "name"`,
+			sample:    exporttypes.Os{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelOs)
+				return insertRows(ctx, tx, stmt, dump.Os)
 			},
 		})
 	}
@@ -1639,10 +1631,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "password_hash_algorithm",
 			deleteSQL: `DELETE FROM "password_hash_algorithm" AS t`,
-			insertSQL: `INSERT INTO "password_hash_algorithm" ("id", "name") SELECT $ModelPasswordHashAlgorithm.id AS "id", $ModelPasswordHashAlgorithm.name AS "name"`,
-			sample:    recovery.ModelPasswordHashAlgorithm{},
+			insertSQL: `INSERT INTO "password_hash_algorithm" ("id", "name") SELECT $PasswordHashAlgorithm.id AS "id", $PasswordHashAlgorithm.name AS "name"`,
+			sample:    exporttypes.PasswordHashAlgorithm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelPasswordHashAlgorithm)
+				return insertRows(ctx, tx, stmt, dump.PasswordHashAlgorithm)
 			},
 		})
 	}
@@ -1650,10 +1642,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "pending_application_resource",
 			deleteSQL: `DELETE FROM "pending_application_resource" AS t`,
-			insertSQL: `INSERT INTO "pending_application_resource" ("resource_uuid", "application_name") SELECT $ModelPendingApplicationResource.resource_uuid AS "resource_uuid", $ModelPendingApplicationResource.application_name AS "application_name"`,
-			sample:    recovery.ModelPendingApplicationResource{},
+			insertSQL: `INSERT INTO "pending_application_resource" ("resource_uuid", "application_name") SELECT $PendingApplicationResource.resource_uuid AS "resource_uuid", $PendingApplicationResource.application_name AS "application_name"`,
+			sample:    exporttypes.PendingApplicationResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelPendingApplicationResource)
+				return insertRows(ctx, tx, stmt, dump.PendingApplicationResource)
 			},
 		})
 	}
@@ -1661,10 +1653,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "port_range",
 			deleteSQL: `DELETE FROM "port_range" AS t`,
-			insertSQL: `INSERT INTO "port_range" ("uuid", "protocol_id", "from_port", "to_port", "relation_uuid", "unit_uuid") SELECT $ModelPortRange.uuid AS "uuid", $ModelPortRange.protocol_id AS "protocol_id", $ModelPortRange.from_port AS "from_port", $ModelPortRange.to_port AS "to_port", $ModelPortRange.relation_uuid AS "relation_uuid", $ModelPortRange.unit_uuid AS "unit_uuid"`,
-			sample:    recovery.ModelPortRange{},
+			insertSQL: `INSERT INTO "port_range" ("uuid", "protocol_id", "from_port", "to_port", "relation_uuid", "unit_uuid") SELECT $PortRange.uuid AS "uuid", $PortRange.protocol_id AS "protocol_id", $PortRange.from_port AS "from_port", $PortRange.to_port AS "to_port", $PortRange.relation_uuid AS "relation_uuid", $PortRange.unit_uuid AS "unit_uuid"`,
+			sample:    exporttypes.PortRange{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelPortRange)
+				return insertRows(ctx, tx, stmt, dump.PortRange)
 			},
 		})
 	}
@@ -1672,10 +1664,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "protocol",
 			deleteSQL: `DELETE FROM "protocol" AS t`,
-			insertSQL: `INSERT INTO "protocol" ("id", "protocol") SELECT $ModelProtocol.id AS "id", $ModelProtocol.protocol AS "protocol"`,
-			sample:    recovery.ModelProtocol{},
+			insertSQL: `INSERT INTO "protocol" ("id", "protocol") SELECT $Protocol.id AS "id", $Protocol.protocol AS "protocol"`,
+			sample:    exporttypes.Protocol{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProtocol)
+				return insertRows(ctx, tx, stmt, dump.Protocol)
 			},
 		})
 	}
@@ -1683,10 +1675,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "provider_ip_address",
 			deleteSQL: `DELETE FROM "provider_ip_address" AS t`,
-			insertSQL: `INSERT INTO "provider_ip_address" ("provider_id", "address_uuid") SELECT $ModelProviderIpAddress.provider_id AS "provider_id", $ModelProviderIpAddress.address_uuid AS "address_uuid"`,
-			sample:    recovery.ModelProviderIpAddress{},
+			insertSQL: `INSERT INTO "provider_ip_address" ("provider_id", "address_uuid") SELECT $ProviderIpAddress.provider_id AS "provider_id", $ProviderIpAddress.address_uuid AS "address_uuid"`,
+			sample:    exporttypes.ProviderIpAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProviderIpAddress)
+				return insertRows(ctx, tx, stmt, dump.ProviderIpAddress)
 			},
 		})
 	}
@@ -1694,10 +1686,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "provider_link_layer_device",
 			deleteSQL: `DELETE FROM "provider_link_layer_device" AS t`,
-			insertSQL: `INSERT INTO "provider_link_layer_device" ("provider_id", "device_uuid") SELECT $ModelProviderLinkLayerDevice.provider_id AS "provider_id", $ModelProviderLinkLayerDevice.device_uuid AS "device_uuid"`,
-			sample:    recovery.ModelProviderLinkLayerDevice{},
+			insertSQL: `INSERT INTO "provider_link_layer_device" ("provider_id", "device_uuid") SELECT $ProviderLinkLayerDevice.provider_id AS "provider_id", $ProviderLinkLayerDevice.device_uuid AS "device_uuid"`,
+			sample:    exporttypes.ProviderLinkLayerDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProviderLinkLayerDevice)
+				return insertRows(ctx, tx, stmt, dump.ProviderLinkLayerDevice)
 			},
 		})
 	}
@@ -1705,10 +1697,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "provider_network",
 			deleteSQL: `DELETE FROM "provider_network" AS t`,
-			insertSQL: `INSERT INTO "provider_network" ("uuid", "provider_network_id") SELECT $ModelProviderNetwork.uuid AS "uuid", $ModelProviderNetwork.provider_network_id AS "provider_network_id"`,
-			sample:    recovery.ModelProviderNetwork{},
+			insertSQL: `INSERT INTO "provider_network" ("uuid", "provider_network_id") SELECT $ProviderNetwork.uuid AS "uuid", $ProviderNetwork.provider_network_id AS "provider_network_id"`,
+			sample:    exporttypes.ProviderNetwork{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProviderNetwork)
+				return insertRows(ctx, tx, stmt, dump.ProviderNetwork)
 			},
 		})
 	}
@@ -1716,10 +1708,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "provider_network_subnet",
 			deleteSQL: `DELETE FROM "provider_network_subnet" AS t`,
-			insertSQL: `INSERT INTO "provider_network_subnet" ("subnet_uuid", "provider_network_uuid") SELECT $ModelProviderNetworkSubnet.subnet_uuid AS "subnet_uuid", $ModelProviderNetworkSubnet.provider_network_uuid AS "provider_network_uuid"`,
-			sample:    recovery.ModelProviderNetworkSubnet{},
+			insertSQL: `INSERT INTO "provider_network_subnet" ("subnet_uuid", "provider_network_uuid") SELECT $ProviderNetworkSubnet.subnet_uuid AS "subnet_uuid", $ProviderNetworkSubnet.provider_network_uuid AS "provider_network_uuid"`,
+			sample:    exporttypes.ProviderNetworkSubnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProviderNetworkSubnet)
+				return insertRows(ctx, tx, stmt, dump.ProviderNetworkSubnet)
 			},
 		})
 	}
@@ -1727,10 +1719,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "provider_space",
 			deleteSQL: `DELETE FROM "provider_space" AS t`,
-			insertSQL: `INSERT INTO "provider_space" ("provider_id", "space_uuid") SELECT $ModelProviderSpace.provider_id AS "provider_id", $ModelProviderSpace.space_uuid AS "space_uuid"`,
-			sample:    recovery.ModelProviderSpace{},
+			insertSQL: `INSERT INTO "provider_space" ("provider_id", "space_uuid") SELECT $ProviderSpace.provider_id AS "provider_id", $ProviderSpace.space_uuid AS "space_uuid"`,
+			sample:    exporttypes.ProviderSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProviderSpace)
+				return insertRows(ctx, tx, stmt, dump.ProviderSpace)
 			},
 		})
 	}
@@ -1738,10 +1730,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "provider_subnet",
 			deleteSQL: `DELETE FROM "provider_subnet" AS t`,
-			insertSQL: `INSERT INTO "provider_subnet" ("provider_id", "subnet_uuid") SELECT $ModelProviderSubnet.provider_id AS "provider_id", $ModelProviderSubnet.subnet_uuid AS "subnet_uuid"`,
-			sample:    recovery.ModelProviderSubnet{},
+			insertSQL: `INSERT INTO "provider_subnet" ("provider_id", "subnet_uuid") SELECT $ProviderSubnet.provider_id AS "provider_id", $ProviderSubnet.subnet_uuid AS "subnet_uuid"`,
+			sample:    exporttypes.ProviderSubnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelProviderSubnet)
+				return insertRows(ctx, tx, stmt, dump.ProviderSubnet)
 			},
 		})
 	}
@@ -1749,10 +1741,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation",
 			deleteSQL: `DELETE FROM "relation" AS t`,
-			insertSQL: `INSERT INTO "relation" ("uuid", "life_id", "relation_id", "suspended", "suspended_reason", "scope_id") SELECT $ModelRelation.uuid AS "uuid", $ModelRelation.life_id AS "life_id", $ModelRelation.relation_id AS "relation_id", CASE WHEN $ModelRelation.has_suspended THEN $ModelRelation.suspended ELSE FALSE END AS "suspended", $ModelRelation.suspended_reason AS "suspended_reason", $ModelRelation.scope_id AS "scope_id"`,
-			sample:    recovery.ModelRelation{},
+			insertSQL: `INSERT INTO "relation" ("uuid", "life_id", "relation_id", "suspended", "suspended_reason", "scope_id") SELECT $Relation.uuid AS "uuid", $Relation.life_id AS "life_id", $Relation.relation_id AS "relation_id", $Relation.suspended AS "suspended", $Relation.suspended_reason AS "suspended_reason", $Relation.scope_id AS "scope_id"`,
+			sample:    exporttypes.Relation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelation)
+				return insertRows(ctx, tx, stmt, dump.Relation)
 			},
 		})
 	}
@@ -1760,10 +1752,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_application_setting",
 			deleteSQL: `DELETE FROM "relation_application_setting" AS t`,
-			insertSQL: `INSERT INTO "relation_application_setting" ("relation_endpoint_uuid", "key", "value") SELECT $ModelRelationApplicationSetting.relation_endpoint_uuid AS "relation_endpoint_uuid", $ModelRelationApplicationSetting.key AS "key", $ModelRelationApplicationSetting.value AS "value"`,
-			sample:    recovery.ModelRelationApplicationSetting{},
+			insertSQL: `INSERT INTO "relation_application_setting" ("relation_endpoint_uuid", "key", "value") SELECT $RelationApplicationSetting.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationApplicationSetting.key AS "key", $RelationApplicationSetting.value AS "value"`,
+			sample:    exporttypes.RelationApplicationSetting{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationApplicationSetting)
+				return insertRows(ctx, tx, stmt, dump.RelationApplicationSetting)
 			},
 		})
 	}
@@ -1771,10 +1763,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_application_settings_hash",
 			deleteSQL: `DELETE FROM "relation_application_settings_hash" AS t`,
-			insertSQL: `INSERT INTO "relation_application_settings_hash" ("relation_endpoint_uuid", "sha256") SELECT $ModelRelationApplicationSettingsHash.relation_endpoint_uuid AS "relation_endpoint_uuid", $ModelRelationApplicationSettingsHash.sha256 AS "sha256"`,
-			sample:    recovery.ModelRelationApplicationSettingsHash{},
+			insertSQL: `INSERT INTO "relation_application_settings_hash" ("relation_endpoint_uuid", "sha256") SELECT $RelationApplicationSettingsHash.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationApplicationSettingsHash.sha256 AS "sha256"`,
+			sample:    exporttypes.RelationApplicationSettingsHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationApplicationSettingsHash)
+				return insertRows(ctx, tx, stmt, dump.RelationApplicationSettingsHash)
 			},
 		})
 	}
@@ -1782,10 +1774,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_endpoint",
 			deleteSQL: `DELETE FROM "relation_endpoint" AS t`,
-			insertSQL: `INSERT INTO "relation_endpoint" ("uuid", "relation_uuid", "endpoint_uuid") SELECT $ModelRelationEndpoint.uuid AS "uuid", $ModelRelationEndpoint.relation_uuid AS "relation_uuid", $ModelRelationEndpoint.endpoint_uuid AS "endpoint_uuid"`,
-			sample:    recovery.ModelRelationEndpoint{},
+			insertSQL: `INSERT INTO "relation_endpoint" ("uuid", "relation_uuid", "endpoint_uuid") SELECT $RelationEndpoint.uuid AS "uuid", $RelationEndpoint.relation_uuid AS "relation_uuid", $RelationEndpoint.endpoint_uuid AS "endpoint_uuid"`,
+			sample:    exporttypes.RelationEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationEndpoint)
+				return insertRows(ctx, tx, stmt, dump.RelationEndpoint)
 			},
 		})
 	}
@@ -1793,10 +1785,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_network_egress",
 			deleteSQL: `DELETE FROM "relation_network_egress" AS t`,
-			insertSQL: `INSERT INTO "relation_network_egress" ("relation_uuid", "cidr") SELECT $ModelRelationNetworkEgress.relation_uuid AS "relation_uuid", $ModelRelationNetworkEgress.cidr AS "cidr"`,
-			sample:    recovery.ModelRelationNetworkEgress{},
+			insertSQL: `INSERT INTO "relation_network_egress" ("relation_uuid", "cidr") SELECT $RelationNetworkEgress.relation_uuid AS "relation_uuid", $RelationNetworkEgress.cidr AS "cidr"`,
+			sample:    exporttypes.RelationNetworkEgress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationNetworkEgress)
+				return insertRows(ctx, tx, stmt, dump.RelationNetworkEgress)
 			},
 		})
 	}
@@ -1804,10 +1796,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_network_ingress",
 			deleteSQL: `DELETE FROM "relation_network_ingress" AS t`,
-			insertSQL: `INSERT INTO "relation_network_ingress" ("relation_uuid", "cidr") SELECT $ModelRelationNetworkIngress.relation_uuid AS "relation_uuid", $ModelRelationNetworkIngress.cidr AS "cidr"`,
-			sample:    recovery.ModelRelationNetworkIngress{},
+			insertSQL: `INSERT INTO "relation_network_ingress" ("relation_uuid", "cidr") SELECT $RelationNetworkIngress.relation_uuid AS "relation_uuid", $RelationNetworkIngress.cidr AS "cidr"`,
+			sample:    exporttypes.RelationNetworkIngress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationNetworkIngress)
+				return insertRows(ctx, tx, stmt, dump.RelationNetworkIngress)
 			},
 		})
 	}
@@ -1815,10 +1807,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_status",
 			deleteSQL: `DELETE FROM "relation_status" AS t`,
-			insertSQL: `INSERT INTO "relation_status" ("relation_uuid", "relation_status_type_id", "message", "updated_at") SELECT $ModelRelationStatus.relation_uuid AS "relation_uuid", $ModelRelationStatus.relation_status_type_id AS "relation_status_type_id", $ModelRelationStatus.message AS "message", $ModelRelationStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelRelationStatus{},
+			insertSQL: `INSERT INTO "relation_status" ("relation_uuid", "relation_status_type_id", "message", "updated_at") SELECT $RelationStatus.relation_uuid AS "relation_uuid", $RelationStatus.relation_status_type_id AS "relation_status_type_id", $RelationStatus.message AS "message", $RelationStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.RelationStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationStatus)
+				return insertRows(ctx, tx, stmt, dump.RelationStatus)
 			},
 		})
 	}
@@ -1826,10 +1818,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_status_type",
 			deleteSQL: `DELETE FROM "relation_status_type" AS t`,
-			insertSQL: `INSERT INTO "relation_status_type" ("id", "name") SELECT $ModelRelationStatusType.id AS "id", $ModelRelationStatusType.name AS "name"`,
-			sample:    recovery.ModelRelationStatusType{},
+			insertSQL: `INSERT INTO "relation_status_type" ("id", "name") SELECT $RelationStatusType.id AS "id", $RelationStatusType.name AS "name"`,
+			sample:    exporttypes.RelationStatusType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationStatusType)
+				return insertRows(ctx, tx, stmt, dump.RelationStatusType)
 			},
 		})
 	}
@@ -1837,10 +1829,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_unit",
 			deleteSQL: `DELETE FROM "relation_unit" AS t`,
-			insertSQL: `INSERT INTO "relation_unit" ("uuid", "relation_endpoint_uuid", "unit_uuid") SELECT $ModelRelationUnit.uuid AS "uuid", $ModelRelationUnit.relation_endpoint_uuid AS "relation_endpoint_uuid", $ModelRelationUnit.unit_uuid AS "unit_uuid"`,
-			sample:    recovery.ModelRelationUnit{},
+			insertSQL: `INSERT INTO "relation_unit" ("uuid", "relation_endpoint_uuid", "unit_uuid") SELECT $RelationUnit.uuid AS "uuid", $RelationUnit.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationUnit.unit_uuid AS "unit_uuid"`,
+			sample:    exporttypes.RelationUnit{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationUnit)
+				return insertRows(ctx, tx, stmt, dump.RelationUnit)
 			},
 		})
 	}
@@ -1848,10 +1840,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_unit_departure",
 			deleteSQL: `DELETE FROM "relation_unit_departure" AS t`,
-			insertSQL: `INSERT INTO "relation_unit_departure" ("relation_uuid", "relation_endpoint_uuid", "unit_uuid", "unit_name") SELECT $ModelRelationUnitDeparture.relation_uuid AS "relation_uuid", $ModelRelationUnitDeparture.relation_endpoint_uuid AS "relation_endpoint_uuid", $ModelRelationUnitDeparture.unit_uuid AS "unit_uuid", $ModelRelationUnitDeparture.unit_name AS "unit_name"`,
-			sample:    recovery.ModelRelationUnitDeparture{},
+			insertSQL: `INSERT INTO "relation_unit_departure" ("relation_uuid", "relation_endpoint_uuid", "unit_uuid", "unit_name") SELECT $RelationUnitDeparture.relation_uuid AS "relation_uuid", $RelationUnitDeparture.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationUnitDeparture.unit_uuid AS "unit_uuid", $RelationUnitDeparture.unit_name AS "unit_name"`,
+			sample:    exporttypes.RelationUnitDeparture{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationUnitDeparture)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitDeparture)
 			},
 		})
 	}
@@ -1859,10 +1851,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_unit_setting",
 			deleteSQL: `DELETE FROM "relation_unit_setting" AS t`,
-			insertSQL: `INSERT INTO "relation_unit_setting" ("relation_unit_uuid", "key", "value") SELECT $ModelRelationUnitSetting.relation_unit_uuid AS "relation_unit_uuid", $ModelRelationUnitSetting.key AS "key", $ModelRelationUnitSetting.value AS "value"`,
-			sample:    recovery.ModelRelationUnitSetting{},
+			insertSQL: `INSERT INTO "relation_unit_setting" ("relation_unit_uuid", "key", "value") SELECT $RelationUnitSetting.relation_unit_uuid AS "relation_unit_uuid", $RelationUnitSetting.key AS "key", $RelationUnitSetting.value AS "value"`,
+			sample:    exporttypes.RelationUnitSetting{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationUnitSetting)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitSetting)
 			},
 		})
 	}
@@ -1870,10 +1862,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_unit_setting_archive",
 			deleteSQL: `DELETE FROM "relation_unit_setting_archive" AS t`,
-			insertSQL: `INSERT INTO "relation_unit_setting_archive" ("relation_uuid", "unit_name", "key", "value") SELECT $ModelRelationUnitSettingArchive.relation_uuid AS "relation_uuid", $ModelRelationUnitSettingArchive.unit_name AS "unit_name", $ModelRelationUnitSettingArchive.key AS "key", $ModelRelationUnitSettingArchive.value AS "value"`,
-			sample:    recovery.ModelRelationUnitSettingArchive{},
+			insertSQL: `INSERT INTO "relation_unit_setting_archive" ("relation_uuid", "unit_name", "key", "value") SELECT $RelationUnitSettingArchive.relation_uuid AS "relation_uuid", $RelationUnitSettingArchive.unit_name AS "unit_name", $RelationUnitSettingArchive.key AS "key", $RelationUnitSettingArchive.value AS "value"`,
+			sample:    exporttypes.RelationUnitSettingArchive{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationUnitSettingArchive)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingArchive)
 			},
 		})
 	}
@@ -1881,10 +1873,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "relation_unit_settings_hash",
 			deleteSQL: `DELETE FROM "relation_unit_settings_hash" AS t`,
-			insertSQL: `INSERT INTO "relation_unit_settings_hash" ("relation_unit_uuid", "sha256") SELECT $ModelRelationUnitSettingsHash.relation_unit_uuid AS "relation_unit_uuid", $ModelRelationUnitSettingsHash.sha256 AS "sha256"`,
-			sample:    recovery.ModelRelationUnitSettingsHash{},
+			insertSQL: `INSERT INTO "relation_unit_settings_hash" ("relation_unit_uuid", "sha256") SELECT $RelationUnitSettingsHash.relation_unit_uuid AS "relation_unit_uuid", $RelationUnitSettingsHash.sha256 AS "sha256"`,
+			sample:    exporttypes.RelationUnitSettingsHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRelationUnitSettingsHash)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingsHash)
 			},
 		})
 	}
@@ -1892,10 +1884,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "removal",
 			deleteSQL: `DELETE FROM "removal" AS t`,
-			insertSQL: `INSERT INTO "removal" ("uuid", "removal_type_id", "entity_uuid", "force", "scheduled_for", "arg") SELECT $ModelRemoval.uuid AS "uuid", $ModelRemoval.removal_type_id AS "removal_type_id", $ModelRemoval.entity_uuid AS "entity_uuid", CASE WHEN $ModelRemoval.has_force THEN $ModelRemoval.force ELSE 0 END AS "force", CASE WHEN $ModelRemoval.has_scheduled_for THEN $ModelRemoval.scheduled_for ELSE STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc') END AS "scheduled_for", $ModelRemoval.arg AS "arg"`,
-			sample:    recovery.ModelRemoval{},
+			insertSQL: `INSERT INTO "removal" ("uuid", "removal_type_id", "entity_uuid", "force", "scheduled_for", "arg") SELECT $Removal.uuid AS "uuid", $Removal.removal_type_id AS "removal_type_id", $Removal.entity_uuid AS "entity_uuid", $Removal.force AS "force", $Removal.scheduled_for AS "scheduled_for", $Removal.arg AS "arg"`,
+			sample:    exporttypes.Removal{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRemoval)
+				return insertRows(ctx, tx, stmt, dump.Removal)
 			},
 		})
 	}
@@ -1903,10 +1895,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "removal_type",
 			deleteSQL: `DELETE FROM "removal_type" AS t`,
-			insertSQL: `INSERT INTO "removal_type" ("id", "name") SELECT $ModelRemovalType.id AS "id", $ModelRemovalType.name AS "name"`,
-			sample:    recovery.ModelRemovalType{},
+			insertSQL: `INSERT INTO "removal_type" ("id", "name") SELECT $RemovalType.id AS "id", $RemovalType.name AS "name"`,
+			sample:    exporttypes.RemovalType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelRemovalType)
+				return insertRows(ctx, tx, stmt, dump.RemovalType)
 			},
 		})
 	}
@@ -1914,10 +1906,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resolve_mode",
 			deleteSQL: `DELETE FROM "resolve_mode" AS t`,
-			insertSQL: `INSERT INTO "resolve_mode" ("id", "name") SELECT $ModelResolveMode.id AS "id", $ModelResolveMode.name AS "name"`,
-			sample:    recovery.ModelResolveMode{},
+			insertSQL: `INSERT INTO "resolve_mode" ("id", "name") SELECT $ResolveMode.id AS "id", $ResolveMode.name AS "name"`,
+			sample:    exporttypes.ResolveMode{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResolveMode)
+				return insertRows(ctx, tx, stmt, dump.ResolveMode)
 			},
 		})
 	}
@@ -1925,10 +1917,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource",
 			deleteSQL: `DELETE FROM "resource" AS t`,
-			insertSQL: `INSERT INTO "resource" ("uuid", "charm_uuid", "charm_resource_name", "revision", "origin_type_id", "state_id", "created_at", "last_polled") SELECT $ModelResource.uuid AS "uuid", $ModelResource.charm_uuid AS "charm_uuid", $ModelResource.charm_resource_name AS "charm_resource_name", $ModelResource.revision AS "revision", $ModelResource.origin_type_id AS "origin_type_id", $ModelResource.state_id AS "state_id", $ModelResource.created_at AS "created_at", $ModelResource.last_polled AS "last_polled"`,
-			sample:    recovery.ModelResource{},
+			insertSQL: `INSERT INTO "resource" ("uuid", "charm_uuid", "charm_resource_name", "revision", "origin_type_id", "state_id", "created_at", "last_polled") SELECT $Resource.uuid AS "uuid", $Resource.charm_uuid AS "charm_uuid", $Resource.charm_resource_name AS "charm_resource_name", $Resource.revision AS "revision", $Resource.origin_type_id AS "origin_type_id", $Resource.state_id AS "state_id", $Resource.created_at AS "created_at", $Resource.last_polled AS "last_polled"`,
+			sample:    exporttypes.Resource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResource)
+				return insertRows(ctx, tx, stmt, dump.Resource)
 			},
 		})
 	}
@@ -1936,10 +1928,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_container_image_metadata_store",
 			deleteSQL: `DELETE FROM "resource_container_image_metadata_store" AS t`,
-			insertSQL: `INSERT INTO "resource_container_image_metadata_store" ("storage_key", "registry_path", "username", "password") SELECT $ModelResourceContainerImageMetadataStore.storage_key AS "storage_key", $ModelResourceContainerImageMetadataStore.registry_path AS "registry_path", $ModelResourceContainerImageMetadataStore.username AS "username", $ModelResourceContainerImageMetadataStore.password AS "password"`,
-			sample:    recovery.ModelResourceContainerImageMetadataStore{},
+			insertSQL: `INSERT INTO "resource_container_image_metadata_store" ("storage_key", "registry_path", "username", "password") SELECT $ResourceContainerImageMetadataStore.storage_key AS "storage_key", $ResourceContainerImageMetadataStore.registry_path AS "registry_path", $ResourceContainerImageMetadataStore.username AS "username", $ResourceContainerImageMetadataStore.password AS "password"`,
+			sample:    exporttypes.ResourceContainerImageMetadataStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceContainerImageMetadataStore)
+				return insertRows(ctx, tx, stmt, dump.ResourceContainerImageMetadataStore)
 			},
 		})
 	}
@@ -1947,10 +1939,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_file_store",
 			deleteSQL: `DELETE FROM "resource_file_store" AS t`,
-			insertSQL: `INSERT INTO "resource_file_store" ("resource_uuid", "store_uuid", "size", "sha384") SELECT $ModelResourceFileStore.resource_uuid AS "resource_uuid", $ModelResourceFileStore.store_uuid AS "store_uuid", $ModelResourceFileStore.size AS "size", $ModelResourceFileStore.sha384 AS "sha384"`,
-			sample:    recovery.ModelResourceFileStore{},
+			insertSQL: `INSERT INTO "resource_file_store" ("resource_uuid", "store_uuid", "size", "sha384") SELECT $ResourceFileStore.resource_uuid AS "resource_uuid", $ResourceFileStore.store_uuid AS "store_uuid", $ResourceFileStore.size AS "size", $ResourceFileStore.sha384 AS "sha384"`,
+			sample:    exporttypes.ResourceFileStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceFileStore)
+				return insertRows(ctx, tx, stmt, dump.ResourceFileStore)
 			},
 		})
 	}
@@ -1958,10 +1950,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_image_store",
 			deleteSQL: `DELETE FROM "resource_image_store" AS t`,
-			insertSQL: `INSERT INTO "resource_image_store" ("resource_uuid", "store_storage_key", "size", "sha384") SELECT $ModelResourceImageStore.resource_uuid AS "resource_uuid", $ModelResourceImageStore.store_storage_key AS "store_storage_key", $ModelResourceImageStore.size AS "size", $ModelResourceImageStore.sha384 AS "sha384"`,
-			sample:    recovery.ModelResourceImageStore{},
+			insertSQL: `INSERT INTO "resource_image_store" ("resource_uuid", "store_storage_key", "size", "sha384") SELECT $ResourceImageStore.resource_uuid AS "resource_uuid", $ResourceImageStore.store_storage_key AS "store_storage_key", $ResourceImageStore.size AS "size", $ResourceImageStore.sha384 AS "sha384"`,
+			sample:    exporttypes.ResourceImageStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceImageStore)
+				return insertRows(ctx, tx, stmt, dump.ResourceImageStore)
 			},
 		})
 	}
@@ -1969,10 +1961,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_origin_type",
 			deleteSQL: `DELETE FROM "resource_origin_type" AS t`,
-			insertSQL: `INSERT INTO "resource_origin_type" ("id", "name") SELECT $ModelResourceOriginType.id AS "id", $ModelResourceOriginType.name AS "name"`,
-			sample:    recovery.ModelResourceOriginType{},
+			insertSQL: `INSERT INTO "resource_origin_type" ("id", "name") SELECT $ResourceOriginType.id AS "id", $ResourceOriginType.name AS "name"`,
+			sample:    exporttypes.ResourceOriginType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceOriginType)
+				return insertRows(ctx, tx, stmt, dump.ResourceOriginType)
 			},
 		})
 	}
@@ -1980,10 +1972,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_retrieved_by",
 			deleteSQL: `DELETE FROM "resource_retrieved_by" AS t`,
-			insertSQL: `INSERT INTO "resource_retrieved_by" ("resource_uuid", "retrieved_by_type_id", "name") SELECT $ModelResourceRetrievedBy.resource_uuid AS "resource_uuid", $ModelResourceRetrievedBy.retrieved_by_type_id AS "retrieved_by_type_id", $ModelResourceRetrievedBy.name AS "name"`,
-			sample:    recovery.ModelResourceRetrievedBy{},
+			insertSQL: `INSERT INTO "resource_retrieved_by" ("resource_uuid", "retrieved_by_type_id", "name") SELECT $ResourceRetrievedBy.resource_uuid AS "resource_uuid", $ResourceRetrievedBy.retrieved_by_type_id AS "retrieved_by_type_id", $ResourceRetrievedBy.name AS "name"`,
+			sample:    exporttypes.ResourceRetrievedBy{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceRetrievedBy)
+				return insertRows(ctx, tx, stmt, dump.ResourceRetrievedBy)
 			},
 		})
 	}
@@ -1991,10 +1983,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_retrieved_by_type",
 			deleteSQL: `DELETE FROM "resource_retrieved_by_type" AS t`,
-			insertSQL: `INSERT INTO "resource_retrieved_by_type" ("id", "name") SELECT $ModelResourceRetrievedByType.id AS "id", $ModelResourceRetrievedByType.name AS "name"`,
-			sample:    recovery.ModelResourceRetrievedByType{},
+			insertSQL: `INSERT INTO "resource_retrieved_by_type" ("id", "name") SELECT $ResourceRetrievedByType.id AS "id", $ResourceRetrievedByType.name AS "name"`,
+			sample:    exporttypes.ResourceRetrievedByType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceRetrievedByType)
+				return insertRows(ctx, tx, stmt, dump.ResourceRetrievedByType)
 			},
 		})
 	}
@@ -2002,10 +1994,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "resource_state",
 			deleteSQL: `DELETE FROM "resource_state" AS t`,
-			insertSQL: `INSERT INTO "resource_state" ("id", "name") SELECT $ModelResourceState.id AS "id", $ModelResourceState.name AS "name"`,
-			sample:    recovery.ModelResourceState{},
+			insertSQL: `INSERT INTO "resource_state" ("id", "name") SELECT $ResourceState.id AS "id", $ResourceState.name AS "name"`,
+			sample:    exporttypes.ResourceState{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelResourceState)
+				return insertRows(ctx, tx, stmt, dump.ResourceState)
 			},
 		})
 	}
@@ -2013,10 +2005,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret",
 			deleteSQL: `DELETE FROM "secret" AS t`,
-			insertSQL: `INSERT INTO "secret" ("id") SELECT $ModelSecret.id AS "id"`,
-			sample:    recovery.ModelSecret{},
+			insertSQL: `INSERT INTO "secret" ("id") SELECT $Secret.id AS "id"`,
+			sample:    exporttypes.Secret{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecret)
+				return insertRows(ctx, tx, stmt, dump.Secret)
 			},
 		})
 	}
@@ -2024,10 +2016,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_application_owner",
 			deleteSQL: `DELETE FROM "secret_application_owner" AS t`,
-			insertSQL: `INSERT INTO "secret_application_owner" ("secret_id", "application_uuid", "label") SELECT $ModelSecretApplicationOwner.secret_id AS "secret_id", $ModelSecretApplicationOwner.application_uuid AS "application_uuid", $ModelSecretApplicationOwner.label AS "label"`,
-			sample:    recovery.ModelSecretApplicationOwner{},
+			insertSQL: `INSERT INTO "secret_application_owner" ("secret_id", "application_uuid", "label") SELECT $SecretApplicationOwner.secret_id AS "secret_id", $SecretApplicationOwner.application_uuid AS "application_uuid", $SecretApplicationOwner.label AS "label"`,
+			sample:    exporttypes.SecretApplicationOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretApplicationOwner)
+				return insertRows(ctx, tx, stmt, dump.SecretApplicationOwner)
 			},
 		})
 	}
@@ -2035,10 +2027,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_content",
 			deleteSQL: `DELETE FROM "secret_content" AS t`,
-			insertSQL: `INSERT INTO "secret_content" ("revision_uuid", "name", "content") SELECT $ModelSecretContent.revision_uuid AS "revision_uuid", $ModelSecretContent.name AS "name", $ModelSecretContent.content AS "content"`,
-			sample:    recovery.ModelSecretContent{},
+			insertSQL: `INSERT INTO "secret_content" ("revision_uuid", "name", "content") SELECT $SecretContent.revision_uuid AS "revision_uuid", $SecretContent.name AS "name", $SecretContent.content AS "content"`,
+			sample:    exporttypes.SecretContent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretContent)
+				return insertRows(ctx, tx, stmt, dump.SecretContent)
 			},
 		})
 	}
@@ -2046,10 +2038,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_deleted_value_ref",
 			deleteSQL: `DELETE FROM "secret_deleted_value_ref" AS t`,
-			insertSQL: `INSERT INTO "secret_deleted_value_ref" ("revision_uuid", "backend_uuid", "revision_id") SELECT $ModelSecretDeletedValueRef.revision_uuid AS "revision_uuid", $ModelSecretDeletedValueRef.backend_uuid AS "backend_uuid", $ModelSecretDeletedValueRef.revision_id AS "revision_id"`,
-			sample:    recovery.ModelSecretDeletedValueRef{},
+			insertSQL: `INSERT INTO "secret_deleted_value_ref" ("revision_uuid", "backend_uuid", "revision_id") SELECT $SecretDeletedValueRef.revision_uuid AS "revision_uuid", $SecretDeletedValueRef.backend_uuid AS "backend_uuid", $SecretDeletedValueRef.revision_id AS "revision_id"`,
+			sample:    exporttypes.SecretDeletedValueRef{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretDeletedValueRef)
+				return insertRows(ctx, tx, stmt, dump.SecretDeletedValueRef)
 			},
 		})
 	}
@@ -2057,10 +2049,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_grant_scope_type",
 			deleteSQL: `DELETE FROM "secret_grant_scope_type" AS t`,
-			insertSQL: `INSERT INTO "secret_grant_scope_type" ("id", "type") SELECT $ModelSecretGrantScopeType.id AS "id", $ModelSecretGrantScopeType.type AS "type"`,
-			sample:    recovery.ModelSecretGrantScopeType{},
+			insertSQL: `INSERT INTO "secret_grant_scope_type" ("id", "type") SELECT $SecretGrantScopeType.id AS "id", $SecretGrantScopeType.type AS "type"`,
+			sample:    exporttypes.SecretGrantScopeType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretGrantScopeType)
+				return insertRows(ctx, tx, stmt, dump.SecretGrantScopeType)
 			},
 		})
 	}
@@ -2068,10 +2060,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_grant_subject_type",
 			deleteSQL: `DELETE FROM "secret_grant_subject_type" AS t`,
-			insertSQL: `INSERT INTO "secret_grant_subject_type" ("id", "type") SELECT $ModelSecretGrantSubjectType.id AS "id", $ModelSecretGrantSubjectType.type AS "type"`,
-			sample:    recovery.ModelSecretGrantSubjectType{},
+			insertSQL: `INSERT INTO "secret_grant_subject_type" ("id", "type") SELECT $SecretGrantSubjectType.id AS "id", $SecretGrantSubjectType.type AS "type"`,
+			sample:    exporttypes.SecretGrantSubjectType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretGrantSubjectType)
+				return insertRows(ctx, tx, stmt, dump.SecretGrantSubjectType)
 			},
 		})
 	}
@@ -2079,10 +2071,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_metadata",
 			deleteSQL: `DELETE FROM "secret_metadata" AS t`,
-			insertSQL: `INSERT INTO "secret_metadata" ("secret_id", "version", "description", "rotate_policy_id", "auto_prune", "latest_revision_checksum", "create_time", "update_time") SELECT $ModelSecretMetadata.secret_id AS "secret_id", $ModelSecretMetadata.version AS "version", $ModelSecretMetadata.description AS "description", $ModelSecretMetadata.rotate_policy_id AS "rotate_policy_id", CASE WHEN $ModelSecretMetadata.has_auto_prune THEN $ModelSecretMetadata.auto_prune ELSE FALSE END AS "auto_prune", $ModelSecretMetadata.latest_revision_checksum AS "latest_revision_checksum", $ModelSecretMetadata.create_time AS "create_time", $ModelSecretMetadata.update_time AS "update_time"`,
-			sample:    recovery.ModelSecretMetadata{},
+			insertSQL: `INSERT INTO "secret_metadata" ("secret_id", "version", "description", "rotate_policy_id", "auto_prune", "latest_revision_checksum", "create_time", "update_time") SELECT $SecretMetadata.secret_id AS "secret_id", $SecretMetadata.version AS "version", $SecretMetadata.description AS "description", $SecretMetadata.rotate_policy_id AS "rotate_policy_id", $SecretMetadata.auto_prune AS "auto_prune", $SecretMetadata.latest_revision_checksum AS "latest_revision_checksum", $SecretMetadata.create_time AS "create_time", $SecretMetadata.update_time AS "update_time"`,
+			sample:    exporttypes.SecretMetadata{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretMetadata)
+				return insertRows(ctx, tx, stmt, dump.SecretMetadata)
 			},
 		})
 	}
@@ -2090,10 +2082,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_model_owner",
 			deleteSQL: `DELETE FROM "secret_model_owner" AS t`,
-			insertSQL: `INSERT INTO "secret_model_owner" ("secret_id", "label") SELECT $ModelSecretModelOwner.secret_id AS "secret_id", $ModelSecretModelOwner.label AS "label"`,
-			sample:    recovery.ModelSecretModelOwner{},
+			insertSQL: `INSERT INTO "secret_model_owner" ("secret_id", "label") SELECT $SecretModelOwner.secret_id AS "secret_id", $SecretModelOwner.label AS "label"`,
+			sample:    exporttypes.SecretModelOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretModelOwner)
+				return insertRows(ctx, tx, stmt, dump.SecretModelOwner)
 			},
 		})
 	}
@@ -2101,10 +2093,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_permission",
 			deleteSQL: `DELETE FROM "secret_permission" AS t`,
-			insertSQL: `INSERT INTO "secret_permission" ("secret_id", "role_id", "subject_uuid", "subject_type_id", "scope_uuid", "scope_type_id") SELECT $ModelSecretPermission.secret_id AS "secret_id", $ModelSecretPermission.role_id AS "role_id", $ModelSecretPermission.subject_uuid AS "subject_uuid", $ModelSecretPermission.subject_type_id AS "subject_type_id", $ModelSecretPermission.scope_uuid AS "scope_uuid", $ModelSecretPermission.scope_type_id AS "scope_type_id"`,
-			sample:    recovery.ModelSecretPermission{},
+			insertSQL: `INSERT INTO "secret_permission" ("secret_id", "role_id", "subject_uuid", "subject_type_id", "scope_uuid", "scope_type_id") SELECT $SecretPermission.secret_id AS "secret_id", $SecretPermission.role_id AS "role_id", $SecretPermission.subject_uuid AS "subject_uuid", $SecretPermission.subject_type_id AS "subject_type_id", $SecretPermission.scope_uuid AS "scope_uuid", $SecretPermission.scope_type_id AS "scope_type_id"`,
+			sample:    exporttypes.SecretPermission{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretPermission)
+				return insertRows(ctx, tx, stmt, dump.SecretPermission)
 			},
 		})
 	}
@@ -2112,10 +2104,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_reference",
 			deleteSQL: `DELETE FROM "secret_reference" AS t`,
-			insertSQL: `INSERT INTO "secret_reference" ("secret_id", "latest_revision", "owner_application_uuid", "updated_at", "migrated") SELECT $ModelSecretReference.secret_id AS "secret_id", $ModelSecretReference.latest_revision AS "latest_revision", $ModelSecretReference.owner_application_uuid AS "owner_application_uuid", $ModelSecretReference.updated_at AS "updated_at", CASE WHEN $ModelSecretReference.has_migrated THEN $ModelSecretReference.migrated ELSE FALSE END AS "migrated"`,
-			sample:    recovery.ModelSecretReference{},
+			insertSQL: `INSERT INTO "secret_reference" ("secret_id", "latest_revision", "owner_application_uuid", "updated_at", "migrated") SELECT $SecretReference.secret_id AS "secret_id", $SecretReference.latest_revision AS "latest_revision", $SecretReference.owner_application_uuid AS "owner_application_uuid", $SecretReference.updated_at AS "updated_at", $SecretReference.migrated AS "migrated"`,
+			sample:    exporttypes.SecretReference{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretReference)
+				return insertRows(ctx, tx, stmt, dump.SecretReference)
 			},
 		})
 	}
@@ -2123,10 +2115,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_remote_unit_consumer",
 			deleteSQL: `DELETE FROM "secret_remote_unit_consumer" AS t`,
-			insertSQL: `INSERT INTO "secret_remote_unit_consumer" ("secret_id", "unit_name", "current_revision") SELECT $ModelSecretRemoteUnitConsumer.secret_id AS "secret_id", $ModelSecretRemoteUnitConsumer.unit_name AS "unit_name", $ModelSecretRemoteUnitConsumer.current_revision AS "current_revision"`,
-			sample:    recovery.ModelSecretRemoteUnitConsumer{},
+			insertSQL: `INSERT INTO "secret_remote_unit_consumer" ("secret_id", "unit_name", "current_revision") SELECT $SecretRemoteUnitConsumer.secret_id AS "secret_id", $SecretRemoteUnitConsumer.unit_name AS "unit_name", $SecretRemoteUnitConsumer.current_revision AS "current_revision"`,
+			sample:    exporttypes.SecretRemoteUnitConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRemoteUnitConsumer)
+				return insertRows(ctx, tx, stmt, dump.SecretRemoteUnitConsumer)
 			},
 		})
 	}
@@ -2134,10 +2126,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_reservation",
 			deleteSQL: `DELETE FROM "secret_reservation" AS t`,
-			insertSQL: `INSERT INTO "secret_reservation" ("secret_id", "unit_uuid", "created_at") SELECT $ModelSecretReservation.secret_id AS "secret_id", $ModelSecretReservation.unit_uuid AS "unit_uuid", $ModelSecretReservation.created_at AS "created_at"`,
-			sample:    recovery.ModelSecretReservation{},
+			insertSQL: `INSERT INTO "secret_reservation" ("secret_id", "unit_uuid", "created_at") SELECT $SecretReservation.secret_id AS "secret_id", $SecretReservation.unit_uuid AS "unit_uuid", $SecretReservation.created_at AS "created_at"`,
+			sample:    exporttypes.SecretReservation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretReservation)
+				return insertRows(ctx, tx, stmt, dump.SecretReservation)
 			},
 		})
 	}
@@ -2145,10 +2137,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_revision",
 			deleteSQL: `DELETE FROM "secret_revision" AS t`,
-			insertSQL: `INSERT INTO "secret_revision" ("uuid", "secret_id", "revision", "create_time", "update_time") SELECT $ModelSecretRevision.uuid AS "uuid", $ModelSecretRevision.secret_id AS "secret_id", $ModelSecretRevision.revision AS "revision", $ModelSecretRevision.create_time AS "create_time", $ModelSecretRevision.update_time AS "update_time"`,
-			sample:    recovery.ModelSecretRevision{},
+			insertSQL: `INSERT INTO "secret_revision" ("uuid", "secret_id", "revision", "create_time", "update_time") SELECT $SecretRevision.uuid AS "uuid", $SecretRevision.secret_id AS "secret_id", $SecretRevision.revision AS "revision", $SecretRevision.create_time AS "create_time", $SecretRevision.update_time AS "update_time"`,
+			sample:    exporttypes.SecretRevision{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRevision)
+				return insertRows(ctx, tx, stmt, dump.SecretRevision)
 			},
 		})
 	}
@@ -2156,10 +2148,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_revision_expire",
 			deleteSQL: `DELETE FROM "secret_revision_expire" AS t`,
-			insertSQL: `INSERT INTO "secret_revision_expire" ("revision_uuid", "expire_time") SELECT $ModelSecretRevisionExpire.revision_uuid AS "revision_uuid", $ModelSecretRevisionExpire.expire_time AS "expire_time"`,
-			sample:    recovery.ModelSecretRevisionExpire{},
+			insertSQL: `INSERT INTO "secret_revision_expire" ("revision_uuid", "expire_time") SELECT $SecretRevisionExpire.revision_uuid AS "revision_uuid", $SecretRevisionExpire.expire_time AS "expire_time"`,
+			sample:    exporttypes.SecretRevisionExpire{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRevisionExpire)
+				return insertRows(ctx, tx, stmt, dump.SecretRevisionExpire)
 			},
 		})
 	}
@@ -2167,10 +2159,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_revision_obsolete",
 			deleteSQL: `DELETE FROM "secret_revision_obsolete" AS t`,
-			insertSQL: `INSERT INTO "secret_revision_obsolete" ("revision_uuid", "obsolete", "pending_delete") SELECT $ModelSecretRevisionObsolete.revision_uuid AS "revision_uuid", CASE WHEN $ModelSecretRevisionObsolete.has_obsolete THEN $ModelSecretRevisionObsolete.obsolete ELSE FALSE END AS "obsolete", CASE WHEN $ModelSecretRevisionObsolete.has_pending_delete THEN $ModelSecretRevisionObsolete.pending_delete ELSE FALSE END AS "pending_delete"`,
-			sample:    recovery.ModelSecretRevisionObsolete{},
+			insertSQL: `INSERT INTO "secret_revision_obsolete" ("revision_uuid", "obsolete", "pending_delete") SELECT $SecretRevisionObsolete.revision_uuid AS "revision_uuid", $SecretRevisionObsolete.obsolete AS "obsolete", $SecretRevisionObsolete.pending_delete AS "pending_delete"`,
+			sample:    exporttypes.SecretRevisionObsolete{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRevisionObsolete)
+				return insertRows(ctx, tx, stmt, dump.SecretRevisionObsolete)
 			},
 		})
 	}
@@ -2178,10 +2170,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_role",
 			deleteSQL: `DELETE FROM "secret_role" AS t`,
-			insertSQL: `INSERT INTO "secret_role" ("id", "role") SELECT $ModelSecretRole.id AS "id", $ModelSecretRole.role AS "role"`,
-			sample:    recovery.ModelSecretRole{},
+			insertSQL: `INSERT INTO "secret_role" ("id", "role") SELECT $SecretRole.id AS "id", $SecretRole.role AS "role"`,
+			sample:    exporttypes.SecretRole{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRole)
+				return insertRows(ctx, tx, stmt, dump.SecretRole)
 			},
 		})
 	}
@@ -2189,10 +2181,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_rotate_policy",
 			deleteSQL: `DELETE FROM "secret_rotate_policy" AS t`,
-			insertSQL: `INSERT INTO "secret_rotate_policy" ("id", "policy") SELECT $ModelSecretRotatePolicy.id AS "id", $ModelSecretRotatePolicy.policy AS "policy"`,
-			sample:    recovery.ModelSecretRotatePolicy{},
+			insertSQL: `INSERT INTO "secret_rotate_policy" ("id", "policy") SELECT $SecretRotatePolicy.id AS "id", $SecretRotatePolicy.policy AS "policy"`,
+			sample:    exporttypes.SecretRotatePolicy{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRotatePolicy)
+				return insertRows(ctx, tx, stmt, dump.SecretRotatePolicy)
 			},
 		})
 	}
@@ -2200,10 +2192,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_rotation",
 			deleteSQL: `DELETE FROM "secret_rotation" AS t`,
-			insertSQL: `INSERT INTO "secret_rotation" ("secret_id", "next_rotation_time") SELECT $ModelSecretRotation.secret_id AS "secret_id", $ModelSecretRotation.next_rotation_time AS "next_rotation_time"`,
-			sample:    recovery.ModelSecretRotation{},
+			insertSQL: `INSERT INTO "secret_rotation" ("secret_id", "next_rotation_time") SELECT $SecretRotation.secret_id AS "secret_id", $SecretRotation.next_rotation_time AS "next_rotation_time"`,
+			sample:    exporttypes.SecretRotation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretRotation)
+				return insertRows(ctx, tx, stmt, dump.SecretRotation)
 			},
 		})
 	}
@@ -2211,10 +2203,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_unit_consumer",
 			deleteSQL: `DELETE FROM "secret_unit_consumer" AS t`,
-			insertSQL: `INSERT INTO "secret_unit_consumer" ("secret_id", "source_model_uuid", "unit_uuid", "label", "current_revision") SELECT $ModelSecretUnitConsumer.secret_id AS "secret_id", $ModelSecretUnitConsumer.source_model_uuid AS "source_model_uuid", $ModelSecretUnitConsumer.unit_uuid AS "unit_uuid", $ModelSecretUnitConsumer.label AS "label", $ModelSecretUnitConsumer.current_revision AS "current_revision"`,
-			sample:    recovery.ModelSecretUnitConsumer{},
+			insertSQL: `INSERT INTO "secret_unit_consumer" ("secret_id", "source_model_uuid", "unit_uuid", "label", "current_revision") SELECT $SecretUnitConsumer.secret_id AS "secret_id", $SecretUnitConsumer.source_model_uuid AS "source_model_uuid", $SecretUnitConsumer.unit_uuid AS "unit_uuid", $SecretUnitConsumer.label AS "label", $SecretUnitConsumer.current_revision AS "current_revision"`,
+			sample:    exporttypes.SecretUnitConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretUnitConsumer)
+				return insertRows(ctx, tx, stmt, dump.SecretUnitConsumer)
 			},
 		})
 	}
@@ -2222,10 +2214,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_unit_owner",
 			deleteSQL: `DELETE FROM "secret_unit_owner" AS t`,
-			insertSQL: `INSERT INTO "secret_unit_owner" ("secret_id", "unit_uuid", "label") SELECT $ModelSecretUnitOwner.secret_id AS "secret_id", $ModelSecretUnitOwner.unit_uuid AS "unit_uuid", $ModelSecretUnitOwner.label AS "label"`,
-			sample:    recovery.ModelSecretUnitOwner{},
+			insertSQL: `INSERT INTO "secret_unit_owner" ("secret_id", "unit_uuid", "label") SELECT $SecretUnitOwner.secret_id AS "secret_id", $SecretUnitOwner.unit_uuid AS "unit_uuid", $SecretUnitOwner.label AS "label"`,
+			sample:    exporttypes.SecretUnitOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretUnitOwner)
+				return insertRows(ctx, tx, stmt, dump.SecretUnitOwner)
 			},
 		})
 	}
@@ -2233,10 +2225,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "secret_value_ref",
 			deleteSQL: `DELETE FROM "secret_value_ref" AS t`,
-			insertSQL: `INSERT INTO "secret_value_ref" ("revision_uuid", "backend_uuid", "revision_id") SELECT $ModelSecretValueRef.revision_uuid AS "revision_uuid", $ModelSecretValueRef.backend_uuid AS "backend_uuid", $ModelSecretValueRef.revision_id AS "revision_id"`,
-			sample:    recovery.ModelSecretValueRef{},
+			insertSQL: `INSERT INTO "secret_value_ref" ("revision_uuid", "backend_uuid", "revision_id") SELECT $SecretValueRef.revision_uuid AS "revision_uuid", $SecretValueRef.backend_uuid AS "backend_uuid", $SecretValueRef.revision_id AS "revision_id"`,
+			sample:    exporttypes.SecretValueRef{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSecretValueRef)
+				return insertRows(ctx, tx, stmt, dump.SecretValueRef)
 			},
 		})
 	}
@@ -2244,10 +2236,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "sequence",
 			deleteSQL: `DELETE FROM "sequence" AS t`,
-			insertSQL: `INSERT INTO "sequence" ("namespace", "value") SELECT $ModelSequence.namespace AS "namespace", $ModelSequence.value AS "value"`,
-			sample:    recovery.ModelSequence{},
+			insertSQL: `INSERT INTO "sequence" ("namespace", "value") SELECT $Sequence.namespace AS "namespace", $Sequence.value AS "value"`,
+			sample:    exporttypes.Sequence{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSequence)
+				return insertRows(ctx, tx, stmt, dump.Sequence)
 			},
 		})
 	}
@@ -2255,10 +2247,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "space",
 			deleteSQL: `DELETE FROM "space" AS t`,
-			insertSQL: `INSERT INTO "space" ("uuid", "name") SELECT $ModelSpace.uuid AS "uuid", $ModelSpace.name AS "name"`,
-			sample:    recovery.ModelSpace{},
+			insertSQL: `INSERT INTO "space" ("uuid", "name") SELECT $Space.uuid AS "uuid", $Space.name AS "name"`,
+			sample:    exporttypes.Space{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSpace)
+				return insertRows(ctx, tx, stmt, dump.Space)
 			},
 		})
 	}
@@ -2266,10 +2258,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ssh_connection_request",
 			deleteSQL: `DELETE FROM "ssh_connection_request" AS t`,
-			insertSQL: `INSERT INTO "ssh_connection_request" ("tunnel_id", "machine_uuid", "expires_at", "controller_addresses", "unit_port", "ephemeral_public_key") SELECT $ModelSshConnectionRequest.tunnel_id AS "tunnel_id", $ModelSshConnectionRequest.machine_uuid AS "machine_uuid", $ModelSshConnectionRequest.expires_at AS "expires_at", $ModelSshConnectionRequest.controller_addresses AS "controller_addresses", $ModelSshConnectionRequest.unit_port AS "unit_port", $ModelSshConnectionRequest.ephemeral_public_key AS "ephemeral_public_key"`,
-			sample:    recovery.ModelSshConnectionRequest{},
+			insertSQL: `INSERT INTO "ssh_connection_request" ("tunnel_id", "machine_uuid", "expires_at", "controller_addresses", "unit_port", "ephemeral_public_key") SELECT $SshConnectionRequest.tunnel_id AS "tunnel_id", $SshConnectionRequest.machine_uuid AS "machine_uuid", $SshConnectionRequest.expires_at AS "expires_at", $SshConnectionRequest.controller_addresses AS "controller_addresses", $SshConnectionRequest.unit_port AS "unit_port", $SshConnectionRequest.ephemeral_public_key AS "ephemeral_public_key"`,
+			sample:    exporttypes.SshConnectionRequest{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSshConnectionRequest)
+				return insertRows(ctx, tx, stmt, dump.SshConnectionRequest)
 			},
 		})
 	}
@@ -2277,10 +2269,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ssh_key_algorithm_type",
 			deleteSQL: `DELETE FROM "ssh_key_algorithm_type" AS t`,
-			insertSQL: `INSERT INTO "ssh_key_algorithm_type" ("id", "type") SELECT $ModelSshKeyAlgorithmType.id AS "id", $ModelSshKeyAlgorithmType.type AS "type"`,
-			sample:    recovery.ModelSshKeyAlgorithmType{},
+			insertSQL: `INSERT INTO "ssh_key_algorithm_type" ("id", "type") SELECT $SshKeyAlgorithmType.id AS "id", $SshKeyAlgorithmType.type AS "type"`,
+			sample:    exporttypes.SshKeyAlgorithmType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSshKeyAlgorithmType)
+				return insertRows(ctx, tx, stmt, dump.SshKeyAlgorithmType)
 			},
 		})
 	}
@@ -2288,10 +2280,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_attachment",
 			deleteSQL: `DELETE FROM "storage_attachment" AS t`,
-			insertSQL: `INSERT INTO "storage_attachment" ("uuid", "storage_instance_uuid", "unit_uuid", "life_id") SELECT $ModelStorageAttachment.uuid AS "uuid", $ModelStorageAttachment.storage_instance_uuid AS "storage_instance_uuid", $ModelStorageAttachment.unit_uuid AS "unit_uuid", $ModelStorageAttachment.life_id AS "life_id"`,
-			sample:    recovery.ModelStorageAttachment{},
+			insertSQL: `INSERT INTO "storage_attachment" ("uuid", "storage_instance_uuid", "unit_uuid", "life_id") SELECT $StorageAttachment.uuid AS "uuid", $StorageAttachment.storage_instance_uuid AS "storage_instance_uuid", $StorageAttachment.unit_uuid AS "unit_uuid", $StorageAttachment.life_id AS "life_id"`,
+			sample:    exporttypes.StorageAttachment{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageAttachment)
+				return insertRows(ctx, tx, stmt, dump.StorageAttachment)
 			},
 		})
 	}
@@ -2299,10 +2291,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_filesystem",
 			deleteSQL: `DELETE FROM "storage_filesystem" AS t`,
-			insertSQL: `INSERT INTO "storage_filesystem" ("uuid", "filesystem_id", "life_id", "provision_scope_id", "provider_id", "size_mib", "obliterate_on_cleanup") SELECT $ModelStorageFilesystem.uuid AS "uuid", $ModelStorageFilesystem.filesystem_id AS "filesystem_id", $ModelStorageFilesystem.life_id AS "life_id", $ModelStorageFilesystem.provision_scope_id AS "provision_scope_id", $ModelStorageFilesystem.provider_id AS "provider_id", $ModelStorageFilesystem.size_mib AS "size_mib", $ModelStorageFilesystem.obliterate_on_cleanup AS "obliterate_on_cleanup"`,
-			sample:    recovery.ModelStorageFilesystem{},
+			insertSQL: `INSERT INTO "storage_filesystem" ("uuid", "filesystem_id", "life_id", "provision_scope_id", "provider_id", "size_mib", "obliterate_on_cleanup") SELECT $StorageFilesystem.uuid AS "uuid", $StorageFilesystem.filesystem_id AS "filesystem_id", $StorageFilesystem.life_id AS "life_id", $StorageFilesystem.provision_scope_id AS "provision_scope_id", $StorageFilesystem.provider_id AS "provider_id", $StorageFilesystem.size_mib AS "size_mib", $StorageFilesystem.obliterate_on_cleanup AS "obliterate_on_cleanup"`,
+			sample:    exporttypes.StorageFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageFilesystem)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystem)
 			},
 		})
 	}
@@ -2310,10 +2302,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_filesystem_attachment",
 			deleteSQL: `DELETE FROM "storage_filesystem_attachment" AS t`,
-			insertSQL: `INSERT INTO "storage_filesystem_attachment" ("uuid", "storage_filesystem_uuid", "net_node_uuid", "provision_scope_id", "provider_id", "life_id", "mount_point", "read_only") SELECT $ModelStorageFilesystemAttachment.uuid AS "uuid", $ModelStorageFilesystemAttachment.storage_filesystem_uuid AS "storage_filesystem_uuid", $ModelStorageFilesystemAttachment.net_node_uuid AS "net_node_uuid", $ModelStorageFilesystemAttachment.provision_scope_id AS "provision_scope_id", $ModelStorageFilesystemAttachment.provider_id AS "provider_id", $ModelStorageFilesystemAttachment.life_id AS "life_id", $ModelStorageFilesystemAttachment.mount_point AS "mount_point", $ModelStorageFilesystemAttachment.read_only AS "read_only"`,
-			sample:    recovery.ModelStorageFilesystemAttachment{},
+			insertSQL: `INSERT INTO "storage_filesystem_attachment" ("uuid", "storage_filesystem_uuid", "net_node_uuid", "provision_scope_id", "provider_id", "life_id", "mount_point", "read_only") SELECT $StorageFilesystemAttachment.uuid AS "uuid", $StorageFilesystemAttachment.storage_filesystem_uuid AS "storage_filesystem_uuid", $StorageFilesystemAttachment.net_node_uuid AS "net_node_uuid", $StorageFilesystemAttachment.provision_scope_id AS "provision_scope_id", $StorageFilesystemAttachment.provider_id AS "provider_id", $StorageFilesystemAttachment.life_id AS "life_id", $StorageFilesystemAttachment.mount_point AS "mount_point", $StorageFilesystemAttachment.read_only AS "read_only"`,
+			sample:    exporttypes.StorageFilesystemAttachment{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageFilesystemAttachment)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystemAttachment)
 			},
 		})
 	}
@@ -2321,10 +2313,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_filesystem_status",
 			deleteSQL: `DELETE FROM "storage_filesystem_status" AS t`,
-			insertSQL: `INSERT INTO "storage_filesystem_status" ("filesystem_uuid", "status_id", "message", "updated_at") SELECT $ModelStorageFilesystemStatus.filesystem_uuid AS "filesystem_uuid", $ModelStorageFilesystemStatus.status_id AS "status_id", $ModelStorageFilesystemStatus.message AS "message", $ModelStorageFilesystemStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelStorageFilesystemStatus{},
+			insertSQL: `INSERT INTO "storage_filesystem_status" ("filesystem_uuid", "status_id", "message", "updated_at") SELECT $StorageFilesystemStatus.filesystem_uuid AS "filesystem_uuid", $StorageFilesystemStatus.status_id AS "status_id", $StorageFilesystemStatus.message AS "message", $StorageFilesystemStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.StorageFilesystemStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageFilesystemStatus)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystemStatus)
 			},
 		})
 	}
@@ -2332,10 +2324,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_filesystem_status_value",
 			deleteSQL: `DELETE FROM "storage_filesystem_status_value" AS t`,
-			insertSQL: `INSERT INTO "storage_filesystem_status_value" ("id", "status") SELECT $ModelStorageFilesystemStatusValue.id AS "id", $ModelStorageFilesystemStatusValue.status AS "status"`,
-			sample:    recovery.ModelStorageFilesystemStatusValue{},
+			insertSQL: `INSERT INTO "storage_filesystem_status_value" ("id", "status") SELECT $StorageFilesystemStatusValue.id AS "id", $StorageFilesystemStatusValue.status AS "status"`,
+			sample:    exporttypes.StorageFilesystemStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageFilesystemStatusValue)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystemStatusValue)
 			},
 		})
 	}
@@ -2343,10 +2335,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_instance",
 			deleteSQL: `DELETE FROM "storage_instance" AS t`,
-			insertSQL: `INSERT INTO "storage_instance" ("uuid", "charm_name", "storage_name", "storage_kind_id", "storage_id", "life_id", "storage_pool_uuid", "requested_size_mib") SELECT $ModelStorageInstance.uuid AS "uuid", $ModelStorageInstance.charm_name AS "charm_name", $ModelStorageInstance.storage_name AS "storage_name", $ModelStorageInstance.storage_kind_id AS "storage_kind_id", $ModelStorageInstance.storage_id AS "storage_id", $ModelStorageInstance.life_id AS "life_id", $ModelStorageInstance.storage_pool_uuid AS "storage_pool_uuid", $ModelStorageInstance.requested_size_mib AS "requested_size_mib"`,
-			sample:    recovery.ModelStorageInstance{},
+			insertSQL: `INSERT INTO "storage_instance" ("uuid", "charm_name", "storage_name", "storage_kind_id", "storage_id", "life_id", "storage_pool_uuid", "requested_size_mib") SELECT $StorageInstance.uuid AS "uuid", $StorageInstance.charm_name AS "charm_name", $StorageInstance.storage_name AS "storage_name", $StorageInstance.storage_kind_id AS "storage_kind_id", $StorageInstance.storage_id AS "storage_id", $StorageInstance.life_id AS "life_id", $StorageInstance.storage_pool_uuid AS "storage_pool_uuid", $StorageInstance.requested_size_mib AS "requested_size_mib"`,
+			sample:    exporttypes.StorageInstance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageInstance)
+				return insertRows(ctx, tx, stmt, dump.StorageInstance)
 			},
 		})
 	}
@@ -2354,10 +2346,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_instance_filesystem",
 			deleteSQL: `DELETE FROM "storage_instance_filesystem" AS t`,
-			insertSQL: `INSERT INTO "storage_instance_filesystem" ("storage_instance_uuid", "storage_filesystem_uuid") SELECT $ModelStorageInstanceFilesystem.storage_instance_uuid AS "storage_instance_uuid", $ModelStorageInstanceFilesystem.storage_filesystem_uuid AS "storage_filesystem_uuid"`,
-			sample:    recovery.ModelStorageInstanceFilesystem{},
+			insertSQL: `INSERT INTO "storage_instance_filesystem" ("storage_instance_uuid", "storage_filesystem_uuid") SELECT $StorageInstanceFilesystem.storage_instance_uuid AS "storage_instance_uuid", $StorageInstanceFilesystem.storage_filesystem_uuid AS "storage_filesystem_uuid"`,
+			sample:    exporttypes.StorageInstanceFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageInstanceFilesystem)
+				return insertRows(ctx, tx, stmt, dump.StorageInstanceFilesystem)
 			},
 		})
 	}
@@ -2365,10 +2357,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_instance_volume",
 			deleteSQL: `DELETE FROM "storage_instance_volume" AS t`,
-			insertSQL: `INSERT INTO "storage_instance_volume" ("storage_instance_uuid", "storage_volume_uuid") SELECT $ModelStorageInstanceVolume.storage_instance_uuid AS "storage_instance_uuid", $ModelStorageInstanceVolume.storage_volume_uuid AS "storage_volume_uuid"`,
-			sample:    recovery.ModelStorageInstanceVolume{},
+			insertSQL: `INSERT INTO "storage_instance_volume" ("storage_instance_uuid", "storage_volume_uuid") SELECT $StorageInstanceVolume.storage_instance_uuid AS "storage_instance_uuid", $StorageInstanceVolume.storage_volume_uuid AS "storage_volume_uuid"`,
+			sample:    exporttypes.StorageInstanceVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageInstanceVolume)
+				return insertRows(ctx, tx, stmt, dump.StorageInstanceVolume)
 			},
 		})
 	}
@@ -2376,10 +2368,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_kind",
 			deleteSQL: `DELETE FROM "storage_kind" AS t`,
-			insertSQL: `INSERT INTO "storage_kind" ("id", "kind") SELECT $ModelStorageKind.id AS "id", $ModelStorageKind.kind AS "kind"`,
-			sample:    recovery.ModelStorageKind{},
+			insertSQL: `INSERT INTO "storage_kind" ("id", "kind") SELECT $StorageKind.id AS "id", $StorageKind.kind AS "kind"`,
+			sample:    exporttypes.StorageKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageKind)
+				return insertRows(ctx, tx, stmt, dump.StorageKind)
 			},
 		})
 	}
@@ -2387,10 +2379,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_pool",
 			deleteSQL: `DELETE FROM "storage_pool" AS t`,
-			insertSQL: `INSERT INTO "storage_pool" ("uuid", "name", "type", "origin_id") SELECT $ModelStoragePool.uuid AS "uuid", $ModelStoragePool.name AS "name", $ModelStoragePool.type AS "type", CASE WHEN $ModelStoragePool.has_origin_id THEN $ModelStoragePool.origin_id ELSE 0 END AS "origin_id"`,
-			sample:    recovery.ModelStoragePool{},
+			insertSQL: `INSERT INTO "storage_pool" ("uuid", "name", "type", "origin_id") SELECT $StoragePool.uuid AS "uuid", $StoragePool.name AS "name", $StoragePool.type AS "type", $StoragePool.origin_id AS "origin_id"`,
+			sample:    exporttypes.StoragePool{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStoragePool)
+				return insertRows(ctx, tx, stmt, dump.StoragePool)
 			},
 		})
 	}
@@ -2398,10 +2390,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_pool_attribute",
 			deleteSQL: `DELETE FROM "storage_pool_attribute" AS t`,
-			insertSQL: `INSERT INTO "storage_pool_attribute" ("storage_pool_uuid", "key", "value") SELECT $ModelStoragePoolAttribute.storage_pool_uuid AS "storage_pool_uuid", $ModelStoragePoolAttribute.key AS "key", $ModelStoragePoolAttribute.value AS "value"`,
-			sample:    recovery.ModelStoragePoolAttribute{},
+			insertSQL: `INSERT INTO "storage_pool_attribute" ("storage_pool_uuid", "key", "value") SELECT $StoragePoolAttribute.storage_pool_uuid AS "storage_pool_uuid", $StoragePoolAttribute.key AS "key", $StoragePoolAttribute.value AS "value"`,
+			sample:    exporttypes.StoragePoolAttribute{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStoragePoolAttribute)
+				return insertRows(ctx, tx, stmt, dump.StoragePoolAttribute)
 			},
 		})
 	}
@@ -2409,10 +2401,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_pool_origin",
 			deleteSQL: `DELETE FROM "storage_pool_origin" AS t`,
-			insertSQL: `INSERT INTO "storage_pool_origin" ("id", "origin") SELECT $ModelStoragePoolOrigin.id AS "id", $ModelStoragePoolOrigin.origin AS "origin"`,
-			sample:    recovery.ModelStoragePoolOrigin{},
+			insertSQL: `INSERT INTO "storage_pool_origin" ("id", "origin") SELECT $StoragePoolOrigin.id AS "id", $StoragePoolOrigin.origin AS "origin"`,
+			sample:    exporttypes.StoragePoolOrigin{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStoragePoolOrigin)
+				return insertRows(ctx, tx, stmt, dump.StoragePoolOrigin)
 			},
 		})
 	}
@@ -2420,10 +2412,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_provision_scope",
 			deleteSQL: `DELETE FROM "storage_provision_scope" AS t`,
-			insertSQL: `INSERT INTO "storage_provision_scope" ("id", "scope") SELECT $ModelStorageProvisionScope.id AS "id", $ModelStorageProvisionScope.scope AS "scope"`,
-			sample:    recovery.ModelStorageProvisionScope{},
+			insertSQL: `INSERT INTO "storage_provision_scope" ("id", "scope") SELECT $StorageProvisionScope.id AS "id", $StorageProvisionScope.scope AS "scope"`,
+			sample:    exporttypes.StorageProvisionScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageProvisionScope)
+				return insertRows(ctx, tx, stmt, dump.StorageProvisionScope)
 			},
 		})
 	}
@@ -2431,10 +2423,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_unit_owner",
 			deleteSQL: `DELETE FROM "storage_unit_owner" AS t`,
-			insertSQL: `INSERT INTO "storage_unit_owner" ("storage_instance_uuid", "unit_uuid") SELECT $ModelStorageUnitOwner.storage_instance_uuid AS "storage_instance_uuid", $ModelStorageUnitOwner.unit_uuid AS "unit_uuid"`,
-			sample:    recovery.ModelStorageUnitOwner{},
+			insertSQL: `INSERT INTO "storage_unit_owner" ("storage_instance_uuid", "unit_uuid") SELECT $StorageUnitOwner.storage_instance_uuid AS "storage_instance_uuid", $StorageUnitOwner.unit_uuid AS "unit_uuid"`,
+			sample:    exporttypes.StorageUnitOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageUnitOwner)
+				return insertRows(ctx, tx, stmt, dump.StorageUnitOwner)
 			},
 		})
 	}
@@ -2442,10 +2434,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume",
 			deleteSQL: `DELETE FROM "storage_volume" AS t`,
-			insertSQL: `INSERT INTO "storage_volume" ("uuid", "volume_id", "life_id", "provision_scope_id", "provider_id", "size_mib", "hardware_id", "wwn", "persistent", "obliterate_on_cleanup") SELECT $ModelStorageVolume.uuid AS "uuid", $ModelStorageVolume.volume_id AS "volume_id", $ModelStorageVolume.life_id AS "life_id", $ModelStorageVolume.provision_scope_id AS "provision_scope_id", $ModelStorageVolume.provider_id AS "provider_id", $ModelStorageVolume.size_mib AS "size_mib", $ModelStorageVolume.hardware_id AS "hardware_id", $ModelStorageVolume.wwn AS "wwn", $ModelStorageVolume.persistent AS "persistent", $ModelStorageVolume.obliterate_on_cleanup AS "obliterate_on_cleanup"`,
-			sample:    recovery.ModelStorageVolume{},
+			insertSQL: `INSERT INTO "storage_volume" ("uuid", "volume_id", "life_id", "provision_scope_id", "provider_id", "size_mib", "hardware_id", "wwn", "persistent", "obliterate_on_cleanup") SELECT $StorageVolume.uuid AS "uuid", $StorageVolume.volume_id AS "volume_id", $StorageVolume.life_id AS "life_id", $StorageVolume.provision_scope_id AS "provision_scope_id", $StorageVolume.provider_id AS "provider_id", $StorageVolume.size_mib AS "size_mib", $StorageVolume.hardware_id AS "hardware_id", $StorageVolume.wwn AS "wwn", $StorageVolume.persistent AS "persistent", $StorageVolume.obliterate_on_cleanup AS "obliterate_on_cleanup"`,
+			sample:    exporttypes.StorageVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolume)
+				return insertRows(ctx, tx, stmt, dump.StorageVolume)
 			},
 		})
 	}
@@ -2453,10 +2445,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume_attachment",
 			deleteSQL: `DELETE FROM "storage_volume_attachment" AS t`,
-			insertSQL: `INSERT INTO "storage_volume_attachment" ("uuid", "storage_volume_uuid", "net_node_uuid", "life_id", "provision_scope_id", "provider_id", "block_device_uuid", "read_only") SELECT $ModelStorageVolumeAttachment.uuid AS "uuid", $ModelStorageVolumeAttachment.storage_volume_uuid AS "storage_volume_uuid", $ModelStorageVolumeAttachment.net_node_uuid AS "net_node_uuid", $ModelStorageVolumeAttachment.life_id AS "life_id", $ModelStorageVolumeAttachment.provision_scope_id AS "provision_scope_id", $ModelStorageVolumeAttachment.provider_id AS "provider_id", $ModelStorageVolumeAttachment.block_device_uuid AS "block_device_uuid", $ModelStorageVolumeAttachment.read_only AS "read_only"`,
-			sample:    recovery.ModelStorageVolumeAttachment{},
+			insertSQL: `INSERT INTO "storage_volume_attachment" ("uuid", "storage_volume_uuid", "net_node_uuid", "life_id", "provision_scope_id", "provider_id", "block_device_uuid", "read_only") SELECT $StorageVolumeAttachment.uuid AS "uuid", $StorageVolumeAttachment.storage_volume_uuid AS "storage_volume_uuid", $StorageVolumeAttachment.net_node_uuid AS "net_node_uuid", $StorageVolumeAttachment.life_id AS "life_id", $StorageVolumeAttachment.provision_scope_id AS "provision_scope_id", $StorageVolumeAttachment.provider_id AS "provider_id", $StorageVolumeAttachment.block_device_uuid AS "block_device_uuid", $StorageVolumeAttachment.read_only AS "read_only"`,
+			sample:    exporttypes.StorageVolumeAttachment{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolumeAttachment)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachment)
 			},
 		})
 	}
@@ -2464,10 +2456,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume_attachment_plan",
 			deleteSQL: `DELETE FROM "storage_volume_attachment_plan" AS t`,
-			insertSQL: `INSERT INTO "storage_volume_attachment_plan" ("uuid", "storage_volume_uuid", "net_node_uuid", "life_id", "provision_scope_id", "device_type_id") SELECT $ModelStorageVolumeAttachmentPlan.uuid AS "uuid", $ModelStorageVolumeAttachmentPlan.storage_volume_uuid AS "storage_volume_uuid", $ModelStorageVolumeAttachmentPlan.net_node_uuid AS "net_node_uuid", $ModelStorageVolumeAttachmentPlan.life_id AS "life_id", $ModelStorageVolumeAttachmentPlan.provision_scope_id AS "provision_scope_id", $ModelStorageVolumeAttachmentPlan.device_type_id AS "device_type_id"`,
-			sample:    recovery.ModelStorageVolumeAttachmentPlan{},
+			insertSQL: `INSERT INTO "storage_volume_attachment_plan" ("uuid", "storage_volume_uuid", "net_node_uuid", "life_id", "provision_scope_id", "device_type_id") SELECT $StorageVolumeAttachmentPlan.uuid AS "uuid", $StorageVolumeAttachmentPlan.storage_volume_uuid AS "storage_volume_uuid", $StorageVolumeAttachmentPlan.net_node_uuid AS "net_node_uuid", $StorageVolumeAttachmentPlan.life_id AS "life_id", $StorageVolumeAttachmentPlan.provision_scope_id AS "provision_scope_id", $StorageVolumeAttachmentPlan.device_type_id AS "device_type_id"`,
+			sample:    exporttypes.StorageVolumeAttachmentPlan{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolumeAttachmentPlan)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachmentPlan)
 			},
 		})
 	}
@@ -2475,10 +2467,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume_attachment_plan_attr",
 			deleteSQL: `DELETE FROM "storage_volume_attachment_plan_attr" AS t`,
-			insertSQL: `INSERT INTO "storage_volume_attachment_plan_attr" ("attachment_plan_uuid", "key", "value") SELECT $ModelStorageVolumeAttachmentPlanAttr.attachment_plan_uuid AS "attachment_plan_uuid", $ModelStorageVolumeAttachmentPlanAttr.key AS "key", $ModelStorageVolumeAttachmentPlanAttr.value AS "value"`,
-			sample:    recovery.ModelStorageVolumeAttachmentPlanAttr{},
+			insertSQL: `INSERT INTO "storage_volume_attachment_plan_attr" ("attachment_plan_uuid", "key", "value") SELECT $StorageVolumeAttachmentPlanAttr.attachment_plan_uuid AS "attachment_plan_uuid", $StorageVolumeAttachmentPlanAttr.key AS "key", $StorageVolumeAttachmentPlanAttr.value AS "value"`,
+			sample:    exporttypes.StorageVolumeAttachmentPlanAttr{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolumeAttachmentPlanAttr)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachmentPlanAttr)
 			},
 		})
 	}
@@ -2486,10 +2478,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume_device_type",
 			deleteSQL: `DELETE FROM "storage_volume_device_type" AS t`,
-			insertSQL: `INSERT INTO "storage_volume_device_type" ("id", "name", "description") SELECT $ModelStorageVolumeDeviceType.id AS "id", $ModelStorageVolumeDeviceType.name AS "name", $ModelStorageVolumeDeviceType.description AS "description"`,
-			sample:    recovery.ModelStorageVolumeDeviceType{},
+			insertSQL: `INSERT INTO "storage_volume_device_type" ("id", "name", "description") SELECT $StorageVolumeDeviceType.id AS "id", $StorageVolumeDeviceType.name AS "name", $StorageVolumeDeviceType.description AS "description"`,
+			sample:    exporttypes.StorageVolumeDeviceType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolumeDeviceType)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeDeviceType)
 			},
 		})
 	}
@@ -2497,10 +2489,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume_status",
 			deleteSQL: `DELETE FROM "storage_volume_status" AS t`,
-			insertSQL: `INSERT INTO "storage_volume_status" ("volume_uuid", "status_id", "message", "updated_at") SELECT $ModelStorageVolumeStatus.volume_uuid AS "volume_uuid", $ModelStorageVolumeStatus.status_id AS "status_id", $ModelStorageVolumeStatus.message AS "message", $ModelStorageVolumeStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelStorageVolumeStatus{},
+			insertSQL: `INSERT INTO "storage_volume_status" ("volume_uuid", "status_id", "message", "updated_at") SELECT $StorageVolumeStatus.volume_uuid AS "volume_uuid", $StorageVolumeStatus.status_id AS "status_id", $StorageVolumeStatus.message AS "message", $StorageVolumeStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.StorageVolumeStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolumeStatus)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeStatus)
 			},
 		})
 	}
@@ -2508,10 +2500,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "storage_volume_status_value",
 			deleteSQL: `DELETE FROM "storage_volume_status_value" AS t`,
-			insertSQL: `INSERT INTO "storage_volume_status_value" ("id", "status") SELECT $ModelStorageVolumeStatusValue.id AS "id", $ModelStorageVolumeStatusValue.status AS "status"`,
-			sample:    recovery.ModelStorageVolumeStatusValue{},
+			insertSQL: `INSERT INTO "storage_volume_status_value" ("id", "status") SELECT $StorageVolumeStatusValue.id AS "id", $StorageVolumeStatusValue.status AS "status"`,
+			sample:    exporttypes.StorageVolumeStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStorageVolumeStatusValue)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeStatusValue)
 			},
 		})
 	}
@@ -2519,10 +2511,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "subnet",
 			deleteSQL: `DELETE FROM "subnet" AS t`,
-			insertSQL: `INSERT INTO "subnet" ("uuid", "cidr", "vlan_tag", "space_uuid") SELECT $ModelSubnet.uuid AS "uuid", $ModelSubnet.cidr AS "cidr", $ModelSubnet.vlan_tag AS "vlan_tag", $ModelSubnet.space_uuid AS "space_uuid"`,
-			sample:    recovery.ModelSubnet{},
+			insertSQL: `INSERT INTO "subnet" ("uuid", "cidr", "vlan_tag", "space_uuid") SELECT $Subnet.uuid AS "uuid", $Subnet.cidr AS "cidr", $Subnet.vlan_tag AS "vlan_tag", $Subnet.space_uuid AS "space_uuid"`,
+			sample:    exporttypes.Subnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelSubnet)
+				return insertRows(ctx, tx, stmt, dump.Subnet)
 			},
 		})
 	}
@@ -2530,10 +2522,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit",
 			deleteSQL: `DELETE FROM "unit" AS t`,
-			insertSQL: `INSERT INTO "unit" ("uuid", "name", "life_id", "application_uuid", "net_node_uuid", "charm_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ModelUnit.uuid AS "uuid", $ModelUnit.name AS "name", $ModelUnit.life_id AS "life_id", $ModelUnit.application_uuid AS "application_uuid", $ModelUnit.net_node_uuid AS "net_node_uuid", $ModelUnit.charm_uuid AS "charm_uuid", $ModelUnit.password_hash_algorithm_id AS "password_hash_algorithm_id", $ModelUnit.password_hash AS "password_hash"`,
-			sample:    recovery.ModelUnit{},
+			insertSQL: `INSERT INTO "unit" ("uuid", "name", "life_id", "application_uuid", "net_node_uuid", "charm_uuid", "password_hash_algorithm_id", "password_hash") SELECT $Unit.uuid AS "uuid", $Unit.name AS "name", $Unit.life_id AS "life_id", $Unit.application_uuid AS "application_uuid", $Unit.net_node_uuid AS "net_node_uuid", $Unit.charm_uuid AS "charm_uuid", $Unit.password_hash_algorithm_id AS "password_hash_algorithm_id", $Unit.password_hash AS "password_hash"`,
+			sample:    exporttypes.Unit{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnit)
+				return insertRows(ctx, tx, stmt, dump.Unit)
 			},
 		})
 	}
@@ -2541,10 +2533,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_agent_presence",
 			deleteSQL: `DELETE FROM "unit_agent_presence" AS t`,
-			insertSQL: `INSERT INTO "unit_agent_presence" ("unit_uuid", "last_seen") SELECT $ModelUnitAgentPresence.unit_uuid AS "unit_uuid", $ModelUnitAgentPresence.last_seen AS "last_seen"`,
-			sample:    recovery.ModelUnitAgentPresence{},
+			insertSQL: `INSERT INTO "unit_agent_presence" ("unit_uuid", "last_seen") SELECT $UnitAgentPresence.unit_uuid AS "unit_uuid", $UnitAgentPresence.last_seen AS "last_seen"`,
+			sample:    exporttypes.UnitAgentPresence{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitAgentPresence)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentPresence)
 			},
 		})
 	}
@@ -2552,10 +2544,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_agent_status",
 			deleteSQL: `DELETE FROM "unit_agent_status" AS t`,
-			insertSQL: `INSERT INTO "unit_agent_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelUnitAgentStatus.unit_uuid AS "unit_uuid", $ModelUnitAgentStatus.status_id AS "status_id", $ModelUnitAgentStatus.message AS "message", $ModelUnitAgentStatus.data AS "data", $ModelUnitAgentStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelUnitAgentStatus{},
+			insertSQL: `INSERT INTO "unit_agent_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $UnitAgentStatus.unit_uuid AS "unit_uuid", $UnitAgentStatus.status_id AS "status_id", $UnitAgentStatus.message AS "message", CAST($UnitAgentStatus.data AS BLOB) AS "data", $UnitAgentStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.UnitAgentStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitAgentStatus)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentStatus)
 			},
 		})
 	}
@@ -2563,10 +2555,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_agent_status_value",
 			deleteSQL: `DELETE FROM "unit_agent_status_value" AS t`,
-			insertSQL: `INSERT INTO "unit_agent_status_value" ("id", "status") SELECT $ModelUnitAgentStatusValue.id AS "id", $ModelUnitAgentStatusValue.status AS "status"`,
-			sample:    recovery.ModelUnitAgentStatusValue{},
+			insertSQL: `INSERT INTO "unit_agent_status_value" ("id", "status") SELECT $UnitAgentStatusValue.id AS "id", $UnitAgentStatusValue.status AS "status"`,
+			sample:    exporttypes.UnitAgentStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitAgentStatusValue)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentStatusValue)
 			},
 		})
 	}
@@ -2574,10 +2566,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_agent_version",
 			deleteSQL: `DELETE FROM "unit_agent_version" AS t`,
-			insertSQL: `INSERT INTO "unit_agent_version" ("unit_uuid", "version", "architecture_id") SELECT $ModelUnitAgentVersion.unit_uuid AS "unit_uuid", $ModelUnitAgentVersion.version AS "version", $ModelUnitAgentVersion.architecture_id AS "architecture_id"`,
-			sample:    recovery.ModelUnitAgentVersion{},
+			insertSQL: `INSERT INTO "unit_agent_version" ("unit_uuid", "version", "architecture_id") SELECT $UnitAgentVersion.unit_uuid AS "unit_uuid", $UnitAgentVersion.version AS "version", $UnitAgentVersion.architecture_id AS "architecture_id"`,
+			sample:    exporttypes.UnitAgentVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitAgentVersion)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentVersion)
 			},
 		})
 	}
@@ -2585,10 +2577,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_principal",
 			deleteSQL: `DELETE FROM "unit_principal" AS t`,
-			insertSQL: `INSERT INTO "unit_principal" ("unit_uuid", "principal_uuid") SELECT $ModelUnitPrincipal.unit_uuid AS "unit_uuid", $ModelUnitPrincipal.principal_uuid AS "principal_uuid"`,
-			sample:    recovery.ModelUnitPrincipal{},
+			insertSQL: `INSERT INTO "unit_principal" ("unit_uuid", "principal_uuid") SELECT $UnitPrincipal.unit_uuid AS "unit_uuid", $UnitPrincipal.principal_uuid AS "principal_uuid"`,
+			sample:    exporttypes.UnitPrincipal{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitPrincipal)
+				return insertRows(ctx, tx, stmt, dump.UnitPrincipal)
 			},
 		})
 	}
@@ -2596,10 +2588,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_resolved",
 			deleteSQL: `DELETE FROM "unit_resolved" AS t`,
-			insertSQL: `INSERT INTO "unit_resolved" ("unit_uuid", "mode_id") SELECT $ModelUnitResolved.unit_uuid AS "unit_uuid", $ModelUnitResolved.mode_id AS "mode_id"`,
-			sample:    recovery.ModelUnitResolved{},
+			insertSQL: `INSERT INTO "unit_resolved" ("unit_uuid", "mode_id") SELECT $UnitResolved.unit_uuid AS "unit_uuid", $UnitResolved.mode_id AS "mode_id"`,
+			sample:    exporttypes.UnitResolved{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitResolved)
+				return insertRows(ctx, tx, stmt, dump.UnitResolved)
 			},
 		})
 	}
@@ -2607,10 +2599,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_resource",
 			deleteSQL: `DELETE FROM "unit_resource" AS t`,
-			insertSQL: `INSERT INTO "unit_resource" ("resource_uuid", "unit_uuid", "charm_resource_name", "added_at") SELECT $ModelUnitResource.resource_uuid AS "resource_uuid", $ModelUnitResource.unit_uuid AS "unit_uuid", $ModelUnitResource.charm_resource_name AS "charm_resource_name", $ModelUnitResource.added_at AS "added_at"`,
-			sample:    recovery.ModelUnitResource{},
+			insertSQL: `INSERT INTO "unit_resource" ("resource_uuid", "unit_uuid", "charm_resource_name", "added_at") SELECT $UnitResource.resource_uuid AS "resource_uuid", $UnitResource.unit_uuid AS "unit_uuid", $UnitResource.charm_resource_name AS "charm_resource_name", $UnitResource.added_at AS "added_at"`,
+			sample:    exporttypes.UnitResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitResource)
+				return insertRows(ctx, tx, stmt, dump.UnitResource)
 			},
 		})
 	}
@@ -2618,10 +2610,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_state",
 			deleteSQL: `DELETE FROM "unit_state" AS t`,
-			insertSQL: `INSERT INTO "unit_state" ("unit_uuid", "uniter_state", "storage_state", "secret_state") SELECT $ModelUnitState.unit_uuid AS "unit_uuid", $ModelUnitState.uniter_state AS "uniter_state", $ModelUnitState.storage_state AS "storage_state", $ModelUnitState.secret_state AS "secret_state"`,
-			sample:    recovery.ModelUnitState{},
+			insertSQL: `INSERT INTO "unit_state" ("unit_uuid", "uniter_state", "storage_state", "secret_state") SELECT $UnitState.unit_uuid AS "unit_uuid", $UnitState.uniter_state AS "uniter_state", $UnitState.storage_state AS "storage_state", $UnitState.secret_state AS "secret_state"`,
+			sample:    exporttypes.UnitState{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitState)
+				return insertRows(ctx, tx, stmt, dump.UnitState)
 			},
 		})
 	}
@@ -2629,10 +2621,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_state_charm",
 			deleteSQL: `DELETE FROM "unit_state_charm" AS t`,
-			insertSQL: `INSERT INTO "unit_state_charm" ("unit_uuid", "key", "value") SELECT $ModelUnitStateCharm.unit_uuid AS "unit_uuid", $ModelUnitStateCharm.key AS "key", $ModelUnitStateCharm.value AS "value"`,
-			sample:    recovery.ModelUnitStateCharm{},
+			insertSQL: `INSERT INTO "unit_state_charm" ("unit_uuid", "key", "value") SELECT $UnitStateCharm.unit_uuid AS "unit_uuid", $UnitStateCharm.key AS "key", $UnitStateCharm.value AS "value"`,
+			sample:    exporttypes.UnitStateCharm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitStateCharm)
+				return insertRows(ctx, tx, stmt, dump.UnitStateCharm)
 			},
 		})
 	}
@@ -2640,10 +2632,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_state_relation",
 			deleteSQL: `DELETE FROM "unit_state_relation" AS t`,
-			insertSQL: `INSERT INTO "unit_state_relation" ("unit_uuid", "key", "value") SELECT $ModelUnitStateRelation.unit_uuid AS "unit_uuid", $ModelUnitStateRelation.key AS "key", $ModelUnitStateRelation.value AS "value"`,
-			sample:    recovery.ModelUnitStateRelation{},
+			insertSQL: `INSERT INTO "unit_state_relation" ("unit_uuid", "key", "value") SELECT $UnitStateRelation.unit_uuid AS "unit_uuid", $UnitStateRelation.key AS "key", $UnitStateRelation.value AS "value"`,
+			sample:    exporttypes.UnitStateRelation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitStateRelation)
+				return insertRows(ctx, tx, stmt, dump.UnitStateRelation)
 			},
 		})
 	}
@@ -2651,10 +2643,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_storage_directive",
 			deleteSQL: `DELETE FROM "unit_storage_directive" AS t`,
-			insertSQL: `INSERT INTO "unit_storage_directive" ("unit_uuid", "charm_uuid", "storage_name", "storage_pool_uuid", "size_mib", "count") SELECT $ModelUnitStorageDirective.unit_uuid AS "unit_uuid", $ModelUnitStorageDirective.charm_uuid AS "charm_uuid", $ModelUnitStorageDirective.storage_name AS "storage_name", $ModelUnitStorageDirective.storage_pool_uuid AS "storage_pool_uuid", $ModelUnitStorageDirective.size_mib AS "size_mib", $ModelUnitStorageDirective.count AS "count"`,
-			sample:    recovery.ModelUnitStorageDirective{},
+			insertSQL: `INSERT INTO "unit_storage_directive" ("unit_uuid", "charm_uuid", "storage_name", "storage_pool_uuid", "size_mib", "count") SELECT $UnitStorageDirective.unit_uuid AS "unit_uuid", $UnitStorageDirective.charm_uuid AS "charm_uuid", $UnitStorageDirective.storage_name AS "storage_name", $UnitStorageDirective.storage_pool_uuid AS "storage_pool_uuid", $UnitStorageDirective.size_mib AS "size_mib", $UnitStorageDirective.count AS "count"`,
+			sample:    exporttypes.UnitStorageDirective{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitStorageDirective)
+				return insertRows(ctx, tx, stmt, dump.UnitStorageDirective)
 			},
 		})
 	}
@@ -2662,10 +2654,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_virtual_ssh_host_key",
 			deleteSQL: `DELETE FROM "unit_virtual_ssh_host_key" AS t`,
-			insertSQL: `INSERT INTO "unit_virtual_ssh_host_key" ("unit_uuid", "algorithm_type_id", "ssh_key") SELECT $ModelUnitVirtualSshHostKey.unit_uuid AS "unit_uuid", $ModelUnitVirtualSshHostKey.algorithm_type_id AS "algorithm_type_id", $ModelUnitVirtualSshHostKey.ssh_key AS "ssh_key"`,
-			sample:    recovery.ModelUnitVirtualSshHostKey{},
+			insertSQL: `INSERT INTO "unit_virtual_ssh_host_key" ("unit_uuid", "algorithm_type_id", "ssh_key") SELECT $UnitVirtualSshHostKey.unit_uuid AS "unit_uuid", $UnitVirtualSshHostKey.algorithm_type_id AS "algorithm_type_id", $UnitVirtualSshHostKey.ssh_key AS "ssh_key"`,
+			sample:    exporttypes.UnitVirtualSshHostKey{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitVirtualSshHostKey)
+				return insertRows(ctx, tx, stmt, dump.UnitVirtualSshHostKey)
 			},
 		})
 	}
@@ -2673,10 +2665,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_workload_status",
 			deleteSQL: `DELETE FROM "unit_workload_status" AS t`,
-			insertSQL: `INSERT INTO "unit_workload_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $ModelUnitWorkloadStatus.unit_uuid AS "unit_uuid", $ModelUnitWorkloadStatus.status_id AS "status_id", $ModelUnitWorkloadStatus.message AS "message", $ModelUnitWorkloadStatus.data AS "data", $ModelUnitWorkloadStatus.updated_at AS "updated_at"`,
-			sample:    recovery.ModelUnitWorkloadStatus{},
+			insertSQL: `INSERT INTO "unit_workload_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $UnitWorkloadStatus.unit_uuid AS "unit_uuid", $UnitWorkloadStatus.status_id AS "status_id", $UnitWorkloadStatus.message AS "message", CAST($UnitWorkloadStatus.data AS BLOB) AS "data", $UnitWorkloadStatus.updated_at AS "updated_at"`,
+			sample:    exporttypes.UnitWorkloadStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitWorkloadStatus)
+				return insertRows(ctx, tx, stmt, dump.UnitWorkloadStatus)
 			},
 		})
 	}
@@ -2684,10 +2676,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_workload_version",
 			deleteSQL: `DELETE FROM "unit_workload_version" AS t`,
-			insertSQL: `INSERT INTO "unit_workload_version" ("unit_uuid", "version") SELECT $ModelUnitWorkloadVersion.unit_uuid AS "unit_uuid", $ModelUnitWorkloadVersion.version AS "version"`,
-			sample:    recovery.ModelUnitWorkloadVersion{},
+			insertSQL: `INSERT INTO "unit_workload_version" ("unit_uuid", "version") SELECT $UnitWorkloadVersion.unit_uuid AS "unit_uuid", $UnitWorkloadVersion.version AS "version"`,
+			sample:    exporttypes.UnitWorkloadVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelUnitWorkloadVersion)
+				return insertRows(ctx, tx, stmt, dump.UnitWorkloadVersion)
 			},
 		})
 	}
@@ -2695,10 +2687,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "virtual_port_type",
 			deleteSQL: `DELETE FROM "virtual_port_type" AS t`,
-			insertSQL: `INSERT INTO "virtual_port_type" ("id", "name") SELECT $ModelVirtualPortType.id AS "id", $ModelVirtualPortType.name AS "name"`,
-			sample:    recovery.ModelVirtualPortType{},
+			insertSQL: `INSERT INTO "virtual_port_type" ("id", "name") SELECT $VirtualPortType.id AS "id", $VirtualPortType.name AS "name"`,
+			sample:    exporttypes.VirtualPortType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelVirtualPortType)
+				return insertRows(ctx, tx, stmt, dump.VirtualPortType)
 			},
 		})
 	}
@@ -2706,10 +2698,10 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "workload_status_value",
 			deleteSQL: `DELETE FROM "workload_status_value" AS t`,
-			insertSQL: `INSERT INTO "workload_status_value" ("id", "status") SELECT $ModelWorkloadStatusValue.id AS "id", $ModelWorkloadStatusValue.status AS "status"`,
-			sample:    recovery.ModelWorkloadStatusValue{},
+			insertSQL: `INSERT INTO "workload_status_value" ("id", "status") SELECT $WorkloadStatusValue.id AS "id", $WorkloadStatusValue.status AS "status"`,
+			sample:    exporttypes.WorkloadStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelWorkloadStatusValue)
+				return insertRows(ctx, tx, stmt, dump.WorkloadStatusValue)
 			},
 		})
 	}

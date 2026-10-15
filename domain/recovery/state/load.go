@@ -111,7 +111,7 @@ FROM pragma_foreign_key_check AS fkc LIMIT 11`, violation{})
 	}))
 }
 
-// SQLair bulk VALUES bindings do not support expressions for column defaults.
+// SQLair bulk VALUES bindings do not support casts for binary TEXT columns.
 // Execute the generated INSERT SELECT once per typed row instead.
 func insertRows[T any](ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, rows []T) error {
 	for _, row := range rows {

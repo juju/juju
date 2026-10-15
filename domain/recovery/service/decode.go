@@ -6,39 +6,59 @@ package service
 import (
 	"bytes"
 	"maps"
+	"reflect"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/internal/errors"
 )
 
-// decodeRows converts archive rows to generated bindings before any writes.
+// decodeRows converts complete native archive rows to the shared export types.
+// Validate presence and nullability before decoding: YAML otherwise silently
+// turns missing or null values into zero values for non-pointer fields.
 // KnownFields rejects columns that are not part of the compiled schema.
 func decodeRows[T any](rows []row, binaryColumns ...string) ([]T, error) {
 	if len(rows) == 0 {
 		return nil, nil
 	}
-	if len(binaryColumns) > 0 {
-		// Only schema-identified byte columns are converted. Clone their
-		// rows so validation and retries leave the archive input unchanged.
-		converted := make([]row, len(rows))
-		for i, source := range rows {
-			converted[i] = maps.Clone(source)
-			for _, column := range binaryColumns {
-				value, present := source[column]
-				if !present || value == nil {
-					continue
+	rowType := reflect.TypeFor[T]()
+	converted := make([]row, len(rows))
+	for i, source := range rows {
+		converted[i] = maps.Clone(source)
+		for field := range rowType.Fields() {
+			column := field.Tag.Get("yaml")
+			value, present := source[column]
+			if !present {
+				return nil, errors.Errorf("row %d is missing column %q", i, column)
+			}
+			kind := field.Type.Kind()
+			if value == nil {
+				if kind != reflect.Pointer && kind != reflect.Slice && kind != reflect.Interface {
+					return nil, errors.Errorf("row %d column %q cannot be null", i, column)
 				}
-				decoded, err := decodeBinaryValue(value)
-				if err != nil {
-					return nil, errors.Errorf("row %d column %q: %w", i, column, err)
-				}
+				continue
+			}
+			if !slices.Contains(binaryColumns, column) {
+				continue
+			}
+			decoded, err := decodeBinaryValue(value)
+			if err != nil {
+				return nil, errors.Errorf("row %d column %q: %w", i, column, err)
+			}
+			if kind == reflect.Pointer {
+				kind = field.Type.Elem().Kind()
+			}
+			if kind == reflect.String {
+				// Legacy TEXT columns use export strings. The generated INSERT
+				// casts them to BLOBs to match their domain writers.
+				converted[i][column] = string(decoded)
+			} else {
 				converted[i][column] = decoded
 			}
 		}
-		rows = converted
 	}
-	data, err := yaml.Marshal(rows)
+	data, err := yaml.Marshal(converted)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

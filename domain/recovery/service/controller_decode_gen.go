@@ -6,11 +6,13 @@
 package service
 
 import (
+	exporttypes "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	recovery "github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/errors"
 )
 
 // DecodeControllerDump decodes an archive and selects recoverable tables.
+// Rows must contain every exported column; omitted defaults are not applied.
 // Version compatibility must be checked by the caller before replay.
 func DecodeControllerDump(data []byte) (*recovery.ControllerDump, error) {
 	dump, err := decodeDump(data)
@@ -26,41 +28,41 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 	for table, rows := range dump.Tables {
 		switch table {
 		case "agent_binary_store":
-			decoded, err := decodeRows[recovery.ControllerAgentBinaryStore](rows)
+			decoded, err := decodeRows[exporttypes.AgentBinaryStore](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerAgentBinaryStore = decoded
+			out.AgentBinaryStore = decoded
 		case "architecture":
-			decoded, err := decodeRows[recovery.ControllerArchitecture](rows)
+			decoded, err := decodeRows[exporttypes.Architecture](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerArchitecture = decoded
+			out.Architecture = decoded
 		case "auth_type":
-			decoded, err := decodeRows[recovery.ControllerAuthType](rows)
+			decoded, err := decodeRows[exporttypes.AuthType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerAuthType = decoded
+			out.AuthType = decoded
 		case "autocert_cache":
-			decoded, err := decodeRows[recovery.ControllerAutocertCache](rows)
+			decoded, err := decodeRows[exporttypes.AutocertCache](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerAutocertCache = decoded
+			out.AutocertCache = decoded
 		case "autocert_cache_encoding":
-			decoded, err := decodeRows[recovery.ControllerAutocertCacheEncoding](rows)
+			decoded, err := decodeRows[exporttypes.AutocertCacheEncoding](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerAutocertCacheEncoding = decoded
+			out.AutocertCacheEncoding = decoded
 		case "bakery_config":
-			decoded, err := decodeRows[recovery.ControllerBakeryConfig](rows, "local_users_private_key", "local_users_public_key", "local_users_third_party_private_key", "local_users_third_party_public_key", "external_users_third_party_private_key", "external_users_third_party_public_key", "offers_third_party_private_key", "offers_third_party_public_key")
+			decoded, err := decodeRows[exporttypes.BakeryConfig](rows, "local_users_private_key", "local_users_public_key", "local_users_third_party_private_key", "local_users_third_party_public_key", "external_users_third_party_private_key", "external_users_third_party_public_key", "offers_third_party_private_key", "offers_third_party_public_key")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerBakeryConfig = decoded
+			out.BakeryConfig = decoded
 		case "change_log":
 			// Do not replay source change notifications.
 			continue
@@ -74,77 +76,77 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			// Keep target watcher progress.
 			continue
 		case "charm_tracing_config":
-			decoded, err := decodeRows[recovery.ControllerCharmTracingConfig](rows)
+			decoded, err := decodeRows[exporttypes.CharmTracingConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCharmTracingConfig = decoded
+			out.CharmTracingConfig = decoded
 		case "cloud":
-			decoded, err := decodeRows[recovery.ControllerCloud](rows)
+			decoded, err := decodeRows[exporttypes.Cloud](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloud = decoded
+			out.Cloud = decoded
 		case "cloud_auth_type":
-			decoded, err := decodeRows[recovery.ControllerCloudAuthType](rows)
+			decoded, err := decodeRows[exporttypes.CloudAuthType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudAuthType = decoded
+			out.CloudAuthType = decoded
 		case "cloud_ca_cert":
-			decoded, err := decodeRows[recovery.ControllerCloudCaCert](rows)
+			decoded, err := decodeRows[exporttypes.CloudCaCert](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudCaCert = decoded
+			out.CloudCaCert = decoded
 		case "cloud_credential":
-			decoded, err := decodeRows[recovery.ControllerCloudCredential](rows)
+			decoded, err := decodeRows[exporttypes.CloudCredential](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudCredential = decoded
+			out.CloudCredential = decoded
 		case "cloud_credential_attribute":
-			decoded, err := decodeRows[recovery.ControllerCloudCredentialAttribute](rows)
+			decoded, err := decodeRows[exporttypes.CloudCredentialAttribute](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudCredentialAttribute = decoded
+			out.CloudCredentialAttribute = decoded
 		case "cloud_defaults":
-			decoded, err := decodeRows[recovery.ControllerCloudDefaults](rows)
+			decoded, err := decodeRows[exporttypes.CloudDefaults](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudDefaults = decoded
+			out.CloudDefaults = decoded
 		case "cloud_image_metadata":
-			decoded, err := decodeRows[recovery.ControllerCloudImageMetadata](rows)
+			decoded, err := decodeRows[exporttypes.CloudImageMetadata](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudImageMetadata = decoded
+			out.CloudImageMetadata = decoded
 		case "cloud_region":
-			decoded, err := decodeRows[recovery.ControllerCloudRegion](rows)
+			decoded, err := decodeRows[exporttypes.CloudRegion](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudRegion = decoded
+			out.CloudRegion = decoded
 		case "cloud_region_defaults":
-			decoded, err := decodeRows[recovery.ControllerCloudRegionDefaults](rows)
+			decoded, err := decodeRows[exporttypes.CloudRegionDefaults](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudRegionDefaults = decoded
+			out.CloudRegionDefaults = decoded
 		case "cloud_type":
-			decoded, err := decodeRows[recovery.ControllerCloudType](rows)
+			decoded, err := decodeRows[exporttypes.CloudType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerCloudType = decoded
+			out.CloudType = decoded
 		case "controller":
-			decoded, err := decodeRows[recovery.ControllerController](rows)
+			decoded, err := decodeRows[exporttypes.Controller](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerController = decoded
+			out.Controller = decoded
 		case "controller_agent_address":
 			// Keep replacement agent endpoints.
 			continue
@@ -155,11 +157,11 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			// Keep replacement client endpoints.
 			continue
 		case "controller_config":
-			decoded, err := decodeRows[recovery.ControllerControllerConfig](rows)
+			decoded, err := decodeRows[exporttypes.ControllerConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerControllerConfig = decoded
+			out.ControllerConfig = decoded
 		case "controller_node":
 			// Keep replacement controller nodes.
 			continue
@@ -176,41 +178,35 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			// Keep replacement peer endpoints.
 			continue
 		case "controller_ssh_host_key":
-			decoded, err := decodeRows[recovery.ControllerControllerSshHostKey](rows, "public_key")
+			decoded, err := decodeRows[exporttypes.ControllerSshHostKey](rows, "public_key")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasPublicKey = rows[i]["public_key"]
-			}
-			out.ControllerControllerSshHostKey = decoded
+			out.ControllerSshHostKey = decoded
 		case "external_controller":
-			decoded, err := decodeRows[recovery.ControllerExternalController](rows)
+			decoded, err := decodeRows[exporttypes.ExternalController](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerExternalController = decoded
+			out.ExternalController = decoded
 		case "external_controller_address":
-			decoded, err := decodeRows[recovery.ControllerExternalControllerAddress](rows)
+			decoded, err := decodeRows[exporttypes.ExternalControllerAddress](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerExternalControllerAddress = decoded
+			out.ExternalControllerAddress = decoded
 		case "external_model":
-			decoded, err := decodeRows[recovery.ControllerExternalModel](rows)
+			decoded, err := decodeRows[exporttypes.ExternalModel](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerExternalModel = decoded
+			out.ExternalModel = decoded
 		case "flag":
-			decoded, err := decodeRows[recovery.ControllerFlag](rows)
+			decoded, err := decodeRows[exporttypes.Flag](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasValue = rows[i]["value"]
-			}
-			out.ControllerFlag = decoded
+			out.Flag = decoded
 		case "lease":
 			// Do not restore source worker ownership.
 			continue
@@ -218,299 +214,281 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			// Do not restore pins on source leases.
 			continue
 		case "lease_type":
-			decoded, err := decodeRows[recovery.ControllerLeaseType](rows)
+			decoded, err := decodeRows[exporttypes.LeaseType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerLeaseType = decoded
+			out.LeaseType = decoded
 		case "life":
-			decoded, err := decodeRows[recovery.ControllerLife](rows)
+			decoded, err := decodeRows[exporttypes.Life](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerLife = decoded
+			out.Life = decoded
 		case "logging_loki_config":
-			decoded, err := decodeRows[recovery.ControllerLoggingLokiConfig](rows)
+			decoded, err := decodeRows[exporttypes.LoggingLokiConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasCaCert = rows[i]["ca_cert"]
-			}
-			for i := range decoded {
-				_, decoded[i].HasOrgID = rows[i]["org_id"]
-			}
-			out.ControllerLoggingLokiConfig = decoded
+			out.LoggingLokiConfig = decoded
 		case "macaroon_root_key":
-			decoded, err := decodeRows[recovery.ControllerMacaroonRootKey](rows, "id", "root_key")
+			decoded, err := decodeRows[exporttypes.MacaroonRootKey](rows, "id", "root_key")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerMacaroonRootKey = decoded
+			out.MacaroonRootKey = decoded
 		case "model":
-			decoded, err := decodeRows[recovery.ControllerModel](rows)
+			decoded, err := decodeRows[exporttypes.Model](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasActivated = rows[i]["activated"]
-			}
-			out.ControllerModel = decoded
+			out.Model = decoded
 		case "model_authorized_keys":
-			decoded, err := decodeRows[recovery.ControllerModelAuthorizedKeys](rows)
+			decoded, err := decodeRows[exporttypes.ModelAuthorizedKeys](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelAuthorizedKeys = decoded
+			out.ModelAuthorizedKeys = decoded
 		case "model_database_deletion":
-			decoded, err := decodeRows[recovery.ControllerModelDatabaseDeletion](rows)
+			decoded, err := decodeRows[exporttypes.ModelDatabaseDeletion](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelDatabaseDeletion = decoded
+			out.ModelDatabaseDeletion = decoded
 		case "model_last_login":
-			decoded, err := decodeRows[recovery.ControllerModelLastLogin](rows)
+			decoded, err := decodeRows[exporttypes.ModelLastLogin](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelLastLogin = decoded
+			out.ModelLastLogin = decoded
 		case "model_migration_export":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationExport](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationExport](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationExport = decoded
+			out.ModelMigrationExport = decoded
 		case "model_migration_export_minion_sync":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationExportMinionSync](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationExportMinionSync](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationExportMinionSync = decoded
+			out.ModelMigrationExportMinionSync = decoded
 		case "model_migration_export_offer":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationExportOffer](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationExportOffer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationExportOffer = decoded
+			out.ModelMigrationExportOffer = decoded
 		case "model_migration_export_phase":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationExportPhase](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationExportPhase](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationExportPhase = decoded
+			out.ModelMigrationExportPhase = decoded
 		case "model_migration_export_status":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationExportStatus](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationExportStatus](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationExportStatus = decoded
+			out.ModelMigrationExportStatus = decoded
 		case "model_migration_export_target_auth":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationExportTargetAuth](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationExportTargetAuth](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasTargetSkipUserChecks = rows[i]["target_skip_user_checks"]
-			}
-			out.ControllerModelMigrationExportTargetAuth = decoded
+			out.ModelMigrationExportTargetAuth = decoded
 		case "model_migration_import":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationImport](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationImport](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasPhaseTypeID = rows[i]["phase_type_id"]
-			}
-			out.ControllerModelMigrationImport = decoded
+			out.ModelMigrationImport = decoded
 		case "model_migration_import_external_controller_model":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationImportExternalControllerModel](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationImportExternalControllerModel](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationImportExternalControllerModel = decoded
+			out.ModelMigrationImportExternalControllerModel = decoded
 		case "model_migration_import_offer":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationImportOffer](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationImportOffer](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationImportOffer = decoded
+			out.ModelMigrationImportOffer = decoded
 		case "model_migration_import_phase_type":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationImportPhaseType](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationImportPhaseType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationImportPhaseType = decoded
+			out.ModelMigrationImportPhaseType = decoded
 		case "model_migration_phase":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationPhase](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationPhase](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationPhase = decoded
+			out.ModelMigrationPhase = decoded
 		case "model_migration_redirect":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationRedirect](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationRedirect](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationRedirect = decoded
+			out.ModelMigrationRedirect = decoded
 		case "model_migration_redirect_user":
-			decoded, err := decodeRows[recovery.ControllerModelMigrationRedirectUser](rows)
+			decoded, err := decodeRows[exporttypes.ModelMigrationRedirectUser](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelMigrationRedirectUser = decoded
+			out.ModelMigrationRedirectUser = decoded
 		case "model_namespace":
-			decoded, err := decodeRows[recovery.ControllerModelNamespace](rows)
+			decoded, err := decodeRows[exporttypes.ModelNamespace](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelNamespace = decoded
+			out.ModelNamespace = decoded
 		case "model_secret_backend":
-			decoded, err := decodeRows[recovery.ControllerModelSecretBackend](rows)
+			decoded, err := decodeRows[exporttypes.ModelSecretBackend](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelSecretBackend = decoded
+			out.ModelSecretBackend = decoded
 		case "model_type":
-			decoded, err := decodeRows[recovery.ControllerModelType](rows)
+			decoded, err := decodeRows[exporttypes.ModelType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerModelType = decoded
+			out.ModelType = decoded
 		case "namespace_list":
-			decoded, err := decodeRows[recovery.ControllerNamespaceList](rows)
+			decoded, err := decodeRows[exporttypes.NamespaceList](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerNamespaceList = decoded
+			out.NamespaceList = decoded
 		case "object_store_backend":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreBackend](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreBackend](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreBackend = decoded
+			out.ObjectStoreBackend = decoded
 		case "object_store_backend_s3_config":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreBackendS3Config](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreBackendS3Config](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreBackendS3Config = decoded
+			out.ObjectStoreBackendS3Config = decoded
 		case "object_store_backend_type":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreBackendType](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreBackendType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreBackendType = decoded
+			out.ObjectStoreBackendType = decoded
 		case "object_store_drain_info":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreDrainInfo](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreDrainInfo](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreDrainInfo = decoded
+			out.ObjectStoreDrainInfo = decoded
 		case "object_store_drain_phase_type":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreDrainPhaseType](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreDrainPhaseType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreDrainPhaseType = decoded
+			out.ObjectStoreDrainPhaseType = decoded
 		case "object_store_metadata":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreMetadata](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreMetadata](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreMetadata = decoded
+			out.ObjectStoreMetadata = decoded
 		case "object_store_metadata_path":
-			decoded, err := decodeRows[recovery.ControllerObjectStoreMetadataPath](rows)
+			decoded, err := decodeRows[exporttypes.ObjectStoreMetadataPath](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerObjectStoreMetadataPath = decoded
+			out.ObjectStoreMetadataPath = decoded
 		case "object_store_placement":
 			// Rebuild placements using the supplied target node.
 			continue
 		case "password_hash_algorithm":
-			decoded, err := decodeRows[recovery.ControllerPasswordHashAlgorithm](rows)
+			decoded, err := decodeRows[exporttypes.PasswordHashAlgorithm](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerPasswordHashAlgorithm = decoded
+			out.PasswordHashAlgorithm = decoded
 		case "permission":
-			decoded, err := decodeRows[recovery.ControllerPermission](rows)
+			decoded, err := decodeRows[exporttypes.Permission](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerPermission = decoded
+			out.Permission = decoded
 		case "permission_access_type":
-			decoded, err := decodeRows[recovery.ControllerPermissionAccessType](rows)
+			decoded, err := decodeRows[exporttypes.PermissionAccessType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerPermissionAccessType = decoded
+			out.PermissionAccessType = decoded
 		case "permission_object_access":
-			decoded, err := decodeRows[recovery.ControllerPermissionObjectAccess](rows)
+			decoded, err := decodeRows[exporttypes.PermissionObjectAccess](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerPermissionObjectAccess = decoded
+			out.PermissionObjectAccess = decoded
 		case "permission_object_type":
-			decoded, err := decodeRows[recovery.ControllerPermissionObjectType](rows)
+			decoded, err := decodeRows[exporttypes.PermissionObjectType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerPermissionObjectType = decoded
+			out.PermissionObjectType = decoded
 		case "schema":
 			// Keep the target's applied migration bookkeeping.
 			continue
 		case "secret_backend":
-			decoded, err := decodeRows[recovery.ControllerSecretBackend](rows)
+			decoded, err := decodeRows[exporttypes.SecretBackend](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasOriginID = rows[i]["origin_id"]
-			}
-			out.ControllerSecretBackend = decoded
+			out.SecretBackend = decoded
 		case "secret_backend_config":
-			decoded, err := decodeRows[recovery.ControllerSecretBackendConfig](rows)
+			decoded, err := decodeRows[exporttypes.SecretBackendConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSecretBackendConfig = decoded
+			out.SecretBackendConfig = decoded
 		case "secret_backend_origin":
-			decoded, err := decodeRows[recovery.ControllerSecretBackendOrigin](rows)
+			decoded, err := decodeRows[exporttypes.SecretBackendOrigin](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSecretBackendOrigin = decoded
+			out.SecretBackendOrigin = decoded
 		case "secret_backend_reference":
-			decoded, err := decodeRows[recovery.ControllerSecretBackendReference](rows)
+			decoded, err := decodeRows[exporttypes.SecretBackendReference](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSecretBackendReference = decoded
+			out.SecretBackendReference = decoded
 		case "secret_backend_rotation":
-			decoded, err := decodeRows[recovery.ControllerSecretBackendRotation](rows)
+			decoded, err := decodeRows[exporttypes.SecretBackendRotation](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSecretBackendRotation = decoded
+			out.SecretBackendRotation = decoded
 		case "secret_backend_type":
-			decoded, err := decodeRows[recovery.ControllerSecretBackendType](rows)
+			decoded, err := decodeRows[exporttypes.SecretBackendType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSecretBackendType = decoded
+			out.SecretBackendType = decoded
 		case "ssh_fingerprint_hash_algorithm":
-			decoded, err := decodeRows[recovery.ControllerSshFingerprintHashAlgorithm](rows)
+			decoded, err := decodeRows[exporttypes.SshFingerprintHashAlgorithm](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSshFingerprintHashAlgorithm = decoded
+			out.SshFingerprintHashAlgorithm = decoded
 		case "ssh_key_algorithm_type":
-			decoded, err := decodeRows[recovery.ControllerSshKeyAlgorithmType](rows)
+			decoded, err := decodeRows[exporttypes.SshKeyAlgorithmType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerSshKeyAlgorithmType = decoded
+			out.SshKeyAlgorithmType = decoded
 		case "upgrade_info":
 			// Keep target upgrade progress.
 			continue
@@ -518,50 +496,47 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			// Keep target node upgrade progress.
 			continue
 		case "upgrade_state_type":
-			decoded, err := decodeRows[recovery.ControllerUpgradeStateType](rows)
+			decoded, err := decodeRows[exporttypes.UpgradeStateType](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerUpgradeStateType = decoded
+			out.UpgradeStateType = decoded
 		case "user":
-			decoded, err := decodeRows[recovery.ControllerUser](rows)
+			decoded, err := decodeRows[exporttypes.User](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			for i := range decoded {
-				_, decoded[i].HasRemoved = rows[i]["removed"]
-			}
-			out.ControllerUser = decoded
+			out.User = decoded
 		case "user_activation_key":
-			decoded, err := decodeRows[recovery.ControllerUserActivationKey](rows, "activation_key")
+			decoded, err := decodeRows[exporttypes.UserActivationKey](rows, "activation_key")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerUserActivationKey = decoded
+			out.UserActivationKey = decoded
 		case "user_authentication":
-			decoded, err := decodeRows[recovery.ControllerUserAuthentication](rows)
+			decoded, err := decodeRows[exporttypes.UserAuthentication](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerUserAuthentication = decoded
+			out.UserAuthentication = decoded
 		case "user_password":
-			decoded, err := decodeRows[recovery.ControllerUserPassword](rows, "password_salt")
+			decoded, err := decodeRows[exporttypes.UserPassword](rows, "password_salt")
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerUserPassword = decoded
+			out.UserPassword = decoded
 		case "user_public_ssh_key":
-			decoded, err := decodeRows[recovery.ControllerUserPublicSshKey](rows)
+			decoded, err := decodeRows[exporttypes.UserPublicSshKey](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerUserPublicSshKey = decoded
+			out.UserPublicSshKey = decoded
 		case "workload_tracing_config":
-			decoded, err := decodeRows[recovery.ControllerWorkloadTracingConfig](rows)
+			decoded, err := decodeRows[exporttypes.WorkloadTracingConfig](rows)
 			if err != nil {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
-			out.ControllerWorkloadTracingConfig = decoded
+			out.WorkloadTracingConfig = decoded
 		default:
 			return nil, errors.Errorf("unknown recovery table %q", table)
 		}

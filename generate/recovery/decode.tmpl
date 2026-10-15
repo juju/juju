@@ -6,11 +6,13 @@
 package service
 
 import (
+    exporttypes "{{ .ExportPath }}"
     recovery "github.com/juju/juju/domain/recovery"
     "github.com/juju/juju/internal/errors"
 )
 
 // Decode{{ .Prefix }}Dump decodes an archive and selects recoverable tables.
+// Rows must contain every exported column; omitted defaults are not applied.
 // Version compatibility must be checked by the caller before replay.
 func Decode{{ .Prefix }}Dump(data []byte) (*recovery.{{ .Prefix }}Dump, error) {
     dump, err := decodeDump(data)
@@ -29,15 +31,8 @@ func decode{{ .Prefix }}Dump(dump *dump) (*recovery.{{ .Prefix }}Dump, error) {
             // {{ .Exclusion }}
             continue
 {{- else }}
-            decoded, err := decodeRows[recovery.{{ .Struct }}](rows{{ range .Columns }}{{ if eq .Type "[]byte" }}, "{{ .Name }}"{{ end }}{{ end }})
+            decoded, err := decodeRows[exporttypes.{{ .Struct }}](rows{{ range .Columns }}{{ if .Binary }}, "{{ .Name }}"{{ end }}{{ end }})
             if err != nil { return nil, errors.Errorf("table %q: %w", table, err) }
-{{- range .Columns }}
-{{- if .HasDefault }}
-            for i := range decoded {
-                _, decoded[i].Has{{ .Field }} = rows[i]["{{ .Name }}"]
-            }
-{{- end }}
-{{- end }}
             out.{{ .Struct }} = decoded
 {{- end }}
 {{- end }}
