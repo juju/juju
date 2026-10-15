@@ -1849,19 +1849,23 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameDefaultPort(c *tc.C) {
 	c.Assert(bootstrapFuncs.args.ControllerConfig.APIPort(), tc.Equals, 443)
 }
 
-func (s *BootstrapSuite) TestBootstrapAutocertDNSNameExplicitAPIPort(c *tc.C) {
+// TestBootstrapAPIPortNotConfigurable checks that the API port can't be set at
+// bootstrap, with or without autocert, as it can't be changed afterwards.
+func (s *BootstrapSuite) TestBootstrapAPIPortNotConfigurable(c *tc.C) {
 	s.patchVersion(c)
 	var bootstrapFuncs fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "ctrl",
-		"--config", "autocert-dns-name=foo.example",
-		"--config", "api-port=12345",
-	)
-	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Assert(bootstrapFuncs.args.ControllerConfig.APIPort(), tc.Equals, 12345)
+	for _, args := range [][]string{
+		{"--config", "api-port=12345"},
+		{"--config", "autocert-dns-name=foo.example", "--config", "api-port=12345"},
+	} {
+		_, err := cmdtesting.RunCommand(
+			c, s.newBootstrapCommand(), append([]string{"dummy", "ctrl"}, args...)...,
+		)
+		c.Check(err, tc.ErrorMatches, `"api-port" is not a user configurable item.*`, tc.Commentf("args %v", args))
+	}
 }
 
 func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *tc.C) {
