@@ -21,6 +21,11 @@ type UserAccessFunc func(ctx context.Context, userName coreuser.Name, target per
 // tagKindPermission describes how a tag kind maps onto a permission
 // object type, along with the validator for access levels on that
 // object type.
+//
+// E.g. for a controller - `objectType` holds the `Controller` permission,
+// `validate` checks that the permission is valid for a controller, and
+// `satisfies` checks whether the user's permission satisfies the desired
+// value.
 type tagKindPermission struct {
 	objectType permission.ObjectType
 	validate   func(permission.Access) error
@@ -38,7 +43,10 @@ var permissionsByTagKind = map[string]tagKindPermission{
 	names.CloudTagKind:            {permission.Cloud, permission.ValidateCloudAccess, permission.Access.EqualOrGreaterCloudAccessThan},
 }
 
-// AccessSatisfies reports whether have meets required for target's kind.
+// AccessSatisfies reports whether a held access level on the target is at
+// least the required level.
+// It returns false if target's kind has no permissions or the required
+// level isn't valid for that kind.
 func AccessSatisfies(target names.Tag, have, required permission.Access) bool {
 	tkp, ok := permissionsByTagKind[target.Kind()]
 	return ok && tkp.validate(required) == nil && tkp.satisfies(have, required)
