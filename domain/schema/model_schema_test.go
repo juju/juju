@@ -511,7 +511,6 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_exposed_endpoint_space_insert",
 		"trg_log_application_exposed_endpoint_space_update",
 
-
 		"trg_log_block_device_delete",
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
