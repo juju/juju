@@ -57,6 +57,7 @@ type ControllerStackerForTest interface {
 	GetControllerRuntimeConfigContent(*tc.C) string
 	GetControllerUnitAgentPassword() string
 	GetControllerApplicationPassword() string
+	GetControllerNodePassword() string
 	GetControllerNonce() string
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
@@ -92,6 +93,7 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		LogDir:                 cs.pcfg.LogDir,
 		APIPort:                cs.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:          cs.pcfg.APIInfo.Password,
+		ControllerNodePassword: cs.controllerNodePassword,
 		LoggingConfig:          cs.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
 		LoggingOverride:        cs.pcfg.AgentEnvironment[agent.LoggingOverride],
 		LokiEndpoint:           cs.agentConfig.LokiEndpoint(),
@@ -124,6 +126,13 @@ func (cs *controllerStack) GetControllerNonce() string {
 
 func (cs *controllerStack) GetControllerApplicationPassword() string {
 	return cs.applicationPassword
+}
+
+// GetControllerNodePassword returns the random controller-node credential
+// generated at bootstrap for the pod machine agent and the K8s bootstrap
+// finalizer.
+func (cs *controllerStack) GetControllerNodePassword() string {
+	return cs.controllerNodePassword
 }
 
 func (cs *controllerStack) GetStorageSize() resource.Quantity {

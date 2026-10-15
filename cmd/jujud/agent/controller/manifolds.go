@@ -168,9 +168,15 @@ type ManifoldsConfig struct {
 	// APIPort is the controller API port advertised during bootstrap.
 	APIPort int
 
-	// AgentPassword is the controller agent password used during bootstrap
-	// finalization.
+	// AgentPassword is the bootstrap admin secret hashed by the IAAS
+	// bootstrap finalizer as the machine-0 password.
 	AgentPassword string
+
+	// ControllerNodePassword is the random K8s controller-node credential
+	// hashed by the K8s bootstrap finalizer into controller_node_password.
+	// It is the same plaintext delivered to the controller pod's machine
+	// agent, which connects without rotation. It is empty on IAAS.
+	ControllerNodePassword string
 
 	// RootDir is the root directory that any worker that needs to
 	// access local filesystems should use as a base. In actual use it
@@ -1072,6 +1078,10 @@ func K8sManifolds(config ManifoldsConfig) dependency.Manifolds {
 }
 
 // NewIAASBootstrapManifoldConfig returns the IAAS-specific bootstrap config.
+// The finalizer password is the bootstrap admin secret: machine-0's agent
+// starts with it as the fallback credential and rotates it on first
+// connection (ScaryConnect), so the finalizer hash must match the
+// fallback.
 func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
 	return bootstrap.ManifoldConfig{
 		DomainServicesName:            domainServicesName,
@@ -1097,6 +1107,10 @@ func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 }
 
 // NewK8sBootstrapManifoldConfig returns the K8S-specific bootstrap config.
+// The finalizer password is the controller-node credential pre-rendered
+// into the pod machine agent's config, not the bootstrap admin secret:
+// the pod machine agent connects with OnlyConnect and never rotates, so
+// the finalizer hash and the agent credential must be the same value.
 func NewK8sBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
 	return bootstrap.ManifoldConfig{
 		DomainServicesName:            domainServicesName,
@@ -1105,7 +1119,7 @@ func NewK8sBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCon
 		ProviderFactoryName:           providerTrackerName,
 		DataDir:                       config.DataDir,
 		APIPort:                       config.APIPort,
-		AgentPassword:                 config.AgentPassword,
+		AgentPassword:                 config.ControllerNodePassword,
 		RequiresBootstrap:             bootstrap.RequiresBootstrap,
 		PopulateControllerCharm:       internalbootstrap.PopulateControllerCharm,
 		StatusHistory:                 domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),

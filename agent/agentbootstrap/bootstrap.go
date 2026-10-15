@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -162,15 +161,14 @@ func (b *AgentBootstrap) Initialise(ctx context.Context) error {
 
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
-	// The machine agent and controller use different config files on IAAS.
-	// Rotating here would leave the machine agent with the old password.
-	if cloud.CloudIsCAAS(b.stateInitialisationParams.ControllerCloud) {
-		newPassword, err := password.RandomPassword()
-		if err != nil {
-			return err
-		}
-		b.agentConfig.SetPassword(newPassword)
-	}
+	// No password rotation happens here on either topology. The K8s pod
+	// machine agent's credential is the pre-rendered controller-node
+	// password from runtime.conf (delivered through its agent.conf and
+	// hashed by the K8s bootstrap finalizer), so Initialize never produces
+	// or rotates a credential. The IAAS snap path skips rotation because
+	// the controller password lives in snap-private runtime.conf while the
+	// host machine agent reads agent.conf; rotating would desynchronise
+	// the two files and lock both out on the next restart.
 
 	return nil
 }

@@ -59,14 +59,11 @@ type format_2_0Serialization struct {
 	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups"`
 
 	// Only controller machines have these next items set.
-	ControllerCert        string        `yaml:"controllercert,omitempty"`
-	ControllerKey         string        `yaml:"controllerkey,omitempty"`
-	CAPrivateKey          string        `yaml:"caprivatekey,omitempty"`
-	APIPort               int           `yaml:"apiport,omitempty"`
-	SystemIdentity        string        `yaml:"systemidentity,omitempty"`
-	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
-	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
-	DqliteBusyTimeout     time.Duration `yaml:"dqlitebusytimeout,omitempty"`
+	ControllerCert string `yaml:"controllercert,omitempty"`
+	ControllerKey  string `yaml:"controllerkey,omitempty"`
+	CAPrivateKey   string `yaml:"caprivatekey,omitempty"`
+	APIPort        int    `yaml:"apiport,omitempty"`
+	SystemIdentity string `yaml:"systemidentity,omitempty"`
 
 	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
 	OpenTelemetryHTTPEndpoint          string        `yaml:"opentelemetryhttpendpoint,omitempty"`
@@ -83,8 +80,6 @@ type format_2_0Serialization struct {
 	// if the split HTTP/gRPC fields are empty, the value is migrated to
 	// the gRPC endpoint (matching the old gRPC-preferred behaviour).
 	OpenTelemetryEndpoint string `yaml:"opentelemetryendpoint,omitempty"`
-
-	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
 
 func init() {
@@ -140,10 +135,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
 
-		queryTracingEnabled:   format.QueryTracingEnabled,
-		queryTracingThreshold: format.QueryTracingThreshold,
-		dqliteBusyTimeout:     format.DqliteBusyTimeout,
-
 		openTelemetryEnabled:               format.OpenTelemetryEnabled,
 		openTelemetryHTTPEndpoint:          format.OpenTelemetryHTTPEndpoint,
 		openTelemetryGRPCEndpoint:          format.OpenTelemetryGRPCEndpoint,
@@ -151,8 +142,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		openTelemetryInsecure:              format.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           format.OpenTelemetryStackTraces,
 		openTelemetryTailSamplingThreshold: format.OpenTelemetryTailSamplingThreshold,
-
-		dqlitePort: format.DqlitePort,
 	}
 
 	// Migrate the legacy single-endpoint field. If the old
@@ -223,10 +212,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,
 		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
 
-		QueryTracingEnabled:   config.queryTracingEnabled,
-		QueryTracingThreshold: config.queryTracingThreshold,
-		DqliteBusyTimeout:     config.dqliteBusyTimeout,
-
 		OpenTelemetryEnabled:               config.openTelemetryEnabled,
 		OpenTelemetryHTTPEndpoint:          config.openTelemetryHTTPEndpoint,
 		OpenTelemetryGRPCEndpoint:          config.openTelemetryGRPCEndpoint,
@@ -234,8 +219,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		OpenTelemetryInsecure:              config.openTelemetryInsecure,
 		OpenTelemetryStackTraces:           config.openTelemetryStackTraces,
 		OpenTelemetryTailSamplingThreshold: config.openTelemetryTailSamplingThreshold,
-
-		DqlitePort: config.dqlitePort,
 	}
 	if config.controllerAgentInfo != nil {
 		format.ControllerCert = config.controllerAgentInfo.Cert

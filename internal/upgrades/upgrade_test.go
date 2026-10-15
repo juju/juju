@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
@@ -101,14 +100,13 @@ func (c *mockContext) APIContext() upgrades.Context {
 
 type mockAgentConfig struct {
 	agent.ConfigSetter
-	dataDir             string
-	logDir              string
-	tag                 names.Tag
-	jobs                []model.MachineJob
-	apiAddresses        []string
-	values              map[string]string
-	controllerAgentInfo controller.ControllerAgentInfo
-	modelTag            names.ModelTag
+	dataDir      string
+	logDir       string
+	tag          names.Tag
+	jobs         []model.MachineJob
+	apiAddresses []string
+	values       map[string]string
+	modelTag     names.ModelTag
 }
 
 func (mock *mockAgentConfig) Tag() names.Tag {
@@ -141,14 +139,6 @@ func (mock *mockAgentConfig) APIAddresses() ([]string, error) {
 
 func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
-}
-
-func (mock *mockAgentConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	return mock.controllerAgentInfo, true
-}
-
-func (mock *mockAgentConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	mock.controllerAgentInfo = info
 }
 
 func (mock *mockAgentConfig) Model() names.ModelTag {

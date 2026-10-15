@@ -68,10 +68,19 @@ type ControllerRuntimeConfig struct {
 	// APIPort is the controller API server listen port.
 	APIPort int `yaml:"api-port"`
 
-	// AgentPassword is the controller agent API password used for local worker
-	// startup before agent.conf is consulted. This field is sensitive and must
-	// not be logged.
+	// AgentPassword is the bootstrap admin secret consumed by
+	// jujud bootstrap-state to create the initial administrator, and
+	// by the IAAS bootstrap finalizer as the machine password. This
+	// field is sensitive and must not be logged.
 	AgentPassword string `yaml:"agent-password"`
+
+	// ControllerNodePassword is the random K8s controller-node credential
+	// used by the controller pod's machine agent and hashed into
+	// controller_node_password by the K8s bootstrap finalizer. It is
+	// generated before ConfigMap rendering and persisted here so bootstrap
+	// and finalizer retries reuse the same value. It is empty on IAAS.
+	// This field is sensitive and must not be logged.
+	ControllerNodePassword string `yaml:"controller-node-password,omitempty"`
 
 	// LoggingConfig is the persisted controller logging override used by the
 	// controller logger worker.
@@ -166,14 +175,14 @@ type ControllerRuntimeConfig struct {
 	CharmRevisionUpdateInterval string `yaml:"charm-revision-update-interval,omitempty"`
 
 	// SocketDir is the directory for group-accessible Unix sockets
-	// (control.socket and configchange.socket). When set, socket paths
-	// are derived from this directory instead of DataDir. The directory
-	// must be owned by root:juju with mode 0750.
-	SocketDir string `yaml:"socket-dir,omitempty"`
+	// (control.socket and configchange.socket). Socket paths are
+	// derived from this directory. The directory must be owned by
+	// root:juju with mode 0750.
+	SocketDir string `yaml:"socket-dir"`
 
 	// SharedAgentDir is the directory for charm-written files (controller.conf).
 	// The directory must be owned by root:juju with mode 0750.
-	SharedAgentDir string `yaml:"shared-agent-dir,omitempty"`
+	SharedAgentDir string `yaml:"shared-agent-dir"`
 }
 
 // UpgradedToVersion returns the Juju version that the controller has most
@@ -181,26 +190,6 @@ type ControllerRuntimeConfig struct {
 // interface so ControllerRuntimeConfig can be passed to internalupgrade.NewLock.
 func (cfg ControllerRuntimeConfig) UpgradedToVersion() semversion.Number {
 	return cfg.UpgradedToVersionNum
-}
-
-// EffectiveSocketDir returns SocketDir when set, otherwise falls back to DataDir.
-// This is the single point of truth for resolving the directory where
-// control.socket and configchange.socket are created.
-func (cfg ControllerRuntimeConfig) EffectiveSocketDir() string {
-	if cfg.SocketDir != "" {
-		return cfg.SocketDir
-	}
-	return cfg.DataDir
-}
-
-// EffectiveSharedAgentDir returns SharedAgentDir when set, otherwise falls
-// back to DataDir. This is the single point of truth for resolving the
-// directory where controller.conf is read and written.
-func (cfg ControllerRuntimeConfig) EffectiveSharedAgentDir() string {
-	if cfg.SharedAgentDir != "" {
-		return cfg.SharedAgentDir
-	}
-	return cfg.DataDir
 }
 
 // Validate returns an error if any required field is missing or invalid.
@@ -217,10 +206,16 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	if cfg.DataDir == "" {
 		return errors.NotValidf("empty data-dir")
 	}
-	if cfg.SocketDir != "" && !filepath.IsAbs(cfg.SocketDir) {
+	if cfg.SocketDir == "" {
+		return errors.NotValidf("empty socket-dir")
+	}
+	if !filepath.IsAbs(cfg.SocketDir) {
 		return errors.NotValidf("socket-dir %q", cfg.SocketDir)
 	}
-	if cfg.SharedAgentDir != "" && !filepath.IsAbs(cfg.SharedAgentDir) {
+	if cfg.SharedAgentDir == "" {
+		return errors.NotValidf("empty shared-agent-dir")
+	}
+	if !filepath.IsAbs(cfg.SharedAgentDir) {
 		return errors.NotValidf("shared-agent-dir %q", cfg.SharedAgentDir)
 	}
 	if cfg.LogDir == "" {
@@ -231,6 +226,9 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	}
 	if cfg.AgentPassword == "" {
 		return errors.NotValidf("empty agent-password")
+	}
+	if cfg.IsK8SController && cfg.ControllerNodePassword == "" {
+		return errors.NotValidf("empty controller-node-password")
 	}
 	if cfg.DqlitePort != 0 && (cfg.DqlitePort < 1 || cfg.DqlitePort > 65535) {
 		return errors.NotValidf("dqlite port %d", cfg.DqlitePort)
@@ -438,14 +436,15 @@ func resolveToken(s, snapData, snapCommon string) string {
 // non-path fields must never be substituted.
 func rejectTokensInNonPathFields(cfg StagedControllerRuntimeConfig) error {
 	nonPathFields := map[string]string{
-		"agent-password":      cfg.AgentPassword,
-		"ca-cert":             cfg.CACert,
-		"ca-private-key":      cfg.CAPrivateKey,
-		"controller-cert":     cfg.ControllerCert,
-		"controller-cert-key": cfg.ControllerPrivateKey,
-		"system-identity":     cfg.SystemIdentity,
-		"logging-config":      cfg.LoggingConfig,
-		"logging-override":    cfg.LoggingOverride,
+		"agent-password":           cfg.AgentPassword,
+		"controller-node-password": cfg.ControllerNodePassword,
+		"ca-cert":                  cfg.CACert,
+		"ca-private-key":           cfg.CAPrivateKey,
+		"controller-cert":          cfg.ControllerCert,
+		"controller-cert-key":      cfg.ControllerPrivateKey,
+		"system-identity":          cfg.SystemIdentity,
+		"logging-config":           cfg.LoggingConfig,
+		"logging-override":         cfg.LoggingOverride,
 	}
 	for name, val := range nonPathFields {
 		if strings.Contains(val, TokenSnapData) || strings.Contains(val, TokenSnapCommon) {

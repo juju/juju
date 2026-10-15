@@ -570,6 +570,12 @@ var newService = func(name string, conf common.Conf) (service.Service, error) {
 	return service.NewService(name, conf)
 }
 
+// AgentConfig returns the agent configuration for the machine agent.
+// The config carries only machine-agent connectivity state: the tag,
+// API addresses, credential, and trust anchor. Controller serving
+// information is delivered separately through runtime.conf, and the
+// bootstrap serving info on cfg.Bootstrap is never serialized into a
+// machine agent config.
 func (cfg *InstanceConfig) AgentConfig(
 	tag names.Tag,
 	toolsVersion semversion.Number,
@@ -595,9 +601,6 @@ func (cfg *InstanceConfig) AgentConfig(
 	if cfg.ControllerConfig != nil {
 		configParams.AgentLogfileMaxBackups = cfg.ControllerConfig.AgentLogfileMaxBackups()
 		configParams.AgentLogfileMaxSizeMB = cfg.ControllerConfig.AgentLogfileMaxSizeMB()
-		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
-		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
-		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
 	}
 	// Resolve the workload tracing config from the raw fields injected
 	// during provisioning. When no endpoint is configured the agent
@@ -633,10 +636,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	configParams.LokiCACert = cfg.LokiCACert
 	configParams.LokiInsecureSkipVerify = cfg.LokiInsecureSkipVerify
 	configParams.LokiOrgID = cfg.LokiOrgID
-	if cfg.Bootstrap == nil {
-		return agent.NewAgentConfig(configParams)
-	}
-	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.ControllerAgentInfo)
+	return agent.NewAgentConfig(configParams)
 }
 
 // JujuTools returns the directory where Juju tools are stored.

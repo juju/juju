@@ -310,7 +310,7 @@ func (a *SafeModeControllerApplication) makeEngineCreator() func(ctx context.Con
 			ControllerStartupValues: safeModeStartupValueProvider,
 			ControllerID:            a.Tag().Id(),
 			LogDir:                  a.runtimeConfig.LogDir,
-			ConfigChangeSocketPath:  path.Join(a.runtimeConfig.EffectiveSocketDir(), "safemode-configchange.socket"),
+			ConfigChangeSocketPath:  path.Join(a.runtimeConfig.SocketDir, "safemode-configchange.socket"),
 			Clock:                   clock.WallClock,
 		}
 

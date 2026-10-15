@@ -624,10 +624,10 @@ func (a *ControllerApplication) makeEngineCreator(
 		)
 		runtimeConfigChanged := controllerruntimeconfig.NewRuntimeConfigChanged()
 
-		if err := ensureGroupDir(controllerRuntimeConfig.EffectiveSocketDir()); err != nil {
+		if err := ensureGroupDir(controllerRuntimeConfig.SocketDir); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := ensureGroupDir(controllerRuntimeConfig.EffectiveSharedAgentDir()); err != nil {
+		if err := ensureGroupDir(controllerRuntimeConfig.SharedAgentDir); err != nil {
 			return nil, errors.Trace(err)
 		}
 
@@ -642,12 +642,13 @@ func (a *ControllerApplication) makeEngineCreator(
 			ControllerTag:                     names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
 			LogDir:                            controllerRuntimeConfig.LogDir,
 			ControllerRuntimePath:             a.controllerRuntimePath,
-			ConfigChangeSocketPath:            path.Join(controllerRuntimeConfig.EffectiveSocketDir(), "configchange.socket"),
+			ConfigChangeSocketPath:            path.Join(controllerRuntimeConfig.SocketDir, "configchange.socket"),
 			RuntimeConfigChanged:              runtimeConfigChanged,
-			ControlSocketPath:                 path.Join(controllerRuntimeConfig.EffectiveSocketDir(), "control.socket"),
+			ControlSocketPath:                 path.Join(controllerRuntimeConfig.SocketDir, "control.socket"),
 			DataDir:                           controllerRuntimeConfig.DataDir,
 			APIPort:                           controllerRuntimeConfig.APIPort,
 			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
+			ControllerNodePassword:            controllerRuntimeConfig.ControllerNodePassword,
 			RootDir:                           a.rootDir,
 			BootstrapLock:                     a.bootstrapLock,
 			ProxyReadyLock:                    a.proxyReadyLock,

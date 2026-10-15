@@ -6,6 +6,7 @@ package podcfg_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api"
@@ -119,4 +120,57 @@ func (*podcfgSuite) TestUnitAgentConfig(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(agentCfg.OldPassword(), tc.Equals, apiInfo.Password)
 	c.Assert(apiInfo.Addrs, tc.DeepEquals, []string{"localhost:1234"})
+}
+
+// TestControllerPodMachineAgentConfig proves the rendered controller pod
+// machine agent config carries only connectivity state: the controller
+// tag, explicit API addresses, the trust anchor, and the supplied
+// controller-node credential. No serving info and no Dqlite settings are
+// rendered.
+func (*podcfgSuite) TestControllerPodMachineAgentConfig(c *tc.C) {
+	cfg := testing.FakeControllerConfig()
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		cfg,
+		"controller-1",
+		"ubuntu",
+		constraints.Value{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	podConfig.APIInfo = &api.Info{
+		ModelTag: testing.ModelTag,
+		CACert:   testing.CACert,
+		Addrs:    []string{"10.6.6.6:17070"},
+		Password: "admin-secret",
+	}
+	podConfig.Bootstrap.ControllerAgentInfo.APIPort = 1234
+	podConfig.JujuVersion = semversion.MustParse("6.6.6")
+
+	agentCfg, err := podConfig.AgentConfig(
+		names.NewControllerAgentTag("0"), "controller-node-credential",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(agentCfg.Tag(), tc.DeepEquals, names.NewControllerAgentTag("0"))
+	_, isController := agentCfg.ControllerAgentInfo()
+	c.Check(isController, tc.IsFalse)
+	c.Check(agentCfg.OldPassword(), tc.Equals, "controller-node-credential")
+
+	rendered, err := agentCfg.Render()
+	c.Assert(err, tc.ErrorIsNil)
+	content := string(rendered)
+	c.Check(content, tc.Not(tc.Contains), "controllercert")
+	c.Check(content, tc.Not(tc.Contains), "controllerkey")
+	c.Check(content, tc.Not(tc.Contains), "caprivatekey")
+	c.Check(content, tc.Not(tc.Contains), "statepassword")
+	c.Check(content, tc.Not(tc.Contains), "querytracing")
+	c.Check(content, tc.Not(tc.Contains), "dqlitebusytimeout")
+	c.Check(content, tc.Not(tc.Contains), "dqlite-port")
+	c.Check(content, tc.Contains, "apiaddresses:")
+	c.Check(content, tc.Contains, "cacert:")
+
+	apiInfo, ok := agentCfg.APIInfo()
+	c.Assert(ok, tc.IsTrue)
+	c.Check(apiInfo.Addrs, tc.DeepEquals, []string{
+		"localhost:1234", "10.6.6.6:17070",
+	})
 }

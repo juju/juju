@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
@@ -468,8 +467,6 @@ func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
 type mockConfig struct {
 	agent.ConfigSetter
 	tag      names.Tag
-	ssiSet   bool
-	ssi      controller.ControllerAgentInfo
 	dataPath string
 }
 
@@ -484,14 +481,6 @@ func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	return mc.ssi, mc.ssiSet
-}
-
-func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
-	return mc.ssi, mc.ssiSet
-}
-
 func (mc *mockConfig) APIInfo() (*api.Info, bool) {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
@@ -499,11 +488,6 @@ func (mc *mockConfig) APIInfo() (*api.Info, bool) {
 		Tag:      mc.Tag(),
 		Password: "mock-password",
 	}, true
-}
-
-func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	mc.ssiSet = true
-	mc.ssi = info
 }
 
 func (mc *mockConfig) LogDir() string {

@@ -5,7 +5,6 @@ package agenttest
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -81,8 +80,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 
-	dqlitePort := findTCPPort()
-
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -95,9 +92,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			Controller:        coretesting.ControllerTag,
 			Model:             apiInfo.ModelTag,
 
-			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
-			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
-
 			OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
 			OpenTelemetryHTTPEndpoint:          "",
 			OpenTelemetryGRPCEndpoint:          "",
@@ -105,8 +99,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
 			OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
 			OpenTelemetryTailSamplingThreshold: agent.DefaultOpenTelemetryTailSamplingThreshold,
-
-			DqlitePort: dqlitePort,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -172,23 +164,20 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	apiPort int,
 ) agent.ConfigSetterWriter {
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
-	dqlitePort := findTCPPort()
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
 			Paths: agent.NewPathsWithDefaults(agent.Paths{
 				DataDir: s.DataDir,
 				LogDir:  s.LogDir,
 			}),
-			Tag:                   tag,
-			UpgradedToVersion:     vers.Number,
-			Password:              password,
-			Nonce:                 agent.BootstrapNonce,
-			APIAddresses:          apiAddr,
-			CACert:                coretesting.CACert,
-			Controller:            names.NewControllerTag(s.ControllerUUID),
-			Model:                 modelTag,
-			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
-			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             agent.BootstrapNonce,
+			APIAddresses:      apiAddr,
+			CACert:            coretesting.CACert,
+			Controller:        names.NewControllerTag(s.ControllerUUID),
+			Model:             modelTag,
 
 			OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
 			OpenTelemetryHTTPEndpoint:          "",
@@ -197,8 +186,6 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
 			OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
 			OpenTelemetryTailSamplingThreshold: agent.DefaultOpenTelemetryTailSamplingThreshold,
-
-			DqlitePort: dqlitePort,
 		},
 		controller.ControllerAgentInfo{
 			Cert:         coretesting.ServerCert,
@@ -245,18 +232,4 @@ func (s *AgentSuite) InitAgent(c *tc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir}, args...)
 	err := cmdtesting.InitCommand(a, args)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-// findTCPPort finds an unused TCP port and returns it.
-// Use of this function has an inherent race condition - another
-// process may claim the port before we try to use it.
-// We hope that the probability is small enough during
-// testing to be negligible.
-func findTCPPort() int {
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		panic(err)
-	}
-	l.Close()
-	return l.Addr().(*net.TCPAddr).Port
 }

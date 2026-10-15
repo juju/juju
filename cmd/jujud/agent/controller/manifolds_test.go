@@ -634,7 +634,9 @@ func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 
 func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c *tc.C) {
 	manifoldsCfg := agentcontroller.ManifoldsConfig{
-		ControllerTag: testing.ControllerTag,
+		ControllerTag:          testing.ControllerTag,
+		AgentPassword:          "admin-secret",
+		ControllerNodePassword: "controller-node-credential",
 	}
 	iaasCfg := agentcontroller.NewIAASBootstrapManifoldConfig(manifoldsCfg)
 	caasCfg := agentcontroller.NewK8sBootstrapManifoldConfig(manifoldsCfg)
@@ -651,6 +653,14 @@ func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c 
 	c.Check(reflect.ValueOf(caasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sAddressFinder).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAgentFinalizer).Pointer())
 	c.Check(reflect.ValueOf(caasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.K8sAgentFinalizer).Pointer())
+
+	// The finalizer password is topology-specific: IAAS hashes the
+	// bootstrap admin secret as the machine-0 password (the fallback the
+	// machine agent rotates), while K8s hashes the pre-rendered
+	// controller-node credential the pod machine agent connects with
+	// (never rotated, OnlyConnect).
+	c.Check(iaasCfg.AgentPassword, tc.Equals, "admin-secret")
+	c.Check(caasCfg.AgentPassword, tc.Equals, "controller-node-credential")
 }
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {

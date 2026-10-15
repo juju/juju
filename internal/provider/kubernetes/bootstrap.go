@@ -163,6 +163,11 @@ type controllerStack struct {
 	// applicationPassword authenticates controller pods while they introduce
 	// their unit and controller-agent identities.
 	applicationPassword string
+	// controllerNodePassword is the random controller-node credential used
+	// by the pod's machine agent and hashed by the K8s bootstrap finalizer.
+	// It is persisted in runtime.conf's controller-node-password field.
+	// This field is sensitive and must not be logged.
+	controllerNodePassword string
 	// nonce is the introduction nonce shared by controller pods to prove they
 	// are legitimate replicas of the statefulset.
 	nonce string
@@ -266,25 +271,27 @@ func newControllerStack(
 		return nil, errors.Trace(err)
 	}
 
-	var agentConfig agent.ConfigSetterWriter
-	agentConfig, err = pcfg.AgentConfig(names.NewControllerAgentTag(pcfg.ControllerId))
+	// Generate the controller pod machine agent's random controller-node
+	// credential before rendering. The same value is persisted in
+	// runtime.conf's controller-node-password field (so bootstrap and
+	// finalizer retries reuse it) and delivered through the bootstrap
+	// manifold to K8sAgentFinalizer, which stores its hash as the
+	// controller-node password. This value is sensitive and must not be
+	// logged.
+	controllerNodePassword, err := password.RandomPassword()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// For CAAS the controller agent root lives under <dataDir>/controller so
-	// Dqlite state and controller files are isolated from the pod-level
-	// (machine) agent data.
-	controllerDataDir := pcfg.DataDir + "/controller"
-	agentConfig.SetDataDir(controllerDataDir)
-
-	si, ok := agentConfig.ControllerAgentInfo()
-	if !ok {
-		return nil, errors.NewNotValid(nil, "agent config has no state serving info")
+	// The machine agent config carries only connectivity state: the
+	// controller-<id> tag, API addresses, the controller-node credential,
+	// and the trust anchor. Serving info is delivered separately through
+	// runtime.conf, rendered from pcfg.Bootstrap.ControllerAgentInfo.
+	var agentConfig agent.ConfigSetterWriter
+	agentConfig, err = pcfg.AgentConfig(names.NewControllerAgentTag(pcfg.ControllerId), controllerNodePassword)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	agentConfig.SetControllerAgentInfo(si)
-	pcfg.Bootstrap.ControllerAgentInfo = si
 
 	unitAgentConfig, err := pcfg.UnitAgentConfig()
 	if err != nil {
@@ -312,11 +319,12 @@ func newControllerStack(
 		broker:           broker,
 		timeout:          pcfg.Bootstrap.Timeout,
 
-		pcfg:                pcfg,
-		agentConfig:         agentConfig,
-		unitAgentConfig:     unitAgentConfig,
-		applicationPassword: applicationPassword,
-		nonce:               nonce,
+		pcfg:                   pcfg,
+		agentConfig:            agentConfig,
+		unitAgentConfig:        unitAgentConfig,
+		applicationPassword:    applicationPassword,
+		controllerNodePassword: controllerNodePassword,
+		nonce:                  nonce,
 
 		storageSize:   storageSize,
 		storageClass:  storageClass,
@@ -920,6 +928,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		LogDir:                      c.pcfg.LogDir,
 		APIPort:                     c.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:               c.pcfg.APIInfo.Password,
+		ControllerNodePassword:      c.controllerNodePassword,
 		LoggingConfig:               c.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
 		LoggingOverride:             c.pcfg.AgentEnvironment[agent.LoggingOverride],
 		LokiEndpoint:                c.agentConfig.LokiEndpoint(),

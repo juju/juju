@@ -36,7 +36,6 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		ctx.IsControllerModelScoped(),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
-		domainServices.Controller(),
 		domainServices.AgentPassword(),
 		applicationService,
 		domainServices.Agent(),
