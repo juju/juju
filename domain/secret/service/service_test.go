@@ -1508,24 +1508,6 @@ func (s *serviceSuite) TestGetSecretAccessNone(c *tc.C) {
 	c.Assert(role, tc.Equals, coresecrets.RoleNone)
 }
 
-func (s *serviceSuite) TestGetSecretAccessRelationScope(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	relUUID := relationtesting.GenRelationUUID(c)
-	s.state.EXPECT().GetSecretAccessRelationScope(gomock.Any(), uri, domainsecret.AccessParams{
-		SubjectTypeID: domainsecret.SubjectApplication,
-		SubjectID:     "mysql",
-	}).Return(relUUID.String(), nil)
-
-	got, err := s.service.GetSecretAccessRelationScope(c.Context(), uri, domainsecret.SecretAccessor{
-		Kind: domainsecret.ApplicationAccessor,
-		ID:   "mysql",
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.Equals, relUUID)
-}
-
 func (s *serviceSuite) TestGetSecretGrants(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

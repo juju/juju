@@ -9,10 +9,13 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/crossmodelrelation"
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 )
@@ -241,4 +244,50 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretPermissionError(
 	_, _, _, err := service.ProcessRemoteConsumerGetSecret(
 		c.Context(), uri, consumer, nil, false, false)
 	c.Assert(err, tc.ErrorIs, secreterrors.PermissionDenied)
+}
+
+func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrants(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	expected := []crossmodelrelation.RemoteConsumerSecretGrant{{
+		ApplicationName: "remote-app",
+		RelationUUID:    tc.Must(c, corerelation.NewUUID),
+		OfferUUID:       tc.Must(c, offer.NewUUID),
+	}}
+
+	s.modelState.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID.String()).Return(
+		expected, nil)
+
+	service := s.service(c)
+
+	grants, err := service.GetRemoteConsumerSecretGrants(c.Context(), uri, appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(grants, tc.DeepEquals, expected)
+}
+
+func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrantsInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	service := s.service(c)
+
+	_, err := service.GetRemoteConsumerSecretGrants(c.Context(), coresecrets.NewURI(), "invalid")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationUUIDNotValid)
+}
+
+func (s *secretsServiceSuite) TestGetRemoteConsumerSecretGrantsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+
+	s.modelState.EXPECT().GetRemoteConsumerSecretGrants(gomock.Any(), uri, appUUID.String()).
+		Return(nil, secreterrors.SecretAccessScopeNotFound)
+
+	service := s.service(c)
+
+	_, err := service.GetRemoteConsumerSecretGrants(c.Context(), uri, appUUID)
+	c.Assert(err, tc.ErrorIs, secreterrors.SecretAccessScopeNotFound)
 }

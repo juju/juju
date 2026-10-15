@@ -316,6 +316,14 @@ const (
 type RelationNetworkImport struct {
 	RelationKey corerelation.Key
 
+	// RelationUUID is the relation token recorded for the relation in the
+	// source model, being the UUID the relation was imported under. It is
+	// set when the relation crossed a model boundary, and empty otherwise:
+	// the relation of an additional offer connection of a legacy consumer
+	// proxy is represented in the model by a freshly named synthetic
+	// application, so it cannot be located by its legacy key.
+	RelationUUID string
+
 	// Direction is the direction of the networks, either ingress or egress.
 	Direction RelationNetworkDirection
 
@@ -339,6 +347,25 @@ type RemoteApplicationConsumer struct {
 	// OfferUUID is the UUID of the offer that the remote application is
 	// consuming.
 	OfferUUID string
+}
+
+// RemoteConsumerSecretGrant describes a grant of a secret to a remote
+// application consumer, resolved for one offer connection of the
+// consuming application.
+type RemoteConsumerSecretGrant struct {
+	// ApplicationName is the name of the synthetic application representing
+	// the consuming application for the offer connection the secret was
+	// granted over. Every offer connection of a consuming application is
+	// represented by its own synthetic application.
+	ApplicationName string
+
+	// RelationUUID is the UUID of the relation scoping the grant, being the
+	// relation created for the offer connection the secret was granted over.
+	RelationUUID corerelation.UUID
+
+	// OfferUUID is the UUID of the offer the connection the secret was
+	// granted over was made for.
+	OfferUUID offer.UUID
 }
 
 // RemoteApplicationOfferer represents a remote application

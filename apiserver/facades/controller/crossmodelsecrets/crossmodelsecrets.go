@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/unit"
-	applicationerrors "github.com/juju/juju/domain/application/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
@@ -116,48 +115,24 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx context.Context, arg par
 		return "", errors.Capture(err)
 	}
 
-	consumerApp, err := crossModelService.GetRemoteConsumerApplicationName(ctx, coreapplication.UUID(arg.ApplicationToken))
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	consumerUnit, err := unit.NewNameFromParts(consumerApp, arg.UnitId)
+	// The consuming application may hold several offer connections in this
+	// model, each represented by its own synthetic application, so the
+	// application token alone cannot identify the connection the secret
+	// was granted over. The grant of the secret resolves both the
+	// connection and the relation scoping it, which is the access scope
+	// to report.
+	grants, err := crossModelService.GetRemoteConsumerSecretGrants(ctx, uri, coreapplication.UUID(arg.ApplicationToken))
 	if err != nil {
 		return "", errors.Capture(err)
 	}
 
-	s.logger.Debugf(ctx, "consumer unit for application UUID %q: %v", arg.ApplicationToken, consumerUnit)
-	secretService, err := s.secretServiceGetter(ctx, model.UUID(uri.SourceUUID))
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	relationUUID, err := s.accessScope(ctx, secretService, uri, consumerUnit)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	s.logger.Debugf(ctx, "access scope for secret %v and consumer %v: %v", uri.String(), consumerUnit, relationUUID)
+	// The grants are ordered by the name of the synthetic application, so
+	// the choice is deterministic.
+	relationUUID := grants[0].RelationUUID
+
+	s.logger.Debugf(ctx, "access scope for secret %v and consuming application UUID %q: %v",
+		uri.String(), arg.ApplicationToken, relationUUID)
 	return relationUUID.String(), nil
-}
-
-func (s *CrossModelSecretsAPI) accessScope(ctx context.Context, secretService SecretService, uri *coresecrets.URI, unitName unit.Name) (relation.UUID, error) {
-	s.logger.Debugf(ctx, "scope for %q on secret %s", unitName, uri.ID)
-	relationUUID, err := secretService.GetSecretAccessRelationScope(ctx, uri, secret.SecretAccessor{
-		Kind: secret.UnitAccessor,
-		ID:   unitName.String(),
-	})
-	if err == nil {
-		return relationUUID, nil
-	}
-	if !errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
-		return "", errors.Capture(err)
-	}
-	relationUUID, err = secretService.GetSecretAccessRelationScope(ctx, uri, secret.SecretAccessor{
-		Kind: secret.ApplicationAccessor,
-		ID:   unitName.Application(),
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return relationUUID, nil
 }
 
 // marshallLegacyBackendConfig converts the supplied backend config
@@ -289,12 +264,35 @@ func (s *CrossModelSecretsAPI) getSecretContent(ctx context.Context, arg params.
 		return nil, nil, 0, errors.Capture(err)
 	}
 
-	consumerApp, err := crossModelRelationService.GetRemoteConsumerApplicationName(ctx, coreapplication.UUID(arg.ApplicationToken))
-	if errors.Is(err, applicationerrors.ApplicationNotFound) {
-		return nil, nil, 0, apiservererrors.ParamsErrorf(params.CodeNotFound, "application %q not found", arg.ApplicationToken)
+	// The consuming application may hold several offer connections in this
+	// model, each represented by its own synthetic application, so the
+	// application token alone cannot identify the connection the secret
+	// was granted over: the grant of the secret resolves the connection.
+	grants, err := crossModelRelationService.GetRemoteConsumerSecretGrants(ctx, uri, coreapplication.UUID(arg.ApplicationToken))
+	if errors.Is(err, secreterrors.SecretNotFound) {
+		return nil, nil, 0, apiservererrors.ParamsErrorf(params.CodeNotFound, "secret %q not found", uri)
+	} else if errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
+		// The consuming application holds no grant of the secret, so it
+		// cannot be read through a cross model relation.
+		return nil, nil, 0, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, nil, 0, errors.Capture(err)
 	}
+
+	// Prefer the grant of the connection the macaroons identify, so the
+	// relation key they carry is checked against the relation of that
+	// connection. The grants are ordered by the name of the synthetic
+	// application otherwise, so the choice is deterministic.
+	grant := grants[0]
+	if _, offerUUID, ok := crossmodelbakery.RelationInfoFromMacaroons(arg.Macaroons); ok {
+		for _, g := range grants {
+			if g.OfferUUID.String() == offerUUID {
+				grant = g
+				break
+			}
+		}
+	}
+	consumerApp := grant.ApplicationName
 	consumerUnit, err := unit.NewNameFromParts(consumerApp, arg.UnitId)
 	if err != nil {
 		return nil, nil, 0, errors.Capture(err)
