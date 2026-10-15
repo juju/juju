@@ -7,7 +7,7 @@ package service
 
 import (
 	exporttypes "github.com/juju/juju/domain/export/types/controller/v4_1_0"
-	recovery "github.com/juju/juju/domain/recovery"
+	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -67,10 +67,10 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			// Do not replay source change notifications.
 			continue
 		case "change_log_edit_type":
-			// Keep the target's seeded change types.
+			// Identical schema seeds need no replay.
 			continue
 		case "change_log_namespace":
-			// Keep the target's seeded change namespaces.
+			// Identical schema seeds need no replay.
 			continue
 		case "change_log_witness":
 			// Keep target watcher progress.
@@ -208,10 +208,10 @@ func decodeControllerDump(dump *dump) (*recovery.ControllerDump, error) {
 			}
 			out.Flag = decoded
 		case "lease":
-			// Do not restore source worker ownership.
+			// Reacquire ownership on the replacement.
 			continue
 		case "lease_pin":
-			// Do not restore pins on source leases.
+			// Do not restore non-expiring source ownership.
 			continue
 		case "lease_type":
 			decoded, err := decodeRows[exporttypes.LeaseType](rows)

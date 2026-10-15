@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/canonical/sqlair"
@@ -19,10 +20,14 @@ type replayTable struct {
 	insertRows                 func(context.Context, *sqlair.TX, *sqlair.Statement) error
 }
 
+const maxForeignKeyViolations = 10
+
 // loadTables deletes before inserting so replacing parent rows cannot collide
 // with the target's children. Foreign keys remain enabled; checks are deferred
 // for this transaction and verified before its commit. No connection PRAGMAs
 // need restoring after success, cancellation or rollback.
+// This uses the same deferral as the model import loader; it never switches
+// PRAGMA foreign_keys off. Invalid archives fail without changing the target.
 func (st *State) loadTables(ctx context.Context, tables []replayTable, nodeID string) error {
 	if nodeID == "" {
 		return errors.Errorf("target object store node ID is required")
@@ -42,7 +47,7 @@ func (st *State) loadTables(ctx context.Context, tables []replayTable, nodeID st
 			return errors.Errorf("preparing table %q: %w", table.name, err)
 		}
 	}
-	deferFK, err := st.Prepare("PRAGMA defer_foreign_keys = ON")
+	deferFK, err := st.Prepare("PRAGMA defer_foreign_keys = 1")
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -61,13 +66,17 @@ FROM object_store_metadata AS osm`, placement{})
 		return errors.Capture(err)
 	}
 	type violation struct {
-		Table  string `db:"table_name"`
-		Parent string `db:"parent_name"`
+		Table      string `db:"table_name"`
+		RowID      *int64 `db:"row_id"`
+		Parent     string `db:"parent_name"`
+		ForeignKey int    `db:"foreign_key"`
 	}
 	checkFK, err := st.Prepare(`
 SELECT fkc."table" AS &violation.table_name,
-       fkc.parent AS &violation.parent_name
-FROM pragma_foreign_key_check AS fkc LIMIT 11`, violation{})
+       fkc.rowid AS &violation.row_id,
+       fkc.parent AS &violation.parent_name,
+       fkc.fkid AS &violation.foreign_key
+FROM pragma_foreign_key_check AS fkc LIMIT `+fmt.Sprint(maxForeignKeyViolations+1), violation{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -102,8 +111,16 @@ FROM pragma_foreign_key_check AS fkc LIMIT 11`, violation{})
 		}
 		if len(violations) > 0 {
 			var descriptions []string
-			for _, v := range violations {
-				descriptions = append(descriptions, v.Table+" row referencing "+v.Parent)
+			for _, v := range violations[:min(len(violations), maxForeignKeyViolations)] {
+				row := "row"
+				if v.RowID != nil {
+					row = fmt.Sprintf("row %d", *v.RowID)
+				}
+				descriptions = append(descriptions, fmt.Sprintf(
+					"%s %s referencing %s (foreign key %d)", v.Table, row, v.Parent, v.ForeignKey))
+			}
+			if len(violations) > maxForeignKeyViolations {
+				descriptions = append(descriptions, "and more")
 			}
 			return errors.Errorf("loaded database fails foreign key integrity: %s", strings.Join(descriptions, "; "))
 		}
@@ -111,13 +128,34 @@ FROM pragma_foreign_key_check AS fkc LIMIT 11`, violation{})
 	}))
 }
 
-// SQLair bulk VALUES bindings do not support casts for binary TEXT columns.
-// Execute the generated INSERT SELECT once per typed row instead.
-func insertRows[T any](ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, rows []T) error {
-	for _, row := range rows {
-		if err := tx.Query(ctx, stmt, row).Run(); err != nil {
-			return errors.Capture(err)
+// insertRows binds native export rows, converting binary fields before they
+// reach the driver. Casting a string to BLOB in SQL is too late: dqlite TEXT
+// parameters cannot carry embedded NUL bytes. A nil byte slice must also become
+// an untyped nil so dqlite binds SQL NULL rather than an empty BLOB.
+func insertRows[T any](ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, rows []T, bind func(T) any) error {
+	for i, row := range rows {
+		var value any = row
+		if bind != nil {
+			value = bind(row)
+		}
+		if err := tx.Query(ctx, stmt, value).Run(); err != nil {
+			return errors.Errorf("inserting row %d: %w", i, err)
 		}
 	}
 	return nil
+}
+
+func binaryValue[T ~string | ~[]byte](value T) any {
+	data := []byte(value)
+	if data == nil {
+		return nil
+	}
+	return data
+}
+
+func nullableBinaryValue[T ~string | ~[]byte](value *T) any {
+	if value == nil {
+		return nil
+	}
+	return binaryValue(*value)
 }

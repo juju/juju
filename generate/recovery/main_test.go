@@ -38,11 +38,11 @@ data BLOB, id INTEGER PRIMARY KEY AUTOINCREMENT)`)
 	c.Check(tables[0].Name, tc.Equals, "sample")
 	c.Check(tables[0].Struct, tc.Equals, "Sample")
 	c.Check(tables[0].Columns, tc.DeepEquals, []column{
-		{Name: "uuid"},
-		{Name: "enabled"},
-		{Name: "created"},
-		{Name: "data", Binary: true},
-		{Name: "id"},
+		{Name: "uuid", Field: "UUID"},
+		{Name: "enabled", Field: "Enabled", Nullable: true},
+		{Name: "created", Field: "Created", Nullable: true},
+		{Name: "data", Field: "Data", Binary: true, Nullable: true},
+		{Name: "id", Field: "ID", Nullable: true},
 	})
 }
 
@@ -92,12 +92,6 @@ func (s *generatorSuite) TestExportTypesAndPoliciesMatchNativeSchemas(c *tc.C) {
 					c.Check(typ, tc.Equals, want)
 				}
 			}
-		}
-	}
-	for table, columns := range binaryTextColumns {
-		c.Assert(known[table], tc.NotNil, tc.Commentf("binary table %s", table))
-		for _, column := range columns {
-			c.Check(known[table][column].BinaryText, tc.IsTrue, tc.Commentf("binary column %s.%s", table, column))
 		}
 	}
 	for table := range recoveryExclusions {

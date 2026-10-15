@@ -6,6 +6,8 @@ package state_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -128,10 +130,13 @@ func (s *controllerSuite) TestExplicitNullAndBooleanValues(c *tc.C) {
 		{"explicit-false", sql.NullBool{Valid: true}},
 		{"explicit-true", sql.NullBool{Bool: true, Valid: true}},
 	} {
-		var got sql.NullBool
-		err := s.DB().QueryRowContext(c.Context(), `SELECT value FROM flag WHERE name = ?`, test.name).Scan(&got)
+		// Dqlite maps a NULL BOOLEAN to false on reads. Query nullness
+		// explicitly to distinguish storage from that driver conversion.
+		var got, isNull bool
+		err := s.DB().QueryRowContext(c.Context(), `SELECT value IS NULL, COALESCE(value, FALSE) FROM flag WHERE name = ?`, test.name).Scan(&isNull, &got)
 		c.Assert(err, tc.ErrorIsNil)
-		c.Check(got, tc.Equals, test.want)
+		c.Check(isNull, tc.Equals, !test.want.Valid)
+		c.Check(got, tc.Equals, test.want.Bool)
 	}
 }
 
@@ -153,6 +158,7 @@ func (s *controllerSuite) TestBinaryYAMLRoundTrip(c *tc.C) {
 }
 
 func (s *modelSuite) TestForeignKeyFailureRollsBack(c *tc.C) {
+	s.DB().SetMaxOpenConns(1)
 	seedBlob(c, s.DB(), "original")
 	execSQL(c, s.DB(), `INSERT INTO sequence VALUES ('original', 1)`)
 	dump, err := service.DecodeModelDump([]byte(`payload:
@@ -161,12 +167,57 @@ func (s *modelSuite) TestForeignKeyFailureRollsBack(c *tc.C) {
 `))
 	c.Assert(err, tc.ErrorIsNil)
 	err = state.NewState(s.TxnRunnerFactory()).LoadModelDump(c.Context(), dump, "replacement")
-	c.Check(err, tc.ErrorMatches, `loaded database fails foreign key integrity: provider_space row referencing space`)
+	c.Check(err, tc.ErrorMatches, `loaded database fails foreign key integrity: provider_space row 1 referencing space \(foreign key 0\)`)
 	checkString(c, s.DB(), `SELECT namespace FROM sequence`, "original")
 	checkPlacement(c, s.DB(), "original")
 	// Failed replay must leave FK enforcement enabled on the connection.
 	_, err = s.DB().ExecContext(c.Context(), `INSERT INTO provider_space VALUES ('broken', 'missing')`)
 	c.Check(err, tc.NotNil)
+	checkString(c, s.DB(), `PRAGMA foreign_keys`, "1")
+	checkString(c, s.DB(), `PRAGMA defer_foreign_keys`, "0")
+}
+
+func (s *modelSuite) TestForeignKeyDeferralResetsAfterCommit(c *tc.C) {
+	s.DB().SetMaxOpenConns(1)
+	// Generated replay inserts provider_space before its parent space.
+	// Source change history is skipped, but target triggers still run.
+	dump, err := service.DecodeModelDump([]byte(`payload:
+  provider_space: [{provider_id: provider, space_uuid: restored-space}]
+  space: [{uuid: restored-space, name: restored}]
+  change_log: [{changed: source-history}]
+`))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(state.NewState(s.TxnRunnerFactory()).LoadModelDump(c.Context(), dump, "target"), tc.ErrorIsNil)
+	checkString(c, s.DB(), `SELECT space_uuid FROM provider_space`, "restored-space")
+	checkString(c, s.DB(), `PRAGMA foreign_keys`, "1")
+	checkString(c, s.DB(), `PRAGMA defer_foreign_keys`, "0")
+	_, err = s.DB().ExecContext(c.Context(), `INSERT INTO provider_space VALUES ('broken', 'missing')`)
+	c.Check(err, tc.NotNil)
+	checkString(c, s.DB(), `SELECT COUNT(*) FROM change_log WHERE changed = 'source-history'`, "0")
+	checkString(c, s.DB(), `
+SELECT COUNT(*)
+FROM change_log AS cl
+JOIN change_log_namespace AS cln ON cl.namespace_id = cln.id
+WHERE cln.namespace = 'space' AND cl.changed = 'restored-space'
+AND cl.edit_type_id = 1`, "1")
+}
+
+func (s *modelSuite) TestForeignKeyDiagnosticsAreBounded(c *tc.C) {
+	var rows []map[string]string
+	for i := range 12 {
+		rows = append(rows, map[string]string{
+			"provider_id": fmt.Sprintf("provider-%d", i), "space_uuid": fmt.Sprintf("missing-%d", i),
+		})
+	}
+	data, err := yaml.Marshal(map[string]any{"payload": map[string]any{"provider_space": rows}})
+	c.Assert(err, tc.ErrorIsNil)
+	dump, err := service.DecodeModelDump(data)
+	c.Assert(err, tc.ErrorIsNil)
+	err = state.NewState(s.TxnRunnerFactory()).LoadModelDump(c.Context(), dump, "target")
+	c.Assert(err, tc.NotNil)
+	c.Check(strings.Count(err.Error(), "provider_space row"), tc.Equals, 10)
+	c.Check(strings.HasSuffix(err.Error(), "; and more"), tc.IsTrue)
+	checkString(c, s.DB(), `SELECT COUNT(*) FROM provider_space`, "0")
 }
 
 func (s *controllerSuite) TestInsertFailureRollsBack(c *tc.C) {

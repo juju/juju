@@ -7,7 +7,7 @@ package service
 
 import (
 	exporttypes "github.com/juju/juju/domain/export/types/v4_1_0"
-	recovery "github.com/juju/juju/domain/recovery"
+	"github.com/juju/juju/domain/recovery"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -283,10 +283,10 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 			// Do not replay source change notifications.
 			continue
 		case "change_log_edit_type":
-			// Keep the target's seeded change types.
+			// Identical schema seeds need no replay.
 			continue
 		case "change_log_namespace":
-			// Keep the target's seeded change namespaces.
+			// Identical schema seeds need no replay.
 			continue
 		case "change_log_witness":
 			// Keep target watcher progress.

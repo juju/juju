@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"text/template"
 
@@ -41,14 +40,15 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 func (r *txnRunner) Dying() <-chan struct{} { return nil }
 
 type column struct {
-	Name               string
-	Binary, BinaryText bool
+	Name, Field                  string
+	Binary, BinaryText, Nullable bool
 }
 
 type table struct {
 	Name, Struct, Insert string
 	Columns              []column
 	Exclusion            string
+	HasBinary            bool
 }
 
 type pass struct {
@@ -163,12 +163,16 @@ func inspectTable(ctx context.Context, db *sql.DB, name string) (table, error) {
 		if err := cols.Scan(&id, &name, &typ, &notNull, &def, &primaryKey); err != nil {
 			return table{}, err
 		}
-		binaryText := slices.Contains(binaryTextColumns[t.Name], name)
+		storageType := schema.ColumnStorageType(t.Name, name, typ)
+		binary := storageType == "BLOB"
 		t.Columns = append(t.Columns, column{
 			Name:       name,
-			Binary:     binaryText || strings.EqualFold(typ, "BLOB"),
-			BinaryText: binaryText,
+			Field:      camel(name),
+			Binary:     binary,
+			BinaryText: binary && strings.EqualFold(typ, "TEXT"),
+			Nullable:   notNull == 0,
 		})
+		t.HasBinary = t.HasBinary || binary
 	}
 	if err := cols.Err(); err != nil {
 		return table{}, err
@@ -180,43 +184,15 @@ func inspectTable(ctx context.Context, db *sql.DB, name string) (table, error) {
 	return t, nil
 }
 
-// binaryTextColumns describes legacy TEXT columns whose domain writers bind
-// bytes. Their export structs use strings, so the archive can contain either
-// ordinary UTF-8 strings or !!binary values. Recover both as BLOBs, as the
-// original writers do. Other TEXT columns remain string bindings.
-var binaryTextColumns = map[string][]string{
-	"bakery_config": {
-		"local_users_private_key", "local_users_public_key",
-		"local_users_third_party_private_key", "local_users_third_party_public_key",
-		"external_users_third_party_private_key", "external_users_third_party_public_key",
-		"offers_third_party_private_key", "offers_third_party_public_key",
-	},
-	"macaroon_root_key":                            {"id", "root_key"},
-	"user_password":                                {"password_salt"},
-	"user_activation_key":                          {"activation_key"},
-	"charm":                                        {"lxd_profile"},
-	"charm_metadata":                               {"assumes"},
-	"charm_action":                                 {"params"},
-	"machine_status":                               {"data"},
-	"machine_cloud_instance_status":                {"data"},
-	"operator_status":                              {"data"},
-	"application_status":                           {"data"},
-	"unit_agent_status":                            {"data"},
-	"unit_workload_status":                         {"data"},
-	"k8s_pod_status":                               {"data"},
-	"application_remote_offerer":                   {"macaroon"},
-	"application_remote_offerer_status":            {"data"},
-	"application_remote_offerer_relation_macaroon": {"macaroon"},
-}
-
 func insertSQL(t table) string {
 	var names, values []string
 	for _, col := range t.Columns {
 		names = append(names, `"`+col.Name+`"`)
-		value := "$" + t.Struct + "." + col.Name
-		if col.BinaryText {
-			value = "CAST(" + value + " AS BLOB)"
+		binding := t.Struct
+		if t.HasBinary {
+			binding = "M"
 		}
+		value := "$" + binding + "." + col.Name
 		values = append(values, value+` AS "`+col.Name+`"`)
 	}
 	return `INSERT INTO "` + t.Name + `" (` + strings.Join(names, ", ") + `) SELECT ` + strings.Join(values, ", ")

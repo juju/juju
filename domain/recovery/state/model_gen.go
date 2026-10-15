@@ -19,6 +19,7 @@ import (
 // immutable tables must be empty so their row-level delete guards do not fire.
 // Runtime tables are excluded by the generated recovery policy. The caller
 // supplies the target node ID where the archived blobs have been restored.
+// Replay must complete before starting watchers and workers.
 func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, nodeID string) error {
 	var tables []replayTable
 	if dump.Present["agent_binary_store"] {
@@ -28,7 +29,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "agent_binary_store" ("version", "architecture_id", "object_store_uuid") SELECT $AgentBinaryStore.version AS "version", $AgentBinaryStore.architecture_id AS "architecture_id", $AgentBinaryStore.object_store_uuid AS "object_store_uuid"`,
 			sample:    exporttypes.AgentBinaryStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AgentBinaryStore)
+				return insertRows(ctx, tx, stmt, dump.AgentBinaryStore, nil)
 			},
 		})
 	}
@@ -39,7 +40,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "agent_stream" ("id", "name") SELECT $AgentStream.id AS "id", $AgentStream.name AS "name"`,
 			sample:    exporttypes.AgentStream{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AgentStream)
+				return insertRows(ctx, tx, stmt, dump.AgentStream, nil)
 			},
 		})
 	}
@@ -50,7 +51,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "agent_version" ("stream_id", "target_version", "latest_version") SELECT $AgentVersion.stream_id AS "stream_id", $AgentVersion.target_version AS "target_version", $AgentVersion.latest_version AS "latest_version"`,
 			sample:    exporttypes.AgentVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AgentVersion)
+				return insertRows(ctx, tx, stmt, dump.AgentVersion, nil)
 			},
 		})
 	}
@@ -61,7 +62,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_application" ("uuid", "key", "value") SELECT $AnnotationApplication.uuid AS "uuid", $AnnotationApplication.key AS "key", $AnnotationApplication.value AS "value"`,
 			sample:    exporttypes.AnnotationApplication{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationApplication)
+				return insertRows(ctx, tx, stmt, dump.AnnotationApplication, nil)
 			},
 		})
 	}
@@ -72,7 +73,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_charm" ("uuid", "key", "value") SELECT $AnnotationCharm.uuid AS "uuid", $AnnotationCharm.key AS "key", $AnnotationCharm.value AS "value"`,
 			sample:    exporttypes.AnnotationCharm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationCharm)
+				return insertRows(ctx, tx, stmt, dump.AnnotationCharm, nil)
 			},
 		})
 	}
@@ -83,7 +84,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_machine" ("uuid", "key", "value") SELECT $AnnotationMachine.uuid AS "uuid", $AnnotationMachine.key AS "key", $AnnotationMachine.value AS "value"`,
 			sample:    exporttypes.AnnotationMachine{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationMachine)
+				return insertRows(ctx, tx, stmt, dump.AnnotationMachine, nil)
 			},
 		})
 	}
@@ -94,7 +95,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_model" ("key", "value") SELECT $AnnotationModel.key AS "key", $AnnotationModel.value AS "value"`,
 			sample:    exporttypes.AnnotationModel{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationModel)
+				return insertRows(ctx, tx, stmt, dump.AnnotationModel, nil)
 			},
 		})
 	}
@@ -105,7 +106,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_storage_filesystem" ("uuid", "key", "value") SELECT $AnnotationStorageFilesystem.uuid AS "uuid", $AnnotationStorageFilesystem.key AS "key", $AnnotationStorageFilesystem.value AS "value"`,
 			sample:    exporttypes.AnnotationStorageFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationStorageFilesystem)
+				return insertRows(ctx, tx, stmt, dump.AnnotationStorageFilesystem, nil)
 			},
 		})
 	}
@@ -116,7 +117,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_storage_instance" ("uuid", "key", "value") SELECT $AnnotationStorageInstance.uuid AS "uuid", $AnnotationStorageInstance.key AS "key", $AnnotationStorageInstance.value AS "value"`,
 			sample:    exporttypes.AnnotationStorageInstance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationStorageInstance)
+				return insertRows(ctx, tx, stmt, dump.AnnotationStorageInstance, nil)
 			},
 		})
 	}
@@ -127,7 +128,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_storage_volume" ("uuid", "key", "value") SELECT $AnnotationStorageVolume.uuid AS "uuid", $AnnotationStorageVolume.key AS "key", $AnnotationStorageVolume.value AS "value"`,
 			sample:    exporttypes.AnnotationStorageVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationStorageVolume)
+				return insertRows(ctx, tx, stmt, dump.AnnotationStorageVolume, nil)
 			},
 		})
 	}
@@ -138,7 +139,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "annotation_unit" ("uuid", "key", "value") SELECT $AnnotationUnit.uuid AS "uuid", $AnnotationUnit.key AS "key", $AnnotationUnit.value AS "value"`,
 			sample:    exporttypes.AnnotationUnit{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AnnotationUnit)
+				return insertRows(ctx, tx, stmt, dump.AnnotationUnit, nil)
 			},
 		})
 	}
@@ -149,7 +150,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application" ("uuid", "name", "life_id", "charm_uuid", "charm_modified_version", "charm_upgrade_on_error", "space_uuid") SELECT $Application.uuid AS "uuid", $Application.name AS "name", $Application.life_id AS "life_id", $Application.charm_uuid AS "charm_uuid", $Application.charm_modified_version AS "charm_modified_version", $Application.charm_upgrade_on_error AS "charm_upgrade_on_error", $Application.space_uuid AS "space_uuid"`,
 			sample:    exporttypes.Application{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Application)
+				return insertRows(ctx, tx, stmt, dump.Application, nil)
 			},
 		})
 	}
@@ -160,7 +161,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_agent" ("application_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ApplicationAgent.application_uuid AS "application_uuid", $ApplicationAgent.password_hash_algorithm_id AS "password_hash_algorithm_id", $ApplicationAgent.password_hash AS "password_hash"`,
 			sample:    exporttypes.ApplicationAgent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationAgent)
+				return insertRows(ctx, tx, stmt, dump.ApplicationAgent, nil)
 			},
 		})
 	}
@@ -171,7 +172,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_channel" ("application_uuid", "track", "risk", "branch") SELECT $ApplicationChannel.application_uuid AS "application_uuid", $ApplicationChannel.track AS "track", $ApplicationChannel.risk AS "risk", $ApplicationChannel.branch AS "branch"`,
 			sample:    exporttypes.ApplicationChannel{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationChannel)
+				return insertRows(ctx, tx, stmt, dump.ApplicationChannel, nil)
 			},
 		})
 	}
@@ -182,7 +183,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_config" ("application_uuid", "key", "type_id", "value") SELECT $ApplicationConfig.application_uuid AS "application_uuid", $ApplicationConfig.key AS "key", $ApplicationConfig.type_id AS "type_id", $ApplicationConfig.value AS "value"`,
 			sample:    exporttypes.ApplicationConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationConfig)
+				return insertRows(ctx, tx, stmt, dump.ApplicationConfig, nil)
 			},
 		})
 	}
@@ -193,7 +194,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_config_hash" ("application_uuid", "sha256") SELECT $ApplicationConfigHash.application_uuid AS "application_uuid", $ApplicationConfigHash.sha256 AS "sha256"`,
 			sample:    exporttypes.ApplicationConfigHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationConfigHash)
+				return insertRows(ctx, tx, stmt, dump.ApplicationConfigHash, nil)
 			},
 		})
 	}
@@ -204,7 +205,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_constraint" ("application_uuid", "constraint_uuid") SELECT $ApplicationConstraint.application_uuid AS "application_uuid", $ApplicationConstraint.constraint_uuid AS "constraint_uuid"`,
 			sample:    exporttypes.ApplicationConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationConstraint)
+				return insertRows(ctx, tx, stmt, dump.ApplicationConstraint, nil)
 			},
 		})
 	}
@@ -215,7 +216,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_controller" ("application_uuid") SELECT $ApplicationController.application_uuid AS "application_uuid"`,
 			sample:    exporttypes.ApplicationController{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationController)
+				return insertRows(ctx, tx, stmt, dump.ApplicationController, nil)
 			},
 		})
 	}
@@ -226,7 +227,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_endpoint" ("uuid", "application_uuid", "space_uuid", "charm_relation_uuid") SELECT $ApplicationEndpoint.uuid AS "uuid", $ApplicationEndpoint.application_uuid AS "application_uuid", $ApplicationEndpoint.space_uuid AS "space_uuid", $ApplicationEndpoint.charm_relation_uuid AS "charm_relation_uuid"`,
 			sample:    exporttypes.ApplicationEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationEndpoint)
+				return insertRows(ctx, tx, stmt, dump.ApplicationEndpoint, nil)
 			},
 		})
 	}
@@ -237,7 +238,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_exposed_endpoint_cidr" ("application_uuid", "application_endpoint_uuid", "cidr") SELECT $ApplicationExposedEndpointCidr.application_uuid AS "application_uuid", $ApplicationExposedEndpointCidr.application_endpoint_uuid AS "application_endpoint_uuid", $ApplicationExposedEndpointCidr.cidr AS "cidr"`,
 			sample:    exporttypes.ApplicationExposedEndpointCidr{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointCidr)
+				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointCidr, nil)
 			},
 		})
 	}
@@ -248,7 +249,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_exposed_endpoint_space" ("application_uuid", "application_endpoint_uuid", "space_uuid") SELECT $ApplicationExposedEndpointSpace.application_uuid AS "application_uuid", $ApplicationExposedEndpointSpace.application_endpoint_uuid AS "application_endpoint_uuid", $ApplicationExposedEndpointSpace.space_uuid AS "space_uuid"`,
 			sample:    exporttypes.ApplicationExposedEndpointSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointSpace)
+				return insertRows(ctx, tx, stmt, dump.ApplicationExposedEndpointSpace, nil)
 			},
 		})
 	}
@@ -259,7 +260,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_extra_endpoint" ("application_uuid", "space_uuid", "charm_extra_binding_uuid") SELECT $ApplicationExtraEndpoint.application_uuid AS "application_uuid", $ApplicationExtraEndpoint.space_uuid AS "space_uuid", $ApplicationExtraEndpoint.charm_extra_binding_uuid AS "charm_extra_binding_uuid"`,
 			sample:    exporttypes.ApplicationExtraEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationExtraEndpoint)
+				return insertRows(ctx, tx, stmt, dump.ApplicationExtraEndpoint, nil)
 			},
 		})
 	}
@@ -270,7 +271,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_k8s_resources_managed" ("application_uuid") SELECT $ApplicationK8sResourcesManaged.application_uuid AS "application_uuid"`,
 			sample:    exporttypes.ApplicationK8sResourcesManaged{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationK8sResourcesManaged)
+				return insertRows(ctx, tx, stmt, dump.ApplicationK8sResourcesManaged, nil)
 			},
 		})
 	}
@@ -281,7 +282,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_platform" ("application_uuid", "os_id", "channel", "architecture_id") SELECT $ApplicationPlatform.application_uuid AS "application_uuid", $ApplicationPlatform.os_id AS "os_id", $ApplicationPlatform.channel AS "channel", $ApplicationPlatform.architecture_id AS "architecture_id"`,
 			sample:    exporttypes.ApplicationPlatform{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationPlatform)
+				return insertRows(ctx, tx, stmt, dump.ApplicationPlatform, nil)
 			},
 		})
 	}
@@ -292,7 +293,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_remote_consumer" ("offer_connection_uuid", "offerer_application_uuid", "consumer_application_uuid", "consumer_model_uuid", "life_id") SELECT $ApplicationRemoteConsumer.offer_connection_uuid AS "offer_connection_uuid", $ApplicationRemoteConsumer.offerer_application_uuid AS "offerer_application_uuid", $ApplicationRemoteConsumer.consumer_application_uuid AS "consumer_application_uuid", $ApplicationRemoteConsumer.consumer_model_uuid AS "consumer_model_uuid", $ApplicationRemoteConsumer.life_id AS "life_id"`,
 			sample:    exporttypes.ApplicationRemoteConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteConsumer)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteConsumer, nil)
 			},
 		})
 	}
@@ -300,10 +301,21 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_offerer",
 			deleteSQL: `DELETE FROM "application_remote_offerer" AS t`,
-			insertSQL: `INSERT INTO "application_remote_offerer" ("uuid", "life_id", "application_uuid", "offer_uuid", "offer_url", "offerer_controller_uuid", "offerer_model_uuid", "macaroon") SELECT $ApplicationRemoteOfferer.uuid AS "uuid", $ApplicationRemoteOfferer.life_id AS "life_id", $ApplicationRemoteOfferer.application_uuid AS "application_uuid", $ApplicationRemoteOfferer.offer_uuid AS "offer_uuid", $ApplicationRemoteOfferer.offer_url AS "offer_url", $ApplicationRemoteOfferer.offerer_controller_uuid AS "offerer_controller_uuid", $ApplicationRemoteOfferer.offerer_model_uuid AS "offerer_model_uuid", CAST($ApplicationRemoteOfferer.macaroon AS BLOB) AS "macaroon"`,
-			sample:    exporttypes.ApplicationRemoteOfferer{},
+			insertSQL: `INSERT INTO "application_remote_offerer" ("uuid", "life_id", "application_uuid", "offer_uuid", "offer_url", "offerer_controller_uuid", "offerer_model_uuid", "macaroon") SELECT $M.uuid AS "uuid", $M.life_id AS "life_id", $M.application_uuid AS "application_uuid", $M.offer_uuid AS "offer_uuid", $M.offer_url AS "offer_url", $M.offerer_controller_uuid AS "offerer_controller_uuid", $M.offerer_model_uuid AS "offerer_model_uuid", $M.macaroon AS "macaroon"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOfferer)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOfferer, func(row exporttypes.ApplicationRemoteOfferer) any {
+					return sqlair.M{
+						"uuid":                    row.UUID,
+						"life_id":                 row.LifeID,
+						"application_uuid":        row.ApplicationUUID,
+						"offer_uuid":              row.OfferUUID,
+						"offer_url":               row.OfferUrl,
+						"offerer_controller_uuid": row.OffererControllerUUID,
+						"offerer_model_uuid":      row.OffererModelUUID,
+						"macaroon":                binaryValue(row.Macaroon),
+					}
+				})
 			},
 		})
 	}
@@ -311,10 +323,15 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_offerer_relation_macaroon",
 			deleteSQL: `DELETE FROM "application_remote_offerer_relation_macaroon" AS t`,
-			insertSQL: `INSERT INTO "application_remote_offerer_relation_macaroon" ("relation_uuid", "macaroon") SELECT $ApplicationRemoteOffererRelationMacaroon.relation_uuid AS "relation_uuid", CAST($ApplicationRemoteOffererRelationMacaroon.macaroon AS BLOB) AS "macaroon"`,
-			sample:    exporttypes.ApplicationRemoteOffererRelationMacaroon{},
+			insertSQL: `INSERT INTO "application_remote_offerer_relation_macaroon" ("relation_uuid", "macaroon") SELECT $M.relation_uuid AS "relation_uuid", $M.macaroon AS "macaroon"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOffererRelationMacaroon)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOffererRelationMacaroon, func(row exporttypes.ApplicationRemoteOffererRelationMacaroon) any {
+					return sqlair.M{
+						"relation_uuid": row.RelationUUID,
+						"macaroon":      binaryValue(row.Macaroon),
+					}
+				})
 			},
 		})
 	}
@@ -322,10 +339,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_remote_offerer_status",
 			deleteSQL: `DELETE FROM "application_remote_offerer_status" AS t`,
-			insertSQL: `INSERT INTO "application_remote_offerer_status" ("application_remote_offerer_uuid", "status_id", "message", "data", "updated_at") SELECT $ApplicationRemoteOffererStatus.application_remote_offerer_uuid AS "application_remote_offerer_uuid", $ApplicationRemoteOffererStatus.status_id AS "status_id", $ApplicationRemoteOffererStatus.message AS "message", CAST($ApplicationRemoteOffererStatus.data AS BLOB) AS "data", $ApplicationRemoteOffererStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.ApplicationRemoteOffererStatus{},
+			insertSQL: `INSERT INTO "application_remote_offerer_status" ("application_remote_offerer_uuid", "status_id", "message", "data", "updated_at") SELECT $M.application_remote_offerer_uuid AS "application_remote_offerer_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOffererStatus)
+				return insertRows(ctx, tx, stmt, dump.ApplicationRemoteOffererStatus, func(row exporttypes.ApplicationRemoteOffererStatus) any {
+					return sqlair.M{
+						"application_remote_offerer_uuid": row.ApplicationRemoteOffererUUID,
+						"status_id":                       row.StatusID,
+						"message":                         row.Message,
+						"data":                            nullableBinaryValue(row.Data),
+						"updated_at":                      row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -336,7 +361,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_resource" ("resource_uuid", "application_uuid") SELECT $ApplicationResource.resource_uuid AS "resource_uuid", $ApplicationResource.application_uuid AS "application_uuid"`,
 			sample:    exporttypes.ApplicationResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationResource)
+				return insertRows(ctx, tx, stmt, dump.ApplicationResource, nil)
 			},
 		})
 	}
@@ -347,7 +372,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_scale" ("application_uuid", "scale", "scale_target", "scaling", "start_ordinal") SELECT $ApplicationScale.application_uuid AS "application_uuid", $ApplicationScale.scale AS "scale", $ApplicationScale.scale_target AS "scale_target", $ApplicationScale.scaling AS "scaling", $ApplicationScale.start_ordinal AS "start_ordinal"`,
 			sample:    exporttypes.ApplicationScale{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationScale)
+				return insertRows(ctx, tx, stmt, dump.ApplicationScale, nil)
 			},
 		})
 	}
@@ -358,7 +383,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_setting" ("application_uuid", "trust") SELECT $ApplicationSetting.application_uuid AS "application_uuid", $ApplicationSetting.trust AS "trust"`,
 			sample:    exporttypes.ApplicationSetting{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationSetting)
+				return insertRows(ctx, tx, stmt, dump.ApplicationSetting, nil)
 			},
 		})
 	}
@@ -366,10 +391,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "application_status",
 			deleteSQL: `DELETE FROM "application_status" AS t`,
-			insertSQL: `INSERT INTO "application_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $ApplicationStatus.application_uuid AS "application_uuid", $ApplicationStatus.status_id AS "status_id", $ApplicationStatus.message AS "message", CAST($ApplicationStatus.data AS BLOB) AS "data", $ApplicationStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.ApplicationStatus{},
+			insertSQL: `INSERT INTO "application_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $M.application_uuid AS "application_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationStatus)
+				return insertRows(ctx, tx, stmt, dump.ApplicationStatus, func(row exporttypes.ApplicationStatus) any {
+					return sqlair.M{
+						"application_uuid": row.ApplicationUUID,
+						"status_id":        row.StatusID,
+						"message":          row.Message,
+						"data":             nullableBinaryValue(row.Data),
+						"updated_at":       row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -380,7 +413,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_storage_directive" ("application_uuid", "charm_uuid", "storage_name", "storage_pool_uuid", "size_mib", "count") SELECT $ApplicationStorageDirective.application_uuid AS "application_uuid", $ApplicationStorageDirective.charm_uuid AS "charm_uuid", $ApplicationStorageDirective.storage_name AS "storage_name", $ApplicationStorageDirective.storage_pool_uuid AS "storage_pool_uuid", $ApplicationStorageDirective.size_mib AS "size_mib", $ApplicationStorageDirective.count AS "count"`,
 			sample:    exporttypes.ApplicationStorageDirective{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationStorageDirective)
+				return insertRows(ctx, tx, stmt, dump.ApplicationStorageDirective, nil)
 			},
 		})
 	}
@@ -391,7 +424,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "application_workload_version" ("application_uuid", "version") SELECT $ApplicationWorkloadVersion.application_uuid AS "application_uuid", $ApplicationWorkloadVersion.version AS "version"`,
 			sample:    exporttypes.ApplicationWorkloadVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ApplicationWorkloadVersion)
+				return insertRows(ctx, tx, stmt, dump.ApplicationWorkloadVersion, nil)
 			},
 		})
 	}
@@ -402,7 +435,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "architecture" ("id", "name") SELECT $Architecture.id AS "id", $Architecture.name AS "name"`,
 			sample:    exporttypes.Architecture{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Architecture)
+				return insertRows(ctx, tx, stmt, dump.Architecture, nil)
 			},
 		})
 	}
@@ -413,7 +446,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "availability_zone" ("uuid", "name") SELECT $AvailabilityZone.uuid AS "uuid", $AvailabilityZone.name AS "name"`,
 			sample:    exporttypes.AvailabilityZone{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AvailabilityZone)
+				return insertRows(ctx, tx, stmt, dump.AvailabilityZone, nil)
 			},
 		})
 	}
@@ -424,7 +457,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "availability_zone_subnet" ("availability_zone_uuid", "subnet_uuid") SELECT $AvailabilityZoneSubnet.availability_zone_uuid AS "availability_zone_uuid", $AvailabilityZoneSubnet.subnet_uuid AS "subnet_uuid"`,
 			sample:    exporttypes.AvailabilityZoneSubnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.AvailabilityZoneSubnet)
+				return insertRows(ctx, tx, stmt, dump.AvailabilityZoneSubnet, nil)
 			},
 		})
 	}
@@ -435,7 +468,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "block_command" ("uuid", "block_command_type_id", "message") SELECT $BlockCommand.uuid AS "uuid", $BlockCommand.block_command_type_id AS "block_command_type_id", $BlockCommand.message AS "message"`,
 			sample:    exporttypes.BlockCommand{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.BlockCommand)
+				return insertRows(ctx, tx, stmt, dump.BlockCommand, nil)
 			},
 		})
 	}
@@ -446,7 +479,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "block_command_type" ("id", "name_type") SELECT $BlockCommandType.id AS "id", $BlockCommandType.name_type AS "name_type"`,
 			sample:    exporttypes.BlockCommandType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.BlockCommandType)
+				return insertRows(ctx, tx, stmt, dump.BlockCommandType, nil)
 			},
 		})
 	}
@@ -457,7 +490,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "block_device" ("uuid", "machine_uuid", "name", "hardware_id", "wwn", "serial_id", "bus_address", "size_mib", "mount_point", "in_use", "filesystem_label", "host_filesystem_uuid", "filesystem_type", "provenance_id") SELECT $BlockDevice.uuid AS "uuid", $BlockDevice.machine_uuid AS "machine_uuid", $BlockDevice.name AS "name", $BlockDevice.hardware_id AS "hardware_id", $BlockDevice.wwn AS "wwn", $BlockDevice.serial_id AS "serial_id", $BlockDevice.bus_address AS "bus_address", $BlockDevice.size_mib AS "size_mib", $BlockDevice.mount_point AS "mount_point", $BlockDevice.in_use AS "in_use", $BlockDevice.filesystem_label AS "filesystem_label", $BlockDevice.host_filesystem_uuid AS "host_filesystem_uuid", $BlockDevice.filesystem_type AS "filesystem_type", $BlockDevice.provenance_id AS "provenance_id"`,
 			sample:    exporttypes.BlockDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.BlockDevice)
+				return insertRows(ctx, tx, stmt, dump.BlockDevice, nil)
 			},
 		})
 	}
@@ -468,7 +501,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "block_device_link_device" ("block_device_uuid", "machine_uuid", "name") SELECT $BlockDeviceLinkDevice.block_device_uuid AS "block_device_uuid", $BlockDeviceLinkDevice.machine_uuid AS "machine_uuid", $BlockDeviceLinkDevice.name AS "name"`,
 			sample:    exporttypes.BlockDeviceLinkDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.BlockDeviceLinkDevice)
+				return insertRows(ctx, tx, stmt, dump.BlockDeviceLinkDevice, nil)
 			},
 		})
 	}
@@ -479,7 +512,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "block_device_provenance" ("id", "value") SELECT $BlockDeviceProvenance.id AS "id", $BlockDeviceProvenance.value AS "value"`,
 			sample:    exporttypes.BlockDeviceProvenance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.BlockDeviceProvenance)
+				return insertRows(ctx, tx, stmt, dump.BlockDeviceProvenance, nil)
 			},
 		})
 	}
@@ -487,10 +520,24 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm",
 			deleteSQL: `DELETE FROM "charm" AS t`,
-			insertSQL: `INSERT INTO "charm" ("uuid", "archive_path", "object_store_uuid", "available", "version", "lxd_profile", "source_id", "revision", "architecture_id", "reference_name", "create_time") SELECT $Charm.uuid AS "uuid", $Charm.archive_path AS "archive_path", $Charm.object_store_uuid AS "object_store_uuid", $Charm.available AS "available", $Charm.version AS "version", CAST($Charm.lxd_profile AS BLOB) AS "lxd_profile", $Charm.source_id AS "source_id", $Charm.revision AS "revision", $Charm.architecture_id AS "architecture_id", $Charm.reference_name AS "reference_name", $Charm.create_time AS "create_time"`,
-			sample:    exporttypes.Charm{},
+			insertSQL: `INSERT INTO "charm" ("uuid", "archive_path", "object_store_uuid", "available", "version", "lxd_profile", "source_id", "revision", "architecture_id", "reference_name", "create_time") SELECT $M.uuid AS "uuid", $M.archive_path AS "archive_path", $M.object_store_uuid AS "object_store_uuid", $M.available AS "available", $M.version AS "version", $M.lxd_profile AS "lxd_profile", $M.source_id AS "source_id", $M.revision AS "revision", $M.architecture_id AS "architecture_id", $M.reference_name AS "reference_name", $M.create_time AS "create_time"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Charm)
+				return insertRows(ctx, tx, stmt, dump.Charm, func(row exporttypes.Charm) any {
+					return sqlair.M{
+						"uuid":              row.UUID,
+						"archive_path":      row.ArchivePath,
+						"object_store_uuid": row.ObjectStoreUUID,
+						"available":         row.Available,
+						"version":           row.Version,
+						"lxd_profile":       nullableBinaryValue(row.LxdProfile),
+						"source_id":         row.SourceID,
+						"revision":          row.Revision,
+						"architecture_id":   row.ArchitectureID,
+						"reference_name":    row.ReferenceName,
+						"create_time":       row.CreateTime,
+					}
+				})
 			},
 		})
 	}
@@ -498,10 +545,19 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_action",
 			deleteSQL: `DELETE FROM "charm_action" AS t`,
-			insertSQL: `INSERT INTO "charm_action" ("charm_uuid", "key", "description", "parallel", "execution_group", "params") SELECT $CharmAction.charm_uuid AS "charm_uuid", $CharmAction.key AS "key", $CharmAction.description AS "description", $CharmAction.parallel AS "parallel", $CharmAction.execution_group AS "execution_group", CAST($CharmAction.params AS BLOB) AS "params"`,
-			sample:    exporttypes.CharmAction{},
+			insertSQL: `INSERT INTO "charm_action" ("charm_uuid", "key", "description", "parallel", "execution_group", "params") SELECT $M.charm_uuid AS "charm_uuid", $M.key AS "key", $M.description AS "description", $M.parallel AS "parallel", $M.execution_group AS "execution_group", $M.params AS "params"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmAction)
+				return insertRows(ctx, tx, stmt, dump.CharmAction, func(row exporttypes.CharmAction) any {
+					return sqlair.M{
+						"charm_uuid":      row.CharmUUID,
+						"key":             row.Key,
+						"description":     row.Description,
+						"parallel":        row.Parallel,
+						"execution_group": row.ExecutionGroup,
+						"params":          nullableBinaryValue(row.Params),
+					}
+				})
 			},
 		})
 	}
@@ -512,7 +568,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_category" ("charm_uuid", "array_index", "value") SELECT $CharmCategory.charm_uuid AS "charm_uuid", $CharmCategory.array_index AS "array_index", $CharmCategory.value AS "value"`,
 			sample:    exporttypes.CharmCategory{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmCategory)
+				return insertRows(ctx, tx, stmt, dump.CharmCategory, nil)
 			},
 		})
 	}
@@ -523,7 +579,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_config" ("charm_uuid", "key", "type_id", "default_value", "description") SELECT $CharmConfig.charm_uuid AS "charm_uuid", $CharmConfig.key AS "key", $CharmConfig.type_id AS "type_id", $CharmConfig.default_value AS "default_value", $CharmConfig.description AS "description"`,
 			sample:    exporttypes.CharmConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmConfig)
+				return insertRows(ctx, tx, stmt, dump.CharmConfig, nil)
 			},
 		})
 	}
@@ -534,7 +590,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_config_type" ("id", "name") SELECT $CharmConfigType.id AS "id", $CharmConfigType.name AS "name"`,
 			sample:    exporttypes.CharmConfigType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmConfigType)
+				return insertRows(ctx, tx, stmt, dump.CharmConfigType, nil)
 			},
 		})
 	}
@@ -545,7 +601,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_container" ("charm_uuid", "key", "resource", "uid", "gid") SELECT $CharmContainer.charm_uuid AS "charm_uuid", $CharmContainer.key AS "key", $CharmContainer.resource AS "resource", $CharmContainer.uid AS "uid", $CharmContainer.gid AS "gid"`,
 			sample:    exporttypes.CharmContainer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmContainer)
+				return insertRows(ctx, tx, stmt, dump.CharmContainer, nil)
 			},
 		})
 	}
@@ -556,7 +612,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_container_mount" ("array_index", "charm_uuid", "charm_container_key", "storage", "location") SELECT $CharmContainerMount.array_index AS "array_index", $CharmContainerMount.charm_uuid AS "charm_uuid", $CharmContainerMount.charm_container_key AS "charm_container_key", $CharmContainerMount.storage AS "storage", $CharmContainerMount.location AS "location"`,
 			sample:    exporttypes.CharmContainerMount{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmContainerMount)
+				return insertRows(ctx, tx, stmt, dump.CharmContainerMount, nil)
 			},
 		})
 	}
@@ -567,7 +623,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_device" ("charm_uuid", "key", "name", "description", "device_type", "count_min", "count_max") SELECT $CharmDevice.charm_uuid AS "charm_uuid", $CharmDevice.key AS "key", $CharmDevice.name AS "name", $CharmDevice.description AS "description", $CharmDevice.device_type AS "device_type", $CharmDevice.count_min AS "count_min", $CharmDevice.count_max AS "count_max"`,
 			sample:    exporttypes.CharmDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmDevice)
+				return insertRows(ctx, tx, stmt, dump.CharmDevice, nil)
 			},
 		})
 	}
@@ -578,7 +634,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_download_info" ("charm_uuid", "provenance_id", "charmhub_identifier", "download_url", "download_size") SELECT $CharmDownloadInfo.charm_uuid AS "charm_uuid", $CharmDownloadInfo.provenance_id AS "provenance_id", $CharmDownloadInfo.charmhub_identifier AS "charmhub_identifier", $CharmDownloadInfo.download_url AS "download_url", $CharmDownloadInfo.download_size AS "download_size"`,
 			sample:    exporttypes.CharmDownloadInfo{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmDownloadInfo)
+				return insertRows(ctx, tx, stmt, dump.CharmDownloadInfo, nil)
 			},
 		})
 	}
@@ -589,7 +645,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_extra_binding" ("uuid", "charm_uuid", "name") SELECT $CharmExtraBinding.uuid AS "uuid", $CharmExtraBinding.charm_uuid AS "charm_uuid", $CharmExtraBinding.name AS "name"`,
 			sample:    exporttypes.CharmExtraBinding{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmExtraBinding)
+				return insertRows(ctx, tx, stmt, dump.CharmExtraBinding, nil)
 			},
 		})
 	}
@@ -600,7 +656,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_hash" ("charm_uuid", "hash_kind_id", "hash") SELECT $CharmHash.charm_uuid AS "charm_uuid", $CharmHash.hash_kind_id AS "hash_kind_id", $CharmHash.hash AS "hash"`,
 			sample:    exporttypes.CharmHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmHash)
+				return insertRows(ctx, tx, stmt, dump.CharmHash, nil)
 			},
 		})
 	}
@@ -611,7 +667,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_manifest_base" ("charm_uuid", "array_index", "nested_array_index", "os_id", "track", "risk", "branch", "architecture_id") SELECT $CharmManifestBase.charm_uuid AS "charm_uuid", $CharmManifestBase.array_index AS "array_index", $CharmManifestBase.nested_array_index AS "nested_array_index", $CharmManifestBase.os_id AS "os_id", $CharmManifestBase.track AS "track", $CharmManifestBase.risk AS "risk", $CharmManifestBase.branch AS "branch", $CharmManifestBase.architecture_id AS "architecture_id"`,
 			sample:    exporttypes.CharmManifestBase{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmManifestBase)
+				return insertRows(ctx, tx, stmt, dump.CharmManifestBase, nil)
 			},
 		})
 	}
@@ -619,10 +675,21 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "charm_metadata",
 			deleteSQL: `DELETE FROM "charm_metadata" AS t`,
-			insertSQL: `INSERT INTO "charm_metadata" ("charm_uuid", "name", "description", "summary", "subordinate", "min_juju_version", "run_as_id", "assumes") SELECT $CharmMetadata.charm_uuid AS "charm_uuid", $CharmMetadata.name AS "name", $CharmMetadata.description AS "description", $CharmMetadata.summary AS "summary", $CharmMetadata.subordinate AS "subordinate", $CharmMetadata.min_juju_version AS "min_juju_version", $CharmMetadata.run_as_id AS "run_as_id", CAST($CharmMetadata.assumes AS BLOB) AS "assumes"`,
-			sample:    exporttypes.CharmMetadata{},
+			insertSQL: `INSERT INTO "charm_metadata" ("charm_uuid", "name", "description", "summary", "subordinate", "min_juju_version", "run_as_id", "assumes") SELECT $M.charm_uuid AS "charm_uuid", $M.name AS "name", $M.description AS "description", $M.summary AS "summary", $M.subordinate AS "subordinate", $M.min_juju_version AS "min_juju_version", $M.run_as_id AS "run_as_id", $M.assumes AS "assumes"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmMetadata)
+				return insertRows(ctx, tx, stmt, dump.CharmMetadata, func(row exporttypes.CharmMetadata) any {
+					return sqlair.M{
+						"charm_uuid":       row.CharmUUID,
+						"name":             row.Name,
+						"description":      row.Description,
+						"summary":          row.Summary,
+						"subordinate":      row.Subordinate,
+						"min_juju_version": row.MinJujuVersion,
+						"run_as_id":        row.RunAsID,
+						"assumes":          nullableBinaryValue(row.Assumes),
+					}
+				})
 			},
 		})
 	}
@@ -633,7 +700,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_provenance" ("id", "name") SELECT $CharmProvenance.id AS "id", $CharmProvenance.name AS "name"`,
 			sample:    exporttypes.CharmProvenance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmProvenance)
+				return insertRows(ctx, tx, stmt, dump.CharmProvenance, nil)
 			},
 		})
 	}
@@ -644,7 +711,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_relation" ("uuid", "charm_uuid", "name", "role_id", "scope_id", "interface", "optional", "capacity") SELECT $CharmRelation.uuid AS "uuid", $CharmRelation.charm_uuid AS "charm_uuid", $CharmRelation.name AS "name", $CharmRelation.role_id AS "role_id", $CharmRelation.scope_id AS "scope_id", $CharmRelation.interface AS "interface", $CharmRelation.optional AS "optional", $CharmRelation.capacity AS "capacity"`,
 			sample:    exporttypes.CharmRelation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmRelation)
+				return insertRows(ctx, tx, stmt, dump.CharmRelation, nil)
 			},
 		})
 	}
@@ -655,7 +722,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_relation_role" ("id", "name") SELECT $CharmRelationRole.id AS "id", $CharmRelationRole.name AS "name"`,
 			sample:    exporttypes.CharmRelationRole{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmRelationRole)
+				return insertRows(ctx, tx, stmt, dump.CharmRelationRole, nil)
 			},
 		})
 	}
@@ -666,7 +733,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_relation_scope" ("id", "name") SELECT $CharmRelationScope.id AS "id", $CharmRelationScope.name AS "name"`,
 			sample:    exporttypes.CharmRelationScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmRelationScope)
+				return insertRows(ctx, tx, stmt, dump.CharmRelationScope, nil)
 			},
 		})
 	}
@@ -677,7 +744,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_resource" ("charm_uuid", "name", "kind_id", "path", "description") SELECT $CharmResource.charm_uuid AS "charm_uuid", $CharmResource.name AS "name", $CharmResource.kind_id AS "kind_id", $CharmResource.path AS "path", $CharmResource.description AS "description"`,
 			sample:    exporttypes.CharmResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmResource)
+				return insertRows(ctx, tx, stmt, dump.CharmResource, nil)
 			},
 		})
 	}
@@ -688,7 +755,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_resource_kind" ("id", "name") SELECT $CharmResourceKind.id AS "id", $CharmResourceKind.name AS "name"`,
 			sample:    exporttypes.CharmResourceKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmResourceKind)
+				return insertRows(ctx, tx, stmt, dump.CharmResourceKind, nil)
 			},
 		})
 	}
@@ -699,7 +766,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_run_as_kind" ("id", "name") SELECT $CharmRunAsKind.id AS "id", $CharmRunAsKind.name AS "name"`,
 			sample:    exporttypes.CharmRunAsKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmRunAsKind)
+				return insertRows(ctx, tx, stmt, dump.CharmRunAsKind, nil)
 			},
 		})
 	}
@@ -710,7 +777,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_source" ("id", "name") SELECT $CharmSource.id AS "id", $CharmSource.name AS "name"`,
 			sample:    exporttypes.CharmSource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmSource)
+				return insertRows(ctx, tx, stmt, dump.CharmSource, nil)
 			},
 		})
 	}
@@ -721,7 +788,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_storage" ("charm_uuid", "name", "description", "storage_kind_id", "shared", "read_only", "count_min", "count_max", "minimum_size_mib", "location") SELECT $CharmStorage.charm_uuid AS "charm_uuid", $CharmStorage.name AS "name", $CharmStorage.description AS "description", $CharmStorage.storage_kind_id AS "storage_kind_id", $CharmStorage.shared AS "shared", $CharmStorage.read_only AS "read_only", $CharmStorage.count_min AS "count_min", $CharmStorage.count_max AS "count_max", $CharmStorage.minimum_size_mib AS "minimum_size_mib", $CharmStorage.location AS "location"`,
 			sample:    exporttypes.CharmStorage{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmStorage)
+				return insertRows(ctx, tx, stmt, dump.CharmStorage, nil)
 			},
 		})
 	}
@@ -732,7 +799,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_storage_kind" ("id", "kind") SELECT $CharmStorageKind.id AS "id", $CharmStorageKind.kind AS "kind"`,
 			sample:    exporttypes.CharmStorageKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmStorageKind)
+				return insertRows(ctx, tx, stmt, dump.CharmStorageKind, nil)
 			},
 		})
 	}
@@ -743,7 +810,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_storage_property" ("charm_uuid", "charm_storage_name", "array_index", "value") SELECT $CharmStorageProperty.charm_uuid AS "charm_uuid", $CharmStorageProperty.charm_storage_name AS "charm_storage_name", $CharmStorageProperty.array_index AS "array_index", $CharmStorageProperty.value AS "value"`,
 			sample:    exporttypes.CharmStorageProperty{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmStorageProperty)
+				return insertRows(ctx, tx, stmt, dump.CharmStorageProperty, nil)
 			},
 		})
 	}
@@ -754,7 +821,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_tag" ("charm_uuid", "array_index", "value") SELECT $CharmTag.charm_uuid AS "charm_uuid", $CharmTag.array_index AS "array_index", $CharmTag.value AS "value"`,
 			sample:    exporttypes.CharmTag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmTag)
+				return insertRows(ctx, tx, stmt, dump.CharmTag, nil)
 			},
 		})
 	}
@@ -765,7 +832,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "charm_term" ("charm_uuid", "array_index", "value") SELECT $CharmTerm.charm_uuid AS "charm_uuid", $CharmTerm.array_index AS "array_index", $CharmTerm.value AS "value"`,
 			sample:    exporttypes.CharmTerm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.CharmTerm)
+				return insertRows(ctx, tx, stmt, dump.CharmTerm, nil)
 			},
 		})
 	}
@@ -776,7 +843,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "constraint" ("uuid", "arch", "cpu_cores", "cpu_power", "mem", "root_disk", "root_disk_source", "instance_role", "instance_type", "container_type_id", "virt_type", "allocate_public_ip", "image_id", "ip_family") SELECT $Constraint.uuid AS "uuid", $Constraint.arch AS "arch", $Constraint.cpu_cores AS "cpu_cores", $Constraint.cpu_power AS "cpu_power", $Constraint.mem AS "mem", $Constraint.root_disk AS "root_disk", $Constraint.root_disk_source AS "root_disk_source", $Constraint.instance_role AS "instance_role", $Constraint.instance_type AS "instance_type", $Constraint.container_type_id AS "container_type_id", $Constraint.virt_type AS "virt_type", $Constraint.allocate_public_ip AS "allocate_public_ip", $Constraint.image_id AS "image_id", $Constraint.ip_family AS "ip_family"`,
 			sample:    exporttypes.Constraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Constraint)
+				return insertRows(ctx, tx, stmt, dump.Constraint, nil)
 			},
 		})
 	}
@@ -787,7 +854,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "constraint_space" ("constraint_uuid", "space", "exclude") SELECT $ConstraintSpace.constraint_uuid AS "constraint_uuid", $ConstraintSpace.space AS "space", $ConstraintSpace.exclude AS "exclude"`,
 			sample:    exporttypes.ConstraintSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ConstraintSpace)
+				return insertRows(ctx, tx, stmt, dump.ConstraintSpace, nil)
 			},
 		})
 	}
@@ -798,7 +865,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "constraint_tag" ("constraint_uuid", "tag") SELECT $ConstraintTag.constraint_uuid AS "constraint_uuid", $ConstraintTag.tag AS "tag"`,
 			sample:    exporttypes.ConstraintTag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ConstraintTag)
+				return insertRows(ctx, tx, stmt, dump.ConstraintTag, nil)
 			},
 		})
 	}
@@ -809,7 +876,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "constraint_zone" ("constraint_uuid", "zone") SELECT $ConstraintZone.constraint_uuid AS "constraint_uuid", $ConstraintZone.zone AS "zone"`,
 			sample:    exporttypes.ConstraintZone{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ConstraintZone)
+				return insertRows(ctx, tx, stmt, dump.ConstraintZone, nil)
 			},
 		})
 	}
@@ -820,7 +887,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "container_type" ("id", "value") SELECT $ContainerType.id AS "id", $ContainerType.value AS "value"`,
 			sample:    exporttypes.ContainerType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ContainerType)
+				return insertRows(ctx, tx, stmt, dump.ContainerType, nil)
 			},
 		})
 	}
@@ -831,7 +898,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "device_constraint" ("uuid", "application_uuid", "name", "type", "count") SELECT $DeviceConstraint.uuid AS "uuid", $DeviceConstraint.application_uuid AS "application_uuid", $DeviceConstraint.name AS "name", $DeviceConstraint.type AS "type", $DeviceConstraint.count AS "count"`,
 			sample:    exporttypes.DeviceConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.DeviceConstraint)
+				return insertRows(ctx, tx, stmt, dump.DeviceConstraint, nil)
 			},
 		})
 	}
@@ -842,7 +909,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "device_constraint_attribute" ("device_constraint_uuid", "key", "value") SELECT $DeviceConstraintAttribute.device_constraint_uuid AS "device_constraint_uuid", $DeviceConstraintAttribute.key AS "key", $DeviceConstraintAttribute.value AS "value"`,
 			sample:    exporttypes.DeviceConstraintAttribute{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.DeviceConstraintAttribute)
+				return insertRows(ctx, tx, stmt, dump.DeviceConstraintAttribute, nil)
 			},
 		})
 	}
@@ -853,7 +920,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "fqdn_address" ("uuid", "address", "scope_id") SELECT $FqdnAddress.uuid AS "uuid", $FqdnAddress.address AS "address", $FqdnAddress.scope_id AS "scope_id"`,
 			sample:    exporttypes.FqdnAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.FqdnAddress)
+				return insertRows(ctx, tx, stmt, dump.FqdnAddress, nil)
 			},
 		})
 	}
@@ -864,7 +931,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "hash_kind" ("id", "name") SELECT $HashKind.id AS "id", $HashKind.name AS "name"`,
 			sample:    exporttypes.HashKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.HashKind)
+				return insertRows(ctx, tx, stmt, dump.HashKind, nil)
 			},
 		})
 	}
@@ -875,7 +942,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "hostname_address" ("uuid", "hostname", "scope_id") SELECT $HostnameAddress.uuid AS "uuid", $HostnameAddress.hostname AS "hostname", $HostnameAddress.scope_id AS "scope_id"`,
 			sample:    exporttypes.HostnameAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.HostnameAddress)
+				return insertRows(ctx, tx, stmt, dump.HostnameAddress, nil)
 			},
 		})
 	}
@@ -886,7 +953,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "instance_tag" ("machine_uuid", "tag") SELECT $InstanceTag.machine_uuid AS "machine_uuid", $InstanceTag.tag AS "tag"`,
 			sample:    exporttypes.InstanceTag{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.InstanceTag)
+				return insertRows(ctx, tx, stmt, dump.InstanceTag, nil)
 			},
 		})
 	}
@@ -897,7 +964,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "ip_address" ("uuid", "net_node_uuid", "device_uuid", "address_value", "subnet_uuid", "type_id", "config_type_id", "origin_id", "scope_id", "is_secondary", "is_shadow") SELECT $IpAddress.uuid AS "uuid", $IpAddress.net_node_uuid AS "net_node_uuid", $IpAddress.device_uuid AS "device_uuid", $IpAddress.address_value AS "address_value", $IpAddress.subnet_uuid AS "subnet_uuid", $IpAddress.type_id AS "type_id", $IpAddress.config_type_id AS "config_type_id", $IpAddress.origin_id AS "origin_id", $IpAddress.scope_id AS "scope_id", $IpAddress.is_secondary AS "is_secondary", $IpAddress.is_shadow AS "is_shadow"`,
 			sample:    exporttypes.IpAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.IpAddress)
+				return insertRows(ctx, tx, stmt, dump.IpAddress, nil)
 			},
 		})
 	}
@@ -908,7 +975,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "ip_address_config_type" ("id", "name") SELECT $IpAddressConfigType.id AS "id", $IpAddressConfigType.name AS "name"`,
 			sample:    exporttypes.IpAddressConfigType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.IpAddressConfigType)
+				return insertRows(ctx, tx, stmt, dump.IpAddressConfigType, nil)
 			},
 		})
 	}
@@ -919,7 +986,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "ip_address_origin" ("id", "name") SELECT $IpAddressOrigin.id AS "id", $IpAddressOrigin.name AS "name"`,
 			sample:    exporttypes.IpAddressOrigin{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.IpAddressOrigin)
+				return insertRows(ctx, tx, stmt, dump.IpAddressOrigin, nil)
 			},
 		})
 	}
@@ -930,7 +997,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "ip_address_scope" ("id", "name") SELECT $IpAddressScope.id AS "id", $IpAddressScope.name AS "name"`,
 			sample:    exporttypes.IpAddressScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.IpAddressScope)
+				return insertRows(ctx, tx, stmt, dump.IpAddressScope, nil)
 			},
 		})
 	}
@@ -941,7 +1008,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "ip_address_type" ("id", "name") SELECT $IpAddressType.id AS "id", $IpAddressType.name AS "name"`,
 			sample:    exporttypes.IpAddressType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.IpAddressType)
+				return insertRows(ctx, tx, stmt, dump.IpAddressType, nil)
 			},
 		})
 	}
@@ -952,7 +1019,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "k8s_pod" ("unit_uuid", "provider_id") SELECT $K8sPod.unit_uuid AS "unit_uuid", $K8sPod.provider_id AS "provider_id"`,
 			sample:    exporttypes.K8sPod{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.K8sPod)
+				return insertRows(ctx, tx, stmt, dump.K8sPod, nil)
 			},
 		})
 	}
@@ -963,7 +1030,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "k8s_pod_port" ("unit_uuid", "port") SELECT $K8sPodPort.unit_uuid AS "unit_uuid", $K8sPodPort.port AS "port"`,
 			sample:    exporttypes.K8sPodPort{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.K8sPodPort)
+				return insertRows(ctx, tx, stmt, dump.K8sPodPort, nil)
 			},
 		})
 	}
@@ -971,10 +1038,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "k8s_pod_status",
 			deleteSQL: `DELETE FROM "k8s_pod_status" AS t`,
-			insertSQL: `INSERT INTO "k8s_pod_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $K8sPodStatus.unit_uuid AS "unit_uuid", $K8sPodStatus.status_id AS "status_id", $K8sPodStatus.message AS "message", CAST($K8sPodStatus.data AS BLOB) AS "data", $K8sPodStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.K8sPodStatus{},
+			insertSQL: `INSERT INTO "k8s_pod_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $M.unit_uuid AS "unit_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.K8sPodStatus)
+				return insertRows(ctx, tx, stmt, dump.K8sPodStatus, func(row exporttypes.K8sPodStatus) any {
+					return sqlair.M{
+						"unit_uuid":  row.UnitUUID,
+						"status_id":  row.StatusID,
+						"message":    row.Message,
+						"data":       nullableBinaryValue(row.Data),
+						"updated_at": row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -985,7 +1060,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "k8s_pod_status_value" ("id", "status") SELECT $K8sPodStatusValue.id AS "id", $K8sPodStatusValue.status AS "status"`,
 			sample:    exporttypes.K8sPodStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.K8sPodStatusValue)
+				return insertRows(ctx, tx, stmt, dump.K8sPodStatusValue, nil)
 			},
 		})
 	}
@@ -996,7 +1071,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "k8s_service" ("uuid", "application_uuid", "net_node_uuid", "provider_id") SELECT $K8sService.uuid AS "uuid", $K8sService.application_uuid AS "application_uuid", $K8sService.net_node_uuid AS "net_node_uuid", $K8sService.provider_id AS "provider_id"`,
 			sample:    exporttypes.K8sService{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.K8sService)
+				return insertRows(ctx, tx, stmt, dump.K8sService, nil)
 			},
 		})
 	}
@@ -1007,7 +1082,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "life" ("id", "value") SELECT $Life.id AS "id", $Life.value AS "value"`,
 			sample:    exporttypes.Life{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Life)
+				return insertRows(ctx, tx, stmt, dump.Life, nil)
 			},
 		})
 	}
@@ -1018,7 +1093,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "link_layer_device" ("uuid", "net_node_uuid", "name", "mtu", "mac_address", "device_type_id", "virtual_port_type_id", "is_auto_start", "is_enabled", "is_default_gateway", "gateway_address", "vlan_tag") SELECT $LinkLayerDevice.uuid AS "uuid", $LinkLayerDevice.net_node_uuid AS "net_node_uuid", $LinkLayerDevice.name AS "name", $LinkLayerDevice.mtu AS "mtu", $LinkLayerDevice.mac_address AS "mac_address", $LinkLayerDevice.device_type_id AS "device_type_id", $LinkLayerDevice.virtual_port_type_id AS "virtual_port_type_id", $LinkLayerDevice.is_auto_start AS "is_auto_start", $LinkLayerDevice.is_enabled AS "is_enabled", $LinkLayerDevice.is_default_gateway AS "is_default_gateway", $LinkLayerDevice.gateway_address AS "gateway_address", $LinkLayerDevice.vlan_tag AS "vlan_tag"`,
 			sample:    exporttypes.LinkLayerDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.LinkLayerDevice)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDevice, nil)
 			},
 		})
 	}
@@ -1029,7 +1104,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "link_layer_device_dns_address" ("device_uuid", "dns_address") SELECT $LinkLayerDeviceDnsAddress.device_uuid AS "device_uuid", $LinkLayerDeviceDnsAddress.dns_address AS "dns_address"`,
 			sample:    exporttypes.LinkLayerDeviceDnsAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceDnsAddress)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceDnsAddress, nil)
 			},
 		})
 	}
@@ -1040,7 +1115,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "link_layer_device_dns_domain" ("device_uuid", "search_domain") SELECT $LinkLayerDeviceDnsDomain.device_uuid AS "device_uuid", $LinkLayerDeviceDnsDomain.search_domain AS "search_domain"`,
 			sample:    exporttypes.LinkLayerDeviceDnsDomain{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceDnsDomain)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceDnsDomain, nil)
 			},
 		})
 	}
@@ -1051,7 +1126,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "link_layer_device_parent" ("device_uuid", "parent_uuid") SELECT $LinkLayerDeviceParent.device_uuid AS "device_uuid", $LinkLayerDeviceParent.parent_uuid AS "parent_uuid"`,
 			sample:    exporttypes.LinkLayerDeviceParent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceParent)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceParent, nil)
 			},
 		})
 	}
@@ -1062,7 +1137,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "link_layer_device_route" ("device_uuid", "destination_cidr", "gateway_ip", "metric") SELECT $LinkLayerDeviceRoute.device_uuid AS "device_uuid", $LinkLayerDeviceRoute.destination_cidr AS "destination_cidr", $LinkLayerDeviceRoute.gateway_ip AS "gateway_ip", $LinkLayerDeviceRoute.metric AS "metric"`,
 			sample:    exporttypes.LinkLayerDeviceRoute{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceRoute)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceRoute, nil)
 			},
 		})
 	}
@@ -1073,7 +1148,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "link_layer_device_type" ("id", "name") SELECT $LinkLayerDeviceType.id AS "id", $LinkLayerDeviceType.name AS "name"`,
 			sample:    exporttypes.LinkLayerDeviceType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceType)
+				return insertRows(ctx, tx, stmt, dump.LinkLayerDeviceType, nil)
 			},
 		})
 	}
@@ -1084,7 +1159,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine" ("uuid", "name", "net_node_uuid", "life_id", "nonce", "password_hash_algorithm_id", "password_hash", "force_destroyed", "agent_started_at", "hostname", "keep_instance") SELECT $Machine.uuid AS "uuid", $Machine.name AS "name", $Machine.net_node_uuid AS "net_node_uuid", $Machine.life_id AS "life_id", $Machine.nonce AS "nonce", $Machine.password_hash_algorithm_id AS "password_hash_algorithm_id", $Machine.password_hash AS "password_hash", $Machine.force_destroyed AS "force_destroyed", $Machine.agent_started_at AS "agent_started_at", $Machine.hostname AS "hostname", $Machine.keep_instance AS "keep_instance"`,
 			sample:    exporttypes.Machine{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Machine)
+				return insertRows(ctx, tx, stmt, dump.Machine, nil)
 			},
 		})
 	}
@@ -1095,7 +1170,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_agent_presence" ("machine_uuid", "last_seen") SELECT $MachineAgentPresence.machine_uuid AS "machine_uuid", $MachineAgentPresence.last_seen AS "last_seen"`,
 			sample:    exporttypes.MachineAgentPresence{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineAgentPresence)
+				return insertRows(ctx, tx, stmt, dump.MachineAgentPresence, nil)
 			},
 		})
 	}
@@ -1106,7 +1181,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_agent_version" ("machine_uuid", "version", "architecture_id") SELECT $MachineAgentVersion.machine_uuid AS "machine_uuid", $MachineAgentVersion.version AS "version", $MachineAgentVersion.architecture_id AS "architecture_id"`,
 			sample:    exporttypes.MachineAgentVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineAgentVersion)
+				return insertRows(ctx, tx, stmt, dump.MachineAgentVersion, nil)
 			},
 		})
 	}
@@ -1117,7 +1192,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_cloud_instance" ("machine_uuid", "life_id", "instance_id", "display_name", "arch", "availability_zone_uuid", "cpu_cores", "cpu_power", "mem", "root_disk", "root_disk_source", "virt_type") SELECT $MachineCloudInstance.machine_uuid AS "machine_uuid", $MachineCloudInstance.life_id AS "life_id", $MachineCloudInstance.instance_id AS "instance_id", $MachineCloudInstance.display_name AS "display_name", $MachineCloudInstance.arch AS "arch", $MachineCloudInstance.availability_zone_uuid AS "availability_zone_uuid", $MachineCloudInstance.cpu_cores AS "cpu_cores", $MachineCloudInstance.cpu_power AS "cpu_power", $MachineCloudInstance.mem AS "mem", $MachineCloudInstance.root_disk AS "root_disk", $MachineCloudInstance.root_disk_source AS "root_disk_source", $MachineCloudInstance.virt_type AS "virt_type"`,
 			sample:    exporttypes.MachineCloudInstance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineCloudInstance)
+				return insertRows(ctx, tx, stmt, dump.MachineCloudInstance, nil)
 			},
 		})
 	}
@@ -1125,10 +1200,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_cloud_instance_status",
 			deleteSQL: `DELETE FROM "machine_cloud_instance_status" AS t`,
-			insertSQL: `INSERT INTO "machine_cloud_instance_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $MachineCloudInstanceStatus.machine_uuid AS "machine_uuid", $MachineCloudInstanceStatus.status_id AS "status_id", $MachineCloudInstanceStatus.message AS "message", CAST($MachineCloudInstanceStatus.data AS BLOB) AS "data", $MachineCloudInstanceStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.MachineCloudInstanceStatus{},
+			insertSQL: `INSERT INTO "machine_cloud_instance_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $M.machine_uuid AS "machine_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineCloudInstanceStatus)
+				return insertRows(ctx, tx, stmt, dump.MachineCloudInstanceStatus, func(row exporttypes.MachineCloudInstanceStatus) any {
+					return sqlair.M{
+						"machine_uuid": row.MachineUUID,
+						"status_id":    row.StatusID,
+						"message":      row.Message,
+						"data":         nullableBinaryValue(row.Data),
+						"updated_at":   row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -1139,7 +1222,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_cloud_instance_status_value" ("id", "status") SELECT $MachineCloudInstanceStatusValue.id AS "id", $MachineCloudInstanceStatusValue.status AS "status"`,
 			sample:    exporttypes.MachineCloudInstanceStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineCloudInstanceStatusValue)
+				return insertRows(ctx, tx, stmt, dump.MachineCloudInstanceStatusValue, nil)
 			},
 		})
 	}
@@ -1150,7 +1233,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_constraint" ("machine_uuid", "constraint_uuid") SELECT $MachineConstraint.machine_uuid AS "machine_uuid", $MachineConstraint.constraint_uuid AS "constraint_uuid"`,
 			sample:    exporttypes.MachineConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineConstraint)
+				return insertRows(ctx, tx, stmt, dump.MachineConstraint, nil)
 			},
 		})
 	}
@@ -1161,7 +1244,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_container_type" ("machine_uuid", "container_type_id") SELECT $MachineContainerType.machine_uuid AS "machine_uuid", $MachineContainerType.container_type_id AS "container_type_id"`,
 			sample:    exporttypes.MachineContainerType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineContainerType)
+				return insertRows(ctx, tx, stmt, dump.MachineContainerType, nil)
 			},
 		})
 	}
@@ -1172,7 +1255,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_filesystem" ("machine_uuid", "filesystem_uuid") SELECT $MachineFilesystem.machine_uuid AS "machine_uuid", $MachineFilesystem.filesystem_uuid AS "filesystem_uuid"`,
 			sample:    exporttypes.MachineFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineFilesystem)
+				return insertRows(ctx, tx, stmt, dump.MachineFilesystem, nil)
 			},
 		})
 	}
@@ -1183,7 +1266,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_lxd_profile" ("machine_uuid", "name", "array_index") SELECT $MachineLxdProfile.machine_uuid AS "machine_uuid", $MachineLxdProfile.name AS "name", $MachineLxdProfile.array_index AS "array_index"`,
 			sample:    exporttypes.MachineLxdProfile{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineLxdProfile)
+				return insertRows(ctx, tx, stmt, dump.MachineLxdProfile, nil)
 			},
 		})
 	}
@@ -1194,7 +1277,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_manual" ("machine_uuid") SELECT $MachineManual.machine_uuid AS "machine_uuid"`,
 			sample:    exporttypes.MachineManual{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineManual)
+				return insertRows(ctx, tx, stmt, dump.MachineManual, nil)
 			},
 		})
 	}
@@ -1205,7 +1288,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_parent" ("machine_uuid", "parent_uuid") SELECT $MachineParent.machine_uuid AS "machine_uuid", $MachineParent.parent_uuid AS "parent_uuid"`,
 			sample:    exporttypes.MachineParent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineParent)
+				return insertRows(ctx, tx, stmt, dump.MachineParent, nil)
 			},
 		})
 	}
@@ -1216,7 +1299,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_placement" ("machine_uuid", "scope_id", "directive") SELECT $MachinePlacement.machine_uuid AS "machine_uuid", $MachinePlacement.scope_id AS "scope_id", $MachinePlacement.directive AS "directive"`,
 			sample:    exporttypes.MachinePlacement{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachinePlacement)
+				return insertRows(ctx, tx, stmt, dump.MachinePlacement, nil)
 			},
 		})
 	}
@@ -1227,7 +1310,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_placement_scope" ("id", "value") SELECT $MachinePlacementScope.id AS "id", $MachinePlacementScope.value AS "value"`,
 			sample:    exporttypes.MachinePlacementScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachinePlacementScope)
+				return insertRows(ctx, tx, stmt, dump.MachinePlacementScope, nil)
 			},
 		})
 	}
@@ -1238,7 +1321,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_platform" ("machine_uuid", "os_id", "channel", "architecture_id") SELECT $MachinePlatform.machine_uuid AS "machine_uuid", $MachinePlatform.os_id AS "os_id", $MachinePlatform.channel AS "channel", $MachinePlatform.architecture_id AS "architecture_id"`,
 			sample:    exporttypes.MachinePlatform{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachinePlatform)
+				return insertRows(ctx, tx, stmt, dump.MachinePlatform, nil)
 			},
 		})
 	}
@@ -1249,7 +1332,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_reprovision" ("machine_name", "requested_at") SELECT $MachineReprovision.machine_name AS "machine_name", $MachineReprovision.requested_at AS "requested_at"`,
 			sample:    exporttypes.MachineReprovision{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineReprovision)
+				return insertRows(ctx, tx, stmt, dump.MachineReprovision, nil)
 			},
 		})
 	}
@@ -1260,7 +1343,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_requires_reboot" ("machine_uuid", "created_at") SELECT $MachineRequiresReboot.machine_uuid AS "machine_uuid", $MachineRequiresReboot.created_at AS "created_at"`,
 			sample:    exporttypes.MachineRequiresReboot{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineRequiresReboot)
+				return insertRows(ctx, tx, stmt, dump.MachineRequiresReboot, nil)
 			},
 		})
 	}
@@ -1271,7 +1354,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_ssh_host_key" ("uuid", "machine_uuid", "ssh_key") SELECT $MachineSshHostKey.uuid AS "uuid", $MachineSshHostKey.machine_uuid AS "machine_uuid", $MachineSshHostKey.ssh_key AS "ssh_key"`,
 			sample:    exporttypes.MachineSshHostKey{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineSshHostKey)
+				return insertRows(ctx, tx, stmt, dump.MachineSshHostKey, nil)
 			},
 		})
 	}
@@ -1279,10 +1362,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "machine_status",
 			deleteSQL: `DELETE FROM "machine_status" AS t`,
-			insertSQL: `INSERT INTO "machine_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $MachineStatus.machine_uuid AS "machine_uuid", $MachineStatus.status_id AS "status_id", $MachineStatus.message AS "message", CAST($MachineStatus.data AS BLOB) AS "data", $MachineStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.MachineStatus{},
+			insertSQL: `INSERT INTO "machine_status" ("machine_uuid", "status_id", "message", "data", "updated_at") SELECT $M.machine_uuid AS "machine_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineStatus)
+				return insertRows(ctx, tx, stmt, dump.MachineStatus, func(row exporttypes.MachineStatus) any {
+					return sqlair.M{
+						"machine_uuid": row.MachineUUID,
+						"status_id":    row.StatusID,
+						"message":      row.Message,
+						"data":         nullableBinaryValue(row.Data),
+						"updated_at":   row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -1293,7 +1384,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_status_value" ("id", "status") SELECT $MachineStatusValue.id AS "id", $MachineStatusValue.status AS "status"`,
 			sample:    exporttypes.MachineStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineStatusValue)
+				return insertRows(ctx, tx, stmt, dump.MachineStatusValue, nil)
 			},
 		})
 	}
@@ -1304,7 +1395,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_virtual_ssh_host_key" ("machine_uuid", "algorithm_type_id", "ssh_key") SELECT $MachineVirtualSshHostKey.machine_uuid AS "machine_uuid", $MachineVirtualSshHostKey.algorithm_type_id AS "algorithm_type_id", $MachineVirtualSshHostKey.ssh_key AS "ssh_key"`,
 			sample:    exporttypes.MachineVirtualSshHostKey{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineVirtualSshHostKey)
+				return insertRows(ctx, tx, stmt, dump.MachineVirtualSshHostKey, nil)
 			},
 		})
 	}
@@ -1315,7 +1406,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "machine_volume" ("machine_uuid", "volume_uuid") SELECT $MachineVolume.machine_uuid AS "machine_uuid", $MachineVolume.volume_uuid AS "volume_uuid"`,
 			sample:    exporttypes.MachineVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.MachineVolume)
+				return insertRows(ctx, tx, stmt, dump.MachineVolume, nil)
 			},
 		})
 	}
@@ -1326,7 +1417,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model" ("uuid", "controller_uuid", "name", "qualifier", "type", "cloud", "cloud_type", "cloud_region", "credential_owner", "credential_name", "is_controller_model") SELECT $Model.uuid AS "uuid", $Model.controller_uuid AS "controller_uuid", $Model.name AS "name", $Model.qualifier AS "qualifier", $Model.type AS "type", $Model.cloud AS "cloud", $Model.cloud_type AS "cloud_type", $Model.cloud_region AS "cloud_region", $Model.credential_owner AS "credential_owner", $Model.credential_name AS "credential_name", $Model.is_controller_model AS "is_controller_model"`,
 			sample:    exporttypes.Model{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Model)
+				return insertRows(ctx, tx, stmt, dump.Model, nil)
 			},
 		})
 	}
@@ -1337,7 +1428,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model_agent" ("model_uuid", "password_hash_algorithm_id", "password_hash") SELECT $ModelAgent.model_uuid AS "model_uuid", $ModelAgent.password_hash_algorithm_id AS "password_hash_algorithm_id", $ModelAgent.password_hash AS "password_hash"`,
 			sample:    exporttypes.ModelAgent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelAgent)
+				return insertRows(ctx, tx, stmt, dump.ModelAgent, nil)
 			},
 		})
 	}
@@ -1348,7 +1439,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model_config" ("key", "value") SELECT $ModelConfig.key AS "key", $ModelConfig.value AS "value"`,
 			sample:    exporttypes.ModelConfig{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelConfig)
+				return insertRows(ctx, tx, stmt, dump.ModelConfig, nil)
 			},
 		})
 	}
@@ -1359,7 +1450,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model_constraint" ("model_uuid", "constraint_uuid") SELECT $ModelConstraint.model_uuid AS "model_uuid", $ModelConstraint.constraint_uuid AS "constraint_uuid"`,
 			sample:    exporttypes.ModelConstraint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelConstraint)
+				return insertRows(ctx, tx, stmt, dump.ModelConstraint, nil)
 			},
 		})
 	}
@@ -1370,7 +1461,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model_life" ("model_uuid", "life_id") SELECT $ModelLife.model_uuid AS "model_uuid", $ModelLife.life_id AS "life_id"`,
 			sample:    exporttypes.ModelLife{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelLife)
+				return insertRows(ctx, tx, stmt, dump.ModelLife, nil)
 			},
 		})
 	}
@@ -1381,7 +1472,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model_migrating" ("uuid", "model_uuid") SELECT $ModelMigrating.uuid AS "uuid", $ModelMigrating.model_uuid AS "model_uuid"`,
 			sample:    exporttypes.ModelMigrating{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelMigrating)
+				return insertRows(ctx, tx, stmt, dump.ModelMigrating, nil)
 			},
 		})
 	}
@@ -1392,7 +1483,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "model_storage_pool" ("storage_kind_id", "storage_pool_uuid") SELECT $ModelStoragePool.storage_kind_id AS "storage_kind_id", $ModelStoragePool.storage_pool_uuid AS "storage_pool_uuid"`,
 			sample:    exporttypes.ModelStoragePool{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ModelStoragePool)
+				return insertRows(ctx, tx, stmt, dump.ModelStoragePool, nil)
 			},
 		})
 	}
@@ -1403,7 +1494,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "net_node" ("uuid") SELECT $NetNode.uuid AS "uuid"`,
 			sample:    exporttypes.NetNode{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.NetNode)
+				return insertRows(ctx, tx, stmt, dump.NetNode, nil)
 			},
 		})
 	}
@@ -1414,7 +1505,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "net_node_fqdn_address" ("net_node_uuid", "address_uuid") SELECT $NetNodeFqdnAddress.net_node_uuid AS "net_node_uuid", $NetNodeFqdnAddress.address_uuid AS "address_uuid"`,
 			sample:    exporttypes.NetNodeFqdnAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.NetNodeFqdnAddress)
+				return insertRows(ctx, tx, stmt, dump.NetNodeFqdnAddress, nil)
 			},
 		})
 	}
@@ -1425,7 +1516,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "net_node_hostname_address" ("net_node_uuid", "address_uuid") SELECT $NetNodeHostnameAddress.net_node_uuid AS "net_node_uuid", $NetNodeHostnameAddress.address_uuid AS "address_uuid"`,
 			sample:    exporttypes.NetNodeHostnameAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.NetNodeHostnameAddress)
+				return insertRows(ctx, tx, stmt, dump.NetNodeHostnameAddress, nil)
 			},
 		})
 	}
@@ -1436,7 +1527,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "network_address_scope" ("id", "name") SELECT $NetworkAddressScope.id AS "id", $NetworkAddressScope.name AS "name"`,
 			sample:    exporttypes.NetworkAddressScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.NetworkAddressScope)
+				return insertRows(ctx, tx, stmt, dump.NetworkAddressScope, nil)
 			},
 		})
 	}
@@ -1447,7 +1538,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "object_store_metadata" ("uuid", "sha_256", "sha_384", "size") SELECT $ObjectStoreMetadata.uuid AS "uuid", $ObjectStoreMetadata.sha_256 AS "sha_256", $ObjectStoreMetadata.sha_384 AS "sha_384", $ObjectStoreMetadata.size AS "size"`,
 			sample:    exporttypes.ObjectStoreMetadata{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ObjectStoreMetadata)
+				return insertRows(ctx, tx, stmt, dump.ObjectStoreMetadata, nil)
 			},
 		})
 	}
@@ -1458,7 +1549,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "object_store_metadata_path" ("path", "metadata_uuid") SELECT $ObjectStoreMetadataPath.path AS "path", $ObjectStoreMetadataPath.metadata_uuid AS "metadata_uuid"`,
 			sample:    exporttypes.ObjectStoreMetadataPath{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ObjectStoreMetadataPath)
+				return insertRows(ctx, tx, stmt, dump.ObjectStoreMetadataPath, nil)
 			},
 		})
 	}
@@ -1469,7 +1560,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "offer" ("uuid", "name", "description") SELECT $Offer.uuid AS "uuid", $Offer.name AS "name", $Offer.description AS "description"`,
 			sample:    exporttypes.Offer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Offer)
+				return insertRows(ctx, tx, stmt, dump.Offer, nil)
 			},
 		})
 	}
@@ -1480,7 +1571,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "offer_connection" ("uuid", "offer_uuid", "remote_relation_uuid", "username") SELECT $OfferConnection.uuid AS "uuid", $OfferConnection.offer_uuid AS "offer_uuid", $OfferConnection.remote_relation_uuid AS "remote_relation_uuid", $OfferConnection.username AS "username"`,
 			sample:    exporttypes.OfferConnection{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OfferConnection)
+				return insertRows(ctx, tx, stmt, dump.OfferConnection, nil)
 			},
 		})
 	}
@@ -1491,7 +1582,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "offer_endpoint" ("offer_uuid", "endpoint_uuid") SELECT $OfferEndpoint.offer_uuid AS "offer_uuid", $OfferEndpoint.endpoint_uuid AS "endpoint_uuid"`,
 			sample:    exporttypes.OfferEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OfferEndpoint)
+				return insertRows(ctx, tx, stmt, dump.OfferEndpoint, nil)
 			},
 		})
 	}
@@ -1502,7 +1593,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation" ("uuid", "operation_id", "summary", "enqueued_at", "started_at", "completed_at", "parallel", "execution_group") SELECT $Operation.uuid AS "uuid", $Operation.operation_id AS "operation_id", $Operation.summary AS "summary", $Operation.enqueued_at AS "enqueued_at", $Operation.started_at AS "started_at", $Operation.completed_at AS "completed_at", $Operation.parallel AS "parallel", $Operation.execution_group AS "execution_group"`,
 			sample:    exporttypes.Operation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Operation)
+				return insertRows(ctx, tx, stmt, dump.Operation, nil)
 			},
 		})
 	}
@@ -1513,7 +1604,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_action" ("operation_uuid", "charm_uuid", "charm_action_key") SELECT $OperationAction.operation_uuid AS "operation_uuid", $OperationAction.charm_uuid AS "charm_uuid", $OperationAction.charm_action_key AS "charm_action_key"`,
 			sample:    exporttypes.OperationAction{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationAction)
+				return insertRows(ctx, tx, stmt, dump.OperationAction, nil)
 			},
 		})
 	}
@@ -1524,7 +1615,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_machine_task" ("task_uuid", "machine_uuid") SELECT $OperationMachineTask.task_uuid AS "task_uuid", $OperationMachineTask.machine_uuid AS "machine_uuid"`,
 			sample:    exporttypes.OperationMachineTask{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationMachineTask)
+				return insertRows(ctx, tx, stmt, dump.OperationMachineTask, nil)
 			},
 		})
 	}
@@ -1535,7 +1626,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_parameter" ("operation_uuid", "key", "value") SELECT $OperationParameter.operation_uuid AS "operation_uuid", $OperationParameter.key AS "key", $OperationParameter.value AS "value"`,
 			sample:    exporttypes.OperationParameter{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationParameter)
+				return insertRows(ctx, tx, stmt, dump.OperationParameter, nil)
 			},
 		})
 	}
@@ -1546,7 +1637,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_task" ("uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at") SELECT $OperationTask.uuid AS "uuid", $OperationTask.operation_uuid AS "operation_uuid", $OperationTask.task_id AS "task_id", $OperationTask.enqueued_at AS "enqueued_at", $OperationTask.started_at AS "started_at", $OperationTask.completed_at AS "completed_at"`,
 			sample:    exporttypes.OperationTask{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationTask)
+				return insertRows(ctx, tx, stmt, dump.OperationTask, nil)
 			},
 		})
 	}
@@ -1557,7 +1648,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_task_log" ("task_uuid", "content", "created_at") SELECT $OperationTaskLog.task_uuid AS "task_uuid", $OperationTaskLog.content AS "content", $OperationTaskLog.created_at AS "created_at"`,
 			sample:    exporttypes.OperationTaskLog{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationTaskLog)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskLog, nil)
 			},
 		})
 	}
@@ -1568,7 +1659,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_task_output" ("task_uuid", "store_path") SELECT $OperationTaskOutput.task_uuid AS "task_uuid", $OperationTaskOutput.store_path AS "store_path"`,
 			sample:    exporttypes.OperationTaskOutput{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationTaskOutput)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskOutput, nil)
 			},
 		})
 	}
@@ -1579,7 +1670,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_task_status" ("task_uuid", "status_id", "message", "updated_at") SELECT $OperationTaskStatus.task_uuid AS "task_uuid", $OperationTaskStatus.status_id AS "status_id", $OperationTaskStatus.message AS "message", $OperationTaskStatus.updated_at AS "updated_at"`,
 			sample:    exporttypes.OperationTaskStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationTaskStatus)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskStatus, nil)
 			},
 		})
 	}
@@ -1590,7 +1681,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_task_status_value" ("id", "status") SELECT $OperationTaskStatusValue.id AS "id", $OperationTaskStatusValue.status AS "status"`,
 			sample:    exporttypes.OperationTaskStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationTaskStatusValue)
+				return insertRows(ctx, tx, stmt, dump.OperationTaskStatusValue, nil)
 			},
 		})
 	}
@@ -1601,7 +1692,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "operation_unit_task" ("task_uuid", "unit_uuid") SELECT $OperationUnitTask.task_uuid AS "task_uuid", $OperationUnitTask.unit_uuid AS "unit_uuid"`,
 			sample:    exporttypes.OperationUnitTask{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperationUnitTask)
+				return insertRows(ctx, tx, stmt, dump.OperationUnitTask, nil)
 			},
 		})
 	}
@@ -1609,10 +1700,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "operator_status",
 			deleteSQL: `DELETE FROM "operator_status" AS t`,
-			insertSQL: `INSERT INTO "operator_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $OperatorStatus.application_uuid AS "application_uuid", $OperatorStatus.status_id AS "status_id", $OperatorStatus.message AS "message", CAST($OperatorStatus.data AS BLOB) AS "data", $OperatorStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.OperatorStatus{},
+			insertSQL: `INSERT INTO "operator_status" ("application_uuid", "status_id", "message", "data", "updated_at") SELECT $M.application_uuid AS "application_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.OperatorStatus)
+				return insertRows(ctx, tx, stmt, dump.OperatorStatus, func(row exporttypes.OperatorStatus) any {
+					return sqlair.M{
+						"application_uuid": row.ApplicationUUID,
+						"status_id":        row.StatusID,
+						"message":          row.Message,
+						"data":             nullableBinaryValue(row.Data),
+						"updated_at":       row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -1623,7 +1722,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "os" ("id", "name") SELECT $Os.id AS "id", $Os.name AS "name"`,
 			sample:    exporttypes.Os{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Os)
+				return insertRows(ctx, tx, stmt, dump.Os, nil)
 			},
 		})
 	}
@@ -1634,7 +1733,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "password_hash_algorithm" ("id", "name") SELECT $PasswordHashAlgorithm.id AS "id", $PasswordHashAlgorithm.name AS "name"`,
 			sample:    exporttypes.PasswordHashAlgorithm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.PasswordHashAlgorithm)
+				return insertRows(ctx, tx, stmt, dump.PasswordHashAlgorithm, nil)
 			},
 		})
 	}
@@ -1645,7 +1744,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "pending_application_resource" ("resource_uuid", "application_name") SELECT $PendingApplicationResource.resource_uuid AS "resource_uuid", $PendingApplicationResource.application_name AS "application_name"`,
 			sample:    exporttypes.PendingApplicationResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.PendingApplicationResource)
+				return insertRows(ctx, tx, stmt, dump.PendingApplicationResource, nil)
 			},
 		})
 	}
@@ -1656,7 +1755,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "port_range" ("uuid", "protocol_id", "from_port", "to_port", "relation_uuid", "unit_uuid") SELECT $PortRange.uuid AS "uuid", $PortRange.protocol_id AS "protocol_id", $PortRange.from_port AS "from_port", $PortRange.to_port AS "to_port", $PortRange.relation_uuid AS "relation_uuid", $PortRange.unit_uuid AS "unit_uuid"`,
 			sample:    exporttypes.PortRange{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.PortRange)
+				return insertRows(ctx, tx, stmt, dump.PortRange, nil)
 			},
 		})
 	}
@@ -1667,7 +1766,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "protocol" ("id", "protocol") SELECT $Protocol.id AS "id", $Protocol.protocol AS "protocol"`,
 			sample:    exporttypes.Protocol{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Protocol)
+				return insertRows(ctx, tx, stmt, dump.Protocol, nil)
 			},
 		})
 	}
@@ -1678,7 +1777,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "provider_ip_address" ("provider_id", "address_uuid") SELECT $ProviderIpAddress.provider_id AS "provider_id", $ProviderIpAddress.address_uuid AS "address_uuid"`,
 			sample:    exporttypes.ProviderIpAddress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ProviderIpAddress)
+				return insertRows(ctx, tx, stmt, dump.ProviderIpAddress, nil)
 			},
 		})
 	}
@@ -1689,7 +1788,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "provider_link_layer_device" ("provider_id", "device_uuid") SELECT $ProviderLinkLayerDevice.provider_id AS "provider_id", $ProviderLinkLayerDevice.device_uuid AS "device_uuid"`,
 			sample:    exporttypes.ProviderLinkLayerDevice{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ProviderLinkLayerDevice)
+				return insertRows(ctx, tx, stmt, dump.ProviderLinkLayerDevice, nil)
 			},
 		})
 	}
@@ -1700,7 +1799,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "provider_network" ("uuid", "provider_network_id") SELECT $ProviderNetwork.uuid AS "uuid", $ProviderNetwork.provider_network_id AS "provider_network_id"`,
 			sample:    exporttypes.ProviderNetwork{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ProviderNetwork)
+				return insertRows(ctx, tx, stmt, dump.ProviderNetwork, nil)
 			},
 		})
 	}
@@ -1711,7 +1810,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "provider_network_subnet" ("subnet_uuid", "provider_network_uuid") SELECT $ProviderNetworkSubnet.subnet_uuid AS "subnet_uuid", $ProviderNetworkSubnet.provider_network_uuid AS "provider_network_uuid"`,
 			sample:    exporttypes.ProviderNetworkSubnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ProviderNetworkSubnet)
+				return insertRows(ctx, tx, stmt, dump.ProviderNetworkSubnet, nil)
 			},
 		})
 	}
@@ -1722,7 +1821,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "provider_space" ("provider_id", "space_uuid") SELECT $ProviderSpace.provider_id AS "provider_id", $ProviderSpace.space_uuid AS "space_uuid"`,
 			sample:    exporttypes.ProviderSpace{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ProviderSpace)
+				return insertRows(ctx, tx, stmt, dump.ProviderSpace, nil)
 			},
 		})
 	}
@@ -1733,7 +1832,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "provider_subnet" ("provider_id", "subnet_uuid") SELECT $ProviderSubnet.provider_id AS "provider_id", $ProviderSubnet.subnet_uuid AS "subnet_uuid"`,
 			sample:    exporttypes.ProviderSubnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ProviderSubnet)
+				return insertRows(ctx, tx, stmt, dump.ProviderSubnet, nil)
 			},
 		})
 	}
@@ -1744,7 +1843,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation" ("uuid", "life_id", "relation_id", "suspended", "suspended_reason", "scope_id") SELECT $Relation.uuid AS "uuid", $Relation.life_id AS "life_id", $Relation.relation_id AS "relation_id", $Relation.suspended AS "suspended", $Relation.suspended_reason AS "suspended_reason", $Relation.scope_id AS "scope_id"`,
 			sample:    exporttypes.Relation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Relation)
+				return insertRows(ctx, tx, stmt, dump.Relation, nil)
 			},
 		})
 	}
@@ -1755,7 +1854,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_application_setting" ("relation_endpoint_uuid", "key", "value") SELECT $RelationApplicationSetting.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationApplicationSetting.key AS "key", $RelationApplicationSetting.value AS "value"`,
 			sample:    exporttypes.RelationApplicationSetting{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationApplicationSetting)
+				return insertRows(ctx, tx, stmt, dump.RelationApplicationSetting, nil)
 			},
 		})
 	}
@@ -1766,7 +1865,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_application_settings_hash" ("relation_endpoint_uuid", "sha256") SELECT $RelationApplicationSettingsHash.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationApplicationSettingsHash.sha256 AS "sha256"`,
 			sample:    exporttypes.RelationApplicationSettingsHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationApplicationSettingsHash)
+				return insertRows(ctx, tx, stmt, dump.RelationApplicationSettingsHash, nil)
 			},
 		})
 	}
@@ -1777,7 +1876,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_endpoint" ("uuid", "relation_uuid", "endpoint_uuid") SELECT $RelationEndpoint.uuid AS "uuid", $RelationEndpoint.relation_uuid AS "relation_uuid", $RelationEndpoint.endpoint_uuid AS "endpoint_uuid"`,
 			sample:    exporttypes.RelationEndpoint{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationEndpoint)
+				return insertRows(ctx, tx, stmt, dump.RelationEndpoint, nil)
 			},
 		})
 	}
@@ -1788,7 +1887,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_network_egress" ("relation_uuid", "cidr") SELECT $RelationNetworkEgress.relation_uuid AS "relation_uuid", $RelationNetworkEgress.cidr AS "cidr"`,
 			sample:    exporttypes.RelationNetworkEgress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationNetworkEgress)
+				return insertRows(ctx, tx, stmt, dump.RelationNetworkEgress, nil)
 			},
 		})
 	}
@@ -1799,7 +1898,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_network_ingress" ("relation_uuid", "cidr") SELECT $RelationNetworkIngress.relation_uuid AS "relation_uuid", $RelationNetworkIngress.cidr AS "cidr"`,
 			sample:    exporttypes.RelationNetworkIngress{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationNetworkIngress)
+				return insertRows(ctx, tx, stmt, dump.RelationNetworkIngress, nil)
 			},
 		})
 	}
@@ -1810,7 +1909,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_status" ("relation_uuid", "relation_status_type_id", "message", "updated_at") SELECT $RelationStatus.relation_uuid AS "relation_uuid", $RelationStatus.relation_status_type_id AS "relation_status_type_id", $RelationStatus.message AS "message", $RelationStatus.updated_at AS "updated_at"`,
 			sample:    exporttypes.RelationStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationStatus)
+				return insertRows(ctx, tx, stmt, dump.RelationStatus, nil)
 			},
 		})
 	}
@@ -1821,7 +1920,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_status_type" ("id", "name") SELECT $RelationStatusType.id AS "id", $RelationStatusType.name AS "name"`,
 			sample:    exporttypes.RelationStatusType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationStatusType)
+				return insertRows(ctx, tx, stmt, dump.RelationStatusType, nil)
 			},
 		})
 	}
@@ -1832,7 +1931,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_unit" ("uuid", "relation_endpoint_uuid", "unit_uuid") SELECT $RelationUnit.uuid AS "uuid", $RelationUnit.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationUnit.unit_uuid AS "unit_uuid"`,
 			sample:    exporttypes.RelationUnit{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationUnit)
+				return insertRows(ctx, tx, stmt, dump.RelationUnit, nil)
 			},
 		})
 	}
@@ -1843,7 +1942,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_unit_departure" ("relation_uuid", "relation_endpoint_uuid", "unit_uuid", "unit_name") SELECT $RelationUnitDeparture.relation_uuid AS "relation_uuid", $RelationUnitDeparture.relation_endpoint_uuid AS "relation_endpoint_uuid", $RelationUnitDeparture.unit_uuid AS "unit_uuid", $RelationUnitDeparture.unit_name AS "unit_name"`,
 			sample:    exporttypes.RelationUnitDeparture{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationUnitDeparture)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitDeparture, nil)
 			},
 		})
 	}
@@ -1854,7 +1953,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_unit_setting" ("relation_unit_uuid", "key", "value") SELECT $RelationUnitSetting.relation_unit_uuid AS "relation_unit_uuid", $RelationUnitSetting.key AS "key", $RelationUnitSetting.value AS "value"`,
 			sample:    exporttypes.RelationUnitSetting{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationUnitSetting)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitSetting, nil)
 			},
 		})
 	}
@@ -1865,7 +1964,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_unit_setting_archive" ("relation_uuid", "unit_name", "key", "value") SELECT $RelationUnitSettingArchive.relation_uuid AS "relation_uuid", $RelationUnitSettingArchive.unit_name AS "unit_name", $RelationUnitSettingArchive.key AS "key", $RelationUnitSettingArchive.value AS "value"`,
 			sample:    exporttypes.RelationUnitSettingArchive{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingArchive)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingArchive, nil)
 			},
 		})
 	}
@@ -1876,7 +1975,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "relation_unit_settings_hash" ("relation_unit_uuid", "sha256") SELECT $RelationUnitSettingsHash.relation_unit_uuid AS "relation_unit_uuid", $RelationUnitSettingsHash.sha256 AS "sha256"`,
 			sample:    exporttypes.RelationUnitSettingsHash{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingsHash)
+				return insertRows(ctx, tx, stmt, dump.RelationUnitSettingsHash, nil)
 			},
 		})
 	}
@@ -1887,7 +1986,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "removal" ("uuid", "removal_type_id", "entity_uuid", "force", "scheduled_for", "arg") SELECT $Removal.uuid AS "uuid", $Removal.removal_type_id AS "removal_type_id", $Removal.entity_uuid AS "entity_uuid", $Removal.force AS "force", $Removal.scheduled_for AS "scheduled_for", $Removal.arg AS "arg"`,
 			sample:    exporttypes.Removal{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Removal)
+				return insertRows(ctx, tx, stmt, dump.Removal, nil)
 			},
 		})
 	}
@@ -1898,7 +1997,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "removal_type" ("id", "name") SELECT $RemovalType.id AS "id", $RemovalType.name AS "name"`,
 			sample:    exporttypes.RemovalType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.RemovalType)
+				return insertRows(ctx, tx, stmt, dump.RemovalType, nil)
 			},
 		})
 	}
@@ -1909,7 +2008,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resolve_mode" ("id", "name") SELECT $ResolveMode.id AS "id", $ResolveMode.name AS "name"`,
 			sample:    exporttypes.ResolveMode{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResolveMode)
+				return insertRows(ctx, tx, stmt, dump.ResolveMode, nil)
 			},
 		})
 	}
@@ -1920,7 +2019,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource" ("uuid", "charm_uuid", "charm_resource_name", "revision", "origin_type_id", "state_id", "created_at", "last_polled") SELECT $Resource.uuid AS "uuid", $Resource.charm_uuid AS "charm_uuid", $Resource.charm_resource_name AS "charm_resource_name", $Resource.revision AS "revision", $Resource.origin_type_id AS "origin_type_id", $Resource.state_id AS "state_id", $Resource.created_at AS "created_at", $Resource.last_polled AS "last_polled"`,
 			sample:    exporttypes.Resource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Resource)
+				return insertRows(ctx, tx, stmt, dump.Resource, nil)
 			},
 		})
 	}
@@ -1931,7 +2030,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_container_image_metadata_store" ("storage_key", "registry_path", "username", "password") SELECT $ResourceContainerImageMetadataStore.storage_key AS "storage_key", $ResourceContainerImageMetadataStore.registry_path AS "registry_path", $ResourceContainerImageMetadataStore.username AS "username", $ResourceContainerImageMetadataStore.password AS "password"`,
 			sample:    exporttypes.ResourceContainerImageMetadataStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceContainerImageMetadataStore)
+				return insertRows(ctx, tx, stmt, dump.ResourceContainerImageMetadataStore, nil)
 			},
 		})
 	}
@@ -1942,7 +2041,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_file_store" ("resource_uuid", "store_uuid", "size", "sha384") SELECT $ResourceFileStore.resource_uuid AS "resource_uuid", $ResourceFileStore.store_uuid AS "store_uuid", $ResourceFileStore.size AS "size", $ResourceFileStore.sha384 AS "sha384"`,
 			sample:    exporttypes.ResourceFileStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceFileStore)
+				return insertRows(ctx, tx, stmt, dump.ResourceFileStore, nil)
 			},
 		})
 	}
@@ -1953,7 +2052,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_image_store" ("resource_uuid", "store_storage_key", "size", "sha384") SELECT $ResourceImageStore.resource_uuid AS "resource_uuid", $ResourceImageStore.store_storage_key AS "store_storage_key", $ResourceImageStore.size AS "size", $ResourceImageStore.sha384 AS "sha384"`,
 			sample:    exporttypes.ResourceImageStore{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceImageStore)
+				return insertRows(ctx, tx, stmt, dump.ResourceImageStore, nil)
 			},
 		})
 	}
@@ -1964,7 +2063,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_origin_type" ("id", "name") SELECT $ResourceOriginType.id AS "id", $ResourceOriginType.name AS "name"`,
 			sample:    exporttypes.ResourceOriginType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceOriginType)
+				return insertRows(ctx, tx, stmt, dump.ResourceOriginType, nil)
 			},
 		})
 	}
@@ -1975,7 +2074,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_retrieved_by" ("resource_uuid", "retrieved_by_type_id", "name") SELECT $ResourceRetrievedBy.resource_uuid AS "resource_uuid", $ResourceRetrievedBy.retrieved_by_type_id AS "retrieved_by_type_id", $ResourceRetrievedBy.name AS "name"`,
 			sample:    exporttypes.ResourceRetrievedBy{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceRetrievedBy)
+				return insertRows(ctx, tx, stmt, dump.ResourceRetrievedBy, nil)
 			},
 		})
 	}
@@ -1986,7 +2085,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_retrieved_by_type" ("id", "name") SELECT $ResourceRetrievedByType.id AS "id", $ResourceRetrievedByType.name AS "name"`,
 			sample:    exporttypes.ResourceRetrievedByType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceRetrievedByType)
+				return insertRows(ctx, tx, stmt, dump.ResourceRetrievedByType, nil)
 			},
 		})
 	}
@@ -1997,7 +2096,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "resource_state" ("id", "name") SELECT $ResourceState.id AS "id", $ResourceState.name AS "name"`,
 			sample:    exporttypes.ResourceState{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.ResourceState)
+				return insertRows(ctx, tx, stmt, dump.ResourceState, nil)
 			},
 		})
 	}
@@ -2008,7 +2107,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret" ("id") SELECT $Secret.id AS "id"`,
 			sample:    exporttypes.Secret{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Secret)
+				return insertRows(ctx, tx, stmt, dump.Secret, nil)
 			},
 		})
 	}
@@ -2019,7 +2118,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_application_owner" ("secret_id", "application_uuid", "label") SELECT $SecretApplicationOwner.secret_id AS "secret_id", $SecretApplicationOwner.application_uuid AS "application_uuid", $SecretApplicationOwner.label AS "label"`,
 			sample:    exporttypes.SecretApplicationOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretApplicationOwner)
+				return insertRows(ctx, tx, stmt, dump.SecretApplicationOwner, nil)
 			},
 		})
 	}
@@ -2030,7 +2129,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_content" ("revision_uuid", "name", "content") SELECT $SecretContent.revision_uuid AS "revision_uuid", $SecretContent.name AS "name", $SecretContent.content AS "content"`,
 			sample:    exporttypes.SecretContent{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretContent)
+				return insertRows(ctx, tx, stmt, dump.SecretContent, nil)
 			},
 		})
 	}
@@ -2041,7 +2140,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_deleted_value_ref" ("revision_uuid", "backend_uuid", "revision_id") SELECT $SecretDeletedValueRef.revision_uuid AS "revision_uuid", $SecretDeletedValueRef.backend_uuid AS "backend_uuid", $SecretDeletedValueRef.revision_id AS "revision_id"`,
 			sample:    exporttypes.SecretDeletedValueRef{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretDeletedValueRef)
+				return insertRows(ctx, tx, stmt, dump.SecretDeletedValueRef, nil)
 			},
 		})
 	}
@@ -2052,7 +2151,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_grant_scope_type" ("id", "type") SELECT $SecretGrantScopeType.id AS "id", $SecretGrantScopeType.type AS "type"`,
 			sample:    exporttypes.SecretGrantScopeType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretGrantScopeType)
+				return insertRows(ctx, tx, stmt, dump.SecretGrantScopeType, nil)
 			},
 		})
 	}
@@ -2063,7 +2162,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_grant_subject_type" ("id", "type") SELECT $SecretGrantSubjectType.id AS "id", $SecretGrantSubjectType.type AS "type"`,
 			sample:    exporttypes.SecretGrantSubjectType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretGrantSubjectType)
+				return insertRows(ctx, tx, stmt, dump.SecretGrantSubjectType, nil)
 			},
 		})
 	}
@@ -2074,7 +2173,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_metadata" ("secret_id", "version", "description", "rotate_policy_id", "auto_prune", "latest_revision_checksum", "create_time", "update_time") SELECT $SecretMetadata.secret_id AS "secret_id", $SecretMetadata.version AS "version", $SecretMetadata.description AS "description", $SecretMetadata.rotate_policy_id AS "rotate_policy_id", $SecretMetadata.auto_prune AS "auto_prune", $SecretMetadata.latest_revision_checksum AS "latest_revision_checksum", $SecretMetadata.create_time AS "create_time", $SecretMetadata.update_time AS "update_time"`,
 			sample:    exporttypes.SecretMetadata{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretMetadata)
+				return insertRows(ctx, tx, stmt, dump.SecretMetadata, nil)
 			},
 		})
 	}
@@ -2085,7 +2184,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_model_owner" ("secret_id", "label") SELECT $SecretModelOwner.secret_id AS "secret_id", $SecretModelOwner.label AS "label"`,
 			sample:    exporttypes.SecretModelOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretModelOwner)
+				return insertRows(ctx, tx, stmt, dump.SecretModelOwner, nil)
 			},
 		})
 	}
@@ -2096,7 +2195,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_permission" ("secret_id", "role_id", "subject_uuid", "subject_type_id", "scope_uuid", "scope_type_id") SELECT $SecretPermission.secret_id AS "secret_id", $SecretPermission.role_id AS "role_id", $SecretPermission.subject_uuid AS "subject_uuid", $SecretPermission.subject_type_id AS "subject_type_id", $SecretPermission.scope_uuid AS "scope_uuid", $SecretPermission.scope_type_id AS "scope_type_id"`,
 			sample:    exporttypes.SecretPermission{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretPermission)
+				return insertRows(ctx, tx, stmt, dump.SecretPermission, nil)
 			},
 		})
 	}
@@ -2107,7 +2206,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_reference" ("secret_id", "latest_revision", "owner_application_uuid", "updated_at", "migrated") SELECT $SecretReference.secret_id AS "secret_id", $SecretReference.latest_revision AS "latest_revision", $SecretReference.owner_application_uuid AS "owner_application_uuid", $SecretReference.updated_at AS "updated_at", $SecretReference.migrated AS "migrated"`,
 			sample:    exporttypes.SecretReference{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretReference)
+				return insertRows(ctx, tx, stmt, dump.SecretReference, nil)
 			},
 		})
 	}
@@ -2118,7 +2217,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_remote_unit_consumer" ("secret_id", "unit_name", "current_revision") SELECT $SecretRemoteUnitConsumer.secret_id AS "secret_id", $SecretRemoteUnitConsumer.unit_name AS "unit_name", $SecretRemoteUnitConsumer.current_revision AS "current_revision"`,
 			sample:    exporttypes.SecretRemoteUnitConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRemoteUnitConsumer)
+				return insertRows(ctx, tx, stmt, dump.SecretRemoteUnitConsumer, nil)
 			},
 		})
 	}
@@ -2129,7 +2228,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_reservation" ("secret_id", "unit_uuid", "created_at") SELECT $SecretReservation.secret_id AS "secret_id", $SecretReservation.unit_uuid AS "unit_uuid", $SecretReservation.created_at AS "created_at"`,
 			sample:    exporttypes.SecretReservation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretReservation)
+				return insertRows(ctx, tx, stmt, dump.SecretReservation, nil)
 			},
 		})
 	}
@@ -2140,7 +2239,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_revision" ("uuid", "secret_id", "revision", "create_time", "update_time") SELECT $SecretRevision.uuid AS "uuid", $SecretRevision.secret_id AS "secret_id", $SecretRevision.revision AS "revision", $SecretRevision.create_time AS "create_time", $SecretRevision.update_time AS "update_time"`,
 			sample:    exporttypes.SecretRevision{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRevision)
+				return insertRows(ctx, tx, stmt, dump.SecretRevision, nil)
 			},
 		})
 	}
@@ -2151,7 +2250,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_revision_expire" ("revision_uuid", "expire_time") SELECT $SecretRevisionExpire.revision_uuid AS "revision_uuid", $SecretRevisionExpire.expire_time AS "expire_time"`,
 			sample:    exporttypes.SecretRevisionExpire{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRevisionExpire)
+				return insertRows(ctx, tx, stmt, dump.SecretRevisionExpire, nil)
 			},
 		})
 	}
@@ -2162,7 +2261,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_revision_obsolete" ("revision_uuid", "obsolete", "pending_delete") SELECT $SecretRevisionObsolete.revision_uuid AS "revision_uuid", $SecretRevisionObsolete.obsolete AS "obsolete", $SecretRevisionObsolete.pending_delete AS "pending_delete"`,
 			sample:    exporttypes.SecretRevisionObsolete{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRevisionObsolete)
+				return insertRows(ctx, tx, stmt, dump.SecretRevisionObsolete, nil)
 			},
 		})
 	}
@@ -2173,7 +2272,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_role" ("id", "role") SELECT $SecretRole.id AS "id", $SecretRole.role AS "role"`,
 			sample:    exporttypes.SecretRole{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRole)
+				return insertRows(ctx, tx, stmt, dump.SecretRole, nil)
 			},
 		})
 	}
@@ -2184,7 +2283,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_rotate_policy" ("id", "policy") SELECT $SecretRotatePolicy.id AS "id", $SecretRotatePolicy.policy AS "policy"`,
 			sample:    exporttypes.SecretRotatePolicy{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRotatePolicy)
+				return insertRows(ctx, tx, stmt, dump.SecretRotatePolicy, nil)
 			},
 		})
 	}
@@ -2195,7 +2294,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_rotation" ("secret_id", "next_rotation_time") SELECT $SecretRotation.secret_id AS "secret_id", $SecretRotation.next_rotation_time AS "next_rotation_time"`,
 			sample:    exporttypes.SecretRotation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretRotation)
+				return insertRows(ctx, tx, stmt, dump.SecretRotation, nil)
 			},
 		})
 	}
@@ -2206,7 +2305,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_unit_consumer" ("secret_id", "source_model_uuid", "unit_uuid", "label", "current_revision") SELECT $SecretUnitConsumer.secret_id AS "secret_id", $SecretUnitConsumer.source_model_uuid AS "source_model_uuid", $SecretUnitConsumer.unit_uuid AS "unit_uuid", $SecretUnitConsumer.label AS "label", $SecretUnitConsumer.current_revision AS "current_revision"`,
 			sample:    exporttypes.SecretUnitConsumer{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretUnitConsumer)
+				return insertRows(ctx, tx, stmt, dump.SecretUnitConsumer, nil)
 			},
 		})
 	}
@@ -2217,7 +2316,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_unit_owner" ("secret_id", "unit_uuid", "label") SELECT $SecretUnitOwner.secret_id AS "secret_id", $SecretUnitOwner.unit_uuid AS "unit_uuid", $SecretUnitOwner.label AS "label"`,
 			sample:    exporttypes.SecretUnitOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretUnitOwner)
+				return insertRows(ctx, tx, stmt, dump.SecretUnitOwner, nil)
 			},
 		})
 	}
@@ -2228,7 +2327,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "secret_value_ref" ("revision_uuid", "backend_uuid", "revision_id") SELECT $SecretValueRef.revision_uuid AS "revision_uuid", $SecretValueRef.backend_uuid AS "backend_uuid", $SecretValueRef.revision_id AS "revision_id"`,
 			sample:    exporttypes.SecretValueRef{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SecretValueRef)
+				return insertRows(ctx, tx, stmt, dump.SecretValueRef, nil)
 			},
 		})
 	}
@@ -2239,7 +2338,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "sequence" ("namespace", "value") SELECT $Sequence.namespace AS "namespace", $Sequence.value AS "value"`,
 			sample:    exporttypes.Sequence{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Sequence)
+				return insertRows(ctx, tx, stmt, dump.Sequence, nil)
 			},
 		})
 	}
@@ -2250,7 +2349,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "space" ("uuid", "name") SELECT $Space.uuid AS "uuid", $Space.name AS "name"`,
 			sample:    exporttypes.Space{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Space)
+				return insertRows(ctx, tx, stmt, dump.Space, nil)
 			},
 		})
 	}
@@ -2258,10 +2357,19 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "ssh_connection_request",
 			deleteSQL: `DELETE FROM "ssh_connection_request" AS t`,
-			insertSQL: `INSERT INTO "ssh_connection_request" ("tunnel_id", "machine_uuid", "expires_at", "controller_addresses", "unit_port", "ephemeral_public_key") SELECT $SshConnectionRequest.tunnel_id AS "tunnel_id", $SshConnectionRequest.machine_uuid AS "machine_uuid", $SshConnectionRequest.expires_at AS "expires_at", $SshConnectionRequest.controller_addresses AS "controller_addresses", $SshConnectionRequest.unit_port AS "unit_port", $SshConnectionRequest.ephemeral_public_key AS "ephemeral_public_key"`,
-			sample:    exporttypes.SshConnectionRequest{},
+			insertSQL: `INSERT INTO "ssh_connection_request" ("tunnel_id", "machine_uuid", "expires_at", "controller_addresses", "unit_port", "ephemeral_public_key") SELECT $M.tunnel_id AS "tunnel_id", $M.machine_uuid AS "machine_uuid", $M.expires_at AS "expires_at", $M.controller_addresses AS "controller_addresses", $M.unit_port AS "unit_port", $M.ephemeral_public_key AS "ephemeral_public_key"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SshConnectionRequest)
+				return insertRows(ctx, tx, stmt, dump.SshConnectionRequest, func(row exporttypes.SshConnectionRequest) any {
+					return sqlair.M{
+						"tunnel_id":            row.TunnelID,
+						"machine_uuid":         row.MachineUUID,
+						"expires_at":           row.ExpiresAt,
+						"controller_addresses": row.ControllerAddresses,
+						"unit_port":            row.UnitPort,
+						"ephemeral_public_key": binaryValue(row.EphemeralPublicKey),
+					}
+				})
 			},
 		})
 	}
@@ -2272,7 +2380,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "ssh_key_algorithm_type" ("id", "type") SELECT $SshKeyAlgorithmType.id AS "id", $SshKeyAlgorithmType.type AS "type"`,
 			sample:    exporttypes.SshKeyAlgorithmType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.SshKeyAlgorithmType)
+				return insertRows(ctx, tx, stmt, dump.SshKeyAlgorithmType, nil)
 			},
 		})
 	}
@@ -2283,7 +2391,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_attachment" ("uuid", "storage_instance_uuid", "unit_uuid", "life_id") SELECT $StorageAttachment.uuid AS "uuid", $StorageAttachment.storage_instance_uuid AS "storage_instance_uuid", $StorageAttachment.unit_uuid AS "unit_uuid", $StorageAttachment.life_id AS "life_id"`,
 			sample:    exporttypes.StorageAttachment{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageAttachment)
+				return insertRows(ctx, tx, stmt, dump.StorageAttachment, nil)
 			},
 		})
 	}
@@ -2294,7 +2402,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_filesystem" ("uuid", "filesystem_id", "life_id", "provision_scope_id", "provider_id", "size_mib", "obliterate_on_cleanup") SELECT $StorageFilesystem.uuid AS "uuid", $StorageFilesystem.filesystem_id AS "filesystem_id", $StorageFilesystem.life_id AS "life_id", $StorageFilesystem.provision_scope_id AS "provision_scope_id", $StorageFilesystem.provider_id AS "provider_id", $StorageFilesystem.size_mib AS "size_mib", $StorageFilesystem.obliterate_on_cleanup AS "obliterate_on_cleanup"`,
 			sample:    exporttypes.StorageFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageFilesystem)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystem, nil)
 			},
 		})
 	}
@@ -2305,7 +2413,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_filesystem_attachment" ("uuid", "storage_filesystem_uuid", "net_node_uuid", "provision_scope_id", "provider_id", "life_id", "mount_point", "read_only") SELECT $StorageFilesystemAttachment.uuid AS "uuid", $StorageFilesystemAttachment.storage_filesystem_uuid AS "storage_filesystem_uuid", $StorageFilesystemAttachment.net_node_uuid AS "net_node_uuid", $StorageFilesystemAttachment.provision_scope_id AS "provision_scope_id", $StorageFilesystemAttachment.provider_id AS "provider_id", $StorageFilesystemAttachment.life_id AS "life_id", $StorageFilesystemAttachment.mount_point AS "mount_point", $StorageFilesystemAttachment.read_only AS "read_only"`,
 			sample:    exporttypes.StorageFilesystemAttachment{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageFilesystemAttachment)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystemAttachment, nil)
 			},
 		})
 	}
@@ -2316,7 +2424,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_filesystem_status" ("filesystem_uuid", "status_id", "message", "updated_at") SELECT $StorageFilesystemStatus.filesystem_uuid AS "filesystem_uuid", $StorageFilesystemStatus.status_id AS "status_id", $StorageFilesystemStatus.message AS "message", $StorageFilesystemStatus.updated_at AS "updated_at"`,
 			sample:    exporttypes.StorageFilesystemStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageFilesystemStatus)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystemStatus, nil)
 			},
 		})
 	}
@@ -2327,7 +2435,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_filesystem_status_value" ("id", "status") SELECT $StorageFilesystemStatusValue.id AS "id", $StorageFilesystemStatusValue.status AS "status"`,
 			sample:    exporttypes.StorageFilesystemStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageFilesystemStatusValue)
+				return insertRows(ctx, tx, stmt, dump.StorageFilesystemStatusValue, nil)
 			},
 		})
 	}
@@ -2338,7 +2446,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_instance" ("uuid", "charm_name", "storage_name", "storage_kind_id", "storage_id", "life_id", "storage_pool_uuid", "requested_size_mib") SELECT $StorageInstance.uuid AS "uuid", $StorageInstance.charm_name AS "charm_name", $StorageInstance.storage_name AS "storage_name", $StorageInstance.storage_kind_id AS "storage_kind_id", $StorageInstance.storage_id AS "storage_id", $StorageInstance.life_id AS "life_id", $StorageInstance.storage_pool_uuid AS "storage_pool_uuid", $StorageInstance.requested_size_mib AS "requested_size_mib"`,
 			sample:    exporttypes.StorageInstance{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageInstance)
+				return insertRows(ctx, tx, stmt, dump.StorageInstance, nil)
 			},
 		})
 	}
@@ -2349,7 +2457,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_instance_filesystem" ("storage_instance_uuid", "storage_filesystem_uuid") SELECT $StorageInstanceFilesystem.storage_instance_uuid AS "storage_instance_uuid", $StorageInstanceFilesystem.storage_filesystem_uuid AS "storage_filesystem_uuid"`,
 			sample:    exporttypes.StorageInstanceFilesystem{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageInstanceFilesystem)
+				return insertRows(ctx, tx, stmt, dump.StorageInstanceFilesystem, nil)
 			},
 		})
 	}
@@ -2360,7 +2468,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_instance_volume" ("storage_instance_uuid", "storage_volume_uuid") SELECT $StorageInstanceVolume.storage_instance_uuid AS "storage_instance_uuid", $StorageInstanceVolume.storage_volume_uuid AS "storage_volume_uuid"`,
 			sample:    exporttypes.StorageInstanceVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageInstanceVolume)
+				return insertRows(ctx, tx, stmt, dump.StorageInstanceVolume, nil)
 			},
 		})
 	}
@@ -2371,7 +2479,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_kind" ("id", "kind") SELECT $StorageKind.id AS "id", $StorageKind.kind AS "kind"`,
 			sample:    exporttypes.StorageKind{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageKind)
+				return insertRows(ctx, tx, stmt, dump.StorageKind, nil)
 			},
 		})
 	}
@@ -2382,7 +2490,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_pool" ("uuid", "name", "type", "origin_id") SELECT $StoragePool.uuid AS "uuid", $StoragePool.name AS "name", $StoragePool.type AS "type", $StoragePool.origin_id AS "origin_id"`,
 			sample:    exporttypes.StoragePool{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StoragePool)
+				return insertRows(ctx, tx, stmt, dump.StoragePool, nil)
 			},
 		})
 	}
@@ -2393,7 +2501,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_pool_attribute" ("storage_pool_uuid", "key", "value") SELECT $StoragePoolAttribute.storage_pool_uuid AS "storage_pool_uuid", $StoragePoolAttribute.key AS "key", $StoragePoolAttribute.value AS "value"`,
 			sample:    exporttypes.StoragePoolAttribute{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StoragePoolAttribute)
+				return insertRows(ctx, tx, stmt, dump.StoragePoolAttribute, nil)
 			},
 		})
 	}
@@ -2404,7 +2512,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_pool_origin" ("id", "origin") SELECT $StoragePoolOrigin.id AS "id", $StoragePoolOrigin.origin AS "origin"`,
 			sample:    exporttypes.StoragePoolOrigin{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StoragePoolOrigin)
+				return insertRows(ctx, tx, stmt, dump.StoragePoolOrigin, nil)
 			},
 		})
 	}
@@ -2415,7 +2523,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_provision_scope" ("id", "scope") SELECT $StorageProvisionScope.id AS "id", $StorageProvisionScope.scope AS "scope"`,
 			sample:    exporttypes.StorageProvisionScope{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageProvisionScope)
+				return insertRows(ctx, tx, stmt, dump.StorageProvisionScope, nil)
 			},
 		})
 	}
@@ -2426,7 +2534,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_unit_owner" ("storage_instance_uuid", "unit_uuid") SELECT $StorageUnitOwner.storage_instance_uuid AS "storage_instance_uuid", $StorageUnitOwner.unit_uuid AS "unit_uuid"`,
 			sample:    exporttypes.StorageUnitOwner{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageUnitOwner)
+				return insertRows(ctx, tx, stmt, dump.StorageUnitOwner, nil)
 			},
 		})
 	}
@@ -2437,7 +2545,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume" ("uuid", "volume_id", "life_id", "provision_scope_id", "provider_id", "size_mib", "hardware_id", "wwn", "persistent", "obliterate_on_cleanup") SELECT $StorageVolume.uuid AS "uuid", $StorageVolume.volume_id AS "volume_id", $StorageVolume.life_id AS "life_id", $StorageVolume.provision_scope_id AS "provision_scope_id", $StorageVolume.provider_id AS "provider_id", $StorageVolume.size_mib AS "size_mib", $StorageVolume.hardware_id AS "hardware_id", $StorageVolume.wwn AS "wwn", $StorageVolume.persistent AS "persistent", $StorageVolume.obliterate_on_cleanup AS "obliterate_on_cleanup"`,
 			sample:    exporttypes.StorageVolume{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolume)
+				return insertRows(ctx, tx, stmt, dump.StorageVolume, nil)
 			},
 		})
 	}
@@ -2448,7 +2556,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume_attachment" ("uuid", "storage_volume_uuid", "net_node_uuid", "life_id", "provision_scope_id", "provider_id", "block_device_uuid", "read_only") SELECT $StorageVolumeAttachment.uuid AS "uuid", $StorageVolumeAttachment.storage_volume_uuid AS "storage_volume_uuid", $StorageVolumeAttachment.net_node_uuid AS "net_node_uuid", $StorageVolumeAttachment.life_id AS "life_id", $StorageVolumeAttachment.provision_scope_id AS "provision_scope_id", $StorageVolumeAttachment.provider_id AS "provider_id", $StorageVolumeAttachment.block_device_uuid AS "block_device_uuid", $StorageVolumeAttachment.read_only AS "read_only"`,
 			sample:    exporttypes.StorageVolumeAttachment{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachment)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachment, nil)
 			},
 		})
 	}
@@ -2459,7 +2567,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume_attachment_plan" ("uuid", "storage_volume_uuid", "net_node_uuid", "life_id", "provision_scope_id", "device_type_id") SELECT $StorageVolumeAttachmentPlan.uuid AS "uuid", $StorageVolumeAttachmentPlan.storage_volume_uuid AS "storage_volume_uuid", $StorageVolumeAttachmentPlan.net_node_uuid AS "net_node_uuid", $StorageVolumeAttachmentPlan.life_id AS "life_id", $StorageVolumeAttachmentPlan.provision_scope_id AS "provision_scope_id", $StorageVolumeAttachmentPlan.device_type_id AS "device_type_id"`,
 			sample:    exporttypes.StorageVolumeAttachmentPlan{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachmentPlan)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachmentPlan, nil)
 			},
 		})
 	}
@@ -2470,7 +2578,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume_attachment_plan_attr" ("attachment_plan_uuid", "key", "value") SELECT $StorageVolumeAttachmentPlanAttr.attachment_plan_uuid AS "attachment_plan_uuid", $StorageVolumeAttachmentPlanAttr.key AS "key", $StorageVolumeAttachmentPlanAttr.value AS "value"`,
 			sample:    exporttypes.StorageVolumeAttachmentPlanAttr{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachmentPlanAttr)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeAttachmentPlanAttr, nil)
 			},
 		})
 	}
@@ -2481,7 +2589,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume_device_type" ("id", "name", "description") SELECT $StorageVolumeDeviceType.id AS "id", $StorageVolumeDeviceType.name AS "name", $StorageVolumeDeviceType.description AS "description"`,
 			sample:    exporttypes.StorageVolumeDeviceType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolumeDeviceType)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeDeviceType, nil)
 			},
 		})
 	}
@@ -2492,7 +2600,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume_status" ("volume_uuid", "status_id", "message", "updated_at") SELECT $StorageVolumeStatus.volume_uuid AS "volume_uuid", $StorageVolumeStatus.status_id AS "status_id", $StorageVolumeStatus.message AS "message", $StorageVolumeStatus.updated_at AS "updated_at"`,
 			sample:    exporttypes.StorageVolumeStatus{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolumeStatus)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeStatus, nil)
 			},
 		})
 	}
@@ -2503,7 +2611,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "storage_volume_status_value" ("id", "status") SELECT $StorageVolumeStatusValue.id AS "id", $StorageVolumeStatusValue.status AS "status"`,
 			sample:    exporttypes.StorageVolumeStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.StorageVolumeStatusValue)
+				return insertRows(ctx, tx, stmt, dump.StorageVolumeStatusValue, nil)
 			},
 		})
 	}
@@ -2514,7 +2622,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "subnet" ("uuid", "cidr", "vlan_tag", "space_uuid") SELECT $Subnet.uuid AS "uuid", $Subnet.cidr AS "cidr", $Subnet.vlan_tag AS "vlan_tag", $Subnet.space_uuid AS "space_uuid"`,
 			sample:    exporttypes.Subnet{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Subnet)
+				return insertRows(ctx, tx, stmt, dump.Subnet, nil)
 			},
 		})
 	}
@@ -2525,7 +2633,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit" ("uuid", "name", "life_id", "application_uuid", "net_node_uuid", "charm_uuid", "password_hash_algorithm_id", "password_hash") SELECT $Unit.uuid AS "uuid", $Unit.name AS "name", $Unit.life_id AS "life_id", $Unit.application_uuid AS "application_uuid", $Unit.net_node_uuid AS "net_node_uuid", $Unit.charm_uuid AS "charm_uuid", $Unit.password_hash_algorithm_id AS "password_hash_algorithm_id", $Unit.password_hash AS "password_hash"`,
 			sample:    exporttypes.Unit{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.Unit)
+				return insertRows(ctx, tx, stmt, dump.Unit, nil)
 			},
 		})
 	}
@@ -2536,7 +2644,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_agent_presence" ("unit_uuid", "last_seen") SELECT $UnitAgentPresence.unit_uuid AS "unit_uuid", $UnitAgentPresence.last_seen AS "last_seen"`,
 			sample:    exporttypes.UnitAgentPresence{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitAgentPresence)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentPresence, nil)
 			},
 		})
 	}
@@ -2544,10 +2652,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_agent_status",
 			deleteSQL: `DELETE FROM "unit_agent_status" AS t`,
-			insertSQL: `INSERT INTO "unit_agent_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $UnitAgentStatus.unit_uuid AS "unit_uuid", $UnitAgentStatus.status_id AS "status_id", $UnitAgentStatus.message AS "message", CAST($UnitAgentStatus.data AS BLOB) AS "data", $UnitAgentStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.UnitAgentStatus{},
+			insertSQL: `INSERT INTO "unit_agent_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $M.unit_uuid AS "unit_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitAgentStatus)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentStatus, func(row exporttypes.UnitAgentStatus) any {
+					return sqlair.M{
+						"unit_uuid":  row.UnitUUID,
+						"status_id":  row.StatusID,
+						"message":    row.Message,
+						"data":       nullableBinaryValue(row.Data),
+						"updated_at": row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -2558,7 +2674,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_agent_status_value" ("id", "status") SELECT $UnitAgentStatusValue.id AS "id", $UnitAgentStatusValue.status AS "status"`,
 			sample:    exporttypes.UnitAgentStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitAgentStatusValue)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentStatusValue, nil)
 			},
 		})
 	}
@@ -2569,7 +2685,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_agent_version" ("unit_uuid", "version", "architecture_id") SELECT $UnitAgentVersion.unit_uuid AS "unit_uuid", $UnitAgentVersion.version AS "version", $UnitAgentVersion.architecture_id AS "architecture_id"`,
 			sample:    exporttypes.UnitAgentVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitAgentVersion)
+				return insertRows(ctx, tx, stmt, dump.UnitAgentVersion, nil)
 			},
 		})
 	}
@@ -2580,7 +2696,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_principal" ("unit_uuid", "principal_uuid") SELECT $UnitPrincipal.unit_uuid AS "unit_uuid", $UnitPrincipal.principal_uuid AS "principal_uuid"`,
 			sample:    exporttypes.UnitPrincipal{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitPrincipal)
+				return insertRows(ctx, tx, stmt, dump.UnitPrincipal, nil)
 			},
 		})
 	}
@@ -2591,7 +2707,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_resolved" ("unit_uuid", "mode_id") SELECT $UnitResolved.unit_uuid AS "unit_uuid", $UnitResolved.mode_id AS "mode_id"`,
 			sample:    exporttypes.UnitResolved{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitResolved)
+				return insertRows(ctx, tx, stmt, dump.UnitResolved, nil)
 			},
 		})
 	}
@@ -2602,7 +2718,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_resource" ("resource_uuid", "unit_uuid", "charm_resource_name", "added_at") SELECT $UnitResource.resource_uuid AS "resource_uuid", $UnitResource.unit_uuid AS "unit_uuid", $UnitResource.charm_resource_name AS "charm_resource_name", $UnitResource.added_at AS "added_at"`,
 			sample:    exporttypes.UnitResource{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitResource)
+				return insertRows(ctx, tx, stmt, dump.UnitResource, nil)
 			},
 		})
 	}
@@ -2613,7 +2729,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_state" ("unit_uuid", "uniter_state", "storage_state", "secret_state") SELECT $UnitState.unit_uuid AS "unit_uuid", $UnitState.uniter_state AS "uniter_state", $UnitState.storage_state AS "storage_state", $UnitState.secret_state AS "secret_state"`,
 			sample:    exporttypes.UnitState{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitState)
+				return insertRows(ctx, tx, stmt, dump.UnitState, nil)
 			},
 		})
 	}
@@ -2624,7 +2740,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_state_charm" ("unit_uuid", "key", "value") SELECT $UnitStateCharm.unit_uuid AS "unit_uuid", $UnitStateCharm.key AS "key", $UnitStateCharm.value AS "value"`,
 			sample:    exporttypes.UnitStateCharm{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitStateCharm)
+				return insertRows(ctx, tx, stmt, dump.UnitStateCharm, nil)
 			},
 		})
 	}
@@ -2635,7 +2751,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_state_relation" ("unit_uuid", "key", "value") SELECT $UnitStateRelation.unit_uuid AS "unit_uuid", $UnitStateRelation.key AS "key", $UnitStateRelation.value AS "value"`,
 			sample:    exporttypes.UnitStateRelation{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitStateRelation)
+				return insertRows(ctx, tx, stmt, dump.UnitStateRelation, nil)
 			},
 		})
 	}
@@ -2646,7 +2762,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_storage_directive" ("unit_uuid", "charm_uuid", "storage_name", "storage_pool_uuid", "size_mib", "count") SELECT $UnitStorageDirective.unit_uuid AS "unit_uuid", $UnitStorageDirective.charm_uuid AS "charm_uuid", $UnitStorageDirective.storage_name AS "storage_name", $UnitStorageDirective.storage_pool_uuid AS "storage_pool_uuid", $UnitStorageDirective.size_mib AS "size_mib", $UnitStorageDirective.count AS "count"`,
 			sample:    exporttypes.UnitStorageDirective{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitStorageDirective)
+				return insertRows(ctx, tx, stmt, dump.UnitStorageDirective, nil)
 			},
 		})
 	}
@@ -2657,7 +2773,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_virtual_ssh_host_key" ("unit_uuid", "algorithm_type_id", "ssh_key") SELECT $UnitVirtualSshHostKey.unit_uuid AS "unit_uuid", $UnitVirtualSshHostKey.algorithm_type_id AS "algorithm_type_id", $UnitVirtualSshHostKey.ssh_key AS "ssh_key"`,
 			sample:    exporttypes.UnitVirtualSshHostKey{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitVirtualSshHostKey)
+				return insertRows(ctx, tx, stmt, dump.UnitVirtualSshHostKey, nil)
 			},
 		})
 	}
@@ -2665,10 +2781,18 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 		tables = append(tables, replayTable{
 			name:      "unit_workload_status",
 			deleteSQL: `DELETE FROM "unit_workload_status" AS t`,
-			insertSQL: `INSERT INTO "unit_workload_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $UnitWorkloadStatus.unit_uuid AS "unit_uuid", $UnitWorkloadStatus.status_id AS "status_id", $UnitWorkloadStatus.message AS "message", CAST($UnitWorkloadStatus.data AS BLOB) AS "data", $UnitWorkloadStatus.updated_at AS "updated_at"`,
-			sample:    exporttypes.UnitWorkloadStatus{},
+			insertSQL: `INSERT INTO "unit_workload_status" ("unit_uuid", "status_id", "message", "data", "updated_at") SELECT $M.unit_uuid AS "unit_uuid", $M.status_id AS "status_id", $M.message AS "message", $M.data AS "data", $M.updated_at AS "updated_at"`,
+			sample:    sqlair.M{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitWorkloadStatus)
+				return insertRows(ctx, tx, stmt, dump.UnitWorkloadStatus, func(row exporttypes.UnitWorkloadStatus) any {
+					return sqlair.M{
+						"unit_uuid":  row.UnitUUID,
+						"status_id":  row.StatusID,
+						"message":    row.Message,
+						"data":       nullableBinaryValue(row.Data),
+						"updated_at": row.UpdatedAt,
+					}
+				})
 			},
 		})
 	}
@@ -2679,7 +2803,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "unit_workload_version" ("unit_uuid", "version") SELECT $UnitWorkloadVersion.unit_uuid AS "unit_uuid", $UnitWorkloadVersion.version AS "version"`,
 			sample:    exporttypes.UnitWorkloadVersion{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.UnitWorkloadVersion)
+				return insertRows(ctx, tx, stmt, dump.UnitWorkloadVersion, nil)
 			},
 		})
 	}
@@ -2690,7 +2814,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "virtual_port_type" ("id", "name") SELECT $VirtualPortType.id AS "id", $VirtualPortType.name AS "name"`,
 			sample:    exporttypes.VirtualPortType{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.VirtualPortType)
+				return insertRows(ctx, tx, stmt, dump.VirtualPortType, nil)
 			},
 		})
 	}
@@ -2701,7 +2825,7 @@ func (st *State) LoadModelDump(ctx context.Context, dump *recovery.ModelDump, no
 			insertSQL: `INSERT INTO "workload_status_value" ("id", "status") SELECT $WorkloadStatusValue.id AS "id", $WorkloadStatusValue.status AS "status"`,
 			sample:    exporttypes.WorkloadStatusValue{},
 			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-				return insertRows(ctx, tx, stmt, dump.WorkloadStatusValue)
+				return insertRows(ctx, tx, stmt, dump.WorkloadStatusValue, nil)
 			},
 		})
 	}

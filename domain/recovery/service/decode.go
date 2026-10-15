@@ -50,8 +50,8 @@ func decodeRows[T any](rows []row, binaryColumns ...string) ([]T, error) {
 				kind = field.Type.Elem().Kind()
 			}
 			if kind == reflect.String {
-				// Legacy TEXT columns use export strings. The generated INSERT
-				// casts them to BLOBs to match their domain writers.
+				// Legacy TEXT columns use export strings. Replay converts them
+				// to byte bindings before they reach the database driver.
 				converted[i][column] = string(decoded)
 			} else {
 				converted[i][column] = decoded

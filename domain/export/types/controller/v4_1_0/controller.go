@@ -181,7 +181,7 @@ type ControllerApiAddress struct {
 	ControllerID string `db:"controller_id" json:"controller_id" yaml:"controller_id"`
 	Address      string `db:"address" json:"address" yaml:"address"`
 	IsAgent      *bool  `db:"is_agent" json:"is_agent" yaml:"is_agent"`
-	Scope        any    `db:"scope" json:"scope" yaml:"scope"`
+	Scope        string `db:"scope" json:"scope" yaml:"scope"`
 }
 
 type ControllerClientAddress struct {

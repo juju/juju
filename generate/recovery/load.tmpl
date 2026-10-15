@@ -6,13 +6,12 @@
 package state
 
 import (
-    "context"
+	"context"
 
-"github.com/canonical/sqlair"
+	"github.com/canonical/sqlair"
 
-
-    exporttypes "{{ .ExportPath }}"
-    "github.com/juju/juju/domain/recovery"
+	exporttypes "{{ .ExportPath }}"
+	"github.com/juju/juju/domain/recovery"
 )
 
 // Load{{ .Prefix }}Dump replaces the selected tables in one transaction.
@@ -20,22 +19,37 @@ import (
 // immutable tables must be empty so their row-level delete guards do not fire.
 // Runtime tables are excluded by the generated recovery policy. The caller
 // supplies the target node ID where the archived blobs have been restored.
+// Replay must complete before starting watchers and workers.
 func (st *State) Load{{ .Prefix }}Dump(ctx context.Context, dump *recovery.{{ .Prefix }}Dump, nodeID string) error {
-    var tables []replayTable
+	var tables []replayTable
 {{- range .Tables }}
 {{- if not .Exclusion }}
-    if dump.Present["{{ .Name }}"] {
-        tables = append(tables, replayTable{
-            name: "{{ .Name }}",
-            deleteSQL: `DELETE FROM "{{ .Name }}" AS t`,
-            insertSQL: `{{ .Insert }}`,
-            sample: exporttypes.{{ .Struct }}{},
-            insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
-                return insertRows(ctx, tx, stmt, dump.{{ .Struct }})
-            },
-        })
-    }
+	if dump.Present["{{ .Name }}"] {
+		tables = append(tables, replayTable{
+			name: "{{ .Name }}",
+			deleteSQL: `DELETE FROM "{{ .Name }}" AS t`,
+			insertSQL: `{{ .Insert }}`,
+			{{- if .HasBinary }}
+			sample: sqlair.M{},
+			{{- else }}
+			sample: exporttypes.{{ .Struct }}{},
+			{{- end }}
+			insertRows: func(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement) error {
+				{{- if .HasBinary }}
+				return insertRows(ctx, tx, stmt, dump.{{ .Struct }}, func(row exporttypes.{{ .Struct }}) any {
+					return sqlair.M{
+						{{- range .Columns }}
+						"{{ .Name }}": {{ if .Binary }}{{ if .Nullable }}nullableBinaryValue{{ else }}binaryValue{{ end }}(row.{{ .Field }}){{ else }}row.{{ .Field }}{{ end }},
+						{{- end }}
+					}
+				})
+				{{- else }}
+				return insertRows(ctx, tx, stmt, dump.{{ .Struct }}, nil)
+				{{- end }}
+			},
+		})
+	}
 {{- end }}
 {{- end }}
-    return st.loadTables(ctx, tables, nodeID)
+	return st.loadTables(ctx, tables, nodeID)
 }
