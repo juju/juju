@@ -22,9 +22,11 @@ bootstrap_controller_36() {
 	name=${1}
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	"lxd")
-		cloud_region="${BOOTSTRAP_CLOUD:-localhost}"
-		;;
+	# TODO(nvinuesa): bring the lxd cloud back once we figure out how to do the
+	# 3.6 snap install without parallel instances, which break lxd.
+	# "lxd")
+	# 	cloud_region="${BOOTSTRAP_CLOUD:-localhost}"
+	# 	;;
 	"ec2")
 		cloud_region="aws/${BOOTSTRAP_REGION:-us-east-1}"
 		;;
