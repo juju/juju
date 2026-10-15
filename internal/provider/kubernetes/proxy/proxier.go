@@ -5,6 +5,7 @@ package proxy
 
 import (
 	"context"
+	stderrors "errors"
 	"net"
 	"net/url"
 	"strings"
@@ -107,27 +108,26 @@ func (p *Proxier) Port() string {
 
 const (
 	retryableProxyError        = "etcdserver: leader changed"
-	forwardingPortsErrorPrefix = "forwarding ports:"
 	maxProxyConnectionAttempts = 3
 	proxyConnectionRetryDelay  = time.Second
 )
 
 // isRetryableProxyError matches the transient etcd leader-change error.
-// Kubernetes returns server-side errors as StatusError. The forwarding ports
-// prefix is checked because client-go's port-forwarding path formats the
-// server error as "forwarding ports: <error>".
+// Kubernetes may return this as an internal server error or as an error
+// wrapped by the port-forwarding implementation.
 func isRetryableProxyError(err error) bool {
-	if err == nil {
-		return false
-	}
-
 	cause := errors.Cause(err)
+
 	if apierrors.IsInternalError(cause) {
 		return strings.Contains(cause.Error(), retryableProxyError)
 	}
 
-	return strings.HasPrefix(err.Error(), forwardingPortsErrorPrefix) &&
-		strings.Contains(err.Error(), retryableProxyError)
+	var portForwardErr *kubernetes.PortForwardError
+	if stderrors.As(cause, &portForwardErr) {
+		return portForwardErr.Err != nil &&
+			strings.Contains(portForwardErr.Err.Error(), retryableProxyError)
+	}
+	return false
 }
 
 func (p *Proxier) Start(ctx context.Context) (err error) {
@@ -148,12 +148,12 @@ func (p *Proxier) Start(ctx context.Context) (err error) {
 				return errors.Trace(tunnelErr)
 			}
 
-			p.tunnel = tunnel
-
 			if err := tunnel.ForwardPort(ctx); err != nil {
 				tunnel.Close()
 				return err
 			}
+
+			p.tunnel = tunnel
 			return nil
 		},
 		IsFatalError: func(err error) bool {

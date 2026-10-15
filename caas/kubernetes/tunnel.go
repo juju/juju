@@ -55,6 +55,22 @@ const (
 	TunnelKindServices = TunnelKind("services")
 )
 
+// PortForwardError represents an error encountered while forwarding ports
+// through a Kubernetes tunnel.
+type PortForwardError struct {
+	Err error
+}
+
+// Error returns the port-forwarding error message.
+func (e *PortForwardError) Error() string {
+	return fmt.Sprintf("forwarding ports: %v", e.Err)
+}
+
+// Unwrap returns the underlying port-forwarding error.
+func (e *PortForwardError) Unwrap() error {
+	return e.Err
+}
+
 // Close disconnects a tunnel connection
 func (t *Tunnel) Close() {
 	select {
@@ -154,7 +170,7 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 		return ctx.Err()
 	case err = <-errChan:
 		close(t.stopChan)
-		return fmt.Errorf("forwarding ports: %v", err)
+		return &PortForwardError{Err: err}
 	case <-pf.Ready:
 		return nil
 	}
