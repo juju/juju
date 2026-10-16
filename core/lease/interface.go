@@ -20,6 +20,10 @@ const (
 	// ObjectStoreNamespace is the namespace used to manage
 	// object store files.
 	ObjectStoreNamespace = "object-store"
+
+	// BackupCreationNamespace serialises archive creation across the
+	// controller.
+	BackupCreationNamespace = "backup-creation"
 )
 
 // Waiter exposes the lease expiry notification capabilities.

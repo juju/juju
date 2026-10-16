@@ -5,7 +5,9 @@ package modelcmd
 
 import (
 	"context"
+	"maps"
 	"os"
+	"slices"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
@@ -187,7 +189,7 @@ func DetectCredential(cloudName string, provider environs.EnvironProvider) (*clo
 			err, "detecting credentials for %q cloud provider", cloudName,
 		)
 	}
-	logger.Tracef(context.TODO(), "provider detected credentials: %v", detected)
+	logger.Tracef(context.TODO(), "provider detected credentials: %v", slices.Sorted(maps.Keys(detected.AuthCredentials)))
 	if len(detected.AuthCredentials) == 0 {
 		return nil, errors.NotFoundf("credentials for cloud %q", cloudName)
 	}
@@ -213,7 +215,7 @@ func RegisterCredentials(provider environs.EnvironProvider, args RegisterCredent
 				err, "registering credentials for provider",
 			)
 		}
-		logger.Tracef(context.TODO(), "provider registered credentials: %v", found)
+		logger.Tracef(context.TODO(), "provider registered credentials: %v", slices.Sorted(maps.Keys(found)))
 		if len(found) == 0 {
 			return nil, errors.NotFoundf("credentials for provider")
 		}

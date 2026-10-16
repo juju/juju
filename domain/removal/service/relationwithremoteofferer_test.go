@@ -15,7 +15,6 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
-	"github.com/juju/juju/domain/removal/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -37,7 +36,7 @@ func (s *relationWithRemoteOffererSuite) TestRemoveRelationWithRemoteOffererNoFo
 
 	exp := s.modelState.EXPECT()
 	exp.RelationWithRemoteOffererExists(gomock.Any(), relUUID.String()).Return(true, nil)
-	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelationWithRemoteOfferer(c.Context(), relUUID, false, 0)
@@ -55,7 +54,7 @@ func (s *relationWithRemoteOffererSuite) TestRemoveRelationWithRemoteOffererForc
 
 	exp := s.modelState.EXPECT()
 	exp.RelationWithRemoteOffererExists(gomock.Any(), relUUID.String()).Return(true, nil)
-	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(nil)
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelationWithRemoteOfferer(c.Context(), relUUID, true, 0)
@@ -73,7 +72,7 @@ func (s *relationWithRemoteOffererSuite) TestRemoveRelationWithRemoteOffererForc
 
 	exp := s.modelState.EXPECT()
 	exp.RelationWithRemoteOffererExists(gomock.Any(), relUUID.String()).Return(true, nil)
-	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(internal.CascadedRelationWithRemoteOffererLives{}, nil)
+	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(nil)
 
 	// The first normal removal scheduled immediately.
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), false, when.UTC()).Return(nil)
@@ -82,30 +81,6 @@ func (s *relationWithRemoteOffererSuite) TestRemoveRelationWithRemoteOffererForc
 	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), true, when.UTC().Add(time.Minute)).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelationWithRemoteOfferer(c.Context(), relUUID, true, time.Minute)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
-}
-
-func (s *relationWithRemoteOffererSuite) TestRemoveRelationWithRemoteOffererDepartedSyntheticUnits(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	relUUID := tc.Must(c, relation.NewUUID)
-	relUnitUUID1 := tc.Must(c, relation.NewUnitUUID)
-	relUnitUUID2 := tc.Must(c, relation.NewUnitUUID)
-
-	when := time.Now()
-	s.clock.EXPECT().Now().Return(when).MinTimes(1)
-
-	exp := s.modelState.EXPECT()
-	exp.RelationWithRemoteOffererExists(gomock.Any(), relUUID.String()).Return(true, nil)
-	exp.EnsureRelationWithRemoteOffererNotAliveCascade(gomock.Any(), relUUID.String()).Return(internal.CascadedRelationWithRemoteOffererLives{
-		SyntheticRelationUnitUUIDs: []string{relUnitUUID1.String(), relUnitUUID2.String()},
-	}, nil)
-	exp.LeaveScope(gomock.Any(), relUnitUUID1.String()).Return(nil)
-	exp.LeaveScope(gomock.Any(), relUnitUUID2.String()).Return(nil)
-	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), relUUID.String(), false, when.UTC()).Return(nil)
-
-	jobUUID, err := s.newService(c).RemoveRelationWithRemoteOfferer(c.Context(), relUUID, false, 0)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
 }

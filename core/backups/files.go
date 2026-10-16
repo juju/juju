@@ -18,11 +18,6 @@ const (
 	initDir        = "init"
 	objectstoreDir = "objectstore"
 
-	// objectstoreTmpDir matches the directory the object store stages
-	// uploads in before they are persisted
-	// (internal/objectstore's defaultTempDirectoryName).
-	objectstoreTmpDir = "tmp"
-
 	sshIdentFile = "system-identity"
 	serverPEM    = "server.pem"
 	dbSecret     = "shared-secret"
@@ -61,39 +56,46 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 		return nil, errors.Errorf("failed to fetch service config files: %w", err)
 	}
 
-	// The objectstore (charms, resources and agent binaries) and the
-	// tools directory must be there; a failure to walk them is fatal.
+	// The tools directory must be there; a failure to walk it is fatal.
 	backupFiles := []string{
-		filepath.Join(rootDir, paths.DataDir, objectstoreDir),
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 	}
 
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, serviceConfs...)
 
-	// The following files might not exist; skip the missing ones.
+	// The following files might not exist; skip the missing ones. The
+	// SSH authorized keys of the host user are provenance only, and may
+	// additionally be present but unreadable in container environments
+	// where the apiserver runs as a non-host user: that is not a backup
+	// failure. Permission errors on the other optional files — Juju's
+	// own data-dir files — still fail the backup.
+	sshAuthKeysPath := filepath.Join(rootDir, SSHDir, authKeysFile)
 	optional := []string{
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
 		filepath.Join(rootDir, paths.DataDir, serverPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 		filepath.Join(rootDir, paths.DataDir, nonceFile),
-		filepath.Join(rootDir, SSHDir, authKeysFile),
+		sshAuthKeysPath,
 	}
 	for _, file := range optional {
 		if _, err := os.Stat(file); err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
-				return nil, errors.Capture(err)
+			if errors.Is(err, os.ErrNotExist) {
+				continue
 			}
-			continue
+			if errors.Is(err, os.ErrPermission) && file == sshAuthKeysPath {
+				continue
+			}
+			return nil, errors.Capture(err)
 		}
 		backupFiles = append(backupFiles, file)
 	}
 
-	// The object store stages uploads that have not been persisted in
-	// <objectstore>/<namespace>/tmp directories; those files never
-	// made it into the object store, so they are not backed up.
-	objectstoreRoot := filepath.Join(rootDir, paths.DataDir, objectstoreDir)
-
+	// The object store directory is intentionally not collected here:
+	// object contents reach the archive through the object entries
+	// derived from the database dumps, which works for both the file
+	// and S3 backends, so a backup does not depend on a local cache of
+	// S3 objects.
 	var finalBackupFiles []string
 	for _, file := range backupFiles {
 		err := filepath.Walk(file,
@@ -102,14 +104,27 @@ var GetFilesToBackUp = func(rootDir string, paths *Paths) ([]string, error) {
 					return err
 				}
 				if info.IsDir() {
-					if info.Name() == objectstoreTmpDir &&
-						filepath.Dir(filepath.Dir(path)) == objectstoreRoot {
-						return filepath.SkipDir
-					}
 					return nil
 				}
-				if info.Mode().IsRegular() ||
-					info.Mode()&os.ModeSymlink != 0 {
+				if info.Mode().IsRegular() {
+					finalBackupFiles = append(finalBackupFiles, path)
+				} else if info.Mode()&os.ModeSymlink != 0 {
+					// A dangling symlink cannot be archived: tar'ing a
+					// symlink opens its target, which fails for a
+					// broken link. Hook-tool symlinks dangle when a
+					// unit's tools directory is wiped and recreated;
+					// a disaster-recovery snapshot must not fail on
+					// them, and recovery never installs archived tools
+					// anyway. Only a missing target is skipped: any
+					// other stat failure — an unreadable target, a
+					// link loop — still fails the backup rather than
+					// silently dropping an intact symlink.
+					if _, err := os.Stat(path); err != nil {
+						if errors.Is(err, os.ErrNotExist) {
+							return nil
+						}
+						return err
+					}
 					finalBackupFiles = append(finalBackupFiles, path)
 				}
 				return nil

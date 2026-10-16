@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/auditconfigupdater"
+	"github.com/juju/juju/internal/worker/backupcreation"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/certupdater"
 	"github.com/juju/juju/internal/worker/changestream"
@@ -79,6 +80,7 @@ import (
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
 	"github.com/juju/juju/internal/worker/objectstorefacade"
+	"github.com/juju/juju/internal/worker/objectstoreguard"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/objectstoreservices"
 	"github.com/juju/juju/internal/worker/providerservices"
@@ -465,6 +467,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Entity:           config.ControllerTag,
 			NewWorker:        singular.NewFlagWorker,
 		}),
+		isNotPrimaryControllerFlagName: singular.NotPrimaryControllerFlagManifold(isPrimaryControllerFlagName),
 
 		// The logging config updater controls the messages sent via the
 		// log sender, according to changes in environment config.
@@ -558,6 +561,24 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewModelLogger: logsink.NewModelLogger,
 		}),
 
+		// backupCreatorName owns backup archive creation. It acquires and
+		// renews the controller backup lease while the archive is
+		// generated, and the API server consumes its output when a backup
+		// is requested.
+		backupCreatorName: backupcreation.Manifold(backupcreation.ManifoldConfig{
+			LeaseManagerName:    leaseManagerName,
+			DomainServicesName:  domainServicesName,
+			ObjectStoreName:     objectStoreFacadeName,
+			ControllerUUID:      config.ControllerUUID,
+			ControllerModelUUID: config.ControllerModelUUID,
+			ControllerNodeID:    config.ControllerID,
+			ControllerTag:       config.ControllerAgentTag,
+			LocalConfigReader:   config.StartupValueProvider,
+			Clock:               config.Clock,
+			Logger:              internallogger.GetLogger("juju.worker.backupcreation"),
+			NewWorker:           backupcreation.NewWorker,
+		}),
+
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
@@ -577,6 +598,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			WatcherRegistryName:    watcherRegistryName,
 			FlightRecorderName:     flightRecorderName,
 			ProviderTrackerName:    providerTrackerName,
+			BackupCreator:          backupCreatorName,
 
 			// Note that although there is a transient dependency on
 			// dbaccessor via changestream, the direct dependency
@@ -751,6 +773,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetDomainServicesGetter:    sshserver.GetDomainServicesGetter,
 			GetSSHService:              sshserver.GetSSHService,
 			PrometheusRegisterer:       config.PrometheusRegisterer,
+			Clock:                      config.Clock,
 		}),
 
 		// The ssh tunneler worker creates reverse SSH tunnels to machines.
@@ -786,6 +809,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                       objectstoredrainer.NewWorker,
 			Clock:                           config.Clock,
 			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
+		})),
+
+		// Only the primary drains data. The other controller agents keep
+		// their local object-store fortress synchronized with the drain phase.
+		objectStoreGuardName: ifNotPrimaryController(objectstoreguard.Manifold(objectstoreguard.ManifoldConfig{
+			ObjectStoreServicesName: objectStoreServicesName,
+			ObjectStoreName:         objectStoreName,
+			FortressName:            objectStoreFortressName,
+			GetDrainingService:      objectstoreguard.GetDrainingService,
+			NewWorker:               objectstoreguard.NewWorker,
+			Logger:                  internallogger.GetLogger("juju.worker.objectstoreguard"),
 		})),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
@@ -1229,6 +1263,12 @@ var ifPrimaryController = engine.Housing{
 	},
 }.Decorate
 
+var ifNotPrimaryController = engine.Housing{
+	Flags: []string{
+		isNotPrimaryControllerFlagName,
+	},
+}.Decorate
+
 var ifDatabaseUpgradeComplete = engine.Housing{
 	Flags: []string{
 		upgradeDatabaseFlagName,
@@ -1253,6 +1293,7 @@ type ControllerStartupValueProvider interface {
 	controllerlogger.LoggingOverrideReader
 	identityfilewriter.SystemIdentityReader
 	logrouter.LokiConfigProvider
+	backupcreation.LocalConfigReader
 }
 
 const (
@@ -1291,6 +1332,7 @@ const (
 	apiRemoteCallerName                = "api-remote-caller"
 	apiRemoteRelationCallerName        = "api-remote-relation-caller"
 	auditConfigUpdaterName             = "audit-config-updater"
+	backupCreatorName                  = "backup-creation"
 	certificateUpdaterName             = "certificate-updater"
 	certificateWatcherName             = "certificate-watcher"
 	changeStreamName                   = "change-stream"
@@ -1306,6 +1348,7 @@ const (
 	httpServerArgsName                 = "http-server-args"
 	httpServerName                     = "http-server"
 	identityFileWriterName             = "ssh-identity-writer"
+	isNotPrimaryControllerFlagName     = "is-not-primary-controller-flag"
 	isPrimaryControllerFlagName        = "is-primary-controller-flag"
 	jwtParserName                      = "jwt-parser"
 	leaseExpiryName                    = "lease-expiry"
@@ -1321,6 +1364,7 @@ const (
 	objectStoreFortressName            = "object-store-fortress"
 	objectStoreFacadeName              = "object-store-facade"
 	objectStoreDrainerName             = "object-store-drainer"
+	objectStoreGuardName               = "object-store-guard"
 	providerDomainServicesName         = "provider-services"
 	providerTrackerName                = "provider-tracker"
 	queryLoggerName                    = "query-logger"

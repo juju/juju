@@ -5,8 +5,8 @@ package sshserver
 
 import (
 	"context"
-	"sync"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
@@ -16,7 +16,11 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
+	internalworker "github.com/juju/juju/internal/worker"
 )
+
+// serverWorkerName is the runner ID and report key of the inner server worker.
+const serverWorkerName = "ssh-server"
 
 // ControllerConfigService is the interface that the worker uses to get the
 // controller configuration.
@@ -40,6 +44,13 @@ type SSHService interface {
 	MachineForDestination(context.Context, virtualhostname.Info) (coremachine.Name, error)
 	// SSHServerHostKey returns the controller's SSH server host key.
 	SSHServerHostKey(context.Context) (string, error)
+	// GetSSHServerPort returns the port the controller SSH jump server listens
+	// on. The controller charm owns this value and pushes changes via the
+	// control socket.
+	GetSSHServerPort(context.Context) (int, error)
+	// WatchSSHServerPort returns a watcher that notifies when the controller
+	// SSH server port changes.
+	WatchSSHServerPort(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
@@ -52,6 +63,7 @@ type ServerWrapperWorkerConfig struct {
 	Authorizer              Authorizer
 	ServerFactory           *TerminatingServerFactory
 	Metrics                 *Collector
+	Clock                   clock.Clock
 }
 
 // Validate validates the workers configuration is as expected.
@@ -80,6 +92,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.ServerFactory == nil {
 		return errors.NotValidf("ServerFactory is required")
 	}
+	if c.Clock == nil {
+		return errors.NotValidf("Clock is required")
+	}
 	return nil
 }
 
@@ -92,30 +107,36 @@ type serverWrapperWorker struct {
 	// config holds the configuration required by the server wrapper worker.
 	config ServerWrapperWorkerConfig
 
-	// workerReporters holds the maps of worker reporters.
-	workerReporters map[string]worker.Reporter
-
-	// m holds the mutex to gate access to the workerReporters map
-	m sync.RWMutex
+	// runner runs the inner server worker.
+	runner *worker.Runner
 }
 
-// NewServerWrapperWorker returns a new worker that runs an ssh server worker internally.
-// This worker will listen for changes in the controller configuration and restart the
-// server worker when the port or max concurrent connections changes.
+// NewServerWrapperWorker returns a new worker that runs an ssh server worker
+// internally, restarting it when its config changes.
 func NewServerWrapperWorker(config ServerWrapperWorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:   "ssh-server",
+		Clock:  config.Clock,
+		Logger: internalworker.WrapLogger(config.Logger),
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &serverWrapperWorker{
-		config:          config,
-		workerReporters: map[string]worker.Reporter{},
+		config: config,
+		runner: runner,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "ssh-server",
 		Site: &w.catacomb,
 		Work: w.loop,
+		Init: []worker.Worker{runner},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -140,18 +161,9 @@ func (ssw *serverWrapperWorker) Wait() error {
 	return ssw.catacomb.Wait()
 }
 
-// Report calls the report methods in the workerReporters map to collect and return
-// report maps to the inspection worker.
+// Report returns the runner's report, which includes the server worker.
 func (ssw *serverWrapperWorker) Report(ctx context.Context) map[string]any {
-	ssw.m.RLock()
-	defer ssw.m.RUnlock()
-	reports := map[string]any{}
-	for name, reporter := range ssw.workerReporters {
-		reports[name] = reporter.Report(ctx)
-	}
-	return map[string]any{
-		"workers": reports,
-	}
+	return ssw.runner.Report(ctx)
 }
 
 // loop is the main loop of the server wrapper worker. It starts the server worker
@@ -160,7 +172,8 @@ func (ssw *serverWrapperWorker) loop() error {
 	ctx := ssw.catacomb.Context(context.Background())
 
 	// Watch for changes then acquire the latest controller configuration
-	// to avoid starting the server with stale config values.
+	// to avoid starting the server with stale config values. Controller config
+	// still owns the max concurrent connections value.
 	controllerConfigWatcher, err := ssw.config.ControllerConfigService.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -168,21 +181,105 @@ func (ssw *serverWrapperWorker) loop() error {
 	if err := ssw.catacomb.Add(controllerConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
-	ssw.addWorkerReporter("controller-watcher", controllerConfigWatcher)
+
+	// The SSH server port is owned by the controller charm and pushed to the
+	// SSH server service via the control socket. Watch it separately so the
+	// server restarts when the charm changes the port.
+	sshServerPortWatcher, err := ssw.config.SSHService.WatchSSHServerPort(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := ssw.catacomb.Add(sshServerPortWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
 	config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	port := config.SSHServerPort()
+	port, err := ssw.config.SSHService.GetSSHServerPort(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	maxConns := config.SSHMaxConcurrentConnections()
 	jumpHostKey, err := ssw.config.SSHService.SSHServerHostKey(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
+	if err := ssw.startServer(ctx, jumpHostKey, port, maxConns); err != nil {
+		return errors.Trace(err)
+	}
+
+	controllerConfigChanges := controllerConfigWatcher.Changes()
+	sshServerPortChanges := sshServerPortWatcher.Changes()
+	for {
+		select {
+		case <-ssw.catacomb.Dying():
+			return ssw.catacomb.ErrDying()
+		case _, ok := <-controllerConfigChanges:
+			if !ok {
+				return errors.New("controller config watcher closed")
+			}
+
+			config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if maxConns == config.SSHMaxConcurrentConnections() {
+				continue
+			}
+
+			ssw.config.Logger.Debugf(ctx, "restarting ssh server with max concurrent connections %d",
+				config.SSHMaxConcurrentConnections())
+
+			// Wait for the old server so it releases the port before the
+			// new one binds.
+			err = ssw.runner.StopAndRemoveWorker(serverWorkerName, ssw.catacomb.Dying())
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				return errors.Trace(err)
+			}
+
+			maxConns = config.SSHMaxConcurrentConnections()
+			if err := ssw.startServer(ctx, jumpHostKey, port, maxConns); err != nil {
+				return errors.Trace(err)
+			}
+		case _, ok := <-sshServerPortChanges:
+			if !ok {
+				return errors.New("ssh server port watcher closed")
+			}
+
+			currentPort, err := ssw.config.SSHService.GetSSHServerPort(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if port == currentPort {
+				continue
+			}
+
+			ssw.config.Logger.Debugf(ctx, "restarting ssh server on port %d", currentPort)
+
+			// Wait for the old server so it releases the port before the
+			// new one binds.
+			err = ssw.runner.StopAndRemoveWorker(serverWorkerName, ssw.catacomb.Dying())
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				return errors.Trace(err)
+			}
+
+			port = currentPort
+			if err := ssw.startServer(ctx, jumpHostKey, port, maxConns); err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+}
+
+// startServer starts a jump server worker in the runner.
+func (ssw *serverWrapperWorker) startServer(
+	ctx context.Context, jumpHostKey string, port, maxConns int,
+) error {
+	serverConfig := ServerWorkerConfig{
 		Logger:                   ssw.config.Logger,
 		JumpHostKey:              jumpHostKey,
 		Port:                     port,
@@ -192,46 +289,10 @@ func (ssw *serverWrapperWorker) loop() error {
 		Authorizer:               ssw.config.Authorizer,
 		ServerFactory:            ssw.config.ServerFactory,
 		Metrics:                  ssw.config.Metrics,
-	})
-	ssw.addWorkerReporter("ssh-server", srv)
-	if err != nil {
-		return errors.Trace(err)
+		Clock:                    ssw.config.Clock,
 	}
-	if err := ssw.catacomb.Add(srv); err != nil {
-		return errors.Trace(err)
+	start := func(context.Context) (worker.Worker, error) {
+		return ssw.config.NewServerWorker(serverConfig)
 	}
-
-	changesChan := controllerConfigWatcher.Changes()
-	for {
-		select {
-		case <-ssw.catacomb.Dying():
-			return ssw.catacomb.ErrDying()
-		case _, ok := <-changesChan:
-			if !ok {
-				return errors.New("controller config watcher closed")
-			}
-
-			config, err := ssw.config.ControllerConfigService.ControllerConfig(ctx)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if maxConns == config.SSHMaxConcurrentConnections() &&
-				port == config.SSHServerPort() {
-				ssw.config.Logger.Debugf(ctx, "controller configuration changed, but nothing changed for the ssh server")
-				continue
-			}
-			return errors.New("changes detected, stopping SSH server worker")
-		}
-	}
-}
-
-// addWorkerReporter adds the worker to the workerReporters map if the type assertion
-// to worker.Reporter is successful.
-func (ssw *serverWrapperWorker) addWorkerReporter(name string, w worker.Worker) {
-	ssw.m.Lock()
-	defer ssw.m.Unlock()
-	reporter, ok := w.(worker.Reporter)
-	if ok {
-		ssw.workerReporters[name] = reporter
-	}
+	return errors.Trace(ssw.runner.StartWorker(ctx, serverWorkerName, start))
 }

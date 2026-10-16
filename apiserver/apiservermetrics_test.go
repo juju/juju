@@ -40,7 +40,7 @@ func (s *apiservermetricsSuite) TestDescribe(c *tc.C) {
 	for desc := range ch {
 		descs = append(descs, desc)
 	}
-	c.Assert(descs, tc.HasLen, 11)
+	c.Assert(descs, tc.HasLen, 13)
 	c.Assert(descs[0].String(), tc.Matches, `.*fqName: "juju_apiserver_connections_total".*`)
 	c.Assert(descs[1].String(), tc.Matches, `.*fqName: "juju_apiserver_connections".*`)
 	c.Assert(descs[2].String(), tc.Matches, `.*fqName: "juju_apiserver_active_login_attempts".*`)
@@ -52,7 +52,9 @@ func (s *apiservermetricsSuite) TestDescribe(c *tc.C) {
 	c.Assert(descs[7].String(), tc.Matches, `.*fqName: "juju_apiserver_outbound_requests_total".*`)
 	c.Assert(descs[8].String(), tc.Matches, `.*fqName: "juju_apiserver_outbound_request_errors_total".*`)
 	c.Assert(descs[9].String(), tc.Matches, `.*fqName: "juju_apiserver_outbound_request_duration_seconds".*`)
-	build_info_description := descs[10].String()
+	c.Assert(descs[10].String(), tc.Matches, `.*fqName: "juju_apiserver_ssh_relay_session_duration_seconds".*`)
+	c.Assert(descs[11].String(), tc.Matches, `.*fqName: "juju_apiserver_ssh_relay_rejections_total".*`)
+	build_info_description := descs[12].String()
 	c.Check(build_info_description, tc.Matches, `.*fqName: "juju_apiserver_build_info".*`)
 	// Ensure that the current version of the Juju controller is one of the const labels on the
 	//build_info metric.
@@ -72,7 +74,7 @@ func (s *apiservermetricsSuite) TestCollect(c *tc.C) {
 	for metric := range ch {
 		metrics = append(metrics, metric)
 	}
-	c.Assert(metrics, tc.HasLen, 3)
+	c.Assert(metrics, tc.HasLen, 4)
 }
 
 func (s *apiservermetricsSuite) TestLabelNames(c *tc.C) {

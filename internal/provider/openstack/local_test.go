@@ -1669,7 +1669,21 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskConstraint(c *tc.C
 	env := s.Open(c, c.Context(), s.env.Config())
 	cons := constraints.MustParse("instance-type=m1.small root-disk=10G")
 	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
-	c.Assert(err, tc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless constraint root-disk-source=volume`)
+	c.Assert(err, tc.ErrorMatches, `constraint root-disk cannot be specified with instance-type unless root-disk-source is "volume" \(or a storage pool name\)`)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceInvalidRootDiskSource(c *tc.C) {
+	env := s.Open(c, c.Context(), s.env.Config())
+	cons := constraints.MustParse("root-disk-source=7pool")
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	c.Assert(err, tc.ErrorMatches, `invalid root-disk-source "7pool" \(must be "local", "volume", or a storage pool name\)`)
+}
+
+func (s *localServerSuite) TestPrecheckInstanceValidRootDiskSourcePoolName(c *tc.C) {
+	env := s.Open(c, c.Context(), s.env.Config())
+	cons := constraints.MustParse("root-disk-source=my-pool")
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Constraints: cons})
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceAvailZone(c *tc.C) {
@@ -3307,6 +3321,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDevice(c *tc.C) {
 		UUID:                "1",
 		SourceType:          "image",
 		DestinationType:     "volume",
+		DeviceType:          "disk",
 		DeleteOnTermination: true,
 		VolumeSize:          diskSizeGiB,
 	})
@@ -3342,6 +3357,7 @@ func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceSized(c *tc.C) 
 		UUID:                "1",
 		SourceType:          "image",
 		DestinationType:     "volume",
+		DeviceType:          "disk",
 		DeleteOnTermination: true,
 		VolumeSize:          diskSizeGiB,
 	})
@@ -3418,6 +3434,125 @@ func (s *localServerSuite) TestStartInstanceLocalRootBlockDevice(c *tc.C) {
 		DeleteOnTermination: true,
 		// VolumeSize is 0 when a local disk is used.
 		VolumeSize: 0,
+	})
+}
+
+func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceWithPoolAttrs(c *tc.C) {
+	env := s.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=volume arch=amd64")
+	c.Assert(err, tc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(c, env, "1", environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
+		Constraints:    cons,
+		RootDisk: &storage.VolumeParams{
+			Attributes: map[string]any{
+				"volume-type": "Ceph",
+				"disk-bus":    "scsi",
+				"tag":         "root",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, tc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, tc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, tc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "volume",
+		DeleteOnTermination: true,
+		VolumeSize:          30,
+		VolumeType:          "Ceph",
+		DeviceType:          "disk",
+		DiskBus:             "scsi",
+		Tag:                 "root",
+	})
+}
+
+func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceWithPoolName(c *tc.C) {
+	env := s.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=mypool arch=amd64")
+	c.Assert(err, tc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(c, env, "1", environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
+		Constraints:    cons,
+		RootDisk: &storage.VolumeParams{
+			Attributes: map[string]any{
+				"volume-type": "Ceph",
+				"disk-bus":    "scsi",
+				"tag":         "root",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, tc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, tc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, tc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "volume",
+		DeleteOnTermination: true,
+		VolumeSize:          30,
+		VolumeType:          "Ceph",
+		DeviceType:          "disk",
+		DiskBus:             "scsi",
+		Tag:                 "root",
+	})
+}
+
+func (s *localServerSuite) TestStartInstanceVolumeRootBlockDeviceDiskBusOnly(c *tc.C) {
+	env := s.ensureAMDImages(c)
+
+	err := bootstrapEnv(c, env)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err := constraints.Parse("root-disk-source=volume arch=amd64")
+	c.Assert(err, tc.ErrorIsNil)
+
+	res, err := testing.StartInstanceWithParams(c, env, "1", environs.StartInstanceParams{
+		ControllerUUID: s.ControllerUUID,
+		Constraints:    cons,
+		RootDisk: &storage.VolumeParams{
+			Attributes: map[string]any{
+				"disk-bus": "scsi",
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+
+	runOpts := res.Instance.(novaInstaceStartedWithOpts).NovaInstanceStartedWithOpts()
+	c.Assert(runOpts, tc.NotNil)
+	c.Assert(runOpts.BlockDeviceMappings, tc.NotNil)
+	deviceMapping := runOpts.BlockDeviceMappings[0]
+	c.Assert(deviceMapping, tc.DeepEquals, nova.BlockDeviceMapping{
+		BootIndex:           0,
+		UUID:                "1",
+		SourceType:          "image",
+		DestinationType:     "volume",
+		DeleteOnTermination: true,
+		VolumeSize:          30,
+		DeviceType:          "disk",
+		DiskBus:             "scsi",
 	})
 }
 

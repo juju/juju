@@ -268,10 +268,14 @@ func (s *ControllerServices) Logging() *loggingservice.WatchableService {
 	)
 }
 
-// SSHServerHostKey returns the controller SSH server host key service.
-func (s *ControllerServices) SSHServerHostKey() *sshcontrollerservice.Service {
-	return sshcontrollerservice.NewService(
+// ControllerSSH returns the controller SSH server service, covering the jump
+// server host key and listening port. It is watchable so that consumers (e.g.
+// the SSH server worker) can react to changes to the controller SSH server
+// port.
+func (s *ControllerServices) ControllerSSH() *sshcontrollerservice.WatchableService {
+	return sshcontrollerservice.NewWatchableService(
 		sshcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.controllerWatcherFactory("ssh"),
 	)
 }
 

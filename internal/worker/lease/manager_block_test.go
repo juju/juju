@@ -306,7 +306,6 @@ func (bt *blockTest) assertBlocked(c *tc.C) {
 }
 
 func (bt *blockTest) assertUnblocked(c *tc.C) error {
-	lease.ManagerStore(bt.manager).(*Store).expireLeases()
 	select {
 	case err := <-bt.done:
 		return err

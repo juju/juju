@@ -66,11 +66,23 @@ func (i *importSecretOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the import of the remote secrets for both offerer and consumers
 func (i *importSecretOperation) Execute(ctx context.Context, model description.Model) error {
+	// The relation scopes of the secret grants reference the relations by
+	// their keys in the source model, so their relation tokens are
+	// resolved there: the relation of an additional offer connection of a
+	// legacy consumer proxy is imported under a freshly named synthetic
+	// application, so it cannot be located by its legacy key, only by the
+	// token both models agreed on, which is the UUID the relation was
+	// imported under.
+	relationRemoteEntities, err := domainmodelmigration.ExtractRelationUUIDFromRemoteEntities(model)
+	if err != nil {
+		return errors.Errorf("extracting relation UUIDs from remote entities: %w", err)
+	}
+
 	// Extract secret granted to remote applications. Secrets value should already
 	// have been imported by the secrets domain, so we just need to know which
 	// secrets were granted to remote applications with which ACLs in order to
 	// re-create the same grants in the new model.
-	remoteGrantedSecrets, err := extractRemoteGrantedSecrets(model)
+	remoteGrantedSecrets, err := extractRemoteGrantedSecrets(model, relationRemoteEntities)
 	if err != nil {
 		return errors.Errorf("extracting remote granted secrets: %w", err)
 	}
@@ -93,10 +105,13 @@ func (i *importSecretOperation) Execute(ctx context.Context, model description.M
 	return nil
 }
 
-func extractRemoteGrantedSecrets(model description.Model) ([]service.GrantedSecretImport, error) {
+func extractRemoteGrantedSecrets(
+	model description.Model,
+	relationRemoteEntities []domainmodelmigration.RelationRemoteEntity,
+) ([]service.GrantedSecretImport, error) {
 	var grantedSecrets []service.GrantedSecretImport
 	for _, secret := range model.Secrets() {
-		remoteGrants, err := extractRemoteGrants(secret)
+		remoteGrants, err := extractRemoteGrants(secret, relationRemoteEntities)
 		if err != nil {
 			return nil, errors.Errorf("extracting remote grants for secret %q: %w", secret.Id(), err)
 		}
@@ -119,7 +134,10 @@ func extractRemoteGrantedSecrets(model description.Model) ([]service.GrantedSecr
 	return grantedSecrets, nil
 }
 
-func extractRemoteGrants(secret description.Secret) ([]service.GrantedSecretACLImport, error) {
+func extractRemoteGrants(
+	secret description.Secret,
+	relationRemoteEntities []domainmodelmigration.RelationRemoteEntity,
+) ([]service.GrantedSecretACLImport, error) {
 	var result []service.GrantedSecretACLImport
 	for app, acl := range secret.ACL() {
 		// We only care about grants to remote applications,
@@ -143,10 +161,12 @@ func extractRemoteGrants(secret description.Secret) ([]service.GrantedSecretACLI
 		if err != nil {
 			return nil, errors.Errorf("parsing relation key from secret ACL scope %q: %w", acl.Scope(), err)
 		}
+		relationUUID, _ := domainmodelmigration.FindRelationUUID(relationRemoteEntities, relKey)
 
 		result = append(result, service.GrantedSecretACLImport{
 			ApplicationName: tag.Id(),
 			RelationKey:     relKey,
+			RelationUUID:    relationUUID,
 			Role:            secrets.SecretRole(acl.Role()),
 		})
 	}

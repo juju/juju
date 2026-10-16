@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	domainssh "github.com/juju/juju/domain/ssh"
@@ -56,6 +57,34 @@ VALUES ($controllerSSHHostKey.*)`, controllerSSHHostKey{})
 			return nil
 		}))
 	}
+}
+
+// InsertInitialSSHServerPort seeds the controller SSH jump server port with the
+// default port during bootstrap. The port is owned by the controller charm,
+// which pushes its configured value over the control socket; seeding the
+// default means the SSH server worker has a stored port to listen on before
+// the first push.
+func InsertInitialSSHServerPort() internaldatabase.BootstrapOpt {
+	return func(ctx context.Context, controller, model database.TxnRunner) error {
+		stmt, err := sqlair.Prepare(`
+INSERT INTO controller_ssh_server_port (port)
+VALUES ($controllerSSHServerPort.port)`, controllerSSHServerPort{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		record := controllerSSHServerPort{Port: jujucontroller.DefaultSSHServerPort}
+		return errors.Capture(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			if err := tx.Query(ctx, stmt, record).Run(); err != nil {
+				return errors.Errorf("inserting controller SSH server port: %w", err)
+			}
+			return nil
+		}))
+	}
+}
+
+type controllerSSHServerPort struct {
+	Port int `db:"port"`
 }
 
 type controllerSSHHostKey struct {

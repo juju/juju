@@ -55,6 +55,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 		Type:   coreobjectstore.S3Backend,
 		Bucket: &bucket,
 	}, nil).AnyTimes()
+	s.guardService.EXPECT().IsObjectStoreUsable(gomock.Any()).Return(true, nil).AnyTimes()
 
 	s.objectStoreService = NewMockObjectStoreService(ctrl)
 	s.objectStoreServicesGetter = NewMockObjectStoreServicesGetter(ctrl)

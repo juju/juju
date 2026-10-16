@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/flightrecorder"
@@ -94,6 +95,7 @@ type ManifoldConfig struct {
 	JWTParserName      string
 	SSHTunnelerName    string
 	SSHServerName      string
+	BackupCreator      string
 
 	// Clock is the clock used for timekeeping within the manifold.
 	Clock clock.Clock
@@ -191,6 +193,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetModelService == nil {
 		return errors.NotValidf("nil GetModelService")
 	}
+	if config.BackupCreator == "" {
+		return errors.NotValidf("empty BackupCreator")
+	}
 
 	return nil
 }
@@ -201,6 +206,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.BackupCreator,
 			config.AuthenticatorName,
 			config.MuxName,
 			config.UpgradeGateName,
@@ -258,6 +264,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	var getAuditConfig func() auditlog.Config
 	if err := getter.Get(config.AuditConfigUpdaterName, &getAuditConfig); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	var backupCreator corebackups.BackupCreator
+	if err := getter.Get(config.BackupCreator, &backupCreator); err != nil {
+		return nil, err
 	}
 
 	var leaseManager lease.Manager
@@ -384,6 +395,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 			TunnelTracker: tunnelTracker,
 			ServerFactory: serverFactory,
 		},
+		BackupCreator: backupCreator,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

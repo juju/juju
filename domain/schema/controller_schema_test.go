@@ -227,6 +227,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		// SSH host keys
 		"ssh_key_algorithm_type",
 		"controller_ssh_host_key",
+		"controller_ssh_server_port",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -329,6 +330,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_controller_node_insert",
 		"trg_log_controller_node_update",
 		"trg_log_controller_node_delete",
+
+		"trg_log_controller_ssh_server_port_insert",
+		"trg_log_controller_ssh_server_port_update",
+		"trg_log_controller_ssh_server_port_delete",
 
 		"trg_log_external_controller_insert",
 		"trg_log_external_controller_update",

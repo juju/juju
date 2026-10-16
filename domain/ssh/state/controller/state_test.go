@@ -18,6 +18,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
+	ssherrors "github.com/juju/juju/domain/ssh/errors"
 	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
 	jujutesting "github.com/juju/juju/internal/testing"
 	internaluuid "github.com/juju/juju/internal/uuid"
@@ -189,6 +190,91 @@ INSERT INTO user_public_ssh_key (comment, fingerprint_hash_algorithm_id, fingerp
 VALUES ('test-key', 1, ?, ?, ?) RETURNING id`, key, key, userUUID).Scan(&keyID)
 	c.Assert(err, tc.ErrorIsNil)
 	return keyID
+}
+
+func (s *stateSuite) TestGetSSHServerPortMissing(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	port, err := st.GetSSHServerPort(c.Context())
+	c.Check(port, tc.Equals, 0)
+	c.Assert(err, tc.ErrorIs, ssherrors.SSHServerPortNotFound)
+}
+
+func (s *stateSuite) TestSetAndGetSSHServerPort(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	s.seedSSHServerPort(c, 17022)
+
+	err := st.SetSSHServerPort(c.Context(), 17099)
+	c.Assert(err, tc.ErrorIsNil)
+
+	port, err := st.GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(port, tc.Equals, 17099)
+}
+
+func (s *stateSuite) TestSetSSHServerPortNotSeeded(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	// The port is seeded at bootstrap, so there's nothing to update without it.
+	err := st.SetSSHServerPort(c.Context(), 17099)
+	c.Assert(err, tc.ErrorIs, ssherrors.SSHServerPortNotFound)
+}
+
+func (s *stateSuite) TestSetSSHServerPortReplacesExisting(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	s.seedSSHServerPort(c, 17022)
+
+	c.Assert(st.SetSSHServerPort(c.Context(), 17022), tc.ErrorIsNil)
+	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
+
+	// The port is a singleton, so only the latest value is stored.
+	port, err := st.GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(port, tc.Equals, 17099)
+
+	var count int
+	row := s.DB().QueryRow(`SELECT COUNT(*) FROM controller_ssh_server_port`)
+	c.Assert(row.Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+}
+
+func (s *stateSuite) TestSetSSHServerPortChangeLog(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	s.seedSSHServerPort(c, 17022)
+
+	c.Assert(st.SetSSHServerPort(c.Context(), 17022), tc.ErrorIsNil)
+	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
+	c.Assert(st.SetSSHServerPort(c.Context(), 17099), tc.ErrorIsNil)
+
+	// The seed records an insert (1). The port is then updated in place, so
+	// the change log records one update (2), and nothing for an unchanged port.
+	rows, err := s.DB().QueryContext(c.Context(), `
+SELECT cl.edit_type_id FROM change_log AS cl
+JOIN change_log_namespace AS ns ON ns.id = cl.namespace_id
+WHERE ns.namespace = 'controller_ssh_server_port'
+ORDER BY cl.id`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	var editTypes []int
+	for rows.Next() {
+		var editType int
+		c.Assert(rows.Scan(&editType), tc.ErrorIsNil)
+		editTypes = append(editTypes, editType)
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(editTypes, tc.DeepEquals, []int{1, 2})
+}
+
+// seedSSHServerPort inserts the SSH server port row, as bootstrap does.
+func (s *stateSuite) seedSSHServerPort(c *tc.C, port int) {
+	_, err := s.DB().ExecContext(c.Context(), `INSERT INTO controller_ssh_server_port (port) VALUES (?)`, port)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestNamespaceForWatchSSHServerPort(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+	c.Check(st.NamespaceForWatchSSHServerPort(), tc.Equals, "controller_ssh_server_port")
 }
 
 func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactory {

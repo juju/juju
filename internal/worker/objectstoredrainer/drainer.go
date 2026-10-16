@@ -218,9 +218,12 @@ func (w *drainWorker) run(ctx context.Context) error {
 }
 
 func (w *drainWorker) drainFile(ctx context.Context, path, hash string, metadataSize int64) error {
-	// If the file isn't on the file backed object store, then we can skip it.
-	// It's expected that this has already been drained to the s3 object store.
+	// A file may be held by another controller. It is only safe to skip a
+	// missing local file after verifying it is already present in S3.
 	if err := w.fileSystem.HashExists(ctx, hash); errors.Is(err, coreerrors.NotFound) {
+		if err := w.objectAlreadyExists(ctx, hash); err != nil {
+			return errors.Errorf("file %q is absent locally and from s3: %w", path, err)
+		}
 		return nil
 	} else if err != nil {
 		return errors.Errorf("checking if file %q exists in file object store: %w", path, err)
@@ -248,8 +251,7 @@ func (w *drainWorker) drainFile(ctx context.Context, path, hash string, metadata
 		// doesn't exist in the s3 object store. This is a problem, so we
 		// should skip it.
 		if errors.Is(err, coreerrors.NotFound) {
-			w.logger.Warningf(ctx, "file %q doesn't exist in file object store, unable to drain", path)
-			return nil
+			return errors.Errorf("file %q disappeared from file object store: %w", path, err)
 		}
 		return errors.Errorf("getting file %q from file object store: %w", path, err)
 	}
@@ -260,8 +262,7 @@ func (w *drainWorker) drainFile(ctx context.Context, path, hash string, metadata
 	// If the file size doesn't match the metadata size, then the file is
 	// potentially corrupt, so we should skip it.
 	if fileSize != metadataSize {
-		w.logger.Warningf(ctx, "file %q has a size mismatch, unable to drain", path)
-		return nil
+		return errors.Errorf("file %q has size %d, expected %d", path, fileSize, metadataSize)
 	}
 
 	// We need to compute the sha256 hash here, juju by default uses SHA384,

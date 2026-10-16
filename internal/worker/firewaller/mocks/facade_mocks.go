@@ -35,19 +35,20 @@ type MockFirewallerAPI struct {
 
 // MockFirewallerAPIMockRecorder is the mock recorder for MockFirewallerAPI.
 type MockFirewallerAPIMockRecorder struct {
-	mock                             *MockFirewallerAPI
-	allSpaceInfosExpects             []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
-	controllerAPIInfoForModelExpects []*gomock.Call2_2[context.Context, string, *api.Info, error]
-	controllerFirewallPortsExpects   []*gomock.Call1_2[context.Context, []network.PortRange, error]
-	machineExpects                   []*gomock.Call2_2[context.Context, names.MachineTag, firewaller.Machine, error]
-	modelConfigExpects               []*gomock.Call1_2[context.Context, *config.Config, error]
-	modelFirewallRulesExpects        []*gomock.Call1_2[context.Context, firewall.IngressRules, error]
-	relationExpects                  []*gomock.Call2_2[context.Context, names.RelationTag, *firewaller.Relation, error]
-	setRelationStatusExpects         []*gomock.Call4_1[context.Context, string, relation.Status, string, error]
-	unitExpects                      []*gomock.Call2_2[context.Context, names.UnitTag, firewaller.Unit, error]
-	watchModelFirewallRulesExpects   []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
-	watchModelMachinesExpects        []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
-	watchSubnetsExpects              []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                                *MockFirewallerAPI
+	allSpaceInfosExpects                []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
+	controllerAPIInfoForModelExpects    []*gomock.Call2_2[context.Context, string, *api.Info, error]
+	controllerFirewallPortsExpects      []*gomock.Call1_2[context.Context, []network.PortRange, error]
+	machineExpects                      []*gomock.Call2_2[context.Context, names.MachineTag, firewaller.Machine, error]
+	modelConfigExpects                  []*gomock.Call1_2[context.Context, *config.Config, error]
+	modelFirewallRulesExpects           []*gomock.Call1_2[context.Context, firewall.IngressRules, error]
+	relationExpects                     []*gomock.Call2_2[context.Context, names.RelationTag, *firewaller.Relation, error]
+	setRelationStatusExpects            []*gomock.Call4_1[context.Context, string, relation.Status, string, error]
+	unitExpects                         []*gomock.Call2_2[context.Context, names.UnitTag, firewaller.Unit, error]
+	watchControllerFirewallPortsExpects []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	watchModelFirewallRulesExpects      []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	watchModelMachinesExpects           []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	watchSubnetsExpects                 []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockFirewallerAPI creates a new mock instance.
@@ -223,6 +224,24 @@ func (mr *MockFirewallerAPIMockRecorder) Unit(ctx, tag any) *MockFirewallerAPIUn
 
 // MockFirewallerAPIUnitCall is the typed call wrapper for Unit.
 type MockFirewallerAPIUnitCall = gomock.Call2_2[context.Context, names.UnitTag, firewaller.Unit, error]
+
+// WatchControllerFirewallPorts mocks base method.
+func (m *MockFirewallerAPI) WatchControllerFirewallPorts(arg0 context.Context) (watcher.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.watchControllerFirewallPortsExpects, m.ctrl, m, "WatchControllerFirewallPorts", arg0)
+}
+
+// WatchControllerFirewallPorts indicates an expected call of WatchControllerFirewallPorts.
+func (mr *MockFirewallerAPIMockRecorder) WatchControllerFirewallPorts(arg0 any) *MockFirewallerAPIWatchControllerFirewallPortsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchControllerFirewallPorts", gomock.EnsureMatcher(arg0))
+	mr.watchControllerFirewallPortsExpects = append(mr.watchControllerFirewallPortsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockFirewallerAPIWatchControllerFirewallPortsCall is the typed call wrapper for WatchControllerFirewallPorts.
+type MockFirewallerAPIWatchControllerFirewallPortsCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 
 // WatchModelFirewallRules mocks base method.
 func (m *MockFirewallerAPI) WatchModelFirewallRules(arg0 context.Context) (watcher.NotifyWatcher, error) {

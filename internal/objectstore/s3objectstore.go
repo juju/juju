@@ -134,6 +134,7 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, ob
 	case t.requests <- request{
 		op:       opGet,
 		path:     path,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -173,6 +174,7 @@ func (t *s3ObjectStore) GetBySHA256(ctx context.Context, sha256 string) (io.Read
 	case t.requests <- request{
 		op:       opGetBySHA256,
 		sha256:   sha256,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -212,6 +214,7 @@ func (t *s3ObjectStore) GetBySHA256Prefix(ctx context.Context, sha256Prefix stri
 	case t.requests <- request{
 		op:       opGetBySHA256Prefix,
 		sha256:   sha256Prefix,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -243,6 +246,7 @@ func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size 
 		reader:        r,
 		size:          size,
 		hashValidator: ignoreHash,
+		ctx:           ctx,
 		response:      response,
 	}:
 	}
@@ -277,6 +281,7 @@ func (t *s3ObjectStore) PutAndCheckHash(
 		reader:        r,
 		size:          size,
 		hashValidator: checkHash(hash),
+		ctx:           ctx,
 		response:      response,
 	}:
 	}
@@ -305,6 +310,7 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	case t.requests <- request{
 		op:       opRemove,
 		path:     path,
+		ctx:      ctx,
 		response: response,
 	}:
 	}
@@ -377,6 +383,31 @@ func (t *s3ObjectStore) scopedContext() (context.Context, context.CancelFunc) {
 	return t.catacomb.Context(ctx), cancel
 }
 
+// sendResponse sends resp to the request's response channel, unless
+// the caller has gone away or the worker is dying. A response carrying a
+// reader that cannot be delivered has the reader closed: the caller is
+// gone, so nobody else would ever close it.
+// Responses carrying readers must use an unbuffered channel so sending
+// transfers ownership to a waiting caller.
+// A non-nil error is returned only when the worker is dying, so the
+// loop can exit; an abandoned caller is not an error for the worker.
+func (t *s3ObjectStore) sendResponse(req request, resp response) error {
+	select {
+	case <-t.catacomb.Dying():
+		if resp.reader != nil {
+			_ = resp.reader.Close()
+		}
+		return t.catacomb.ErrDying()
+	case <-req.ctx.Done():
+		if resp.reader != nil {
+			_ = resp.reader.Close()
+		}
+		return nil
+	case req.response <- resp:
+		return nil
+	}
+}
+
 func (t *s3ObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
@@ -417,72 +448,63 @@ func (t *s3ObjectStore) loop() error {
 			return t.catacomb.ErrDying()
 
 		case req := <-t.requests:
+			// Scope the request to the caller's context, so that a
+			// cancelled caller abandons its own in-flight operation
+			// instead of blocking every queued request behind it. The
+			// worker lifetime still bounds the request through the
+			// catacomb context.
+			reqCtx := t.catacomb.Context(req.ctx)
+
 			switch req.op {
 			case opGet:
-				reader, digest, err := t.get(ctx, req.path)
+				reader, digest, err := t.get(reqCtx, req.path)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if err := t.sendResponse(req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}:
+				}); err != nil {
+					return err
 				}
 
 			case opGetBySHA256:
-				reader, digest, err := t.getBySHA256(ctx, req.sha256)
+				reader, digest, err := t.getBySHA256(reqCtx, req.sha256)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if err := t.sendResponse(req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}:
+				}); err != nil {
+					return err
 				}
 
 			case opGetBySHA256Prefix:
-				reader, digest, err := t.getBySHA256Prefix(ctx, req.sha256)
+				reader, digest, err := t.getBySHA256Prefix(reqCtx, req.sha256)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if err := t.sendResponse(req, response{
 					reader: reader,
 					digest: digest,
 					err:    err,
-				}:
+				}); err != nil {
+					return err
 				}
 
 			case opPut:
-				uuid, err := t.put(ctx, req.path, req.reader, req.size, req.hashValidator)
+				uuid, err := t.put(reqCtx, req.path, req.reader, req.size, req.hashValidator)
 
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
+				if err := t.sendResponse(req, response{
 					uuid: uuid,
 					err:  err,
-				}:
+				}); err != nil {
+					return err
 				}
 
 			case opRemove:
-				select {
-				case <-t.catacomb.Dying():
-					return t.catacomb.ErrDying()
-
-				case req.response <- response{
-					err: t.remove(ctx, req.path),
-				}:
+				if err := t.sendResponse(req, response{
+					err: t.remove(reqCtx, req.path),
+				}); err != nil {
+					return err
 				}
-
 			default:
 				return errors.Errorf("unknown request type %d", req.op)
 			}

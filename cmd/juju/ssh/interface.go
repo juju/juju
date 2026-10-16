@@ -64,8 +64,13 @@ type SSHClientAPI interface {
 
 // SSHControllerAPI defines controller related APIs.
 type SSHControllerAPI interface {
+	// BestAPIVersion returns the highest Controller facade version supported
+	// by both the client and the controller.
+	BestAPIVersion() int
 	// ControllerConfig returns the controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
 	// SSHServerHostKey returns the public key of the controller SSH jump server.
 	SSHServerHostKey(context.Context) ([]byte, error)
+	// SSHServerPort returns the port the controller SSH jump server listens on.
+	SSHServerPort(context.Context) (int, error)
 }

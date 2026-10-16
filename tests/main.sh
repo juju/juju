@@ -51,6 +51,7 @@ TEST_NAMES="actions \
             charmhub \
             cli \
             cloud_azure \
+            cmr \
             constraints \
             controller \
             coslite \

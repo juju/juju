@@ -68,7 +68,7 @@ func (f *mockOpFactory) NewAction(_ context.Context, id string) (operation.Opera
 	return f.op, f.NextErr()
 }
 
-func (f *mockOpFactory) NewFailAction(id string) (operation.Operation, error) {
+func (f *mockOpFactory) NewFailAction(_ context.Context, id string) (operation.Operation, error) {
 	f.MethodCall(f, "NewFailAction", id)
 	return f.op, f.NextErr()
 }

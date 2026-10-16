@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
@@ -53,6 +54,18 @@ func (s *secretaryFinderSuite) TestSecretaryFor(c *tc.C) {
 	sec, err := finder.SecretaryFor("foo")
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(sec, tc.IsNil)
+}
+
+func (s *secretaryFinderSuite) TestBackupCreationSecretary(c *tc.C) {
+	finder := NewSecretaryFinder(uuid.MustNewUUID().String())
+
+	secretary, err := finder.SecretaryFor(lease.BackupCreationNamespace)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secretary.CheckLease(lease.Key{}), tc.ErrorIs, errors.NotValid)
+	c.Check(secretary.CheckLease(lease.Key{Lease: "controller"}), tc.ErrorIsNil)
+	c.Check(secretary.CheckHolder("0"), tc.ErrorIsNil)
+	c.Check(secretary.CheckHolder(""), tc.ErrorIs, errors.NotValid)
+	c.Check(corebackups.ParseLeaseHolderName("0"), tc.ErrorIsNil)
 }
 
 func (s *secretaryFinderSuite) setupMocks(c *tc.C) *gomock.Controller {

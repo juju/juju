@@ -346,6 +346,59 @@ func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigErro
 	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
 }
 
+func (s *controllerStartupValueProviderSuite) TestBackupLocalValuesReadCurrentRuntimeConfig(c *tc.C) {
+	runtimeDir := c.MkDir()
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-one"),
+		SocketDir:            "/var/snap/juju/common/sockets",
+		SharedAgentDir:       "/var/snap/juju/common",
+		LogDir:               filepath.Join(runtimeDir, "log-one"),
+		APIPort:              17070,
+		AgentPassword:        "agent-password",
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	provider := controllerStartupValueProvider{
+		app:                   &ControllerApplication{},
+		controllerRuntimePath: runtimePath,
+	}
+
+	values, err := provider.BackupLocalValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.DataDir, tc.Equals, filepath.Join(runtimeDir, "data-one"))
+	c.Check(values.LogDir, tc.Equals, filepath.Join(runtimeDir, "log-one"))
+
+	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-two"),
+		SocketDir:            "/var/snap/juju/common/sockets",
+		SharedAgentDir:       "/var/snap/juju/common",
+		LogDir:               filepath.Join(runtimeDir, "log-two"),
+		APIPort:              17070,
+		AgentPassword:        "agent-password",
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	values, err = provider.BackupLocalValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.DataDir, tc.Equals, filepath.Join(runtimeDir, "data-two"))
+	c.Check(values.LogDir, tc.Equals, filepath.Join(runtimeDir, "log-two"))
+}
+
 func (s *controllerStartupValueProviderSuite) TestCurrentSnapshotReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
 	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)

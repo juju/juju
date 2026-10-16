@@ -92,6 +92,15 @@ type SSHControllerPublicKeyResult struct {
 	PublicKey []byte `json:"public-key"`
 }
 
+// SSHControllerSSHPortResult holds the port the controller SSH jump server
+// listens on, returned by the client Controller facade for the user direct
+// jump flow.
+type SSHControllerSSHPortResult struct {
+	Error *Error `json:"error,omitempty"`
+	// Port is the controller SSH jump server port.
+	Port int `json:"port"`
+}
+
 // SSHVirtualHostKeyRequestArg identifies the virtual hostname of the SSH target
 // whose host key is being requested.
 type SSHVirtualHostKeyRequestArg struct {

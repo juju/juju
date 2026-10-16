@@ -5,7 +5,9 @@ package sshserver
 
 import (
 	"context"
+	"net"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gliderssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
@@ -18,11 +20,12 @@ import (
 type TerminatingServerFactory struct {
 	factory ProxyFactory
 	svc     SSHService
+	clock   clock.Clock
 }
 
 // newTerminatingServerFactory returns a TerminatingServerFactory.
-func newTerminatingServerFactory(factory ProxyFactory, svc SSHService) *TerminatingServerFactory {
-	return &TerminatingServerFactory{factory: factory, svc: svc}
+func newTerminatingServerFactory(factory ProxyFactory, svc SSHService, clock clock.Clock) *TerminatingServerFactory {
+	return &TerminatingServerFactory{factory: factory, svc: svc, clock: clock}
 }
 
 // New returns a terminating SSH server for the destination, with proxy
@@ -41,6 +44,11 @@ func (f *TerminatingServerFactory) New(ctx context.Context, destination virtualh
 		return nil, errors.Trace(err)
 	}
 	server := newTerminatingSSHServer(handlers)
+	// The jump server's start time doesn't reach this server's context.
+	server.ConnCallback = func(ctx gliderssh.Context, conn net.Conn) net.Conn {
+		ctx.SetValue(connectionStartTime{}, f.clock.Now())
+		return conn
+	}
 	server.AddHostKey(signer)
 	return server, nil
 }

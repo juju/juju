@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -18,7 +19,12 @@ import (
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/worker/common/charmrunner"
+	"github.com/juju/juju/internal/worker/uniter/actions"
+	"github.com/juju/juju/internal/worker/uniter/operation"
+	operationmocks "github.com/juju/juju/internal/worker/uniter/operation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
+	"github.com/juju/juju/internal/worker/uniter/resolver"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -441,6 +447,66 @@ func (s *WatcherSuite) TestActionsReceivedWithChanges(c *tc.C) {
 	snapshot = s.watcher.Snapshot()
 	c.Assert(snapshot.ActionsPending, tc.DeepEquals, []string{"an-action"})
 	c.Assert(snapshot.ActionChanged["an-action"], tc.Equals, 1)
+}
+
+func (s *WatcherSuite) TestActionCompleted(c *tc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	s.uniterClient.unit.actionWatcher.changes <- []string{"action-a", "action-b"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snapshot := s.watcher.Snapshot()
+	c.Assert(snapshot.ActionsPending, tc.DeepEquals, []string{"action-a", "action-b"})
+
+	s.watcher.ActionCompleted("action-a")
+	snapshot = s.watcher.Snapshot()
+	c.Check(snapshot.ActionsPending, tc.DeepEquals, []string{"action-b"})
+	c.Check(snapshot.ActionChanged, tc.DeepEquals, map[string]int{"action-b": 0})
+}
+
+func (s *WatcherSuite) TestActionNotifiedAgainAfterCompletion(c *tc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	opFactory := operationmocks.NewMockFactory(ctrl)
+	state := operation.State{Kind: operation.Continue}
+	localState := resolver.LocalState{State: state}
+	actionResolver := actions.NewResolver(loggertesting.WrapCheckLog(c), s.watcher.ActionCompleted)
+
+	// Running the action removes it from the remote state when the
+	// operation commits.
+	s.uniterClient.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for action notification")
+	runOp := operationmocks.NewMockOperation(ctrl)
+	opFactory.EXPECT().NewAction(c.Context(), "an-action").Return(runOp, nil)
+	runOp.EXPECT().Commit(c.Context(), state).Return(&state, nil)
+	op, err := actionResolver.NextOp(c.Context(), localState, s.watcher.Snapshot(), opFactory)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = op.Commit(c.Context(), state)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(s.watcher.Snapshot().ActionsPending, tc.HasLen, 0)
+
+	// A notification that arrives after the action completed, such as a
+	// cancellation of a task that has already finished, adds it again.
+	// The controller no longer has the action pending, so the resolver
+	// fails it and the commit removes it again.
+	s.uniterClient.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for late action notification")
+	c.Assert(s.watcher.Snapshot().ActionsPending, tc.DeepEquals, []string{"an-action"})
+	failOp := operationmocks.NewMockOperation(ctrl)
+	opFactory.EXPECT().NewAction(c.Context(), "an-action").Return(nil, charmrunner.ErrActionNotAvailable)
+	opFactory.EXPECT().NewFailAction(c.Context(), "an-action").Return(failOp, nil)
+	failOp.EXPECT().Commit(c.Context(), state).Return(&state, nil)
+	op, err = actionResolver.NextOp(c.Context(), localState, s.watcher.Snapshot(), opFactory)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = op.Commit(c.Context(), state)
+	c.Assert(err, tc.ErrorIsNil)
+	snapshot := s.watcher.Snapshot()
+	c.Check(snapshot.ActionsPending, tc.HasLen, 0)
+	c.Check(snapshot.ActionChanged, tc.HasLen, 0)
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *tc.C) {

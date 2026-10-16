@@ -15,6 +15,7 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -38,6 +39,42 @@ type deployerSuite struct {
 
 func TestDeployerSuite(t *stdtesting.T) {
 	tc.Run(t, &deployerSuite{})
+}
+
+func (s *deployerSuite) TestCreateCharmSettingsSSHServerPort(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// The charm has the option, so the bootstrap ssh server port is passed
+	// through, as an int64 like other int charm options.
+	ch := NewMockCharm(ctrl)
+	ch.EXPECT().Config().Return(&charm.ConfigSpec{Options: map[string]charm.Option{
+		"ssh-server-port": {Type: "int"},
+	}})
+
+	cfg := s.newConfig(c)
+	cfg.ControllerConfig[controller.SSHServerPort] = 17055
+	deployer := makeBaseDeployer(cfg)
+
+	settings, err := deployer.createCharmSettings(ch)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(settings["ssh-server-port"], tc.Equals, int64(17055))
+}
+
+func (s *deployerSuite) TestCreateCharmSettingsSSHServerPortNotInCharm(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Older charms don't have the option and setting it would fail the
+	// deploy, so it's left out.
+	cfg := s.newConfig(c)
+	cfg.ControllerConfig[controller.SSHServerPort] = 17055
+	deployer := makeBaseDeployer(cfg)
+
+	settings, err := deployer.createCharmSettings(s.charm)
+	c.Assert(err, tc.ErrorIsNil)
+	_, ok := settings["ssh-server-port"]
+	c.Check(ok, tc.IsFalse)
 }
 
 func (s *deployerSuite) TestValidate(c *tc.C) {

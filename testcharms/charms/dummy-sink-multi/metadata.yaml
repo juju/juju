@@ -1,0 +1,17 @@
+name: dummy-sink-multi
+maintainer: Juju Crew <juju-crew@canonical.com>
+summary: Dummy charm that accepts data over two relations
+description: |
+  This dummy charm verifies data received over two relations.
+provides:
+  source:
+    interface: dummy-token
+  source-alt:
+    interface: dummy-token
+categories:
+  - misc
+series:
+  - xenial
+  - bionic
+  - focal
+  - jammy

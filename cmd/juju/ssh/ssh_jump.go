@@ -24,6 +24,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
+	"github.com/kballard/go-shellquote"
 	gossh "golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 
@@ -41,13 +42,21 @@ import (
 // finalDestinationUser is the user used on the terminating target.
 const finalDestinationUser = "ubuntu"
 
-const openSSHTemplate = `ssh -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
+const openSSHTemplate = `ssh{{if .PTYOptions}} {{.PTYOptions}}{{end}} -o {{.ProxyCommand}} {{.DestinationUser}}@{{.VirtualHostname}}{{if .Args}} {{.Args}}{{end}}
 `
 
-const openSCPTemplate = `scp -o "ProxyCommand=ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUser}}@{{.JumpHost}}" {{.Args}}
+const openSCPTemplate = `scp -o {{.ProxyCommand}} {{.Args}}
 `
 
+const proxyCommandTemplate = `ssh{{if .JumpKey}} -o IdentitiesOnly=yes -i {{.JumpKey}}{{end}} -W %h:%p -p {{.JumpPort}} {{.JumpUserHost}}`
+
+// minSSHJumpFacadeVersion is the minimum SSHClient facade version that
+// supports proxying through the controller's SSH jump server.
 const minSSHJumpFacadeVersion = 6
+
+// minSSHJumpControllerFacadeVersion is the minimum Controller facade version
+// that serves the SSH jump server host key and port.
+const minSSHJumpControllerFacadeVersion = 15
 
 // SSHAPIJump is the SSH API client used by the SSH jump provider.
 type SSHAPIJump interface {
@@ -108,14 +117,21 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	if err := p.ensureAPIClient(ctx, mc); err != nil {
 		return errors.Trace(err)
 	}
-	if err := checkSSHJumpFacadeVersion(p.sshClient.BestAPIVersion()); err != nil {
+	// Guard for non-direct ssh. Proxying through the controller needs the
+	// newer facades, --direct doesn't.
+	if err := checkSSHJumpFacadeVersion(
+		p.sshClient.BestAPIVersion(), p.controllerClient.BestAPIVersion(),
+	); err != nil {
 		return err
 	}
-	controllerConfig, err := p.controllerClient.ControllerConfig(ctx)
+	// Read the SSH server port from the controller rather than controller
+	// config: the port is owned by the controller charm and pushed to the SSH
+	// domain at runtime, so controller config may hold a stale value.
+	var err error
+	p.jumpHostPort, err = p.controllerClient.SSHServerPort(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	p.jumpHostPort = controllerConfig.SSHServerPort()
 
 	p.jumpServerHostKey, err = p.controllerClient.SSHServerHostKey(ctx)
 	if err != nil {
@@ -155,8 +171,8 @@ func (p *sshJump) initRun(ctx context.Context, mc ModelCommand) error {
 	return nil
 }
 
-func checkSSHJumpFacadeVersion(version int) error {
-	if version < minSSHJumpFacadeVersion {
+func checkSSHJumpFacadeVersion(sshClientVersion, controllerVersion int) error {
+	if sshClientVersion < minSSHJumpFacadeVersion || controllerVersion < minSSHJumpControllerFacadeVersion {
 		return errors.Errorf(
 			"controller does not support SSH proxying; use the --direct flag to connect directly",
 		)
@@ -431,7 +447,7 @@ func (p *sshJump) ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 		args = []string{"exec", "bash", "--login"}
 	}
 	if p.showCommand {
-		return p.showSSHCommand(ctx.GetStdout(), target, args)
+		return p.showSSHCommand(ctx.GetStdout(), enablePty, target, args)
 	}
 	cmd := ssh.Command(target.userHost(), args, options)
 	cmd.Stdin = ctx.GetStdin()
@@ -463,12 +479,20 @@ func (p *sshJump) copy(ctx Context) error {
 	return ssh.Copy(args, options)
 }
 
-func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []string) error {
+func (p *sshJump) showSSHCommand(w io.Writer, enablePty bool, target *resolvedTarget, args []string) error {
+	ptyOptions := ""
+	// OpenSSH won't allocate a pty unless specified when a command is executed.
+	// We need a pty for interactive commands like shells, top, etc.
+	if enablePty {
+		ptyOptions = "-t"
+	}
+	proxyCommand, err := p.quotedProxyCommand(target)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return p.sshOutputTemplate.Execute(w, map[string]string{
-		"JumpPort":        strconv.Itoa(p.jumpHostPort),
-		"JumpKey":         quotedJumpKey(p.jumpKey),
-		"JumpUser":        target.via.user,
-		"JumpHost":        target.via.host,
+		"PTYOptions":      ptyOptions,
+		"ProxyCommand":    proxyCommand,
 		"DestinationUser": target.user,
 		"VirtualHostname": target.host,
 		"Args":            utils.CommandString(args...),
@@ -476,26 +500,37 @@ func (p *sshJump) showSSHCommand(w io.Writer, target *resolvedTarget, args []str
 }
 
 func (p *sshJump) showSCPCommand(w io.Writer, proxyTarget *resolvedTarget, args []string) error {
+	proxyCommand, err := p.quotedProxyCommand(proxyTarget)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return p.scpOutputTemplate.Execute(w, map[string]string{
-		"JumpPort": strconv.Itoa(p.jumpHostPort),
-		"JumpKey":  quotedJumpKey(p.jumpKey),
-		"JumpUser": proxyTarget.via.user,
-		"JumpHost": proxyTarget.via.host,
-		"Args":     utils.CommandString(args...),
+		"ProxyCommand": proxyCommand,
+		"Args":         utils.CommandString(args...),
 	})
 }
 
-// shellQuote returns a POSIX shell-quoted argument. The result is embedded in
-// ProxyCommand and therefore evaluated by the SSH client's shell.
-func shellQuote(arg string) string {
-	return "'" + strings.ReplaceAll(arg, "'", "'\"'\"'") + "'"
-}
-
-func quotedJumpKey(key string) string {
-	if key == "" {
-		return ""
+func (p *sshJump) quotedProxyCommand(target *resolvedTarget) (string, error) {
+	proxyTemplate, err := template.New("proxy-command").Parse(proxyCommandTemplate)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return shellQuote(key)
+	jumpKey := p.jumpKey
+	if jumpKey != "" {
+		jumpKey = shellquote.Join(jumpKey)
+	}
+	var command bytes.Buffer
+	err = proxyTemplate.Execute(&command, map[string]string{
+		"JumpKey":      jumpKey,
+		"JumpPort":     strconv.Itoa(p.jumpHostPort),
+		"JumpUserHost": shellquote.Join(target.via.userHost()),
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Arguments are quoted for SSH's shell in the template; quote the complete
+	// option for the shell running the displayed command.
+	return shellquote.Join("ProxyCommand=" + command.String()), nil
 }
 
 func (p *sshJump) copyCAAS(ctx Context) error {

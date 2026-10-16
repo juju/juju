@@ -35,7 +35,7 @@ type MockMigrationState struct {
 // MockMigrationStateMockRecorder is the mock recorder for MockMigrationState.
 type MockMigrationStateMockRecorder struct {
 	mock                                  *MockMigrationState
-	enterScopeExpects                     []*gomock.Call4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error]
+	enterScopeExpects                     []*gomock.Call5_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStorageArgs, internal.SubordinateUnitStatusHistoryData, error]
 	exportRelationsExpects                []*gomock.Call1_2[context.Context, []relation0.ExportRelation, error]
 	getApplicationUUIDByNameExpects       []*gomock.Call2_2[context.Context, string, application.UUID, error]
 	getRelationEndpointsExpects           []*gomock.Call2_2[context.Context, string, []relation0.Endpoint, error]
@@ -57,22 +57,22 @@ func (m *MockMigrationState) EXPECT() *MockMigrationStateMockRecorder {
 }
 
 // EnterScope mocks base method.
-func (m *MockMigrationState) EnterScope(ctx context.Context, relationUUID relation.UUID, unitName unit.Name, settings map[string]string) (internal.SubordinateUnitStatusHistoryData, error) {
+func (m *MockMigrationState) EnterScope(ctx context.Context, relationUUID relation.UUID, unitName unit.Name, settings map[string]string, subordinateStorageArgs internal.SubordinateUnitStorageArgs) (internal.SubordinateUnitStatusHistoryData, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.enterScopeExpects, m.ctrl, m, "EnterScope", ctx, relationUUID, unitName, settings)
+	return gomock.Dispatch5_2(&m.recorder.enterScopeExpects, m.ctrl, m, "EnterScope", ctx, relationUUID, unitName, settings, subordinateStorageArgs)
 }
 
 // EnterScope indicates an expected call of EnterScope.
-func (mr *MockMigrationStateMockRecorder) EnterScope(ctx, relationUUID, unitName, settings any) *MockMigrationStateEnterScopeCall {
+func (mr *MockMigrationStateMockRecorder) EnterScope(ctx, relationUUID, unitName, settings, subordinateStorageArgs any) *MockMigrationStateEnterScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error](mr.mock.ctrl.T, mr.mock, "EnterScope", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(settings))
+	call := gomock.NewCall5_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStorageArgs, internal.SubordinateUnitStatusHistoryData, error](mr.mock.ctrl.T, mr.mock, "EnterScope", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(settings), gomock.EnsureMatcher(subordinateStorageArgs))
 	mr.enterScopeExpects = append(mr.enterScopeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockMigrationStateEnterScopeCall is the typed call wrapper for EnterScope.
-type MockMigrationStateEnterScopeCall = gomock.Call4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error]
+type MockMigrationStateEnterScopeCall = gomock.Call5_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStorageArgs, internal.SubordinateUnitStatusHistoryData, error]
 
 // ExportRelations mocks base method.
 func (m *MockMigrationState) ExportRelations(ctx context.Context) ([]relation0.ExportRelation, error) {
@@ -195,7 +195,7 @@ type MockStateMockRecorder struct {
 	addRelationExpects                                 []*gomock.Call3V_3[context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, string, relation0.Endpoint, relation0.Endpoint, error]
 	applicationExistsExpects                           []*gomock.Call2_1[context.Context, application.UUID, error]
 	applicationRelationsInfoExpects                    []*gomock.Call2_2[context.Context, application.UUID, []relation0.EndpointRelationData, error]
-	enterScopeExpects                                  []*gomock.Call4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error]
+	enterScopeExpects                                  []*gomock.Call5_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStorageArgs, internal.SubordinateUnitStatusHistoryData, error]
 	getAllRelationDetailsExpects                       []*gomock.Call1_2[context.Context, []relation0.RelationDetailsResult, error]
 	getConsumerRelationUnitsChangeExpects              []*gomock.Call3_2[context.Context, string, string, relation0.ConsumerRelationUnitsChange, error]
 	getFullRelationUnitsChangeExpects                  []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, relation0.FullRelationUnitChange, error]
@@ -222,6 +222,7 @@ type MockStateMockRecorder struct {
 	getRelationUnitUUIDsByEndpointUUIDExpects          []*gomock.Call2_2[context.Context, string, []string, error]
 	getRelationUnitsChangesExpects                     []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, relation0.RelationUnitChange, error]
 	getRelationsStatusForUnitExpects                   []*gomock.Call2_2[context.Context, unit.UUID, []relation0.RelationUnitStatusResult, error]
+	getSubordinateUnitCreationInfoExpects              []*gomock.Call3_3[context.Context, relation.UUID, unit.Name, internal.SubordinateUnitCreationInfo, bool, error]
 	getUnitSettingsForUnitsExpects                     []*gomock.Call3_2[context.Context, string, []string, []relation0.UnitSettings, error]
 	getWatcherRelationUnitsDataExpects                 []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, internal.WatcherRelationUnitsData, error]
 	inferRelationUUIDByEndpointsExpects                []*gomock.Call3_2[context.Context, relation0.CandidateEndpointIdentifier, relation0.CandidateEndpointIdentifier, relation.UUID, error]
@@ -303,22 +304,22 @@ func (mr *MockStateMockRecorder) ApplicationRelationsInfo(ctx, applicationID any
 type MockStateApplicationRelationsInfoCall = gomock.Call2_2[context.Context, application.UUID, []relation0.EndpointRelationData, error]
 
 // EnterScope mocks base method.
-func (m *MockState) EnterScope(ctx context.Context, relationUUID relation.UUID, unitName unit.Name, settings map[string]string) (internal.SubordinateUnitStatusHistoryData, error) {
+func (m *MockState) EnterScope(ctx context.Context, relationUUID relation.UUID, unitName unit.Name, settings map[string]string, subordinateStorageArgs internal.SubordinateUnitStorageArgs) (internal.SubordinateUnitStatusHistoryData, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.enterScopeExpects, m.ctrl, m, "EnterScope", ctx, relationUUID, unitName, settings)
+	return gomock.Dispatch5_2(&m.recorder.enterScopeExpects, m.ctrl, m, "EnterScope", ctx, relationUUID, unitName, settings, subordinateStorageArgs)
 }
 
 // EnterScope indicates an expected call of EnterScope.
-func (mr *MockStateMockRecorder) EnterScope(ctx, relationUUID, unitName, settings any) *MockStateEnterScopeCall {
+func (mr *MockStateMockRecorder) EnterScope(ctx, relationUUID, unitName, settings, subordinateStorageArgs any) *MockStateEnterScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error](mr.mock.ctrl.T, mr.mock, "EnterScope", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(settings))
+	call := gomock.NewCall5_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStorageArgs, internal.SubordinateUnitStatusHistoryData, error](mr.mock.ctrl.T, mr.mock, "EnterScope", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(settings), gomock.EnsureMatcher(subordinateStorageArgs))
 	mr.enterScopeExpects = append(mr.enterScopeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateEnterScopeCall is the typed call wrapper for EnterScope.
-type MockStateEnterScopeCall = gomock.Call4_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStatusHistoryData, error]
+type MockStateEnterScopeCall = gomock.Call5_2[context.Context, relation.UUID, unit.Name, map[string]string, internal.SubordinateUnitStorageArgs, internal.SubordinateUnitStatusHistoryData, error]
 
 // GetAllRelationDetails mocks base method.
 func (m *MockState) GetAllRelationDetails(ctx context.Context) ([]relation0.RelationDetailsResult, error) {
@@ -787,6 +788,24 @@ func (mr *MockStateMockRecorder) GetRelationsStatusForUnit(ctx, unitUUID any) *M
 
 // MockStateGetRelationsStatusForUnitCall is the typed call wrapper for GetRelationsStatusForUnit.
 type MockStateGetRelationsStatusForUnitCall = gomock.Call2_2[context.Context, unit.UUID, []relation0.RelationUnitStatusResult, error]
+
+// GetSubordinateUnitCreationInfo mocks base method.
+func (m *MockState) GetSubordinateUnitCreationInfo(ctx context.Context, relationUUID relation.UUID, unitName unit.Name) (internal.SubordinateUnitCreationInfo, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_3(&m.recorder.getSubordinateUnitCreationInfoExpects, m.ctrl, m, "GetSubordinateUnitCreationInfo", ctx, relationUUID, unitName)
+}
+
+// GetSubordinateUnitCreationInfo indicates an expected call of GetSubordinateUnitCreationInfo.
+func (mr *MockStateMockRecorder) GetSubordinateUnitCreationInfo(ctx, relationUUID, unitName any) *MockStateGetSubordinateUnitCreationInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_3[context.Context, relation.UUID, unit.Name, internal.SubordinateUnitCreationInfo, bool, error](mr.mock.ctrl.T, mr.mock, "GetSubordinateUnitCreationInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(relationUUID), gomock.EnsureMatcher(unitName))
+	mr.getSubordinateUnitCreationInfoExpects = append(mr.getSubordinateUnitCreationInfoExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetSubordinateUnitCreationInfoCall is the typed call wrapper for GetSubordinateUnitCreationInfo.
+type MockStateGetSubordinateUnitCreationInfoCall = gomock.Call3_3[context.Context, relation.UUID, unit.Name, internal.SubordinateUnitCreationInfo, bool, error]
 
 // GetUnitSettingsForUnits mocks base method.
 func (m *MockState) GetUnitSettingsForUnits(ctx context.Context, relationUUID string, unitNames []string) ([]relation0.UnitSettings, error) {

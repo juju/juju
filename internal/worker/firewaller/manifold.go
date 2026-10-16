@@ -106,6 +106,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		machineSvc:       domainServices.Machine(),
 		modelConfigSvc:   domainServices.Config(),
 		ctrlConfigSvc:    domainServices.ControllerConfig(),
+		ctrlSSHSvc:       domainServices.ControllerSSH(),
 		networkSvc:       domainServices.Network(),
 		relationSvc:      domainServices.Relation(),
 		extControllerSvc: domainServices.ExternalController(),

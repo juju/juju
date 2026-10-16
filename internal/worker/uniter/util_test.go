@@ -1677,10 +1677,7 @@ func (s *addAction) prepare(_ tc.LikeC, ctx *testContext) {
 	s.action = apiuniter.NewAction(s.tag.Id(), s.name, s.params, false, "")
 	stepped := ctx.stepped.EXPECT().Stepped(s)
 	ctx.api.EXPECT().Action(gomock.Any(), s.tag).Return(s.action, nil).AnyTimes().After(stepped)
-	ctx.api.EXPECT().ActionBegin(gomock.Any(), s.tag).DoAndReturn(func(_ context.Context, tag names.ActionTag) error {
-		ctx.actionsCh <- []string{tag.Id()}
-		return nil
-	}).MaxTimes(2).After(stepped)
+	ctx.api.EXPECT().ActionBegin(gomock.Any(), s.tag).Return(nil).MaxTimes(2).After(stepped)
 	ctx.api.EXPECT().ActionStatus(gomock.Any(), s.tag).Return("completed", nil).AnyTimes().After(stepped)
 }
 

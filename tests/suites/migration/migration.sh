@@ -121,8 +121,8 @@ run_migration_36() {
 
 # The offering side of a cross-model relation migrates into the 4.0
 # controller while the consumer (a third party on a separate controller)
-# stays put. Covers the offer ACL with an unknown external user
-# (juju/juju#23342) and third-party consumer continuity (juju/juju#23262).
+# stays put. Covers the offer ACL with an unknown external user, third-party
+# consumer continuity, and a consumer connected to two endpoints of one offer.
 run_migration_36_cmr_offering() {
 	# Echo out to ensure nice output to the test suite.
 	echo
@@ -134,38 +134,42 @@ run_migration_36_cmr_offering() {
 	bootstrap_controller_36 "mig36-off-src-12345"
 	bootstrap_alt_controller "mig36-peer40-12345"
 
+	source_charm=$(pack_charm ./testcharms/charms/dummy-source-multi)
+	sink_charm=$(pack_charm ./testcharms/charms/dummy-sink-multi)
+
 	add_model_36 "mig36-off-src-12345" "mig-offer36-12345"
 	${JUJU_36} switch "mig36-off-src-12345:mig-offer36-12345"
-	${JUJU_36} deploy juju-qa-dummy-source --base ubuntu@22.04
+	${JUJU_36} deploy "${source_charm}" dummy-source --base ubuntu@22.04
 	wait_for_36 "mig36-off-src-12345:mig-offer36-12345" "dummy-source" "$(idle_condition "dummy-source")"
-	${JUJU_36} offer dummy-source:sink db-src
+	${JUJU_36} offer dummy-source:sink,sink-alt db-src
 	# The dummy-source charm blocks until the token is set, which stalls the
 	# cross-model relation join on the consumer side; set it before the
 	# consumer integrates.
 	${JUJU_36} config dummy-source token=wait-for-it
 
 	# Grant consume access to an unknown external user. The ACL entry must
-	# survive the import on the 4.0 side (juju/juju#23342): before the fix,
-	# unknown users abort the import entirely.
+	# survive the import on the 4.0 side.
 	${JUJU_36} grant bob@external consume "mig36-off-src-12345:admin/mig-offer36-12345.db-src"
 
 	juju switch "mig36-peer40-12345"
 	add_model "mig-peer40-cons-12345"
-	juju deploy juju-qa-dummy-sink --base ubuntu@22.04
+	juju deploy "${sink_charm}" dummy-sink --base ubuntu@22.04
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
 	juju consume "mig36-off-src-12345:admin/mig-offer36-12345.db-src"
-	juju integrate dummy-sink db-src
+
+	juju integrate dummy-sink:source db-src:sink
+	juju integrate dummy-sink:source-alt db-src:sink-alt
 	# wait for relation joined before migrate.
 	# work around for fixing:
 	# ERROR source prechecks failed: unit dummy-source/0 hasn't joined
 	# relation "dummy-source:sink remote-<uuid>:source" yet
-	wait_for "db-src" '.applications["dummy-sink"] | .relations.source[0]'
-	wait_for "wait-for-it" "$(workload_status "dummy-sink" 0).message"
-	sleep 30
+	wait_for "db-src" '.applications["dummy-sink"].relations.source[0]'
+	wait_for "db-src" '.applications["dummy-sink"].relations."source-alt"[0]'
+	wait_for "Tokens are wait-for-it-sink,wait-for-it-sink-alt" "$(workload_status "dummy-sink" 0).message"
 
-	wait_for_36 "mig36-off-src-12345:mig-offer36-12345" "1" '.offers["db-src"]["active-connected-count"]'
+	wait_for_36 "mig36-off-src-12345:mig-offer36-12345" "2" '.offers["db-src"]["active-connected-count"]'
 
 	migrate_36 "mig36-off-src-12345" "mig-offer36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	wait_source_reaped_36 "mig36-off-src-12345" "mig-offer36-12345"
@@ -176,23 +180,24 @@ run_migration_36_cmr_offering() {
 	# The offer must have moved with the model, and its CMR connection must
 	# have survived the offering-side move.
 	status_out=$(juju status --format=json 2>&1 || true)
-	check_contains "$(echo "${status_out}" | yq '.offers["db-src"]["active-connected-count"]')" "1"
+	check_contains "$(echo "${status_out}" | yq '.offers["db-src"]["active-connected-count"]')" "2"
+	offers_out=$(juju offers --format=yaml 2>&1 || true)
+	connection_endpoints=$(echo "${offers_out}" | yq '.["db-src"].connections | map(.endpoint) | sort | join(",")')
+	check_contains "${connection_endpoints}" '^sink,sink-alt$'
 
-	# The ACL with the unknown external user must survive (juju/juju#23342).
+	# The ACL with the unknown external user must survive.
 	# The yaml output carries the full users map; the tabular output does not.
 	acl_out=$(juju show-offer "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/mig-offer36-12345.db-src" --format=yaml 2>&1 || true)
 	check_contains "${acl_out}" "bob@external"
 	check_contains "${acl_out}" "consume"
 
-	# The third-party consumer, never migrated, must keep flowing
-	# (juju/juju#23262 analog on IAAS).
+	# The third-party consumer, never migrated, must keep flowing.
 	juju config dummy-source token=yeah-boi
 	juju switch "mig36-peer40-12345:mig-peer40-cons-12345"
 
-	wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
+	wait_for "Tokens are yeah-boi-sink,yeah-boi-sink-alt" "$(workload_status "dummy-sink" 0).message"
 
-	# The offer must be removed before model/controller destruction will
-	# work. See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+	# The offer must be removed before model/controller destruction will work.
 	juju remove-offer "admin/mig-offer36-12345.db-src" -c "${BOOTSTRAPPED_JUJU_CTRL_NAME}" --force -y
 
 	# Clean up.
@@ -1692,6 +1697,66 @@ run_migration_36_relation_egress_override() {
 	destroy_controller_36 "mig36-egress-src-12345"
 }
 
+# Cloud image metadata migration: the target controller's image metadata
+# table is controller-wide, so a migrating model's custom rows merge into
+# it on the natural key. An incoming row whose key already exists with a
+# different image id replaces the target's image id (other fields
+# retained); a row identical on key and image id is left unchanged.
+run_migration_36_image_metadata() {
+	# Echo out to ensure nice output to the test suite.
+	echo
+
+	local file src_images target_images migrated_images
+
+	file="${TEST_DIR}/test-mig-imgmeta36-12345.log"
+	ensure "mig-target-imgmeta-12345" "${file}"
+
+	add_clean_func "cleanup_mig_controllers_36"
+	bootstrap_controller_36 "mig36-imgmeta-src-12345"
+	add_model_36 "mig36-imgmeta-src-12345" "mig-imgmeta36-12345"
+
+	# Model B on the 4.0 target: its image id will be replaced by the migration.
+	juju add-model -c "${BOOTSTRAPPED_JUJU_CTRL_NAME}" img-meta-b-12345
+	juju metadata add-image bbb-0001 -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345" --base ubuntu@22.04
+	# Same key and same image id on both sides: migration must not change it.
+	juju metadata add-image shared-0001 -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345" --base ubuntu@24.04
+
+	# Model A on the 3.6 source: same natural key, different image id.
+	${JUJU_36} metadata add-image aaa-0001 -m "mig36-imgmeta-src-12345:mig-imgmeta36-12345" --base ubuntu@22.04
+	${JUJU_36} metadata add-image shared-0001 -m "mig36-imgmeta-src-12345:mig-imgmeta36-12345" --base ubuntu@24.04
+
+	src_images=$(${JUJU_36} metadata list-images -m "mig36-imgmeta-src-12345:mig-imgmeta36-12345")
+	check_contains "${src_images}" "aaa-0001"
+	check_contains "${src_images}" "shared-0001"
+	target_images=$(juju metadata list-images -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345")
+	check_contains "${target_images}" "bbb-0001"
+	check_contains "${target_images}" "shared-0001"
+	check_not_contains "${target_images}" "aaa-0001"
+
+	migrate_36 "mig36-imgmeta-src-12345" "mig-imgmeta36-12345" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	wait_source_reaped_36 "mig36-imgmeta-src-12345" "mig-imgmeta36-12345"
+
+	# Same natural key, different image id: the target's image id is
+	# replaced. The identical row (shared-0001) is unchanged.
+	target_images=$(juju metadata list-images -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:img-meta-b-12345")
+	check_contains "${target_images}" "aaa-0001"
+	check_not_contains "${target_images}" "bbb-0001"
+	check_contains "${target_images}" "shared-0001"
+
+	# The migrated model reads the same controller-scoped table.
+	migrated_images=$(juju metadata list-images -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-imgmeta36-12345")
+	check_contains "${migrated_images}" "aaa-0001"
+	check_contains "${migrated_images}" "shared-0001"
+	check_not_contains "${migrated_images}" "bbb-0001"
+
+	# Clean up.
+	destroy_controller_36 "mig36-imgmeta-src-12345"
+
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+	destroy_model "img-meta-b-12345"
+	destroy_model "mig-imgmeta36-12345"
+}
+
 # Migrating a CAAS (k8s) model from one controller to another on the same k8s
 # cloud. This exercises the CAAS carve-outs in the migration path: the agent
 # binary metadata lookup must not require binaries that k8s never uploads to
@@ -1855,5 +1920,35 @@ test_migration_36_relation_egress_override() {
 		cd .. || exit
 
 		run "run_migration_36_relation_egress_override"
+	)
+}
+
+
+test_migration_36_image_metadata() {
+	if [ -n "$(skip 'test_migration_36_image_metadata')" ]; then
+		echo "==> SKIP: Asked to skip juju 3.6 model migration cloud image metadata test"
+		return
+	fi
+
+	if ! gate_reason=$(mig36_gate 2>&1); then
+		echo "==> SKIP: juju 3.6 model migration cloud image metadata test: ${gate_reason}"
+		return
+	fi
+
+	case "${BOOTSTRAP_PROVIDER}" in
+	"lxd"|"ec2")
+		;;
+	*)
+		echo "==> SKIP: juju 3.6 model migration cloud image metadata test needs the lxd or ec2 provider"
+		return
+		;;
+	esac
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_migration_36_image_metadata"
 	)
 }

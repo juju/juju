@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -67,6 +68,7 @@ func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	s.serverFactory = newTerminatingServerFactory(
 		s.proxyFactory,
 		stubSSHService{jumpHostKey: testHostKey, virtualHostKey: jujutesting.SSHServerHostKey},
+		clock.WallClock,
 	)
 	return ctrl
 }
@@ -84,6 +86,7 @@ func (s *sshServerSuite) newServer(c *tc.C) (*ServerWorker, *bufconn.Listener, f
 		Authorizer:               s.authorizer,
 		ServerFactory:            s.serverFactory,
 		Metrics:                  NewMetricsCollector(),
+		Clock:                    clock.WallClock,
 	}
 
 	worker, err := NewServerWorker(cfg)
@@ -246,6 +249,15 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	// Test no Clock.
+	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
+		cfg.Authenticator = s.authenticator
+		cfg.Authorizer = s.authorizer
+		cfg.ServerFactory = s.serverFactory
+		cfg.Metrics = NewMetricsCollector()
+	})
+	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*missing Clock.*")
+
 }
 
 func (s *sshServerSuite) TestSSHServerSession(c *tc.C) {
@@ -338,6 +350,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		Authorizer:               s.authorizer,
 		ServerFactory:            s.serverFactory,
 		Metrics:                  NewMetricsCollector(),
+		Clock:                    clock.WallClock,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -430,6 +443,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		Authorizer:               s.authorizer,
 		ServerFactory:            s.serverFactory,
 		Metrics:                  NewMetricsCollector(),
+		Clock:                    clock.WallClock,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)

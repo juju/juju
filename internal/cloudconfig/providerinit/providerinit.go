@@ -67,6 +67,6 @@ func ComposeUserData(icfg *instancecfg.InstanceConfig, cloudcfg cloudinit.CloudC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Tracef(context.TODO(), "Generated cloud init:\n%s", string(udata))
+	logger.Tracef(context.TODO(), "generated cloud init: %d bytes", len(udata))
 	return udata, err
 }

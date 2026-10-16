@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	ssh "github.com/tailscale/gliderssh"
@@ -75,6 +76,8 @@ type ServerWorkerConfig struct {
 	ServerFactory *TerminatingServerFactory
 	// Metrics collects connection and authentication metrics.
 	Metrics *Collector
+	// Clock is used to time connections.
+	Clock clock.Clock
 }
 
 // Validate validates the workers configuration is as expected.
@@ -99,6 +102,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.ServerFactory == nil {
 		return errors.NotValidf("missing ServerFactory")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("missing Clock")
 	}
 	return nil
 }
@@ -281,7 +287,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 	return func(ctx ssh.Context, conn net.Conn) net.Conn {
 		// Store the connection start time in the context so we can measure
 		// the time to start the session later in the proxy.
-		now := time.Now()
+		now := s.config.Clock.Now()
 		ctx.SetValue(connectionStartTime{}, now)
 
 		current := s.concurrentConnections.Add(1)
@@ -289,7 +295,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 
 		if int(current) > s.config.MaxConcurrentConnections {
 			// set the deadline because we don't want to block the connection to write an error.
-			err := conn.SetWriteDeadline(time.Now().Add(100 * time.Millisecond))
+			err := conn.SetWriteDeadline(s.config.Clock.Now().Add(100 * time.Millisecond))
 			if err != nil {
 				s.config.Logger.Errorf(context.TODO(), "failed to set write deadline: %v", err)
 			}
@@ -308,7 +314,7 @@ func (s *ServerWorker) connCallback() ssh.ConnCallback {
 			<-ctx.Done()
 			s.config.Metrics.connectionCount.Dec()
 			s.concurrentConnections.Add(-1)
-			s.config.Metrics.connectionDuration.Observe(time.Since(start).Seconds())
+			s.config.Metrics.connectionDuration.Observe(s.config.Clock.Now().Sub(start).Seconds())
 		}(now)
 		return conn
 	}

@@ -1,0 +1,38 @@
+#!/bin/bash
+set -eu
+
+relation_ids="$(
+	relation-ids source
+	relation-ids source-alt
+)"
+if [[ -z $relation_ids ]]; then
+	status-set blocked "Waiting for source relations"
+	exit 0
+fi
+
+tokens=""
+relation_count=0
+for relation_id in $relation_ids; do
+	remote_unit=$(relation-list -r "$relation_id" | head -n 1)
+	if [[ -z $remote_unit ]]; then
+		status-set waiting "Waiting for remote unit"
+		exit 0
+	fi
+
+	token=$(relation-get token -r "$relation_id" "$remote_unit")
+	if [[ -z $token ]]; then
+		status-set waiting "Waiting for token"
+		exit 0
+	fi
+
+	tokens="${tokens}${tokens:+,}${token}"
+	relation_count=$((relation_count + 1))
+done
+
+if [[ $relation_count -lt 2 ]]; then
+	status-set waiting "Waiting for second source relation"
+	exit 0
+fi
+
+juju-log -l INFO "Tokens are $tokens"
+status-set active "Tokens are $tokens"
