@@ -224,3 +224,61 @@ func (r *PermissionSuite) TestUnknownTargetKindReturnsNoPermission(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(hasPermission, tc.IsFalse)
 }
+
+func (r *PermissionSuite) TestUserAccessLevelReturnsResolvedAccess(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{access: permission.WriteAccess}
+	access, err := common.UserAccessLevel(c.Context(), userGetter.call, userTag, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.WriteAccess)
+}
+
+func (r *PermissionSuite) TestUserAccessLevelNoAccess(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{access: permission.NoAccess}
+	access, err := common.UserAccessLevel(c.Context(), userGetter.call, userTag, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *PermissionSuite) TestUserAccessLevelNotFoundErrorsAreSwallowed(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{
+		access: permission.NoAccess,
+		err:    accesserrors.PermissionNotFound,
+	}
+	access, err := common.UserAccessLevel(c.Context(), userGetter.call, userTag, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *PermissionSuite) TestUserAccessLevelPropagatesUnexpectedError(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	userGetter := &fakeUserAccess{
+		access: permission.NoAccess,
+		err:    errors.New("database connection failed"),
+	}
+	access, err := common.UserAccessLevel(c.Context(), userGetter.call, userTag, target)
+	c.Assert(err, tc.ErrorMatches, ".*database connection failed.*")
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *PermissionSuite) TestUserAccessLevelNonUserTagReturnsNoAccess(c *tc.C) {
+	machineTag := names.NewMachineTag("0")
+	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
+	access, err := common.UserAccessLevel(c.Context(), (&fakeUserAccess{}).call, machineTag, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}
+
+func (r *PermissionSuite) TestUserAccessLevelUnknownTargetKindReturnsNoAccess(c *tc.C) {
+	userTag := names.NewUserTag("validuser")
+	target := names.NewMachineTag("0")
+	access, err := common.UserAccessLevel(c.Context(), (&fakeUserAccess{}).call, userTag, target)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(access, tc.Equals, permission.NoAccess)
+}

@@ -1391,6 +1391,72 @@ AND       u.removed = false
 	return userInfo, nil
 }
 
+// GetModelUser retrieves basic information about the specified user
+// on the given model UUID. Unlike [State.GetModelUsers] this query
+// left-joins the permission table, so a user with no local permission
+// row (for example a JWT-authenticated external user) is still returned,
+// with an empty access level.
+// The following error types can be expected to be returned:
+// - [modelerrors.NotFound] when the model is not found.
+// - [modelerrors.UserNotFoundOnModel] when the user is not found.
+func (st *State) GetModelUser(
+	ctx context.Context,
+	modelUUID coremodel.UUID,
+	name user.Name,
+) (coremodel.ModelUserInfo, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return coremodel.ModelUserInfo{}, errors.Capture(err)
+	}
+	q := `
+SELECT    (u.name, u.display_name, mll.time, p.access_type) AS (&dbModelUserInfo.*)
+FROM      v_user_auth u
+LEFT JOIN v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbModelUUIDRef.model_uuid
+LEFT JOIN model_last_login mll ON mll.user_uuid = u.uuid AND mll.model_uuid = $dbModelUUIDRef.model_uuid
+WHERE     u.disabled = false
+AND       u.removed = false
+AND       u.name = $dbName.name
+`
+
+	uuid := dbModelUUIDRef{ModelUUID: modelUUID.String()}
+	userName := dbName{Name: name.Name()}
+	stmt, err := st.Prepare(q, dbModelUserInfo{}, uuid, userName)
+	if err != nil {
+		return coremodel.ModelUserInfo{}, errors.Capture(err)
+	}
+
+	var modelUser dbModelUserInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelUser = dbModelUserInfo{}
+		queryErr := tx.Query(ctx, stmt, uuid, userName).Get(&modelUser)
+		if queryErr != nil && !errors.Is(queryErr, sqlair.ErrNoRows) {
+			return errors.Capture(queryErr)
+		}
+		// A permission row implies the model exists. Otherwise the left
+		// join can't tell a missing model from a missing grant, so check
+		// the model only in that case.
+		if queryErr == nil && modelUser.AccessType != "" {
+			return nil
+		}
+		if _, err := GetModel(ctx, tx, modelUUID); err != nil {
+			return errors.Capture(err)
+		}
+		if errors.Is(queryErr, sqlair.ErrNoRows) {
+			return errors.New("user not found on model").Add(modelerrors.UserNotFoundOnModel)
+		}
+		return nil
+	})
+	if err != nil {
+		return coremodel.ModelUserInfo{}, errors.Errorf("getting model user from database: %w", err)
+	}
+
+	mui, err := modelUser.toModelUserInfo()
+	if err != nil {
+		return coremodel.ModelUserInfo{}, errors.Capture(err)
+	}
+	return mui, nil
+}
+
 // GetModelSummary provides summary based information for the model identified
 // by the uuid. The information returned is intended to augment the information
 // that lives in the model.
