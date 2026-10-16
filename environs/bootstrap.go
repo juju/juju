@@ -53,6 +53,15 @@ type BootstrapParams struct {
 	// in the controller model.
 	StoragePools map[string]storage.Attrs
 
+	// ControllerStorageClass is the Kubernetes storage class recorded on
+	// the bootstrapped cloud (see add-k8s --storage), honouring a
+	// --config workload-storage override. It nominates the class used
+	// for the controller's persistent volume claim, and is consulted
+	// only when the storage configuration scheduled for the controller
+	// model does not itself identify one. It is empty for non-Kubernetes
+	// clouds.
+	ControllerStorageClass string
+
 	// BootstrapBase, if specified, is the base to use for the
 	// initial bootstrap machine.
 	BootstrapBase corebase.Base
