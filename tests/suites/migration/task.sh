@@ -6,6 +6,14 @@ test_migration() {
 
 	set_verbosity
 
+	# Provision the juju 3.6 client un-captured: sudo's password prompt
+	# needs the terminal (see ensure_juju36_client). The gate below only
+	# validates.
+	if ! ensure_juju36_client; then
+		echo "==> SKIP: test_migration test: could not provision the juju 3.6 client"
+		return
+	fi
+
 	if ! gate_reason=$(mig36_gate 2>&1); then
 		echo "==> SKIP: test_migration test: ${gate_reason}"
 		return
@@ -28,7 +36,7 @@ test_migration() {
 		export KILL_CONTROLLER=true
 		destroy_controller "test-migration-k8s"
 		;;
-	"ec2")
+	"lxd"|"ec2")
 		file="${TEST_DIR}/test-migration.log"
 
 		bootstrap "test-migration" "${file}"
@@ -46,7 +54,7 @@ test_migration() {
 		destroy_controller "test-migration"
 		;;
 	*)
-		echo "==> TEST SKIPPED: test_migration test runs on the ec2 or k8s provider"
+		echo "==> TEST SKIPPED: test_migration test runs on the lxd, ec2 or k8s provider"
 		return
 		;;
 	esac
