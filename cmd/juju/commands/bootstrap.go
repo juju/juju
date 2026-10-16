@@ -1518,6 +1518,12 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if _, ok := controllerConfigAttrs[controller.SystemSSHKeys]; ok {
 		return bootstrapConfigs{}, fmt.Errorf("%q is not a user configurable item. Please unset this and continue.", controller.SystemSSHKeys)
 	}
+	// The API port can't be changed after bootstrap without handing every
+	// agent a new address, so for now it isn't configurable at all.
+	if _, ok := controllerConfigAttrs[controller.APIPort]; ok {
+		return bootstrapConfigs{}, fmt.Errorf("%q is not a user configurable item. The API port is %d, or 443 with %q.",
+			controller.APIPort, controller.DefaultAPIPort, controller.AutocertDNSNameKey)
+	}
 	if v, ok := controllerConfigAttrs[controller.CAASImageRepo]; ok {
 		if v, ok := v.(string); ok {
 			repoDetails, err := docker.LoadImageRepoDetails(v)
@@ -1537,12 +1543,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing controller config")
 	}
 	if controllerConfig.AutocertDNSName() != "" {
-		if _, ok := controllerConfigAttrs[controller.APIPort]; !ok {
-			// The configuration did not explicitly mention the API port,
-			// so default to 443 because it is not usually possible to
-			// obtain autocert certificates without listening on port 443.
-			controllerConfig[controller.APIPort] = 443
-		}
+		// Listen on 443 because it is not usually possible to obtain autocert
+		// certificates without listening on port 443.
+		controllerConfig[controller.APIPort] = 443
 	}
 
 	logger.Debugf(ctx, "preparing controller with config keys: %v",
