@@ -9,6 +9,21 @@ import (
 	"github.com/juju/tc"
 )
 
+func (s *controllerSchemaSuite) TestControllerAPIAddressScopeUsesText(c *tc.C) {
+	s.applyDDL(c, ControllerDDL())
+	s.assertExecSQL(c, `INSERT INTO controller_node (controller_id) VALUES ('0')`)
+	s.assertExecSQL(c, `
+INSERT INTO controller_api_address (controller_id, address, scope)
+VALUES ('0', '10.0.0.1:17070', '001')`)
+	var scope, storageType string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT caa.scope, typeof(caa.scope)
+FROM controller_api_address AS caa`).Scan(&scope, &storageType)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(scope, tc.Equals, "001")
+	c.Check(storageType, tc.Equals, "text")
+}
+
 func (s *controllerSchemaSuite) TestControllerDiscoveryAddressesAllowSharedEndpoints(c *tc.C) {
 	s.applyDDL(c, ControllerDDL())
 
