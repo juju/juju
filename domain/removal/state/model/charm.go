@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -13,34 +12,34 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// CharmScheduleRemoval schedules a removal job for the charm with the input
-// UUID, to be actioned at the input time.
-func (st *State) CharmScheduleRemoval(
-	ctx context.Context, removalUUID, charmUUID string, when time.Time,
-) error {
-	db, err := st.DB(ctx)
+// scheduleCharmRemoval schedules a removal job for the charm with the input
+// UUID, inside the current transaction. The job is scheduled to be actioned
+// as soon as the removal worker picks it up.
+// UUIDs are normally generated in the service layer. This is intentionally
+// an exception because the charm being orphaned is determined inside this
+// transaction. Pre-generating the job UUID would require a separate read
+// that can become stale when a concurrent operation removes a unit. The job
+// UUID is not returned, and a retried transaction rolls back the UUID from
+// its previous attempt, so generating it here is safe and keeps the
+// orphaning of the charm atomic with scheduling its removal.
+func (st *State) scheduleCharmRemoval(ctx context.Context, tx *sqlair.TX, charmUUID string) error {
+	jobUUID, err := removal.NewUUID()
+	if err != nil {
+		return errors.Errorf("generating charm removal job UUID: %w", err)
+	}
+	job := removalJob{
+		UUID:          jobUUID.String(),
+		RemovalTypeID: uint64(removal.CharmJob),
+		EntityUUID:    charmUUID,
+	}
+	stmt, err := st.Prepare(`
+INSERT INTO removal (uuid, removal_type_id, entity_uuid)
+VALUES ($removalJob.uuid, $removalJob.removal_type_id, $removalJob.entity_uuid)
+`, job)
 	if err != nil {
 		return errors.Capture(err)
 	}
-
-	removalRec := removalJob{
-		UUID:          removalUUID,
-		RemovalTypeID: uint64(removal.CharmJob),
-		EntityUUID:    charmUUID,
-		ScheduledFor:  when,
-	}
-
-	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
-	if err != nil {
-		return errors.Errorf("preparing charm removal: %w", err)
-	}
-
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, removalRec).Run(); err != nil {
-			return errors.Errorf("scheduling charm removal: %w", err)
-		}
-		return nil
-	}))
+	return errors.Capture(tx.Query(ctx, stmt, job).Run())
 }
 
 // CharmExists reports whether the charm with the input UUID exists.

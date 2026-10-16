@@ -9,7 +9,6 @@ import (
 	"time"
 
 	coreapplication "github.com/juju/juju/core/application"
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/unit"
@@ -65,10 +64,6 @@ type UnitState interface {
 	// MarkUnitAsDeadWithNoEntities marks the unit with the input UUID as dead
 	// only if there are no associated entities that are still alive.
 	MarkUnitAsDeadWithNoEntities(ctx context.Context, unitUUID string) error
-
-	// GetCharmForUnit returns the charm UUID for the unit with the input unit
-	// UUID. If the unit does not exist, it returns an empty string.
-	GetCharmForUnit(ctx context.Context, unitUUID string) (string, error)
 }
 
 // RemoveUnit checks if a unit with the input name exists.
@@ -310,28 +305,14 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Errorf("deleting unit owned secrets: %w", err)
 	}
 
-	charmUUID, err := s.modelState.GetCharmForUnit(ctx, job.EntityUUID)
-	if errors.Is(err, applicationerrors.UnitNotFound) {
-		// The unit has already been removed.
-		// Indicate success so that this job will be deleted.
-		return nil
-	} else if err != nil {
-		return errors.Errorf("getting charm for unit: %w", err)
-	}
-
+	// DeleteUnit schedules the removal of the departed unit's charm once no
+	// unit runs it any more.
 	if err := s.modelState.DeleteUnit(ctx, job.EntityUUID, job.Force); errors.Is(err, applicationerrors.UnitNotFound) {
 		// The unit has already been removed.
 		// Indicate success so that this job will be deleted.
 		return nil
 	} else if err != nil {
 		return errors.Errorf("deleting unit: %w", err)
-	}
-
-	// Schedule the removal of the unit's charm. The charm removal job
-	// deletes any orphaned resources associated with the charm and then the
-	// charm itself, once nothing references it.
-	if err := s.ScheduleCharmRemoval(ctx, corecharm.ID(charmUUID)); err != nil {
-		return errors.Errorf("scheduling charm removal for unit %q: %w", job.EntityUUID, err)
 	}
 
 	return nil

@@ -63,10 +63,6 @@ type ModelDBState interface {
 	// that it was executed successfully.
 	DeleteJob(ctx context.Context, jUUID string) error
 
-	// RescheduleJob updates the scheduled time of the removal job with the
-	// input UUID, delaying its next execution.
-	RescheduleJob(ctx context.Context, jobUUID string, when time.Time) error
-
 	// NamespaceForWatchRemovals returns the table name whose UUIDs we
 	// are watching in order to be notified of new removal jobs.
 	NamespaceForWatchRemovals() string

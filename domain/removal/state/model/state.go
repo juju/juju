@@ -6,7 +6,6 @@ package model
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"github.com/canonical/sqlair"
 
@@ -101,37 +100,6 @@ func (st *State) DeleteJob(ctx context.Context, jUUID string) error {
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, jobUUID).Run(); err != nil {
 			return errors.Errorf("deleting removal row: %w", err)
-		}
-		return nil
-	}))
-}
-
-// RescheduleJob updates the scheduled time of the removal job with the input
-// UUID, delaying its next execution.
-func (st *State) RescheduleJob(ctx context.Context, jobUUID string, when time.Time) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	type jobSchedule struct {
-		UUID         string    `db:"uuid"`
-		ScheduledFor time.Time `db:"scheduled_for"`
-	}
-	job := jobSchedule{UUID: jobUUID, ScheduledFor: when}
-
-	stmt, err := st.Prepare(`
-UPDATE removal
-SET    scheduled_for = $jobSchedule.scheduled_for
-WHERE  uuid = $jobSchedule.uuid
-`, job)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, job).Run(); err != nil {
-			return errors.Errorf("rescheduling removal job %q: %w", jobUUID, err)
 		}
 		return nil
 	}))

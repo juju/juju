@@ -1139,6 +1139,77 @@ WHERE  r.entity_uuid = ?`, oldCharmUUID,
 	c.Check(entityUUID, tc.Equals, oldCharmUUID)
 }
 
+func (s *unitStateSuite) TestUpdateUnitCharmSchedulesCharmRemovalOnlyForLastUnit(c *tc.C) {
+	// Arrange: an application with two units, both running the application's
+	// charm.
+	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 2)
+
+	var oldCharmUUID string
+	err := s.DB().QueryRowContext(c.Context(),
+		"SELECT charm_uuid FROM unit WHERE uuid = ?", unitUUIDs[0].String()).Scan(&oldCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	id, _, err := s.state.AddCharm(c.Context(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "bar",
+		},
+		Manifest:      s.minimalManifest(c),
+		Source:        charm.LocalSource,
+		Revision:      42,
+		ReferenceName: "ubuntu",
+		Hash:          "hash",
+		ArchivePath:   "archive",
+		Version:       "deadbeef",
+	}, nil, false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Move the application to the new charm, as a refresh would.
+	_, err = s.DB().ExecContext(
+		c.Context(),
+		`UPDATE application SET charm_uuid = ? WHERE uuid = ?`,
+		id.String(), appUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: converge the first unit; the other still runs the old charm.
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUIDs[0],
+		CharmUUID:   id,
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: the old charm is still run by a unit, so no charm removal job
+	// is scheduled.
+	var count int
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM removal").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// Act: converge the last unit running the old charm.
+	err = s.state.UpdateUnitCharm(c.Context(), applicationinternal.UpdateUnitCharmArg{
+		UUID:        unitUUIDs[1],
+		CharmUUID:   id,
+		UnitStorage: domainstorage.CreateUnitStorageArg{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: the charm removal job is scheduled for the old charm.
+	row := s.DB().QueryRow(`
+SELECT t.name, r.entity_uuid
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  r.entity_uuid = ?`, oldCharmUUID,
+	)
+	var (
+		removalType string
+		entityUUID  string
+	)
+	err = row.Scan(&removalType, &entityUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalType, tc.Equals, "charm")
+	c.Check(entityUUID, tc.Equals, oldCharmUUID)
+}
+
 func (s *unitStateSuite) TestUpdateUnitCharmRemovesResourceNotFoundInNewCharm(c *tc.C) {
 	appUUID, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
 	unitUUID := unitUUIDs[0]

@@ -1354,6 +1354,15 @@ WHERE  uuid = $unitUUID.uuid
 		return errors.Capture(err)
 	}
 
+	countUnitsOnCharmStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   unit
+WHERE  charm_uuid = $charmUUID.charm_uuid
+`, countResult{}, charmUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	deleteOldCharmUnitResourcesStmt, err := st.Prepare(`
 DELETE FROM unit_resource
 WHERE unit_resource.unit_uuid = $unitUUID.uuid
@@ -1410,7 +1419,14 @@ WHERE       unit_uuid = $unitUUID.uuid AND
 			)
 		}
 
-		if unitLifeCharm.CharmUUID != targetCharmUUID.UUID {
+		// Schedule the removal of the previous charm once no unit runs it
+		// any more; the application has already moved, so the last unit
+		// to converge orphans the charm.
+		var remainingOnOldCharm countResult
+		if err := tx.Query(ctx, countUnitsOnCharmStmt, charmUUID{UUID: unitLifeCharm.CharmUUID}).Get(&remainingOnOldCharm); err != nil {
+			return errors.Errorf("counting units on charm %q: %w", unitLifeCharm.CharmUUID, err)
+		}
+		if remainingOnOldCharm.Count == 0 {
 			if err := st.scheduleCharmRemoval(ctx, tx, unitLifeCharm.CharmUUID); err != nil {
 				return errors.Errorf("scheduling removal of previous charm %q: %w", unitLifeCharm.CharmUUID, err)
 			}
