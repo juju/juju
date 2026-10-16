@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net"
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -29,7 +31,7 @@ func TestInitialisationSuite(t *testing.T) {
 }
 
 func (s *initialisationSuite) TestOpenDatabasesWithoutBootstrapData(c *tc.C) {
-	const bindAddress = "10.0.0.1"
+	const bindAddress = "127.0.0.1"
 	addresses := network.NewMachineAddresses(
 		[]string{bindAddress}, network.WithScope(network.ScopeCloudLocal),
 	).AsProviderAddresses()
@@ -79,6 +81,202 @@ func (s *initialisationSuite) TestOpenDatabasesWithoutBootstrapData(c *tc.C) {
 		})
 		c.Check(err, tc.ErrorMatches, ".*database is closed.*")
 	}
+}
+
+func (s *initialisationSuite) TestPreferredBindAddress(c *tc.C) {
+	tests := []struct {
+		name               string
+		providerAddr       string
+		nics               []bindAddressTestNIC
+		sourceErr          error
+		defaultRouteDevice string
+		defaultRouteErr    error
+		expectDefaultRoute bool
+		expected           string
+		errorMatches       string
+	}{
+		{
+			name:         "provider address is local",
+			providerAddr: "10.0.0.9",
+			nics:         []bindAddressTestNIC{newBindAddressTestNIC("eth0", "10.0.0.9")},
+			expected:     "10.0.0.9",
+		}, {
+			name:         "equivalent IPv6 provider address is local",
+			providerAddr: "2001:db8:0:0:0:0:0:1",
+			nics:         []bindAddressTestNIC{newBindAddressTestNIC("eth0", "2001:db8::1")},
+			expected:     "2001:db8:0:0:0:0:0:1",
+		}, {
+			name:         "manual cloud public address is not local",
+			providerAddr: "3.84.237.4",
+			nics:         []bindAddressTestNIC{newBindAddressTestNIC("eth0", "10.0.0.9")},
+			expected:     "10.0.0.9",
+		}, {
+			name:         "Kubernetes pod FQDN is preserved",
+			providerAddr: "controller-0.controller-service-endpoints.controller-a.svc.cluster.local",
+			expected:     "controller-0.controller-service-endpoints.controller-a.svc.cluster.local",
+		}, {
+			name:         "provider hostname is preserved",
+			providerAddr: "controller.example.com",
+			expected:     "controller.example.com",
+		}, {
+			name:         "IPv4 loopback is preserved",
+			providerAddr: "127.0.0.1",
+			expected:     "127.0.0.1",
+		}, {
+			name:         "IPv6 loopback is preserved",
+			providerAddr: "::1",
+			expected:     "::1",
+		}, {
+			name:         "container bridges are ignored",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{
+				newBindAddressTestNIC("docker0", "172.17.0.1"),
+				newBindAddressTestNIC("lxdbr0", "10.44.0.1"),
+				newBindAddressTestNIC("eth0", "10.0.0.9"),
+			},
+			expected: "10.0.0.9",
+		}, {
+			name:         "loopback devices are ignored",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{{
+				name:       "lo",
+				deviceType: network.LoopbackDevice,
+				addresses:  []string{"10.0.0.9"},
+			}},
+			expected: "127.0.0.1",
+		}, {
+			name:         "provider address on a loopback device is not local",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{{
+				name:       "lo",
+				deviceType: network.LoopbackDevice,
+				addresses:  []string{"3.84.237.4"},
+			}},
+			expected: "127.0.0.1",
+		}, {
+			name:         "public host address is a valid fallback",
+			providerAddr: "3.84.237.4",
+			nics:         []bindAddressTestNIC{newBindAddressTestNIC("eth0", "203.0.113.10")},
+			expected:     "203.0.113.10",
+		}, {
+			name:         "secondary address is ignored",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{{
+				name:      "eth0",
+				addresses: []string{"10.0.0.9", "10.0.0.10"},
+				secondary: map[string]bool{"10.0.0.10": true},
+			}},
+			expected: "10.0.0.9",
+		}, {
+			name:         "default route disambiguates local addresses",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{
+				newBindAddressTestNIC("eth0", "10.0.0.9"),
+				newBindAddressTestNIC("eth1", "10.0.1.9"),
+			},
+			defaultRouteDevice: "eth1",
+			expectDefaultRoute: true,
+			expected:           "10.0.1.9",
+		}, {
+			name:         "multiple local addresses fall back to loopback",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{
+				newBindAddressTestNIC("eth0", "10.0.0.9"),
+				newBindAddressTestNIC("eth1", "10.0.1.9"),
+			},
+			expectDefaultRoute: true,
+			expected:           "127.0.0.1",
+		}, {
+			name:         "interface discovery error",
+			providerAddr: "10.0.0.9",
+			sourceErr:    errors.New("no interfaces"),
+			errorMatches: "querying local network interfaces.*",
+		}, {
+			name:         "interface address discovery error",
+			providerAddr: "10.0.0.9",
+			nics: []bindAddressTestNIC{{
+				name: "eth0",
+				err:  errors.New("no addresses"),
+			}},
+			errorMatches: `querying addresses for interface "eth0".*`,
+		}, {
+			name:         "default route discovery error",
+			providerAddr: "3.84.237.4",
+			nics: []bindAddressTestNIC{
+				newBindAddressTestNIC("eth0", "10.0.0.9"),
+				newBindAddressTestNIC("eth1", "10.0.1.9"),
+			},
+			defaultRouteErr:    errors.New("no default route"),
+			expectDefaultRoute: true,
+			errorMatches:       "querying default route.*",
+		},
+	}
+
+	for _, test := range tests {
+		var source network.ConfigSource
+		var ctrl *gomock.Controller
+		if test.nics != nil || test.sourceErr != nil {
+			ctrl = gomock.NewController(c)
+			mockSource := NewMockConfigSource(ctrl)
+			nics := make([]network.ConfigSourceNIC, len(test.nics))
+			for i, nic := range test.nics {
+				nics[i] = newMockNIC(ctrl, nic)
+			}
+			mockSource.EXPECT().Interfaces().Return(nics, test.sourceErr)
+			if test.expectDefaultRoute {
+				mockSource.EXPECT().DefaultRoute().Return(
+					nil, test.defaultRouteDevice, test.defaultRouteErr,
+				)
+			}
+			source = mockSource
+		}
+
+		addr, err := preferredBindAddress(
+			c.Context(), test.providerAddr, source, loggertesting.WrapCheckLog(c),
+		)
+		if ctrl != nil {
+			ctrl.Finish()
+		}
+		if test.errorMatches != "" {
+			c.Assert(err, tc.ErrorMatches, test.errorMatches, tc.Commentf(test.name))
+			continue
+		}
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf(test.name))
+		c.Check(addr, tc.Equals, test.expected, tc.Commentf(test.name))
+	}
+}
+
+type bindAddressTestNIC struct {
+	name       string
+	deviceType network.LinkLayerDeviceType
+	addresses  []string
+	secondary  map[string]bool
+	err        error
+}
+
+func newBindAddressTestNIC(name string, addresses ...string) bindAddressTestNIC {
+	return bindAddressTestNIC{name: name, addresses: addresses}
+}
+
+func newMockNIC(ctrl *gomock.Controller, spec bindAddressTestNIC) *MockConfigSourceNIC {
+	nicAddresses := make([]network.ConfigSourceAddr, len(spec.addresses))
+	for i, address := range spec.addresses {
+		addr := NewMockConfigSourceAddr(ctrl)
+		addr.EXPECT().IP().Return(net.ParseIP(address)).AnyTimes()
+		addr.EXPECT().IsSecondary().Return(spec.secondary[address]).AnyTimes()
+		nicAddresses[i] = addr
+	}
+
+	deviceType := spec.deviceType
+	if deviceType == network.UnknownDevice {
+		deviceType = network.EthernetDevice
+	}
+
+	nic := NewMockConfigSourceNIC(ctrl)
+	nic.EXPECT().Name().Return(spec.name).AnyTimes()
+	nic.EXPECT().Type().Return(deviceType).AnyTimes()
+	nic.EXPECT().Addresses().Return(nicAddresses, spec.err).AnyTimes()
+	return nic
 }
 
 func (s *initialisationSuite) TestReadyFailureClosesApplication(c *tc.C) {
