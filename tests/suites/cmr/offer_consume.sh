@@ -93,9 +93,9 @@ run_offer_consume_same_app() {
 	echo "Deploy applications in yin and create the offer"
 	# NB: the dummy-sink charm hard codes reading the token from dummy-source/0,
 	# so the offered token source must keep the name dummy-source.
-	juju deploy juju-qa-dummy-source dummy-source --series jammy
+	juju deploy juju-qa-dummy-source dummy-source --base ubuntu@22.04
 	# yin-src consumes yang's colliding name offer (direction 2).
-	juju deploy juju-qa-dummy-source yin-src --series jammy
+	juju deploy juju-qa-dummy-source yin-src --base ubuntu@22.04
 	juju offer dummy-source:sink src-offer
 
 	wait_for "idle" '.applications["dummy-source"].units["dummy-source/0"]."juju-status".current'
@@ -105,9 +105,9 @@ run_offer_consume_same_app() {
 	juju add-model yang
 	# dummy-sink is the local consumer whose name will collide with the
 	# direction 2 offer.
-	juju deploy juju-qa-dummy-sink dummy-sink --series jammy
+	juju deploy juju-qa-dummy-sink dummy-sink --base ubuntu@22.04
 	# alpha's source endpoint is offered back to yin as dummy-sink.
-	juju deploy juju-qa-dummy-sink alpha --series jammy
+	juju deploy juju-qa-dummy-sink alpha --base ubuntu@22.04
 	wait_for "idle" '.applications["dummy-sink"].units["dummy-sink/0"]."juju-status".current'
 	wait_for "idle" '.applications["alpha"].units["alpha/0"]."juju-status".current'
 
@@ -140,6 +140,11 @@ run_offer_consume_same_app() {
 	# Keep the SAAS worker and its credentials until remote teardown completes.
 	wait_for null '.offers["dummy-sink"]."total-connected-count"'
 	juju remove-saas -m yin dummy-sink
+	# remove-saas is asynchronous; wait for the remote application to be
+	# removed from yin before consuming the offer again below.
+	juju switch yin
+	wait_for null '.["application-endpoints"]'
+	juju switch yang
 	juju remove-offer yang.dummy-sink -y
 	wait_for null '.offers["dummy-sink"]'
 

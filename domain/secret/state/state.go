@@ -3084,61 +3084,6 @@ AND    subject_id = $secretAccessor.subject_id`
 	return result.Role, errors.Capture(err)
 }
 
-// GetSecretAccessRelationScope returns any relation access scope for the specified accessor's
-// permission on the secret.It returns an error satisfying
-// [secreterrors.SecretNotFound] if the secret is not found.
-func (st State) GetSecretAccessRelationScope(
-	ctx context.Context, uri *coresecrets.URI, params domainsecret.AccessParams,
-) (string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	query := `
-SELECT (sp.scope_uuid, sp.scope_type_id) AS (&secretAccessScope.*)
-FROM   v_secret_permission sp
-WHERE  secret_id = $secretAccessor.secret_id
-AND    subject_type_id = $secretAccessor.subject_type_id
-AND    subject_id = $secretAccessor.subject_id
-AND    scope_type_id = 3`
-
-	access := secretAccessor{
-		SecretID:      uri.ID,
-		SubjectTypeID: params.SubjectTypeID,
-		SubjectID:     params.SubjectID,
-	}
-	selectScopeStmt, err := st.Prepare(query, access, secretAccessScope{})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	result := secretAccessScope{}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
-			return errors.Capture(err)
-		} else if !isLocal {
-			// Should never happen.
-			return secreterrors.SecretIsNotLocal
-		}
-		err = tx.Query(ctx, selectScopeStmt, access).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"relation access scope for %q on secret %q not found",
-				params.SubjectID, uri).Add(secreterrors.SecretAccessScopeNotFound)
-
-		}
-		if err != nil {
-			return errors.Errorf("looking up secret relation access scope for %q on %q: %w", params.SubjectID, uri, err)
-		}
-		return nil
-	})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	return result.ScopeUUID, nil
-}
-
 // GetSecretGrants returns the subjects which have the specified access to the secret.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (st State) GetSecretGrants(
