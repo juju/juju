@@ -2,13 +2,14 @@
 
 # Helpers shared by the migration suite for migrating juju 3.6 models
 # into a controller built from this branch (4.0). The source controllers
-# are bootstrapped with a juju 3.6 client binary (default
-# /snap/bin/juju_36, override with JUJU_MIGRATION_36_BIN); the migration
-# target is the suite's own 4.0 controller. All clients share
+# are bootstrapped with a juju 3.6 client binary (set JUJU_MIGRATION_36_BIN
+# to override the /snap/bin/juju default, which the suite pins to the
+# 3.6/stable snap channel itself); the migration target is the suite's
+# own 4.0 controller. All clients share
 # ~/.local/share/juju, so a 3.6 client and the 4.0 client see the same
 # controllers and credentials.
 
-JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju_36}"
+JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju}"
 
 # bootstrap_controller_36 bootstraps a juju 3.6 source controller on the
 # same cloud and region as the suite's 4.0 target controller. The controller
@@ -22,11 +23,9 @@ bootstrap_controller_36() {
 	name=${1}
 
 	case "${BOOTSTRAP_PROVIDER}" in
-	# TODO(nvinuesa): bring the lxd cloud back once we figure out how to do the
-	# 3.6 snap install without parallel instances, which break lxd.
-	# "lxd")
-	# 	cloud_region="${BOOTSTRAP_CLOUD:-localhost}"
-	# 	;;
+	"lxd")
+		cloud_region="${BOOTSTRAP_CLOUD:-localhost}"
+		;;
 	"ec2")
 		cloud_region="aws/${BOOTSTRAP_REGION:-us-east-1}"
 		;;
@@ -428,6 +427,38 @@ arm_wrench_die_in_export() {
 cleanup_wrench_die_in_export_36() {
 	${JUJU_36} ssh -m "mig36-abort-src-12345:controller" controller/0 \
 		'sudo mkdir -p /var/lib/juju/wrench && : | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null' >/dev/null 2>&1 || true
+}
+
+# ensure_juju36_client pins the regular juju snap to the 3.6/stable
+# channel when the default /snap/bin/juju location is in use, mirroring
+# the upgrade suite's prior-stable install (tests/suites/upgrade/
+# streams.sh). A custom JUJU_MIGRATION_36_BIN is used as-is. Call this
+# un-captured from the wrapper path (like run_migration_*); never from
+# inside a $( ...) capture, or sudo's password prompt has no terminal.
+ensure_juju36_client() {
+	if [[ ${JUJU_36} != "/snap/bin/juju" ]]; then
+		return
+	fi
+	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]]; then
+		return
+	fi
+
+	local action
+	if snap list juju >/dev/null 2>&1; then
+		action="refresh"
+	else
+		action="install"
+	fi
+
+	local attempts=0
+	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]]; do
+		if (( attempts >= 3 )); then
+			echo "failed to install the juju 3.6 snap after ${attempts} attempts" >&2
+			return 1
+		fi
+		sudo snap "${action}" juju --classic --channel 3.6/stable 2>&1 && break || sleep 10
+		attempts=$((attempts + 1))
+	done
 }
 
 # mig36_gate echoes a skip reason and returns non-zero when the juju 3.6
