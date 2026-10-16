@@ -13,8 +13,8 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	controller "github.com/juju/juju/controller"
 	watcher "github.com/juju/juju/core/watcher"
+	service "github.com/juju/juju/domain/controllerconfig/service"
 )
 
 // MockControllerConfigService is a mock of ControllerConfigService interface.
@@ -27,7 +27,7 @@ type MockControllerConfigService struct {
 // MockControllerConfigServiceMockRecorder is the mock recorder for MockControllerConfigService.
 type MockControllerConfigServiceMockRecorder struct {
 	mock                         *MockControllerConfigService
-	controllerConfigExpects      []*gomock.Call1_2[context.Context, controller.Config, error]
+	getDqliteConfigExpects       []*gomock.Call1_2[context.Context, service.DqliteConfig, error]
 	watchControllerConfigExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
@@ -43,23 +43,23 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
-// ControllerConfig mocks base method.
-func (m *MockControllerConfigService) ControllerConfig(arg0 context.Context) (controller.Config, error) {
+// GetDqliteConfig mocks base method.
+func (m *MockControllerConfigService) GetDqliteConfig(ctx context.Context) (service.DqliteConfig, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.controllerConfigExpects, m.ctrl, m, "ControllerConfig", arg0)
+	return gomock.Dispatch1_2(&m.recorder.getDqliteConfigExpects, m.ctrl, m, "GetDqliteConfig", ctx)
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockControllerConfigServiceMockRecorder) ControllerConfig(arg0 any) *MockControllerConfigServiceControllerConfigCall {
+// GetDqliteConfig indicates an expected call of GetDqliteConfig.
+func (mr *MockControllerConfigServiceMockRecorder) GetDqliteConfig(ctx any) *MockControllerConfigServiceGetDqliteConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, controller.Config, error](mr.mock.ctrl.T, mr.mock, "ControllerConfig", gomock.EnsureMatcher(arg0))
-	mr.controllerConfigExpects = append(mr.controllerConfigExpects, call)
+	call := gomock.NewCall1_2[context.Context, service.DqliteConfig, error](mr.mock.ctrl.T, mr.mock, "GetDqliteConfig", gomock.EnsureMatcher(ctx))
+	mr.getDqliteConfigExpects = append(mr.getDqliteConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerConfigServiceControllerConfigCall is the typed call wrapper for ControllerConfig.
-type MockControllerConfigServiceControllerConfigCall = gomock.Call1_2[context.Context, controller.Config, error]
+// MockControllerConfigServiceGetDqliteConfigCall is the typed call wrapper for GetDqliteConfig.
+type MockControllerConfigServiceGetDqliteConfigCall = gomock.Call1_2[context.Context, service.DqliteConfig, error]
 
 // WatchControllerConfig mocks base method.
 func (m *MockControllerConfigService) WatchControllerConfig(arg0 context.Context) (watcher.StringsWatcher, error) {

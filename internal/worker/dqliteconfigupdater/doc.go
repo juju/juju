@@ -12,9 +12,8 @@
 // Dqlite application: the values are fixed for the life of that
 // application, so a running Dqlite app cannot be reconfigured in place.
 //
-// The worker watches WatchControllerConfig and, on every event, re-reads
-// the complete controller config and compares the three values with the
-// local cache:
+// The worker watches WatchControllerConfig and, on every event, re-reads the
+// mutable Dqlite tuning values and compares them with the local cache:
 //
 //   - matching values establish the baseline with no write and no
 //     restart; the initial all-keys watcher event is a reconciliation

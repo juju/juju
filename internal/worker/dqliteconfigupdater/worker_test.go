@@ -19,6 +19,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -115,15 +116,15 @@ func (s *WorkerSuite) startWorker(c *tc.C, store *fakeRuntimeConfigStore) (worke
 	return w, ch
 }
 
-func (s *WorkerSuite) expectControllerConfig(cfg controller.Config) {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
+func (s *WorkerSuite) expectDqliteConfig(cfg controllerconfigservice.DqliteConfig) {
+	s.controllerConfigService.EXPECT().GetDqliteConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 }
 
 func (s *WorkerSuite) TestInitialEventMatchesBaseline(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
-	s.expectControllerConfig(dqliteControllerConfig(false, time.Second, time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(false, time.Second, time.Second))
 
 	w, ch := s.startWorker(c, store)
 	defer workertest.DirtyKill(c, w)
@@ -147,7 +148,7 @@ func (s *WorkerSuite) TestInitialEventDriftWritesOnceAndRestarts(c *tc.C) {
 
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
 	// All three Dqlite values drift from the local runtime config.
-	s.expectControllerConfig(dqliteControllerConfig(true, 2*time.Second, 3*time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(true, 2*time.Second, 3*time.Second))
 
 	w, ch := s.startWorker(c, store)
 	defer workertest.DirtyKill(c, w)
@@ -175,7 +176,7 @@ func (s *WorkerSuite) TestNoRestartLoopAfterRestart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
-	s.expectControllerConfig(dqliteControllerConfig(true, 2*time.Second, 3*time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(true, 2*time.Second, 3*time.Second))
 
 	// First process: drift on the initial event, write, restart.
 	w, ch := s.startWorker(c, store)
@@ -213,10 +214,10 @@ func (s *WorkerSuite) TestSubsequentDriftWritesOnceAndRestarts(c *tc.C) {
 
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
 	gomock.InOrder(
-		s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
-			Return(dqliteControllerConfig(false, time.Second, time.Second), nil),
-		s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
-			Return(dqliteControllerConfig(true, 2*time.Second, 3*time.Second), nil),
+		s.controllerConfigService.EXPECT().GetDqliteConfig(gomock.Any()).
+			Return(dqliteServiceConfig(false, time.Second, time.Second), nil),
+		s.controllerConfigService.EXPECT().GetDqliteConfig(gomock.Any()).
+			Return(dqliteServiceConfig(true, 2*time.Second, 3*time.Second), nil),
 	)
 
 	w, ch := s.startWorker(c, store)
@@ -252,7 +253,7 @@ func (s *WorkerSuite) TestUnrelatedAndIdenticalEventsDoNothing(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
-	s.expectControllerConfig(dqliteControllerConfig(false, time.Second, time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(false, time.Second, time.Second))
 
 	w, ch := s.startWorker(c, store)
 	defer workertest.DirtyKill(c, w)
@@ -265,9 +266,9 @@ func (s *WorkerSuite) TestUnrelatedAndIdenticalEventsDoNothing(c *tc.C) {
 	}
 	<-store.readCh
 
-	// An event carrying unrelated changed keys: the complete controller
-	// config is re-read, the three Dqlite values still match, and no
-	// write or restart happens.
+	// An event carrying unrelated changed keys: the mutable Dqlite
+	// values are re-read, they still match, and no write or restart
+	// happens.
 	select {
 	case ch <- []string{"some-other-config-key"}:
 	case <-c.Context().Done():
@@ -289,12 +290,12 @@ func (s *WorkerSuite) TestUnrelatedAndIdenticalEventsDoNothing(c *tc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *WorkerSuite) TestControllerConfigReadErrorNoRestart(c *tc.C) {
+func (s *WorkerSuite) TestDqliteConfigReadErrorNoRestart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
-		Return(nil, errors.New("boom"))
+	s.controllerConfigService.EXPECT().GetDqliteConfig(gomock.Any()).
+		Return(controllerconfigservice.DqliteConfig{}, errors.New("boom"))
 
 	w, ch := s.startWorker(c, store)
 	defer workertest.DirtyKill(c, w)
@@ -306,7 +307,7 @@ func (s *WorkerSuite) TestControllerConfigReadErrorNoRestart(c *tc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Check(err, tc.ErrorMatches, "getting controller config: boom")
+	c.Check(err, tc.ErrorMatches, "getting Dqlite controller config: boom")
 	c.Check(errors.Is(err, jworker.ErrRestartAgent), tc.IsFalse)
 	c.Check(store.writeCount(), tc.Equals, 0)
 }
@@ -317,7 +318,7 @@ func (s *WorkerSuite) TestRuntimeConfigReadErrorNoRestart(c *tc.C) {
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
 	store.setReadErr(errors.New("no such file"))
 
-	s.expectControllerConfig(dqliteControllerConfig(false, time.Second, time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(false, time.Second, time.Second))
 
 	w, ch := s.startWorker(c, store)
 	defer workertest.DirtyKill(c, w)
@@ -340,7 +341,7 @@ func (s *WorkerSuite) TestRuntimeConfigWriteErrorNoRestart(c *tc.C) {
 	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
 	store.setChangeErr(errors.New("read-only filesystem"))
 
-	s.expectControllerConfig(dqliteControllerConfig(true, 2*time.Second, 3*time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(true, 2*time.Second, 3*time.Second))
 
 	w, ch := s.startWorker(c, store)
 	defer workertest.DirtyKill(c, w)
@@ -393,13 +394,12 @@ var allControllerConfigKeys = []string{
 	controller.DqliteBusyTimeout,
 }
 
-// dqliteControllerConfig returns a controller config carrying the three
-// mutable Dqlite tuning values.
-func dqliteControllerConfig(enabled bool, threshold, busyTimeout time.Duration) controller.Config {
-	return controller.Config{
-		controller.QueryTracingEnabled:   enabled,
-		controller.QueryTracingThreshold: threshold,
-		controller.DqliteBusyTimeout:     busyTimeout,
+// dqliteServiceConfig returns the service-level Dqlite tuning values.
+func dqliteServiceConfig(enabled bool, threshold, busyTimeout time.Duration) controllerconfigservice.DqliteConfig {
+	return controllerconfigservice.DqliteConfig{
+		QueryTracingEnabled:   enabled,
+		QueryTracingThreshold: threshold,
+		DqliteBusyTimeout:     busyTimeout,
 	}
 }
 

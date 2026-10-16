@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
@@ -220,6 +221,117 @@ func (s *serviceSuite) TestGetManagementSpaceAndAPIPortStateError(c *tc.C) {
 
 	_, _, err := NewService(s.state).GetManagementSpaceAndAPIPort(c.Context())
 	c.Assert(err, tc.ErrorMatches, "getting management space and API port: boom")
+}
+
+// TestGetDqliteConfig asserts that only the Dqlite tuning keys are read,
+// rather than the whole controller config, and that the stored string
+// values are parsed into their typed forms.
+func (s *serviceSuite) TestGetDqliteConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), []string{
+		controller.QueryTracingEnabled,
+		controller.QueryTracingThreshold,
+		controller.DqliteBusyTimeout,
+	}).Return(map[string]string{
+		controller.QueryTracingEnabled:   "true",
+		controller.QueryTracingThreshold: "2s",
+		controller.DqliteBusyTimeout:     "3s",
+	}, nil)
+
+	cfg, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg, tc.DeepEquals, DqliteConfig{
+		QueryTracingEnabled:   true,
+		QueryTracingThreshold: 2 * time.Second,
+		DqliteBusyTimeout:     3 * time.Second,
+	})
+}
+
+// TestGetDqliteConfigDefaults asserts that the controller config defaults
+// are returned when none of the Dqlite tuning keys are set.
+func (s *serviceSuite) TestGetDqliteConfigDefaults(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{}, nil)
+
+	cfg, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg, tc.DeepEquals, DqliteConfig{
+		QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+		QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+		DqliteBusyTimeout:     controller.DefaultDqliteBusyTimeout,
+	})
+}
+
+// TestGetDqliteConfigEmptyValues asserts that keys set to an empty value
+// fall back to the defaults, matching the complete-config behaviour of
+// durationOrDefault.
+func (s *serviceSuite) TestGetDqliteConfigEmptyValues(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		controller.QueryTracingThreshold: "",
+		controller.DqliteBusyTimeout:     "",
+	}, nil)
+
+	cfg, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg, tc.DeepEquals, DqliteConfig{
+		QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+		QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+		DqliteBusyTimeout:     controller.DefaultDqliteBusyTimeout,
+	})
+}
+
+// TestGetDqliteConfigInvalidBool asserts that a non-boolean stored value is
+// reported as an error rather than silently ignored.
+func (s *serviceSuite) TestGetDqliteConfigInvalidBool(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		controller.QueryTracingEnabled: "not-a-bool",
+	}, nil)
+
+	_, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, `parsing query tracing enabled "not-a-bool": .*`)
+}
+
+// TestGetDqliteConfigInvalidThreshold asserts that a non-duration stored
+// threshold is reported as an error rather than silently ignored.
+func (s *serviceSuite) TestGetDqliteConfigInvalidThreshold(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		controller.QueryTracingThreshold: "not-a-duration",
+	}, nil)
+
+	_, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, `parsing query-tracing-threshold "not-a-duration": .*`)
+}
+
+// TestGetDqliteConfigInvalidBusyTimeout asserts that a non-duration stored
+// busy timeout is reported as an error rather than silently ignored.
+func (s *serviceSuite) TestGetDqliteConfigInvalidBusyTimeout(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(map[string]string{
+		controller.DqliteBusyTimeout: "not-a-duration",
+	}, nil)
+
+	_, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, `parsing dqlite-busy-timeout "not-a-duration": .*`)
+}
+
+// TestGetDqliteConfigStateError asserts that a state-layer error is
+// propagated.
+func (s *serviceSuite) TestGetDqliteConfigStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValues(gomock.Any(), gomock.Any()).Return(nil, errors.New("boom"))
+
+	_, err := NewService(s.state).GetDqliteConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, "getting Dqlite controller config: boom")
 }
 
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {

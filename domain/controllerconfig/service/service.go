@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/juju/collections/transform"
 
@@ -57,6 +58,21 @@ type WatcherFactory interface {
 		summary string,
 		filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
+}
+
+// DqliteConfig holds the mutable Dqlite tuning values of the controller
+// config.
+type DqliteConfig struct {
+	// QueryTracingEnabled controls whether Dqlite query tracing is enabled.
+	QueryTracingEnabled bool
+
+	// QueryTracingThreshold is the minimum duration of a query for it to be
+	// traced when query tracing is enabled. Zero traces all queries.
+	QueryTracingThreshold time.Duration
+
+	// DqliteBusyTimeout is how long a database operation waits for a lock to be
+	// released before returning an error.
+	DqliteBusyTimeout time.Duration
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -179,6 +195,49 @@ func (s *Service) GetManagementSpaceAndAPIPort(ctx context.Context) (network.Spa
 	return managementSpace, apiPort, nil
 }
 
+// GetDqliteConfig returns the mutable Dqlite tuning values of the controller
+// config without constructing the complete controller configuration.
+func (s *Service) GetDqliteConfig(ctx context.Context) (DqliteConfig, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	values, err := s.st.GetControllerConfigValues(ctx, []string{
+		controller.QueryTracingEnabled,
+		controller.QueryTracingThreshold,
+		controller.DqliteBusyTimeout,
+	})
+	if err != nil {
+		return DqliteConfig{}, errors.Errorf("getting Dqlite controller config: %w", err)
+	}
+
+	queryTracingEnabled := controller.DefaultQueryTracingEnabled
+	if value, ok := values[controller.QueryTracingEnabled]; ok {
+		queryTracingEnabled, err = strconv.ParseBool(value)
+		if err != nil {
+			return DqliteConfig{}, errors.Errorf("parsing query tracing enabled %q: %w", value, err)
+		}
+	}
+
+	queryTracingThreshold, err := parseControllerConfigDuration(
+		values, controller.QueryTracingThreshold, controller.DefaultQueryTracingThreshold,
+	)
+	if err != nil {
+		return DqliteConfig{}, errors.Capture(err)
+	}
+	dqliteBusyTimeout, err := parseControllerConfigDuration(
+		values, controller.DqliteBusyTimeout, controller.DefaultDqliteBusyTimeout,
+	)
+	if err != nil {
+		return DqliteConfig{}, errors.Capture(err)
+	}
+
+	return DqliteConfig{
+		QueryTracingEnabled:   queryTracingEnabled,
+		QueryTracingThreshold: queryTracingThreshold,
+		DqliteBusyTimeout:     dqliteBusyTimeout,
+	}, nil
+}
+
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
@@ -265,6 +324,21 @@ func deserializeMap(m map[string]string) (map[string]any, error) {
 	return result, nil
 }
 
+// parseControllerConfigDuration returns the duration stored for the given
+// controller config key, falling back to defaultVal when the key is unset or
+// carries an empty value.
+func parseControllerConfigDuration(values map[string]string, key string, defaultVal time.Duration) (time.Duration, error) {
+	value, ok := values[key]
+	if !ok || value == "" {
+		return defaultVal, nil
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, errors.Errorf("parsing %s %q: %w", key, value, err)
+	}
+	return duration, nil
+}
+
 // WatchableService defines a service for interacting with the underlying state
 // and the ability to create watchers.
 type WatchableService struct {
@@ -283,8 +357,8 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 	}
 }
 
-// Watch returns a watcher that returns keys for any changes to controller
-// config.
+// WatchControllerConfig returns a watcher that returns keys for any changes to
+// controller config.
 func (s *WatchableService) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
