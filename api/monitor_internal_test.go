@@ -25,6 +25,7 @@ type MonitorSuite struct {
 	clock   *testclock.Clock
 	closed  chan struct{}
 	dead    chan struct{}
+	proxy   chan struct{}
 	broken  chan struct{}
 	monitor *monitor
 }
@@ -37,15 +38,17 @@ func (s *MonitorSuite) SetUpTest(c *tc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.closed = make(chan struct{})
 	s.dead = make(chan struct{})
+	s.proxy = make(chan struct{})
 	s.broken = make(chan struct{})
 	s.monitor = &monitor{
-		clock:       s.clock,
-		ping:        func(context.Context) error { return nil },
-		pingPeriod:  testPingPeriod,
-		pingTimeout: testPingTimeout,
-		closed:      s.closed,
-		dead:        s.dead,
-		broken:      s.broken,
+		clock:         s.clock,
+		ping:          func(context.Context) error { return nil },
+		pingPeriod:    testPingPeriod,
+		pingTimeout:   testPingTimeout,
+		closed:        s.closed,
+		dead:          s.dead,
+		proxierBroken: s.proxy,
+		broken:        s.broken,
 	}
 }
 
@@ -60,6 +63,13 @@ func (s *MonitorSuite) TestDead(c *tc.C) {
 	go s.monitor.run()
 	s.waitForClock(c)
 	close(s.dead)
+	assertEvent(c, s.broken)
+}
+
+func (s *MonitorSuite) TestProxierBroken(c *tc.C) {
+	go s.monitor.run()
+	s.waitForClock(c)
+	close(s.proxy)
 	assertEvent(c, s.broken)
 }
 
