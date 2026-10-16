@@ -266,18 +266,17 @@ func (s *WorkerSuite) TestUnrelatedAndIdenticalEventsDoNothing(c *tc.C) {
 	}
 	<-store.readCh
 
-	// An event carrying unrelated changed keys: the mutable Dqlite
-	// values are re-read, they still match, and no write or restart
-	// happens.
+	// An event carrying only unrelated keys is skipped without a read
+	// or a write. The following related event is the barrier proving
+	// the unrelated event was processed and skipped.
 	select {
 	case ch <- []string{"some-other-config-key"}:
 	case <-c.Context().Done():
 		c.Fatalf("event not sent")
 	}
-	<-store.readCh
-	workertest.CheckAlive(c, w)
 
-	// A value-identical event for the Dqlite keys changes nothing.
+	// A value-identical event for a Dqlite key still reconciles, and
+	// changes nothing.
 	select {
 	case ch <- []string{controller.QueryTracingEnabled}:
 	case <-c.Context().Done():
@@ -286,8 +285,73 @@ func (s *WorkerSuite) TestUnrelatedAndIdenticalEventsDoNothing(c *tc.C) {
 	<-store.readCh
 
 	workertest.CheckAlive(c, w)
+	c.Check(store.readCount(), tc.Equals, 2)
 	c.Check(store.writeCount(), tc.Equals, 0)
 	workertest.CleanKill(c, w)
+}
+
+// TestUnrelatedEventSkipsDrift asserts that an event carrying none of the
+// Dqlite keys is skipped even though the values have drifted: the drift is
+// left for a later relevant event to reconcile.
+func (s *WorkerSuite) TestUnrelatedEventSkipsDrift(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(true, 2*time.Second, 3*time.Second))
+
+	w, ch := s.startWorker(c, store)
+	defer workertest.DirtyKill(c, w)
+
+	// The first event carries only an unrelated key: no reconciliation
+	// happens and the drifted local values survive.
+	select {
+	case ch <- []string{"some-other-config-key"}:
+	case <-c.Context().Done():
+		c.Fatalf("event not sent")
+	}
+
+	// A later relevant event reconciles the drift. Its read is also the
+	// barrier proving the unrelated event was processed and skipped
+	// without a read.
+	select {
+	case ch <- []string{controller.DqliteBusyTimeout}:
+	case <-c.Context().Done():
+		c.Fatalf("event not sent")
+	}
+	<-store.readCh
+	<-store.writeCh
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
+	c.Check(store.readCount(), tc.Equals, 1)
+	c.Check(store.writeCount(), tc.Equals, 1)
+	c.Check(store.current(), tc.DeepEquals, dqliteRuntimeConfig(true, 2*time.Second, 3*time.Second))
+}
+
+// TestMixedEventReconciles asserts that an event carrying unrelated keys
+// alongside a Dqlite key is still reconciled in full.
+func (s *WorkerSuite) TestMixedEventReconciles(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	store := newFakeRuntimeConfigStore(dqliteRuntimeConfig(false, time.Second, time.Second))
+	s.expectDqliteConfig(dqliteServiceConfig(true, 2*time.Second, 3*time.Second))
+
+	w, ch := s.startWorker(c, store)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case ch <- []string{"some-other-config-key", controller.DqliteBusyTimeout}:
+	case <-c.Context().Done():
+		c.Fatalf("event not sent")
+	}
+	<-store.readCh
+	<-store.writeCh
+
+	err := workertest.CheckKilled(c, w)
+	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
+	c.Check(store.readCount(), tc.Equals, 1)
+	c.Check(store.writeCount(), tc.Equals, 1)
+	c.Check(store.current(), tc.DeepEquals, dqliteRuntimeConfig(true, 2*time.Second, 3*time.Second))
 }
 
 func (s *WorkerSuite) TestDqliteConfigReadErrorNoRestart(c *tc.C) {

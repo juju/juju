@@ -5,6 +5,7 @@ package dqliteconfigupdater
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/juju/worker/v5"
@@ -75,13 +76,13 @@ func (c Config) Validate() error {
 // The controller config service is the authoritative mutable source;
 // runtime.conf is only the per-controller delivery cache that dbaccessor
 // reads when it constructs the Dqlite application. On every watcher event
-// the worker compares the three Dqlite values with the local cache. On a
-// difference it writes all changed values together with one atomic
-// ChangeControllerRuntimeConfig write, and only after that write succeeds
-// does it return an error wrapping worker.ErrRestartAgent so the normal
-// supervision path restarts the controller and dbaccessor constructs
-// Dqlite with the new values. The initial all-keys watcher event is a
-// reconciliation like any other: matching values establish the baseline
+// carrying one of the three Dqlite keys the worker compares the Dqlite values
+// with the local cache, and on a difference it writes all changed values
+// together with one atomic ChangeControllerRuntimeConfig write, and only after
+// that write succeeds does it return an error wrapping worker.ErrRestartAgent
+// so the normal supervision path restarts the controller and dbaccessor
+// constructs Dqlite with the new values. The initial all-keys watcher event is
+// a reconciliation like any other: matching values establish the baseline
 // without a write or a restart, so a restart after a write does not loop.
 //
 // A controller config, runtime config read, validation, or write failure
@@ -120,10 +121,13 @@ func (w *dqliteConfigUpdater) SetUp(ctx context.Context) (watcher.StringsWatcher
 // controller config read through that context (an already completed runtime
 // config write is safe to keep), and the loop then returns without delivering
 // another event.
-func (w *dqliteConfigUpdater) Handle(ctx context.Context, _ []string) error {
-	// The changed identifiers are not used: the mutable Dqlite values are
-	// re-read on every event and compared with the local delivery cache, so
-	// unrelated and value-identical events both converge to no difference.
+func (w *dqliteConfigUpdater) Handle(ctx context.Context, changes []string) error {
+	if !slices.ContainsFunc(changes, isDqliteConfigKey) {
+		return nil
+	}
+	// The mutable Dqlite values are re-read on every relevant event and compared
+	// with the local delivery cache, so a value-identical event converges to no
+	// difference.
 	dqliteConfig, err := w.config.ControllerConfigService.GetDqliteConfig(ctx)
 	if err != nil {
 		return errors.Errorf("getting Dqlite controller config: %w", err)
@@ -173,4 +177,17 @@ func (w *dqliteConfigUpdater) Handle(ctx context.Context, _ []string) error {
 func (w *dqliteConfigUpdater) TearDown() error {
 	w.config.Logger.Infof(context.Background(), "dqlite config updater stopped")
 	return nil
+}
+
+// isDqliteConfigKey reports whether key is one of the mutable Dqlite tuning
+// keys synchronised by this worker.
+func isDqliteConfigKey(key string) bool {
+	switch key {
+	case controller.QueryTracingEnabled,
+		controller.QueryTracingThreshold,
+		controller.DqliteBusyTimeout:
+		return true
+	default:
+		return false
+	}
 }
