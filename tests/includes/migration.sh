@@ -446,8 +446,17 @@ ensure_juju36_client() {
 		return
 	fi
 
-	# snap info prints no tracking line when the snap is not installed:
-	# an empty channel then leaves nothing to restore.
+	# Capture the pre-state for the cleanup: the channel the snap
+	# tracked, and whether it was installed at all. snap info prints no
+	# tracking line when the snap is not installed, so an absent snap
+	# must be recorded separately: a snap the suite installed itself is
+	# removed again by restore_juju36_channel rather than left pinned
+	# to 3.6 on the machine.
+	if snap list juju >/dev/null 2>&1; then
+		MIG36_SNAP_WAS_INSTALLED=1
+	else
+		MIG36_SNAP_WAS_INSTALLED=
+	fi
 	MIG36_PREV_CHANNEL=$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')
 	add_clean_func "restore_juju36_channel"
 
@@ -480,9 +489,15 @@ ensure_juju36_client() {
 	done
 }
 
-# restore_juju36_channel returns the regular juju snap to the channel it
-# tracked before ensure_juju36_client pinned it to 3.6/stable.
+# restore_juju36_channel returns the regular juju snap to the state it
+# was in before ensure_juju36_client pinned it to 3.6/stable: refreshed
+# back to its previously tracked channel, or removed again when the
+# suite installed it in the first place.
 restore_juju36_channel() {
+	if [[ -z ${MIG36_SNAP_WAS_INSTALLED:-} ]]; then
+		sudo snap remove juju || true
+		return
+	fi
 	if [[ -z ${MIG36_PREV_CHANNEL:-} ]]; then
 		return
 	fi
