@@ -6,6 +6,8 @@ package database
 import (
 	"context"
 	"database/sql"
+	"net"
+	"strings"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/pragma"
 	"github.com/juju/juju/internal/errors"
+	internalnetwork "github.com/juju/juju/internal/network"
 )
 
 // initialisationApp describes the application owned by an initialisation
@@ -70,7 +73,17 @@ func WithDqlite(
 	if !ok {
 		return errors.New("Dqlite bootstrap address not found")
 	}
-	bindAddress := address.Value
+
+	// The bind address must be configured on a local interface. Provider
+	// addresses can report addresses that are not local to the machine,
+	// for example a NAT'd public address on a manual cloud.
+	bindAddress, err := preferredBindAddress(
+		ctx, address.Value, network.DefaultConfigSource(), logger,
+	)
+	if err != nil {
+		return errors.Errorf("determining Dqlite bind address: %w", err)
+	}
+
 	tlsOpt, err := mgr.WithTLSOption()
 	if err != nil {
 		return errors.Errorf("generating TLS option: %w", err)
@@ -86,6 +99,82 @@ func WithDqlite(
 		return errors.Errorf("creating Dqlite app: %w", err)
 	}
 	return withDqlite(ctx, dqlite, bindAddress, logger, initialise)
+}
+
+// preferredBindAddress returns the provider address if it is configured on
+// a local interface, otherwise a unique local-cloud address from the host,
+// falling back to loopback if one cannot be determined.
+func preferredBindAddress(
+	ctx context.Context, providerAddress string, source network.ConfigSource,
+	logger logger.Logger,
+) (string, error) {
+	// Loopback addresses are explicitly used for Kubernetes controllers and
+	// must not be replaced by an address from another interface.
+	if strings.EqualFold(providerAddress, "localhost") {
+		return providerAddress, nil
+	}
+	providerIP := net.ParseIP(providerAddress)
+	if providerIP != nil && providerIP.IsLoopback() {
+		return providerAddress, nil
+	}
+
+	nics, err := source.Interfaces()
+	if err != nil {
+		return "", errors.Errorf("querying local network interfaces: %w", err)
+	}
+
+	var machineAddrs network.MachineAddresses
+	addressesByDevice := make(map[string]network.MachineAddresses)
+	for _, nic := range nics {
+		name := nic.Name()
+		if nic.Type() == network.LoopbackDevice ||
+			name == internalnetwork.DefaultLXDBridge ||
+			name == internalnetwork.DefaultDockerBridge {
+			continue
+		}
+
+		nicAddrs, err := nic.Addresses()
+		if err != nil {
+			return "", errors.Errorf("querying addresses for interface %q: %w", name, err)
+		}
+
+		for _, addr := range nicAddrs {
+			if addr.IsSecondary() {
+				continue
+			}
+
+			ip := addr.IP()
+			if providerIP != nil && ip.Equal(providerIP) {
+				return providerAddress, nil
+			}
+			value := ip.String()
+			machineAddr := network.NewMachineAddress(value)
+			machineAddrs = append(machineAddrs, machineAddr)
+			addressesByDevice[name] = append(addressesByDevice[name], machineAddr)
+		}
+	}
+
+	cloudLocal := machineAddrs.AllMatchingScope(network.ScopeMatchCloudLocal).Values()
+	if len(cloudLocal) == 1 {
+		return cloudLocal[0], nil
+	}
+	if len(cloudLocal) > 1 {
+		_, device, err := source.DefaultRoute()
+		if err != nil {
+			return "", errors.Errorf("querying default route: %w", err)
+		}
+		if routeAddrs := addressesByDevice[device].AllMatchingScope(
+			network.ScopeMatchCloudLocal,
+		).Values(); len(routeAddrs) > 0 {
+			return routeAddrs[0], nil
+		}
+	}
+
+	logger.Warningf(
+		ctx,
+		"failed to determine a unique local-cloud address; falling back to 127.0.0.1 for Dqlite",
+	)
+	return "127.0.0.1", nil
 }
 
 func withDqlite(
