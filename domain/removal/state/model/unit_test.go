@@ -1359,6 +1359,36 @@ func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
 	return charmUUID
 }
 
+func (s *unitSuite) TestDeleteUnitDoesNotScheduleCharmRemoval(c *tc.C) {
+	// Arrange: An application with two units, both running the application's
+	// charm.
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app",
+		applicationservice.AddIAASUnitArg{}, applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 2)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	for _, unitUUID := range unitUUIDs {
+		s.advanceUnitLife(c, unitUUID, life.Dead)
+	}
+
+	for _, unitUUID := range unitUUIDs {
+		// Act: Delete each unit, including the last unit using the charm.
+		err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+		c.Assert(err, tc.ErrorIsNil)
+
+		// Assert: Unit deletion never schedules a charm removal job itself.
+		var count int
+		err = s.DB().QueryRowContext(c.Context(),
+			"SELECT COUNT(*) FROM removal r JOIN removal_type t ON r.removal_type_id = t.id WHERE t.name = 'charm'",
+		).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0)
+	}
+}
+
 func (s *unitSuite) addUnitStorageAttachment(
 	c *tc.C, unitUUID unit.UUID, unitOwned bool,
 ) (string, string) {

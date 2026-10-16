@@ -679,8 +679,8 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingForceSkipsDeadGate(c
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, true).Return(nil)
-	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -707,9 +707,9 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 	exp.GetApplicationOwnedSecretRevisionRefs(gomock.Any(), j.EntityUUID).Return(nil, nil)
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
-	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -724,7 +724,7 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingDeleteApplication(c 
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *applicationSuite) TestScheduleCharmRemovalForApplicationFails(c *tc.C) {
+func (s *applicationSuite) TestDeleteCharmForApplicationFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	j := newApplicationJob(c)
@@ -736,9 +736,9 @@ func (s *applicationSuite) TestScheduleCharmRemovalForApplicationFails(c *tc.C) 
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
-	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(errors.Errorf("scheduling failed"))
-	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(errors.Errorf("the charm is still in use"))
+	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -749,10 +749,10 @@ func (s *applicationSuite) TestScheduleCharmRemovalForApplicationFails(c *tc.C) 
 	s.secretBackendProvider.EXPECT().Initialise(sbCfg).Return(nil)
 	s.secretBackendProvider.EXPECT().NewBackend(sbCfg).Return(s.secretBackend, nil)
 
-	// A scheduling failure fails the job, so it stays in the table and is
-	// retried at the next worker pass.
+	// The charm cleanup failure is logged as a warning, so the removal job
+	// still completes and is deleted.
 	err := s.newService(c).ExecuteJob(c.Context(), j)
-	c.Assert(err, tc.ErrorMatches, ".*scheduling failed.*")
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApplication(c *tc.C) {
@@ -767,9 +767,9 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingJujuSecretsDeleteApp
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
-	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{
@@ -796,9 +796,9 @@ func (s *applicationSuite) TestExecuteJobForApplicationDyingExternalSecretsDelet
 	exp.DeleteApplicationOwnedSecrets(gomock.Any(), j.EntityUUID).Return(nil)
 	exp.GetCharmForApplication(gomock.Any(), j.EntityUUID).Return(tc.Must(c, coreapplication.NewUUID).String(), nil)
 	exp.DeleteApplication(gomock.Any(), j.EntityUUID, false).Return(nil)
-	exp.CharmScheduleRemoval(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteOrphanedResources(gomock.Any(), gomock.Any()).Return(nil)
+	exp.DeleteCharmIfUnused(gomock.Any(), gomock.Any()).Return(nil)
 	exp.DeleteJob(gomock.Any(), j.UUID.String()).Return(nil)
-	s.clock.EXPECT().Now().Return(time.Now().UTC()).AnyTimes()
 
 	sbCfg := &provider.ModelBackendConfig{
 		BackendConfig: provider.BackendConfig{

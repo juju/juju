@@ -20,33 +20,6 @@ func TestCharmSuite(t *testing.T) {
 	tc.Run(t, &charmSuite{})
 }
 
-func (s *charmSuite) TestCharmScheduleRemoval(c *tc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	when := time.Now().UTC()
-	err := st.CharmScheduleRemoval(c.Context(), "removal-uuid", "charm-uuid", when)
-	c.Assert(err, tc.ErrorIsNil)
-
-	row := s.DB().QueryRow(`
-SELECT t.name, r.entity_uuid, r.force, r.scheduled_for
-FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
-WHERE  r.uuid = ?`, "removal-uuid",
-	)
-	var (
-		removalType  string
-		rUUID        string
-		force        bool
-		scheduledFor time.Time
-	)
-	err = row.Scan(&removalType, &rUUID, &force, &scheduledFor)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Check(removalType, tc.Equals, "charm")
-	c.Check(rUUID, tc.Equals, "charm-uuid")
-	c.Check(force, tc.Equals, false)
-	c.Check(scheduledFor, tc.Equals, when)
-}
-
 func (s *charmSuite) TestCharmExists(c *tc.C) {
 	charmUUID := s.createBareCharm(c, true, s.now.Add(-2*time.Hour))
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))

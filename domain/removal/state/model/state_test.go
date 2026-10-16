@@ -149,29 +149,6 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestRescheduleJob(c *tc.C) {
-	ins := `
-INSERT INTO removal (uuid, removal_type_id, entity_uuid, force, scheduled_for, arg)
-VALUES (?, ?, ?, ?, ?, ?)`
-
-	jID, err := removal.NewUUID()
-	c.Assert(err, tc.ErrorIsNil)
-	now := time.Now().UTC()
-	_, err = s.DB().Exec(ins, jID, 0, "rel-1", 0, now, nil)
-	c.Assert(err, tc.ErrorIsNil)
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	later := now.Add(24 * time.Hour)
-	err = st.RescheduleJob(c.Context(), jID.String(), later)
-	c.Assert(err, tc.ErrorIsNil)
-
-	row := s.DB().QueryRow("SELECT scheduled_for FROM removal WHERE uuid = ?", jID)
-	var scheduledFor time.Time
-	err = row.Scan(&scheduledFor)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(scheduledFor, tc.Equals, later)
-}
-
 type baseSuite struct {
 	schematesting.ModelSuite
 

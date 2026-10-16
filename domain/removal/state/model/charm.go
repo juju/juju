@@ -5,43 +5,11 @@ package model
 
 import (
 	"context"
-	"time"
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/internal/errors"
 )
-
-// CharmScheduleRemoval schedules a removal job for the charm with the input
-// UUID, to be actioned at the input time.
-func (st *State) CharmScheduleRemoval(
-	ctx context.Context, removalUUID, charmUUID string, when time.Time,
-) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	removalRec := removalJob{
-		UUID:          removalUUID,
-		RemovalTypeID: uint64(removal.CharmJob),
-		EntityUUID:    charmUUID,
-		ScheduledFor:  when,
-	}
-
-	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
-	if err != nil {
-		return errors.Errorf("preparing charm removal: %w", err)
-	}
-
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, removalRec).Run(); err != nil {
-			return errors.Errorf("scheduling charm removal: %w", err)
-		}
-		return nil
-	}))
-}
 
 // CharmExists reports whether the charm with the input UUID exists.
 func (st *State) CharmExists(ctx context.Context, charmUUID string) (bool, error) {

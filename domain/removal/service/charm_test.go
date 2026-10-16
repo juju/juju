@@ -5,7 +5,6 @@ package service
 
 import (
 	"testing"
-	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
@@ -97,39 +96,20 @@ func (s *charmSuite) TestExecuteCharmRemovalJobDeleteOrphanedResourcesError(c *t
 	c.Check(err, tc.ErrorMatches, `deleting orphaned resources for charm .* boom`)
 }
 
-func (s *charmSuite) TestExecuteCharmRemovalJobPinnedRescheduled(c *tc.C) {
+func (s *charmSuite) TestExecuteCharmRemovalJobPinned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	when := time.Now().UTC()
 
 	job := newCharmJob(c)
 	exp := s.modelState.EXPECT()
 	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
 	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
 	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(true, nil)
-	exp.RescheduleJob(gomock.Any(), job.UUID.String(), when.Add(rescheduleDelay)).Return(nil)
-	s.clock.EXPECT().Now().Return(when)
 
-	// The job is rescheduled instead of deleted: it stays in the table, not
-	// due for rescheduleDelay, so ExecuteJob completes without error and
-	// without deleting the job.
+	// The charm is pinned, so the job remains incomplete: it stays in the
+	// table for retry at the removal worker's polling interval, and is not
+	// deleted.
 	err := s.newService(c).ExecuteJob(c.Context(), job)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *charmSuite) TestExecuteCharmRemovalJobPinnedRescheduleError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	job := newCharmJob(c)
-	exp := s.modelState.EXPECT()
-	exp.CharmExists(gomock.Any(), job.EntityUUID).Return(true, nil)
-	exp.DeleteOrphanedResources(gomock.Any(), job.EntityUUID).Return(nil)
-	exp.CharmHasReferencedResources(gomock.Any(), job.EntityUUID).Return(true, nil)
-	exp.RescheduleJob(gomock.Any(), job.UUID.String(), gomock.Any()).Return(errors.Errorf("boom"))
-	s.clock.EXPECT().Now().Return(time.Now().UTC())
-
-	err := s.newService(c).ExecuteJob(c.Context(), job)
-	c.Check(err, tc.ErrorMatches, `rescheduling charm removal job .* boom`)
 }
 
 func (s *charmSuite) TestExecuteCharmRemovalJobDeleteError(c *tc.C) {
@@ -144,28 +124,6 @@ func (s *charmSuite) TestExecuteCharmRemovalJobDeleteError(c *tc.C) {
 
 	err := s.newService(c).ExecuteJob(c.Context(), job)
 	c.Check(err, tc.ErrorMatches, `deleting charm .* boom`)
-}
-
-func (s *charmSuite) TestScheduleCharmRemoval(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	charmUUID := corecharmtesting.GenCharmID(c)
-	when := time.Now().UTC()
-
-	s.clock.EXPECT().Now().Return(when)
-	s.modelState.EXPECT().CharmScheduleRemoval(
-		gomock.Any(), gomock.Any(), charmUUID.String(), when,
-	).Return(nil)
-
-	err := s.newService(c).ScheduleCharmRemoval(c.Context(), charmUUID)
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *charmSuite) TestScheduleCharmRemovalInvalidCharmUUID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.newService(c).ScheduleCharmRemoval(c.Context(), "not-a-uuid")
-	c.Check(err, tc.ErrorMatches, `validating charm UUID: .*`)
 }
 
 func newCharmJob(c *tc.C) removal.Job {
