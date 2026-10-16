@@ -205,6 +205,38 @@ func (s *applicationServiceSuite) TestGetCharmLocatorByApplicationName(c *tc.C) 
 	c.Check(locator, tc.DeepEquals, expectedLocator)
 }
 
+func (s *applicationServiceSuite) TestGetCharmLocatorByUnitName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+	unitName := coreunit.Name("foo/0")
+
+	s.state.EXPECT().GetCharmIDByUnitName(gomock.Any(), unitName).Return(id, nil)
+	s.state.EXPECT().GetCharmLocatorByCharmID(gomock.Any(), id).Return(applicationcharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.AMD64,
+	}, nil)
+
+	expectedLocator := applicationcharm.CharmLocator{
+		Name:         "bar",
+		Revision:     42,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.AMD64,
+	}
+	locator, err := s.service.GetCharmLocatorByUnitName(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(locator, tc.DeepEquals, expectedLocator)
+}
+
+func (s *applicationServiceSuite) TestGetCharmLocatorByUnitNameNotValid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmLocatorByUnitName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+}
+
 func (s *applicationServiceSuite) TestGetApplicationUUIDByUnitName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

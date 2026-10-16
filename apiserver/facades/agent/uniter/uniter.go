@@ -864,11 +864,15 @@ func (u *UniterAPI) charmURLForApplication(ctx context.Context, tag names.Applic
 }
 
 func (u *UniterAPI) charmURLForUnit(ctx context.Context, tag names.UnitTag) (string, bool, error) {
-	appName, err := names.UnitApplication(tag.Id())
+	// A unit's charm differs from the application's charm while the unit has not
+	// yet upgraded, such as during a rolling charm refresh. The unit's own charm
+	// must be used, otherwise a restarted unit agent considers itself upgraded
+	// and never upgrades.
+	unitName, err := coreunit.NewName(tag.Id())
 	if err != nil {
 		return "", false, internalerrors.Capture(err)
 	}
-	charmLocator, err := u.applicationService.GetCharmLocatorByApplicationName(ctx, appName)
+	charmLocator, err := u.applicationService.GetCharmLocatorByUnitName(ctx, unitName)
 	if err != nil {
 		return "", false, internalerrors.Capture(err)
 	}
