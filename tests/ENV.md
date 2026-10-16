@@ -20,3 +20,16 @@ definitive source is the code.
 | `OPERATOR_IMAGE_ACCOUNT`      | Passed as the value of `--config caas-image-repo` when bootstrapping.              |
 | `TEST_INSPECT`                | If set, pause before teardown to allow inspection of the controller.               |
 | `CONTAINER_NETWORKING_METHOD` | If set, the default container networking method (`local`, `provider`, or `fan`).   |
+
+The migration suite saves the original snap installation state and channel in
+`${TEST_DIR}` before changing the snap. Parent-shell cleanup restores it only
+after controller teardown and all registered cleanup callbacks have finished,
+since those callbacks still need the 3.6 client. Setup refuses to change the
+snap if the installed-snap inventory or an installed snap's channel cannot be
+recorded. Cleanup uses `snap refresh --amend` to restore the previous channel,
+including an older revision, and warns if restoration fails. Missing or
+unreadable cleanup state never authorises snap removal.
+
+Run `bash tests/tools/test-migration-snap.sh` from the repository root to check
+this lifecycle without touching snapd or deploying controllers. It exercises
+the real test runner with isolated snap and controller fixtures.
