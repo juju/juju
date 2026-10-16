@@ -2008,6 +2008,28 @@ func (s *applicationStateSuite) TestGetCharmIDByApplicationNameError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
+func (s *applicationStateSuite) TestGetCharmIDByUnitName(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 1)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	unitName, err := s.state.GetUnitNameForUUID(c.Context(), unitUUIDs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A unit created for an application runs the application's charm.
+	chID, err := s.state.GetCharmIDByUnitName(c.Context(), unitName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(chID.Validate(), tc.ErrorIsNil)
+
+	appChID, err := s.state.GetCharmIDByApplicationName(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(chID, tc.Equals, appChID)
+}
+
+func (s *applicationStateSuite) TestGetCharmIDByUnitNameError(c *tc.C) {
+	_, err := s.state.GetCharmIDByUnitName(c.Context(), "foo/0")
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
 func (s *applicationStateSuite) TestGetCharmByApplicationUUID(c *tc.C) {
 
 	expectedMetadata := charm.Metadata{

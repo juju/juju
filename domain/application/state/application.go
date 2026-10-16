@@ -1490,6 +1490,42 @@ func (st *State) GetCharmIDByApplicationName(ctx context.Context, name string) (
 	return corecharm.ID(result), nil
 }
 
+// GetCharmIDByUnitName returns the charm ID for the charm the named unit is
+// currently running. It returns an error if the unit can not be found. This
+// can also be used as a cheap way to see if a unit exists without needing to
+// load the charm metadata.
+//
+// Returns [applicationerrors.UnitNotFound] if the unit is not found.
+func (st *State) GetCharmIDByUnitName(ctx context.Context, name coreunit.Name) (corecharm.ID, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	nameArg := unitName{Name: name.String()}
+	stmt, err := st.Prepare(`
+SELECT charm_uuid AS &charmUUID.*
+FROM   unit
+WHERE  name = $unitName.name
+`, charmUUID{}, nameArg)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result charmUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, nameArg).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("unit %q not found", name).Add(applicationerrors.UnitNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return corecharm.ID(result.UUID), nil
+}
+
 // GetCharmByApplicationUUID returns the charm for the specified application
 // UUID.
 // This method should be used sparingly, as it is not efficient. It should
