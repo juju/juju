@@ -1323,10 +1323,67 @@ func (s *applicationServiceSuite) TestSetApplicationScaleNonController(c *tc.C) 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 2}, nil)
-	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), appUUID, 3).Return(nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{"foo/0": 0, "foo/1": 0}, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "foo").Return(uint64(1), true, nil)
+	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{"foo/0", "foo/1"}, []string{}, tc.Bind(tc.HasLen, 1)).DoAndReturn(
+		func(_ context.Context, _ string, _, _ []string, units []internal.ScaleCAASUnitArg) ([]string, error) {
+			c.Check(units[0].ExpectedName, tc.Equals, "foo/2")
+			return nil, nil
+		},
+	)
 
 	err := s.service.SetApplicationScale(c.Context(), "foo", 3)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleUsesSequenceWithAliveUnits(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{"foo/0": 0, "foo/1": 0}, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "foo").Return(uint64(5), true, nil)
+	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{"foo/0", "foo/1"}, []string{}, tc.Bind(tc.HasLen, 1)).DoAndReturn(
+		func(_ context.Context, _ string, _, _ []string, units []internal.ScaleCAASUnitArg) ([]string, error) {
+			c.Check(units[0].ExpectedName, tc.Equals, "foo/6")
+			return nil, nil
+		},
+	)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 3)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleFromZeroWithoutSequence(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{}, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "foo").Return(0, false, nil)
+	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{}, []string{}, tc.Bind(tc.HasLen, 1)).DoAndReturn(
+		func(_ context.Context, _ string, _, _ []string, units []internal.ScaleCAASUnitArg) ([]string, error) {
+			c.Check(units[0].ExpectedName, tc.Equals, "foo/0")
+			return nil, nil
+		},
+	)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 1)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *applicationServiceSuite) TestSetApplicationScaleFromZeroWithSequence(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{}, nil)
+	s.state.EXPECT().GetApplicationUnitSequence(gomock.Any(), "foo").Return(5, true, nil)
+	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{}, []string{}, tc.Bind(tc.HasLen, 1)).DoAndReturn(
+		func(_ context.Context, _ string, _, _ []string, units []internal.ScaleCAASUnitArg) ([]string, error) {
+			c.Check(units[0].ExpectedName, tc.Equals, "foo/6")
+			return nil, nil
+		},
+	)
+
+	err := s.service.SetApplicationScale(c.Context(), "foo", 1)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -1336,6 +1393,7 @@ func (s *applicationServiceSuite) TestSetApplicationScaleControllerToZero(c *tc.
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{"foo/0": 0}, nil)
 	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(true, nil)
 
 	err := s.service.SetApplicationScale(c.Context(), "foo", 0)
@@ -1348,9 +1406,9 @@ func (s *applicationServiceSuite) TestSetApplicationScaleNonControllerToZero(c *
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(map[string]int{"foo/0": 0}, nil)
 	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(false, nil)
-	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 1}, nil)
-	s.state.EXPECT().SetDesiredApplicationScale(gomock.Any(), appUUID, 0).Return(nil)
+	s.state.EXPECT().SetCAASApplicationUnitScale(gomock.Any(), appUUID.String(), []string{"foo/0"}, []string{"foo/0"}, tc.Bind(tc.HasLen, 0)).Return(nil, nil)
 
 	err := s.service.SetApplicationScale(c.Context(), "foo", 0)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1370,8 +1428,7 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleUp(c *tc.C) {
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 3}, nil)
-	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, 3, 2).Return(5, nil)
+	s.state.EXPECT().ChangeCAASApplicationUnitScale(gomock.Any(), appUUID.String(), 2, tc.Bind(tc.HasLen, 2)).Return(5, nil, nil)
 
 	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", 2)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1384,12 +1441,22 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleDownNonController(c 
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 3}, nil)
-	s.state.EXPECT().UpdateApplicationScale(gomock.Any(), appUUID, 3, -1).Return(2, nil)
+	s.state.EXPECT().ChangeCAASApplicationUnitScale(gomock.Any(), appUUID.String(), -1, tc.Bind(tc.HasLen, 0)).Return(2, nil, nil)
 
 	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", -1)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(newScale, tc.Equals, 2)
+}
+
+func (s *applicationServiceSuite) TestChangeApplicationScaleStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	s.state.EXPECT().ChangeCAASApplicationUnitScale(gomock.Any(), appUUID.String(), 1, tc.Bind(tc.HasLen, 1)).Return(-1, nil, applicationerrors.ApplicationNotAlive)
+
+	newScale, err := s.service.ChangeApplicationScale(c.Context(), "foo", 1)
+	c.Check(newScale, tc.Equals, -1)
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
 }
 
 func (s *applicationServiceSuite) TestChangeApplicationScaleDownControllerToZero(c *tc.C) {
@@ -1398,8 +1465,7 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleDownControllerToZero
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 1}, nil)
-	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(true, nil)
+	s.state.EXPECT().ChangeCAASApplicationUnitScale(gomock.Any(), appUUID.String(), -1, tc.Bind(tc.HasLen, 0)).Return(-1, nil, errors.New("cannot scale controller application to 0 units"))
 
 	_, err := s.service.ChangeApplicationScale(c.Context(), "foo", -1)
 	c.Assert(err, tc.ErrorMatches, "cannot scale controller application to 0 units")
@@ -1411,11 +1477,10 @@ func (s *applicationServiceSuite) TestChangeApplicationScaleDownControllerBelowZ
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 
 	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
-	s.state.EXPECT().GetApplicationScaleState(gomock.Any(), appUUID).Return(application.ScaleState{Scale: 1}, nil)
-	s.state.EXPECT().IsControllerApplication(gomock.Any(), appUUID).Return(true, nil)
+	s.state.EXPECT().ChangeCAASApplicationUnitScale(gomock.Any(), appUUID.String(), -2, tc.Bind(tc.HasLen, 0)).Return(-1, nil, applicationerrors.ScaleChangeInvalid)
 
 	_, err := s.service.ChangeApplicationScale(c.Context(), "foo", -2)
-	c.Assert(err, tc.ErrorMatches, "cannot scale controller application to 0 units")
+	c.Assert(err, tc.ErrorIs, applicationerrors.ScaleChangeInvalid)
 }
 
 func (s *applicationWatcherServiceSuite) TestGetMachinesForApplication(c *tc.C) {

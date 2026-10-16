@@ -328,21 +328,33 @@ func (s *unitSuite) TestEnsureUnitNotAliveCascadeNormalSuccess(c *tc.C) {
 	s.checkMachineLife(c, unitMachineUUID.String(), life.Alive)
 }
 
-func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingSuccess(c *tc.C) {
+func (s *unitSuite) TestEnsureUnitNotAliveCascadeDyingUnitCascadesDependents(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
 
 	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
 	c.Assert(len(unitUUIDs), tc.Equals, 1)
 	unitUUID := unitUUIDs[0]
+	unitMachineUUID := s.getUnitMachineUUID(c, unitUUID)
+	storageInstanceUUID, storageAttachmentUUID := s.addUnitStorageAttachment(c, unitUUID, true)
+
+	// Simulate another workflow having already advanced the unit life.
+	s.advanceUnitLife(c, unitUUID, life.Dying)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	_, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), false)
+	cascade, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Unit was already "dying" and should be unchanged.
 	s.checkUnitLife(c, unitUUID.String(), life.Dying)
+	s.checkMachineLife(c, unitMachineUUID.String(), life.Dying)
+	s.checkStorageAttachmentLife(c, storageAttachmentUUID, life.Dying)
+	s.checkStorageInstanceLife(c, storageInstanceUUID, life.Dying)
+
+	c.Assert(cascade.MachineUUID, tc.NotNil)
+	c.Check(*cascade.MachineUUID, tc.Equals, unitMachineUUID.String())
+	c.Check(cascade.StorageAttachmentUUIDs, tc.DeepEquals, []string{storageAttachmentUUID})
+	c.Check(cascade.StorageInstanceUUIDs, tc.DeepEquals, []string{storageInstanceUUID})
 }
 
 func (s *unitSuite) TestEnsureUnitNotAliveCascadeRetryReturnsDyingArtifacts(c *tc.C) {
@@ -390,10 +402,11 @@ func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.UnitScheduleRemoval(
+	removalUUID, err := st.UnitScheduleRemoval(
 		c.Context(), "removal-uuid", unitUUID.String(), false, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "removal-uuid")
 
 	// We should have a removal job scheduled immediately.
 	row := s.DB().QueryRow(
@@ -413,6 +426,40 @@ func (s *unitSuite) TestUnitRemovalNormalSuccess(c *tc.C) {
 	c.Check(rUUID, tc.Equals, unitUUID.String())
 	c.Check(force, tc.Equals, false)
 	c.Check(scheduledFor, tc.Equals, when)
+}
+
+func (s *unitSuite) TestUnitScheduleRemovalReturnsExistingJob(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(unitUUIDs, tc.HasLen, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	when := time.Now().UTC()
+	removalUUID, err := st.UnitScheduleRemoval(
+		c.Context(), "first-removal-uuid", unitUUIDs[0].String(), false, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "first-removal-uuid")
+
+	removalUUID, err = st.UnitScheduleRemoval(
+		c.Context(), "second-removal-uuid", unitUUIDs[0].String(), false, when.Add(time.Minute),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "first-removal-uuid")
+
+	removalUUID, err = st.UnitScheduleRemoval(
+		c.Context(), "forced-removal-uuid", unitUUIDs[0].String(), true, when,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalUUID, tc.Equals, "forced-removal-uuid")
+
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM removal WHERE entity_uuid = ?", unitUUIDs[0].String())
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
 }
 
 func (s *unitSuite) TestGetRelationUnitsForUnit(c *tc.C) {
@@ -506,7 +553,7 @@ func (s *unitSuite) TestUnitRemovalNotExistsSuccess(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	when := time.Now().UTC()
-	err := st.UnitScheduleRemoval(
+	_, err := st.UnitScheduleRemoval(
 		c.Context(), "removal-uuid", "some-unit-uuid", true, when,
 	)
 	c.Assert(err, tc.ErrorIsNil)

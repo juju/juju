@@ -436,10 +436,10 @@ func (st *State) GetRelationUnitsForUnit(ctx context.Context, unitUUID string) (
 // - the removal job executor will handle that fact.
 func (st *State) UnitScheduleRemoval(
 	ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time,
-) error {
+) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	removalRec := removalJob{
@@ -452,16 +452,38 @@ func (st *State) UnitScheduleRemoval(
 
 	stmt, err := st.Prepare("INSERT INTO removal (*) VALUES ($removalJob.*)", removalRec)
 	if err != nil {
-		return errors.Errorf("preparing unit removal: %w", err)
+		return "", errors.Errorf("preparing unit removal: %w", err)
+	}
+	getExistingStmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM removal
+WHERE removal_type_id = $removalJob.removal_type_id
+  AND entity_uuid = $removalJob.entity_uuid
+  AND force = $removalJob.force
+LIMIT 1
+`, removalRec, entityUUID{})
+	if err != nil {
+		return "", errors.Errorf("preparing existing unit removal query: %w", err)
 	}
 
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = tx.Query(ctx, stmt, removalRec).Run()
-		if err != nil {
+	scheduledRemovalUUID := removalUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var existing entityUUID
+		err := tx.Query(ctx, getExistingStmt, removalRec).Get(&existing)
+		if err == nil {
+			scheduledRemovalUUID = existing.UUID
+			return nil
+		}
+		if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting existing unit removal: %w", err)
+		}
+
+		if err := tx.Query(ctx, stmt, removalRec).Run(); err != nil {
 			return errors.Errorf("scheduling unit removal: %w", err)
 		}
 		return nil
-	}))
+	})
+	return scheduledRemovalUUID, errors.Capture(err)
 }
 
 // GetUnitLife returns the life of the unit with the input UUID.

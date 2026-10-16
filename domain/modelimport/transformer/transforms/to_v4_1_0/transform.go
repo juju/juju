@@ -19,8 +19,6 @@ import (
 // Engineers implement this interface in deltas.go; the package will not
 // compile until every method has a receiver.
 type Deltas interface {
-	// ApplicationScale: struct shape changed in 4.1.0.
-	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint, model *v4_0_12.ModelExport) ([]v4_1_0.Constraint, error)
 	// Offer: struct shape changed in 4.1.0.
@@ -33,6 +31,8 @@ type Deltas interface {
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
+	// ApplicationScale: struct shape changed in 4.1.0.
+	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1241,10 +1241,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.WorkloadStatusValue[i] = v4_1_0.WorkloadStatusValue(src.WorkloadStatusValue[i])
 		}
 
-		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale, &src); err != nil {
-			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
-		}
-
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
 		}
@@ -1267,6 +1263,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("UnitResource delta: %w", err)
+		}
+
+		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {

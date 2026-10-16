@@ -66,6 +66,30 @@ type count struct {
 	N uint64 `db:"n"`
 }
 
+// EnsureAtLeast advances a sequence to value if it has not already reached
+// it. This is used when an identity with an explicit ordinal is reserved.
+func EnsureAtLeast(
+	ctx context.Context,
+	preparer domain.Preparer,
+	tx *sqlair.TX,
+	namespace domainsequence.Namespace,
+	value uint64,
+) error {
+	seq := sequence{Namespace: namespace.String(), Value: value}
+	stmt, err := preparer.Prepare(`
+INSERT INTO sequence (*) VALUES ($sequence.*)
+ON CONFLICT DO UPDATE SET value = $sequence.value
+WHERE sequence.value < $sequence.value
+`, seq)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, stmt, seq).Run(); err != nil {
+		return errors.Errorf("advancing sequence for namespace %q: %w", namespace, err)
+	}
+	return nil
+}
+
 // NextNValues returns the next n monotonically incrementing uint64 values for
 // the given namespace. The values returned by this function will never be
 // available for use again.

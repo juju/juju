@@ -309,53 +309,6 @@ func (s *WatchableService) WatchUnitLife(ctx context.Context, unitName coreunit.
 	)
 }
 
-// WatchApplicationScale returns a watcher that observes changes to an application's scale.
-// The following errors may be returned:
-// - [applicationerrors.ApplicationNotFound] if the application doesn't exist
-func (s *WatchableService) WatchApplicationScale(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-	appID, err := s.st.GetApplicationUUIDByName(ctx, appName)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	scaleState, err := s.st.GetApplicationScaleState(ctx, appID)
-	if err != nil {
-		return nil, errors.Errorf("getting scaling state for %q: %w", appName, err)
-	}
-	currentScale := scaleState.Scale
-
-	mask := changestream.Changed
-	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
-		ctx, span := trace.Start(ctx, trace.NameFromFunc())
-		defer span.End()
-
-		newScaleState, err := s.st.GetApplicationScaleState(ctx, appID)
-		if err != nil {
-			return nil, errors.Capture(err)
-		}
-		newScale := newScaleState.Scale
-		// Only dispatch if the scale has changed.
-		if newScale != currentScale {
-			currentScale = newScale
-			return transform.Slice(changes, func(c changestream.ChangeEvent) string {
-				return c.Changed()
-			}), nil
-		}
-		return nil, nil
-	}
-	return s.watcherFactory.NewNotifyMapperWatcher(
-		ctx,
-		fmt.Sprintf("application scale watcher for %q", appName),
-		mapper,
-		eventsource.PredicateFilter(
-			s.st.NamespaceForWatchApplicationScale(),
-			mask,
-			eventsource.EqualsPredicate(appID.String()),
-		),
-	)
-}
-
 // WatchApplicationsWithPendingCharms returns a watcher that observes changes to
 // applications that have pending charms.
 func (s *WatchableService) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {

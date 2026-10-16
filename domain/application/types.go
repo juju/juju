@@ -86,10 +86,6 @@ type AddIAASApplicationArg struct {
 // added *just* for CAAS applications.
 type AddCAASApplicationArg struct {
 	BaseAddApplicationArg
-	// Scale contains the scale information for the application.
-	Scale int
-	// StartOrdinal is the first ordinal in the application's StatefulSet range.
-	StartOrdinal int
 }
 
 // AddApplicationResourceArg defines the arguments required to add a resource to
@@ -109,14 +105,6 @@ type CharmOrigin struct {
 	Revision           int
 	Hash               string
 	CharmhubIdentifier string
-}
-
-// ScaleState describes the scale status of a k8s application.
-type ScaleState struct {
-	StartOrdinal int
-	Scaling      bool
-	Scale        int
-	ScaleTarget  int
 }
 
 // K8sService contains parameters for an application's cloud service.
@@ -479,10 +467,6 @@ type InsertApplicationArgs struct {
 	// Settings contains the settings for the application. This includes the
 	// trust setting.
 	Settings ApplicationSettings
-	// Scale contains the scale information for the application.
-	Scale int
-	// StartOrdinal is the first ordinal in the application's StatefulSet range.
-	StartOrdinal int
 	// StoragePoolKind holds a mapping of the kind of storage supported
 	// by the named storage pool / provider type.
 	StoragePoolKind map[string]internalstorage.StorageKind

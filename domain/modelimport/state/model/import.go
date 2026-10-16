@@ -138,10 +138,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing ApplicationResource insert statement: %w", err)
 	}
-	stmtApplicationScale, err := sqlair.Prepare(`INSERT INTO "application_scale" (*) VALUES ($ApplicationScale.*)`, v4_1_0.ApplicationScale{})
-	if err != nil {
-		return errors.Errorf("preparing ApplicationScale insert statement: %w", err)
-	}
 	stmtApplicationSetting, err := sqlair.Prepare(`INSERT INTO "application_setting" (*) VALUES ($ApplicationSetting.*)`, v4_1_0.ApplicationSetting{})
 	if err != nil {
 		return errors.Errorf("preparing ApplicationSetting insert statement: %w", err)
@@ -1109,11 +1105,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.ApplicationResource) > 0 {
 			if err := tx.Query(ctx, stmtApplicationResource, p.ApplicationResource).Run(); err != nil {
 				return errors.Errorf("inserting ApplicationResource (table application_resource): %w", err)
-			}
-		}
-		if len(p.ApplicationScale) > 0 {
-			if err := tx.Query(ctx, stmtApplicationScale, p.ApplicationScale).Run(); err != nil {
-				return errors.Errorf("inserting ApplicationScale (table application_scale): %w", err)
 			}
 		}
 		if len(p.ApplicationSetting) > 0 {

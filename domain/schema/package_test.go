@@ -192,6 +192,7 @@ func readEntityNames(c *tc.C, db *sql.DB, entity_type string) []string {
 
 	err = tx.Commit()
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIsNil, rows.Err())
 
 	return names
 }
