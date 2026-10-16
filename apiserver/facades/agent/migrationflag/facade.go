@@ -79,11 +79,11 @@ func (facade *Facade) onePhase(ctx context.Context, tagString string) (string, e
 	if err := facade.auth(ctx, tagString); err != nil {
 		return "", errors.Trace(err)
 	}
-	m, err := facade.modelMigrationService.Migration(ctx)
+	phase, err := facade.modelMigrationService.MigrationPhase(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return m.Phase.String(), nil
+	return phase.String(), nil
 }
 
 // Watch returns an id for use with the NotifyWatcher facade, or an
@@ -107,7 +107,7 @@ func (facade *Facade) oneWatch(ctx context.Context, tagString string) (string, e
 	if err := facade.auth(ctx, tagString); err != nil {
 		return "", errors.Trace(err)
 	}
-	w, err := facade.modelMigrationService.WatchMigrationPhase(ctx)
+	w, err := facade.modelMigrationService.WatchMigrationActivity(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

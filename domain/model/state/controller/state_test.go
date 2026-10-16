@@ -2487,6 +2487,65 @@ func (m *stateSuite) TestImportModel(c *tc.C) {
 	c.Assert(migrationUUID, tc.Not(tc.Equals), "")
 }
 
+// TestImportModelClaimsInImportingPhase asserts that the legacy (v4-v7) import
+// path creates a model_migration_import claim in the *importing* phase.
+//
+// This is a characterisation test for a fact the migration protocol depends on:
+// every import carries a claim, legacy included. Claim existence is therefore
+// not a legacy/v8 discriminator, and legacy imports are frozen and abortable by
+// exactly the same claim phase machine as v8 imports. Code that assumes a
+// missing claim means "legacy" is wrong, and a 3.6 or 4.0 source driving this
+// path would silently take the wrong branch.
+func (m *stateSuite) TestImportModelClaimsInImportingPhase(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	modelSt := NewState(m.TxnRunnerFactory())
+	testUUID := tc.Must(c, coremodel.NewUUID)
+	err := modelSt.ImportModel(
+		c.Context(),
+		testUUID,
+		coremodel.IAAS,
+		model.GlobalModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: usertesting.GenNewName(c, "test-user"),
+				Name:  "foobar",
+			},
+			Name:          "import-phase-test",
+			Qualifier:     "prod",
+			AdminUsers:    []user.UUID{m.userUUID},
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner, err := m.TxnRunnerFactory()(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	var phase string
+	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
+		stmt, err := sqlair.Prepare(`
+SELECT     mmipt.type AS &M.type
+FROM       model_migration_import AS mmi
+JOIN       model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+WHERE      mmi.model_uuid = $M.model_uuid`, sqlair.M{})
+		if err != nil {
+			return err
+		}
+		result := sqlair.M{}
+		if err := tx.Query(ctx, stmt, sqlair.M{"model_uuid": testUUID.String()}).Get(&result); err != nil {
+			return err
+		}
+		phase = result["type"].(string)
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, "importing")
+}
+
 func (m *stateSuite) TestImportModelWithSameNameAndOwner(c *tc.C) {
 	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
 	m.createModel(c, m.uuid, m.userUUID)
