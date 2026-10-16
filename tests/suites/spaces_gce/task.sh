@@ -19,6 +19,12 @@ test_spaces_gce() {
 	network_name="juju-qa-test"
 	ensure_subnets $network_name "${BOOTSTRAP_REGION}"
 
+	# The spaces assertions rely on container space requirements being
+	# enforced, which only happens with the "provider" container networking
+	# method. With "local", the default LXD bridge satisfies any space
+	# constraint, regardless of the host's devices.
+	export CONTAINER_NETWORKING_METHOD=provider
+
 	file="${TEST_DIR}/test-spaces-gce.log"
 
 	export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default=vpc-id=juju-qa-test"
@@ -55,8 +61,8 @@ ensure_subnets() {
 	for i in "subnet1 10.104.0.0/20" "subnet2 10.142.0.0/20"; do
 		local subnet
 		local cidr
-		subnet=$(echo $i | awk -F' ' '{print $1}')
-		cidr=$(echo $i | awk -F' ' '{print $2}')
+		subnet=$(echo "$i" | awk -F' ' '{print $1}')
+		cidr=$(echo "$i" | awk -F' ' '{print $2}')
 		existing_range=$(gcloud compute networks subnets list --regions "${region}" --format json | network_name=$network_name cidr=$cidr yq -r '.[] | select(.network == "*networks/\(env(network_name))") | select(.ipCidrRange==env(cidr)) | .ipCidrRange')
 		if [ "$existing_range" == "" ]; then
 			echo "Creating subnet $subnet with CIDR range $cidr"
