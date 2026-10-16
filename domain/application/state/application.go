@@ -1553,6 +1553,24 @@ WHERE  uuid = $applicationAndCharmUUID.application_uuid
 		return errors.Errorf("preparing set application charm: %w", err)
 	}
 
+	getApplicationCharmStmt, err := st.Prepare(`
+SELECT charm_uuid AS &charmUUID.charm_uuid
+FROM   application
+WHERE  uuid = $entityUUID.uuid
+`, charmUUID{}, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing get application charm: %w", err)
+	}
+
+	countUnitsOnCharmStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   unit
+WHERE  charm_uuid = $charmUUID.charm_uuid
+`, countResult{}, charmUUID{})
+	if err != nil {
+		return errors.Errorf("preparing count units on charm: %w", err)
+	}
+
 	updateCharmModifiedVersionStmt, err := st.Prepare(`
 UPDATE application
 SET    charm_modified_version = $charmModifiedVersion.charm_modified_version
@@ -1574,10 +1592,15 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Capture(err)
 		}
 
+		appIdent := entityUUID{UUID: appID.String()}
+		var oldCharm charmUUID
+		if err := tx.Query(ctx, getApplicationCharmStmt, appIdent).Get(&oldCharm); err != nil {
+			return errors.Errorf("getting charm for application %q: %w", appID, err)
+		}
+
 		// Update storage directives for the new charm.
-		err := st.updateApplicationStorageDirectives(
-			ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate)
-		if err != nil {
+		if err := st.updateApplicationStorageDirectives(
+			ctx, tx, appID, chID.String(), params.StorageDirectivesToUpdate); err != nil {
 			return errors.Errorf("updating storage directives: %w", err)
 		}
 
@@ -1618,7 +1641,21 @@ WHERE  uuid = $entityUUID.uuid
 			return errors.Errorf("setting application charm: %w", err)
 		}
 
-		appIdent := entityUUID{UUID: appID.String()}
+		// Schedule the removal of the previous charm once no unit runs it
+		// any more. A zero count should only ever be seen for K8s
+		// applications that were scaled to zero and then changed: the
+		// application persists without units, so the charm switch itself
+		// orphans the previous charm.
+		var unitsOnOldCharm countResult
+		if err := tx.Query(ctx, countUnitsOnCharmStmt, oldCharm).Get(&unitsOnOldCharm); err != nil {
+			return errors.Errorf("counting units on charm %q: %w", oldCharm.UUID, err)
+		}
+		if unitsOnOldCharm.Count == 0 {
+			if err := st.scheduleCharmRemoval(ctx, tx, oldCharm.UUID); err != nil {
+				return errors.Errorf("scheduling removal of previous charm %q: %w", oldCharm.UUID, err)
+			}
+		}
+
 		if err := st.refreshApplicationConfig(ctx, tx, appIdent, charmIdent); err != nil {
 			return errors.Errorf("refreshing application config: %w", err)
 		}

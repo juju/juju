@@ -50,6 +50,7 @@ func (s *Service) processResourceRemovalJob(ctx context.Context, job removal.Job
 		// retry, so that the removal worker doesn't keep retrying every 10
 		// seconds, but for now we just return a generic error to indicate that
 		// the job is still incomplete.
+		s.logger.Debugf(ctx, "resource %q still in use, will retry", job.EntityUUID)
 		return errors.Errorf("resource %q is still in use", job.EntityUUID).
 			Add(removalerrors.RemovalJobIncomplete)
 	}

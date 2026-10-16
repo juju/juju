@@ -62,6 +62,9 @@ const (
 	// ResourceJob indicates a job to remove a resource once it is no longer
 	// referenced by an application, pending application, or unit.
 	ResourceJob
+	// CharmJob indicates a job to remove a charm once it is no longer
+	// referenced by an application or unit.
+	CharmJob
 )
 
 // String is used in logging output make job type identifiers readable.
@@ -108,6 +111,8 @@ func (t JobType) String() string {
 		return "charm secret"
 	case ResourceJob:
 		return "resource"
+	case CharmJob:
+		return "charm"
 	default:
 		return strconv.FormatInt(int64(t), 10)
 	}
