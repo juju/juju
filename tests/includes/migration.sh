@@ -198,6 +198,17 @@ migrate_36() {
 	target_ctrl=${3}
 	expect_abort=${4:-}
 
+	# Juju 3.6 auto-configures fan networking on models of clouds whose
+	# provider implements SuperSubnets but not container addresses (e.g.
+	# EC2 models get fan-config "172.31.0.0/16=252.0.0.0/8" and
+	# container-networking-method=fan) even though the models here only
+	# deploy to VM machines and never use fan overlays. Fan networking is
+	# removed in 4.0 and the target migration prechecks reject models
+	# carrying fan config, so unset the auto-set values, the same way the
+	# upgrade guide tells operators to before migrating.
+	${JUJU_36} model-config -m "${src_ctrl}:${model}" \
+		"fan-config=" "container-networking-method=" >/dev/null
+
 	${JUJU_36} switch "${src_ctrl}"
 	if ! ${JUJU_36} migrate "${model}" "${target_ctrl}"; then
 		red "Failed: juju 3.6 migrate of ${src_ctrl}:${model} to ${target_ctrl}"
