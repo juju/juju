@@ -10,12 +10,63 @@ import (
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
 )
+
+// controllerServiceSSHPortName is the name of the SSH server port on the
+// controller Service.
+const controllerServiceSSHPortName = "ssh-server"
+
+var _ caas.ControllerServiceUpdater = (*kubernetesClient)(nil)
+
+// UpdateControllerServiceSSHPort sets the SSH server port on the controller
+// Service. The port is set at bootstrap, but the controller charm can change
+// it after, so the Service has to follow it.
+func (k *kubernetesClient) UpdateControllerServiceSSHPort(ctx context.Context, port int) error {
+	if k.namespace == "" {
+		return errNoNamespace
+	}
+	return updateControllerServiceSSHPort(ctx, k.client().CoreV1().Services(k.namespace), port)
+}
+
+func updateControllerServiceSSHPort(ctx context.Context, api corev1.ServiceInterface, port int) error {
+	svc, err := api.Get(ctx, constants.ControllerServiceName, meta.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("controller service %q", constants.ControllerServiceName)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+
+	want := core.ServicePort{
+		Name:       controllerServiceSSHPortName,
+		Port:       int32(port),
+		TargetPort: intstr.FromInt(port),
+	}
+	found := false
+	for i, p := range svc.Spec.Ports {
+		if p.Name != controllerServiceSSHPortName {
+			continue
+		}
+		found = true
+		if p.Port == want.Port && p.TargetPort == want.TargetPort {
+			return nil
+		}
+		svc.Spec.Ports[i].Port = want.Port
+		svc.Spec.Ports[i].TargetPort = want.TargetPort
+	}
+	if !found {
+		svc.Spec.Ports = append(svc.Spec.Ports, want)
+	}
+
+	_, err = api.Update(ctx, svc, meta.UpdateOptions{})
+	return errors.Trace(err)
+}
 
 // ensureK8sService ensures a k8s service resource.
 func (k *kubernetesClient) ensureK8sService(ctx context.Context, spec *core.Service) (func(), error) {
