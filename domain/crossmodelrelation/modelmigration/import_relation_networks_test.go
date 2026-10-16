@@ -101,6 +101,58 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworks(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// The relation token recorded for a relation in the remote entities of the
+// source model is resolved for its networks, so the networks of the
+// relation of an additional offer connection of a legacy consumer proxy
+// can be located by the UUID the relation was imported under, not by its
+// legacy key. A relation without a recorded token is located by its key.
+func (s *importRelationNetworksSuite) TestImportRelationNetworksResolvesRelationToken(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          "remote-13ea:db mysql:db:ingress:default",
+		RelationKey: "remote-13ea:db mysql:db",
+		CIDRS:       []string{"10.0.0.0/24"},
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-remote-13ea.db#mysql.db",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+	model.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          "wordpress:db mysql:db:egress:default",
+		RelationKey: "wordpress:db mysql:db",
+		CIDRS:       []string{"10.1.0.0/16"},
+	})
+
+	key, err := relation.NewKeyFromString("remote-13ea:db mysql:db")
+	c.Assert(err, tc.ErrorIsNil)
+	otherKey, err := relation.NewKeyFromString("wordpress:db mysql:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), gomock.InAnyOrder(
+		[]crossmodelrelation.RelationNetworkImport{
+			{
+				RelationKey:  key,
+				RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+				Direction:    crossmodelrelation.RelationNetworkIngress,
+				CIDRs:        []string{"10.0.0.0/24"},
+			}, {
+				RelationKey: otherKey,
+				Direction:   crossmodelrelation.RelationNetworkEgress,
+				CIDRs:       []string{"10.1.0.0/16"},
+			},
+		})).Return(nil)
+	op := importRelationNetworksOperation{
+		importService: s.importService,
+		logger:        loggertesting.WrapCheckLog(c),
+	}
+
+	err = op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // Remote offer applications with the same offer UUID and endpoints are
 // de-duplicated by the relation import, which rewrites the relation keys of
 // their relations to the primary remote application name. The relation
@@ -133,6 +185,54 @@ func (s *importRelationNetworksSuite) TestImportRelationNetworksDeduplicatedRemo
 			RelationKey: expectedKey,
 			Direction:   crossmodelrelation.RelationNetworkIngress,
 			CIDRs:       []string{"10.0.0.0/24"},
+		},
+	}).Return(nil)
+
+	op := importRelationNetworksOperation{
+		importService: s.importService,
+		logger:        loggertesting.WrapCheckLog(c),
+	}
+
+	err = op.Execute(c.Context(), model)
+
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// The relation token of a relation of a de-duplicated remote offer
+// application is resolved from the key of the source model, before the
+// key is rewritten to the primary remote application name, as the remote
+// entities record the keys of the source model.
+func (s *importRelationNetworksSuite) TestImportRelationNetworksResolvesRelationTokenOfDeduplicatedApplication(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "mysql",
+		OfferUUID: "deadbeef-0a0a-0a0a-0a0a-0a0a0a0a0a0a",
+	})
+	model.AddRemoteApplication(description.RemoteApplicationArgs{
+		Name:      "mysql-staging",
+		OfferUUID: "deadbeef-0a0a-0a0a-0a0a-0a0a0a0a0a0a",
+	})
+	model.AddRelationNetwork(description.RelationNetworkArgs{
+		ID:          "mysql-staging:db remote-13ea:db:ingress:default",
+		RelationKey: "mysql-staging:db remote-13ea:db",
+		CIDRS:       []string{"10.0.0.0/24"},
+	})
+	model.AddRemoteEntity(description.RemoteEntityArgs{
+		ID:    "relation-mysql-staging.db#remote-13ea.db",
+		Token: "6049aa01-76c9-462d-8440-964a6e26aac2",
+	})
+
+	expectedKey, err := relation.NewKeyFromString("mysql:db remote-13ea:db")
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.importService.EXPECT().ImportRelationNetworks(gomock.Any(), []crossmodelrelation.RelationNetworkImport{
+		{
+			RelationKey:  expectedKey,
+			RelationUUID: "6049aa01-76c9-462d-8440-964a6e26aac2",
+			Direction:    crossmodelrelation.RelationNetworkIngress,
+			CIDRs:        []string{"10.0.0.0/24"},
 		},
 	}).Return(nil)
 

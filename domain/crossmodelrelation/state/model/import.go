@@ -13,6 +13,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/crossmodelrelation/internal"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -314,6 +315,81 @@ func (st *State) GetRelationUUIDByRelationKey(ctx context.Context, key corerelat
 	}
 
 	return uuid[0].UUID, nil
+}
+
+// RelationExists reports whether the relation with the given UUID exists in
+// the model.
+func (st *State) RelationExists(ctx context.Context, relationUUID string) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	ident := uuid{UUID: relationUUID}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   relation
+WHERE  uuid = $uuid.uuid
+`, countResult{}, ident)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result countResult
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, ident).Get(&result)
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return result.Count > 0, nil
+}
+
+// GetSyntheticApplicationByRelationUUID returns the UUID and the name of
+// the synthetic application representing the remote consumer of the
+// relation with the given UUID: the application of the offer connection
+// made for the relation, whose UUID is also the UUID of the synthetic
+// application. The name is the one the synthetic units of the application
+// are named after, so records referencing the remote consumer by its
+// legacy unit name, such as the consumers of the secrets granted over the
+// relation, can be rewritten onto it.
+//
+// The following error types can be expected to be returned:
+//   - [crossmodelrelationerrors.RemoteRelationNotFound] is returned if the
+//     relation has no offer connection.
+func (st *State) GetSyntheticApplicationByRelationUUID(ctx context.Context, relationUUID string) (string, string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	ident := remoteRelationUUID{UUID: relationUUID}
+	stmt, err := st.Prepare(`
+SELECT oc.uuid AS &syntheticApplication.uuid,
+       a.name  AS &syntheticApplication.name
+FROM   offer_connection oc
+JOIN   application a ON a.uuid = oc.uuid
+WHERE  oc.remote_relation_uuid = $remoteRelationUUID.uuid
+`, syntheticApplication{}, ident)
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+
+	var result syntheticApplication
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt, ident).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("no offer connection for relation %q: %w",
+				relationUUID, crossmodelrelationerrors.RemoteRelationNotFound)
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+		return err
+	})
+	if err != nil {
+		return "", "", errors.Capture(err)
+	}
+	return result.UUID, result.Name, nil
 }
 
 func (st *State) getRegularRelationUUIDByEndpointIdentifiers(

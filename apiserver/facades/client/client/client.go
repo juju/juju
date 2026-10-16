@@ -41,6 +41,7 @@ type Client struct {
 	relationService           RelationService
 	statusService             StatusService
 	controllerConfigService   ControllerConfigService
+	controllerSSHService      ControllerSSHService
 
 	isControllerModel bool
 }

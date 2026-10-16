@@ -282,6 +282,14 @@ type offerConnection struct {
 	Username           string `db:"username"`
 }
 
+// syntheticApplication maps the synthetic application standing in for the
+// remote consumer of an offer connection: the offer connection shares the
+// UUID of the application it is made for.
+type syntheticApplication struct {
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
+}
+
 type remoteRelationUUID struct {
 	UUID string `db:"uuid"`
 }
@@ -429,6 +437,17 @@ type secretAccessor struct {
 	SubjectID     string                        `db:"subject_id"`
 	SubjectTypeID domainsecret.GrantSubjectType `db:"subject_type_id"`
 	RoleID        domainsecret.Role             `db:"role_id"`
+}
+
+type secretGrantTypes struct {
+	SubjectTypeID domainsecret.GrantSubjectType `db:"subject_type_id"`
+	ScopeTypeID   domainsecret.GrantScopeType   `db:"scope_type_id"`
+}
+
+type remoteConsumerSecretGrant struct {
+	ApplicationName string `db:"application_name"`
+	RelationUUID    string `db:"relation_uuid"`
+	OfferUUID       string `db:"offer_uuid"`
 }
 
 type secretRole struct {

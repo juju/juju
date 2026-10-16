@@ -137,7 +137,7 @@ func (f *factory) NewAction(ctx context.Context, actionId string) (Operation, er
 }
 
 // NewFailAction is part of the factory interface.
-func (f *factory) NewFailAction(actionId string) (Operation, error) {
+func (f *factory) NewFailAction(_ context.Context, actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}

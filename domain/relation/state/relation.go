@@ -1755,11 +1755,15 @@ WHERE  relation_uuid = $entityUUID.uuid`, rows{}, entityUUID{})
 //     scope for the relation.
 //   - [relationerrors.CannotEnterScopeSubordinateNotAlive] if a subordinate unit
 //     already exists, but is not alive.
+//
+// If a subordinate unit is created, the supplied storage arguments are used
+// to provision storage for the new subordinate unit.
 func (st *State) EnterScope(
 	ctx context.Context,
 	relationUUID corerelation.UUID,
 	unitName unit.Name,
 	settings map[string]string,
+	subordinateStorageArgs internal.SubordinateUnitStorageArgs,
 ) (internal.SubordinateUnitStatusHistoryData, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -1844,8 +1848,9 @@ WHERE  name = $getUnit.name
 		}
 
 		// If the relation is container scoped, create a subordinate unit
-		// for the principal application unit entering scope.
-		subUnitStatusHistory, err = st.addSubordinateUnit(ctx, tx, relationUUID.String(), relationUnitUUID, unitArgs.UUID.String())
+		// for the principal application unit entering scope, using the
+		// supplied storage arguments.
+		subUnitStatusHistory, err = st.addSubordinateUnit(ctx, tx, relationUUID.String(), relationUnitUUID, unitArgs.UUID.String(), subordinateStorageArgs)
 		return err
 	})
 	return subUnitStatusHistory, errors.Capture(err)

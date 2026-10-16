@@ -48,6 +48,10 @@ type FirewallerAPI interface {
 	// port and, when autocert is configured, the HTTP port.
 	ControllerFirewallPorts(context.Context) ([]network.PortRange, error)
 
+	// WatchControllerFirewallPorts watches for changes to the controller
+	// firewall ports. Only the SSH server port can change after bootstrap.
+	WatchControllerFirewallPorts(context.Context) (watcher.NotifyWatcher, error)
+
 	// ModelConfig returns the model's configuration.
 	ModelConfig(context.Context) (*config.Config, error)
 

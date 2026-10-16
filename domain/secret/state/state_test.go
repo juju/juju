@@ -3179,43 +3179,6 @@ func (s *stateSuite) TestGrantRelationScope(c *tc.C) {
 	c.Assert(role, tc.Equals, "view")
 }
 
-func (s *stateSuite) TestGetRelationGrantAccessScope(c *tc.C) {
-
-	appUUID, charmUUID := s.setupApplication(c, "mysql")
-	appUUID2, charmUUID2 := s.setupApplication(c, "mediawiki")
-	relUUID := s.setupRelation(c, appUUID, charmUUID, appUUID2, charmUUID2)
-	unitUUIDS := s.addUnits(c, "mysql", charmUUID)
-
-	sp := domainsecret.UpsertSecretParams{
-		RevisionUUID: new(uuid.MustNewUUID().String()),
-		Description:  new("my secretMetadata"),
-		Label:        new("my label"),
-		Data:         coresecrets.SecretData{"foo": "bar", "hello": "world"},
-	}
-	uri := coresecrets.NewURI()
-	ctx := c.Context()
-	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	p := domainsecret.GrantParams{
-		ScopeTypeID:   domainsecret.ScopeRelation,
-		ScopeUUID:     relUUID,
-		SubjectTypeID: domainsecret.SubjectUnit,
-		SubjectUUID:   unitUUIDS[1],
-		RoleID:        domainsecret.RoleView,
-	}
-	err = s.state.GrantAccess(ctx, uri, p)
-	c.Assert(err, tc.ErrorIsNil)
-
-	ap := domainsecret.AccessParams{
-		SubjectTypeID: p.SubjectTypeID,
-		SubjectID:     "mysql/1",
-	}
-	got, err := s.state.GetSecretAccessRelationScope(ctx, uri, ap)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(got, tc.Equals, relUUID)
-}
-
 func (s *stateSuite) TestGrantAccessInvariantScope(c *tc.C) {
 
 	applicationUUID, unitUUIDs := s.setupUnits(c, "mysql")

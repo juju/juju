@@ -14,9 +14,13 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+	dto "github.com/prometheus/client_model/go"
 	gliderssh "github.com/tailscale/gliderssh"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -175,6 +179,7 @@ func (s *relaySuite) TestConcurrentConnectionsCapped(c *tc.C) {
 	handler.ServeHTTP(w, r)
 
 	c.Check(w.Code, tc.Equals, http.StatusServiceUnavailable)
+	c.Check(relayRejections(handler, ReasonOverCapacity), tc.Equals, 1.0)
 }
 
 // TestRelayMaxConnectionsDrainAndReadmit exercises the live cap cycle over
@@ -217,6 +222,9 @@ func (s *relaySuite) TestRelayMaxConnectionsDrainAndReadmit(c *tc.C) {
 	close(release)
 	_ = client.Close()
 	s.checkRelayConnCount(c, handler, 0)
+	// The session is observed before its slot is released.
+	c.Check(relaySessions(c, handler), tc.Equals, uint64(1))
+	c.Check(relayRejections(handler, ReasonOverCapacity), tc.Equals, 1.0)
 
 	// Third relay after the drain: re-admitted, proving the counter reset.
 	// This session has nothing left to release, but it is admitted and its
@@ -333,8 +341,10 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 		c.Run(test.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			factory := NewMockTerminatingServerFactory(ctrl)
-			w := s.serveRelay(c, factory, test.modelUUID, test.access)
+			w, handler := s.serveRelay(c, factory, test.modelUUID, test.access)
 			tc.Check(t, w.Code, tc.Equals, test.wantCode)
+			tc.Check(t, relayRejections(handler, ReasonDenied), tc.Equals, 1.0)
+			tc.Check(t, relayRejections(handler, ReasonMissingJWT), tc.Equals, 0.0)
 		})
 	}
 }
@@ -342,8 +352,10 @@ func (s *relaySuite) TestRelayAuthorization(c *tc.C) {
 func (s *relaySuite) TestMissingJWTUnauthorized(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	factory := NewMockTerminatingServerFactory(ctrl)
-	w := s.serveRelay(c, factory, testModelUUID, "")
+	w, handler := s.serveRelay(c, factory, testModelUUID, "")
 	c.Check(w.Code, tc.Equals, http.StatusUnauthorized)
+	c.Check(relayRejections(handler, ReasonMissingJWT), tc.Equals, 1.0)
+	c.Check(relayRejections(handler, ReasonDenied), tc.Equals, 0.0)
 }
 
 // TestMalformedHostnameBadRequest checks that an unparseable destination
@@ -423,14 +435,28 @@ func (s *relaySuite) newHandlerMaxConns(c *tc.C, factory TerminatingServerFactor
 		Logger:                   loggertesting.WrapCheckLog(c),
 		ServerFactory:            factory,
 		MaxConcurrentConnections: func() int { return maxConns },
+		SessionDuration:          prometheus.NewHistogram(prometheus.HistogramOpts{Name: "test"}),
+		Rejections:               prometheus.NewCounterVec(prometheus.CounterOpts{Name: "test"}, []string{"reason"}),
+		Clock:                    clock.WallClock,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return handler
 }
 
-// serveRelay dispatches a relay request and returns the response recorder.
-// An empty access produces no JWT, testing the missing-token path.
-func (s *relaySuite) serveRelay(c *tc.C, factory TerminatingServerFactory, modelUUID, access string) *httptest.ResponseRecorder {
+func relayRejections(handler *RelayHandler, reason string) float64 {
+	return testutil.ToFloat64(handler.config.Rejections.WithLabelValues(reason))
+}
+
+func relaySessions(c *tc.C, handler *RelayHandler) uint64 {
+	var m dto.Metric
+	c.Assert(handler.config.SessionDuration.Write(&m), tc.ErrorIsNil)
+	return m.GetHistogram().GetSampleCount()
+}
+
+// serveRelay dispatches a relay request and returns the response recorder
+// and handler. An empty access produces no JWT, testing the missing-token
+// path.
+func (s *relaySuite) serveRelay(c *tc.C, factory TerminatingServerFactory, modelUUID, access string) (*httptest.ResponseRecorder, *RelayHandler) {
 	var token jwt.Token
 	if access != "" {
 		token = newRelayToken(c, modelUUID, access)
@@ -443,8 +469,9 @@ func (s *relaySuite) serveRelay(c *tc.C, factory TerminatingServerFactory, model
 	r.URL.RawQuery = ":virtualHostname=" + destination.String()
 
 	w := httptest.NewRecorder()
-	s.newHandler(c, factory).ServeHTTP(w, r)
-	return w
+	handler := s.newHandler(c, factory)
+	handler.ServeHTTP(w, r)
+	return w, handler
 }
 
 func newRelayToken(c *tc.C, modelUUID, access string) jwt.Token {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/core/objectstore"
-	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
@@ -127,25 +127,26 @@ func (s *serviceSuite) TestGetMetadataBySHA256TooLong(c *tc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256Prefix(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	shaPrefix := "deadbeef"
+	sha256 := "a29512966119f000555dff9d84761e828064b5e95402f78c36e9939ede8d4f88"
 
 	metadata := objectstore.Metadata{
 		Path:   "path",
-		SHA256: tc.Must(c, uuid.NewUUID).String(),
+		SHA256: sha256,
 		SHA384: tc.Must(c, uuid.NewUUID).String(),
 		Size:   666,
 	}
 
-	s.state.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), shaPrefix).Return(objectstore.Metadata{
-		Path:   metadata.Path,
-		Size:   metadata.Size,
-		SHA256: metadata.SHA256,
-		SHA384: metadata.SHA384,
-	}, nil)
+	// Backups use the full exported hash through this lookup so missing
+	// local blobs can still be retrieved from other controller nodes.
+	for _, length := range []int{7, 8, 9, 63, 64} {
+		shaPrefix := sha256[:length]
+		s.state.EXPECT().GetMetadataBySHA256Prefix(gomock.Any(), shaPrefix).
+			Return(metadata, nil)
 
-	p, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), shaPrefix)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(p, tc.DeepEquals, metadata)
+		p, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), shaPrefix)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(p, tc.DeepEquals, metadata)
+	}
 }
 
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *tc.C) {
@@ -158,7 +159,7 @@ func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooShort(c *tc.C) {
 func (s *serviceSuite) TestGetMetadataBySHA256PrefixTooLong(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), "deadbeef1")
+	_, err := NewService(s.state).GetMetadataBySHA256Prefix(c.Context(), strings.Repeat("a", 65))
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrInvalidHashPrefix)
 }
 
@@ -505,10 +506,8 @@ func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	phase := objectstore.PhaseDraining
-	uuid := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
-		UUID:  uuid.String(),
 		Phase: phase.String(),
 	}, nil)
 
@@ -522,6 +521,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseNotFoundReturnsUnknown(c *tc.
 
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
 		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
 
 	p, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -536,6 +536,77 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
 
 	_, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
+}
+
+func (s *drainingServiceSuite) TestGetDrainingPhaseErrorFromDyingBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(true, nil)
+
+	phase, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, objectstore.PhaseError)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsable(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(1, 1, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsTrue)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsableAllowsDeadBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(2, 1, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsTrue)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsableRejectsNoBackends(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
+		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
+	s.state.EXPECT().HasDyingObjectStoreBackend(gomock.Any()).Return(false, nil)
+	s.state.EXPECT().GetObjectStoreBackendCounts(gomock.Any()).Return(0, 0, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsFalse)
+}
+
+func (s *drainingServiceSuite) TestIsObjectStoreUsableRejectsDrainingPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).Return(domainobjectstore.DrainingInfo{
+		Phase: objectstore.PhaseDraining.String(),
+	}, nil)
+
+	usable, err := NewWatchableDrainingService(
+		s.state, s.watcherFactory, testControllerUUID,
+	).IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsFalse)
 }
 
 func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {

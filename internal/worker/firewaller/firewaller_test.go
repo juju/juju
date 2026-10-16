@@ -72,6 +72,8 @@ type firewallerBaseSuite struct {
 	offererRelCh   chan []string
 	subnetsCh      chan []string
 	modelFwRulesCh chan struct{}
+	// controllerPortsCh drives the controller firewall ports watcher.
+	controllerPortsCh chan struct{}
 
 	clock testclock.AdvanceableClock
 
@@ -147,6 +149,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 	s.offererRelCh = make(chan []string, 5)
 	s.subnetsCh = make(chan []string, 5)
 	s.modelFwRulesCh = make(chan struct{}, 5)
+	s.controllerPortsCh = make(chan struct{}, 5)
 
 	// This is the controller machine.
 	m, unitsCh := s.setupMachineMocks(ctrl)
@@ -201,6 +204,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 		s.offererRelCh = nil
 		s.subnetsCh = nil
 		s.modelFwRulesCh = nil
+		s.controllerPortsCh = nil
 	})
 }
 
@@ -228,6 +232,7 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 	s.offererRelCh = make(chan []string, 5)
 	s.subnetsCh = make(chan []string, 5)
 	s.modelFwRulesCh = make(chan struct{}, 5)
+	s.controllerPortsCh = make(chan struct{}, 5)
 
 	// Initial event.
 	if s.withModelFirewaller {
@@ -251,6 +256,7 @@ func (s *firewallerBaseSuite) ensureMocksWithoutMachine(ctrl *gomock.Controller)
 		s.offererRelCh = nil
 		s.subnetsCh = nil
 		s.modelFwRulesCh = nil
+		s.controllerPortsCh = nil
 	})
 }
 
@@ -543,6 +549,12 @@ func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) wo
 		s.firewaller.EXPECT().WatchModelFirewallRules(gomock.Any()).Return(fwRulesWatcher, nil)
 	}
 
+	// The controller firewall ports are only watched in the controller model.
+	if s.isControllerModel {
+		controllerPortsWatcher := watchertest.NewMockNotifyWatcher(s.controllerPortsCh)
+		s.firewaller.EXPECT().WatchControllerFirewallPorts(gomock.Any()).Return(controllerPortsWatcher, nil)
+	}
+
 	initialised := make(chan bool)
 	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).DoAndReturn(func(context.Context) (network.SpaceInfos, error) {
 		defer close(initialised)
@@ -764,6 +776,54 @@ func (s *InstanceModeSuite) TestControllerMachineInstancePortsNotExposed(c *tc.C
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+}
+
+func (s *InstanceModeSuite) TestControllerMachineInstancePortsSSHServerPortChanged(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.isControllerModel = true
+	s.ensureMocks(c, ctrl)
+
+	app, _ := s.setupApplicationMocks(ctrl, "controller")
+	s.activateApplication("controller", false)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	var (
+		mu            sync.Mutex
+		sshServerPort = "17022/tcp"
+	)
+	s.firewaller.EXPECT().ControllerFirewallPorts(gomock.Any()).DoAndReturn(func(context.Context) ([]network.PortRange, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return []network.PortRange{
+			network.MustParsePortRange("17070/tcp"),
+			network.MustParsePortRange(sshServerPort),
+		}, nil
+	}).AnyTimes()
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17022/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+	})
+
+	// The charm moves the ssh server port. The old port is closed and the
+	// new one opened.
+	mu.Lock()
+	sshServerPort = "17099/tcp"
+	mu.Unlock()
+	s.controllerPortsCh <- struct{}{}
+
+	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+		firewall.NewIngressRule(network.MustParsePortRange("17070/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17099/tcp"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
 }
 

@@ -27,7 +27,7 @@ func NewMetricsCollector() *Collector {
 			Namespace: metricsNamespace,
 			Name:      "connection_duration_seconds",
 			Help:      "The time an SSH connection remains open.",
-			Buckets:   []float64{1, 10, 60, 300, 600, 3600},
+			Buckets:   []float64{0.01, 0.05, 0.1, 0.5, 1, 5, 10, 60, 300, 600, 3600},
 		}),
 		timeToSession: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: metricsNamespace,

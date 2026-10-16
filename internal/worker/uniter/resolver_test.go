@@ -113,7 +113,7 @@ func (s *baseResolverSuite) SetUpTest(c *tc.C, modelType model.ModelType, reboot
 		Secrets:             secrets.NewSecretsResolver(logger, secretsTracker, func(_ string) {}, func(_ string) {}, func(_ map[string][]int) {}),
 		Reboot:              reboot.NewResolver(logger, rebootDetected),
 		Leadership:          leadership.NewResolver(logger),
-		Actions:             uniteractions.NewResolver(logger),
+		Actions:             uniteractions.NewResolver(logger, func(_ string) {}),
 		CreatedRelations:    nopResolver{},
 		Relations:           nopResolver{},
 		Storage:             storage.NewResolver(logger, attachments, modelType),

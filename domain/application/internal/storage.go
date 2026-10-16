@@ -6,41 +6,17 @@ package internal
 import (
 	corecharm "github.com/juju/juju/core/charm"
 	coremachine "github.com/juju/juju/core/machine"
-	domainapplicationcharm "github.com/juju/juju/domain/application/charm"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainstorage "github.com/juju/juju/domain/storage"
+	domainstorageprovisioning "github.com/juju/juju/domain/storageprovisioning"
 )
 
 // StorageDirective defines a storage directive that already exists for either
-// an application or unit.
-type StorageDirective struct {
-	// CharmMetadataName is the metadata name of the charm the directive exists
-	// for.
-	CharmMetadataName string
-
-	// Count represents the number of storage instances that should be made for
-	// this directive. This value should be the desired count but not the limit.
-	// For the maximum supported limit see [StorageDirective.MaxCount].
-	Count uint32
-
-	// CharmStorageType represents the storage type of the charm that the
-	// directive relates to.
-	CharmStorageType domainapplicationcharm.StorageType
-
-	// MaxCount represents the maximum number of storage instances that can be
-	// made for this directive. If [domainapplicationcharm.StorageNoMaxCount] is
-	// the value, it means that no maximum exists for the storage directive.
-	MaxCount int
-
-	// Name relates to the charm storage name definition and must match up.
-	Name domainstorage.Name
-
-	// PoolUUID defines the storage pool uuid to use for the directive.
-	PoolUUID domainstorage.StoragePoolUUID
-
-	// Size defines the size of the storage directive in MiB.
-	Size uint64
-}
+// an application or unit. The definition lives in the storageprovisioning
+// domain so that it can be shared with the relation domain, which makes the
+// storage arguments for subordinate units from the storage directives of the
+// subordinate application.
+type StorageDirective = domainstorageprovisioning.StorageDirective
 
 // StorageInfoForAdd represents the arguments required to
 // add storage to a unit.

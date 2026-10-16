@@ -5,8 +5,15 @@ package backups_test
 
 import (
 	"archive/tar"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
@@ -14,6 +21,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/backups"
@@ -33,6 +41,29 @@ func TestCreateSuite(t *stdtesting.T) {
 	tc.Run(t, &createSuite{})
 }
 
+func (s *createSuite) TestCancelledCreateLeavesNoArchive(c *tc.C) {
+	ctx, cancel := context.WithCancel(c.Context())
+	destDir := c.MkDir()
+	file := s.writeFile(c, "system-identity", "identity")
+	_, err := backups.Create(ctx, backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file},
+		DumpEntries:    []backups.DumpEntry{{Name: "controller.yaml", Reader: cancellingReader{cancel: cancel}}},
+	})
+	c.Check(err, tc.ErrorIs, context.Canceled)
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+type cancellingReader struct{ cancel context.CancelFunc }
+
+func (r cancellingReader) Read(p []byte) (int, error) {
+	r.cancel()
+	return 0, context.Canceled
+}
+
 func (s *createSuite) writeFile(c *tc.C, name, content string) string {
 	path := filepath.Join(c.MkDir(), name)
 	err := os.WriteFile(path, []byte(content), 0644)
@@ -47,7 +78,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 
 	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	meta := backups.NewMetadata(testStarted)
-	filename, err := backups.Create(meta, backups.CreateArgs{
+	filename, err := backups.Create(c.Context(), meta, backups.CreateArgs{
 		DestinationDir: destDir,
 		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{file1, file2},
@@ -87,6 +118,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	c.Check(entries, tc.DeepEquals, set.NewStrings(
 		"juju-backup",
 		"juju-backup/metadata.json",
+		"juju-backup/manifest.json",
 		"juju-backup/root.tar",
 		"juju-backup/dump",
 		"juju-backup/dump/controller.yaml",
@@ -104,7 +136,7 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(storedMeta.FormatVersion, tc.Equals, int64(2))
 
-	// root.tar bundles the files with the leading slash stripped.
+	// root.tar archives the files with the leading slash stripped.
 	rootEntries, _ := s.tarEntries(c,
 		strings.NewReader(contents["juju-backup/root.tar"]))
 	c.Check(rootEntries.Contains(strings.TrimPrefix(file1, "/")), tc.IsTrue)
@@ -117,10 +149,130 @@ func (s *createSuite) TestCreate(c *tc.C) {
 	c.Check(staging[0].Name(), tc.Equals, filepath.Base(filename))
 }
 
+func (s *createSuite) TestCreatePreservesSymlinks(c *tc.C) {
+	toolsDir := c.MkDir()
+	agent := filepath.Join(toolsDir, "jujud")
+	err := os.WriteFile(agent, []byte("agent binary"), 0755)
+	c.Assert(err, tc.ErrorIsNil)
+
+	links := map[string]string{
+		"jujud-link":    "jujud",
+		"chained-link":  "jujud-link",
+		"absolute-link": agent,
+		"broken-link":   "missing-jujud",
+	}
+	files := []string{agent}
+	for name, target := range links {
+		link := filepath.Join(toolsDir, name)
+		c.Assert(os.Symlink(target, link), tc.ErrorIsNil)
+		files = append(files, link)
+	}
+
+	filename, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: c.MkDir(),
+		Clock:          clock.WallClock,
+		FilesToBackUp:  files,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	archiveFile, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = archiveFile.Close() }()
+	ad, err := backups.NewArchiveDataReader(archiveFile)
+	c.Assert(err, tc.ErrorIsNil)
+	_, contents := s.archiveEntries(c, ad)
+
+	tr := tar.NewReader(strings.NewReader(contents["juju-backup/root.tar"]))
+	header, err := tr.Next()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(header.Typeflag, tc.Equals, byte(tar.TypeReg))
+	content, err := io.ReadAll(tr)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "agent binary")
+
+	seen := set.NewStrings()
+	for range links {
+		header, err := tr.Next()
+		c.Assert(err, tc.ErrorIsNil)
+		name := filepath.Base(header.Name)
+		c.Check(header.Name, tc.Equals,
+			strings.TrimPrefix(filepath.Join(toolsDir, name), "/"))
+		c.Check(header.Typeflag, tc.Equals, byte(tar.TypeSymlink))
+		c.Check(header.Linkname, tc.Equals, links[name])
+		c.Check(header.Size, tc.Equals, int64(0))
+		content, err := io.ReadAll(tr)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(content, tc.HasLen, 0)
+		seen.Add(name)
+	}
+	c.Check(seen, tc.DeepEquals,
+		set.NewStrings("jujud-link", "chained-link", "absolute-link", "broken-link"))
+	_, err = tr.Next()
+	c.Assert(err, tc.ErrorIs, io.EOF)
+}
+
 func (s *createSuite) archiveEntries(c *tc.C,
 	ad *backups.ArchiveData,
 ) (set.Strings, map[string]string) {
 	return s.tarEntries(c, ad.NewBuffer())
+}
+
+// TestCreateManifest verifies the staged content manifest indexes every
+// other archive component with the size and SHA-256 of the bytes
+// actually archived.
+func (s *createSuite) TestCreateManifest(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+
+	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+	meta := backups.NewMetadata(testStarted)
+	filename, err := backups.Create(c.Context(), meta, backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+		DumpEntries: []backups.DumpEntry{{
+			Name:   "controller.yaml",
+			Reader: strings.NewReader("controller: data"),
+		}, {
+			Name:   "models/" + modelUUID + ".yaml",
+			Reader: strings.NewReader("model: data"),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	archiveFile, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = archiveFile.Close() }()
+	ad, err := backups.NewArchiveDataReader(archiveFile)
+	c.Assert(err, tc.ErrorIsNil)
+	_, contents := s.archiveEntries(c, ad)
+
+	manifest, err := backups.NewManifestJSONReader(
+		strings.NewReader(contents["juju-backup/manifest.json"]))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(manifest.FormatVersion, tc.Equals, int64(1))
+
+	// One entry per component: metadata, files archive and both dumps.
+	// The manifest cannot record itself.
+	c.Assert(manifest.Files, tc.HasLen, 4)
+	byPath := make(map[string]backups.ManifestEntry, len(manifest.Files))
+	for _, f := range manifest.Files {
+		byPath[f.Path] = f
+		data, ok := contents[f.Path]
+		c.Assert(ok, tc.IsTrue)
+		sum := sha256.Sum256([]byte(data))
+		c.Check(f.SHA256, tc.Equals, hex.EncodeToString(sum[:]))
+		c.Check(f.Size, tc.Equals, int64(len(data)))
+	}
+
+	c.Check(byPath["juju-backup/metadata.json"].Kind,
+		tc.Equals, backups.ManifestKindMetadata)
+	c.Check(byPath["juju-backup/root.tar"].Kind,
+		tc.Equals, backups.ManifestKindFilesArchive)
+	c.Check(byPath["juju-backup/dump/controller.yaml"].Kind,
+		tc.Equals, backups.ManifestKindControllerDump)
+	model := byPath["juju-backup/dump/models/"+modelUUID+".yaml"]
+	c.Check(model.Kind, tc.Equals, backups.ManifestKindModelDump)
+	c.Check(model.ModelUUID, tc.Equals, modelUUID)
 }
 
 func (s *createSuite) tarEntries(c *tc.C,
@@ -153,7 +305,7 @@ func (s *createSuite) TestCreateDumpEntryNameEscapesDump(c *tc.C) {
 		"/etc/passwd",
 		"/var/lib/juju/models/evil.yaml",
 	} {
-		_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+		_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 			DestinationDir: c.MkDir(),
 			Clock:          clock.WallClock,
 			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
@@ -169,7 +321,7 @@ func (s *createSuite) TestCreateDumpEntryNameEscapesDump(c *tc.C) {
 
 func (s *createSuite) TestCreateEmptyDumpEntryName(c *tc.C) {
 	for _, name := range []string{"", ".", "./", "dump/.."} {
-		_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+		_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 			DestinationDir: c.MkDir(),
 			Clock:          clock.WallClock,
 			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
@@ -185,9 +337,35 @@ func (s *createSuite) TestCreateEmptyDumpEntryName(c *tc.C) {
 	}
 }
 
+// TestCreateUnknownDumpEntryName pins the writer to the two canonical
+// dump names: an archive can never carry a dump the recovery reader
+// rejects as unrecognised.
+func (s *createSuite) TestCreateUnknownDumpEntryName(c *tc.C) {
+	for _, name := range []string{
+		"other.yaml",
+		"models/.yaml",
+		"models/sub/x.yaml",
+		"models/controller.yaml/extra.yaml",
+	} {
+		_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+			DestinationDir: c.MkDir(),
+			Clock:          clock.WallClock,
+			FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+			DumpEntries: []backups.DumpEntry{{
+				Name:   name,
+				Reader: strings.NewReader("data"),
+			}},
+		})
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid,
+			tc.Commentf("name %q", name))
+		c.Check(err, tc.ErrorMatches, `entry name ".*" is not a canonical dump name: not valid`,
+			tc.Commentf("name %q", name))
+	}
+}
+
 func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 	destDir := filepath.Join(c.MkDir(), "missing")
-	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: destDir,
 		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
@@ -197,7 +375,7 @@ func (s *createSuite) TestCreateMissingDestinationDir(c *tc.C) {
 }
 
 func (s *createSuite) TestCreateRelativeDestinationDir(c *tc.C) {
-	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: "relative",
 		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
@@ -207,7 +385,7 @@ func (s *createSuite) TestCreateRelativeDestinationDir(c *tc.C) {
 }
 
 func (s *createSuite) TestCreateMissingFilesToBackUp(c *tc.C) {
-	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: c.MkDir(),
 		Clock:          clock.WallClock,
 	})
@@ -215,7 +393,7 @@ func (s *createSuite) TestCreateMissingFilesToBackUp(c *tc.C) {
 }
 
 func (s *createSuite) TestCreateMissingClock(c *tc.C) {
-	_, err := backups.Create(backups.NewMetadata(testStarted), backups.CreateArgs{
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
 		DestinationDir: c.MkDir(),
 		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
 	})
@@ -229,7 +407,7 @@ func (s *createSuite) TestBuildArchiveAndChecksumFailureRemovesArchive(c *tc.C) 
 	// A missing content directory fails the tar build after the
 	// archive file has been created; the partial archive must not be
 	// left behind.
-	_, _, err := backups.BuildArchiveAndChecksum(filename, dir,
+	_, _, err := backups.BuildArchiveAndChecksum(c.Context(), filename, dir,
 		filepath.Join(dir, "missing"))
 	c.Assert(err, tc.NotNil)
 
@@ -249,9 +427,9 @@ func (s *createSuite) TestCreateMetadataFailureRemovesArchive(c *tc.C) {
 	// runs only once the archive file is complete.
 	meta := backups.NewMetadata(testStarted)
 	c.Assert(meta.SetFileInfo(99, "not-the-real-checksum",
-		"SHA-1, base64 encoded"), tc.ErrorIsNil)
+		backups.ChecksumFormatSHA256), tc.ErrorIsNil)
 
-	_, err := backups.Create(meta, backups.CreateArgs{
+	_, err := backups.Create(c.Context(), meta, backups.CreateArgs{
 		DestinationDir: destDir,
 		Clock:          clock.WallClock,
 		FilesToBackUp:  []string{file},
@@ -270,4 +448,291 @@ func (s *createSuite) TestCreateMetadataFailureRemovesArchive(c *tc.C) {
 		left = append(left, entry.Name())
 	}
 	c.Check(left, tc.HasLen, 0, tc.Commentf("left behind: %v", left))
+}
+
+func (s *createSuite) TestCreateWithObjectEntries(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+
+	content := "charm blob content"
+	sha256sum := sha256.Sum256([]byte(content))
+	sha384sum := sha512.Sum384([]byte(content))
+	sha256hex := hex.EncodeToString(sha256sum[:])
+	sha384hex := hex.EncodeToString(sha384sum[:])
+
+	var sourceCalls int
+	meta := backups.NewMetadata(testStarted)
+	filename, err := backups.Create(c.Context(), meta, backups.CreateArgs{
+		DestinationDir: destDir,
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: "controller",
+			SHA256:    sha256hex,
+			SHA384:    sha384hex,
+			Size:      int64(len(content)),
+			Source: func(ctx context.Context) (io.ReadCloser, error) {
+				sourceCalls++
+				return io.NopCloser(strings.NewReader(content)), nil
+			},
+		}, {
+			// Identical content in a different namespace is a
+			// separate ordinary file in the archive.
+			Namespace: "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+			SHA256:    sha256hex,
+			SHA384:    sha384hex,
+			Size:      int64(len(content)),
+			Source: func(ctx context.Context) (io.ReadCloser, error) {
+				sourceCalls++
+				return io.NopCloser(strings.NewReader(content)), nil
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sourceCalls, tc.Equals, 2)
+
+	archiveFile, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = archiveFile.Close() }()
+
+	ad, err := backups.NewArchiveDataReader(archiveFile)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, contents := s.archiveEntries(c, ad)
+	rootEntries, rootContents := s.tarEntries(c,
+		strings.NewReader(contents["juju-backup/root.tar"]))
+
+	// The objects land at the source data directory's object store
+	// layout, one regular file per namespace.
+	controllerPath := "var/lib/juju/objectstore/controller/" + sha384hex
+	modelPath := "var/lib/juju/objectstore/deadbeef-0bad-400d-8000-4b1d0d06f00d/" + sha384hex
+	c.Check(rootEntries.Contains(controllerPath), tc.IsTrue)
+	c.Check(rootEntries.Contains(modelPath), tc.IsTrue)
+	c.Check(rootContents[controllerPath], tc.Equals, content)
+	c.Check(rootContents[modelPath], tc.Equals, content)
+}
+
+func (s *createSuite) TestCreateObjectEntryHashMismatch(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: "controller",
+			SHA256:    "0ba904eae8773b70c75333db4de2f3ac45a8ad4ddba1b242f0b3cfc199391dd8",
+			SHA384:    "3b1898395c3b4a3ffd8b4ab7b1b6c3e0c2a47600f0c6b7c2f5f2b6f5a3d9b5b1e6b1e0c7f4d9d7a1c8e5f3a2b1c0d9e8",
+			Size:      7,
+			Source: func(ctx context.Context) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader("corrupt")), nil
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorMatches, `object ".*" in namespace "controller": SHA-384 mismatch.*`)
+
+	// A failed archive build leaves no partial archive behind.
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+func (s *createSuite) TestCreateObjectEntrySizeMismatch(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+
+	content := "short"
+	sha256sum := sha256.Sum256([]byte(content))
+	sha384sum := sha512.Sum384([]byte(content))
+
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: "controller",
+			SHA256:    hex.EncodeToString(sha256sum[:]),
+			SHA384:    hex.EncodeToString(sha384sum[:]),
+			Size:      int64(len(content)) + 10,
+			Source: func(ctx context.Context) (io.ReadCloser, error) {
+				return io.NopCloser(strings.NewReader(content)), nil
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorMatches, `object ".*" in namespace "controller": streamed 5 bytes, expected 15`)
+
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+func (s *createSuite) TestCreateObjectEntrySourceError(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: "controller",
+			SHA256:    "0ba904eae8773b70c75333db4de2f3ac45a8ad4ddba1b242f0b3cfc199391dd8",
+			SHA384:    "3b1898395c3b4a3ffd8b4ab7b1b6c3e0c2a47600f0c6b7c2f5f2b6f5a3d9b5b1e6b1e0c7f4d9d7a1c8e5f3a2b1c0d9e8",
+			Size:      7,
+			Source: func(ctx context.Context) (io.ReadCloser, error) {
+				return nil, errors.New("read failure")
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorMatches, `opening object ".*" in namespace "controller": read failure`)
+
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+func (s *createSuite) TestCreateDuplicateObjectEntry(c *tc.C) {
+	sha384hex := strings.Repeat("a", sha512.Size384*2)
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: c.MkDir(),
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: "controller",
+			SHA384:    sha384hex,
+			Source:    func(ctx context.Context) (io.ReadCloser, error) { return nil, nil },
+		}, {
+			Namespace: "controller",
+			SHA384:    sha384hex,
+			Source:    func(ctx context.Context) (io.ReadCloser, error) { return nil, nil },
+		}},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `duplicate object entry ".*" in namespace "controller":.*`)
+}
+
+func (s *createSuite) TestCreateObjectEntryInvalidNamespace(c *tc.C) {
+	for _, namespace := range []string{
+		".",
+		"..",
+		"../../x",
+		"/controller",
+		"controller/../controller",
+		`controller\x`,
+		"model",
+		"deadbeef0bad400d80004b1d0d06f00d",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00g",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00d/..",
+	} {
+		s.testCreateInvalidObjectEntry(c, namespace,
+			strings.Repeat("a", sha512.Size384*2))
+	}
+}
+
+func (s *createSuite) TestCreateObjectEntryInvalidSHA384(c *tc.C) {
+	for _, sha384hex := range []string{
+		".",
+		"..",
+		"../../x",
+		"/x",
+		`..\..\x`,
+		strings.Repeat("a", sha512.Size384*2-1),
+		strings.Repeat("a", sha512.Size384*2+1),
+		strings.Repeat("g", sha512.Size384*2),
+		strings.Repeat("A", sha512.Size384*2),
+		strings.Repeat("a", sha512.Size384*2-1) + "/",
+		strings.Repeat("a", sha512.Size384*2-1) + `\`,
+		strings.Repeat("a", sha512.Size384*2-1) + "\x00",
+	} {
+		s.testCreateInvalidObjectEntry(c, "controller", sha384hex)
+	}
+}
+
+func (s *createSuite) testCreateInvalidObjectEntry(c *tc.C, namespace, sha384hex string) {
+	destDir := c.MkDir()
+	sourceOpened := false
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: destDir,
+		DataDir:        "/var/lib/juju",
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: namespace,
+			SHA384:    sha384hex,
+			Source: func(context.Context) (io.ReadCloser, error) {
+				sourceOpened = true
+				return io.NopCloser(strings.NewReader("")), nil
+			},
+		}},
+	})
+	c.Check(err, tc.ErrorIs, coreerrors.NotValid,
+		tc.Commentf("namespace %q, SHA-384 %q", namespace, sha384hex))
+	c.Check(sourceOpened, tc.IsFalse)
+	entries, err := os.ReadDir(destDir)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 0)
+}
+
+func (s *createSuite) TestCreateObjectEntryMissingDataDir(c *tc.C) {
+	_, err := backups.Create(c.Context(), backups.NewMetadata(testStarted), backups.CreateArgs{
+		DestinationDir: c.MkDir(),
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{s.writeFile(c, "file", "content")},
+		ObjectEntries: []backups.ObjectEntry{{
+			Namespace: "controller",
+			SHA384:    "abc",
+			Source:    func(ctx context.Context) (io.ReadCloser, error) { return nil, nil },
+		}},
+	})
+	c.Assert(err, tc.ErrorMatches, "missing data directory for object entries")
+}
+
+func (s *createSuite) TestArchivedMetadataCarriesFinished(c *tc.C) {
+	destDir := c.MkDir()
+	file1 := s.writeFile(c, "jujud", "agent binary")
+	meta := backups.NewMetadata(testStarted)
+	filename, err := backups.Create(c.Context(), meta, backups.CreateArgs{
+		DestinationDir: destDir,
+		Clock:          clock.WallClock,
+		FilesToBackUp:  []string{file1},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Recovery summaries read the backup age from the archived
+	// metadata.json: the finished time must be stamped before the
+	// archive is built, not only on the returned metadata.
+	f, err := os.Open(filename)
+	c.Assert(err, tc.ErrorIsNil)
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	c.Assert(err, tc.ErrorIsNil)
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	found := false
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		c.Assert(err, tc.ErrorIsNil)
+		if path.Clean(hdr.Name) != "juju-backup/metadata.json" {
+			continue
+		}
+		data, err := io.ReadAll(tr)
+		c.Assert(err, tc.ErrorIsNil)
+		var flat struct {
+			Finished string `json:"Finished"`
+		}
+		c.Assert(json.Unmarshal(data, &flat), tc.ErrorIsNil)
+		c.Check(flat.Finished, tc.Not(tc.Equals), "")
+		c.Check(flat.Finished, tc.Not(tc.Equals), "0001-01-01T00:00:00Z")
+		found = true
+	}
+	c.Assert(found, tc.IsTrue)
 }

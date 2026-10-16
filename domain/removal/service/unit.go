@@ -108,18 +108,6 @@ func (s *Service) RemoveUnit(
 		return "", errors.Errorf("unit %q: %w", unitUUID, err)
 	}
 
-	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, unitUUID.String())
-	if err != nil {
-		return "", errors.Errorf("getting application and unit name for unit %q: %w", unitUUID, err)
-	}
-	// Revoke after the life transition so this unit cannot renew its leadership
-	// lease while it completes its departure hooks.
-	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unit.Name(unitName)); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
-		// The unit is already dying, so continue scheduling its removal even
-		// when the best-effort leadership revocation fails.
-		s.logger.Errorf(ctx, "revoking leadership for unit %q: %v", unitUUID, err)
-	}
-
 	// Normalize the wait here so the cascaded scheduling below cannot
 	// see a non-forced wait.
 	wait = s.normalizeWait(ctx, unitUUID, force, wait)
@@ -282,10 +270,29 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 		return errors.Capture(err)
 	}
 
+	applicationName, unitNameValue, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, job.EntityUUID)
+	if errors.Is(err, applicationerrors.UnitNotFound) {
+		// The unit has already been removed.
+		// Indicate success so that this job will be deleted.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting application and unit name for unit %q: %w", job.EntityUUID, err)
+	}
+	unitName, err := unit.NewName(unitNameValue)
+	if err != nil {
+		return errors.Errorf("parsing unit name %q: %w", unitNameValue, err)
+	}
+
+	// Keep leadership while the unit completes its departure hooks. Once it has
+	// left all relation scopes, revoke leadership before destructive cleanup.
+	if err := s.leadershipRevoker.RevokeLeadership(applicationName, unitName); err != nil && !errors.Is(err, leadership.ErrClaimNotHeld) {
+		return errors.Errorf("revoking leadership for unit %q: %w", job.EntityUUID, err)
+	}
+
 	// A controller unit must remain authenticated until it has departed its
 	// peer relation scopes. Deleting it before then prevents the departure hook
 	// from publishing the updated db-bind-addresses to the remaining units.
-	if err := s.deleteControllerNodeForUnit(ctx, unit.UUID(job.EntityUUID)); err != nil {
+	if err := s.deleteControllerNodeForUnit(ctx, applicationName, unitName); err != nil {
 		return errors.Errorf("deleting controller node for unit %q: %w", job.EntityUUID, err)
 	}
 
@@ -328,11 +335,9 @@ func (s *Service) processUnitRemovalJob(ctx context.Context, job removal.Job) er
 	return nil
 }
 
-func (s *Service) deleteControllerNodeForUnit(ctx context.Context, unitUUID unit.UUID) error {
-	applicationName, unitName, err := s.modelState.GetApplicationNameAndUnitNameByUnitUUID(ctx, unitUUID.String())
-	if err != nil && !errors.Is(err, applicationerrors.UnitNotFound) {
-		return errors.Errorf("getting controller unit name: %w", err)
-	}
+func (s *Service) deleteControllerNodeForUnit(
+	ctx context.Context, applicationName string, unitName unit.Name,
+) error {
 	if applicationName != coreapplication.ControllerApplicationName {
 		return nil
 	}
@@ -344,10 +349,5 @@ func (s *Service) deleteControllerNodeForUnit(ctx context.Context, unitUUID unit
 	if !isControllerModel {
 		return nil
 	}
-
-	name, err := unit.NewName(unitName)
-	if err != nil {
-		return errors.Errorf("parsing controller unit name %q: %w", unitName, err)
-	}
-	return errors.Capture(s.controllerState.DeleteDqliteNode(ctx, strconv.Itoa(name.Number())))
+	return errors.Capture(s.controllerState.DeleteDqliteNode(ctx, strconv.Itoa(unitName.Number())))
 }

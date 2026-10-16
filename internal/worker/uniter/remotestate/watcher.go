@@ -243,6 +243,24 @@ func (w *RemoteStateWatcher) CommandCompleted(completed string) {
 	}
 }
 
+// ActionCompleted is called when the action identified by the
+// action ID has been completed, to remove it from the remote state.
+func (w *RemoteStateWatcher) ActionCompleted(completed string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.current.ActionChanged, completed)
+	for i, id := range w.current.ActionsPending {
+		if id != completed {
+			continue
+		}
+		w.current.ActionsPending = append(
+			w.current.ActionsPending[:i],
+			w.current.ActionsPending[i+1:]...,
+		)
+		break
+	}
+}
+
 func (w *RemoteStateWatcher) WorkloadEventCompleted(workloadEventID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

@@ -59,6 +59,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
 	s.charm = NewMockCharm(ctrl)
+	s.charm.EXPECT().Config().Return(charm.NewConfig()).AnyTimes()
 
 	s.logger = loggertesting.WrapCheckLog(c)
 

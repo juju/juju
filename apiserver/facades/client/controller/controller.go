@@ -57,8 +57,12 @@ type ControllerAPIV14 struct {
 	*ControllerAPI
 }
 
-// SSHServerHostKey is not available in v14.
-func (c *ControllerAPIV14) SSHServerHostKey(_ struct{}) {}
+// SSHServerHostKey is not available in v14. The two-argument signature is not
+// a valid RPC method, so it hides the embedded method from the facade.
+func (c *ControllerAPIV14) SSHServerHostKey(_, _ struct{}) {}
+
+// SSHServerPort is not available in v14.
+func (c *ControllerAPIV14) SSHServerPort(_, _ struct{}) {}
 
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
@@ -188,6 +192,13 @@ func (c *ControllerAPI) checkIsSuperUser(ctx context.Context) error {
 	return c.authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 }
 
+// checkCanLogin checks that the user can log in to the controller, which is
+// the access every controller user has.
+func (c *ControllerAPI) checkCanLogin(ctx context.Context) error {
+	controllerTag := names.NewControllerTag(c.controllerUUID)
+	return c.authorizer.HasPermission(ctx, permission.LoginAccess, controllerTag)
+}
+
 // ControllerVersion returns the version information associated with this
 // controller binary.
 //
@@ -202,8 +213,14 @@ func (c *ControllerAPI) ControllerVersion(ctx context.Context) (params.Controlle
 }
 
 // SSHServerHostKey returns the public host key of the controller's embedded SSH
-// jump server.
+// jump server. Any user who can log in to the controller may read it, as users
+// connecting through the jump server are not necessarily controller admins.
 func (c *ControllerAPI) SSHServerHostKey(ctx context.Context) (params.SSHControllerPublicKeyResult, error) {
+	if err := c.checkCanLogin(ctx); err != nil {
+		return params.SSHControllerPublicKeyResult{
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
+		}, nil
+	}
 	publicKey, err := c.controllerSSHService.SSHServerHostPublicKey(ctx)
 	if err != nil {
 		return params.SSHControllerPublicKeyResult{
@@ -212,6 +229,29 @@ func (c *ControllerAPI) SSHServerHostKey(ctx context.Context) (params.SSHControl
 	}
 	return params.SSHControllerPublicKeyResult{
 		PublicKey: publicKey,
+	}, nil
+}
+
+// SSHServerPort returns the port the controller's embedded SSH jump server
+// listens on. Clients read this rather than controller config because the port
+// is owned by the controller charm and pushed to the SSH domain at runtime, so
+// controller config may hold a stale value. Any user who can log in to the
+// controller may read it, as users connecting through the jump server are not
+// necessarily controller admins.
+func (c *ControllerAPI) SSHServerPort(ctx context.Context) (params.SSHControllerSSHPortResult, error) {
+	if err := c.checkCanLogin(ctx); err != nil {
+		return params.SSHControllerSSHPortResult{
+			Error: apiservererrors.ServerError(apiservererrors.ErrPerm),
+		}, nil
+	}
+	port, err := c.controllerSSHService.GetSSHServerPort(ctx)
+	if err != nil {
+		return params.SSHControllerSSHPortResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+	return params.SSHControllerSSHPortResult{
+		Port: port,
 	}, nil
 }
 

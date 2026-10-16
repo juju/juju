@@ -16,27 +16,16 @@ import (
 )
 
 type actionsResolver struct {
-	logger logger.Logger
+	logger          logger.Logger
+	actionCompleted func(id string)
 }
 
 // NewResolver returns a new resolver with determines which action related operation
-// should be run based on local and remote uniter states.
-//
-// TODO(axw) 2015-10-27 #1510333
-// Use the same method as in the runcommands resolver
-// for updating the remote state snapshot when an
-// action is completed.
-func NewResolver(logger logger.Logger) resolver.Resolver {
-	return &actionsResolver{logger: logger}
-}
-
-func nextAction(pendingActions []string, completedActions map[string]struct{}) (string, error) {
-	for _, action := range pendingActions {
-		if _, ok := completedActions[action]; !ok {
-			return action, nil
-		}
-	}
-	return "", resolver.ErrNoOperation
+// should be run based on local and remote uniter states. When an action
+// operation is committed, the ID of the action is passed to the
+// "actionCompleted" callback.
+func NewResolver(logger logger.Logger, actionCompleted func(string)) resolver.Resolver {
+	return &actionsResolver{logger: logger, actionCompleted: actionCompleted}
 }
 
 // NextOp implements the resolver.Resolver interface.
@@ -50,22 +39,21 @@ func (r *actionsResolver) NextOp(
 	// error signaling such here, we must first check to see if an action is
 	// already running (that has been interrupted) before we declare that
 	// there is nothing to do.
-	nextActionId, err := nextAction(remoteState.ActionsPending, localState.CompletedActions)
-	if err != nil && err != resolver.ErrNoOperation {
-		return nil, err
-	}
-	if nextActionId == "" {
-		r.logger.Debugf(ctx, "no next action from pending=%v; completed=%v", remoteState.ActionsPending, localState.CompletedActions)
+	var nextActionId string
+	if len(remoteState.ActionsPending) > 0 {
+		nextActionId = remoteState.ActionsPending[0]
+	} else {
+		r.logger.Debugf(ctx, "no next action from pending=%v", remoteState.ActionsPending)
 	}
 
 	defer func() {
 		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
 			if localState.Step == operation.Pending && localState.ActionId != nil {
 				r.logger.Infof(ctx, "found missing not yet started action %v; running fail action", *localState.ActionId)
-				op, err = opFactory.NewFailAction(*localState.ActionId)
+				op, err = r.completeOnCommit(ctx, opFactory.NewFailAction, *localState.ActionId)
 			} else if nextActionId != "" {
 				r.logger.Infof(ctx, "found missing incomplete action %v; running fail action", nextActionId)
-				op, err = opFactory.NewFailAction(nextActionId)
+				op, err = r.completeOnCommit(ctx, opFactory.NewFailAction, nextActionId)
 			} else {
 				err = resolver.ErrNoOperation
 			}
@@ -76,7 +64,7 @@ func (r *actionsResolver) NextOp(
 	case operation.RunHook:
 		// We can still run actions if the unit is in a hook error state.
 		if localState.Step == operation.Pending && nextActionId != "" {
-			return opFactory.NewAction(ctx, nextActionId)
+			return r.completeOnCommit(ctx, opFactory.NewAction, nextActionId)
 		}
 	case operation.RunAction:
 		if localState.Hook != nil {
@@ -95,7 +83,7 @@ func (r *actionsResolver) NextOp(
 		// command can potentially be hazardous.
 		if nextActionId == *localState.ActionId {
 			r.logger.Debugf(ctx, "unit agent was interrupted while running action %v", *localState.ActionId)
-			return opFactory.NewFailAction(*localState.ActionId)
+			return r.completeOnCommit(ctx, opFactory.NewFailAction, *localState.ActionId)
 		}
 
 		// If the next action is different then what the uniter
@@ -105,11 +93,40 @@ func (r *actionsResolver) NextOp(
 		// (re)preparing the running operation should move the
 		// uniter's state along safely. Thus, we return the
 		// running action.
-		return opFactory.NewAction(ctx, *localState.ActionId)
+		return r.completeOnCommit(ctx, opFactory.NewAction, *localState.ActionId)
 	case operation.Continue:
 		if nextActionId != "" {
-			return opFactory.NewAction(ctx, nextActionId)
+			return r.completeOnCommit(ctx, opFactory.NewAction, nextActionId)
 		}
 	}
 	return nil, resolver.ErrNoOperation
+}
+
+// completeOnCommit returns the operation that newOp creates for the
+// action, which passes the action ID to the "actionCompleted" callback
+// when it is committed.
+func (r *actionsResolver) completeOnCommit(ctx context.Context, newOp func(context.Context, string) (operation.Operation, error), id string) (operation.Operation, error) {
+	op, err := newOp(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &actionCompleter{op, func() { r.actionCompleted(id) }}, nil
+}
+
+type actionCompleter struct {
+	operation.Operation
+	actionCompleted func()
+}
+
+func (c *actionCompleter) Commit(ctx context.Context, st operation.State) (*operation.State, error) {
+	result, err := c.Operation.Commit(ctx, st)
+	if err == nil {
+		c.actionCompleted()
+	}
+	return result, err
+}
+
+// WrappedOperation is part of the WrappedOperation interface.
+func (c *actionCompleter) WrappedOperation() operation.Operation {
+	return c.Operation
 }

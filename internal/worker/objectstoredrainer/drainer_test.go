@@ -49,7 +49,8 @@ func (s *drainerSuite) TestDrainFilesWithNoFiles(c *tc.C) {
 	defer workertest.DirtyKill(c, store)
 
 	select {
-	case <-done:
+	case result := <-done:
+		c.Check(result.Err, tc.ErrorIsNil)
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for drain")
 	}
@@ -73,12 +74,14 @@ func (s *drainerSuite) TestDrainFiles(c *tc.C) {
 		Size:   12,
 	}})
 	s.expectHashToExistError("foo", errors.NotFound)
+	s.expectObjectExistsError("foo", errors.NotFound)
 
 	done, store := s.newDrainerWorker(c)
 	defer workertest.DirtyKill(c, store)
 
 	select {
-	case <-done:
+	case result := <-done:
+		c.Check(result.Err, tc.ErrorMatches, `.*file "foo" is absent locally and from s3:.*`)
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for drain")
 	}
@@ -122,13 +125,33 @@ func (s *drainerSuite) TestDrainFileDoesNotExist(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	store := &drainWorker{
+		rootBucket: defaultBucketName,
+		namespace:  "inferi",
 		fileSystem: s.hashFileSystemAccessor,
+		client:     &client{s3Session: s.s3Session},
 	}
 
 	s.expectHashToExistError("foo", errors.NotFound)
+	s.expectObjectExists("foo")
 
 	err := store.drainFile(c.Context(), "/path", "foo", 12)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainerSuite) TestDrainFileMissingLocallyAndFromS3(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	store := &drainWorker{
+		rootBucket: defaultBucketName,
+		namespace:  "inferi",
+		fileSystem: s.hashFileSystemAccessor,
+		client:     &client{s3Session: s.s3Session},
+	}
+	s.expectHashToExistError("foo", errors.NotFound)
+	s.expectObjectExistsError("foo", errors.NotFound)
+
+	err := store.drainFile(c.Context(), "/path", "foo", 12)
+	c.Check(err, tc.ErrorMatches, `file "/path" is absent locally and from s3:.*`)
 }
 
 func (s *drainerSuite) TestDrainFileObjectError(c *tc.C) {
@@ -187,7 +210,7 @@ func (s *drainerSuite) TestDrainFileObjectGetHashReturnsError(c *tc.C) {
 	s.expectGetByHashError("foo", errors.NotFoundf("not found"))
 
 	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `file "/path" disappeared from file object store:.*`)
 }
 
 func (s *drainerSuite) TestDrainFileSizeDoNotMatch(c *tc.C) {
@@ -214,7 +237,7 @@ func (s *drainerSuite) TestDrainFileSizeDoNotMatch(c *tc.C) {
 	s.expectGetByHash("foo", reader, size)
 
 	err := store.drainFile(c.Context(), "/path", "foo", 12)
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorMatches, `file "/path" has size 666, expected 12`)
 	c.Assert(reader.Closed(), tc.IsTrue)
 }
 

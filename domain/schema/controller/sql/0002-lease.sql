@@ -8,7 +8,8 @@ ON lease_type (type);
 
 INSERT INTO lease_type VALUES
 (0, 'singular-controller'),    -- The controller running singular controller/model workers.
-(1, 'application-leadership'); -- The unit that holds leadership for an application.
+(1, 'application-leadership'), -- The unit that holds leadership for an application.
+(2, 'backup-creation');        -- The lease serialising backup archive creation.
 
 CREATE TABLE lease (
     uuid TEXT NOT NULL PRIMARY KEY,

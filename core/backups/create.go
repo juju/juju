@@ -4,8 +4,12 @@
 package backups
 
 import (
+	archivetar "archive/tar"
 	"compress/gzip"
-	"crypto/sha1"
+	"context"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
 	"io"
 	"os"
 	"path"
@@ -14,10 +18,10 @@ import (
 	"strings"
 
 	"github.com/juju/clock"
-	"github.com/juju/utils/v4/hash"
-	"github.com/juju/utils/v4/tar"
+	utilstar "github.com/juju/utils/v4/tar"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -35,15 +39,50 @@ type DumpEntry struct {
 	Reader io.Reader
 }
 
+// ObjectSource opens the content of one object store object for
+// reading. The returned reader must be closed by the caller.
+type ObjectSource func(ctx context.Context) (io.ReadCloser, error)
+
+// ObjectEntry is a single object store object to include in the
+// backup's root.tar archive.
+type ObjectEntry struct {
+	// Namespace is the object store namespace the object belongs to:
+	// "controller" for the controller database, or a model UUID.
+	Namespace string
+
+	// SHA256 is the hex-encoded SHA-256 of the object, as exported by
+	// the database. It identifies the object for reading.
+	SHA256 string
+
+	// SHA384 is the hex-encoded SHA-384 of the object, as exported by
+	// the database. It names the object inside the archive.
+	SHA384 string
+
+	// Size is the expected object size in bytes.
+	Size int64
+
+	// Source opens the object for reading.
+	Source ObjectSource
+}
+
 // CreateArgs holds the arguments for building a backup archive.
 type CreateArgs struct {
 	// DestinationDir is the absolute path to the directory in which
 	// the archive is stored. The staging area is created there too.
 	DestinationDir string
 
+	// DataDir is the absolute path to the source controller's data
+	// directory; object entries are stored relative to it. Required
+	// when ObjectEntries is not empty.
+	DataDir string
+
 	// FilesToBackUp is the list of absolute paths to the files to
-	// bundle into the archive's root.tar.
+	// include in the archive's root.tar.
 	FilesToBackUp []string
+
+	// ObjectEntries are the object store objects archived into the
+	// archive's root.tar, streamed and validated one at a time.
+	ObjectEntries []ObjectEntry
 
 	// DumpEntries are the database dumps written under the archive's
 	// dump directory.
@@ -59,7 +98,10 @@ type CreateArgs struct {
 // metadata with the file info and returns the archive filename.
 // It is a variable so tests can replace the archive creation with a
 // stub, mirroring [GetFilesToBackUp].
-var Create = func(meta *Metadata, args CreateArgs) (string, error) {
+var Create = func(ctx context.Context, meta *Metadata, args CreateArgs) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if args.Clock == nil {
 		return "", errors.New("missing clock")
 	}
@@ -70,6 +112,9 @@ var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 		if err := checkDumpEntryName(entry.Name); err != nil {
 			return "", errors.Capture(err)
 		}
+	}
+	if err := checkObjectEntries(args.ObjectEntries, args.DataDir); err != nil {
+		return "", errors.Capture(err)
 	}
 
 	stagingDir, err := os.MkdirTemp(args.DestinationDir, tempPrefix)
@@ -87,30 +132,64 @@ var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 		return "", errors.Errorf("creating temp directories: %w", err)
 	}
 
-	// The metadata file does not contain the ID or the "finished"
-	// data. However, that information is not as critical. The
-	// alternatives are either adding the metadata file to the archive
-	// after the fact or adding placeholders here for the finished data
-	// and filling them in afterward. Neither is particularly trivial.
+	// The metadata file cannot carry the final size and checksum (they
+	// are only known once the archive is built), but the finished time
+	// can: recovery summaries report the backup age from this file, and
+	// a zero time would mislead the operator about backup drift.
+	meta.Finished = new(args.Clock.Now())
 	metadataReader, err := meta.AsJSONBuffer()
 	if err != nil {
 		return "", errors.Errorf("preparing the metadata: %w", err)
 	}
-	if err := writeAll(archivePaths.MetadataFile, metadataReader); err != nil {
+	canonicalPaths := NewCanonicalArchivePaths()
+	metaSize, metaSum, err := writeAll(archivePaths.MetadataFile, metadataReader)
+	if err != nil {
 		return "", errors.Capture(err)
 	}
+	manifestEntries := []ManifestEntry{{
+		Path:   canonicalPaths.MetadataFile,
+		Kind:   ManifestKindMetadata,
+		Size:   metaSize,
+		SHA256: metaSum,
+	}}
 
-	if err := buildFilesBundle(archivePaths.FilesBundle, args.FilesToBackUp); err != nil {
+	filesSize, filesSum, err := buildFilesArchive(ctx,
+		archivePaths.FilesArchive, args.FilesToBackUp, args.DataDir, args.ObjectEntries)
+	if err != nil {
 		return "", errors.Capture(err)
 	}
+	manifestEntries = append(manifestEntries, ManifestEntry{
+		Path:   canonicalPaths.FilesArchive,
+		Kind:   ManifestKindFilesArchive,
+		Size:   filesSize,
+		SHA256: filesSum,
+	})
 
-	if err := buildDump(archivePaths.DBDumpDir, args.DumpEntries); err != nil {
+	entries := make([]DumpEntry, len(args.DumpEntries))
+	for i, entry := range args.DumpEntries {
+		entries[i] = DumpEntry{Name: entry.Name, Reader: contextReader{ctx: ctx, Reader: entry.Reader}}
+	}
+	dumpEntries, err := buildDump(
+		archivePaths.DBDumpDir, canonicalPaths.DBDumpDir, entries)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	manifestEntries = append(manifestEntries, dumpEntries...)
+
+	// The manifest is staged last: it indexes every other component,
+	// so it cannot record its own size or checksum. Those are covered
+	// by the outer archive checksum recorded in the metadata.
+	manifestReader, err := NewManifest(manifestEntries).AsJSONBuffer()
+	if err != nil {
+		return "", errors.Errorf("preparing the manifest: %w", err)
+	}
+	if _, _, err := writeAll(archivePaths.ManifestFile, manifestReader); err != nil {
 		return "", errors.Capture(err)
 	}
 
 	filename := filepath.Join(args.DestinationDir,
 		meta.Started.Format(FilenameTemplate))
-	size, checksum, err := buildArchiveAndChecksum(filename, stagingDir,
+	size, checksum, err := buildArchiveAndChecksum(ctx, filename, stagingDir,
 		archivePaths.ContentDir)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -123,6 +202,9 @@ var Create = func(meta *Metadata, args CreateArgs) (string, error) {
 	if err := meta.MarkComplete(size, checksum, args.Clock.Now()); err != nil {
 		return "", discardArchive(filename,
 			errors.Errorf("updating metadata: %w", err))
+	}
+	if err := ctx.Err(); err != nil {
+		return "", discardArchive(filename, err)
 	}
 
 	return filename, nil
@@ -159,8 +241,10 @@ func checkDestinationDir(destinationDir string) error {
 	return nil
 }
 
-// checkDumpEntryName ensures the entry name is not empty, is relative
-// and stays within the archive's dump directory.
+// checkDumpEntryName ensures the entry name is one of the two canonical
+// dump names — "controller.yaml" or "models/<model-uuid>.yaml" — so the
+// writer only ever emits dumps the recovery reader recognises. The
+// canonical-name rule itself lives in [ClassifyManifestPath].
 func checkDumpEntryName(name string) error {
 	cleaned := path.Clean(name)
 	// path.Clean maps both "" and "." (and "./", ...) to ".", which
@@ -175,78 +259,273 @@ func checkDumpEntryName(name string) error {
 			"entry name %q escapes the root directory: %w",
 			name, coreerrors.NotValid)
 	}
+	dumpPath := path.Join(NewCanonicalArchivePaths().DBDumpDir, cleaned)
+	if _, _, err := ClassifyManifestPath(dumpPath); err != nil {
+		return errors.Errorf(
+			"entry name %q is not a canonical dump name: %w",
+			name, coreerrors.NotValid)
+	}
 	return nil
 }
 
 // writeAll writes the contents of source to the named file, creating
-// any missing parent directories.
-func writeAll(targetname string, source io.Reader) error {
+// any missing parent directories. It returns the number of bytes
+// written and their SHA-256 checksum, hex encoded, hashed while
+// writing so the source is only read once.
+func writeAll(targetname string, source io.Reader) (int64, string, error) {
 	if err := os.MkdirAll(filepath.Dir(targetname), 0700); err != nil {
-		return errors.Errorf("creating directory for %q: %w",
+		return 0, "", errors.Errorf("creating directory for %q: %w",
 			targetname, err)
 	}
 	target, err := os.Create(targetname)
 	if err != nil {
-		return errors.Errorf("creating file %q: %w", targetname, err)
+		return 0, "", errors.Errorf("creating file %q: %w", targetname, err)
 	}
-	if _, err := io.Copy(target, source); err != nil {
+	hasher := sha256.New()
+	size, err := io.Copy(io.MultiWriter(target, hasher), source)
+	if err != nil {
 		_ = target.Close()
-		return errors.Errorf("copying into file %q: %w", targetname, err)
+		return 0, "", errors.Errorf("copying into file %q: %w", targetname, err)
 	}
 	if err := target.Close(); err != nil {
-		return errors.Errorf("closing file %q: %w", targetname, err)
+		return 0, "", errors.Errorf("closing file %q: %w", targetname, err)
 	}
-	return nil
+	return size, hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// buildFilesBundle creates the tar file bundling all the juju
-// state-related files gathered in by the backup machinery.
-func buildFilesBundle(bundleFileName string, filesToBackUp []string) error {
+// buildFilesArchive creates the tar file archiving all the juju
+// state-related files gathered in by the backup machinery, followed by
+// the object store objects referenced by the database dumps. It
+// returns the archive's size and SHA-256 checksum, hex encoded, hashed
+// while writing so the archive is only read once.
+func buildFilesArchive(ctx context.Context, archiveFileName string, filesToBackUp []string, dataDir string, objectEntries []ObjectEntry) (int64, string, error) {
 	if len(filesToBackUp) == 0 {
-		return errors.New("missing list of files to back up")
+		return 0, "", errors.New("missing list of files to back up")
 	}
 
 	// Create the parent directory here rather than relying on an
 	// earlier write having created it, matching writeAll.
-	if err := os.MkdirAll(filepath.Dir(bundleFileName), 0700); err != nil {
-		return errors.Errorf("creating directory for %q: %w",
-			bundleFileName, err)
+	if err := os.MkdirAll(filepath.Dir(archiveFileName), 0700); err != nil {
+		return 0, "", errors.Errorf("creating directory for %q: %w",
+			archiveFileName, err)
 	}
 
-	bundleFile, err := os.Create(bundleFileName)
+	archiveFile, err := os.Create(archiveFileName)
 	if err != nil {
-		return errors.Errorf("creating bundle file: %w", err)
+		return 0, "", errors.Errorf("creating files archive: %w", err)
 	}
 
+	// Both the filesystem files and the object entries go into a
+	// single tar stream, so the archive is written by one tar.Writer,
+	// hashed while writing so the archive is only read once.
+	hasher := sha256.New()
+	tarw := archivetar.NewWriter(contextWriter{ctx: ctx, Writer: io.MultiWriter(archiveFile, hasher)})
+	fail := func(err error) (int64, string, error) {
+		if terr := tarw.Close(); err == nil {
+			err = errors.Capture(terr)
+		}
+		if cerr := archiveFile.Close(); err == nil {
+			err = errors.Capture(cerr)
+		}
+		return 0, "", err
+	}
 	// The leading path separator is stripped off each file name when
 	// it is added to the tar file.
 	stripPrefix := string(os.PathSeparator)
-	_, terr := tar.TarFiles(filesToBackUp, bundleFile, stripPrefix)
-	if cerr := bundleFile.Close(); terr == nil {
-		terr = errors.Capture(cerr)
+	for _, file := range filesToBackUp {
+		if err := writeArchiveFile(tarw, file, stripPrefix); err != nil {
+			return fail(errors.Errorf("archiving state-critical file %q: %w", file, err))
+		}
 	}
-	if terr != nil {
-		return errors.Errorf("bundling state-critical files: %w", terr)
+	for _, entry := range objectEntries {
+		if err := writeObjectEntry(ctx, tarw, dataDir, entry); err != nil {
+			return fail(errors.Capture(err))
+		}
 	}
-	return nil
+
+	if err := tarw.Close(); err != nil {
+		return fail(errors.Capture(err))
+	}
+	if err := archiveFile.Close(); err != nil {
+		return 0, "", errors.Errorf("closing files archive: %w", err)
+	}
+
+	stat, err := os.Stat(archiveFileName)
+	if err != nil {
+		return 0, "", errors.Errorf("reading files archive info: %w", err)
+	}
+	return stat.Size(), hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// buildDump writes the database dump entries into the archive's dump
-// directory.
-func buildDump(dumpDir string, entries []DumpEntry) error {
-	for _, entry := range entries {
-		target := filepath.Join(dumpDir, filepath.FromSlash(entry.Name))
-		if err := writeAll(target, entry.Reader); err != nil {
+// writeArchiveFile adds a single file or directory to the archive, with the
+// strip prefix removed from its stored name. Symlinks retain their link
+// targets without being followed, directories are stored as headers and
+// regular files are copied in full.
+func writeArchiveFile(tarw *archivetar.Writer, fileName, stripPrefix string) error {
+	fInfo, err := os.Lstat(fileName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	link := ""
+	if fInfo.Mode()&os.ModeSymlink != 0 {
+		link, err = os.Readlink(fileName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+	}
+	hdr, err := archivetar.FileInfoHeader(fInfo, link)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	hdr.Name = filepath.ToSlash(strings.TrimPrefix(fileName, stripPrefix))
+	if err := tarw.WriteHeader(hdr); err != nil {
+		return errors.Capture(err)
+	}
+	if fInfo.Mode().IsRegular() {
+		f, err := os.Open(fileName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		defer func() { _ = f.Close() }()
+
+		if _, err := io.CopyN(tarw, f, fInfo.Size()); err != nil {
 			return errors.Capture(err)
 		}
 	}
 	return nil
 }
 
+// writeObjectEntry streams one object store object into the archive,
+// validating the byte count and SHA-384 hash while copying. The caller
+// context is checked before every object so a cancelled backup does not
+// keep streaming.
+func writeObjectEntry(ctx context.Context, tarw *archivetar.Writer, dataDir string, entry ObjectEntry) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Capture(err)
+	}
+	reader, err := entry.Source(ctx)
+	if err != nil {
+		return errors.Errorf("opening object %q in namespace %q: %w",
+			entry.SHA384, entry.Namespace, err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	hdr := &archivetar.Header{
+		Name:     objectEntryArchivePath(dataDir, entry),
+		Mode:     0640,
+		Size:     entry.Size,
+		Typeflag: archivetar.TypeReg,
+	}
+	if err := tarw.WriteHeader(hdr); err != nil {
+		return errors.Errorf("writing object header for %q: %w", hdr.Name, err)
+	}
+
+	hash384 := sha512.New384()
+	tee := io.TeeReader(reader, hash384)
+	// CopyN reports a short stream as io.EOF and a long one leaves the
+	// trailing bytes unread, so both surface as size mismatches.
+	n, err := io.CopyN(tarw, tee, entry.Size)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return errors.Errorf("writing object %q in namespace %q: %w",
+			entry.SHA384, entry.Namespace, err)
+	}
+	if n != entry.Size {
+		return errors.Errorf("object %q in namespace %q: streamed %d bytes, expected %d",
+			entry.SHA384, entry.Namespace, n, entry.Size)
+	}
+	if sum := hex.EncodeToString(hash384.Sum(nil)); sum != entry.SHA384 {
+		return errors.Errorf("object %q in namespace %q: SHA-384 mismatch: got %q, expected %q",
+			entry.SHA384, entry.Namespace, sum, entry.SHA384)
+	}
+	return nil
+}
+
+// objectEntryArchivePath returns the path of the entry's object within the
+// files archive, mirroring the object store's on-disk layout relative to the
+// data directory so restore can place it without translation.
+func objectEntryArchivePath(dataDir string, entry ObjectEntry) string {
+	return path.Join(
+		strings.TrimPrefix(filepath.ToSlash(dataDir), "/"),
+		objectstoreDir, entry.Namespace, entry.SHA384,
+	)
+}
+
+// checkObjectEntries validates the object entries before the archive is
+// built. Namespaces and hashes must have their expected formats so they
+// cannot change the archive path layout. A duplicated (namespace, SHA-384)
+// pair would produce a duplicate path in the archive, which is a
+// verification failure point on restore.
+func checkObjectEntries(entries []ObjectEntry, dataDir string) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	if dataDir == "" {
+		return errors.New("missing data directory for object entries")
+	}
+	type key struct {
+		namespace string
+		sha384    string
+	}
+	seen := make(map[key]struct{}, len(entries))
+	for _, entry := range entries {
+		if entry.Namespace == "" || entry.SHA384 == "" || entry.Source == nil {
+			return errors.Errorf("incomplete object entry: %w", coreerrors.NotValid)
+		}
+		if entry.Namespace != "controller" && coremodel.UUID(entry.Namespace).Validate() != nil {
+			return errors.Errorf("invalid object namespace %q: %w",
+				entry.Namespace, coreerrors.NotValid)
+		}
+		if len(entry.SHA384) != sha512.Size384*2 || strings.Trim(entry.SHA384, "0123456789abcdef") != "" {
+			return errors.Errorf("invalid SHA-384 %q in namespace %q: %w",
+				entry.SHA384, entry.Namespace, coreerrors.NotValid)
+		}
+		if entry.Size < 0 {
+			return errors.Errorf("object %q in namespace %q: negative size %d: %w",
+				entry.SHA384, entry.Namespace, entry.Size, coreerrors.NotValid)
+		}
+		k := key{namespace: entry.Namespace, sha384: entry.SHA384}
+		if _, dup := seen[k]; dup {
+			return errors.Errorf("duplicate object entry %q in namespace %q: %w",
+				entry.SHA384, entry.Namespace, coreerrors.NotValid)
+		}
+		seen[k] = struct{}{}
+	}
+	return nil
+}
+
+// buildDump writes the database dump entries into the archive's dump
+// directory and returns their manifest entries, hashed while writing
+// so each dump is only read once. canonicalDumpDir is the dump
+// directory's path inside the archive, used for the manifest paths.
+func buildDump(dumpDir, canonicalDumpDir string, entries []DumpEntry) ([]ManifestEntry, error) {
+	manifest := make([]ManifestEntry, 0, len(entries))
+	for _, entry := range entries {
+		target := filepath.Join(dumpDir, filepath.FromSlash(entry.Name))
+		size, sum, err := writeAll(target, entry.Reader)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		archivePath := filepath.Join(canonicalDumpDir, entry.Name)
+		kind, modelUUID, err := ClassifyManifestPath(archivePath)
+		if err != nil {
+			return nil, errors.Errorf("dump entry %q: %w", entry.Name, err)
+		}
+		manifest = append(manifest, ManifestEntry{
+			Path:      archivePath,
+			Kind:      kind,
+			Size:      size,
+			SHA256:    sum,
+			ModelUUID: modelUUID,
+		})
+	}
+	return manifest, nil
+}
+
 // buildArchiveAndChecksum tars and gzips the content directory into
-// the named archive file, computing the archive's SHA-1 checksum and
-// size along the way.
-func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
+// the named archive file, computing the archive's SHA-256 checksum —
+// in its canonical prefixed form, see [ChecksumSHA256] — and size along
+// the way.
+func buildArchiveAndChecksum(ctx context.Context, filename, stagingDir, contentDir string) (_ int64, _ string, err error) {
 	archiveFile, err := os.Create(filename)
 	if err != nil {
 		return 0, "", errors.Errorf("creating archive file: %w", err)
@@ -264,12 +543,12 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 	}()
 
 	// Build the tarball, writing out to both the archive file and a
-	// SHA-1 hash. The hash corresponds to the gzipped file rather than
+	// SHA-256 hash. The hash corresponds to the gzipped file rather than
 	// to the uncompressed contents of the tarball. This is so that
 	// users can compare the published checksum against the checksum of
 	// the file without having to decompress it first.
-	hasher := hash.NewHashingWriter(archiveFile, sha1.New())
-	if err := buildArchive(hasher, stagingDir, contentDir); err != nil {
+	hasher := sha256.New()
+	if err := buildArchive(contextWriter{ctx: ctx, Writer: io.MultiWriter(archiveFile, hasher)}, stagingDir, contentDir); err != nil {
 		return 0, "", errors.Capture(err)
 	}
 
@@ -278,7 +557,31 @@ func buildArchiveAndChecksum(filename, stagingDir, contentDir string) (_ int64, 
 		return 0, "", errors.Errorf("reading archive file info: %w", err)
 	}
 
-	return stat.Size(), hasher.Base64Sum(), nil
+	return stat.Size(), ChecksumSHA256(hex.EncodeToString(hasher.Sum(nil))), nil
+}
+
+type contextReader struct {
+	ctx context.Context
+	io.Reader
+}
+
+func (r contextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.Reader.Read(p)
+}
+
+type contextWriter struct {
+	ctx context.Context
+	io.Writer
+}
+
+func (w contextWriter) Write(p []byte) (int, error) {
+	if err := w.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return w.Writer.Write(p)
 }
 
 // buildArchive writes the gzipped tar of the content directory to the
@@ -292,9 +595,9 @@ func buildArchive(outFile io.Writer, stagingDir, contentDir string) error {
 	// file.
 	stripPrefix := stagingDir + string(os.PathSeparator)
 	filenames := []string{contentDir}
-	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
+	if _, err := utilstar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		_ = tarball.Close()
-		return errors.Errorf("bundling final archive: %w", err)
+		return errors.Errorf("creating final archive: %w", err)
 	}
 
 	// Gzip writers may buffer what they're writing so the writer must

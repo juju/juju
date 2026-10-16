@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/core/auditlog"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
@@ -64,6 +65,10 @@ type Config struct {
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
 	ModelService            ModelService
+
+	// BackupCreator is the name of the BackupCreator worker to use for creating
+	// backups.
+	BackupCreator corebackups.BackupCreator
 
 	// SSHProxy holds the dependencies for the SSH tunnel and relay
 	// upgrade endpoints.
@@ -155,6 +160,9 @@ func (config Config) Validate() error {
 	if config.SSHProxy == nil {
 		return errors.NotValidf("nil SSHProxy")
 	}
+	if config.BackupCreator == nil {
+		return errors.NotValidf("nil BackupCreator")
+	}
 	return nil
 }
 
@@ -214,6 +222,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		WatcherRegistryGetter:         config.WatcherRegistryGetter,
 		EphemeralProviderFactory:      config.EphemeralProviderFactory,
 		SSHProxyConfig:                *config.SSHProxy,
+		BackupCreator:                 config.BackupCreator,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

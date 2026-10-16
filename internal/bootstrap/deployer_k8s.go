@@ -96,7 +96,7 @@ func (b *K8sDeployer) EnsureControllerApplication(ctx context.Context, info Depl
 		return err
 	}
 
-	cfg, err := b.createCharmSettings()
+	cfg, err := b.createCharmSettings(info.Charm)
 	if err != nil {
 		return errors.Errorf("creating charm settings: %w", err)
 	}

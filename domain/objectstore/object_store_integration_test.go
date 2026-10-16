@@ -97,10 +97,13 @@ func (s *integrationSuite) TestPutMetadataAndGetBySHA256Prefix(c *tc.C) {
 	_, err := svc.PutMetadata(c.Context(), metadata)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Retrieve by 7-character prefix.
-	got, err := svc.GetMetadataBySHA256Prefix(c.Context(), metadata.SHA256[:7])
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got.Path, tc.Equals, metadata.Path)
+	// Exercise short prefixes and the full hash used by backup creation
+	// through both service validation and the persisted metadata lookup.
+	for _, length := range []int{7, 8, 9, 63, 64} {
+		got, err := svc.GetMetadataBySHA256Prefix(c.Context(), metadata.SHA256[:length])
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(got, tc.DeepEquals, metadata)
+	}
 }
 
 // TestPutAndRemoveMetadata verifies that metadata can be stored and then
@@ -306,6 +309,10 @@ func (s *integrationSuite) TestDrainingLifecycleCompleted(c *tc.C) {
 	backend, err := svc.GetActiveObjectStoreBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(backend.Type, tc.Equals, objectstore.S3Backend)
+
+	usable, err := svc.IsObjectStoreUsable(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(usable, tc.IsTrue)
 }
 
 // TestDrainingLifecycleError verifies the drain lifecycle when transitioning
@@ -321,14 +328,14 @@ func (s *integrationSuite) TestDrainingLifecycleError(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	// 2. Transition to error. Error is terminal, so the drain is no longer
-	// active and GetDrainingPhase returns PhaseUnknown.
+	// 2. Transition to error. The drain is terminal, but the source backend
+	// remains dying, so GetDrainingPhase reports PhaseError.
 	err = svc.SetDrainingPhase(c.Context(), objectstore.PhaseError)
 	c.Assert(err, tc.ErrorIsNil)
 
 	phase, err := svc.GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(phase, tc.Equals, objectstore.PhaseUnknown)
+	c.Assert(phase, tc.Equals, objectstore.PhaseError)
 }
 
 // TestDrainingPhaseInvalidTransition verifies that invalid phase transitions

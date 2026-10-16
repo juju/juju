@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package singular
@@ -19,6 +19,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -31,7 +32,7 @@ type ManifoldSuite struct {
 	modelUUID string
 }
 
-func TestManifoldSuite(t *testing.T) {
+func TestSingularManifoldSuite(t *testing.T) {
 	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
 		tc.Run(t, &ManifoldSuite{})
 	})
@@ -89,10 +90,8 @@ func (s *ManifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"lease-manager"}
-
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(Manifold(s.newConfig()).Inputs, tc.SameContents, expectedInputs)
+	c.Assert(Manifold(s.newConfig()).Inputs, tc.SameContents, []string{"lease-manager"})
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
@@ -106,40 +105,23 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 func (s *ManifoldSuite) TestWorkerBounceOnStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	config := ManifoldConfig{
-		ModelUUID:        s.modelUUID,
-		LeaseManagerName: "lease-manager",
-		Clock:            clock.WallClock,
-		Duration:         time.Minute,
-		Entity:           names.NewModelTag("model-123"),
-		Claimant:         names.NewMachineTag("123"),
-		NewWorker: func(ctx context.Context, config FlagConfig) (worker.Worker, error) {
-			return nil, ErrRefresh
-		},
+	config := s.newConfig()
+	config.NewWorker = func(context.Context, FlagConfig) (worker.Worker, error) {
+		return nil, ErrRefresh
 	}
 
 	_, err := Manifold(config).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-// TestStart_ModelUUIDPassedToFlagConfig asserts the model UUID is passed
-// from ManifoldConfig.ModelUUID to FlagConfig without re-fetching it from
-// agent config.
-func (s *ManifoldSuite) TestStart_ModelUUIDPassedToFlagConfig(c *tc.C) {
+func (s *ManifoldSuite) TestStartModelUUIDPassedToFlagConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	var gotUUID string
-	config := ManifoldConfig{
-		ModelUUID:        s.modelUUID,
-		LeaseManagerName: "lease-manager",
-		Clock:            clock.WallClock,
-		Duration:         time.Minute,
-		Entity:           names.NewModelTag("model-123"),
-		Claimant:         names.NewMachineTag("123"),
-		NewWorker: func(ctx context.Context, cfg FlagConfig) (worker.Worker, error) {
-			gotUUID = string(cfg.ModelUUID)
-			return newStubWorker(), nil
-		},
+	config := s.newConfig()
+	config.NewWorker = func(_ context.Context, cfg FlagConfig) (worker.Worker, error) {
+		gotUUID = string(cfg.ModelUUID)
+		return newStubWorker(), nil
 	}
 
 	w, err := Manifold(config).Start(c.Context(), s.newGetter())
@@ -175,4 +157,37 @@ func (w *stubWorker) Kill() {
 
 func (w *stubWorker) Wait() error {
 	return w.Tomb.Wait()
+}
+
+func TestNotPrimaryControllerFlagManifold(c *testing.T) {
+	testhelpers.PrintGoroutineLeaks(c, func(c *testing.T) {
+		tc.Run(c, &notPrimaryControllerFlagManifoldSuite{})
+	})
+}
+
+type notPrimaryControllerFlagManifoldSuite struct{}
+
+func (*notPrimaryControllerFlagManifoldSuite) TestOutputsInverseFlag(c *tc.C) {
+	for _, test := range []struct {
+		name     string
+		input    bool
+		expected bool
+	}{
+		{name: "source true", input: true, expected: false},
+		{name: "source false", input: false, expected: true},
+	} {
+		source := engine.NewStaticFlagWorker(test.input)
+		manifold := NotPrimaryControllerFlagManifold("source")
+		worker, err := manifold.Start(c.Context(), dependencytesting.StubGetter(map[string]any{
+			"source": source,
+		}))
+		c.Assert(err, tc.ErrorIsNil)
+
+		var flag engine.Flag
+		c.Assert(manifold.Output(worker, &flag), tc.ErrorIsNil)
+		c.Check(flag.Check(), tc.Equals, test.expected, tc.Commentf("%s", test.name))
+
+		workertest.CleanKill(c, worker)
+		workertest.CleanKill(c, source)
+	}
 }
