@@ -286,6 +286,11 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	status, err := c.getStatus(showStorage)
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
 		for i := 0; i < c.retryCount; i++ {
+			// Check for this error inside the loop in case prior
+			// calls failed due to spurious connection errors.
+			if params.IsCodeUnauthorized(err) || errors.Is(err, errors.Unauthorized) {
+				break
+			}
 			// fun bit - make sure a new api connection is used for each new call
 			c.SetModelAPI(nil)
 			// Wait for a bit before retries.
