@@ -435,6 +435,9 @@ cleanup_wrench_die_in_export_36() {
 # streams.sh). A custom JUJU_MIGRATION_36_BIN is used as-is. Call this
 # un-captured from the wrapper path (like run_migration_*); never from
 # inside a $( ...) capture, or sudo's password prompt has no terminal.
+# The channel the snap tracked before pinning is captured so the
+# framework cleanup can restore it (restore_juju36_channel): a local
+# run must not leave the developer's juju pinned to 3.6.
 ensure_juju36_client() {
 	if [[ ${JUJU_36} != "/snap/bin/juju" ]]; then
 		return
@@ -443,12 +446,10 @@ ensure_juju36_client() {
 		return
 	fi
 
-	local action
-	if snap list juju >/dev/null 2>&1; then
-		action="refresh"
-	else
-		action="install"
-	fi
+	# snap info prints no tracking line when the snap is not installed:
+	# an empty channel then leaves nothing to restore.
+	MIG36_PREV_CHANNEL=$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')
+	add_clean_func "restore_juju36_channel"
 
 	local attempts=0
 	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]]; do
@@ -456,9 +457,36 @@ ensure_juju36_client() {
 			echo "failed to install the juju 3.6 snap after ${attempts} attempts" >&2
 			return 1
 		fi
-		sudo snap "${action}" juju --classic --channel 3.6/stable 2>&1 && break || sleep 10
+
+		# Re-evaluate install vs refresh on every attempt: a failed
+		# attempt may leave the snap listed but unusable, and retrying
+		# install against a listed snap fails deterministically.
+		local action opts
+		if snap list juju >/dev/null 2>&1; then
+			action="refresh"
+			opts=""
+			if (( attempts > 0 )); then
+				# Like the upgrade suite: a channel-changing
+				# refresh is rejected without --amend, so a
+				# byte-identical retry cannot succeed.
+				opts=" --amend"
+			fi
+		else
+			action="install"
+			opts=""
+		fi
+		sudo snap "${action}" juju --classic --channel 3.6/stable${opts} 2>&1 && break || sleep 10
 		attempts=$((attempts + 1))
 	done
+}
+
+# restore_juju36_channel returns the regular juju snap to the channel it
+# tracked before ensure_juju36_client pinned it to 3.6/stable.
+restore_juju36_channel() {
+	if [[ -z ${MIG36_PREV_CHANNEL:-} ]]; then
+		return
+	fi
+	sudo snap refresh juju --channel "${MIG36_PREV_CHANNEL}" || true
 }
 
 # mig36_gate echoes a skip reason and returns non-zero when the juju 3.6

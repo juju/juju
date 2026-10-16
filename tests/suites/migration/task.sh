@@ -9,7 +9,10 @@ test_migration() {
 	# Provision the juju 3.6 client un-captured: sudo's password prompt
 	# needs the terminal (see ensure_juju36_client). The gate below only
 	# validates.
-	ensure_juju36_client || return
+	if ! ensure_juju36_client; then
+		echo "==> SKIP: test_migration test: could not provision the juju 3.6 client"
+		return
+	fi
 
 	if ! gate_reason=$(mig36_gate 2>&1); then
 		echo "==> SKIP: test_migration test: ${gate_reason}"

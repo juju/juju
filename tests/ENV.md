@@ -16,7 +16,7 @@ definitive source is the code.
 | `CONTROLLER_CHARM_PATH_IAAS`  | Path to a locally built controller charm to use (IaaS only).                       |
 | `KILL_CONTROLLER`             | If `'true'`, controllers will be forcibly killed during teardown.                  |
 | `MODEL_ARCH`                  | Will be set as a model constraint on newly added models.                           |
-| `JUJU_MIGRATION_36_BIN`       | Path to a custom juju 3.6 client for the `migration` suite's source controllers. When unset, the suite pins the regular `juju` snap to the `3.6/stable` channel and uses `/snap/bin/juju`. |
+| `JUJU_MIGRATION_36_BIN`       | Path to a custom juju 3.6 client for the `migration` suite's source controllers. When unset, the suite pins the regular `juju` snap to the `3.6/stable` channel and uses `/snap/bin/juju`; the snap's previously tracked channel is restored when the suite finishes. |
 | `OPERATOR_IMAGE_ACCOUNT`      | Passed as the value of `--config caas-image-repo` when bootstrapping.              |
 | `TEST_INSPECT`                | If set, pause before teardown to allow inspection of the controller.               |
 | `CONTAINER_NETWORKING_METHOD` | If set, the default container networking method (`local`, `provider`, or `fan`).   |
