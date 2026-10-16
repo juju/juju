@@ -57,9 +57,6 @@ type NetworkService interface {
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(context.Context) (network.SubnetInfos, error)
 
-	// Subnet returns the subnet identified by the input UUID,
-	// or an error if it is not found.
-	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
 	// MoveSubnetsToSpace moves a list of subnets identified by their UUIDs to a
 	// specified network space.
 	// It validates input, computes a new topology, checks its integrity, and
