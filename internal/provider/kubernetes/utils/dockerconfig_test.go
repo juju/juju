@@ -66,7 +66,6 @@ func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
 				Username: "docker-registry",
 				Password: "hunter2",
 				Email:    "",
-				Auth:     "",
 			},
 		},
 	})

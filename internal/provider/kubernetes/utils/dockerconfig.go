@@ -34,7 +34,6 @@ type DockerConfigEntry struct {
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
 	Email    string `json:"email,omitempty"`
-	Auth     string `json:"auth,omitempty"`
 }
 
 func CreateDockerConfigJSON(username, password, imagePath string) ([]byte, error) {
