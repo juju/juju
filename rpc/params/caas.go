@@ -27,8 +27,8 @@ type CAASUnitIntroduction struct {
 
 // CAASUnitIntroductionResult is returned from CAASApplication facade.
 type CAASUnitIntroductionResult struct {
-	Result *CAASUnitIntroduction `json:"result,omitempty"`
-	Error  *Error                `json:"error,omitempty"`
+	Result *CAASUnitIntroduction `json:"result,omitzero"`
+	Error  *Error                `json:"error,omitzero"`
 }
 
 // CAASApplicationProvisioningInfoResults holds OperatorProvisioningInfo results.
@@ -54,10 +54,10 @@ type CAASApplicationProvisioningInfo struct {
 	Devices              []KubernetesDeviceParams `json:"devices,omitempty"`
 	Base                 Base                     `json:"base,omitempty"`
 	ImageRepo            DockerImageInfo          `json:"image-repo,omitempty"`
-	CharmModifiedVersion int                      `json:"charm-modified-version,omitempty"`
-	Trust                bool                     `json:"trust,omitempty"`
-	Scale                int                      `json:"scale,omitempty"`
-	Error                *Error                   `json:"error,omitempty"`
+	CharmModifiedVersion int                      `json:"charm-modified-version,omitzero"`
+	Trust                bool                     `json:"trust,omitzero"`
+	Scale                int                      `json:"scale,omitzero"`
+	Error                *Error                   `json:"error,omitzero"`
 }
 
 // KubernetesFilesystemUnitAttachmentParams holds the parameters for
@@ -151,8 +151,8 @@ type CAASApplicationOCIResourceResults struct {
 
 // CAASApplicationOCIResourceResult holds the image result or error for the queried application.
 type CAASApplicationOCIResourceResult struct {
-	Result *CAASApplicationOCIResources `json:"result,omitempty"`
-	Error  *Error                       `json:"error,omitempty"`
+	Result *CAASApplicationOCIResources `json:"result,omitzero"`
+	Error  *Error                       `json:"error,omitzero"`
 }
 
 // CAASApplicationOCIResources holds a list of image OCI resources.

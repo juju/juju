@@ -53,7 +53,7 @@ type CloudImageMetadata struct {
 	RootStorageType string `json:"root-storage-type,omitempty"`
 
 	// RootStorageSize contains size of root storage in gigabytes (GB).
-	RootStorageSize *uint64 `json:"root-storage-size,omitempty"`
+	RootStorageSize *uint64 `json:"root-storage-size,omitzero"`
 
 	// Source describes where this image is coming from: is it public? custom?
 	Source string `json:"source"`

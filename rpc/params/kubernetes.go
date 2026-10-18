@@ -14,14 +14,14 @@ type KubernetesFilesystemParams struct {
 	Provider    string                                `json:"provider"`
 	Attributes  map[string]any                        `json:"attributes,omitempty"`
 	Tags        map[string]string                     `json:"tags,omitempty"`
-	Attachment  *KubernetesFilesystemAttachmentParams `json:"attachment,omitempty"`
+	Attachment  *KubernetesFilesystemAttachmentParams `json:"attachment,omitzero"`
 }
 
 // KubernetesFilesystemAttachmentParams holds the parameters for
 // creating a filesystem attachment.
 type KubernetesFilesystemAttachmentParams struct {
 	MountPoint string `json:"mount-point,omitempty"`
-	ReadOnly   bool   `json:"read-only,omitempty"`
+	ReadOnly   bool   `json:"read-only,omitzero"`
 }
 
 // KubernetesVolumeParams holds the parameters for creating a storage volume.
@@ -31,14 +31,14 @@ type KubernetesVolumeParams struct {
 	Provider    string                            `json:"provider"`
 	Attributes  map[string]any                    `json:"attributes,omitempty"`
 	Tags        map[string]string                 `json:"tags,omitempty"`
-	Attachment  *KubernetesVolumeAttachmentParams `json:"attachment,omitempty"`
+	Attachment  *KubernetesVolumeAttachmentParams `json:"attachment,omitzero"`
 }
 
 // KubernetesVolumeAttachmentParams holds the parameters for
 // creating a volume attachment.
 type KubernetesVolumeAttachmentParams struct {
 	Provider string `json:"provider"`
-	ReadOnly bool   `json:"read-only,omitempty"`
+	ReadOnly bool   `json:"read-only,omitzero"`
 }
 
 // KubernetesFilesystemInfo describes a storage filesystem in the cloud
@@ -48,7 +48,7 @@ type KubernetesFilesystemInfo struct {
 	Pool         string               `json:"pool"`
 	Size         uint64               `json:"size"`
 	MountPoint   string               `json:"mount-point,omitempty"`
-	ReadOnly     bool                 `json:"read-only,omitempty"`
+	ReadOnly     bool                 `json:"read-only,omitzero"`
 	FilesystemId string               `json:"filesystem-id"`
 	Status       string               `json:"status"`
 	Info         string               `json:"info"`

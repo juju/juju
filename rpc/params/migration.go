@@ -20,7 +20,7 @@ const MigrationModelHTTPHeader = "X-Juju-Migration-Model-UUID"
 // more model migrations.
 type InitiateMigrationArgs struct {
 	Specs  []MigrationSpec `json:"specs"`
-	DryRun bool            `json:"dry-run,omitempty"`
+	DryRun bool            `json:"dry-run,omitzero"`
 }
 
 // MigrationSpec holds the details required to start the migration of
@@ -40,7 +40,7 @@ type MigrationTargetInfo struct {
 	AuthTag         string   `json:"auth-tag"`
 	Password        string   `json:"password,omitempty"`
 	Macaroons       string   `json:"macaroons,omitempty"`
-	SkipUserChecks  bool     `json:"skip-user-checks,omitempty"`
+	SkipUserChecks  bool     `json:"skip-user-checks,omitzero"`
 	Token           string   `json:"token,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type InitiateMigrationResults struct {
 // migration initiation attempt.
 type InitiateMigrationResult struct {
 	ModelTag    string `json:"model-tag"`
-	Error       *Error `json:"error,omitempty"`
+	Error       *Error `json:"error,omitzero"`
 	MigrationId string `json:"migration-id"`
 }
 
@@ -149,7 +149,7 @@ type SerializedModelV2 struct {
 	// ModelCredential is the model's cloud credential, carried by natural key
 	// plus the provider auth attributes needed to create or compare it. Nil when
 	// the model has no credential.
-	ModelCredential *ModelCloudCredential `json:"model-credential,omitempty"`
+	ModelCredential *ModelCloudCredential `json:"model-credential,omitzero"`
 
 	// Permissions carries both object_type='model' and object_type='offer'
 	// permission rows for this model, distinguished by ModelPermission.ObjectType.
@@ -160,7 +160,7 @@ type SerializedModelV2 struct {
 
 	// SecretBackend is the secret backend this model uses, by name. Nil when the
 	// model uses the controller default.
-	SecretBackend *ModelSecretBackend `json:"secret-backend,omitempty"`
+	SecretBackend *ModelSecretBackend `json:"secret-backend,omitzero"`
 
 	// SecretBackendRefs is the per-revision mapping of secret revisions to
 	// backends, by backend name.
@@ -238,12 +238,12 @@ type ModelUser struct {
 	// CreatedAt is when the user was created.
 	CreatedAt time.Time `json:"created-at,omitempty"`
 	// Removed reports whether the source controller user row was marked removed.
-	Removed bool `json:"removed,omitempty"`
+	Removed bool `json:"removed,omitzero"`
 	// External reports whether the source controller user row is external.
-	External bool `json:"external,omitempty"`
+	External bool `json:"external,omitzero"`
 	// LastLogin is the user's last login time against this model, or nil if
 	// the user never logged in to it.
-	LastLogin *time.Time `json:"last-login,omitempty"`
+	LastLogin *time.Time `json:"last-login,omitzero"`
 }
 
 // ModelCloudCredential is the model's cloud credential carried by natural key
@@ -261,9 +261,9 @@ type ModelCloudCredential struct {
 	// Attributes are the provider auth attributes for the credential.
 	Attributes map[string]string `json:"attributes,omitempty"`
 	// Revoked reports whether the credential has been revoked.
-	Revoked bool `json:"revoked,omitempty"`
+	Revoked bool `json:"revoked,omitzero"`
 	// Invalid reports whether Juju has marked the credential invalid.
-	Invalid bool `json:"invalid,omitempty"`
+	Invalid bool `json:"invalid,omitzero"`
 	// InvalidReason describes why the credential was marked invalid.
 	InvalidReason string `json:"invalid-reason,omitempty"`
 }
@@ -346,7 +346,7 @@ type ModelCloudImageMetadata struct {
 	// RootStorageType contains type of root storage.
 	RootStorageType string `json:"root-storage-type,omitempty"`
 	// RootStorageSize contains size of root storage in gigabytes (GB).
-	RootStorageSize *uint64 `json:"root-storage-size,omitempty"`
+	RootStorageSize *uint64 `json:"root-storage-size,omitzero"`
 	// Source describes where this image is coming from.
 	Source string `json:"source"`
 	// Priority is an importance factor for image metadata.
@@ -440,7 +440,7 @@ type PhaseResults struct {
 // error if the phase could not be determined.
 type PhaseResult struct {
 	Phase string `json:"phase,omitempty"`
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // MinionReport holds the details of whether a migration minion

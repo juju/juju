@@ -13,10 +13,10 @@ type Cloud struct {
 	StorageEndpoint   string                    `json:"storage-endpoint,omitempty"`
 	Regions           []CloudRegion             `json:"regions,omitempty"`
 	CACertificates    []string                  `json:"ca-certificates,omitempty"`
-	SkipTLSVerify     bool                      `json:"skip-tls-verify,omitempty"`
+	SkipTLSVerify     bool                      `json:"skip-tls-verify,omitzero"`
 	Config            map[string]any            `json:"config,omitempty"`
 	RegionConfig      map[string]map[string]any `json:"region-config,omitempty"`
-	IsControllerCloud bool                      `json:"is-controller-cloud,omitempty"`
+	IsControllerCloud bool                      `json:"is-controller-cloud,omitzero"`
 }
 
 // CloudRegion holds information about a cloud region.
@@ -31,7 +31,7 @@ type CloudRegion struct {
 type AddCloudArgs struct {
 	Cloud Cloud  `json:"cloud"`
 	Name  string `json:"name"`
-	Force *bool  `json:"force,omitempty"`
+	Force *bool  `json:"force,omitzero"`
 }
 
 // UpdateCloudArgs holds a cloud to be updated with its name.
@@ -41,8 +41,8 @@ type UpdateCloudArgs struct {
 
 // CloudResult contains a cloud definition or an error.
 type CloudResult struct {
-	Cloud *Cloud `json:"cloud,omitempty"`
-	Error *Error `json:"error,omitempty"`
+	Cloud *Cloud `json:"cloud,omitzero"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // CloudResults contains a set of CloudResults.
@@ -87,8 +87,8 @@ type CloudInfo struct {
 
 // CloudInfoResult holds the result of a CloudInfo call.
 type CloudInfoResult struct {
-	Result *CloudInfo `json:"result,omitempty"`
-	Error  *Error     `json:"error,omitempty"`
+	Result *CloudInfo `json:"result,omitzero"`
+	Error  *Error     `json:"error,omitzero"`
 }
 
 // CloudInfoResults holds the result of a bulk CloudInfo call.
@@ -106,7 +106,7 @@ type ModelConfigSchemaArgs struct {
 type ModelConfigSchemaResult struct {
 	// Schema maps a model config attribute name to its schema definition.
 	Schema map[string]ModelConfigSchemaField `json:"schema,omitempty"`
-	Error  *Error                            `json:"error,omitempty"`
+	Error  *Error                            `json:"error,omitzero"`
 }
 
 // ModelConfigSchemaField describes a single model config attribute within the
@@ -120,13 +120,13 @@ type ModelConfigSchemaField struct {
 	Type string `json:"type,omitempty"`
 
 	// Immutable specifies whether the attribute cannot be changed once set.
-	Immutable bool `json:"immutable,omitempty"`
+	Immutable bool `json:"immutable,omitzero"`
 
 	// Mandatory specifies whether the attribute must be provided.
-	Mandatory bool `json:"mandatory,omitempty"`
+	Mandatory bool `json:"mandatory,omitzero"`
 
 	// Example holds an example value for the attribute.
-	Example any `json:"example,omitempty"`
+	Example any `json:"example,omitzero"`
 
 	// Values holds the set of all possible values of the attribute.
 	Values []any `json:"values,omitempty"`
@@ -138,7 +138,7 @@ type ModelConfigSchemaField struct {
 // ListCloudsRequest encapsulates how we request a list of cloud details for a user.
 type ListCloudsRequest struct {
 	UserTag string `json:"user-tag"`
-	All     bool   `json:"all,omitempty"`
+	All     bool   `json:"all,omitzero"`
 }
 
 // ListCloudInfo holds information about a cloud for a user.
@@ -151,8 +151,8 @@ type ListCloudInfo struct {
 
 // ListCloudInfoResult holds the result of a ListCloudInfo call.
 type ListCloudInfoResult struct {
-	Result *ListCloudInfo `json:"result,omitempty"`
-	Error  *Error         `json:"error,omitempty"`
+	Result *ListCloudInfo `json:"result,omitzero"`
+	Error  *Error         `json:"error,omitzero"`
 }
 
 // ListCloudInfoResults holds the result of a bulk ListCloudInfo call.
@@ -197,8 +197,8 @@ type CloudCredential struct {
 
 // CloudCredentialResult contains a CloudCredential or an error.
 type CloudCredentialResult struct {
-	Result *CloudCredential `json:"result,omitempty"`
-	Error  *Error           `json:"error,omitempty"`
+	Result *CloudCredential `json:"result,omitzero"`
+	Error  *Error           `json:"error,omitzero"`
 }
 
 // CloudCredentialResults contains a set of CloudCredentialResults.
@@ -237,16 +237,16 @@ type CloudSpec struct {
 	Endpoint          string           `json:"endpoint,omitempty"`
 	IdentityEndpoint  string           `json:"identity-endpoint,omitempty"`
 	StorageEndpoint   string           `json:"storage-endpoint,omitempty"`
-	Credential        *CloudCredential `json:"credential,omitempty"`
+	Credential        *CloudCredential `json:"credential,omitzero"`
 	CACertificates    []string         `json:"cacertificates,omitempty"`
-	SkipTLSVerify     bool             `json:"skip-tls-verify,omitempty"`
-	IsControllerCloud bool             `json:"is-controller-cloud,omitempty"`
+	SkipTLSVerify     bool             `json:"skip-tls-verify,omitzero"`
+	IsControllerCloud bool             `json:"is-controller-cloud,omitzero"`
 }
 
 // CloudSpecResult contains a CloudSpec or an error.
 type CloudSpecResult struct {
-	Result *CloudSpec `json:"result,omitempty"`
-	Error  *Error     `json:"error,omitempty"`
+	Result *CloudSpec `json:"result,omitzero"`
+	Error  *Error     `json:"error,omitzero"`
 }
 
 // CloudSpecResults contains a set of CloudSpecResults.
@@ -285,7 +285,7 @@ type CredentialContent struct {
 	AuthType string `json:"auth-type"`
 
 	// Valid indicates whether credential is valid.
-	Valid *bool `json:"valid,omitempty"`
+	Valid *bool `json:"valid,omitzero"`
 
 	// Attributes contains credential values.
 	Attributes map[string]string `json:"attrs,omitempty"`
@@ -310,8 +310,8 @@ type ControllerCredentialInfo struct {
 
 // CredentialContentResult contains comprehensive information about stored credential or an error.
 type CredentialContentResult struct {
-	Result *ControllerCredentialInfo `json:"result,omitempty"`
-	Error  *Error                    `json:"error,omitempty"`
+	Result *ControllerCredentialInfo `json:"result,omitzero"`
+	Error  *Error                    `json:"error,omitzero"`
 }
 
 // CredentialContentResults contains a set of CredentialContentResults.
@@ -351,7 +351,7 @@ type UpdateCredentialResult struct {
 	CredentialTag string `json:"tag"`
 
 	// Errors contains an error that may have occurred while trying to update a credential.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 
 	// Models contains results of credential check against models that use this cloud credential.
 	Models []UpdateCredentialModelResult `json:"models,omitempty"`

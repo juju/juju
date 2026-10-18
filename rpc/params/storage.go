@@ -57,7 +57,7 @@ type SetMachineBlockDevices struct {
 // of a block device.
 type BlockDeviceResult struct {
 	Result BlockDevice `json:"result"`
-	Error  *Error      `json:"error,omitempty"`
+	Error  *Error      `json:"error,omitzero"`
 }
 
 // BlockDeviceResults holds the result of an API call to retrieve details
@@ -70,7 +70,7 @@ type BlockDeviceResults struct {
 // of all block devices relating to some entity.
 type BlockDevicesResult struct {
 	Result []BlockDevice `json:"result"`
-	Error  *Error        `json:"error,omitempty"`
+	Error  *Error        `json:"error,omitzero"`
 }
 
 // BlockDevicesResults holds the result of an API call to retrieve details
@@ -111,7 +111,7 @@ func (k *StorageKind) String() string {
 // of a storage instance.
 type StorageInstanceResult struct {
 	Result StorageInstance `json:"result"`
-	Error  *Error          `json:"error,omitempty"`
+	Error  *Error          `json:"error,omitzero"`
 }
 
 // StorageInstanceResults holds the result of an API call to retrieve details
@@ -149,19 +149,19 @@ type StorageDetachmentParams struct {
 
 	// Force specifies whether relation destruction will be forced, i.e.
 	// keep going despite operational errors.
-	Force *bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in relation destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // StorageAttachmentIdsResult holds the result of an API call to retrieve the
 // IDs of a unit's attached storage instances.
 type StorageAttachmentIdsResult struct {
 	Result StorageAttachmentIds `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+	Error  *Error               `json:"error,omitzero"`
 }
 
 // StorageAttachmentIdsResults holds the result of an API call to retrieve the
@@ -174,7 +174,7 @@ type StorageAttachmentIdsResults struct {
 // of a unit's attached storage instances.
 type StorageAttachmentsResult struct {
 	Result []StorageAttachment `json:"result"`
-	Error  *Error              `json:"error,omitempty"`
+	Error  *Error              `json:"error,omitzero"`
 }
 
 // StorageAttachmentsResults holds the result of an API call to retrieve details
@@ -187,7 +187,7 @@ type StorageAttachmentsResults struct {
 // of a storage attachment.
 type StorageAttachmentResult struct {
 	Result StorageAttachment `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
+	Error  *Error            `json:"error,omitzero"`
 }
 
 // StorageAttachmentResults holds the result of an API call to retrieve details
@@ -253,7 +253,7 @@ type VolumeAttachmentPlan struct {
 	// BlockDevice should only be set by machine agents after
 	// the AttachVolume() function is called. It represents the machines
 	// view of the block device represented by the plan.
-	BlockDevice *BlockDevice `json:"block-device,omitempty"`
+	BlockDevice *BlockDevice `json:"block-device,omitzero"`
 }
 
 type VolumeAttachmentPlans struct {
@@ -272,8 +272,8 @@ type VolumeAttachmentInfo struct {
 	DeviceName string                    `json:"device-name,omitempty"`
 	DeviceLink string                    `json:"device-link,omitempty"`
 	BusAddress string                    `json:"bus-address,omitempty"`
-	ReadOnly   bool                      `json:"read-only,omitempty"`
-	PlanInfo   *VolumeAttachmentPlanInfo `json:"plan-info,omitempty"`
+	ReadOnly   bool                      `json:"read-only,omitzero"`
+	PlanInfo   *VolumeAttachmentPlanInfo `json:"plan-info,omitzero"`
 }
 
 // VolumeAttachments describes a set of storage volume attachments.
@@ -288,7 +288,7 @@ type VolumeParams struct {
 	Provider   string                  `json:"provider"`
 	Attributes map[string]any          `json:"attributes,omitempty"`
 	Tags       map[string]string       `json:"tags,omitempty"`
-	Attachment *VolumeAttachmentParams `json:"attachment,omitempty"`
+	Attachment *VolumeAttachmentParams `json:"attachment,omitzero"`
 }
 
 // RemoveVolumeParams holds the parameters for destroying or releasing a
@@ -303,7 +303,7 @@ type RemoveVolumeParams struct {
 
 	// Destroy controls whether the volume should be completely
 	// destroyed, or otherwise merely released from Juju's management.
-	Destroy bool `json:"destroy,omitempty"`
+	Destroy bool `json:"destroy,omitzero"`
 }
 
 // VolumeAttachmentParams holds the parameters for creating a volume
@@ -316,14 +316,14 @@ type VolumeAttachmentParams struct {
 	ProviderId string `json:"volume-id,omitempty"`
 	InstanceId string `json:"instance-id,omitempty"`
 	Provider   string `json:"provider"`
-	ReadOnly   bool   `json:"read-only,omitempty"`
+	ReadOnly   bool   `json:"read-only,omitzero"`
 }
 
 // VolumeAttachmentsResult holds the volume attachments for a single
 // machine, or an error.
 type VolumeAttachmentsResult struct {
 	Attachments []VolumeAttachment `json:"attachments,omitempty"`
-	Error       *Error             `json:"error,omitempty"`
+	Error       *Error             `json:"error,omitzero"`
 }
 
 // VolumeAttachmentsResults holds a set of VolumeAttachmentsResults for
@@ -336,7 +336,7 @@ type VolumeAttachmentsResults struct {
 // or an error.
 type VolumeAttachmentResult struct {
 	Result VolumeAttachment `json:"result"`
-	Error  *Error           `json:"error,omitempty"`
+	Error  *Error           `json:"error,omitzero"`
 }
 
 // VolumeAttachmentResults holds a set of VolumeAttachmentResults.
@@ -348,7 +348,7 @@ type VolumeAttachmentResults struct {
 // or an error.
 type VolumeAttachmentPlanResult struct {
 	Result VolumeAttachmentPlan `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+	Error  *Error               `json:"error,omitzero"`
 }
 
 // VolumeAttachmentPlanResults holds a set of VolumeAttachmentPlanResult.
@@ -359,7 +359,7 @@ type VolumeAttachmentPlanResults struct {
 // VolumeResult holds information about a volume.
 type VolumeResult struct {
 	Result Volume `json:"result"`
-	Error  *Error `json:"error,omitempty"`
+	Error  *Error `json:"error,omitzero"`
 }
 
 // VolumeResults holds information about multiple volumes.
@@ -370,7 +370,7 @@ type VolumeResults struct {
 // VolumeParamsResult holds provisioning parameters for a volume.
 type VolumeParamsResult struct {
 	Result VolumeParams `json:"result"`
-	Error  *Error       `json:"error,omitempty"`
+	Error  *Error       `json:"error,omitzero"`
 }
 
 // VolumeParamsResults holds provisioning parameters for multiple volumes.
@@ -381,7 +381,7 @@ type VolumeParamsResults struct {
 // RemoveVolumeParamsResult holds parameters for destroying a volume.
 type RemoveVolumeParamsResult struct {
 	Result RemoveVolumeParams `json:"result"`
-	Error  *Error             `json:"error,omitempty"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // RemoveVolumeParamsResults holds parameters for destroying multiple volumes.
@@ -393,7 +393,7 @@ type RemoveVolumeParamsResults struct {
 // attachment.
 type VolumeAttachmentParamsResult struct {
 	Result VolumeAttachmentParams `json:"result"`
-	Error  *Error                 `json:"error,omitempty"`
+	Error  *Error                 `json:"error,omitzero"`
 }
 
 // VolumeAttachmentParamsResults holds provisioning parameters for multiple
@@ -437,7 +437,7 @@ type FilesystemAttachment struct {
 // FilesystemAttachmentInfo describes a filesystem attachment.
 type FilesystemAttachmentInfo struct {
 	MountPoint string `json:"mount-point,omitempty"`
-	ReadOnly   bool   `json:"read-only,omitempty"`
+	ReadOnly   bool   `json:"read-only,omitzero"`
 }
 
 // FilesystemAttachments describes a set of storage filesystem attachments.
@@ -453,7 +453,7 @@ type FilesystemParams struct {
 	Provider      string                      `json:"provider"`
 	Attributes    map[string]any              `json:"attributes,omitempty"`
 	Tags          map[string]string           `json:"tags,omitempty"`
-	Attachment    *FilesystemAttachmentParams `json:"attachment,omitempty"`
+	Attachment    *FilesystemAttachmentParams `json:"attachment,omitzero"`
 }
 
 // FilesystemParamsV5 holds the parameters for creating a storage filesystem for
@@ -463,10 +463,10 @@ type FilesystemParamsV5 struct {
 	VolumeTag     string                        `json:"volume-tag,omitempty"`
 	SizeMiB       uint64                        `json:"size"`
 	Provider      string                        `json:"provider"`
-	ProviderId    *string                       `json:"provider-id,omitempty"`
+	ProviderId    *string                       `json:"provider-id,omitzero"`
 	Attributes    map[string]any                `json:"attributes,omitempty"`
 	Tags          map[string]string             `json:"tags,omitempty"`
-	Attachment    *FilesystemAttachmentParamsV5 `json:"attachment,omitempty"`
+	Attachment    *FilesystemAttachmentParamsV5 `json:"attachment,omitzero"`
 }
 
 // RemoveFilesystemParams holds the parameters for destroying or releasing
@@ -481,7 +481,7 @@ type RemoveFilesystemParams struct {
 
 	// Destroy controls whether the filesystem should be completely
 	// destroyed, or otherwise merely released from Juju's management.
-	Destroy bool `json:"destroy,omitempty"`
+	Destroy bool `json:"destroy,omitzero"`
 }
 
 // FilesystemAttachmentParams holds the parameters for creating a filesystem
@@ -495,7 +495,7 @@ type FilesystemAttachmentParams struct {
 	InstanceId string `json:"instance-id,omitempty"`
 	Provider   string `json:"provider"`
 	MountPoint string `json:"mount-point,omitempty"`
-	ReadOnly   bool   `json:"read-only,omitempty"`
+	ReadOnly   bool   `json:"read-only,omitzero"`
 }
 
 // FilesystemAttachmentParamsV5 holds the parameters for creating a filesystem
@@ -506,9 +506,9 @@ type FilesystemAttachmentParamsV5 struct {
 	FilesystemProviderId string  `json:"filesystem-provider-id,omitempty"`
 	InstanceId           string  `json:"instance-id,omitempty"`
 	Provider             string  `json:"provider"`
-	AttachmentProviderId *string `json:"attachment-provider-id,omitempty"`
+	AttachmentProviderId *string `json:"attachment-provider-id,omitzero"`
 	MountPoint           string  `json:"mount-point,omitempty"`
-	ReadOnly             bool    `json:"read-only,omitempty"`
+	ReadOnly             bool    `json:"read-only,omitzero"`
 }
 
 // FilesystemAttachmentParamsV6 holds the parameters for creating a filesystem
@@ -519,16 +519,16 @@ type FilesystemAttachmentParamsV6 struct {
 	FilesystemProviderId string  `json:"filesystem-provider-id,omitempty"`
 	InstanceId           string  `json:"instance-id,omitempty"`
 	Provider             string  `json:"provider"`
-	AttachmentProviderId *string `json:"attachment-provider-id,omitempty"`
+	AttachmentProviderId *string `json:"attachment-provider-id,omitzero"`
 	MountPoint           string  `json:"mount-point,omitempty"`
-	ReadOnly             bool    `json:"read-only,omitempty"`
+	ReadOnly             bool    `json:"read-only,omitzero"`
 }
 
 // FilesystemAttachmentResult holds the details of a single filesystem attachment,
 // or an error.
 type FilesystemAttachmentResult struct {
 	Result FilesystemAttachment `json:"result"`
-	Error  *Error               `json:"error,omitempty"`
+	Error  *Error               `json:"error,omitzero"`
 }
 
 // FilesystemAttachmentResults holds a set of FilesystemAttachmentResults.
@@ -539,7 +539,7 @@ type FilesystemAttachmentResults struct {
 // FilesystemResult holds information about a filesystem.
 type FilesystemResult struct {
 	Result Filesystem `json:"result"`
-	Error  *Error     `json:"error,omitempty"`
+	Error  *Error     `json:"error,omitzero"`
 }
 
 // FilesystemResults holds information about multiple filesystems.
@@ -550,7 +550,7 @@ type FilesystemResults struct {
 // FilesystemParamsResult holds provisioning parameters for a filesystem.
 type FilesystemParamsResult struct {
 	Result FilesystemParams `json:"result"`
-	Error  *Error           `json:"error,omitempty"`
+	Error  *Error           `json:"error,omitzero"`
 }
 
 // FilesystemParamsResults holds provisioning parameters for multiple filesystems.
@@ -561,7 +561,7 @@ type FilesystemParamsResults struct {
 // FilesystemParamsResultV5 holds provisioning parameters for a filesystem.
 type FilesystemParamsResultV5 struct {
 	Result FilesystemParamsV5 `json:"result"`
-	Error  *Error             `json:"error,omitempty"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // FilesystemParamsResultsV5 holds provisioning parameters for multiple filesystems.
@@ -573,7 +573,7 @@ type FilesystemParamsResultsV5 struct {
 // a filesystem.
 type RemoveFilesystemParamsResult struct {
 	Result RemoveFilesystemParams `json:"result"`
-	Error  *Error                 `json:"error,omitempty"`
+	Error  *Error                 `json:"error,omitzero"`
 }
 
 // RemoveFilesystemParamsResults holds parameters for destroying or releasing
@@ -586,7 +586,7 @@ type RemoveFilesystemParamsResults struct {
 // attachment.
 type FilesystemAttachmentParamsResult struct {
 	Result FilesystemAttachmentParams `json:"result"`
-	Error  *Error                     `json:"error,omitempty"`
+	Error  *Error                     `json:"error,omitzero"`
 }
 
 // FilesystemAttachmentParamsResults holds provisioning parameters for multiple
@@ -599,7 +599,7 @@ type FilesystemAttachmentParamsResults struct {
 // attachment.
 type FilesystemAttachmentParamsResultV5 struct {
 	Result FilesystemAttachmentParamsV5 `json:"result"`
-	Error  *Error                       `json:"error,omitempty"`
+	Error  *Error                       `json:"error,omitzero"`
 }
 
 // FilesystemAttachmentParamsResultsV5 holds provisioning parameters for multiple
@@ -612,7 +612,7 @@ type FilesystemAttachmentParamsResultsV5 struct {
 // attachment.
 type FilesystemAttachmentParamsResultV6 struct {
 	Result FilesystemAttachmentParamsV6 `json:"result"`
-	Error  *Error                       `json:"error,omitempty"`
+	Error  *Error                       `json:"error,omitzero"`
 }
 
 // FilesystemAttachmentParamsResultsV6 holds provisioning parameters for multiple
@@ -664,8 +664,8 @@ type StorageFilters struct {
 // StorageDetailsResult holds information about a storage instance
 // or error related to its retrieval.
 type StorageDetailsResult struct {
-	Result *StorageDetails `json:"result,omitempty"`
-	Error  *Error          `json:"error,omitempty"`
+	Result *StorageDetails `json:"result,omitzero"`
+	Error  *Error          `json:"error,omitzero"`
 }
 
 // StorageDetailsResults holds results for storage details or related storage error.
@@ -676,7 +676,7 @@ type StorageDetailsResults struct {
 // StorageDetailsListResult holds a collection of storage details.
 type StorageDetailsListResult struct {
 	Result []StorageDetails `json:"result,omitempty"`
-	Error  *Error           `json:"error,omitempty"`
+	Error  *Error           `json:"error,omitzero"`
 }
 
 // StorageDetailsListResults holds a collection of collections of storage details.
@@ -749,7 +749,7 @@ type StoragePoolFilters struct {
 // StoragePoolsResult holds a collection of storage pools.
 type StoragePoolsResult struct {
 	Result []StoragePool `json:"storage-pools,omitempty"`
-	Error  *Error        `json:"error,omitempty"`
+	Error  *Error        `json:"error,omitzero"`
 }
 
 // StoragePoolsResults holds a collection of storage pools results.
@@ -821,7 +821,7 @@ type VolumeDetails struct {
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
-	Storage *StorageDetails `json:"storage,omitempty"`
+	Storage *StorageDetails `json:"storage,omitzero"`
 }
 
 // VolumeAttachmentDetails describes a volume attachment.
@@ -844,10 +844,10 @@ type VolumeAttachmentDetails struct {
 // an error preventing retrieving those details.
 type VolumeDetailsResult struct {
 	// Result describes the volume in detail.
-	Result *VolumeDetails `json:"details,omitempty"`
+	Result *VolumeDetails `json:"details,omitzero"`
 
 	// Error contains volume retrieval error.
-	Error *Error `json:"error,omitempty"`
+	Error *Error `json:"error,omitzero"`
 }
 
 // VolumeDetailsResults holds volume details.
@@ -858,7 +858,7 @@ type VolumeDetailsResults struct {
 // VolumeDetailsListResult holds a collection of volume details.
 type VolumeDetailsListResult struct {
 	Result []VolumeDetails `json:"result,omitempty"`
-	Error  *Error          `json:"error,omitempty"`
+	Error  *Error          `json:"error,omitzero"`
 }
 
 // VolumeDetailsListResults holds a collection of collections of volume details.
@@ -902,7 +902,7 @@ type FilesystemDetails struct {
 
 	// Storage contains details about the storage instance
 	// that the volume is assigned to, if any.
-	Storage *StorageDetails `json:"storage,omitempty"`
+	Storage *StorageDetails `json:"storage,omitzero"`
 }
 
 // FilesystemAttachmentDetails describes a filesystem attachment.
@@ -924,8 +924,8 @@ type FilesystemAttachmentDetails struct {
 // FilesystemDetailsResult contains details about a filesystem, its attachments or
 // an error preventing retrieving those details.
 type FilesystemDetailsResult struct {
-	Result *FilesystemDetails `json:"result,omitempty"`
-	Error  *Error             `json:"error,omitempty"`
+	Result *FilesystemDetails `json:"result,omitzero"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // FilesystemDetailsResults holds filesystem details.
@@ -936,7 +936,7 @@ type FilesystemDetailsResults struct {
 // FilesystemDetailsListResult holds a collection of filesystem details.
 type FilesystemDetailsListResult struct {
 	Result []FilesystemDetails `json:"result,omitempty"`
-	Error  *Error              `json:"error,omitempty"`
+	Error  *Error              `json:"error,omitzero"`
 }
 
 // FilesystemDetailsListResults holds a collection of collections of
@@ -952,10 +952,10 @@ type StorageDirectives struct {
 	Pool string `json:"pool,omitempty"`
 
 	// SizeMiB is the required size of the storage instance, in MiB.
-	SizeMiB *uint64 `json:"size,omitempty"`
+	SizeMiB *uint64 `json:"size,omitzero"`
 
 	// Count is the required number of storage instances.
-	Count *uint64 `json:"count,omitempty"`
+	Count *uint64 `json:"count,omitzero"`
 }
 
 // StorageAddParams holds storage details to add to a unit dynamically.
@@ -988,21 +988,21 @@ type RemoveStorageInstance struct {
 	// DestroyAttachments controls whether or not the storage attachments
 	// will be destroyed automatically. If DestroyAttachments is false,
 	// then the storage must already be detached.
-	DestroyAttachments bool `json:"destroy-attachments,omitempty"`
+	DestroyAttachments bool `json:"destroy-attachments,omitzero"`
 
 	// DestroyStorage controls whether or not the associated cloud storage
 	// is destroyed. If DestroyStorage is true, the cloud storage will be
 	// destroyed; otherwise it will only be released from Juju's control.
-	DestroyStorage bool `json:"destroy-storage,omitempty"`
+	DestroyStorage bool `json:"destroy-storage,omitzero"`
 
 	// Force specifies whether relation destruction will be forced, i.e.
 	// keep going despite operational errors.
-	Force *bool `json:"force,omitempty"`
+	Force *bool `json:"force,omitzero"`
 
 	// MaxWait specifies the amount of time that each step in relation destroy process
 	// will wait before forcing the next step to kick-off. This parameter
 	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
+	MaxWait *time.Duration `json:"max-wait,omitzero"`
 }
 
 // BulkImportStorageParams contains the parameters for importing a collection
@@ -1055,7 +1055,7 @@ type ImportStorageParamsV2 struct {
 
 	// Force indicates whether to force the import operation when there are
 	// conflicting storage resources that would otherwise prevent the import.
-	Force bool `json:"force,omitempty"`
+	Force bool `json:"force,omitzero"`
 }
 
 // ImportStorageResults contains the results of importing a collection of
@@ -1066,8 +1066,8 @@ type ImportStorageResults struct {
 
 // ImportStorageResult contains the result of importing a storage entity.
 type ImportStorageResult struct {
-	Result *ImportStorageDetails `json:"result,omitempty"`
-	Error  *Error                `json:"error,omitempty"`
+	Result *ImportStorageDetails `json:"result,omitzero"`
+	Error  *Error                `json:"error,omitzero"`
 }
 
 // ImportStorageDetails contains the details of an imported storage entity.
@@ -1084,8 +1084,8 @@ type AddStorageResults struct {
 
 // AddStorageResult contains the result of adding storage to a unit.
 type AddStorageResult struct {
-	Result *AddStorageDetails `json:"result,omitempty"`
-	Error  *Error             `json:"error,omitempty"`
+	Result *AddStorageDetails `json:"result,omitzero"`
+	Error  *Error             `json:"error,omitzero"`
 }
 
 // AddStorageDetails contains the details of added storage.
