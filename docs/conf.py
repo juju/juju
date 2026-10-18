@@ -425,8 +425,14 @@ new_tab_link_show_external_link_icon = True
 
 rediraffe_redirects = "redirects.txt"
 
+# sphinx-unified-search configuration
+
 # Downloads remote docs index once per `make run` to reduce rebuild time
 unified_search_cache_remote_indexes = True
+
+# Enable filter function in search results page
+unified_search_project_filter = True
+unified_search_local_project_name = "Juju"   # optional, defaults to `project`
 
 # Remote documentation projects that are part of the Juju ecosystem
 unified_search_projects = [
@@ -437,7 +443,7 @@ unified_search_projects = [
         "searchindex_url": "https://canonical.com/juju/docs/charmcraft/4/searchindex.js",
     },
     {
-        "name": "OPS",
+        "name": "Ops",
         "base_url": "https://canonical.com/juju/docs/ops/latest/",
         "searchindex_url": "https://canonical.com/juju/docs/ops/latest/searchindex.js",
     }

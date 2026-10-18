@@ -43,4 +43,4 @@ sphinx-structured-toc
 ggarch @ git+https://github.com/tmihoc/ggarch@85546a97f1a572ff7469fc84bf2973e9ee4f9b44
 
 # For Juju ecosystem docs search
-git+https://github.com/canonical/sphinx-unified-search.git@main
+sphinx-unified-search
