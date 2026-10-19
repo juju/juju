@@ -76,7 +76,7 @@ require (
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
 	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
-	github.com/juju/utils/v4 v4.0.5
+	github.com/juju/utils/v4 v4.1.0
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v5 v5.0.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51

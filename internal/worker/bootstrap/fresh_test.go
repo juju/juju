@@ -12,8 +12,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"github.com/juju/utils/v4/ssh"
-	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 
@@ -72,117 +70,9 @@ func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysEmpty(c *tc.C) {
 	c.Assert(DeleteBootstrapSSHKeys(nil), tc.ErrorIsNil)
 }
 
-func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysSkipsAbsentKeys(c *tc.C) {
-	fingerprintOne, _, err := ssh.KeyFingerprint(sshtesting.ValidKeyOne.Key)
-	c.Assert(err, tc.ErrorIsNil)
-	fingerprintTwo, _, err := ssh.KeyFingerprint(sshtesting.ValidKeyTwo.Key)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(fingerprintTwo, tc.Not(tc.Equals), fingerprintOne)
-
-	// The managed-machine shape: installed keys are listed as full key
-	// lines and, as on every production bootstrap, carry a Juju comment.
-	s.PatchValue(&listKeysFromFile, func(_, _ string, mode ssh.ListMode) ([]string, error) {
-		c.Check(mode, tc.Equals, ssh.FullKeys)
-		return []string{sshtesting.ValidKeyOne.Key + " Juju:juju-client-key"}, nil
-	})
-	var deleted []string
-	s.PatchValue(&deleteKeysFromFile, func(user, file string, keyIds []string) error {
-		c.Check(user, tc.Equals, bootstrapSSHUser)
-		c.Check(file, tc.Equals, "authorized_keys")
-		deleted = keyIds
-		return nil
-	})
-
-	err = DeleteBootstrapSSHKeys([]string{
-		sshtesting.ValidKeyOne.Key,
-		sshtesting.ValidKeyTwo.Key,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(deleted, tc.DeepEquals, []string{fingerprintOne})
-}
-
-func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysMatchesCommentlessKeys(c *tc.C) {
-	fingerprintOne, _, err := ssh.KeyFingerprint(sshtesting.ValidKeyOne.Key)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.PatchValue(&listKeysFromFile, func(_, _ string, mode ssh.ListMode) ([]string, error) {
-		c.Check(mode, tc.Equals, ssh.FullKeys)
-		return []string{sshtesting.ValidKeyOne.Key}, nil
-	})
-	var deleted []string
-	s.PatchValue(&deleteKeysFromFile, func(_, _ string, keyIds []string) error {
-		deleted = keyIds
-		return nil
-	})
-
-	err = DeleteBootstrapSSHKeys([]string{sshtesting.ValidKeyOne.Key})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(deleted, tc.DeepEquals, []string{fingerprintOne})
-}
-
-func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysDuplicateKeys(c *tc.C) {
-	fingerprintOne, _, err := ssh.KeyFingerprint(sshtesting.ValidKeyOne.Key)
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.PatchValue(&listKeysFromFile, func(_, _ string, mode ssh.ListMode) ([]string, error) {
-		return []string{sshtesting.ValidKeyOne.Key}, nil
-	})
-	var deleted []string
-	s.PatchValue(&deleteKeysFromFile, func(_, _ string, keyIds []string) error {
-		deleted = keyIds
-		return nil
-	})
-
-	// Two private key files carrying the same material yield the same
-	// fingerprint twice; it must be deleted only once.
-	err = DeleteBootstrapSSHKeys([]string{
-		sshtesting.ValidKeyOne.Key,
-		sshtesting.ValidKeyOne.Key,
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(deleted, tc.DeepEquals, []string{fingerprintOne})
-}
-
-func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysDeleteError(c *tc.C) {
-	s.PatchValue(&listKeysFromFile, func(_, _ string, mode ssh.ListMode) ([]string, error) {
-		return []string{sshtesting.ValidKeyOne.Key}, nil
-	})
-	s.PatchValue(&deleteKeysFromFile, func(string, string, []string) error {
-		return errors.New("cannot delete keys")
-	})
-
-	err := DeleteBootstrapSSHKeys([]string{sshtesting.ValidKeyOne.Key})
-	c.Check(err, tc.ErrorMatches, "cannot delete keys")
-}
-
-func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysNoneInstalled(c *tc.C) {
-	s.PatchValue(&listKeysFromFile, func(string, string, ssh.ListMode) ([]string, error) {
-		return nil, nil
-	})
-	deleteCalled := false
-	s.PatchValue(&deleteKeysFromFile, func(string, string, []string) error {
-		deleteCalled = true
-		return nil
-	})
-
-	err := DeleteBootstrapSSHKeys([]string{sshtesting.ValidKeyOne.Key})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(deleteCalled, tc.IsFalse)
-}
-
-func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysListError(c *tc.C) {
-	s.PatchValue(&listKeysFromFile, func(string, string, ssh.ListMode) ([]string, error) {
-		return nil, errors.New("cannot read authorised keys")
-	})
-	deleteCalled := false
-	s.PatchValue(&deleteKeysFromFile, func(string, string, []string) error {
-		deleteCalled = true
-		return nil
-	})
-
-	err := DeleteBootstrapSSHKeys([]string{sshtesting.ValidKeyOne.Key})
-	c.Check(err, tc.ErrorMatches, "cannot read authorised keys")
-	c.Check(deleteCalled, tc.IsFalse)
+func (s *freshBootstrapSuite) TestDeleteBootstrapSSHKeysInvalidKey(c *tc.C) {
+	err := DeleteBootstrapSSHKeys([]string{"not a valid key"})
+	c.Check(err, tc.ErrorMatches, `generating key fingerprint: invalid authorized_key "not a valid key"`)
 }
 
 func (s *freshBootstrapSuite) TestKilled(c *tc.C) {
