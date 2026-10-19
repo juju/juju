@@ -54,6 +54,15 @@ type apiclientSuite struct {
 	jtesting.BaseSuite
 }
 
+type brokenTunnelProxier struct {
+	*proxytest.MockTunnelProxier
+	broken chan struct{}
+}
+
+func (p *brokenTunnelProxier) Broken() <-chan struct{} {
+	return p.broken
+}
+
 func TestApiclientSuite(t *testing.T) {
 	tc.Run(t, &apiclientSuite{})
 }
@@ -396,6 +405,30 @@ func (s *apiclientSuite) TestOpen(c *tc.C) {
 	c.Assert(remoteVersion, tc.Equals, jujuversion.Current)
 
 	c.Assert(api.CookieURL(conn).String(), tc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
+}
+
+func (s *apiclientSuite) TestOpenStopsConnectionWhenProxierBreaks(c *tc.C) {
+	info := s.APIInfo()
+	host, port, err := net.SplitHostPort(info.Addrs[0])
+	c.Assert(err, tc.ErrorIsNil)
+	proxier := &brokenTunnelProxier{
+		MockTunnelProxier: proxytest.NewMockTunnelProxier(),
+		broken:            make(chan struct{}),
+	}
+	proxier.HostFn = func() string { return host }
+	proxier.PortFn = func() string { return port }
+	info.Proxier = proxier
+
+	conn, err := api.Open(c.Context(), info, api.DialOpts{})
+	c.Assert(err, tc.ErrorIsNil)
+	defer conn.Close()
+
+	close(proxier.broken)
+	select {
+	case <-conn.Broken():
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for proxier failure")
+	}
 }
 
 func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *tc.C) {
