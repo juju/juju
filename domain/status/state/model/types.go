@@ -184,7 +184,6 @@ type applicationStatusDetails struct {
 	UpdatedAt              *time.Time           `db:"updated_at"`
 	RelationUUID           sql.Null[string]     `db:"relation_uuid"`
 	CharmVersion           string               `db:"charm_version"`
-	LXDProfile             sql.Null[[]byte]     `db:"lxd_profile"`
 	Exposed                bool                 `db:"exposed"`
 	Scale                  sql.Null[int]        `db:"scale"`
 	WorkloadVersion        sql.Null[string]     `db:"workload_version"`

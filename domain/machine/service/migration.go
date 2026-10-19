@@ -37,7 +37,7 @@ type MigrationState interface {
 	GetHardwareCharacteristics(context.Context, string) (instance.HardwareCharacteristics, error)
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
-	// along with the instance tags and the link to a lxd profile if any.
+	// along with the instance tags.
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
 
 	// GetInstanceID returns the cloud specific instance id for this machine.
@@ -199,7 +199,7 @@ func (s *MigrationService) GetHardwareCharacteristics(ctx context.Context, machi
 }
 
 // SetMachineCloudInstance sets an entry in the machine cloud instance table
-// along with the instance tags and the link to a lxd profile if any.
+// along with the instance tags.
 func (s *MigrationService) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID coremachine.UUID,

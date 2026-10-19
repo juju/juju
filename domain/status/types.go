@@ -27,7 +27,6 @@ type Application struct {
 	Subordinate      bool
 	CharmLocator     charm.CharmLocator
 	CharmVersion     string
-	LXDProfile       []byte
 	Platform         deployment.Platform
 	Channel          *deployment.Channel
 	Exposed          bool
@@ -69,7 +68,6 @@ type Machine struct {
 	Platform                deployment.Platform
 	Constraints             constraints.Constraints
 	HardwareCharacteristics instance.HardwareCharacteristics
-	LXDProfiles             []string
 	AgentVersion            string
 }
 
