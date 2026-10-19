@@ -21,7 +21,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/controller-network-triggers.gen.go -package=triggers -tables=link_layer_device,space
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile,machine_cloud_instance,machine_requires_reboot,machine_reprovision,machine_ssh_host_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
@@ -86,7 +86,7 @@ const (
 	tableUnit
 	tableUnitPrincipal
 	tableUnitResolved
-	tableApplicationScale
+	tableReservedApplicationScaleNamespace
 	tablePortRange
 	tableApplicationExposedEndpointSpace
 	tableApplicationExposedEndpointCIDR
@@ -174,7 +174,6 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		// there is a change on the unit_principal table.
 		triggers.ChangeLogTriggersForUnitPrincipal("principal_uuid", tableUnitPrincipal),
 		triggers.ChangeLogTriggersForUnitResolved("unit_uuid", tableUnitResolved),
-		triggers.ChangeLogTriggersForApplicationScale("application_uuid", tableApplicationScale),
 		triggers.ChangeLogTriggersForPortRange("unit_uuid", tablePortRange),
 		triggers.ChangeLogTriggersForApplicationExposedEndpointSpace("application_uuid",
 			tableApplicationExposedEndpointSpace),

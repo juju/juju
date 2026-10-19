@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 	"maps"
+	"math"
+	"sort"
 	"strconv"
 
 	"github.com/juju/collections/set"
@@ -39,6 +41,7 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/life"
+	domainnetwork "github.com/juju/juju/domain/network"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -101,11 +104,6 @@ type ApplicationState interface {
 	// application.
 	IsSubordinateApplication(context.Context, coreapplication.UUID) (bool, error)
 
-	// GetApplicationScaleState looks up the scale state of the specified
-	// application, returning an error satisfying
-	// [applicationerrors.ApplicationNotFound] if the application is not found.
-	GetApplicationScaleState(context.Context, coreapplication.UUID) (application.ScaleState, error)
-
 	// GetApplicationUnitLife returns the life values for the specified units of
 	// the given application. The supplied ids may belong to a different
 	// application; the application name is used to filter.
@@ -122,6 +120,10 @@ type ApplicationState interface {
 	// [applicationerrors.ApplicationNotFound] if the application is not
 	// found.
 	GetApplicationLifeByName(ctx context.Context, appName string) (coreapplication.UUID, life.Life, error)
+
+	// GetApplicationUnitSequence returns the ordinal high-water mark for the
+	// application, or false when no unit ordinal has been allocated.
+	GetApplicationUnitSequence(ctx context.Context, appName string) (uint64, bool, error)
 
 	// GetApplicationDetails returns the application details for the given
 	// appUUID. This includes the life status and the name of the application.
@@ -145,27 +147,15 @@ type ApplicationState interface {
 	// - [applicationerrors.UnitUpgrading] if any units are still upgrading.
 	CheckApplicationsForMigration(context.Context) error
 
-	// SetApplicationScalingState sets the scaling details for the given caas
-	// application Scale is optional and is only set if not nil.
-	SetApplicationScalingState(ctx context.Context, appName string, targetScale int, scaling bool) error
+	// SetCAASApplicationUnitScale atomically updates the Alive unit set.
+	// The expected names must match the current Alive set before the plan is
+	// applied, including when its size has not changed. Each new unit has a
+	// required name, checked against the name allocated in the transaction.
+	SetCAASApplicationUnitScale(context.Context, string, []string, []string, []internal.ScaleCAASUnitArg) ([]string, error)
 
-	// SetApplicationScalingStateWithStart sets the scaling details for the
-	// given CAAS application including the start ordinal for the StatefulSet.
-	// The startOrdinal defines the lowest ordinal index that the StatefulSet
-	// should use. This shifts upward when a lower-indexed unit is removed to
-	// prevent stale ordinals from being reused (e.g. after removing unit 0
-	// from {0,1,2}, the start ordinal becomes 1 so the range is {1,2,3}).
-	SetApplicationScalingStateWithStart(ctx context.Context, appName string, targetScale, startOrdinal int, scaling bool) error
-
-	// SetDesiredApplicationScale updates the desired scale of the specified
-	// application.
-	SetDesiredApplicationScale(context.Context, coreapplication.UUID, int) error
-
-	// UpdateApplicationScale updates the desired scale of an application by a
-	// delta.
-	// If the resulting scale is less than zero, an error satisfying
-	// [applicationerrors.ScaleChangeInvalid] is returned.
-	UpdateApplicationScale(ctx context.Context, appUUID coreapplication.UUID, currentScale, delta int) (int, error)
+	// ChangeCAASApplicationUnitScale atomically applies a relative change to
+	// the Alive unit set and returns the resulting scale and inserted names.
+	ChangeCAASApplicationUnitScale(context.Context, string, int, []internal.AddCAASUnitArg) (int, []string, error)
 
 	// GetCharmByApplicationUUID returns the charm, charm origin and charm
 	// platform for the specified application UUID.
@@ -353,10 +343,6 @@ type ApplicationState interface {
 	// NamespaceForWatchApplicationSetting returns the namespace string identifier
 	// for application setting changes.
 	NamespaceForWatchApplicationSetting() string
-
-	// NamespaceForWatchApplicationScale returns the namespace identifier
-	// for application scale change watchers.
-	NamespaceForWatchApplicationScale() string
 
 	// IsApplicationExposed returns whether the provided application is exposed or
 	// not.
@@ -1051,6 +1037,10 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 	if err != nil {
 		return errors.Capture(err)
 	}
+	lives, err := s.st.GetAllUnitLifeForApplication(ctx, appUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	if scale == 0 {
 		isController, err := s.st.IsControllerApplication(ctx, appUUID)
 		if err != nil {
@@ -1060,16 +1050,21 @@ func (s *Service) SetApplicationScale(ctx context.Context, appName string, scale
 			return errors.Errorf("cannot scale controller application to 0 units")
 		}
 	}
-	appScale, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	plan, err := s.makeCAASUnitScalePlan(ctx, appName, lives, scale)
 	if err != nil {
-		return errors.Errorf("getting application scale state for app %q: %w", appUUID, err)
+		return errors.Capture(err)
 	}
-	s.logger.Tracef(ctx,
-		"SetScale DesiredScale %v -> %v", appScale.Scale, scale,
+
+	inserted, err := s.st.SetCAASApplicationUnitScale(
+		ctx, appUUID.String(), plan.expected, plan.leaving, plan.newUnits,
 	)
-	err = s.st.SetDesiredApplicationScale(ctx, appUUID, scale)
 	if err != nil {
-		return errors.Errorf("setting scale for application %q: %w", appName, err)
+		return errors.Errorf("setting unit scale: %w", err)
+	}
+	for i, name := range inserted {
+		if err := s.recordUnitStatusHistory(ctx, coreunit.Name(name), plan.newUnits[i].UnitStatus); err != nil {
+			return errors.Errorf("recording status history: %w", err)
+		}
 	}
 	return nil
 }
@@ -1085,11 +1080,21 @@ func (s *Service) GetApplicationScale(ctx context.Context, appName string) (int,
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
-	scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	lives, err := s.st.GetAllUnitLifeForApplication(ctx, appUUID)
 	if err != nil {
-		return -1, errors.Errorf("getting scaling state for %q: %w", appName, err)
+		return -1, errors.Errorf("getting unit membership for %q: %w", appName, err)
 	}
-	return scaleState.Scale, nil
+	return aliveUnitCount(lives), nil
+}
+
+// GetApplicationUnitSequence returns the highest allocated unit ordinal.
+func (s *Service) GetApplicationUnitSequence(
+	ctx context.Context, appName string,
+) (uint64, bool, error) {
+	if !application.IsValidApplicationName(appName) {
+		return 0, false, applicationerrors.ApplicationNameNotValid
+	}
+	return s.st.GetApplicationUnitSequence(ctx, appName)
 }
 
 // ShouldAllowCharmUpgradeOnError indicates if the units of an application should
@@ -1121,75 +1126,150 @@ func (s *Service) ChangeApplicationScale(ctx context.Context, appName string, sc
 		return -1, errors.Capture(err)
 	}
 
-	scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	newUnits, err := s.makeCAASUnitArgs(max(scaleChange, 0))
 	if err != nil {
 		return -1, errors.Capture(err)
 	}
-	if scaleChange < 0 {
-		newScale := scaleState.Scale + scaleChange
-		if newScale <= 0 {
-			isController, err := s.st.IsControllerApplication(ctx, appUUID)
-			if err != nil {
-				return -1, errors.Capture(err)
-			}
-			if isController {
-				return -1, errors.Errorf("cannot scale controller application to 0 units")
-			}
-		}
-	}
-
-	newScale, err := s.st.UpdateApplicationScale(ctx, appUUID, scaleState.Scale, scaleChange)
+	newScale, inserted, err := s.st.ChangeCAASApplicationUnitScale(
+		ctx, appUUID.String(), scaleChange, newUnits,
+	)
 	if err != nil {
-		return -1, errors.Errorf("changing scaling state for %q: %w", appName, err)
+		return -1, errors.Capture(err)
+	}
+	for i, name := range inserted {
+		if err := s.recordUnitStatusHistory(ctx, coreunit.Name(name), newUnits[i].UnitStatus); err != nil {
+			return -1, errors.Errorf("recording status history: %w", err)
+		}
 	}
 	return newScale, nil
 }
 
-// SetApplicationScalingState updates the scale state of an application, returning an error
-// satisfying [applicationerrors.ApplicationNotFound] if the application doesn't exist.
-// This is used on CAAS models.
-func (s *Service) SetApplicationScalingState(ctx context.Context, appName string, scaleTarget int, scaling bool) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.SetApplicationScalingState(ctx, appName, scaleTarget, scaling); err != nil {
-		return errors.Errorf("updating scaling state for %q: %w", appName, err)
-	}
-	return nil
+type caasUnitScalePlan struct {
+	expected []string
+	leaving  []string
+	newUnits []internal.ScaleCAASUnitArg
 }
 
-// SetApplicationScalingStateWithStart updates the scale state and desired
-// StatefulSet start ordinal of a CAAS application.
-func (s *Service) SetApplicationScalingStateWithStart(ctx context.Context, appName string, scaleTarget, startOrdinal int, scaling bool) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if err := s.st.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling); err != nil {
-		return errors.Errorf("updating scaling state for %q: %w", appName, err)
+func (s *Service) makeCAASUnitScalePlan(
+	ctx context.Context, appName string, lives map[string]int, target int,
+) (caasUnitScalePlan, error) {
+	alive := make([]coreunit.Name, 0, aliveUnitCount(lives))
+	for name, unitLife := range lives {
+		if unitLife == int(life.Alive) {
+			alive = append(alive, coreunit.Name(name))
+		}
 	}
-	return nil
+	sort.Slice(alive, func(i, j int) bool { return alive[i].Number() < alive[j].Number() })
+
+	plan := caasUnitScalePlan{
+		expected: make([]string, len(alive)),
+		leaving:  make([]string, max(len(alive)-target, 0)),
+	}
+	for i, name := range alive {
+		plan.expected[i] = name.String()
+		if i < len(plan.leaving) {
+			plan.leaving[i] = name.String()
+		}
+	}
+	if target <= len(alive) {
+		return plan, nil
+	}
+
+	nextOrdinal, err := s.nextCAASUnitOrdinal(ctx, appName, alive)
+	if err != nil {
+		return caasUnitScalePlan{}, errors.Capture(err)
+	}
+	plan.newUnits, err = s.makeCAASScaleUnitArgs(appName, nextOrdinal, target-len(alive))
+	return plan, errors.Capture(err)
 }
 
-// GetApplicationScalingState returns the scale state of an application,
-// returning an error satisfying [applicationerrors.ApplicationNotFound] if
-// the application doesn't exist. This is used on CAAS models.
-func (s *Service) GetApplicationScalingState(ctx context.Context, appName string) (ScalingState, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
+func (s *Service) nextCAASUnitOrdinal(
+	ctx context.Context, appName string, alive []coreunit.Name,
+) (int, error) {
+	nextOrdinal := 0
+	for i := 1; i < len(alive); i++ {
+		if alive[i].Number() != alive[i-1].Number()+1 {
+			return 0, applicationerrors.ScaleChangeInvalid
+		}
+	}
+	if len(alive) > 0 {
+		lastOrdinal := alive[len(alive)-1].Number()
+		if lastOrdinal == math.MaxInt {
+			return 0, applicationerrors.ScaleChangeInvalid
+		}
+		nextOrdinal = lastOrdinal + 1
+	}
 
-	appUUID, err := s.st.GetApplicationUUIDByName(ctx, appName)
+	// The sequence retains ordinal history when units have been removed,
+	// including when Alive units with lower ordinals remain.
+	lastOrdinal, hasSequence, err := s.st.GetApplicationUnitSequence(ctx, appName)
 	if err != nil {
-		return ScalingState{}, errors.Capture(err)
+		return 0, errors.Capture(err)
 	}
-	scaleState, err := s.st.GetApplicationScaleState(ctx, appUUID)
+	if hasSequence {
+		if lastOrdinal >= uint64(math.MaxInt) {
+			return 0, applicationerrors.ScaleChangeInvalid
+		}
+		sequenceNextOrdinal := int(lastOrdinal) + 1
+		if sequenceNextOrdinal > nextOrdinal {
+			nextOrdinal = sequenceNextOrdinal
+		}
+	}
+	return nextOrdinal, nil
+}
+
+func (s *Service) makeCAASScaleUnitArgs(
+	appName string, nextOrdinal, count int,
+) ([]internal.ScaleCAASUnitArg, error) {
+	if nextOrdinal > math.MaxInt-count+1 {
+		return nil, applicationerrors.ScaleChangeInvalid
+	}
+	unitArgs, err := s.makeCAASUnitArgs(count)
 	if err != nil {
-		return ScalingState{}, errors.Errorf("getting scaling state for %q: %w", appName, err)
+		return nil, errors.Capture(err)
 	}
-	return ScalingState{
-		StartOrdinal: scaleState.StartOrdinal,
-		ScaleTarget:  scaleState.ScaleTarget,
-		Scaling:      scaleState.Scaling,
-	}, nil
+	args := make([]internal.ScaleCAASUnitArg, count)
+	for i := range args {
+		name, err := coreunit.NewNameFromParts(appName, nextOrdinal+i)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		args[i] = internal.ScaleCAASUnitArg{
+			ExpectedName:   name.String(),
+			AddCAASUnitArg: unitArgs[i],
+		}
+	}
+	return args, nil
+}
+
+func (s *Service) makeCAASUnitArgs(count int) ([]internal.AddCAASUnitArg, error) {
+	args := make([]internal.AddCAASUnitArg, count)
+	for i := range args {
+		unitUUID, err := coreunit.NewUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		netNodeUUID, err := domainnetwork.NewNetNodeUUID()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		args[i] = internal.AddCAASUnitArg{
+			UnitUUID:    unitUUID.String(),
+			NetNodeUUID: netNodeUUID.String(),
+			UnitStatus:  s.makeCAASUnitStatusArgs(),
+		}
+	}
+	return args, nil
+}
+
+func aliveUnitCount(lives map[string]int) int {
+	count := 0
+	for _, unitLife := range lives {
+		if unitLife == int(life.Alive) {
+			count++
+		}
+	}
+	return count
 }
 
 // GetApplicationsWithPendingCharmsFromUUIDs returns the application UUIDs that

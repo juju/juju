@@ -104,6 +104,7 @@ type ServiceInterface interface {
 // ApplicationState represents the application state.
 type ApplicationState struct {
 	DesiredReplicas int
+	StartOrdinal    int
 	Replicas        []string
 }
 

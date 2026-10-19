@@ -168,11 +168,9 @@ func (s *applicationStateSuite) TestCreateCAASApplication(c *tc.C) {
 			Channel:     channel,
 			Constraints: cons,
 		},
-		Scale: 1,
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	scale := application.ScaleState{Scale: 1}
-	s.assertCAASApplication(c, "666", platform, channel, scale, false)
+	s.assertCAASApplication(c, "666", platform, channel, false)
 
 	// Ensure that config is empty and trust is false.
 	config, settings, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
@@ -1657,237 +1655,6 @@ func (s *applicationStateSuite) TestGetCharmModifiedVersionNull(c *tc.C) {
 func (s *applicationStateSuite) TestGetCharmModifiedVersionApplicationNotFound(c *tc.C) {
 	_, err := s.state.GetCharmModifiedVersion(c.Context(), tc.Must(c, coreapplication.NewUUID))
 	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
-}
-
-func (s *applicationStateSuite) TestGetApplicationScaleState(c *tc.C) {
-	appUUID, _ := s.createCAASApplicationWithNUnits(c, "foo", life.Alive, 1)
-
-	scaleState, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(scaleState, tc.DeepEquals, application.ScaleState{
-		Scale: 1,
-	})
-}
-
-func (s *applicationStateSuite) TestGetApplicationScaleStateNotFound(c *tc.C) {
-	_, err := s.state.GetApplicationScaleState(c.Context(), coreapplication.UUID(uuid.MustNewUUID().String()))
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
-}
-
-func (s *applicationStateSuite) TestSetDesiredApplicationScale(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var gotScale int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appUUID).
-			Scan(&gotScale)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotScale, tc.DeepEquals, 666)
-}
-
-func (s *applicationStateSuite) TestUpdateApplicationScale(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	newScale, err := s.state.UpdateApplicationScale(c.Context(), appUUID, 666, 2)
-	c.Assert(err, tc.ErrorIsNil)
-
-	var gotScale int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT scale FROM application_scale WHERE application_uuid=?", appUUID).
-			Scan(&gotScale)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(gotScale, tc.DeepEquals, 666+2)
-	c.Check(newScale, tc.DeepEquals, 666+2)
-}
-
-func (s *applicationStateSuite) TestUpdateApplicationScaleInvalidScale(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.state.UpdateApplicationScale(c.Context(), appUUID, 666, -667)
-	c.Assert(err, tc.ErrorMatches, `scale change invalid: cannot remove more units than currently exist`)
-}
-
-func (s *applicationStateSuite) TestUpdateApplicationScaleChangedScale(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	_, err = s.state.UpdateApplicationScale(c.Context(), appUUID, 1, 2)
-	c.Assert(err, tc.ErrorIs, applicationerrors.ScalingStateInconsistent)
-
-	scale, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(scale.Scale, tc.Equals, 666)
-}
-
-func (s *applicationStateSuite) TestSetApplicationScalingStateAlreadyScaling(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Dead)
-
-	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	checkResult := func(want application.ScaleState) {
-		var got application.ScaleState
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(got, tc.DeepEquals, want)
-	}
-
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
-	})
-
-	// Set scaling state but use the same target value as current scale.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
-	})
-}
-
-func (s *applicationStateSuite) TestSetApplicationScalingStateWithStart(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Dead)
-
-	err := s.state.SetApplicationScalingStateWithStart(c.Context(), "foo", 2, 1, true)
-	c.Assert(err, tc.ErrorIsNil)
-
-	state, err := s.state.GetApplicationScaleState(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(state, tc.DeepEquals, application.ScaleState{
-		StartOrdinal: 1,
-		Scale:        2,
-		ScaleTarget:  2,
-		Scaling:      true,
-	})
-
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 2, false)
-	c.Assert(err, tc.ErrorIsNil)
-
-	state, err = s.state.GetApplicationScaleState(c.Context(), appUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(state.StartOrdinal, tc.Equals, 1)
-	c.Check(state.Scaling, tc.IsFalse)
-}
-
-func (s *applicationStateSuite) TestSetApplicationScalingStateInconsistent(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-
-	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Set scaling state but use a target value different than the current
-	// scale.
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
-	c.Assert(err, tc.ErrorMatches, "scaling state is inconsistent")
-}
-
-func (s *applicationStateSuite) TestSetApplicationScalingStateAppDying(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Dying)
-
-	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	checkResult := func(want application.ScaleState) {
-		var got application.ScaleState
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(got, tc.DeepEquals, want)
-	}
-
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
-	})
-}
-
-// This test is exactly like TestSetApplicationScalingStateAppDying but the app
-// is dead instead of dying.
-func (s *applicationStateSuite) TestSetApplicationScalingStateAppDead(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Dead)
-
-	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	checkResult := func(want application.ScaleState) {
-		var got application.ScaleState
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(got, tc.DeepEquals, want)
-	}
-
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 42, true)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale:       42,
-		ScaleTarget: 42,
-		Scaling:     true,
-	})
-}
-
-func (s *applicationStateSuite) TestSetApplicationScalingStateNotScaling(c *tc.C) {
-	appUUID := s.createCAASApplication(c, "foo", life.Alive)
-
-	// Set up the initial scale value.
-	err := s.state.SetDesiredApplicationScale(c.Context(), appUUID, 666)
-	c.Assert(err, tc.ErrorIsNil)
-
-	checkResult := func(want application.ScaleState) {
-		var got application.ScaleState
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			err := tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", appUUID).
-				Scan(&got.Scale, &got.Scaling, &got.ScaleTarget)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Assert(got, tc.DeepEquals, want)
-	}
-
-	err = s.state.SetApplicationScalingState(c.Context(), "foo", 668, false)
-	c.Assert(err, tc.ErrorIsNil)
-	checkResult(application.ScaleState{
-		Scale:       666,
-		ScaleTarget: 668,
-		Scaling:     false,
-	})
 }
 
 func (s *applicationStateSuite) TestGetApplicationUnitLife(c *tc.C) {
@@ -4386,7 +4153,6 @@ func (s *applicationStateSuite) assertCAASApplication(
 	name string,
 	platform deployment.Platform,
 	channel *deployment.Channel,
-	scale application.ScaleState,
 	available bool,
 ) {
 	var (
@@ -4395,16 +4161,10 @@ func (s *applicationStateSuite) assertCAASApplication(
 		gotCharmUUID string
 		gotPlatform  deployment.Platform
 		gotChannel   deployment.Channel
-		gotScale     application.ScaleState
 		gotAvailable bool
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		err := tx.QueryRowContext(ctx, "SELECT uuid, charm_uuid, name FROM application WHERE name=?", name).Scan(&gotUUID, &gotCharmUUID, &gotName)
-		if err != nil {
-			return err
-		}
-		err = tx.QueryRowContext(ctx, "SELECT scale, scaling, scale_target FROM application_scale WHERE application_uuid=?", gotUUID).
-			Scan(&gotScale.Scale, &gotScale.Scaling, &gotScale.ScaleTarget)
 		if err != nil {
 			return err
 		}
@@ -4427,7 +4187,6 @@ func (s *applicationStateSuite) assertCAASApplication(
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotName, tc.Equals, name)
 	c.Check(gotPlatform, tc.DeepEquals, platform)
-	c.Check(gotScale, tc.DeepEquals, scale)
 	c.Check(gotAvailable, tc.Equals, available)
 
 	// Channel is optional, so we need to check it separately.
@@ -4630,7 +4389,6 @@ func (s *applicationStateSuite) TestCreateCAASApplicationResetsExistingSequence(
 				DownloadURL: "http://example.com/charm",
 			},
 		},
-		Scale: 0,
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 

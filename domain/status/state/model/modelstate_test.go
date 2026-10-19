@@ -1566,12 +1566,15 @@ WHERE  u.name = ?`, "foo/0").Scan(&count); err != nil {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoApplications(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.IAAS)
+
 	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(statuses, tc.DeepEquals, map[string]status.Application{})
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesCMRSyntheticApplication(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.IAAS)
 	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, nil)
 
 	// Convert the application to a CMRSyntheticApplication by setting source_id to 2
@@ -1591,6 +1594,7 @@ WHERE uuid=(SELECT charm_uuid FROM application WHERE uuid=?)`, appUUID)
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.IAAS)
 	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, nil,
 		s.createIAASUnitArg(c),
 		s.createIAASUnitArg(c),
@@ -1647,6 +1651,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesNoAppStatuses(c *tc.C
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.IAAS)
 	now := time.Now()
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
@@ -1785,6 +1790,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.IAAS)
 	now := time.Now()
 	u1 := s.createIAASUnitArg(c)
 	u2 := s.createIAASUnitArg(c)
@@ -1936,6 +1942,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.IAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createIAASApplication(
@@ -1998,6 +2005,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, unitUUDs := s.createCAASApplication(
@@ -2060,7 +2068,36 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc
 	})
 }
 
+func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sScaleCountsAliveUnits(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
+	_, unitUUIDs := s.createCAASApplication(
+		c, "foo", life.Alive, nil,
+		s.createCAASUnitArg(c),
+		s.createCAASUnitArg(c),
+	)
+	c.Assert(unitUUIDs, tc.HasLen, 2)
+
+	_, err := s.DB().ExecContext(c.Context(),
+		"UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dying, unitUUIDs[0].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses["foo"].Scale, tc.DeepEquals, new(1))
+
+	_, err = s.DB().ExecContext(c.Context(),
+		"UPDATE unit SET life_id = ? WHERE uuid = ?", life.Dying, unitUUIDs[1].String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	statuses, err = s.state.GetApplicationAndUnitStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(statuses, tc.HasLen, 1)
+	c.Check(statuses["foo"].Scale, tc.DeepEquals, new(0))
+}
+
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceAddress(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createCAASApplication(
@@ -2112,6 +2149,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceAddress(c *
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceMultipleAddresses(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	s.createCAASApplication(
@@ -2129,6 +2167,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceMultipleAdd
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceLocalCloudAddress(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	s.createCAASApplication(
@@ -2143,6 +2182,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceLocalCloudA
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritisesPublicAddress(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	s.createCAASApplication(
@@ -2160,6 +2200,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritises
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritisesIPv4Address(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	s.createCAASApplication(
@@ -2177,6 +2218,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServicePrioritises
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceSelectsAlphabeticalAddress(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	s.createCAASApplication(
@@ -2194,6 +2236,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceSelectsAlph
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesK8sServiceNonLocalAddress(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	s.createCAASApplication(
@@ -2221,6 +2264,7 @@ func (s *modelStateSuite) setWorkloadVersion(c *tc.C, appUUID coreapplication.UU
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createCAASApplication(
@@ -2288,6 +2332,7 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithRelations(c *tc.C
 }
 
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations(c *tc.C) {
+	s.insertApplicationStatusModel(c, model.CAAS)
 	now := time.Now()
 	appStatus := s.workloadStatus(now)
 	appUUID, _ := s.createCAASApplication(
@@ -2359,6 +2404,19 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWithMultipleRelations
 	})
 }
 
+func (s *modelStateSuite) insertApplicationStatusModel(c *tc.C, modelType model.ModelType) {
+	cloudType := "ec2"
+	if modelType == model.CAAS {
+		cloudType = "kubernetes"
+	}
+
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, 'test', 'prod', ?, 'test-cloud', ?)
+	`, s.ModelUUID(), tc.Must(c, uuid.NewUUID).String(), modelType, cloudType)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *modelStateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 	s.createIAASApplicationWithNUnits(c, "foo", 2)
 
@@ -2367,6 +2425,29 @@ func (s *modelStateSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 
 	c.Check(appUnitCount, tc.DeepEquals, map[string]int{
 		"foo": 2,
+	})
+}
+
+func (s *modelStateSuite) TestGetApplicationAndUnitModelStatusesExcludesNonAliveUnits(c *tc.C) {
+	s.createIAASApplicationWithNUnits(c, "foo", 3)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE unit
+SET    life_id = CASE name
+    WHEN 'foo/1' THEN ?
+    WHEN 'foo/2' THEN ?
+    ELSE life_id
+END
+WHERE  name IN ('foo/1', 'foo/2')`, life.Dying, life.Dead)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUnitCount, err := s.state.GetApplicationAndUnitModelStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(appUnitCount, tc.DeepEquals, map[string]int{
+		"foo": 1,
 	})
 }
 

@@ -8,14 +8,20 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -50,6 +56,186 @@ func (s *importSuite) TestImporterPerformsModelDBImport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.Sequence, tc.SameContents, payload.Sequence)
 	c.Check(got.ModelAgent, tc.DeepEquals, payload.ModelAgent)
+}
+
+func (s *importSuite) TestImportPreservesUnitsAndSequence(c *tc.C) {
+	s.bootstrapModel(c)
+
+	scale := int64(1)
+	scaling := false
+	passwordHash := "hash"
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash,
+		}},
+		Charm: []v4_1_0.Charm{{
+			UUID: "charm-uuid", SourceID: 0, Revision: 1,
+			ReferenceName: "foo",
+		}},
+		Application: []v4_1_0.Application{{
+			UUID: "application-uuid", Name: "foo", LifeID: 0,
+			CharmUUID: "charm-uuid",
+			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
+		}},
+		ApplicationScale: []v4_1_0.ApplicationScale{{
+			ApplicationUUID: "application-uuid", Scale: &scale,
+			ScaleTarget: &scale, Scaling: &scaling, StartOrdinal: 2,
+		}},
+		NetNode: []v4_1_0.NetNode{{UUID: "imported-net-node"}},
+		Unit: []v4_1_0.Unit{{
+			UUID: "imported-unit", Name: "foo/2", LifeID: 0,
+			ApplicationUUID: "application-uuid", NetNodeUUID: "imported-net-node",
+			CharmUUID: "charm-uuid",
+		}},
+		Sequence: []v4_1_0.Sequence{{Namespace: "application_foo", Value: 4}},
+	}
+
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var names []string
+	var highWater int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT name FROM unit ORDER BY name`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				return err
+			}
+			names = append(names, name)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT value FROM sequence WHERE namespace = 'application_foo'`).Scan(&highWater); err != nil {
+			return err
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(names, tc.DeepEquals, []string{"foo/2"})
+	c.Check(highWater, tc.Equals, 4)
+
+	// Reconciliation after a service restart must preserve the same identities.
+	modelDB := func(context.Context) (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+	log := loggertesting.WrapCheckLog(c)
+	restarted := applicationservice.NewMigrationService(
+		applicationstate.NewState(modelDB, coremodel.UUID(s.ModelUUID()), clock.WallClock, log),
+		clock.WallClock, log,
+	)
+	err = restarted.ReconcileImportedCAASUnits(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM unit WHERE application_uuid = 'application-uuid'`).Scan(&count); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `SELECT value FROM sequence WHERE namespace = 'application_foo'`).Scan(&highWater)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+	c.Check(highWater, tc.Equals, 4)
+}
+
+func (s *importSuite) TestImportRejectsMissingUnitBeforeWriting(c *tc.C) {
+	s.bootstrapModel(c)
+
+	scale := int64(1)
+	payload := &latest.ModelExport{
+		ModelAgent:  []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Application: []v4_1_0.Application{{UUID: "application-uuid", Name: "foo"}},
+		ApplicationScale: []v4_1_0.ApplicationScale{{
+			ApplicationUUID: "application-uuid", Scale: &scale,
+		}},
+	}
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM application WHERE uuid = 'application-uuid'`).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *importSuite) TestImportWithoutScaleReconcilesUnitSequence(c *tc.C) {
+	s.bootstrapModel(c)
+
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm: []v4_1_0.Charm{{
+			UUID: "charm-uuid", SourceID: 0, Revision: 1, ReferenceName: "foo",
+		}},
+		Application: []v4_1_0.Application{{
+			UUID: "application-uuid", Name: "foo", LifeID: 0,
+			CharmUUID: "charm-uuid",
+			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
+		}},
+		NetNode: []v4_1_0.NetNode{{UUID: "imported-net-node"}},
+		Unit: []v4_1_0.Unit{{
+			UUID: "imported-unit", Name: "foo/9", LifeID: 0,
+			ApplicationUUID: "application-uuid", NetNodeUUID: "imported-net-node",
+			CharmUUID: "charm-uuid",
+		}},
+	}
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var highWater int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `SELECT value FROM sequence WHERE namespace = 'application_foo'`).Scan(&highWater)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(highWater, tc.Equals, 9)
+}
+
+func (s *importSuite) TestImportAtZeroRetainsNextOrdinal(c *tc.C) {
+	s.bootstrapModel(c)
+
+	zero := int64(0)
+	scaling := false
+	passwordHash := "hash"
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash,
+		}},
+		Charm: []v4_1_0.Charm{{
+			UUID: "charm-uuid", SourceID: 0, Revision: 1,
+			ReferenceName: "foo",
+		}},
+		Application: []v4_1_0.Application{{
+			UUID: "application-uuid", Name: "foo", LifeID: 0,
+			CharmUUID: "charm-uuid",
+			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
+		}},
+		ApplicationScale: []v4_1_0.ApplicationScale{{
+			ApplicationUUID: "application-uuid", Scale: &zero,
+			ScaleTarget: &zero, Scaling: &scaling,
+		}},
+		Sequence: []v4_1_0.Sequence{{Namespace: "application_foo", Value: 7}},
+	}
+
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var count, highWater int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM unit WHERE application_uuid = 'application-uuid'`).Scan(&count); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, `SELECT value FROM sequence WHERE namespace = 'application_foo'`).Scan(&highWater)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+	c.Check(highWater, tc.Equals, 7)
+
 }
 
 // TestImportNilPayload verifies that importing a nil payload is a no-op.

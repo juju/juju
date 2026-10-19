@@ -44,8 +44,9 @@ type UnitState interface {
 	GetRelationUnitsForUnit(ctx context.Context, unitUUID string) ([]string, error)
 
 	// UnitScheduleRemoval schedules a removal job for the unit with the
-	// input unit UUID, qualified with the input force boolean.
-	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) error
+	// input unit UUID, qualified with the input force boolean. It returns the
+	// UUID of the scheduled job, which can be an existing matching job.
+	UnitScheduleRemoval(ctx context.Context, removalUUID, unitUUID string, force bool, when time.Time) (string, error)
 
 	// GetUnitLife returns the life of the unit with the input UUID.
 	GetUnitLife(ctx context.Context, unitUUID string) (life.Life, error)
@@ -207,14 +208,15 @@ func (s *Service) unitScheduleRemoval(
 		return "", errors.Capture(err)
 	}
 
-	if err := s.modelState.UnitScheduleRemoval(
+	scheduledJobUUID, err := s.modelState.UnitScheduleRemoval(
 		ctx, jobUUID.String(), unitUUID.String(), force, s.clock.Now().UTC().Add(wait),
-	); err != nil {
+	)
+	if err != nil {
 		return "", errors.Errorf("unit: %w", err)
 	}
 
-	s.logger.Infof(ctx, "scheduled removal job %q for unit %q", jobUUID, unitUUID)
-	return jobUUID, nil
+	s.logger.Infof(ctx, "ensured removal job %q for unit %q", scheduledJobUUID, unitUUID)
+	return removal.UUID(scheduledJobUUID), nil
 }
 
 // processUnitRemovalJob deletes a unit if it is dying.
