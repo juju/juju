@@ -25,6 +25,8 @@ consumers.
   - *Related error:*
     - **`charm secrets do not support auto prune`**: *Trigger:* A charm secret is created with auto-prune. *Remediation:* None; auto-prune is a user-secret behavior.
 - **User secrets:** A Juju client carries the secret commands: `add-secret`, `update-secret`, `grant-secret`, `revoke-secret`, `remove-secret`; adding, updating, granting and revoking require model {ref}`write access <user-access-model-write>`.
+- **Identifiers:** One secret can carry three identifiers. The **URI** is assigned by Juju when the secret is added, by `juju add-secret` (or a client's equivalent) or by a charm's `secret-add`; it is returned to the caller for later use (granting access, passing it in relation data) and identifies the secret in any content. The **name** is a string a user gives a user secret when adding it, for their own reference. A **label** is a string the owning charm, and separately each consuming charm, may assign for internal reference; labels have no format constraint.
+  - *Example:* A user adds a secret named `my-api-key`; Juju assigns it a URI such as `9m4e2mr0ui3e8a215n4g`; the charm configured to use it may label it `vault-api-token`. A leader unit's application secret labelled `db-password` by its owner has a URI such as `6k7n4ps1vj2d9b318x5w`, and a granted unit (peer units are granted implicitly) may add its own label, `shared-db-creds`.
 - **Secret content:** The data of a secret is a set of key/value pairs.
   - *Rule:* Secret data keys must match the name pattern (lowercase letter first, then letters, numbers and dashes, at least three characters) and must not be empty.
   - *Rule:* A secret value may be at most 1 MB (1,000,000 bytes) base64-encoded per key, and the secret's total content at most 1 MB.

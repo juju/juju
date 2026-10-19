@@ -23,6 +23,7 @@ How clients add a credential for a cloud and manage its life.
     - **`unknown cloud`**: *Trigger:* Naming a cloud the controller does not know. *Remediation:* Add the cloud first.
     - **`user not found`**: *Trigger:* The credential's owner does not exist. *Remediation:* Check the owner's name.
     - **`credential is not valid for one or more models`**: *Trigger:* The check on update finds the credential unusable for a model that uses it. *Remediation:* Fix or replace the credential, or force the update.
+- **What a credential is for:** A credential always means authentication material for a *cloud*; a cloud can have several. Every model is associated with a cloud and credential pair, because the model needs it to create resources on the cloud.
 - **Client and controller credentials:** A **client credential** is one the client is aware of; a **controller credential** is one a controller is aware of. Bootstrapping a controller with a client credential uploads it to the controller, after which both sides know it, and the two sets do not have to coincide.
 
 ```{ibnote}

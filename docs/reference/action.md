@@ -32,6 +32,7 @@ See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions),
   - *Related errors:*
     - **`bad action name <name>`**: *Trigger:* A declared action name fails the grammar (raised when the charm's actions are parsed). *Remediation:* Rename it to lowercase letters and digits with hyphens inside.
     - **`cannot use action name <name>`**: *Trigger:* The name is reserved (`juju`, or a `juju-` prefix). *Remediation:* Pick an unreserved name.
+- **Waiting and results:** The client blocks until the action completes, which lets actions sit in command-line pipelines: progress messages the action reports are logged to the terminal, and the result is then printed. The result is a map of the values the action set, plus the exit code of the action process and its stdout and stderr. `--background` queues the action without waiting, and `--wait` bounds the wait.
 - **The invocation:** Running an action against units or the application requires model {ref}`write access <user-access-model-write>`; running an arbitrary command requires model {ref}`admin access <user-access-model-admin>`; cancelling a run's tasks requires model write access. The controller-side counterpart is the same call over the controller API.
   - *Related error:*
     - **`action not defined for charm <charm> (target unit: <unit>)`**: *Trigger:* The run names an action the charm does not declare. *Remediation:* Check the charm's actions.

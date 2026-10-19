@@ -91,6 +91,21 @@ While the relation is maintained:
   - Every unit reads all of its own application's settings: the other
     units' unit settings and the application settings included.
 
+```{figure} relation-databags.svg
+  :figclass: only-light
+  :align: center
+  :alt: Juju relation settings, permissions
+
+  Given a unit involved in a relation, its access to a settings record depends on whether the relation is peer or not, whether the unit is the leader or not, and whether the record belongs to the unit's application or not.
+```
+```{figure} relation-databags.dark.svg
+  :figclass: only-dark
+  :align: center
+  :alt: Juju relation settings, permissions
+
+  Given a unit involved in a relation, its access to a settings record depends on whether the relation is peer or not, whether the unit is the leader or not, and whether the record belongs to the unit's application or not.
+```
+
 The application settings are gated on leadership at both ends: only the
 leader unit may read or write them, and the hook commit that carries
 application settings is wrapped in a leadership lease, so the unit
@@ -106,6 +121,21 @@ discriminator: it follows from the relation's own records, which
 applications it connects, the same application or two distinct ones, and,
 for two distinct applications, whether one of them is subordinate and
 whether the two live in the same model.
+
+```{figure} relation-taxonomy.svg
+  :figclass: only-light
+  :align: center
+  :alt: Juju relation taxonomy
+
+  A relation is between two applications. When one is principal and one is subordinate, the result is a subordinate relation. When the applications are on two separate models, the result is a cross-model relation. When the applications are identical, that is, the relation an application has to itself, the result is a peer relation.
+```
+```{figure} relation-taxonomy.dark.svg
+  :figclass: only-dark
+  :align: center
+  :alt: Juju relation taxonomy
+
+  A relation is between two applications. When one is principal and one is subordinate, the result is a subordinate relation. When the applications are on two separate models, the result is a cross-model relation. When the applications are identical, that is, the relation an application has to itself, the result is a peer relation.
+```
 
 (peer-relation)=
 #### Peer relation

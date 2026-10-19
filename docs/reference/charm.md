@@ -45,7 +45,14 @@ A **charm channel** identifies a charm release stream, written
 [Charmhub](https://charmhub.io/) concept: tracks, risk levels
 (`stable` is the default), branches and their guardrails are defined
 and managed on the store side, and their detail lives in the
-Charmhub/charmcraft documentation. Juju touches a channel in exactly
+Charmhub/charmcraft documentation. The `<track>` collects
+supported releases under one name; a deploy that names none gets
+`latest`. The `<risk>` is one of `stable` (the default), `candidate` (a
+release candidate: high confidence, minor bugs possible), `beta` (a
+beta milestone) or `edge` (the latest build: expect bugs). The optional
+`<branch>` is a short-lived subdivision for fixes or experiments
+(guaranteed for 30 days without modification), and a channel that names
+a branch must also name a track and a risk. Juju touches a channel in exactly
 two places: a deploy and a refresh take a channel as input, and the
 channel an application tracks is recorded per application, not per
 charm (see {ref}`the application's origin

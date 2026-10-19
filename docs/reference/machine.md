@@ -25,17 +25,21 @@ A LXD container is named after its host machine: `0/lxd/5` is LXD container `5` 
 How clients express compute intent and submit targets to the controller API.
 
 - **Explicit creation:** API requests for machines, gated on model {ref}`write access <user-access-model-write>`.
-- **Implicit creation:** Most machines follow from deploy or add-unit placements.
+- **Implicit creation:** Most machines follow from deploy or add-unit placements. A machine usually hosts one unit, and placing several units of the same or of different applications on one machine saves resources.
 - **Target designations:** Comma-separated lists naming new or existing targets.
   - `0`: an existing machine; `0,4`: machines 0 and 4.
   - `lxd`: a new container on a new host; `lxd:25`: on machine 25.
   - `0/lxd/4`: the existing container `4` on machine `0`.
+  - An empty designation: a new machine.
+  - `lxd` or `lxd:25` with `virt-type=virtual-machine`: a VM instead of a container.
+  - `3,0/lxd/2,lxd:5`: machine 3, container 2 on machine 0, and a new container on machine 5.
   - Machine clouds only; rejected on Kubernetes models.
   - *Rule:* Machine numbers are `0` or positive integers without leading zeros.
   - *Rule:* Containers nest one level deep (`0/lxd/4`, never `0/lxd/0/lxd/0`).
   - *Related errors:*
     - **`machine name "<name>" has too many containers`**: *Trigger:* A machine name with more than one container level. *Remediation:* Name the container directly under its host machine.
     - **`invalid container type "<type>"`**: *Trigger:* A designation or a container constraint names a container type other than `lxd` (the only one 4.1 supports). *Remediation:* Use `lxd`.
+- **Base:** A machine's **base** identifies its operating system image: the OS name, `@`, and the OS channel as `<track>` or `<track>/<risk>` (`ubuntu@22.04`, `ubuntu@22.04/stable`). A base replaces the older notion of a series.
 - **Machine constraints:** Constraints can be set directly on a machine, as well as on the model or an application.
   - *Related errors:*
     - **`invalid machine constraints`**: *Trigger:* The constraints name a container type or a space that does not exist. *Remediation:* Correct the container type or the space.
