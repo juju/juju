@@ -6,7 +6,6 @@ package bootstrap
 import (
 	"context"
 	"os"
-	"slices"
 
 	"github.com/juju/clock"
 	jujuerrors "github.com/juju/errors"
@@ -34,12 +33,7 @@ import (
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
-var (
-	bootstrapSSHUser = "ubuntu"
-
-	listKeysFromFile   = ssh.ListKeysFromFile
-	deleteKeysFromFile = ssh.DeleteKeysFromFile
-)
+var bootstrapSSHUser = "ubuntu"
 
 // DeleteBootstrapSSHKeys removes bootstrap-only keys from an IAAS bootstrap
 // machine's standard Ubuntu authorized_keys file. Keys that are not in the
@@ -60,35 +54,7 @@ func DeleteBootstrapSSHKeys(keys []string) error {
 		}
 		fingerprints = append(fingerprints, fingerprint)
 	}
-
-	// List full keys: utils' Fingerprints mode renders commented keys as
-	// "fingerprint (comment)", which never matches a bare fingerprint.
-	installedKeys, err := listKeysFromFile(bootstrapSSHUser, "authorized_keys", ssh.FullKeys)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	installedFingerprints := make([]string, 0, len(installedKeys))
-	for _, key := range installedKeys {
-		// listKeys drops lines that fail to parse, so this cannot error.
-		fingerprint, _, _ := ssh.KeyFingerprint(key)
-		installedFingerprints = append(installedFingerprints, fingerprint)
-	}
-
-	// Dedupe: duplicate key material in the input yields duplicate
-	// fingerprints, and deleting the same fingerprint twice errors.
-	toDelete := make([]string, 0, len(fingerprints))
-	for _, fingerprint := range fingerprints {
-		if !slices.Contains(installedFingerprints, fingerprint) {
-			continue
-		}
-		if !slices.Contains(toDelete, fingerprint) {
-			toDelete = append(toDelete, fingerprint)
-		}
-	}
-	if len(toDelete) == 0 {
-		return nil
-	}
-	return deleteKeysFromFile(bootstrapSSHUser, "authorized_keys", toDelete)
+	return ssh.DeleteKeysFromFileIfPresent(bootstrapSSHUser, "authorized_keys", fingerprints)
 }
 
 // IAASAgentFinalizer selects the machine identity and nonce for fresh
