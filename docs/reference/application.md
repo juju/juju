@@ -188,6 +188,7 @@ are hidden from the charm.
 A constraints write overwrites the application's full constraint set (see {ref}`constraint <constraint>`).
 
 - *Rule:* An invalid container type or an unknown space is refused.
+- *Rule:* The application stores only the constraints it was given, plus an architecture snapshot (the application's, else the model's, else `amd64`). Deploying uses the merge of model and application constraints for the first units and the precheck, and units added later merge the model's current constraints with the stored ones, so a model constraint never appears as an application constraint.
 - *Related error:*
   - **`invalid application constraints`**: *Trigger:* A constraints write names an invalid container type or a space the model does not have. *Remediation:* Use a valid container type and an existing space.
 
@@ -218,6 +219,7 @@ new charm does not define are dropped), rewrites the charm pointer and
 bumps the charm-modified counter. A base change needs the force flag.
 
 - *Rule:* A refresh validates relation compatibility transactionally and re-filters the configuration keys to the new charm's schema.
+- *Rule:* Resources are immutable records: a refresh that replaces an application's resource schedules a removal job for the displaced record, which deletes it once no unit references it (see {ref}`the resource's execution layer <the-resources-machinery>`).
 - *Related errors:*
   - **`incompatible base for charm`**: *Trigger:* A refresh changes the application's base incompatibly without the force flag. *Remediation:* Refresh within the base, or force the base change.
   - **`charm not found`**: *Trigger:* The charm the operation needs is not in the model's charm records. *Remediation:* Check the charm reference.

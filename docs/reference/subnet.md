@@ -80,7 +80,8 @@ What runs is the adoption, split by owner:
 ### Subnet watchers
 
 The network domain exposes one watch surface over subnets: **subnet
-changes**. The watcher's namespace is the subnet record's change
+changes** (its other surface, the controller network, is described with
+the {ref}`space watchers <the-space-watchers>`). The watcher's namespace is the subnet record's change
 stream, its initial query lists every subnet UUID, and its filter
 narrows the stream to the watcher's own subnet set (an empty set
 passes everything, the legacy compatibility form). The consumer in

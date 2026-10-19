@@ -55,17 +55,22 @@ A space is persisted in the {ref}`model database <database>` as follows:
 
 A space has no machinery of its own: it is a grouping the controller maintains; subnets are moved into it and reloaded from the provider, and the network's watch surface reports what changed.
 
-- **Container and VM network setup:** When a container or VM is provisioned, the network service matches its space requirements (the `spaces` constraint and the application's endpoint bindings) against the devices on its host.
+- **Container and VM network setup:** When a container or VM is provisioned, the network service resolves the model's `container-networking-method` and matches the guest's space requirements (the `spaces` constraint and the application's endpoint bindings) against the devices on its host, in space-name order so the result is reproducible. The method `auto` resolves against the provider: it is `provider` when the provider supports allocating container addresses and `local` otherwise; an explicit `local` or `provider` never consults the provider for the method.
+  - *Rule:* With the `local` method, the default LXD bridge satisfies every space requirement whatever its own space, host devices are never bridged, each guest device takes its address from the host bridge by DHCP, and negative space constraints are not enforced. One bridge serves all the spaces that select it.
+  - *Rule:* With the `provider` method, host devices in the required spaces are bridged and the guest's devices are configured statically; only then does the provider allocate their addresses, and only when it supports it. A guest with no devices does not consult the provider.
+  - *Rule:* A host the provider must address needs to be provisioned: the service resolves the host's instance only when allocation is required, so guests on `local` networking do not need a provisioned host.
   - *Related errors:*
     - **`space requirement conflict`**: *Trigger:* A space is both a positive and a negative space requirement for a machine (a constraint or endpoint binding naming it and a constraint excluding it). *Remediation:* Resolve the conflicting constraints or bindings.
-    - **`space requirements unsatisfiable`**: *Trigger:* A container's or VM's space requirements cannot be met by its host (no device or bridge available in the required space). *Remediation:* Relax the space constraints or extend the host's networking in the required space.
+    - **`space requirements unsatisfiable`**: *Trigger:* A container's or VM's space requirements cannot be met by its host (no device or bridge available in the required space). *Remediation:* Relax the space constraints or extend the host's networking in the required space. The error is retryable: with `local` networking it also covers a default LXD bridge the host has not reported yet.
+    - **`host machine not provisioned`**: *Trigger:* The provider must allocate the guest's addresses, but the host has no cloud instance yet. *Remediation:* Wait until the host is provisioned; the error is reported against the container, not the whole request.
 
 (the-space-watchers)=
 ### Space watchers
 
-The network domain exposes one watch surface:
+The network domain exposes two watch surfaces:
 
 - **Subnet changes:** The surfaces that need the network's shape (the provisioning and address machinery) watch subnets, not spaces; a space's change is implied by its subnets' moves.
+- **The controller network:** One notify surface over the controller units' identity and life, the shared controller service's associations, their addresses, and the devices and spaces behind them. The API address setter watches it to recompute the controller's API addresses, which it selects separately for clients and for agents.
 
 Every watcher fires once immediately when it is created, the initial query being the baseline snapshot, and again on each qualifying change. See {ref}`the watcher pattern <watchers>`.
 
