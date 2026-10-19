@@ -36,6 +36,7 @@ How clients publish an application's endpoints, consume other models' offers, an
   - *Related error:*
     - **`offer has relations`**: *Trigger:* Removing an offer that still has connections without forcing the removal. *Remediation:* Remove the connected relations first, or force the removal.
 - **Access:** Creating an offer grants its owner admin access and everyone read access, both as permission records in the controller database (see {ref}`the user access levels <user-access-levels>`).
+  - *Rule:* Revoking a user's access below consume suspends that user's relations against the offer before the permission changes; controller and model administrators keep implicit consume access, so their relations are not suspended.
 
 ```{ibnote}
 See also: {ref}`Terraform Provider for Juju | Manage offers <tfjuju:manage-offers>`

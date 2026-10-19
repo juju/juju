@@ -62,6 +62,7 @@ prose:
 - **Settings records:** Two levels. One unit settings record per involved unit (a key/value record per key, keys non-empty), and one application settings record per involved application, keyed per relation endpoint, so an application in several relations keeps an independent set per relation. Each settings level carries a digest record, a SHA-256 hash of the whole set, so watchers detect a settings change without reading the values.
   - *Rule:* Settings keys must be non-empty, and empty values are dropped rather than written.
 - **Settings archive:** Keeps a departed unit's settings readable. They are copied there when the unit leaves scope and stay readable for the lifetime of the relation, even after the unit itself is gone.
+- **Departure record:** Keeps a departed relation unit's identity (the relation, the endpoint, the unit and its original name) after the membership record and the unit itself are gone, so watchers report the original unit name. The records stay until the relation is removed, and travel with the relation in a model migration.
 - **Status record:** The relation has a status record with a stored vocabulary. A new relation starts as `joining` (the status record is written when the relation record is created); the vocabulary is `joining`, `joined`, `broken`, `suspending`, `suspended`, `error`. The status domain writes it through `SetRelationStatus`: the leader unit's agent reports `joined`; `suspending` and `suspended` record a suspended relation.
   - *Rule:* The vocabulary is validated on every write: every status may transition to `broken`; `joining` cannot follow `joined` or `broken`; `suspending` cannot follow `broken` or `suspended`; `joined` and `suspended` cannot follow `broken`; `error` requires a message; and a `suspended` write with an empty message retains the reason recorded when the relation was suspending.
 
@@ -133,7 +134,9 @@ and a {ref}`subordinate <subordinate-charm>` application.
   it its units, one per principal unit, so it scales automatically with
   the principal.
 - When a unit enters a container-scoped relation, the subordinate unit is
-  created and placed on the principal unit's machine.
+  created and placed on the principal unit's machine. On machine models, the subordinate
+  unit receives the storage its charm declares, attached to the same
+  machine as the principal unit.
 
 (the-implicit-juju-info-relation-endpoint)=
 ##### The implicit `juju-info` endpoint
@@ -207,7 +210,7 @@ record bookkeeping: creating, suspending, resuming, removing.
     - **`entering scope, unit application is a subordinate`**: *Trigger:* A subordinate application enters remote scope. *Remediation:* None; subordinate applications do not enter remote scope.
 - **Status:** Relation status is written only by the leader unit: the write is leadership-gated, and the leader unit's agent reports the relation as `joined`.
 - **Removal:** The remove-relation operation follows the cooperative pattern: the relation is marked dying, the units in scope leave as their agents notice, and a scheduled removal job deletes the records once nothing is left in scope. A forced removal tears the relation and its scope entries down without waiting for the agents. Cross-model relations are rejected by the removal pre-check: the local record is only the local half of the relation.
-- **Suspending and resuming:** Suspension pauses the data flow across a cross-model relation. The record keeps the suspended flag and its reason, the status moves `suspending`, then `suspended`, and the change propagates to the remote half. Resuming restores the flow and the status returns to `joining`.
+- **Suspending and resuming:** Suspension pauses the data flow across a cross-model relation. The record keeps the suspended flag and its reason, the status moves `suspending`, then `suspended`, and the change propagates to the remote half. Resuming restores the flow and the status returns to `joining`. Revoking a user's consume access to an offer below the consume level suspends that user's relations against the offer first; a controller or model administrator keeps implicit consume access, so their relations stay as they are.
 
 ### Relation hooks and hook commands
 

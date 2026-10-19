@@ -136,6 +136,12 @@ act after all cloud resources are released). The controller never
 deletes its own database; the Undertaker does.
 
 - *Rule:* The controller never deletes its own database: the model's Dqlite database goes last, after all cloud resources are released.
+- *Rule:* The cascade schedules a removal job for every machine of the model, container hosts included. A host's job reports itself incomplete and is polled again until its units and child machines are gone, then deletes the host; the model's job cannot finish while any machine record remains.
+- *Rule:* The controller model is removed only with the force option, and a model that holds persistent storage is removed only when the request says what to do with the storage.
+- *Related errors:*
+  - **`force required for removal job`**: *Trigger:* Removing the controller model, or an offer that still has connections, without the force option. *Remediation:* Force the removal.
+  - **`model has an active migration import claim`**: *Trigger:* A generic removal targets a model that is mid-import. *Remediation:* Abort the import; it tears the imported model down.
+  - **`model has persistent storage`**: *Trigger:* Removing a model that holds persistent storage without stating whether to destroy or release it. *Remediation:* Pass the option that destroys or releases the storage.
 
 (the-model-watchers)=
 ### Model watchers

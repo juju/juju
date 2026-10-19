@@ -110,9 +110,10 @@ When a hook errors, the unit's agent status reads `error`; a client resolves it,
 
 Removal is a cooperative shutdown. The controller only marks the unit dying; the agent that owns it runs its teardown work and only then reports itself dead. A hook error in that teardown is what the `--force` option overrides.
 
-Removing a unit is a cooperative shutdown, not a kill: the removal machinery marks the unit dying, departs its relation scopes and schedules the storage teardown; the unit's agent runs its stop and remove hooks and only then reports itself dead; the scheduled removal job deletes the records, and the unit goes dead only once no relation scopes and no storage attachments are left. The force flag skips that wait: the job departs the scopes and deletes the records without waiting for the agent's teardown (see {ref}`removing things <removing-things>`). When the removed unit was the last one on its machine, the machine is marked dying and scheduled for removal in the same cascade.
+Removing a unit is a cooperative shutdown, not a kill: the removal machinery marks the unit dying and schedules the storage teardown; the unit's agent runs its departure, stop and remove hooks and only then reports itself dead; the scheduled removal job departs any relation scopes the agent has not left, revokes the unit's leadership, deletes the unit's controller node and secrets, and deletes the records. The unit goes dead only once no relation scopes and no storage attachments are left. The force flag skips that wait: the job departs the scopes and deletes the records without waiting for the agent's teardown (see {ref}`removing things <removing-things>`). When the removed unit was the last one on its machine, the machine is marked dying and scheduled for removal in the same cascade.
 
 - *Rule:* Removal is cooperative: the machinery marks dying, the agent tears down, and the job deletes the records only once no relation scopes and no storage attachments remain; the force flag skips the wait.
+- *Rule:* A leader keeps its leadership until it has left every relation scope, so its departure hooks can still read and write the application settings; the job revokes the lease only after that.
 
 ### Unit watchers
 
