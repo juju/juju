@@ -5,6 +5,7 @@ package kubernetes
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"sync"
@@ -16,7 +17,9 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/scheme"
 	restfake "k8s.io/client-go/rest/fake"
 	"k8s.io/client-go/tools/portforward"
@@ -72,7 +75,7 @@ func (s *tunnelSuite) TestForwardPortBindsIPv4LocalhostAndUsesAssignedPort(c *tc
 			Remote: 17070,
 		}},
 	}
-	tunnel := newTestTunnel(func(
+	tunnel := newTestTunnelWithForwarder(func(
 		_ httpstream.Dialer,
 		addresses []string,
 		ports []string,
@@ -86,7 +89,7 @@ func (s *tunnelSuite) TestForwardPortBindsIPv4LocalhostAndUsesAssignedPort(c *tc
 		forwarder.readyChan = readyChan
 		return forwarder, nil
 	})
-	err := tunnel.forwardPort(c.Context(), nil, "test-pod")
+	err := tunnel.forwardPort(c.Context(), nil, "test-pod", "")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotAddresses, tc.DeepEquals, []string{"127.0.0.1"})
 	c.Check(gotPorts, tc.DeepEquals, []string{"0:17070"})
@@ -102,7 +105,7 @@ func (s *tunnelSuite) TestForwardPortReportsFailureBeforeReady(c *tc.C) {
 		done:       done,
 		forwardErr: errors.New("lost connection to pod"),
 	}
-	tunnel := newTestTunnel(func(
+	tunnel := newTestTunnelWithForwarder(func(
 		_ httpstream.Dialer,
 		_ []string,
 		_ []string,
@@ -114,7 +117,7 @@ func (s *tunnelSuite) TestForwardPortReportsFailureBeforeReady(c *tc.C) {
 		forwarder.readyChan = readyChan
 		return forwarder, nil
 	})
-	err := tunnel.forwardPort(c.Context(), nil, "test-pod")
+	err := tunnel.forwardPort(c.Context(), nil, "test-pod", "")
 	c.Assert(err, tc.ErrorMatches, "forwarding ports: lost connection to pod")
 	assertDone(c, done)
 }
@@ -127,7 +130,7 @@ func (s *tunnelSuite) TestForwardPortStopsWhenAssignedPortCannotBeRead(c *tc.C) 
 		waitForStop: true,
 		getPortsErr: errors.New("ports unavailable"),
 	}
-	tunnel := newTestTunnel(func(
+	tunnel := newTestTunnelWithForwarder(func(
 		_ httpstream.Dialer,
 		_ []string,
 		_ []string,
@@ -139,7 +142,7 @@ func (s *tunnelSuite) TestForwardPortStopsWhenAssignedPortCannotBeRead(c *tc.C) 
 		forwarder.readyChan = readyChan
 		return forwarder, nil
 	})
-	err := tunnel.forwardPort(c.Context(), nil, "test-pod")
+	err := tunnel.forwardPort(c.Context(), nil, "test-pod", "")
 	c.Assert(err, tc.ErrorMatches, "getting forwarded ports: ports unavailable")
 	assertDone(c, done)
 }
@@ -157,7 +160,7 @@ func (s *tunnelSuite) TestForwardPortReportsPostReadyFailure(c *tc.C) {
 			Remote: 17070,
 		}},
 	}
-	tunnel := newTestTunnel(func(
+	tunnel := newTestTunnelWithForwarder(func(
 		_ httpstream.Dialer,
 		_ []string,
 		_ []string,
@@ -169,7 +172,7 @@ func (s *tunnelSuite) TestForwardPortReportsPostReadyFailure(c *tc.C) {
 		forwarder.readyChan = readyChan
 		return forwarder, nil
 	})
-	err := tunnel.forwardPort(c.Context(), nil, "test-pod")
+	err := tunnel.forwardPort(c.Context(), nil, "test-pod", "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	close(release)
@@ -190,7 +193,7 @@ func (s *tunnelSuite) TestForwardPortBrokenNotClosedBeforeForward(c *tc.C) {
 			Remote: 17070,
 		}},
 	}
-	tunnel := newTestTunnel(func(
+	tunnel := newTestTunnelWithForwarder(func(
 		_ httpstream.Dialer,
 		_ []string,
 		_ []string,
@@ -202,7 +205,7 @@ func (s *tunnelSuite) TestForwardPortBrokenNotClosedBeforeForward(c *tc.C) {
 		forwarder.readyChan = readyChan
 		return forwarder, nil
 	})
-	err := tunnel.forwardPort(c.Context(), nil, "test-pod")
+	err := tunnel.forwardPort(c.Context(), nil, "test-pod", "")
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -221,22 +224,76 @@ func (s *tunnelSuite) TestPodHealthCheckStopsTunnelWhenPodIsMissing(c *tc.C) {
 	tunnel.Namespace = "test-namespace"
 	tunnel.client = newPodListRESTClient(&corev1.PodList{})
 
-	tunnel.defaultPodHealthCheck(c.Context(), "missing-pod")
+	tunnel.defaultPodHealthCheck("missing-pod", "")
 
 	assertStopped(c, tunnel)
 }
 
-func (s *tunnelSuite) TestPodHealthCheckStopsTunnelWhenPodIsNotRunning(c *tc.C) {
+func (s *tunnelSuite) TestPodHealthCheckStopsTunnelWhenPodTerminates(c *tc.C) {
 	tunnel := newTestTunnel()
 	tunnel.Namespace = "test-namespace"
 	tunnel.client = newPodListRESTClient(&corev1.PodList{Items: []corev1.Pod{{
-		ObjectMeta: meta.ObjectMeta{Name: "test-pod", Namespace: tunnel.Namespace},
-		Status:     corev1.PodStatus{Phase: corev1.PodPending},
+		ObjectMeta: meta.ObjectMeta{Name: "test-pod", Namespace: tunnel.Namespace, UID: "pod-uid"},
+		Status:     corev1.PodStatus{Phase: corev1.PodFailed},
 	}}})
 
-	tunnel.defaultPodHealthCheck(c.Context(), "test-pod")
+	tunnel.defaultPodHealthCheck("test-pod", "pod-uid")
 
 	assertStopped(c, tunnel)
+}
+
+func (s *tunnelSuite) TestPodHealthCheckStopsTunnelWhenPodIsDeleted(c *tc.C) {
+	tunnel := newTestTunnel()
+	tunnel.Namespace = "test-namespace"
+	pod := &corev1.Pod{ObjectMeta: meta.ObjectMeta{
+		Name:      "test-pod",
+		Namespace: tunnel.Namespace,
+		UID:       "pod-uid",
+	}}
+	tunnel.client = newPodWatchRESTClient(
+		&corev1.PodList{Items: []corev1.Pod{*pod}},
+		watch.Event{Type: watch.Deleted, Object: pod},
+	)
+
+	tunnel.defaultPodHealthCheck(pod.Name, pod.UID)
+
+	assertStopped(c, tunnel)
+}
+
+func (s *tunnelSuite) TestPodHealthCheckStopsTunnelWhenPodIsReplaced(c *tc.C) {
+	tunnel := newTestTunnel()
+	tunnel.Namespace = "test-namespace"
+	pod := &corev1.Pod{ObjectMeta: meta.ObjectMeta{
+		Name:      "test-pod",
+		Namespace: tunnel.Namespace,
+		UID:       "original-uid",
+	}}
+	replacement := pod.DeepCopy()
+	replacement.UID = "replacement-uid"
+	tunnel.client = newPodWatchRESTClient(
+		&corev1.PodList{Items: []corev1.Pod{*pod}},
+		watch.Event{Type: watch.Modified, Object: replacement},
+	)
+
+	tunnel.defaultPodHealthCheck(pod.Name, pod.UID)
+
+	assertStopped(c, tunnel)
+}
+
+func (s *tunnelSuite) TestPodHealthCheckDoesNotStopTunnelForNonTerminalPod(c *tc.C) {
+	tunnel := newTestTunnel()
+	pod := &corev1.Pod{
+		ObjectMeta: meta.ObjectMeta{UID: "pod-uid"},
+		Status:     corev1.PodStatus{Phase: corev1.PodPending},
+	}
+
+	tunnel.checkTunnelPod(c.Context(), "test-pod", types.UID("pod-uid"), pod)
+
+	select {
+	case <-tunnel.stopChan:
+		c.Fatal("tunnel stopped for non-terminal pod")
+	default:
+	}
 }
 
 type fakePortForwarder struct {
@@ -278,11 +335,11 @@ func (f *fakePortForwarder) GetPorts() ([]portforward.ForwardedPort, error) {
 	return f.forwardedPorts, nil
 }
 
-func newTestTunnel(newPortForwarder ...portForwarderFactory) *Tunnel {
-	forwarderFactory := defaultPortForwarder
-	if len(newPortForwarder) > 0 {
-		forwarderFactory = newPortForwarder[0]
-	}
+func newTestTunnel() *Tunnel {
+	return newTestTunnelWithForwarder(defaultPortForwarder)
+}
+
+func newTestTunnelWithForwarder(forwarderFactory portForwarderFactory) *Tunnel {
 	return &Tunnel{
 		Out:              io.Discard,
 		broken:           make(chan struct{}),
@@ -290,6 +347,50 @@ func newTestTunnel(newPortForwarder ...portForwarderFactory) *Tunnel {
 		readyChan:        make(chan struct{}),
 		RemotePort:       "17070",
 		stopChan:         make(chan struct{}),
+	}
+}
+
+func newPodWatchRESTClient(pods *corev1.PodList, events ...watch.Event) *restfake.RESTClient {
+	return &restfake.RESTClient{
+		GroupVersion:         schema.GroupVersion{Version: "v1"},
+		NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+		VersionedAPIPath:     "/api",
+		Client: restfake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+			if req.URL.Query().Get("watch") != "" {
+				var data bytes.Buffer
+				initialEvents := make([]watch.Event, 0, len(pods.Items)+len(events)+1)
+				for i := range pods.Items {
+					initialEvents = append(initialEvents, watch.Event{
+						Type:   watch.Added,
+						Object: &pods.Items[i],
+					})
+				}
+				bookmark := &corev1.Pod{ObjectMeta: meta.ObjectMeta{
+					Annotations:     map[string]string{meta.InitialEventsAnnotationKey: "true"},
+					ResourceVersion: "1",
+				}}
+				initialEvents = append(initialEvents, watch.Event{Type: watch.Bookmark, Object: bookmark})
+				initialEvents = append(initialEvents, events...)
+				for _, event := range initialEvents {
+					object, err := runtime.Encode(scheme.Codecs.LegacyCodec(corev1.SchemeGroupVersion), event.Object)
+					if err != nil {
+						return nil, err
+					}
+					if err := json.NewEncoder(&data).Encode(meta.WatchEvent{
+						Type:   string(event.Type),
+						Object: runtime.RawExtension{Raw: object},
+					}); err != nil {
+						return nil, err
+					}
+				}
+				return newPodWatchRESTResponse(data.Bytes()), nil
+			}
+			data, err := runtime.Encode(scheme.Codecs.LegacyCodec(corev1.SchemeGroupVersion), pods)
+			if err != nil {
+				return nil, err
+			}
+			return newPodRESTResponse(data), nil
+		}),
 	}
 }
 
@@ -303,12 +404,24 @@ func newPodListRESTClient(pods *corev1.PodList) *restfake.RESTClient {
 			if err != nil {
 				return nil, err
 			}
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     http.Header{"Content-Type": []string{runtime.ContentTypeJSON}},
-				Body:       io.NopCloser(bytes.NewReader(data)),
-			}, nil
+			return newPodRESTResponse(data), nil
 		}),
+	}
+}
+
+func newPodRESTResponse(data []byte) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{runtime.ContentTypeJSON}},
+		Body:       io.NopCloser(bytes.NewReader(data)),
+	}
+}
+
+func newPodWatchRESTResponse(data []byte) *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{runtime.ContentTypeJSON + ";stream=watch"}},
+		Body:       io.NopCloser(bytes.NewReader(data)),
 	}
 }
 

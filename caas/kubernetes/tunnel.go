@@ -19,6 +19,7 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -165,7 +166,7 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 		podName = pod.Name
 	}
 
-	err := t.waitForPodReady(ctx, podName)
+	podUID, err := t.waitForPodReady(ctx, podName)
 	if err != nil {
 		return errors.Annotatef(err, "waiting for pod %s to become ready for tunnel", podName)
 	}
@@ -182,10 +183,10 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	}
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, u)
 
-	return t.forwardPort(ctx, dialer, podName)
+	return t.forwardPort(ctx, dialer, podName, podUID)
 }
 
-func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podName string) error {
+func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podName string, podUID types.UID) error {
 	ports := []string{fmt.Sprintf("0:%s", t.RemotePort)}
 	pf, err := t.newPortForwarder(
 		dialer,
@@ -208,7 +209,7 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podN
 
 	// The SPDY connection to the API server may remain open after its target
 	// pod disappears, so independently watch that pod for tunnel health.
-	t.startPodHealthCheck(ctx, podName)
+	t.defaultPodHealthCheck(podName, podUID)
 
 	select {
 	case <-ctx.Done():
@@ -234,16 +235,12 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podN
 
 const podHealthCheckResyncPeriod = 10 * time.Second
 
-// startPodHealthCheck closes the tunnel if its target pod is deleted or no
-// longer running.
-func (t *Tunnel) startPodHealthCheck(ctx context.Context, podName string) {
+// defaultPodHealthCheck closes the tunnel if its target pod is deleted,
+// replaced, or enters a terminal phase.
+func (t *Tunnel) defaultPodHealthCheck(podName string, podUID types.UID) {
 	if t.client == nil {
 		return
 	}
-	t.defaultPodHealthCheck(ctx, podName)
-}
-
-func (t *Tunnel) defaultPodHealthCheck(ctx context.Context, podName string) {
 	clientSet := kubernetes.New(t.client)
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientSet,
@@ -265,35 +262,35 @@ func (t *Tunnel) defaultPodHealthCheck(ctx context.Context, podName string) {
 
 	reg, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
-			t.checkTunnelPod(ctx, podName, obj)
+			t.checkTunnelPod(healthCtx, podName, podUID, obj)
 		},
 		DeleteFunc: func(obj any) {
 			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 			if err != nil {
-				logger.Errorf(ctx, "getting deleted tunnel pod key: %v", err)
+				logger.Errorf(healthCtx, "getting deleted tunnel pod key: %v", err)
 				return
 			}
 			if key == t.Namespace+"/"+podName {
-				logger.Debugf(ctx, "tunnel pod %s deleted, closing tunnel", podName)
+				logger.Debugf(healthCtx, "tunnel pod %s deleted, closing tunnel", podName)
 				t.Close()
 			}
 		},
 		UpdateFunc: func(_, newObj any) {
-			t.checkTunnelPod(ctx, podName, newObj)
+			t.checkTunnelPod(healthCtx, podName, podUID, newObj)
 		},
 	})
 	if err != nil {
-		logger.Errorf(ctx, "adding pod health check handler: %v", err)
+		logger.Errorf(healthCtx, "adding pod health check handler: %v", err)
 		return
 	}
 
 	err = informer.SetWatchErrorHandler(func(_ *cache.Reflector, err error) {
 		if !errors.Is(err, context.Canceled) {
-			logger.Errorf(ctx, "pod health check watch error: %v", err)
+			logger.Errorf(healthCtx, "pod health check watch error: %v", err)
 		}
 	})
 	if err != nil {
-		logger.Errorf(ctx, "setting pod health check error handler: %v", err)
+		logger.Errorf(healthCtx, "setting pod health check error handler: %v", err)
 		return
 	}
 
@@ -308,22 +305,30 @@ func (t *Tunnel) defaultPodHealthCheck(ctx context.Context, podName string) {
 		}
 		_, exists, err := informer.GetStore().GetByKey(t.Namespace + "/" + podName)
 		if err != nil {
-			logger.Errorf(ctx, "checking tunnel pod %s health: %v", podName, err)
+			logger.Errorf(healthCtx, "checking tunnel pod %s health: %v", podName, err)
 			return
 		}
 		if !exists {
-			logger.Debugf(ctx, "tunnel pod %s deleted, closing tunnel", podName)
+			logger.Debugf(healthCtx, "tunnel pod %s deleted, closing tunnel", podName)
 			t.Close()
 		}
 	}()
 }
 
-func (t *Tunnel) checkTunnelPod(ctx context.Context, podName string, obj any) {
+func (t *Tunnel) checkTunnelPod(ctx context.Context, podName string, podUID types.UID, obj any) {
 	p, ok := obj.(*corev1.Pod)
-	if !ok || p.Name != podName || pod.IsPodRunning(p) {
+	if !ok {
 		return
 	}
-	logger.Debugf(ctx, "tunnel pod %s not running, closing tunnel", podName)
+	if podUID != "" && p.UID != podUID {
+		logger.Debugf(ctx, "tunnel pod %s replaced, closing tunnel", podName)
+		t.Close()
+		return
+	}
+	if p.Status.Phase != corev1.PodSucceeded && p.Status.Phase != corev1.PodFailed {
+		return
+	}
+	logger.Debugf(ctx, "tunnel pod %s terminated, closing tunnel", podName)
 	t.Close()
 }
 
@@ -387,7 +392,7 @@ func NewTunnel(
 // waitForPodReady waits for the provided pod name relative to this tunnels
 // namespace to become fully ready in the pod conditions. This func will block
 // until the pod is ready of the context dead line has fired.
-func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
+func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) (types.UID, error) {
 	clientSet := kubernetes.New(t.client)
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientSet,
@@ -396,7 +401,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 	)
 	informer := factory.Core().V1().Pods().Informer()
 
-	eventChan := make(chan error)
+	eventChan := make(chan waitForPodReadyResult)
 	waitCtx, cancel := context.WithCancel(ctx)
 	defer func() {
 		cancel()
@@ -409,7 +414,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if !valid {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.New("expected valid pod for informer"):
+				case eventChan <- waitForPodReadyResult{err: errors.New("expected valid pod for informer")}:
 				}
 				return
 			}
@@ -417,7 +422,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if objPod.Name == podName && pod.IsPodRunning(objPod) {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- nil:
+				case eventChan <- waitForPodReadyResult{podUID: objPod.UID}:
 				}
 			}
 		},
@@ -426,7 +431,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if !valid {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.New("expected valid pod for informer"):
+				case eventChan <- waitForPodReadyResult{err: errors.New("expected valid pod for informer")}:
 				}
 				return
 			}
@@ -434,7 +439,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if objPod.Name == podName && pod.IsPodRunning(objPod) {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- nil:
+				case eventChan <- waitForPodReadyResult{podUID: objPod.UID}:
 				}
 			}
 		},
@@ -443,7 +448,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if !valid {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.New("expected valid pod for informer"):
+				case eventChan <- waitForPodReadyResult{err: errors.New("expected valid pod for informer")}:
 				}
 				return
 			}
@@ -451,13 +456,13 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if pod.Name == podName {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.Errorf("tunnel pod %s is being deleted", podName):
+				case eventChan <- waitForPodReadyResult{err: errors.Errorf("tunnel pod %s is being deleted", podName)}:
 				}
 			}
 		},
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer func() {
 		_ = informer.RemoveEventHandler(reg)
@@ -469,15 +474,20 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 		}
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	go informer.RunWithContext(waitCtx)
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-eventChan:
-		return err
+		return "", ctx.Err()
+	case result := <-eventChan:
+		return result.podUID, result.err
 	}
+}
+
+type waitForPodReadyResult struct {
+	podUID types.UID
+	err    error
 }

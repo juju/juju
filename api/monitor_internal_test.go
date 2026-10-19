@@ -73,6 +73,21 @@ func (s *MonitorSuite) TestProxierBroken(c *tc.C) {
 	assertEvent(c, s.broken)
 }
 
+func (s *MonitorSuite) TestProxierBrokenDuringPing(c *tc.C) {
+	pingStarted := make(chan struct{})
+	s.monitor.ping = func(context.Context) error {
+		close(pingStarted)
+		<-c.Context().Done()
+		return nil
+	}
+	go s.monitor.run()
+
+	s.waitThenAdvance(c, testPingPeriod)
+	assertEvent(c, pingStarted)
+	close(s.proxy)
+	assertEvent(c, s.broken)
+}
+
 func (s *MonitorSuite) TestFirstPingFails(c *tc.C) {
 	s.monitor.ping = func(context.Context) error { return errors.New("boom") }
 	go s.monitor.run()

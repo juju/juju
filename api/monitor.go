@@ -71,5 +71,9 @@ func (m *monitor) pingWithTimeout(ctx context.Context) bool {
 	case <-m.clock.After(m.pingTimeout):
 		logger.Warningf(ctx, "health ping timed out after %s", m.pingTimeout)
 		return false
+
+	case <-m.proxierBroken:
+		logger.Debugf(ctx, "connection proxier died")
+		return false
 	}
 }
