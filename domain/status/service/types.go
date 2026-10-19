@@ -32,7 +32,6 @@ type Application struct {
 	Platform         deployment.Platform
 	Channel          *deployment.Channel
 	Exposed          bool
-	LXDProfile       *internalcharm.LXDProfile
 	Scale            *int
 	WorkloadVersion  *string
 	K8sProviderID    *string
@@ -73,7 +72,6 @@ type Machine struct {
 	Platform                deployment.Platform
 	Constraints             constraints.Value
 	HardwareCharacteristics instance.HardwareCharacteristics
-	LXDProfiles             []string
 	ClusterInfo             *MachineClusterInfo
 	AgentVersion            string
 }

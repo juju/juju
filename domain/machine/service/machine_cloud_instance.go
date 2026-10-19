@@ -117,7 +117,7 @@ func (s *Service) GetHardwareCharacteristics(ctx context.Context, machineUUID ma
 }
 
 // SetMachineCloudInstance sets an entry in the machine cloud instance table
-// along with the instance tags and the link to a lxd profile if any.
+// along with the instance tags.
 func (s *Service) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID machine.UUID,

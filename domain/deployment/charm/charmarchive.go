@@ -131,19 +131,6 @@ func readCharmArchive(zopen zipOpener) (archive *CharmArchive, err error) {
 		}
 	}
 
-	reader, err = zipOpenFile(zipr, "lxd-profile.yaml")
-	if _, ok := err.(*noCharmArchiveFile); ok {
-		b.lxdProfile = NewLXDProfile()
-	} else if err != nil {
-		return nil, err
-	} else {
-		b.lxdProfile, err = ReadLXDProfile(reader)
-		_ = reader.Close()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	reader, err = zipOpenFile(zipr, "version")
 	if err != nil {
 		if _, ok := err.(*noCharmArchiveFile); !ok {

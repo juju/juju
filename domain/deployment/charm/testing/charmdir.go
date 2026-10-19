@@ -20,13 +20,12 @@ import (
 // CharmDir encapsulates access to data and operations
 // on a charm directory.
 type CharmDir struct {
-	meta       *charm.Meta
-	config     *charm.ConfigSpec
-	actions    *charm.Actions
-	lxdProfile *charm.LXDProfile
-	manifest   *charm.Manifest
-	version    string
-	revision   int
+	meta     *charm.Meta
+	config   *charm.ConfigSpec
+	actions  *charm.Actions
+	manifest *charm.Manifest
+	version  string
+	revision int
 
 	Path string
 }
@@ -66,13 +65,6 @@ func ReadCharmDir(path string) (*CharmDir, error) {
 	b.revision, err = charm.ReadCharmDirRevision(path)
 	if errors.Is(err, charm.FileNotFound) {
 		b.revision = 0
-	} else if err != nil {
-		return nil, err
-	}
-
-	b.lxdProfile, err = charm.ReadCharmDirLXDProfile(path)
-	if errors.Is(err, charm.FileNotFound) {
-		b.lxdProfile = charm.NewLXDProfile()
 	} else if err != nil {
 		return nil, err
 	}
@@ -129,12 +121,6 @@ func (dir *CharmDir) Config() *charm.ConfigSpec {
 // for the charm expanded in dir.
 func (dir *CharmDir) Actions() *charm.Actions {
 	return dir.actions
-}
-
-// LXDProfile returns the LXDProfile representing the lxd-profile.yaml file
-// for the charm expanded in dir.
-func (dir *CharmDir) LXDProfile() *charm.LXDProfile {
-	return dir.lxdProfile
 }
 
 // Manifest returns the Manifest representing the manifest.yaml file

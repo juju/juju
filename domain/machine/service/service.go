@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
-	"github.com/juju/juju/domain/machine/internal"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/statushistory"
@@ -83,7 +82,7 @@ type State interface {
 	AvailabilityZone(context.Context, string) (string, error)
 
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
-	// along with the instance tags and the link to a lxd profile if any.
+	// along with the instance tags.
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
 
 	// DetachLostMachineCloudInstance atomically clears the provider-observed
@@ -154,10 +153,6 @@ type State interface {
 
 	// GetMachineUUID returns the UUID of a machine identified by its name.
 	GetMachineUUID(context.Context, machine.Name) (machine.UUID, error)
-
-	// AppliedLXDProfileNames returns the names of the LXD profiles on the
-	// machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error)
 
 	// NamespaceForWatchMachineCloudInstance returns the namespace for watching
 	// machine cloud instance changes.
@@ -231,10 +226,6 @@ type State interface {
 	// SetSSHHostKeys sets the SSH host keys for the given machine.
 	// This will overwrite the existing SSH host keys for the machine.
 	SetSSHHostKeys(ctx context.Context, mUUID string, sshHostKeys []string) error
-
-	// GetLXDProfilesForMachine returns a slice of structs containing data to
-	// put LXD Profiles in LXC.
-	GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error)
 
 	// GetPollingInfos returns the polling information for the given machines.
 	GetPollingInfos(ctx context.Context, machineNames []string) (domainmachine.PollingInfos, error)
@@ -452,18 +443,6 @@ func (s *Service) GetMachineUUID(ctx context.Context, name machine.Name) (machin
 	}
 
 	return s.st.GetMachineUUID(ctx, name)
-}
-
-// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-func (s *Service) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	profiles, err := s.st.AppliedLXDProfileNames(ctx, mUUID.String())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return profiles, nil
 }
 
 // GetAllProvisionedMachineInstanceID returns all provisioned machine

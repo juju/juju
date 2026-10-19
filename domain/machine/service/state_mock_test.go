@@ -22,7 +22,6 @@ import (
 	constraints "github.com/juju/juju/domain/constraints"
 	life "github.com/juju/juju/domain/life"
 	machine0 "github.com/juju/juju/domain/machine"
-	internal "github.com/juju/juju/domain/machine/internal"
 	statushistory "github.com/juju/juju/internal/statushistory"
 )
 
@@ -38,7 +37,6 @@ type MockStateMockRecorder struct {
 	mock                                                      *MockState
 	addMachineExpects                                         []*gomock.Call2_3[context.Context, machine0.AddMachineArgs, string, []machine.Name, error]
 	allMachineNamesExpects                                    []*gomock.Call1_2[context.Context, []machine.Name, error]
-	appliedLXDProfileNamesExpects                             []*gomock.Call2_2[context.Context, string, []string, error]
 	availabilityZoneExpects                                   []*gomock.Call2_2[context.Context, string, string, error]
 	checkMachineReprovisioningEligibilityExpects              []*gomock.Call2_1[context.Context, machine.Name, error]
 	clearMachineRebootExpects                                 []*gomock.Call2_1[context.Context, machine.UUID, error]
@@ -49,7 +47,6 @@ type MockStateMockRecorder struct {
 	getInstanceIDExpects                                      []*gomock.Call2_2[context.Context, string, string, error]
 	getInstanceIDAndNameExpects                               []*gomock.Call2_3[context.Context, string, string, string, error]
 	getInstanceIDByMachineNameExpects                         []*gomock.Call2_2[context.Context, machine.Name, string, error]
-	getLXDProfilesForMachineExpects                           []*gomock.Call2_2[context.Context, string, []internal.CreateLXDProfileDetails, error]
 	getMachineBaseExpects                                     []*gomock.Call2_2[context.Context, string, base.Base, error]
 	getMachineContainersExpects                               []*gomock.Call2_2[context.Context, string, []string, error]
 	getMachineLifeExpects                                     []*gomock.Call2_2[context.Context, machine.Name, life.Life, error]
@@ -134,24 +131,6 @@ func (mr *MockStateMockRecorder) AllMachineNames(arg0 any) *MockStateAllMachineN
 
 // MockStateAllMachineNamesCall is the typed call wrapper for AllMachineNames.
 type MockStateAllMachineNamesCall = gomock.Call1_2[context.Context, []machine.Name, error]
-
-// AppliedLXDProfileNames mocks base method.
-func (m *MockState) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.appliedLXDProfileNamesExpects, m.ctrl, m, "AppliedLXDProfileNames", ctx, mUUID)
-}
-
-// AppliedLXDProfileNames indicates an expected call of AppliedLXDProfileNames.
-func (mr *MockStateMockRecorder) AppliedLXDProfileNames(ctx, mUUID any) *MockStateAppliedLXDProfileNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "AppliedLXDProfileNames", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(mUUID))
-	mr.appliedLXDProfileNamesExpects = append(mr.appliedLXDProfileNamesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateAppliedLXDProfileNamesCall is the typed call wrapper for AppliedLXDProfileNames.
-type MockStateAppliedLXDProfileNamesCall = gomock.Call2_2[context.Context, string, []string, error]
 
 // AvailabilityZone mocks base method.
 func (m *MockState) AvailabilityZone(arg0 context.Context, arg1 string) (string, error) {
@@ -332,24 +311,6 @@ func (mr *MockStateMockRecorder) GetInstanceIDByMachineName(arg0, arg1 any) *Moc
 
 // MockStateGetInstanceIDByMachineNameCall is the typed call wrapper for GetInstanceIDByMachineName.
 type MockStateGetInstanceIDByMachineNameCall = gomock.Call2_2[context.Context, machine.Name, string, error]
-
-// GetLXDProfilesForMachine mocks base method.
-func (m *MockState) GetLXDProfilesForMachine(ctx context.Context, mName string) ([]internal.CreateLXDProfileDetails, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getLXDProfilesForMachineExpects, m.ctrl, m, "GetLXDProfilesForMachine", ctx, mName)
-}
-
-// GetLXDProfilesForMachine indicates an expected call of GetLXDProfilesForMachine.
-func (mr *MockStateMockRecorder) GetLXDProfilesForMachine(ctx, mName any) *MockStateGetLXDProfilesForMachineCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, []internal.CreateLXDProfileDetails, error](mr.mock.ctrl.T, mr.mock, "GetLXDProfilesForMachine", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(mName))
-	mr.getLXDProfilesForMachineExpects = append(mr.getLXDProfilesForMachineExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetLXDProfilesForMachineCall is the typed call wrapper for GetLXDProfilesForMachine.
-type MockStateGetLXDProfilesForMachineCall = gomock.Call2_2[context.Context, string, []internal.CreateLXDProfileDetails, error]
 
 // GetMachineBase mocks base method.
 func (m *MockState) GetMachineBase(ctx context.Context, mName string) (base.Base, error) {
