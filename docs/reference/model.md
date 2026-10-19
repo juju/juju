@@ -119,6 +119,8 @@ activates the imported model on the target, transfers the model's
 logs, and reaps the source model (active users are redirected). An
 aborted migration rolls the phases back on both sides.
 
+- *Rule:* Importing a model from a 3.6 controller transforms what 4.1 stores differently: a 3.6 consumer proxy carries one offer connection per relation, and the import creates a synthetic application, an offer connection and a consumer record for each of them; annotations and the controller's API addresses land in their 4.1 tables; and secret grants whose relation key no longer resolves are skipped with a warning.
+- *Rule:* The log transfer checkpoints its progress in the migrated model's database. An interrupted transfer resumes from the last checkpoint and may replay records after it, so duplicates are possible and no log is missed.
 - *Rule:* The target must be a Juju 4.1 (or newer) controller: it must support the migration envelope facade version the source sends (version 8 of the migration target facade). A 4.0 controller cannot be a migration target.
 - *Related errors:*
   - **`target controller does not support the model migration format; upgrade the target controller to Juju 4.1 or later`**: *Trigger:* The prechecks find a target whose migration target facade is older than the envelope needs. *Remediation:* Upgrade the target controller to Juju 4.1 or later.
