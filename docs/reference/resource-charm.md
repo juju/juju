@@ -95,7 +95,8 @@ The record set:
   - *Rule:* One stored blob serves at most one application: repointing an application's usage rewrites the single usage record, and the application may keep using a blob acquired for a different charm revision than the one it runs.
 - **Staged resource records:** Resources staged before the application exists, keyed by the resource's UUID and the application's name, with no foreign key, because the application does not exist yet.
 - **Retrieval record:** Who put the blob there, a type (`user`, `unit` or `application`) and that entity's name, keyed by the resource's UUID. The retrieval is recorded at store time: the type says who (a user pushed it, a unit or the application fetched it) and the name says which.
-- **Unit copy record:** A composite primary key of the resource's UUID and the unit's UUID, plus the time it was added.
+- **Unit copy record:** A composite primary key of the unit's UUID and the charm's resource name, so a unit holds one copy per resource name; it points at the resource record and carries the time it was added.
+  - *Rule:* The unit's selection is immutable: the application can move on to a newer record while the unit keeps pointing at the one it runs, until its charm update drops the copy.
 - **Store links, split by type:** A file resource's link points at its object-store blob (keyed by the blob record, with the size and the sha384 digest); an OCI image resource's link points at its metadata record (the registry path, the username and the password nullable).
 - **Reads:** The reads run over the joined set: the two store links coalesce into one record's size and digest; one read lists the resources an application actually uses; another lists the units' own copies.
 - **Adjacent satellite:** One more application-side record says the provisioner manages an application's Kubernetes resources; it blocks removal until cleared (see {ref}`application <application>`).
@@ -115,18 +116,21 @@ A resource has no machinery of its own: nothing runs a resource. What
 runs is the storing and the repointing, split by owner:
 
 - **The push:** The resources API stores a client's blob: the type's store takes the content, the record carries the retrieval (the user's name for a manual push), and, when the resource already belongs to an application, the application's charm-modified version is bumped so its units notice. The pending case does not bump: the application does not exist yet (the push path's own comment).
-  - *Rule:* An upload replaces: the re-upload's record takes over the usage and the prior blob is removed from its store, an absent blob being tolerated; a failed store removes the blob it just wrote.
+  - *Rule:* A stored resource is immutable. An upload or a revision update writes a new record, repoints the application's usage at it, and schedules a removal job for the displaced record (see the resource removal below); the prior record and its content stay until nothing references them. A failed store removes the blob it just wrote.
 - **The repository poll:** The charm revision updater, the worker that reserves the charm's newer revision, records the revision's resources per application: records land as `potential`, stamped with the poll time.
   - *Related error:*
     - **`charm ID not valid`**: *Trigger:* A repository record names a charm ID that does not validate. *Remediation:* Check the charm the record points at.
-- **The revision update:** A client-facing update repoints the application: a store resource's revision update writes a new resource record and removes the prior blob, and an upload's update replaces the blob through the same store path.
-- **The unit's copy:** A unit fetches its resource through the unit resources API: the blob is opened from the store, the retrieval recorded as the unit's, and the unit's own copy is set; an application-level fetch records the retrieval and sets nothing.
+- **The revision update:** A client-facing update repoints the application: a store resource's revision update and an upload's update each write a new resource record and set it on the application, in one transaction with the removal job for the displaced record. A charm refresh does the same for the resources the new charm replaces.
+- **The unit's copy:** A unit fetches its resource through the unit resources API: the blob is opened from the store, the retrieval recorded as the unit's, and the unit's own copy is set; an application-level fetch records the retrieval and sets nothing. A unit whose charm still declares a resource that the application's current charm dropped fetches the copy it already selected, so a lagging unit finishes its rollout; once the unit's charm is updated, its copies that are no longer in use are dropped.
 - **The model import:** A migrating model's resources are imported explicitly: each record's name (non-empty, unique per application), origin (one of the two values) and upload revision (non-negative) are validated before the insert.
   - *Related errors:*
     - **`resource name not valid`**: *Trigger:* An import names an empty resource, or carries two resources of the same name for one application. *Remediation:* Name the resource exactly as the charm's metadata declares it.
     - **`resource revision not valid`**: *Trigger:* The import's records carry a negative upload revision. *Remediation:* A revision counts from zero.
     - **`origin not valid`**: *Trigger:* An import's resource origin is neither `store` nor `upload`. *Remediation:* The origin is one of the two values.
 - **The pending teardown:** A deployment that fails cleans up the resources it staged: the staged blobs are deleted and the cleanup errors are logged rather than reported, so they do not mask the deployment failure (the teardown's own comment).
+- **The resource removal:** The removal worker runs a resource removal job per displaced record. The job deletes the record once no application, pending application or unit references it; while a unit still holds the old resource, the job reports itself incomplete and the worker retries at its polling interval. Removing an application also deletes the charm's resources that no application references any more, before the charm itself is deleted if unused; a failure here is logged and does not fail the application's removal job.
+  - *Related error:*
+    - **`resource %q is still in use`**: *Trigger:* A resource removal job finds a unit still referencing the resource. *Remediation:* None; the job retries until the unit has let go.
 - **The unused removal surfaces:** The service exposes an application-resource removal and a unit-resource removal (the application one guarded by the cleanup-ordering check); neither has a non-test caller in the current code. The surfaces are stated, not narrated: nothing invokes them.
 
 (the-resource-watchers)=
