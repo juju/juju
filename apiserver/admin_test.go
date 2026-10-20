@@ -590,6 +590,12 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	_, err = api.Open(info, fastDialOpts)
 	_, ok = errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
+
+	// External users have no stored model access, but are still redirected.
+	info.Tag = names.NewUserTag("jaas-abc@external")
+	_, err = api.Open(info, fastDialOpts)
+	_, ok = errors.Cause(err).(*api.RedirectError)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {

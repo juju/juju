@@ -377,7 +377,10 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 	// granted access, do not return a redirect error.
 	// We need to return redirects if possible for anonymous logins in order
 	// to ensure post-migration operation of CMRs.
-	if mig == nil || (userTag.Id() != api.AnonymousUsername && mig.ModelUserAccess(userTag) == permission.NoAccess) {
+	// External users may hold access without a stored permission record, so
+	// they are always redirected and the target controller decides.
+	needsAccess := userTag.Id() != api.AnonymousUsername && userTag.IsLocal()
+	if mig == nil || (needsAccess && mig.ModelUserAccess(userTag) == permission.NoAccess) {
 		return nil
 	}
 
