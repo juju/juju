@@ -38,12 +38,6 @@ model "Juju" {
       ssh_db      [type: database, label: "Model database\n(tunnel request)"]
     }
     ssh_target [type: external, label: "Machine or unit"]
-    ssh_processing_controller [type: juju-software, label: "Controller",
-                               abstracts: "controller"] {
-      ssh_decrypt [label: "🔓 decrypt"]
-      ssh_proxy   [type: juju-software, label: "SSH Proxy\n(inspect/process)"]
-      ssh_encrypt [label: "🔒 encrypt"]
-    }
     ssh_machine [type: node, label: "Machine", deployed: true] {
       ssh_machine_agent [type: juju-software, label: "Machine agent"]
       ssh_machine_server [type: external, label: "Machine SSH server"]
@@ -134,10 +128,6 @@ model "Juju" {
     ssh_machine_agent -> ssh_db [type: stream, label: "2. observes request via API"]
     ssh_machine_agent -> ssh_api [type: stream, label: "3. opens reverse tunnel"]
     ssh_session -> ssh_machine_server [type: stream, label: "4. SSH over reverse tunnel"]
-    client -> ssh_processing_controller [type: stream]
-    ssh_processing_controller -> ssh_target [type: stream]
-    ssh_decrypt -> ssh_proxy [type: control]
-    ssh_proxy -> ssh_encrypt [type: control]
   }
 
   behaviours {
@@ -758,26 +748,6 @@ sequence "juju deploy (Kubernetes)" from "Juju" { select { behaviour: "deploy-k8
 sequence "juju config"         from "Juju" { select { behaviour: "config" } }
 sequence "juju integrate"      from "Juju" { select { behaviour: "integrate" } }
 
-diagram "SSH proxy overview" from "Juju" {
-  select {
-    nodes: client ssh_processing_controller ssh_target
-    edges: type stream type control
-    labels: hidden
-    sizing: uniform
-  }
-  positions {
-    client left-of ssh_processing_controller gap: 100
-    client align-middle ssh_processing_controller
-    ssh_target right-of ssh_processing_controller gap: 100
-    ssh_target align-middle ssh_processing_controller
-    ssh_processing_controller direction: down
-    ssh_proxy below ssh_decrypt gap: 40
-    ssh_proxy align-centre ssh_decrypt
-    ssh_encrypt below ssh_proxy gap: 40
-    ssh_encrypt align-centre ssh_proxy
-  }
-}
-
 diagram "SSH proxy connections" from "Juju" {
   select {
     nodes: client ssh_gateway ssh_session ssh_target
@@ -785,11 +755,11 @@ diagram "SSH proxy connections" from "Juju" {
     except: client -> ssh_session
   }
   positions {
-    client left-of ssh_gateway gap: 160
+    client left-of ssh_gateway gap: 120
     client align-middle ssh_gateway
-    ssh_session below ssh_gateway gap: 100
-    ssh_session align-centre ssh_gateway
-    ssh_target right-of ssh_session gap: 160
+    ssh_session right-of ssh_gateway gap: 120
+    ssh_session align-middle ssh_gateway
+    ssh_target right-of ssh_session gap: 120
     ssh_target align-middle ssh_session
   }
   annotations {
@@ -812,30 +782,222 @@ diagram "SSH proxy Kubernetes" from "Juju" {
   }
 }
 
-diagram "SSH proxy machine reverse tunnel" from "Juju" {
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller and model DDL;
+// the key algorithm lookup tables (ssh_key_algorithm_type, in both databases) and
+// the neighbours of machine and unit are left out of the model, and their
+// foreign key columns with them.
+model "SSHServerSchema" {
+
+  nodes {
+    controller_ssh_host_key [type: record, label: "Controller\nhost key",
+                 ground: "controller:controller_ssh_host_key"] {
+      fields {
+        id [label: "id", type: "text", pk: true]
+        algorithm_type_id [label: "algorithm_type_id", type: "int"]
+        ssh_key [label: "ssh_key", type: "text"]
+        public_key [label: "public_key", type: "blob"]
+      }
+    }
+
+    controller_ssh_server_port [type: record, label: "Server\nport",
+                 ground: "controller:controller_ssh_server_port"] {
+      fields {
+        port [label: "port", type: "int"]
+      }
+    }
+
+    machine [type: context-record, label: "Machine",
+                 ground: "model:machine"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        nonce [label: "nonce", type: "text", null: true]
+        password_hash [label: "password_hash", type: "text", null: true]
+        force_destroyed [label: "force_destroyed", type: "bool", null: true]
+        agent_started_at [label: "agent_started_at", type: "datetime", null: true]
+        hostname [label: "hostname", type: "text", null: true]
+        keep_instance [label: "keep_instance", type: "bool", null: true]
+      }
+    }
+
+    unit [type: context-record, label: "Unit",
+                 ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        password_hash [label: "password_hash", type: "text", null: true]
+      }
+    }
+
+    machine_ssh_host_key [type: record, label: "Machine host\nkey",
+                 ground: "model:machine_ssh_host_key"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        machine_uuid [label: "machine_uuid", type: "text", fk: true]
+        ssh_key [label: "ssh_key", type: "text"]
+      }
+    }
+
+    machine_virtual_ssh_host_key [type: record, label: "Machine virtual\nhost key",
+                 ground: "model:machine_virtual_ssh_host_key"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        algorithm_type_id [label: "algorithm_type_id", type: "int"]
+        ssh_key [label: "ssh_key", type: "text"]
+      }
+    }
+
+    unit_virtual_ssh_host_key [type: record, label: "Unit virtual\nhost key",
+                 ground: "model:unit_virtual_ssh_host_key"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        algorithm_type_id [label: "algorithm_type_id", type: "int"]
+        ssh_key [label: "ssh_key", type: "text"]
+      }
+    }
+
+    ssh_connection_request [type: record, label: "Connection\nrequest",
+                 ground: "model:ssh_connection_request"] {
+      fields {
+        tunnel_id [label: "tunnel_id", type: "text", pk: true]
+        machine_uuid [label: "machine_uuid", type: "text", fk: true]
+        expires_at [label: "expires_at", type: "datetime"]
+        controller_addresses [label: "controller_addresses", type: "text"]
+        unit_port [label: "unit_port", type: "int"]
+        ephemeral_public_key [label: "ephemeral_public_key", type: "blob"]
+      }
+    }
+  }
+
+  edges {
+    machine_ssh_host_key.machine_uuid -> machine.uuid [type: data]
+    machine_virtual_ssh_host_key.machine_uuid -> machine.uuid [type: data]
+    ssh_connection_request.machine_uuid -> machine.uuid [type: data]
+    unit_virtual_ssh_host_key.unit_uuid -> unit.uuid [type: data]
+  }
+
+  style { extends: juju }
+}
+
+diagram "SSH server data model" from "SSHServerSchema" {
   select {
-    nodes: ssh_session ssh_db ssh_api ssh_machine_server ssh_machine_agent
-    edges: type api type stream
-    routing: orthogonal
+    nodes: machine unit machine_ssh_host_key machine_virtual_ssh_host_key unit_virtual_ssh_host_key ssh_connection_request
+    edges: type data
+    labels: hidden
+    fields: hidden
     sizing: uniform
+    routing: orthogonal
   }
   positions {
-    ssh_db below ssh_session gap: 80
-    ssh_db align-centre ssh_session
-    ssh_api below ssh_db gap: 80
-    ssh_api align-centre ssh_db
-    ssh_machine_server right-of ssh_session gap: 240
-    ssh_machine_server align-middle ssh_session
-    ssh_machine_agent below ssh_machine_server gap: 80
-    ssh_machine_agent align-centre ssh_machine_server
-    ssh_machine_agent align-middle ssh_api
+    machine right-of machine_ssh_host_key gap: 70
+    machine align-middle machine_ssh_host_key
+    machine_virtual_ssh_host_key above machine gap: 60
+    machine_virtual_ssh_host_key align-centre machine
+    ssh_connection_request below machine gap: 60
+    ssh_connection_request align-centre machine
+    unit right-of machine gap: 70
+    unit align-middle machine
+    unit_virtual_ssh_host_key above unit gap: 60
+    unit_virtual_ssh_host_key align-centre unit
+    machine same-size machine_ssh_host_key
+    unit same-size machine_ssh_host_key
+    machine_virtual_ssh_host_key same-size machine_ssh_host_key
+    unit_virtual_ssh_host_key same-size machine_ssh_host_key
+    ssh_connection_request same-size machine_ssh_host_key
   }
   annotations {
-    box [nodes: "ssh_session ssh_db ssh_api", label: "Juju controller",
-         style: "solid", color: "#E95420", padding: 24]
-    box [nodes: "ssh_machine_server ssh_machine_agent", label: "Machine",
+    box [nodes: "machine_ssh_host_key machine machine_virtual_ssh_host_key ssh_connection_request unit unit_virtual_ssh_host_key", label: "Model database",
          style: "solid", color: "#E95420", padding: 24]
   }
+}
+
+// Connecting to a machine, narrated in two sequences. Steps 1 to 5 follow
+// the jump server and its authorization, steps 6 to 10 the reverse tunnel.
+//   internal/worker/sshserver/server.go:190-201 (PublicKeyHandler),
+//     authentication.go:35-49 (the user name of the connection is the Juju
+//     user; the presented key must be one of the user's stored keys)
+//   server.go:215-258 (direct-tcpip: parse the virtual hostname, authorize,
+//     build the terminating server, accept the channel)
+//   authorization.go:34-65 (admin on the model or superuser on the
+//     controller, then the key authorized on the model)
+//   terminatingserver.go:33-54 and domain/ssh/service/model/service.go:
+//     VirtualHostKey (the terminating server presents the target's virtual
+//     host key, generated and stored on first use)
+//   internal/sshtunneler/tunneler.go:RequestTunnel (ephemeral key, request
+//     stored, 60 second deadline), domain/ssh/state/model/state.go:
+//     InsertSSHConnRequest
+//   internal/worker/sshsession/worker.go:handleConnectionInternal (watch,
+//     ephemeral key into authorized_keys, dial /model/<uuid>/ssh-tunnel/<id>,
+//     pipe to the local sshd)
+//   apiserver/internal/handlers/sshproxy/tunnel.go (the tunnel is accepted
+//     only from the machine the request names)
+//   internal/sshtunneler/tunneler.go:wait (dial SSH over the tunnel as
+//     ubuntu with the ephemeral key, check the machine's reported host keys)
+//   internal/worker/sshserver/handlers/machine (session, port forwarding,
+//     and SFTP pass through)
+model "SSHConnect" {
+
+  nodes {
+    sc_client   [type: juju-software, label: "Client"]
+    sc_tunnel   [type: juju-software, label: "SSH tunnel server"]
+    sc_ctl_db   [type: database, label: "Controller database"]
+    sc_model_db [type: database, label: "Model database"]
+    sc_target   [type: juju-software, label: "Target SSH server"]
+    sc_api      [type: juju-software, label: "API server"]
+    sc_agent    [type: juju-software, label: "Machine agent"]
+    sc_sshd     [type: external, label: "Machine SSH server"]
+  }
+
+  edges {
+    sc_client -> sc_tunnel   [type: stream]
+    sc_tunnel -> sc_ctl_db   [type: api]
+    sc_tunnel -> sc_model_db [type: api]
+    sc_tunnel -> sc_client   [type: stream]
+    sc_target -> sc_model_db [type: api]
+    sc_agent  -> sc_model_db [type: api]
+    sc_agent  -> sc_agent    [type: api]
+    sc_agent  -> sc_api      [type: stream]
+    sc_api    -> sc_target   [type: ipc]
+    sc_agent  -> sc_sshd     [type: stream]
+    sc_target -> sc_sshd     [type: stream]
+    sc_target -> sc_target   [type: api]
+  }
+
+  behaviours {
+    behaviour "connect-authorize" {
+      sc_client -> sc_tunnel:   call "open an SSH connection as the Juju user, presenting a key"
+      sc_tunnel -> sc_ctl_db:   call "read the user's stored keys"
+      sc_ctl_db -> sc_tunnel:   return "keys"
+      sc_client -> sc_tunnel:   call "once the key is accepted, ask for a channel to the virtual hostname of the target"
+      sc_tunnel -> sc_ctl_db:   call "check the user's access to the model and that the key is authorized on it"
+      sc_ctl_db -> sc_tunnel:   return "allowed"
+      sc_tunnel -> sc_model_db: call "read the target's virtual host key, creating it on first use"
+      sc_model_db -> sc_tunnel: return "host key"
+      sc_tunnel -> sc_client:   return "channel open; the client runs the inner SSH handshake with the target SSH server over it"
+    }
+    behaviour "connect-tunnel" {
+      sc_target   -> sc_model_db: call "store a connection request with a one-time public key and a 60 second expiry"
+      sc_agent    -> sc_model_db: call "watch for requests, and read the one that names this machine"
+      sc_model_db -> sc_agent:    return "the request"
+      sc_agent    -> sc_agent:    self "authorize the one-time key"
+      sc_agent    -> sc_api:      call "open a tunnel, authenticated as the machine"
+      sc_api      -> sc_target:   call "hand the tunnel to the waiting target SSH server"
+      sc_agent    -> sc_sshd:     call "pipe the tunnel to the local SSH server"
+      sc_target   -> sc_sshd:     call "log in as ubuntu with the one-time key, checking the machine's host keys"
+      sc_sshd     -> sc_target:   return "session"
+      sc_target   -> sc_target:   self "pass the user's session, port forwards, and file transfers through"
+    }
+  }
+
+  style { extends: juju }
+}
+
+sequence "Connecting to a machine: authorization" from "SSHConnect" {
+  select { behaviour: "connect-authorize" }
+}
+
+sequence "Connecting to a machine: reverse tunnel" from "SSHConnect" {
+  select { behaviour: "connect-tunnel" }
 }
 
 // Scaffolded by tools/build_page_schema.py from the 4.1 controller and model DDL;
