@@ -6,5 +6,4 @@ package container
 // TestLXDManager for use in worker/provisioner tests
 type TestLXDManager interface {
 	Manager
-	LXDProfileNameRetriever
 }

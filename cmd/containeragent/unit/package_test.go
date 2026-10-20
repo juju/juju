@@ -84,7 +84,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"core/leadership",
 		"core/lease",
 		"core/life",
-		"core/lxdprofile",
 		"core/machinelock",
 		"core/migration",
 		"core/model",
@@ -198,7 +197,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"worker/uniter/runner/jujuc",
 		"worker/uniter/storage",
 		"worker/uniter/upgradeseries",
-		"worker/uniter/verifycharmprofile",
 	)
 
 	unexpected := found.Difference(expected)

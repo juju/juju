@@ -4,7 +4,6 @@
 package lxd
 
 import (
-	"context"
 	"maps"
 	"net/http"
 	"slices"
@@ -153,89 +152,10 @@ func (s *Server) UpdateContainerConfig(name string, cfg map[string]string) error
 	return errors.Trace(resp.Wait())
 }
 
-// GetContainerProfiles returns the list of profiles that are associated with a
-// container.
-func (s *Server) GetContainerProfiles(name string) ([]string, error) {
-	container, _, err := s.GetInstance(name)
-	if err != nil {
-		return []string{}, errors.Trace(err)
-	}
-	return container.Profiles, nil
-}
-
 // UseProject ensures that this server will use the input project.
 // See: https://documentation.ubuntu.com/lxd/en/latest/projects.
 func (s *Server) UseProject(project string) {
 	s.InstanceServer = s.InstanceServer.UseProject(project)
-}
-
-// ReplaceOrAddContainerProfile updates the profiles for the container with the
-// input name, using the input values.
-// TODO: HML 2-apr-2019
-// remove when provisioner_task processProfileChanges() is
-// removed.
-func (s *Server) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
-	container, eTag, err := s.GetInstance(name)
-	if err != nil {
-		return errors.Trace(errors.Annotatef(err, "failed to get container %q", name))
-	}
-	profiles := addRemoveReplaceProfileName(container.Profiles, oldProfile, newProfile)
-
-	container.Profiles = profiles
-	resp, err := s.UpdateInstance(name, container.Writable(), eTag)
-	if err != nil {
-		return errors.Trace(errors.Annotatef(err, "failed to updated container %q", name))
-	}
-
-	op := resp.Get()
-	logger.Debugf(context.TODO(), "updated container, waiting on %s", op.Description)
-	err = resp.Wait()
-	if err != nil {
-		logger.Tracef(context.TODO(), "updating container failed on %q", err)
-	}
-	return errors.Trace(err)
-}
-
-func addRemoveReplaceProfileName(profiles []string, oldProfile, newProfile string) []string {
-	if oldProfile == "" {
-		// add profile
-		profiles = append(profiles, newProfile)
-	} else {
-		for i, pName := range profiles {
-			if pName == oldProfile {
-				if newProfile == "" {
-					// remove profile
-					profiles = append(profiles[:i], profiles[i+1:]...)
-				} else {
-					// replace profile
-					profiles[i] = newProfile
-				}
-				break
-			}
-		}
-	}
-	return profiles
-}
-
-// UpdateContainerProfiles applies the given profiles (by name) to the
-// named container.  It is assumed the profiles have all been added to
-// the server before hand.
-func (s *Server) UpdateContainerProfiles(name string, profiles []string) error {
-	container, eTag, err := s.GetInstance(name)
-	if err != nil {
-		return errors.Trace(errors.Annotatef(err, "failed to get %q", name))
-	}
-
-	container.Profiles = profiles
-	resp, err := s.UpdateInstance(name, container.Writable(), eTag)
-	if err != nil {
-		return errors.Trace(errors.Annotatef(err, "failed to update %q with profiles", name))
-	}
-
-	op := resp.Get()
-	logger.Debugf(context.TODO(), "updated %q profiles, waiting on %s", name, op.Description)
-	err = resp.Wait()
-	return errors.Trace(errors.Annotatef(err, "update failed"))
 }
 
 // CreateClientCertificate adds the input certificate to the server,
