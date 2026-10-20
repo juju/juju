@@ -33,7 +33,7 @@ The zone data model is the set of records that the {ref}`model database <databas
     - A subnet is linked to a zone at most once.
 - **Subnet:** The record at the far end of the link. Another page owns it: see {ref}`subnet <subnet>`.
 
-A zone is a row in the table `availability_zone`, and the link to a subnet is a row in `availability_zone_subnet`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A zone is a row in the table `availability_zone`. The link to a subnet is a row in `availability_zone_subnet`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (zone-operations)=
 ## Zone operations
@@ -63,7 +63,7 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Add a machine <add-a-machine>`
 ```
 
-Requesting zones tells Juju where to start the instance of a machine. A request names zones in either of two ways, and the way decides how many it can name:
+Requesting zones tells Juju where to start the instance of a machine. A request names zones in either of two ways. The way decides how many zones it can name:
 
 - The {ref}`zones <constraint-zones>` constraint names a list of zones, and Juju provisions the machine in one of them. The constraint can apply to a model, an application, or a machine.
 - The {ref}`zone <placement-directive-zone>` placement directive, `zone=<name>`, names one zone, and Juju provisions the machine in it.
