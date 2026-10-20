@@ -419,3 +419,5 @@ reference/cloud/list-of-supported-clouds/the-vmware-vsphere-cloud-and-juju refer
 
 
 howto/upgrade-your-juju-deployment-from-36-to-40 howto/upgrade-your-juju-deployment-from-36-to-41
+reference/subnet reference/space
+reference/zone reference/space

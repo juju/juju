@@ -85,8 +85,6 @@ Supporting infrastructure -- machines and other compute resources, storage volum
 - {ref}`resource-compute`
 - {ref}`storage`
 - {ref}`space`
-- {ref}`subnet`
-- {ref}`zone`
 - {ref}`constraint`
 - {ref}`placement-directive`
 - {ref}`ssh-key`

@@ -2052,3 +2052,127 @@ model "MachineProvisioning" {
 sequence "Provisioning a machine" from "MachineProvisioning" {
   select { behaviour: "provision-machine" }
 }
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL.
+model "SpaceSchema" {
+
+  nodes {
+    availability_zone [type: record, label: "Availability\nzone",
+                 ground: "model:availability_zone"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+    availability_zone_subnet [type: record, label: "Subnet's\nzone",
+                 ground: "model:availability_zone_subnet"] {
+      fields {
+        availability_zone_uuid [label: "availability_zone_uuid", type: "text", fk: true]
+        subnet_uuid [label: "subnet_uuid", type: "text", fk: true]
+      }
+    }
+
+    provider_network [type: record, label: "Provider\nnetwork",
+                 ground: "model:provider_network"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        provider_network_id [label: "provider_network_id", type: "text"]
+      }
+    }
+
+    provider_network_subnet [type: record, label: "Subnet's\nprovider network",
+                 ground: "model:provider_network_subnet"] {
+      fields {
+        subnet_uuid [label: "subnet_uuid", type: "text", pk: true, fk: true]
+        provider_network_uuid [label: "provider_network_uuid", type: "text", fk: true]
+      }
+    }
+
+    provider_space [type: record, label: "Provider\nspace",
+                 ground: "model:provider_space"] {
+      fields {
+        provider_id [label: "provider_id", type: "text", pk: true]
+        space_uuid [label: "space_uuid", type: "text", fk: true, uk: true]
+      }
+    }
+
+    provider_subnet [type: record, label: "Provider\nsubnet",
+                 ground: "model:provider_subnet"] {
+      fields {
+        provider_id [label: "provider_id", type: "text", pk: true]
+        subnet_uuid [label: "subnet_uuid", type: "text", fk: true, uk: true]
+      }
+    }
+
+    space [type: record, label: "Space",
+                 ground: "model:space"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+    subnet [type: record, label: "Subnet",
+                 ground: "model:subnet"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cidr [label: "cidr", type: "text"]
+        vlan_tag [label: "vlan_tag", type: "int", null: true]
+        space_uuid [label: "space_uuid", type: "text", fk: true, null: true]
+      }
+    }
+
+  }
+
+  edges {
+    availability_zone_subnet.availability_zone_uuid -> availability_zone.uuid [type: data]
+    availability_zone_subnet.subnet_uuid -> subnet.uuid [type: data]
+    provider_network_subnet.provider_network_uuid -> provider_network.uuid [type: data]
+    provider_network_subnet.subnet_uuid -> subnet.uuid [type: data]
+    provider_space.space_uuid -> space.uuid [type: data]
+    provider_subnet.subnet_uuid -> subnet.uuid [type: data]
+    subnet.space_uuid -> space.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Space data model" from "SpaceSchema" {
+  select {
+    nodes: space provider_space subnet provider_subnet provider_network provider_network_subnet availability_zone availability_zone_subnet
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    subnet right-of space gap: 70
+    subnet align-middle space
+    availability_zone_subnet right-of subnet gap: 70
+    availability_zone_subnet align-middle subnet
+    provider_space above space gap: 60
+    provider_space align-centre space
+    provider_subnet above subnet gap: 60
+    provider_subnet align-centre subnet
+    availability_zone above availability_zone_subnet gap: 60
+    availability_zone align-centre availability_zone_subnet
+    provider_network_subnet below subnet gap: 60
+    provider_network_subnet align-centre subnet
+    provider_network right-of provider_network_subnet gap: 70
+    provider_network align-middle provider_network_subnet
+    subnet same-size space
+    provider_space same-size space
+    provider_subnet same-size space
+    provider_network same-size space
+    provider_network_subnet same-size space
+    availability_zone same-size space
+    availability_zone_subnet same-size space
+  }
+  annotations {
+    box [nodes: "space provider_space subnet provider_subnet provider_network provider_network_subnet availability_zone availability_zone_subnet", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
