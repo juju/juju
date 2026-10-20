@@ -502,6 +502,182 @@ sequence "Importing SSH keys" from "SSHKeyImport" {
   select { behaviour: "import-ssh-keys" }
 }
 
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL.
+model "CloudSchema" {
+
+  nodes {
+    auth_type [type: record, label: "Authentication\ntype",
+                 ground: "controller:auth_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+    cloud [type: record, label: "Cloud",
+                 ground: "controller:cloud"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        cloud_type_id [label: "cloud_type_id", type: "int", fk: true]
+        endpoint [label: "endpoint", type: "text"]
+        identity_endpoint [label: "identity_endpoint", type: "text", null: true]
+        storage_endpoint [label: "storage_endpoint", type: "text", null: true]
+        skip_tls_verify [label: "skip_tls_verify", type: "bool"]
+      }
+    }
+
+    cloud_auth_type [type: record, label: "Admitted\nauthentication type",
+                 ground: "controller:cloud_auth_type"] {
+      fields {
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        auth_type_id [label: "auth_type_id", type: "int", fk: true]
+      }
+    }
+
+    cloud_ca_cert [type: record, label: "CA certificate",
+                 ground: "controller:cloud_ca_cert"] {
+      fields {
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        ca_cert [label: "ca_cert", type: "text"]
+      }
+    }
+
+    cloud_credential [type: context-record, label: "Credential",
+                 ground: "controller:cloud_credential"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        auth_type_id [label: "auth_type_id", type: "text", fk: true]
+        owner_uuid [label: "owner_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        revoked [label: "revoked", type: "bool", null: true]
+        invalid [label: "invalid", type: "bool", null: true]
+        invalid_reason [label: "invalid_reason", type: "text", null: true]
+      }
+    }
+
+    cloud_region [type: record, label: "Region",
+                 ground: "controller:cloud_region"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        endpoint [label: "endpoint", type: "text", null: true]
+        identity_endpoint [label: "identity_endpoint", type: "text", null: true]
+        storage_endpoint [label: "storage_endpoint", type: "text", null: true]
+      }
+    }
+
+    cloud_type [type: record, label: "Cloud type",
+                 ground: "controller:cloud_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    life [type: record, label: "life",
+                 ground: "controller:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    model [type: context-record, label: "Model",
+                 ground: "controller:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        activated [label: "activated", type: "bool"]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        cloud_region_uuid [label: "cloud_region_uuid", type: "text", fk: true, null: true]
+        cloud_credential_uuid [label: "cloud_credential_uuid", type: "text", fk: true, null: true]
+        model_type_id [label: "model_type_id", type: "int", fk: true]
+        life_id [label: "life_id", type: "int", fk: true]
+        name [label: "name", type: "text"]
+        qualifier [label: "qualifier", type: "text"]
+      }
+    }
+
+    model_type [type: record, label: "model_type",
+                 ground: "controller:model_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    user [type: record, label: "user",
+                 ground: "controller:user"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        display_name [label: "display_name", type: "text", null: true]
+        external [label: "external", type: "bool"]
+        removed [label: "removed", type: "bool"]
+        created_by_uuid [label: "created_by_uuid", type: "text", fk: true]
+        created_at [label: "created_at", type: "timestamp"]
+      }
+    }
+
+  }
+
+  edges {
+    cloud.cloud_type_id -> cloud_type.id [type: data]
+    cloud_auth_type.cloud_uuid -> cloud.uuid [type: data]
+    cloud_auth_type.auth_type_id -> auth_type.id [type: data]
+    cloud_ca_cert.cloud_uuid -> cloud.uuid [type: data]
+    cloud_credential.cloud_uuid -> cloud.uuid [type: data]
+    cloud_credential.auth_type_id -> auth_type.id [type: data]
+    cloud_credential.owner_uuid -> user.uuid [type: data]
+    cloud_region.cloud_uuid -> cloud.uuid [type: data]
+    model.cloud_uuid -> cloud.uuid [type: data]
+    model.cloud_region_uuid -> cloud_region.uuid [type: data]
+    model.cloud_credential_uuid -> cloud_credential.uuid [type: data]
+    model.model_type_id -> model_type.id [type: data]
+    model.life_id -> life.id [type: data]
+    user.created_by_uuid -> user.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+
+diagram "Cloud data model" from "CloudSchema" {
+  select {
+    nodes: cloud cloud_type cloud_region cloud_ca_cert cloud_auth_type model cloud_credential
+    edges: type data
+    except: model -> cloud_region
+    except: model -> cloud_credential
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    cloud_region left-of cloud gap: 70
+    cloud_region align-middle cloud
+    model right-of cloud gap: 70
+    model align-middle cloud
+    cloud_type above cloud gap: 60
+    cloud_type align-centre cloud
+    cloud_auth_type below cloud gap: 60
+    cloud_auth_type align-centre cloud
+    cloud_ca_cert below cloud_region gap: 60
+    cloud_ca_cert align-centre cloud_region
+    cloud_credential below model gap: 60
+    cloud_credential align-centre model
+    cloud_type same-size cloud
+    cloud_region same-size cloud
+    model same-size cloud
+    cloud_auth_type same-size cloud
+    cloud_ca_cert same-size cloud
+    cloud_credential same-size cloud
+  }
+}
+
 // The tutorial grows the same picture in three steps: the pieces Juju needs,
 // the user who logs in, and the applications the controller operates.
 diagram "Tutorial setup" from "Juju" {
