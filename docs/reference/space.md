@@ -30,12 +30,13 @@ The space data model is the set of records that the {ref}`model database <databa
     - A name appears once.
 - **Provider space:** The ID that the cloud gave a space.
   - *Rules:*
-    - A cloud ID appears once, and a space has at most one.
+    - A cloud ID appears once.
+    - A space has at most one cloud ID.
 - **Subnet:** A subnet that the space holds. Another page describes it: see {ref}`subnet <subnet>`.
   - *Rules:*
     - A subnet belongs to at most one space.
 
-A space is a row in the table `space`, and a cloud's ID for it is a row in `provider_space`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A space is a row in the table `space`. A cloud's ID for it is a row in `provider_space`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (space-operations)=
 ## Space operations
@@ -59,7 +60,7 @@ The operation's required access, rules, and errors are:
 - *Rules:*
   - The list includes `alpha`.
   - Showing spaces takes a list of spaces. Each space in the list gets its own result.
-  - A space's applications are those with an endpoint or extra binding in the space, and those whose default space it is and that have an endpoint. The spaces to which an application is exposed are not counted.
+  - A space's applications are those with an endpoint or extra binding in the space. Also included are those whose default space it is and that have an endpoint. The spaces to which an application is exposed are not counted.
   - A space's machine count is the number of distinct network nodes with an address in one of its subnets, so a machine and its containers count by their own nodes.
 - *Errors:* The client receives these errors, and only `permission denied` carries a code:
   - **`"<name>" is not a valid tag`** and **`"<name>" is not a valid space tag`**: *Trigger:* The request does not carry a space tag, or the tag's name is neither a UUID version 7 nor lower-case letters and digits in words joined by hyphens. *Remediation:* Use a tag with a name such as `db-space`.
@@ -73,11 +74,11 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Reload spaces <reload-spaces>`
 ```
 
-Reloading spaces reads the spaces and subnets from the cloud again and stores them in the model. Juju does it by itself when it bootstraps a controller and when it creates a model, and a user does it when the cloud's network has changed.
+Reloading spaces reads the spaces and subnets from the cloud again and stores them in the model. Juju does it by itself when it bootstraps a controller and when it creates a model. A user does it when the cloud's network has changed.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model, and the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - On a cloud that discovers spaces (only MAAS), Juju adds each space that the cloud reports. It makes the name from the cloud's name: lower case, spaces turned into hyphens, and characters other than letters, digits, and hyphens removed. It adds a hyphen and a number if the name is taken.
   - On a cloud that discovers spaces, Juju removes a space that has a cloud ID and that the cloud no longer reports, unless something still depends on it. Juju never removes `alpha`.
@@ -103,13 +104,13 @@ Adding spaces creates spaces and puts the subnets with the given CIDRs into them
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model, and the change block must not be on.
+- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block must not be on.
 - *Rules:*
   - The cloud must support spaces. Unlike renaming and removing, adding is allowed on MAAS.
   - The call takes a list of spaces. Each space in the list gets its own result. A space that was created stays when a later one fails.
   - The name must be a UUID version 7 or lower-case letters and digits in words joined by hyphens, and must not exist yet.
   - Each CIDR (a network range such as `10.0.0.0/24`) must be canonical and must match a subnet that the model knows. Every subnet with that CIDR moves to the new space, including subnets that belong to another space.
-  - A request can carry the cloud's ID for the space.
+  - A request can include the cloud's ID for the space.
 - *Errors:*
   - **`spaces not supported`**: *Trigger:* The cloud does not support spaces. The client receives it with the code `not supported`. *Remediation:* Use a cloud that supports spaces.
   - **`"<name>" is not a valid tag`** and **`"<name>" is not a valid space tag`**: *Trigger:* The request does not carry a space tag, or the tag's name is neither a UUID version 7 nor lower-case letters and digits in words joined by hyphens. *Remediation:* Use a tag with a name such as `db-space`.
@@ -130,11 +131,12 @@ Renaming spaces gives spaces new names.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model, and the change block must not be on.
+- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block must not be on.
 - *Rules:*
   - The call takes a list of spaces. Each space in the list gets its own result.
   - The cloud must support spaces. The cloud must not discover its spaces (on MAAS, rename the space in MAAS and {ref}`reload spaces <space-reloading>`).
-  - A space named `alpha` cannot be renamed, and the new name must not be in use, which includes `alpha`.
+  - A space named `alpha` cannot be renamed.
+  - The new name must not be in use, which includes `alpha`.
   - A space that a constraint names cannot be renamed: the database refuses the change. A rename does not change the `default-space` model configuration key or the `juju-mgmt-space` controller configuration key.
 - *Errors:*
   - **`spaces not supported`**: *Trigger:* The cloud does not support spaces. The client receives it with the code `not supported`. *Remediation:* Use a cloud that supports spaces.
@@ -158,7 +160,7 @@ Removing spaces deletes spaces and returns what depended on them to `alpha`.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model, and the change block must not be on.
+- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block must not be on.
 - *Rules:*
   - The call takes a list of spaces. Each space in the list gets its own result. A database failure ends the whole request. The spaces after it are not processed.
   - The cloud must support spaces. The cloud must not discover its spaces.
