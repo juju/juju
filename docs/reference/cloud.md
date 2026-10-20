@@ -17,7 +17,7 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 cloud/list-of-supported-clouds/index
 ```
 
-A **cloud** (also called a **substrate**) is anything with an API that can give Juju the compute, networking, and, optionally, storage that the {ref}`units <unit>` of an {ref}`application <application>` run on: a public cloud such as Amazon Web Services, Google Compute Engine, Microsoft Azure, or Kubernetes, a private cloud such as OpenStack, or an environment that Juju treats as a cloud, such as MAAS or LXD (see the {ref}`list of supported clouds <list-of-supported-clouds>`). A {ref}`controller <controller>` knows many clouds, and each {ref}`model <model>` is deployed into one of them.
+A **cloud** (also called a **substrate**) is anything with an API that can give Juju the compute, networking, and, optionally, storage that the {ref}`units <unit>` of an {ref}`application <application>` run on: a public cloud such as Amazon Web Services, Google Compute Engine, Microsoft Azure, or Kubernetes, a private cloud such as OpenStack, or an environment that Juju treats as a cloud, such as MAAS or LXD (see the {ref}`list of supported clouds <list-of-supported-clouds>`). A {ref}`controller <controller>` knows many clouds. Each {ref}`model <model>` is deployed into one of them.
 
 (cloud-data-model)=
 ## Cloud data model
@@ -36,10 +36,10 @@ The records, with the rules that apply to each, are:
 - **Cloud:** The cloud's name, its type, its API endpoint, its identity and storage endpoints, and whether Juju skips [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security) verification (the check of the server's certificate) when it talks to the cloud.
   - *Rules:*
     - A cloud's name is unique.
-- **Cloud type:** The type is one of `kubernetes`, `lxd`, `maas`, `unmanaged`, `azure`, `ec2`, `gce`, `oci`, `openstack`, and `vsphere`. The types fall into two kinds, and the kind decides how a model on the cloud runs:
+- **Cloud type:** The type is one of `kubernetes`, `lxd`, `maas`, `unmanaged`, `azure`, `ec2`, `gce`, `oci`, `openstack`, and `vsphere`. The types fall into two kinds. The kind decides how a model on the cloud runs:
 
   (machine-cloud)=
-  - **Machine clouds** are clouds that provide machine-level infrastructure, and they are every type except `kubernetes`. Juju uses the cloud's API to provision or allocate machines (bare metal, virtual machines, or system containers, which are containers that run an operating system, such as LXD containers), plus the networking and storage that those machines need, and a model on a machine cloud runs its applications on those machines. See the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
+  - **Machine clouds** are clouds that provide machine-level infrastructure. They are every type except `kubernetes`. Juju uses the cloud's API to provision or allocate machines (bare metal, virtual machines, or system containers, which are containers that run an operating system, such as LXD containers), plus the networking and storage that those machines need. A model on a machine cloud runs its applications on those machines. See the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
 
   (kubernetes-cloud)=
   - **Kubernetes clouds** are clouds backed by an existing Kubernetes cluster, which is the type `kubernetes`. Juju uses the Kubernetes API to deploy and manage applications in that cluster, and does not provision machine-level infrastructure. A model on a Kubernetes cloud runs its applications in the cluster. See the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
