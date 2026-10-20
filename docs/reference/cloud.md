@@ -17,7 +17,7 @@ See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider 
 cloud/list-of-supported-clouds/index
 ```
 
-A **cloud** (also called a **substrate**) is anything with an API that can give Juju the compute, networking and, optionally, storage that the {ref}`units <unit>` of an {ref}`application <application>` run on: a public cloud such as Amazon Web Services, Google Compute Engine, Microsoft Azure, or Kubernetes, a private cloud such as OpenStack, or an environment that Juju treats as a cloud, such as MAAS or LXD (see the {ref}`list of supported clouds <list-of-supported-clouds>`). A {ref}`controller <controller>` knows many clouds, and each {ref}`model <model>` is deployed into one of them.
+A **cloud** (also called a **substrate**) is anything with an API that can give Juju the compute, networking, and, optionally, storage that the {ref}`units <unit>` of an {ref}`application <application>` run on: a public cloud such as Amazon Web Services, Google Compute Engine, Microsoft Azure, or Kubernetes, a private cloud such as OpenStack, or an environment that Juju treats as a cloud, such as MAAS or LXD (see the {ref}`list of supported clouds <list-of-supported-clouds>`). A {ref}`controller <controller>` knows many clouds, and each {ref}`model <model>` is deployed into one of them.
 
 (cloud-data-model)=
 ## Cloud data model
@@ -25,8 +25,8 @@ A **cloud** (also called a **substrate**) is anything with an API that can give 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Cloud data model
-:caption: The controller keeps one record for each cloud it knows. The record holds the cloud's name, which is unique, and the endpoints Juju talks to, and it names one cloud type from a fixed list. A cloud has many regions and many CA certificates, and it admits one or more authentication types, each as its own small record. Models and credentials point at a cloud: a cloud has many models deployed into it, and many credentials that authenticate against it. The model and the credential are described on their own pages, and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
-:alt: Seven boxes of the same size, each with a filled table mark in the corner, and two of them (model and credential) also with an outlined arrow mark for records that other pages describe. Cloud is in the middle. Above it, cloud type has many clouds (1 to m). To its left, a cloud has many regions (1 to m). To its right, a cloud has many models (1 to m). Below it, a cloud has many CA certificates, many admitted authentication types, and many credentials (each 1 to m).
+:caption: The controller keeps one record for each cloud it knows. The record holds the cloud's name, which is unique, and the endpoints Juju talks to, and it names one cloud type from a fixed list. A cloud has many regions, many CA certificates, and many admitted authentication types, each as its own small record. Models and credentials point at a cloud: a cloud has many models deployed into it, and many credentials that authenticate against it. The model and the credential have their own pages, and the figure shows them only for context.
+:alt: Seven boxes of the same size, each with a filled table mark in the corner, and two of them (model and credential) also with an outlined arrow mark for records that other pages describe. Cloud is in the middle. Above it, a cloud type has many clouds. To its left, a cloud has many regions. To its right, a cloud has many models. Below it, a cloud has many CA certificates, many admitted authentication types, and many credentials.
 ```
 
 The cloud data model is the set of records that the {ref}`controller database <database>` keeps for the clouds the controller knows: one record per cloud, and records for its regions, CA certificates, and admitted authentication types.
@@ -39,21 +39,21 @@ The records, with the rules that apply to each, are:
 - **Cloud type:** The type is one of `kubernetes`, `lxd`, `maas`, `unmanaged`, `azure`, `ec2`, `gce`, `oci`, `openstack`, and `vsphere`. The types fall into two kinds, and the kind decides how a model on the cloud runs:
 
   (machine-cloud)=
-  - **Machine clouds** are clouds that provide machine-level infrastructure, and they are every type except `kubernetes`. Juju uses the cloud's API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage that those machines need, and a model on a machine cloud runs its applications on those machines. See the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
+  - **Machine clouds** are clouds that provide machine-level infrastructure, and they are every type except `kubernetes`. Juju uses the cloud's API to provision or allocate machines (bare metal, virtual machines, or system containers, which are containers that run an operating system, such as LXD containers), plus the networking and storage that those machines need, and a model on a machine cloud runs its applications on those machines. See the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
 
   (kubernetes-cloud)=
   - **Kubernetes clouds** are clouds backed by an existing Kubernetes cluster, which is the type `kubernetes`. Juju uses the Kubernetes API to deploy and manage applications in that cluster, and does not provision machine-level infrastructure. A model on a Kubernetes cloud runs its applications in the cluster. See the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
-- **Region:** A part of the cloud, with its own name and, optionally, its own endpoints. A model can name the region of its cloud that it is deployed into.
+- **Region:** A part of the cloud, with its own name and, optionally, its own endpoints.
 - **CA certificate:** A certificate of a certificate authority (CA, an organization that vouches for a server's identity) that Juju trusts when it connects to the cloud.
 - **Admitted authentication type:** One of the ways a credential can authenticate against the cloud. The possible values are `access-key`, `instance-role`, `userpass`, `oauth1`, `oauth2`, `jsonfile`, `clientcertificate`, `httpsig`, `interactive`, `empty`, `certificate`, `oauth2withcert`, `service-principal-secret`, `managed-identity`, and `service-account`.
 - **Model and credential:** The records that point at a cloud. Other pages own them: see {ref}`model <model>` and {ref}`credential <credential>`. The figure shows them for context.
 
-A cloud is a row in the table `cloud`. Its regions, CA certificates, and admitted authentication types are rows in `cloud_region`, `cloud_ca_cert` and `cloud_auth_type`, and the allowed cloud types and authentication types come from the lookup tables `cloud_type` and `auth_type`. Models and credentials point at a cloud from the tables `model` and `cloud_credential`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A cloud is a row in the table `cloud`. Its regions, CA certificates, and admitted authentication types are rows in `cloud_region`, `cloud_ca_cert`, and `cloud_auth_type`, and the allowed cloud types and authentication types come from the lookup tables `cloud_type` and `auth_type`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (cloud-change-streams)=
 ## Cloud change streams
 
-Cloud change streams are the notifications that tell a worker that a cloud's definition has changed, delivered through a watcher (an API object that tells its holder when something it follows has changed, so that nothing has to poll). On a Kubernetes cloud, the broker worker of a model (the worker that manages the model's connection to the cluster) watches the model's cloud spec (the cloud's definition and region together with the model's credential) through the CAAS agent facade (a group of related API methods), and applies a change without restarting, when the cloud type supports that. A client has no watcher for clouds.
+Cloud change streams are the notifications that tell the agent of a model on a Kubernetes cloud that the model's cloud spec has changed. The cloud spec is the cloud's definition and region together with the model's credential. The agent follows it through the `WatchCloudSpecsChanges` method of the CAAS agent facade (a group of related API methods) and applies a change without restarting, when the cloud type supports that.
 
 (cloud-operations)=
 ## Cloud operations
@@ -83,13 +83,14 @@ The operation's required access, rules, and errors are:
     | `openstack` | `openstack` |
     | Any other type | None, unless forced |
 
-- *Rules:*
   - When no region is given, the controller creates a region named `default`.
-  - When no authentication type is given and the cloud type allows the `empty` type, the controller admits `empty`; otherwise it refuses the cloud.
+  - When no authentication type is given and the cloud type allows the `empty` type, the controller admits `empty`; otherwise it refuses the cloud with the error below.
   - The controller gives the caller administrator access to the new cloud (see {ref}`cloud administrator access <user-access-cloud-admin>`).
 - *Errors:*
-  - **`cloud type "<type>" is not whitelisted for controller cloud type "<type>", current whitelist: [<types>]`** or **`controller cloud type "<type>" is not whitelisted, current whitelist: …`**: *Trigger:* Adding a cloud whose type the controller's cloud type does not allow. The client receives it with the code for incompatible clouds. *Remediation:* Add a cloud of an allowed type, or force the addition.
-  - **`cloud "<name>" already exists`**: *Trigger:* A cloud with that name is already known. *Remediation:* Use another name.
+  - **`cloud type "<type>" is not whitelisted for controller cloud type "<type>", current whitelist: [<types>]`** or **`controller cloud type "<type>" is not whitelisted, current whitelist: …`**: *Trigger:* Adding a cloud whose type the controller's cloud type does not allow. The client receives it with the code `incompatible clouds`. *Remediation:* Add a cloud of an allowed type, or force the addition.
+  - **`cloud "<name>" already exists`**: *Trigger:* A cloud with that name is already known. The client receives it with the code `already exists`. *Remediation:* Use another name.
+  - **`empty auth-types not valid`**: *Trigger:* No authentication type is given and the cloud type does not allow `empty`. The client receives it with the code `not valid`. *Remediation:* Give at least one authentication type.
+  - **`permission denied`**: *Trigger:* The caller lacks superuser access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a controller superuser to add the cloud.
 
 (cloud-listing)=
 ### Listing and showing clouds
@@ -104,11 +105,12 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* None beyond being logged in. A caller with {ref}`superuser access <user-access-controller-superuser>` sees every cloud. Any other caller sees the clouds on which they hold at least {ref}`add-model access <user-access-cloud-add-model>`.
 - *Rules:*
-  - A cloud the caller cannot use is left out of a list. Asking for the definition of such a cloud is answered as if it did not exist.
+  - A cloud the caller cannot use is left out of a list. Asking for the definition of such a cloud returns `cloud "<name>" not found`.
   - Showing a cloud lists its users only to a controller superuser or a cloud administrator. Any other caller sees only their own access.
+  - Listing clouds with details also returns the caller's access level on each cloud. A superuser who asks for all clouds sees every cloud with administrator access.
 - *Errors:*
-  - **`cloud "<name>" not found`**: *Trigger:* Asking for the details of a cloud that does not exist, or for the definition of one that the caller cannot use; the controller does not say which in the second case. *Remediation:* Check the name, and ask a cloud administrator for access.
-  - **`permission denied`**: *Trigger:* Showing the details of a cloud on which the caller holds no access. *Remediation:* Ask a cloud administrator for access.
+  - **`cloud "<name>" not found`**: *Trigger:* Asking for the details of a cloud that does not exist, or for the definition of one that the caller cannot use. The client receives it with the code `not found`. *Remediation:* Check the name, and ask a cloud administrator for access.
+  - **`permission denied`**: *Trigger:* Showing the details of a cloud on which the caller holds no access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a cloud administrator for access.
 
 (cloud-updating)=
 ### Updating clouds
@@ -127,7 +129,8 @@ The operation's required access, rules, and errors are:
   - The default region and the `empty` authentication type are filled in as when adding.
 - *Errors:*
   - **`cannot change cloud "<name>" type from "<type>" to "<type>"`**: *Trigger:* An update that names a different type. *Remediation:* Keep the type, or remove the cloud and add it again.
-  - **`cloud "<name>" not found`**: *Trigger:* Updating a cloud the controller does not know. *Remediation:* Check the name, or add the cloud.
+  - **`cloud not found "<name>"`**: *Trigger:* Updating a cloud the controller does not know. *Remediation:* Check the name, or add the cloud.
+  - **`permission denied`**: *Trigger:* The caller lacks superuser access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a controller superuser to update the cloud.
 
 (cloud-removing)=
 ### Removing clouds
@@ -142,7 +145,8 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`administrator access <user-access-cloud-admin>` to the cloud.
 - *Rules:*
-  - A cloud that any model is deployed into cannot be removed. The controller's own model is deployed into the cloud the controller was {ref}`bootstrapped <bootstrap-a-controller>` on, so that cloud cannot be removed while the controller exists.
+  - A cloud that any model is deployed into, including the controller's own model, cannot be removed.
+  - Removing a cloud also removes its credentials, regions, CA certificates, admitted authentication types, and every user's access to it.
 - *Errors:*
   - **`cannot delete cloud "<name>" as it is still referenced by models`**: *Trigger:* Removing a cloud with models. *Remediation:* Remove the models first.
-  - **`permission denied`**: *Trigger:* Removing a cloud on which the caller is not an administrator. *Remediation:* Ask a cloud administrator or a superuser.
+  - **`permission denied`**: *Trigger:* Removing a cloud on which the caller is not an administrator. The client receives it with the code `unauthorized access`. *Remediation:* Ask a cloud administrator or a superuser.
