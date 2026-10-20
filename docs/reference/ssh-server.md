@@ -34,7 +34,8 @@ The SSH server data model is the set of records that the {ref}`controller databa
     - The controller keeps at most one.
 - **Machine host key:** A host key of the SSH server that runs on a machine itself, as the machine's {ref}`agent <agent>` reported it.
   - *Rules:*
-    - A machine has any number of them, and each belongs to one machine.
+    - A machine has any number of them.
+    - Each belongs to one machine.
 - **Machine virtual host key:** The host key that the SSH server presents on the inner connection of a session (the connection that runs through the outer one to the target) to a machine, so that each machine has an identity of its own.
   - *Rules:*
     - A machine has at most one.
@@ -51,7 +52,7 @@ The controller's host key is a row in the table `controller_ssh_host_key` and it
 (ssh-server-change-streams)=
 ## SSH server change streams
 
-SSH server change streams are the changes that the SSH server and the machine agents follow, so that nothing has to poll. A change stream is delivered through a watcher (an object that tells its holder when something it follows has changed), and the SSH server follows its port and the controller configuration, while each machine agent follows the connection requests that name its machine:
+SSH server change streams are the changes that the SSH server and the machine agents follow, so that nothing has to poll. A change stream is delivered through a watcher (an object that tells its holder when something it follows has changed). The SSH server follows its port and the controller configuration, while each machine agent follows the connection requests that name its machine:
 
 - **Server port:** The SSH server follows its port record. When the value changes, the server stops, waits until the old listener has released the port, and starts again on the new one. Stopping closes every connection that is open.
 - **Controller configuration:** The SSH server follows the controller configuration. When {ref}`ssh-max-concurrent-connections <controller-config-ssh-max-concurrent-connections>` changes, it restarts in the same way with the new limit.
@@ -77,7 +78,7 @@ See also: {ref}`Juju | Access a machine via SSH <access-a-machine-via-ssh>`
 :alt: Three slides. The first shows the client with an outer SSH tunnel to the SSH tunnel server on port 17022 inside the Juju controller, which forwards the inner SSH connection to the target SSH server inside the controller, which presents the virtual host key and proxies the session to the machine or unit. The second is a sequence diagram with the client, the SSH tunnel server, the controller database, and the model database: the client presents a key, the server reads the user's stored keys, the client asks for a channel to the target's virtual hostname, the server checks the user's access and the key's authorization and reads the target's virtual host key, and the channel opens. The third is a sequence diagram with the target SSH server, the model database, the machine agent, the API server, and the machine SSH server: the target server stores a connection request, the machine agent reads it, adds a one-time key, and opens a tunnel to the API server, which hands it to the target server, the agent pipes the tunnel to the machine's SSH server, the target server logs in as the user ubuntu, and then passes the user's traffic through.
 ```
 
-Connecting to machines through the SSH server opens a session (a shell or one command), a port forward, or a file transfer on a machine, or on the machine that runs a unit, through the SSH server. Every connection runs as two SSH connections that both end at the controller. The outer connection ends at the SSH tunnel server, the part of the SSH server that listens on the port. It authenticates the user and asks the server, with SSH's direct TCP forwarding (a request to open a channel to a named host and port), for a channel to a **virtual hostname**, a name under `juju.local` that identifies a target in a model. The inner connection runs through that channel and ends at the target SSH server, a second server inside the controller that presents the target's virtual host key. A machine's virtual hostname is `<machine>.<model UUID>.juju.local`, and a unit's is `<unit number>.<application>.<model UUID>.juju.local`. The machine calls the controller, so only the machine needs a network path, the one to the controller's API addresses. The machine's SSH server can stay closed to the network, and the firewall rules that machine agents already need suffice.
+Connecting to machines through the SSH server opens a session (a shell or one command), a port forward, or a file transfer on a machine, or on the machine that runs a unit, through the SSH server. Every connection runs as two SSH connections that both end at the controller. The outer connection ends at the SSH tunnel server, the part of the SSH server that listens on the port. It authenticates the user and asks the server, with SSH's direct TCP forwarding (a request to open a channel to a named host and port), for a channel to a **virtual hostname**, a name under `juju.local` that identifies a target in a model. The inner connection runs through that channel and ends at the target SSH server, a second server inside the controller that presents the target's virtual host key. A machine's virtual hostname is `<machine>.<model UUID>.juju.local`. A unit's is `<unit number>.<application>.<model UUID>.juju.local`. The machine calls the controller, so only the machine needs a network path, the one to the controller's API addresses. The machine's SSH server can stay closed to the network. The firewall rules that machine agents already need suffice.
 
 The operation's required access, rules, and errors are:
 
@@ -86,10 +87,16 @@ The operation's required access, rules, and errors are:
   - The user name of the outer connection is the Juju user, such as `admin` or `alice@external`, and the key must be one that the user has stored.
   - The access and the key are checked against the model that the virtual hostname names, once for each requested channel.
   - A session logs in to the machine as the user `ubuntu`, whatever user name the client gives on the inner connection.
-  - A target can be a machine or a unit that runs on a machine, and a unit presents its machine's virtual host key. A machine target that names a nested machine (a container machine on another machine, such as `1/lxd/0`) is refused: connect to its parent machine.
+  - A target can be a machine or a unit that runs on a machine.
+  - A unit presents its machine's virtual host key.
+  - A machine target that names a nested machine (a container machine on another machine, such as `1/lxd/0`) is refused: connect to its parent machine.
   - The server serves a shell or one command, local port forwarding, and the SFTP subsystem, which carries file copies.
   - The server accepts at most {ref}`ssh-max-concurrent-connections <controller-config-ssh-max-concurrent-connections>` connections at once (100 by default) and refuses the rest.
-  - A request expires 60 seconds after the server stores it, and storing, reading, or watching requests removes expired ones. The machine has 60 seconds to call back, and its own host keys must be on record within that time. The tunnel is accepted only from the machine that the request names, and the one-time key is removed from the machine when the tunnel closes.
+  - A request expires 60 seconds after the server stores it.
+  - Storing, reading, or watching requests removes expired ones.
+  - The machine has 60 seconds to call back, so its own host keys must be on record within that time.
+  - The tunnel is accepted only from the machine that the request names.
+  - The one-time key is removed from the machine when the tunnel closes.
   - A connection to a machine needs the machine's agent to run. If the agent cannot start, use the cloud's own tools or the cloud-init user data to reach the machine instead (see {ref}`access-a-machine-via-ssh`).
 - *Errors:* An SSH client shows each of the following in its own way. The first reaches the client before the SSH protocol starts, the next four as the failure to authenticate or to open the channel, and the last as text on the session's standard error with exit status 1:
   - **`too many connections.`**: *Trigger:* The server already holds the maximum number of connections. *Remediation:* Close idle sessions, or raise `ssh-max-concurrent-connections`, which a controller administrator can update.
@@ -131,7 +138,7 @@ The operation's required access, rules, and errors are:
 (ssh-server-relay)=
 ### Relaying sessions to the SSH server
 
-Relaying sessions to the SSH server lets an intermediary, such as JIMM (a service that sits in front of Juju controllers), carry a user's SSH session to a target over an upgraded HTTPS connection, so that the intermediary authenticates the user. The intermediary calls the API server's endpoint `GET /ssh-relay/<virtual hostname>`, and the session then ends in the target SSH server exactly as it does after the outer connection.
+Relaying sessions to the SSH server lets an intermediary, such as JIMM (a service that sits in front of Juju controllers), carry a user's SSH session to a target over an upgraded HTTPS connection, so that the intermediary authenticates the user. The intermediary calls the API server's endpoint `GET /ssh-relay/<virtual hostname>`. The session then ends in the target SSH server exactly as it does after the outer connection.
 
 The operation's required access, rules, and errors are:
 
@@ -162,14 +169,16 @@ The operation's required access, rules, and errors are:
 (ssh-server-addressing)=
 ### Addressing SSH server targets
 
-Addressing SSH server targets turns a machine or unit into the names a client needs to reach it: its virtual hostname, and its public, private, or all addresses.
+Addressing SSH server targets turns a machine or unit into the names a client needs to reach it: its virtual hostname and its public, private, or all addresses.
 
 The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
-  - A machine gives the machine form of the virtual hostname, and a unit gives the unit form, or the container form when the call names a container.
-  - The addresses of a unit are those of its machine, and the list of all addresses has each value once, sorted with the most public first.
+  - A machine gives the machine form of the virtual hostname.
+  - A unit gives the unit form, or the container form when the call names a container.
+  - The addresses of a unit are those of its machine.
+  - The list of all addresses has each value once, sorted with the most public first.
   - The proxy call reports the model configuration key {ref}`proxy-ssh <model-config-proxy-ssh>` (default `false`).
 - *Errors:* The client receives each as an error of the call:
   - **`permission denied`**: *Trigger:* The caller lacks the required access. *Remediation:* Ask for it.
