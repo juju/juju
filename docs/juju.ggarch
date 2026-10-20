@@ -275,6 +275,233 @@ diagram "The topology" from "Juju" {
   }
 }
 
+// Scaffolded from the 4.1 controller DDL: ggarch scaffold controller.ddl --db controller --tables user_public_ssh_key,model_authorized_keys
+model "SSHKeySchema" {
+
+  nodes {
+    auth_type [type: record, label: "auth_type",
+                 ground: "controller:auth_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+    cloud [type: record, label: "cloud",
+                 ground: "controller:cloud"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        cloud_type_id [label: "cloud_type_id", type: "int", fk: true]
+        endpoint [label: "endpoint", type: "text"]
+        identity_endpoint [label: "identity_endpoint", type: "text", null: true]
+        storage_endpoint [label: "storage_endpoint", type: "text", null: true]
+        skip_tls_verify [label: "skip_tls_verify", type: "bool"]
+      }
+    }
+
+    cloud_credential [type: record, label: "cloud_credential",
+                 ground: "controller:cloud_credential"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        auth_type_id [label: "auth_type_id", type: "text", fk: true]
+        owner_uuid [label: "owner_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        revoked [label: "revoked", type: "bool", null: true]
+        invalid [label: "invalid", type: "bool", null: true]
+        invalid_reason [label: "invalid_reason", type: "text", null: true]
+      }
+    }
+
+    cloud_region [type: record, label: "cloud_region",
+                 ground: "controller:cloud_region"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        endpoint [label: "endpoint", type: "text", null: true]
+        identity_endpoint [label: "identity_endpoint", type: "text", null: true]
+        storage_endpoint [label: "storage_endpoint", type: "text", null: true]
+      }
+    }
+
+    cloud_type [type: record, label: "cloud_type",
+                 ground: "controller:cloud_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    life [type: record, label: "life",
+                 ground: "controller:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    model [type: context-record, label: "Model",
+                 ground: "controller:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        activated [label: "activated", type: "bool"]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        cloud_region_uuid [label: "cloud_region_uuid", type: "text", fk: true, null: true]
+        cloud_credential_uuid [label: "cloud_credential_uuid", type: "text", fk: true, null: true]
+        model_type_id [label: "model_type_id", type: "int", fk: true]
+        life_id [label: "life_id", type: "int", fk: true]
+        name [label: "name", type: "text"]
+        qualifier [label: "qualifier", type: "text"]
+      }
+    }
+
+    model_authorized_keys [type: record, label: "Model\nauthorization",
+                 ground: "controller:model_authorized_keys"] {
+      fields {
+        model_uuid [label: "model_uuid", type: "text", fk: true]
+        user_public_ssh_key_id [label: "user_public_ssh_key_id", type: "int", fk: true]
+      }
+    }
+
+    model_type [type: record, label: "model_type",
+                 ground: "controller:model_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    ssh_fingerprint_hash_algorithm [type: record, label: "Fingerprint hash\nalgorithm",
+                 ground: "controller:ssh_fingerprint_hash_algorithm"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        algorithm [label: "algorithm", type: "text"]
+      }
+    }
+
+    user [type: context-record, label: "User",
+                 ground: "controller:user"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        display_name [label: "display_name", type: "text", null: true]
+        external [label: "external", type: "bool"]
+        removed [label: "removed", type: "bool"]
+        created_by_uuid [label: "created_by_uuid", type: "text", fk: true]
+        created_at [label: "created_at", type: "timestamp"]
+      }
+    }
+
+    user_public_ssh_key [type: record, label: "SSH key",
+                 ground: "controller:user_public_ssh_key"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        comment [label: "comment", type: "text"]
+        fingerprint_hash_algorithm_id [label: "fingerprint_hash_algorithm_id", type: "int", fk: true]
+        fingerprint [label: "fingerprint", type: "text"]
+        public_key [label: "public_key", type: "text"]
+        user_uuid [label: "user_uuid", type: "text", fk: true]
+      }
+    }
+
+  }
+
+  edges {
+    cloud.cloud_type_id -> cloud_type.id [type: data]
+    cloud_credential.cloud_uuid -> cloud.uuid [type: data]
+    cloud_credential.auth_type_id -> auth_type.id [type: data]
+    cloud_credential.owner_uuid -> user.uuid [type: data]
+    cloud_region.cloud_uuid -> cloud.uuid [type: data]
+    model.cloud_uuid -> cloud.uuid [type: data]
+    model.cloud_region_uuid -> cloud_region.uuid [type: data]
+    model.cloud_credential_uuid -> cloud_credential.uuid [type: data]
+    model.model_type_id -> model_type.id [type: data]
+    model.life_id -> life.id [type: data]
+    model_authorized_keys.user_public_ssh_key_id -> user_public_ssh_key.id [type: data]
+    model_authorized_keys.model_uuid -> model.uuid [type: data]
+    user.created_by_uuid -> user.uuid [type: data]
+    user_public_ssh_key.fingerprint_hash_algorithm_id -> ssh_fingerprint_hash_algorithm.id [type: data]
+    user_public_ssh_key.user_uuid -> user.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+// Importing SSH keys: the chronology of one import, happy path. Each step
+// cites the 4.1 code that performs it:
+//   1 apiserver/facades/client/keymanager/keymanager.go:271 (ImportKeys)
+//   2 keymanager.go:272-277 (checkCanWrite, ChangeAllowed)
+//   3 keymanager.go:298 (GetUserByName)
+//   4 domain/keymanager/service/service.go:276 -> internal/ssh/importer/importer.go:35-62
+//     (resolver by scheme: "gh" and "lp", importer.go:61-65)
+//   5 service.go:298-312 (parse each key; reserved comment refused)
+//   6 service.go:324 -> domain/keymanager/state/state.go:309-313
+//     (INSERT ... ON CONFLICT DO NOTHING into model_authorized_keys)
+//   7 keymanager.go:321-380 (one ErrorResult per key source)
+model "SSHKeyImport" {
+
+  nodes {
+    ik_client     [type: juju-software, label: "Client"]
+    ik_controller [type: juju-software, label: "Controller"]
+    ik_source     [type: external, label: "Launchpad or GitHub"]
+    ik_database   [type: database, label: "Controller database"]
+  }
+
+  edges {
+    ik_client     -> ik_controller [type: api]
+    ik_controller -> ik_controller [type: api]
+    ik_controller -> ik_source     [type: api]
+    ik_controller -> ik_database   [type: api]
+  }
+
+  behaviours {
+    behaviour "import-ssh-keys" {
+      ik_client     -> ik_controller: call "import keys from a source (lp:<name> or gh:<name>)"
+      ik_controller -> ik_controller: self "check access and the change block, then find the user"
+      ik_controller -> ik_source:     call "fetch the account's public keys"
+      ik_source     -> ik_controller: return "public keys"
+      ik_controller -> ik_controller: self "parse each key and refuse a reserved comment"
+      ik_controller -> ik_database:   call "store the keys and authorize them on the model (keys already there are skipped)"
+      ik_database   -> ik_controller: return "done"
+      ik_controller -> ik_client:     return "one result per source"
+    }
+  }
+
+  style { extends: juju }
+}
+
+diagram "SSH key data model" from "SSHKeySchema" {
+  select {
+    nodes: user user_public_ssh_key ssh_fingerprint_hash_algorithm model_authorized_keys model
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    user_public_ssh_key right-of user gap: 70
+    user_public_ssh_key align-middle user
+    ssh_fingerprint_hash_algorithm below user_public_ssh_key gap: 50
+    ssh_fingerprint_hash_algorithm align-centre user_public_ssh_key
+    model_authorized_keys right-of user_public_ssh_key gap: 70
+    model_authorized_keys align-middle user_public_ssh_key
+    model right-of model_authorized_keys gap: 70
+    model align-middle model_authorized_keys
+    ssh_fingerprint_hash_algorithm same-size user_public_ssh_key
+    user same-size user_public_ssh_key
+    model same-size user_public_ssh_key
+    model_authorized_keys same-size user_public_ssh_key
+  }
+}
+
+sequence "Importing SSH keys" from "SSHKeyImport" {
+  select { behaviour: "import-ssh-keys" }
+}
+
 // The tutorial grows the same picture in three steps: the pieces Juju needs,
 // the user who logs in, and the applications the controller operates.
 diagram "Tutorial setup" from "Juju" {
