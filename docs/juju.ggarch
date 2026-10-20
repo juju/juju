@@ -1687,3 +1687,121 @@ diagram "Controller high availability" from "Juju" {
     ha_callers align-middle c1
   }
 }
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the
+// neighbours of the model are trimmed to its key.
+model "SecretBackendSchema" {
+
+  nodes {
+    model [type: context-record, label: "Model",
+                 ground: "controller:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    model_secret_backend [type: record, label: "Model\nbackend",
+                 ground: "controller:model_secret_backend"] {
+      fields {
+        model_uuid [label: "model_uuid", type: "text", pk: true, fk: true]
+        secret_backend_uuid [label: "secret_backend_uuid", type: "text", fk: true]
+      }
+    }
+
+    secret_backend [type: record, label: "Secret\nbackend",
+                 ground: "controller:secret_backend"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        backend_type_id [label: "backend_type_id", type: "int", fk: true]
+        token_rotate_interval [label: "token_rotate_interval", type: "int", null: true]
+        origin_id [label: "origin_id", type: "int"]
+      }
+    }
+
+    secret_backend_config [type: record, label: "Backend\nsetting",
+                 ground: "controller:secret_backend_config"] {
+      fields {
+        backend_uuid [label: "backend_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        content [label: "content", type: "text"]
+      }
+    }
+
+    secret_backend_reference [type: record, label: "Secret\nreference",
+                 ground: "controller:secret_backend_reference"] {
+      fields {
+        secret_backend_uuid [label: "secret_backend_uuid", type: "text", fk: true]
+        model_uuid [label: "model_uuid", type: "text", fk: true]
+        secret_revision_uuid [label: "secret_revision_uuid", type: "text"]
+        secret_id [label: "secret_id", type: "text"]
+      }
+    }
+
+    secret_backend_rotation [type: record, label: "Token\nrotation",
+                 ground: "controller:secret_backend_rotation"] {
+      fields {
+        backend_uuid [label: "backend_uuid", type: "text", pk: true, fk: true]
+        next_rotation_time [label: "next_rotation_time", type: "datetime"]
+      }
+    }
+
+    secret_backend_type [type: record, label: "Backend\ntype",
+                 ground: "controller:secret_backend_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+        description [label: "description", type: "text", null: true]
+      }
+    }
+
+  }
+
+  edges {
+    model_secret_backend.model_uuid -> model.uuid [type: data]
+    model_secret_backend.secret_backend_uuid -> secret_backend.uuid [type: data]
+    secret_backend.backend_type_id -> secret_backend_type.id [type: data]
+    secret_backend_config.backend_uuid -> secret_backend.uuid [type: data]
+    secret_backend_reference.model_uuid -> model.uuid [type: data]
+    secret_backend_reference.secret_backend_uuid -> secret_backend.uuid [type: data]
+    secret_backend_rotation.backend_uuid -> secret_backend.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Secret backend data model" from "SecretBackendSchema" {
+  select {
+    nodes: model model_secret_backend secret_backend secret_backend_type secret_backend_config secret_backend_rotation secret_backend_reference
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    model_secret_backend right-of model gap: 70
+    model_secret_backend align-middle model
+    secret_backend right-of model_secret_backend gap: 70
+    secret_backend align-middle model_secret_backend
+    secret_backend_type right-of secret_backend gap: 70
+    secret_backend_type align-middle secret_backend
+    secret_backend_reference above secret_backend gap: 60
+    secret_backend_reference align-centre secret_backend
+    secret_backend_config below secret_backend gap: 60
+    secret_backend_config align-centre secret_backend
+    secret_backend_rotation left-of secret_backend_config gap: 70
+    secret_backend_rotation align-middle secret_backend_config
+    model_secret_backend same-size model
+    secret_backend same-size model
+    secret_backend_type same-size model
+    secret_backend_config same-size model
+    secret_backend_rotation same-size model
+    secret_backend_reference same-size model
+  }
+  annotations {
+    box [nodes: "model_secret_backend secret_backend secret_backend_type secret_backend_config secret_backend_rotation secret_backend_reference", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
