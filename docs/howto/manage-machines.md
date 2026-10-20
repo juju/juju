@@ -42,6 +42,7 @@ See more: {ref}`troubleshoot-your-deployment`
 
 ````
 
+(retry-provisioning-for-a-failed-machine)=
 ## Retry provisioning for a failed machine
 
 To retry provisioning (a ) machine(s) (e.g., for a failed `deploy`, `add-unit`, or `add-machine`), run the `retry-provisioning` command followed by the (space-separated) machine ID(s). For example:
@@ -54,6 +55,7 @@ juju retry-provisioning 3 27 57
 See more: {ref}`command-juju-retry-provisioning`
 ```
 
+(list-all-machines)=
 ## List all machines
 
 To see a list of all the available machines, use the `machines` command:
@@ -74,6 +76,7 @@ Machine  State    Address         Inst id        Base          AZ  Message
 See more: {ref}`command-juju-machines`
 ```
 
+(view-details-about-a-machine)=
 ## View details about a machine
 
 To see details about a machine, use the `show-machine` command followed by the machine ID. For example:
@@ -125,6 +128,7 @@ machines:
 See more: {ref}`command-juju-show-machine`
 ```
 
+(view-the-status-of-a-machine)=
 ## View the status of a machine
 
 To see the status of a machine, use the `status` command:
@@ -362,6 +366,7 @@ Juju cannot transfer files between two remote units because it uses public key a
 See more: {ref}`command-juju-scp`
 ```
 
+(remove-a-machine)=
 ## Remove a machine
 
 ```{ibnote}

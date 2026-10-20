@@ -1805,3 +1805,250 @@ diagram "Secret backend data model" from "SecretBackendSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed to
+// the twelve records that the page draws.
+model "MachineSchema" {
+
+  nodes {
+    block_device [type: record, label: "Block\ndevice",
+                 ground: "model:block_device"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        machine_uuid [label: "machine_uuid", type: "text", fk: true]
+        name [label: "name", type: "text", null: true]
+        hardware_id [label: "hardware_id", type: "text", null: true]
+        wwn [label: "wwn", type: "text", null: true]
+        serial_id [label: "serial_id", type: "text", null: true]
+        bus_address [label: "bus_address", type: "text", null: true]
+        size_mib [label: "size_mib", type: "int", null: true]
+        mount_point [label: "mount_point", type: "text", null: true]
+        in_use [label: "in_use", type: "bool", null: true]
+        filesystem_label [label: "filesystem_label", type: "text", null: true]
+        host_filesystem_uuid [label: "host_filesystem_uuid", type: "text", null: true]
+        filesystem_type [label: "filesystem_type", type: "text", null: true]
+        provenance_id [label: "provenance_id", type: "int"]
+      }
+    }
+
+    instance_tag [type: record, label: "Instance\ntag",
+                 ground: "model:instance_tag"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", fk: true]
+        tag [label: "tag", type: "text"]
+      }
+    }
+
+    machine [type: record, label: "Machine",
+                 ground: "model:machine"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        net_node_uuid [label: "net_node_uuid", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        nonce [label: "nonce", type: "text", null: true]
+        password_hash_algorithm_id [label: "password_hash_algorithm_id", type: "text", null: true]
+        password_hash [label: "password_hash", type: "text", null: true]
+        force_destroyed [label: "force_destroyed", type: "bool", null: true]
+        agent_started_at [label: "agent_started_at", type: "datetime", null: true]
+        hostname [label: "hostname", type: "text", null: true]
+        keep_instance [label: "keep_instance", type: "bool", null: true]
+      }
+    }
+
+    machine_agent_presence [type: record, label: "Agent\npresence",
+                 ground: "model:machine_agent_presence"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        last_seen [label: "last_seen", type: "datetime", null: true]
+      }
+    }
+
+    machine_agent_version [type: record, label: "Agent\nversion",
+                 ground: "model:machine_agent_version"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        version [label: "version", type: "text"]
+        architecture_id [label: "architecture_id", type: "int"]
+      }
+    }
+
+    machine_cloud_instance [type: record, label: "Cloud\ninstance",
+                 ground: "model:machine_cloud_instance"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        life_id [label: "life_id", type: "int"]
+        instance_id [label: "instance_id", type: "text", null: true]
+        display_name [label: "display_name", type: "text", null: true]
+        arch [label: "arch", type: "text", null: true]
+        availability_zone_uuid [label: "availability_zone_uuid", type: "text", null: true]
+        cpu_cores [label: "cpu_cores", type: "int", null: true]
+        cpu_power [label: "cpu_power", type: "int", null: true]
+        mem [label: "mem", type: "int", null: true]
+        root_disk [label: "root_disk", type: "int", null: true]
+        root_disk_source [label: "root_disk_source", type: "text", null: true]
+        virt_type [label: "virt_type", type: "text", null: true]
+      }
+    }
+
+    machine_cloud_instance_status [type: record, label: "Instance\nstatus",
+                 ground: "model:machine_cloud_instance_status"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        status_id [label: "status_id", type: "int"]
+        message [label: "message", type: "text", null: true]
+        data [label: "data", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+    machine_parent [type: record, label: "Parent",
+                 ground: "model:machine_parent"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        parent_uuid [label: "parent_uuid", type: "text", fk: true]
+      }
+    }
+
+    machine_placement [type: record, label: "Placement",
+                 ground: "model:machine_placement"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        scope_id [label: "scope_id", type: "int"]
+        directive [label: "directive", type: "text"]
+      }
+    }
+
+    machine_platform [type: record, label: "Platform",
+                 ground: "model:machine_platform"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", fk: true]
+        os_id [label: "os_id", type: "text"]
+        channel [label: "channel", type: "text", null: true]
+        architecture_id [label: "architecture_id", type: "int"]
+      }
+    }
+
+    machine_requires_reboot [type: record, label: "Reboot\nflag",
+                 ground: "model:machine_requires_reboot"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        created_at [label: "created_at", type: "datetime"]
+      }
+    }
+
+    machine_status [type: record, label: "Machine\nstatus",
+                 ground: "model:machine_status"] {
+      fields {
+        machine_uuid [label: "machine_uuid", type: "text", pk: true, fk: true]
+        status_id [label: "status_id", type: "int"]
+        message [label: "message", type: "text", null: true]
+        data [label: "data", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+  }
+
+  edges {
+    block_device.machine_uuid -> machine.uuid [type: data]
+    instance_tag.machine_uuid -> machine.uuid [type: data]
+    machine_agent_presence.machine_uuid -> machine.uuid [type: data]
+    machine_agent_version.machine_uuid -> machine.uuid [type: data]
+    machine_cloud_instance.machine_uuid -> machine.uuid [type: data]
+    machine_cloud_instance_status.machine_uuid -> machine_cloud_instance.machine_uuid [type: data]
+    machine_parent.machine_uuid -> machine.uuid [type: data]
+    machine_parent.parent_uuid -> machine.uuid [type: data]
+    machine_placement.machine_uuid -> machine.uuid [type: data]
+    machine_platform.machine_uuid -> machine.uuid [type: data]
+    machine_requires_reboot.machine_uuid -> machine.uuid [type: data]
+    machine_status.machine_uuid -> machine.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Machine data model" from "MachineSchema" {
+  select {
+    nodes: machine machine_status machine_cloud_instance machine_cloud_instance_status machine_placement machine_parent machine_platform machine_agent_presence block_device
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    machine_parent left-of machine gap: 70
+    machine_parent align-middle machine
+    machine_agent_presence right-of machine gap: 70
+    machine_agent_presence align-middle machine
+    machine_status above machine gap: 60
+    machine_status align-centre machine
+    machine_platform above machine_parent gap: 60
+    machine_platform align-centre machine_parent
+    machine_placement below machine_parent gap: 60
+    machine_placement align-centre machine_parent
+    machine_cloud_instance below machine gap: 60
+    machine_cloud_instance align-centre machine
+    machine_cloud_instance_status below machine_cloud_instance gap: 60
+    machine_cloud_instance_status align-centre machine_cloud_instance
+    block_device above machine_agent_presence gap: 60
+    block_device align-centre machine_agent_presence
+    machine_status same-size machine
+    machine_cloud_instance same-size machine
+    machine_cloud_instance_status same-size machine
+    machine_placement same-size machine
+    machine_parent same-size machine
+    machine_platform same-size machine
+    machine_agent_presence same-size machine
+    block_device same-size machine
+  }
+  annotations {
+    box [nodes: "machine machine_status machine_cloud_instance machine_cloud_instance_status machine_placement machine_parent machine_platform machine_agent_presence block_device", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// Provisioning a machine, from the 4.1 code:
+//   internal/worker/computeprovisioner/provisioner_task.go:358-394 (a new
+//     machine is seen), :530-575 (classifyMachine), :1314-1423 (queue starts),
+//     :1435-1605 (doStartMachine: status provisioning, StartInstance across
+//     zones, ten attempts ten seconds apart, record the instance)
+//   domain/machine/state/machine_cloud_instance.go:160-322 (record once)
+//   internal/worker/machiner/machiner.go:96-102 (started);
+//   apiserver/observer/agentpresence.go:105-143 (login sets presence)
+model "MachineProvisioning" {
+
+  nodes {
+    pv_provisioner [type: juju-software, label: "Compute provisioner"]
+    pv_db          [type: database, label: "Model database"]
+    pv_cloud       [type: external, label: "Cloud"]
+    pv_agent       [type: juju-software, label: "Machine agent"]
+  }
+
+  edges {
+    pv_provisioner -> pv_db          [type: api]
+    pv_provisioner -> pv_cloud       [type: api]
+    pv_cloud       -> pv_agent       [type: control]
+    pv_agent       -> pv_db          [type: api]
+  }
+
+  behaviours {
+    behaviour "provision-machine" {
+      pv_provisioner -> pv_db:          call "see a new machine and read its provisioning information"
+      pv_provisioner -> pv_db:          call "set the instance status to provisioning"
+      pv_provisioner -> pv_cloud:       call "start an instance, trying each availability zone, up to ten attempts"
+      pv_cloud       -> pv_provisioner: return "instance"
+      pv_provisioner -> pv_db:          call "record the instance ID, hardware, and nonce"
+      pv_cloud       -> pv_agent:       async "the instance downloads and starts the machine agent"
+      pv_agent       -> pv_db:          call "log in, which records its presence, and report the status started"
+    }
+  }
+
+  style { extends: juju }
+}
+
+sequence "Provisioning a machine" from "MachineProvisioning" {
+  select { behaviour: "provision-machine" }
+}
