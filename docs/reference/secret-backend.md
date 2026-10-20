@@ -31,7 +31,7 @@ The secret backend data model is the set of records that the {ref}`controller da
     - A built-in backend cannot be changed or deleted.
 - **Backend type:** One of `controller`, `kubernetes`, and `vault`. The built-in `internal` backend has the type `controller`.
   - *Rules:*
-    - A type appears once, and its name is not empty.
+    - A type appears once. Its name is not empty.
 - **Backend setting:** One configuration key of a backend and its value, such as the `endpoint`.
   - *Rules:*
     - A backend has each key once, and neither the key nor the value is empty.
@@ -51,7 +51,7 @@ A secret backend is a row in the table `secret_backend`, its type comes from the
 (secret-backend-change-streams)=
 ## Secret backend change streams
 
-Secret backend change streams are the changes that the workers (background processes) of a controller and the {ref}`agents <agent>` of a model follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed), and the controller follows the token rotation records of the backends, while the agents of a model follow the model's choice of backend:
+Secret backend change streams are the changes that the workers (background processes) of a controller and the {ref}`agents <agent>` of a model follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). The controller follows the token rotation records of the backends, while the agents of a model follow the model's choice of backend:
 
 - **Token rotation:** The primary controller (the one controller that runs the controller's single-instance workers, see {ref}`controller workers <controller-workers>`) follows the token rotation records through the watcher `WatchSecretBackendRotationChanges`. It sets one timer for the earliest due time, and when the timer fires it replaces the token of each due backend with a new one that the backend issues.
 - **Model backend:** The unit agents and the model's own workers follow the model's backend record. When it changes, they move the content of the secrets they own from the old backend to the new one, as {ref}`Setting and getting model secret backends <secret-backend-setting>` describes. A unit agent moves the secrets of its unit and, on the leader, those of its application, and the model's workers move the user secrets.
@@ -59,7 +59,7 @@ Secret backend change streams are the changes that the workers (background proce
 (secret-backend-operations)=
 ## Secret backend operations
 
-Secret backend operations are the actions a {ref}`client <client>` can take on secret backends through the controller API (the set of calls that clients and agents make to the controller): add, list, set and get a model's backend, update, and remove. Operations on the secrets themselves are described on the {ref}`secret <secret>` page.
+Secret backend operations are the actions a {ref}`client <client>` can take on secret backends through the controller API (the set of calls that clients and agents make to the controller): add, list, update, remove, set a model's backend, and get a model's backend. Operations on the secrets themselves are described on the {ref}`secret <secret>` page.
 
 (secret-backend-adding)=
 ### Adding secret backends
@@ -118,7 +118,7 @@ Listing secret backends returns the backends of the controller, each with its ty
 
 The operation's required access and rules are:
 
-- *Required access:* Any logged-in user. A request that asks for secret values to be shown needs {ref}`superuser access <user-access-controller-superuser>` to the controller, and a caller without it receives `permission denied`.
+- *Required access:* Any logged-in user. A request that asks for secret values to be shown needs {ref}`superuser access <user-access-controller-superuser>` to the controller. A caller without it receives `permission denied`.
 - *Rules:*
   - A backend's status is `active`, except for a backend of the type `vault`, which the controller contacts: if it does not answer, the status is `error` and the message is the reason.
   - The configuration leaves out the secret keys (`token` and `client-key` for `vault`, and `token`, `password`, and `client-key` for `kubernetes`) unless the request asks to show them.
@@ -153,13 +153,14 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Update a secret backend <update-a-secret-backend>`
 ```
 
-Updating secret backends renames a backend, changes or removes keys of its configuration, and changes its token rotation interval. A backend that models already use keeps serving them.
+Updating secret backends renames a backend, changes its token rotation interval, and changes or removes keys of its configuration. A backend that models already use keeps serving them.
 
 The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
-  - A request names the backend by its current name, and the new configuration is merged into the old: supplied keys replace existing ones, and keys that the request lists for removal are deleted.
+  - A request names the backend by its current name.
+  - The new configuration is merged into the old: supplied keys replace existing ones, and keys that the request lists for removal are deleted.
   - The same rules as for adding apply to the new name, the merged configuration, and the interval.
   - The `endpoint`, `namespace`, and `mount-path` of a `vault` backend, and the `endpoint` and `namespace` of a `kubernetes` backend, cannot change.
   - The controller contacts the backend and refuses the request if the backend does not answer, unless the request forces the update.
@@ -198,4 +199,4 @@ The operation's required access, rules, and errors are:
 
 ## Secret backends and model migration
 
-A {ref}`migration <model-migrating>` does not move secret backends. The target controller must already have a backend with the name of the model's backend, and a migration to a controller that lacks one fails its prechecks (the checks before a migration starts) with `model's secret backend "<name>" not found on target controller`. The model's secret references are created again on the target, each pointing at the target's backend of that name.
+A {ref}`migration <model-migrating>` does not move secret backends. The target controller must already have a backend with the name of the model's backend. A migration to a controller that lacks one fails its prechecks (the checks before a migration starts) with `model's secret backend "<name>" not found on target controller`. The model's secret references are created again on the target, each pointing at the target's backend of that name.
