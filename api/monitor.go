@@ -13,7 +13,7 @@ import (
 // monitor performs regular pings of an API connection as well as
 // monitoring the connection closed channel and the underlying
 // rpc.Conn's dead channel. It will close `broken` if pings fail, or
-// if `closed`, `dead`, or `proxierBroken` are closed.
+// if `closed` or `dead` are closed.
 type monitor struct {
 	clock clock.Clock
 
@@ -21,10 +21,9 @@ type monitor struct {
 	pingPeriod  time.Duration
 	pingTimeout time.Duration
 
-	closed        <-chan struct{}
-	dead          <-chan struct{}
-	proxierBroken <-chan struct{}
-	broken        chan<- struct{}
+	closed <-chan struct{}
+	dead   <-chan struct{}
+	broken chan<- struct{}
 }
 
 func (m *monitor) run() {
@@ -39,10 +38,6 @@ func (m *monitor) run() {
 
 		case <-m.dead:
 			logger.Debugf(ctx, "RPC connection died")
-			return
-
-		case <-m.proxierBroken:
-			logger.Debugf(ctx, "connection proxier died")
 			return
 
 		case <-m.clock.After(m.pingPeriod):
@@ -70,10 +65,6 @@ func (m *monitor) pingWithTimeout(ctx context.Context) bool {
 
 	case <-m.clock.After(m.pingTimeout):
 		logger.Warningf(ctx, "health ping timed out after %s", m.pingTimeout)
-		return false
-
-	case <-m.proxierBroken:
-		logger.Debugf(ctx, "connection proxier died")
 		return false
 	}
 }

@@ -54,11 +54,3 @@ type ProxierErrorReporter interface {
 	// observed. It returns nil when the proxier has no error to report.
 	ProxyError() error
 }
-
-// ProxierBrokenNotifier describes a proxier that signals when it can no
-// longer carry the API connection.
-type ProxierBrokenNotifier interface {
-	// Broken returns a channel that is closed when the proxier can no longer
-	// carry the API connection.
-	Broken() <-chan struct{}
-}

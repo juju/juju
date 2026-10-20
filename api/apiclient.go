@@ -227,10 +227,6 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 		}
 	}
 	c.broken = make(chan struct{})
-	var proxierBroken <-chan struct{}
-	if notifier, ok := c.proxier.(ProxierBrokenNotifier); ok {
-		proxierBroken = notifier.Broken()
-	}
 
 	// Allow the ping monitor parameters to be overridden via DialOpts, so
 	// that for certain scenarios we can adjust the frequency and timeouts
@@ -250,14 +246,13 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 	}
 
 	go (&monitor{
-		clock:         opts.Clock,
-		ping:          c.ping,
-		pingPeriod:    monitorPingPeriod,
-		pingTimeout:   monitorPingTimeout,
-		closed:        c.closed,
-		dead:          client.Dead(),
-		proxierBroken: proxierBroken,
-		broken:        c.broken,
+		clock:       opts.Clock,
+		ping:        c.ping,
+		pingPeriod:  monitorPingPeriod,
+		pingTimeout: monitorPingTimeout,
+		closed:      c.closed,
+		dead:        client.Dead(),
+		broken:      c.broken,
 	}).run()
 	return c, nil
 }

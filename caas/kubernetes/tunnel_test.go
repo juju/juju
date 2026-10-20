@@ -178,10 +178,10 @@ func (s *tunnelSuite) TestForwardPortReportsPostReadyFailure(c *tc.C) {
 	close(release)
 	assertDone(c, done)
 	assertForwardError(c, tunnel, "lost connection to pod")
-	assertBroken(c, tunnel)
+	assertStopped(c, tunnel)
 }
 
-func (s *tunnelSuite) TestForwardPortBrokenNotClosedBeforeForward(c *tc.C) {
+func (s *tunnelSuite) TestForwardPortClosesTunnelWhenForwardingEnds(c *tc.C) {
 	done := make(chan struct{})
 	release := make(chan struct{})
 	forwarder := &fakePortForwarder{
@@ -209,14 +209,14 @@ func (s *tunnelSuite) TestForwardPortBrokenNotClosedBeforeForward(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
-	case <-tunnel.Broken():
-		c.Fatalf("broken closed before forwarder exited")
+	case <-tunnel.stopChan:
+		c.Fatalf("tunnel stopped before forwarding ended")
 	default:
 	}
 
 	close(release)
 	assertDone(c, done)
-	assertBroken(c, tunnel)
+	assertStopped(c, tunnel)
 }
 
 func (s *tunnelSuite) TestPodHealthCheckStopsTunnelWhenPodIsMissing(c *tc.C) {
@@ -342,7 +342,6 @@ func newTestTunnel() *Tunnel {
 func newTestTunnelWithForwarder(forwarderFactory portForwarderFactory) *Tunnel {
 	return &Tunnel{
 		Out:              io.Discard,
-		broken:           make(chan struct{}),
 		newPortForwarder: forwarderFactory,
 		readyChan:        make(chan struct{}),
 		RemotePort:       "17070",
@@ -439,14 +438,6 @@ func assertForwardError(c *tc.C, tunnel *Tunnel, match string) {
 		c.Check(err, tc.ErrorMatches, match)
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for forwarding error")
-	}
-}
-
-func assertBroken(c *tc.C, tunnel *Tunnel) {
-	select {
-	case <-tunnel.Broken():
-	case <-c.Context().Done():
-		c.Fatalf("timed out waiting for broken channel to close")
 	}
 }
 

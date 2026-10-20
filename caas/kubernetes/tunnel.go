@@ -72,7 +72,6 @@ type Tunnel struct {
 	LocalPort        string
 	Namespace        string
 	Out              io.Writer
-	broken           chan struct{}
 	closeOnce        sync.Once
 	readyChan        chan struct{}
 	RemotePort       string
@@ -106,12 +105,6 @@ func (t *Tunnel) ForwardError() error {
 	default:
 		return nil
 	}
-}
-
-// Broken returns a channel that is closed when the port-forward tunnel is
-// broken (the underlying forward goroutine exits).
-func (t *Tunnel) Broken() <-chan struct{} {
-	return t.broken
 }
 
 // findSuitablePodForService when tunneling to a kubernetes service we need to
@@ -204,7 +197,10 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podN
 	t.errChan = make(chan error, 1)
 	go func() {
 		t.errChan <- pf.ForwardPorts()
-		close(t.broken)
+		// Forwarding may end without Close being called, for example when
+		// the connection to the pod is lost. Close the tunnel so that the
+		// pod health check also stops.
+		t.Close()
 	}()
 
 	// The SPDY connection to the API server may remain open after its target
@@ -381,7 +377,6 @@ func NewTunnel(
 		newPortForwarder: defaultPortForwarder,
 		Namespace:        namespace,
 		Out:              io.Discard,
-		broken:           make(chan struct{}),
 		readyChan:        make(chan struct{}, 1),
 		RemotePort:       remotePort,
 		stopChan:         make(chan struct{}, 1),

@@ -100,14 +100,6 @@ func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
 }
 
-// Broken returns a channel that is closed when the port-forward tunnel ends.
-func (p *Proxier) Broken() <-chan struct{} {
-	if p.tunnel == nil {
-		return nil
-	}
-	return p.tunnel.Broken()
-}
-
 // ProxyError reports asynchronous port-forwarding errors observed after the
 // tunnel was reported as ready.
 func (p *Proxier) ProxyError() error {
