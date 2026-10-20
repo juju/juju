@@ -82,6 +82,13 @@ model "Juju" {
     // Two unit agents, for integration.
     agent_foo [type: juju-software, label: "Unit agent\n(foo/0)"]
     agent_bar [type: juju-software, label: "Unit agent\n(bar/0)"]
+
+    // The tutorial's chat service: three applications that do not form a
+    // whole. Each is an abstraction with the Juju mark: a unit agent and a
+    // charm run behind it.
+    mattermost [type: charmed-entity, label: "Mattermost"]
+    postgresql [type: charmed-entity, label: "PostgreSQL"]
+    certs      [type: charmed-entity, label: "Certs"]
   }
 
   edges {
@@ -109,6 +116,12 @@ model "Juju" {
     controller -> cloud      [type: api,    label: "gets nodes from"]
     agent_foo  -> controller [type: stream, label: "watches"]
     agent_bar  -> controller [type: stream, label: "watches"]
+
+    // The tutorial: the unit agents of the chat applications watch the
+    // controller, as every unit agent does.
+    mattermost -> controller [type: stream, label: "unit agents watch"]
+    postgresql -> controller [type: stream, label: "unit agents watch"]
+    certs      -> controller [type: stream, label: "unit agents watch"]
 
     client -> ssh_gateway [type: stream, label: "outer SSH tunnel"]
     client -> ssh_session [type: stream, label: "inner SSH session"]
@@ -259,6 +272,75 @@ diagram "The topology" from "Juju" {
     charmhub align-centre controller
     model    right-of controller gap: 120
     model    align-middle controller
+  }
+}
+
+// The tutorial grows the same picture in three steps: the pieces Juju needs,
+// the user who logs in, and the applications the controller operates.
+diagram "Tutorial setup" from "Juju" {
+  select {
+    nodes: client controller cloud charmhub
+    edges: type api
+    except: client -> cloud
+    except: client -> client
+    labels: hidden
+    sizing: uniform
+  }
+  positions {
+    client   left-of controller gap: 100
+    client   align-middle controller
+    cloud    above controller gap: 80
+    cloud    align-centre controller
+    charmhub below controller gap: 80
+    charmhub align-centre controller
+  }
+}
+
+diagram "Tutorial user" from "Juju" {
+  select {
+    nodes: user client controller cloud charmhub
+    edges: type api
+    except: client -> cloud
+    except: client -> client
+    labels: hidden
+    sizing: uniform
+  }
+  positions {
+    user     left-of client gap: 100
+    user     align-middle client
+    client   left-of controller gap: 100
+    client   align-middle controller
+    cloud    above controller gap: 80
+    cloud    align-centre controller
+    charmhub below controller gap: 80
+    charmhub align-centre controller
+  }
+}
+
+diagram "Tutorial deployment" from "Juju" {
+  select {
+    nodes: user client controller cloud charmhub mattermost postgresql certs
+    edges: type api type stream
+    except: client -> cloud
+    except: client -> client
+    labels: hidden
+    sizing: uniform
+  }
+  positions {
+    user       left-of client gap: 80
+    user       align-middle client
+    client     left-of controller gap: 80
+    client     align-middle controller
+    cloud      above controller gap: 80
+    cloud      align-centre controller
+    charmhub   below controller gap: 80
+    charmhub   align-centre controller
+    postgresql right-of controller gap: 120
+    postgresql align-middle controller
+    mattermost above postgresql gap: 30
+    mattermost align-centre postgresql
+    certs      below postgresql gap: 30
+    certs      align-centre postgresql
   }
 }
 
