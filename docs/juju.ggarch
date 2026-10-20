@@ -2265,3 +2265,107 @@ diagram "Zone data model" from "ZoneSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the cloud, user,
+// and model are context records trimmed to their keys.
+model "CredentialSchema" {
+
+  nodes {
+    cloud_credential [type: record, label: "Credential",
+                 ground: "controller:cloud_credential"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        auth_type_id [label: "auth_type_id", type: "text", fk: true]
+        owner_uuid [label: "owner_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        revoked [label: "revoked", type: "bool", null: true]
+        invalid [label: "invalid", type: "bool", null: true]
+        invalid_reason [label: "invalid_reason", type: "text", null: true]
+      }
+    }
+
+    cloud_credential_attribute [type: record, label: "Credential\nattribute",
+                 ground: "controller:cloud_credential_attribute"] {
+      fields {
+        key [label: "key", type: "text", pk: true]
+        cloud_credential_uuid [label: "cloud_credential_uuid", type: "text", fk: true]
+        value [label: "value", type: "text", null: true]
+      }
+    }
+
+    auth_type [type: record, label: "Authentication\ntype",
+                 ground: "controller:auth_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+    cloud [type: context-record, label: "Cloud",
+                 ground: "controller:cloud"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    user [type: context-record, label: "User",
+                 ground: "controller:user"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    model [type: context-record, label: "Model",
+                 ground: "controller:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_credential_uuid [label: "cloud_credential_uuid", type: "text", fk: true, null: true]
+      }
+    }
+
+  }
+
+  edges {
+    cloud_credential.cloud_uuid -> cloud.uuid [type: data]
+    cloud_credential.auth_type_id -> auth_type.id [type: data]
+    cloud_credential.owner_uuid -> user.uuid [type: data]
+    cloud_credential_attribute.cloud_credential_uuid -> cloud_credential.uuid [type: data]
+    model.cloud_credential_uuid -> cloud_credential.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Credential data model" from "CredentialSchema" {
+  select {
+    nodes: cloud_credential cloud_credential_attribute auth_type cloud user model
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    cloud left-of cloud_credential gap: 70
+    cloud align-middle cloud_credential
+    user above cloud_credential gap: 60
+    user align-centre cloud_credential
+    cloud_credential_attribute right-of cloud_credential gap: 70
+    cloud_credential_attribute align-middle cloud_credential
+    auth_type below cloud_credential gap: 60
+    auth_type align-centre cloud_credential
+    model below cloud_credential_attribute gap: 60
+    model align-centre cloud_credential_attribute
+    cloud same-size cloud_credential
+    user same-size cloud_credential
+    cloud_credential_attribute same-size cloud_credential
+    auth_type same-size cloud_credential
+    model same-size cloud_credential
+  }
+  annotations {
+    box [nodes: "cloud_credential cloud_credential_attribute auth_type cloud user model", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
