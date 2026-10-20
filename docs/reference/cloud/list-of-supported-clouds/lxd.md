@@ -226,7 +226,7 @@ Applies to all machines, including controller machines. Controller-specific defa
 **Compute**
 
 - **LXD instance**: Container (default) or VM (when constrained with `virt-type`). Name: `juju-<modeluuid>-<machinenum>`.
-- **Profiles applied**: In order: (1) `default` (LXD built-in), (2) model profile (`juju-<model>-<id>`), (3) charm profiles (`juju-<model>-<id>-<appname>-<rev>`) if specified by charm.
+- **Profiles applied**: In order: (1) `default` (LXD built-in), (2) model profile (`juju-<model>-<id>`).
 - **Constraints via config**: `limits.cpu=<cores>` (CPU cores limit), `limits.memory=<MiB>MiB` (memory limit).
 
 **Networking**
@@ -256,15 +256,6 @@ See also: {ref}`storage-provider-lxd` for the LXD storage provider configuration
 - **Storage pools**: Juju storage pool creates a corresponding LXD storage pool. LXD pool for Juju `lxd` pool created on first use (named `juju`).
 - **Volumes stored**: `/var/lib/lxd/storage-pools/<pool-name>`.
 - **Default pools attempted**: `lxd-zfs` (driver `zfs`) then `lxd-btrfs` (driver `btrfs`).
-
-(lxd-machine-charm-profiles)=
-### Charm profiles
-
-LXD Profiles allow a configuration to be applied to any instance. Juju applies charm profiles during the creation or modification of a LXD container.
-
-```{ibnote}
-See more: [Charmcraft | `lxd-profile.yaml`](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/lxd-profile-yaml-file/)
-```
 
 (lxd-storage)=
 ## Storage
