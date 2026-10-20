@@ -83,6 +83,16 @@ model "Juju" {
     mattermost [type: charmed-entity, label: "Mattermost"]
     postgresql [type: charmed-entity, label: "PostgreSQL"]
     certs      [type: charmed-entity, label: "Certs"]
+
+    // High availability on machine clouds: every controller machine runs the
+    // API server, the dbaccessor worker and one Dqlite node. The view stamps
+    // the machine as many times as the controller has machines.
+    ha_machine [type: node, label: "Controller machine", deployed: true] {
+      ha_api      [type: juju-software, label: "API server"]
+      ha_dbworker [type: juju-software, label: "dbaccessor worker"]
+      ha_dqlite   [type: database, label: "Dqlite node\n(controller and model\ndatabases)"]
+    }
+    ha_callers [type: juju-software, label: "Clients and agents"]
   }
 
   edges {
@@ -128,6 +138,12 @@ model "Juju" {
     ssh_machine_agent -> ssh_db [type: stream, label: "2. observes request via API"]
     ssh_machine_agent -> ssh_api [type: stream, label: "3. opens reverse tunnel"]
     ssh_session -> ssh_machine_server [type: stream, label: "4. SSH over reverse tunnel"]
+
+    // High availability
+    ha_callers  -> ha_api      [type: api,     label: "connect to any"]
+    ha_api      -> ha_dbworker [type: ipc,     label: "gets databases from"]
+    ha_dbworker -> ha_dqlite   [type: control, label: "runs and clusters"]
+    ha_dqlite   -> ha_dqlite   [type: stream,  label: "Raft", pairing: mesh]
   }
 
   behaviours {
@@ -1436,4 +1452,238 @@ sequence "Migration validation" from "MigrationSequence" {
 
 sequence "Migration success and reap" from "MigrationSequence" {
   select { behaviour: "migration-success-reap" }
+}
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL.
+model "ControllerSchema" {
+
+  nodes {
+    architecture [type: record, label: "architecture",
+                 ground: "controller:architecture"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+    controller [type: record, label: "Controller",
+                 ground: "controller:controller"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        model_uuid [label: "model_uuid", type: "text"]
+        target_version [label: "target_version", type: "text"]
+        api_port [label: "api_port", type: "text", null: true]
+        cert [label: "cert", type: "text", null: true]
+        ca_cert [label: "ca_cert", type: "text", null: true]
+        private_key [label: "private_key", type: "text", null: true]
+        ca_private_key [label: "ca_private_key", type: "text", null: true]
+        system_identity [label: "system_identity", type: "text", null: true]
+      }
+    }
+
+    controller_agent_address [type: record, label: "Agent\naddress",
+                 ground: "controller:controller_agent_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_id [label: "controller_id", type: "text", fk: true, null: true]
+        address [label: "address", type: "text"]
+        scope [label: "scope", type: "text"]
+        priority [label: "priority", type: "int"]
+      }
+    }
+
+    controller_client_address [type: record, label: "Client\naddress",
+                 ground: "controller:controller_client_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_id [label: "controller_id", type: "text", fk: true, null: true]
+        address [label: "address", type: "text"]
+        scope [label: "scope", type: "text"]
+        priority [label: "priority", type: "int"]
+      }
+    }
+
+    controller_config [type: record, label: "Controller\nconfiguration",
+                 ground: "controller:controller_config"] {
+      fields {
+        key [label: "key", type: "text", pk: true]
+        value [label: "value", type: "text", null: true]
+      }
+    }
+
+    controller_node [type: record, label: "Controller\nnode",
+                 ground: "controller:controller_node"] {
+      fields {
+        controller_id [label: "controller_id", type: "text", pk: true]
+        life_id [label: "life_id", type: "int", fk: true]
+        dqlite_node_id [label: "dqlite_node_id", type: "text", null: true]
+        dqlite_bind_address [label: "dqlite_bind_address", type: "text", null: true]
+      }
+    }
+
+    controller_node_agent_version [type: record, label: "Node agent\nversion",
+                 ground: "controller:controller_node_agent_version"] {
+      fields {
+        controller_id [label: "controller_id", type: "text", pk: true, fk: true]
+        version [label: "version", type: "text"]
+        architecture_id [label: "architecture_id", type: "int", fk: true]
+      }
+    }
+
+    controller_node_password [type: record, label: "Node\npassword",
+                 ground: "controller:controller_node_password"] {
+      fields {
+        controller_id [label: "controller_id", type: "text", pk: true, fk: true]
+        password_hash_algorithm_id [label: "password_hash_algorithm_id", type: "text", fk: true, null: true]
+        password_hash [label: "password_hash", type: "text", null: true]
+      }
+    }
+
+    controller_peer_address [type: record, label: "Peer\naddress",
+                 ground: "controller:controller_peer_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_id [label: "controller_id", type: "text", fk: true]
+        address [label: "address", type: "text"]
+        scope [label: "scope", type: "text"]
+        priority [label: "priority", type: "int"]
+      }
+    }
+
+    life [type: record, label: "life",
+                 ground: "controller:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    password_hash_algorithm [type: record, label: "password_hash_algorithm",
+                 ground: "controller:password_hash_algorithm"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+  }
+
+  edges {
+    controller_agent_address.controller_id -> controller_node.controller_id [type: data]
+    controller_client_address.controller_id -> controller_node.controller_id [type: data]
+    controller_node.life_id -> life.id [type: data]
+    controller_node_agent_version.controller_id -> controller_node.controller_id [type: data]
+    controller_node_agent_version.architecture_id -> architecture.id [type: data]
+    controller_node_password.controller_id -> controller_node.controller_id [type: data]
+    controller_node_password.password_hash_algorithm_id -> password_hash_algorithm.id [type: data]
+    controller_peer_address.controller_id -> controller_node.controller_id [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+
+diagram "Controller data model" from "ControllerSchema" {
+  select {
+    nodes: controller_node controller_node_agent_version controller_node_password controller_agent_address controller_client_address controller_peer_address
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    controller_node_agent_version above controller_node gap: 60
+    controller_node_agent_version align-centre controller_node
+    controller_node_password below controller_node gap: 60
+    controller_node_password align-centre controller_node
+    controller_client_address left-of controller_node gap: 70
+    controller_client_address align-middle controller_node
+    controller_agent_address above controller_client_address gap: 60
+    controller_agent_address align-centre controller_client_address
+    controller_peer_address right-of controller_node gap: 70
+    controller_peer_address align-middle controller_node
+    controller_node_agent_version same-size controller_node
+    controller_node_password same-size controller_node
+    controller_agent_address same-size controller_node
+    controller_client_address same-size controller_node
+    controller_peer_address same-size controller_node
+  }
+  annotations {
+    box [nodes: "controller_node controller_node_agent_version controller_node_password controller_agent_address controller_client_address controller_peer_address", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// Bootstrapping a controller on a machine cloud, from the 4.1 code:
+//   cmd/juju/commands/bootstrap.go:785-1091 (client prepares, runs
+//     environs/bootstrap, then reads the address from the provider and polls)
+//   internal/provider/common/bootstrap.go:80-302 (StartInstance), :421-574
+//     (FinishBootstrap: wait for SSH, push the configure script)
+//   internal/cloudconfig/userdatacfg.go:261-508 (download tools, write agent
+//     config, run bootstrap-state, start the machine agent service)
+//   cmd/jujuagentd/agent/bootstrap.go:156-339 and
+//     agent/agentbootstrap/bootstrap.go:142-284 (Dqlite, schema, seed records)
+//   internal/worker/bootstrap/fresh.go:219-302 (seed, ReloadSpaces, deploy the
+//     controller charm, set the flag); internal/bootstrap/deployer.go:224-298
+//     (local charm first, Charmhub fallback)
+model "ControllerBootstrap" {
+
+  nodes {
+    bs_client   [type: juju-software, label: "Client"]
+    bs_cloud    [type: external, label: "Cloud"]
+    bs_machine  [type: juju-software, label: "Controller machine"]
+    bs_db       [type: database, label: "Controller database"]
+    bs_charmhub [type: external, label: "Charmhub"]
+  }
+
+  edges {
+    bs_client  -> bs_cloud    [type: api]
+    bs_client  -> bs_machine  [type: stream]
+    bs_machine -> bs_db       [type: api]
+    bs_machine -> bs_charmhub [type: api]
+    bs_machine -> bs_machine  [type: api]
+  }
+
+  behaviours {
+    behaviour "bootstrap-machine" {
+      bs_client  -> bs_cloud:    call "start an instance"
+      bs_cloud   -> bs_client:   return "instance"
+      bs_client  -> bs_machine:  call "wait for SSH, then run the configure script: download the agent, write its configuration"
+      bs_machine -> bs_db:       call "start the first database node and write the controller, admin user, cloud, credential, and controller model records"
+      bs_machine -> bs_machine:  self "start the machine agent as a service"
+      bs_machine -> bs_machine:  self "bootstrap worker: seed users and storage pools, discover spaces, deploy the controller charm"
+      bs_machine -> bs_charmhub: call "fetch the controller charm, unless the client supplied one"
+      bs_charmhub -> bs_machine: return "charm"
+      bs_machine -> bs_db:       call "record the controller application and that bootstrap is complete"
+      bs_client  -> bs_machine:  call "poll the API address that the cloud reported until it answers"
+    }
+  }
+
+  style { extends: juju }
+}
+
+sequence "Bootstrapping a controller" from "ControllerBootstrap" {
+  select { behaviour: "bootstrap-machine" }
+}
+
+diagram "Controller high availability" from "Juju" {
+  select {
+    nodes: ha_callers ha_machine
+    instances: ha_machine [
+      { id: c0, label: "Controller machine" },
+      { id: c1, label: "Controller machine" },
+      { id: c2, label: "Controller machine" }
+    ]
+    edges: type api type ipc type control type stream
+  }
+  positions {
+    c1 below c0 gap: 40
+    c1 align-centre c0
+    c2 below c1 gap: 40
+    c2 align-centre c1
+    ha_callers left-of c1 gap: 80
+    ha_callers align-middle c1
+  }
 }

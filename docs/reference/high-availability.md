@@ -17,9 +17,12 @@ See also:
 In the context of a cloud deployment in general, **high availability (HA)** is the concept of making software resilient to failures by means of running multiple replicas with shared and synchronised software context -- something usually achieved through coordinated {ref}`scaling (out and up) <scaling>`. In Juju, it is supported for controllers on machine clouds and for regular applications on both machine and Kubernetes clouds
 
 
-![Juju - Controller high availability (machines)](high-availability.png)
-
-***Controller high availability (machine clouds).** Juju controllers can be made highly-available by enabling more than one machine to each run a separate controller unit with a separate controller agent instance, where each machine effectively becomes an instance of the controller. This set of Juju agents collectively use a database replicaset to achieve data synchronisation amongst them.*
+```{ggarch}
+:file: ../juju.ggarch
+:view: Controller high availability
+:caption: A highly available controller on a machine cloud runs on several machines, and each machine runs its own copy of the controller's machinery: an API server (the process that clients and agents connect to), the `dbaccessor` worker (the worker that starts the machine's Dqlite node and joins it to the cluster), and one Dqlite node (a member of the distributed database that holds the controller database and one database for each model). The Dqlite nodes replicate to one another with Raft (the consensus protocol that keeps their copies in step). Clients and agents can connect to the API server on any of the machines.
+:alt: Three controller machines stacked vertically, each with a cloud badge and each holding an API server, a dbaccessor worker, and a Dqlite node. An arrow labelled "gets databases from" points from each API server to its dbaccessor worker, and an arrow labelled "runs and clusters" from the worker to the Dqlite node. Dashed arrows labelled Raft connect every pair of Dqlite nodes. A box labelled "Clients and agents" on the left has an arrow labelled "connect to any" to each API server.
+```
 
 Controller and agent behaviour when running controllers in HA mode:
 
