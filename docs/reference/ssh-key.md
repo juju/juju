@@ -23,7 +23,7 @@ A session opened through the controller lands as the `ubuntu` account on the mac
 ```{ggarch}
 :file: ../juju.ggarch
 :view: SSH key data model
-:caption: The controller keeps one record for each SSH key that a user adds or imports. The record holds the key's text, its comment, and its fingerprint (a short code that identifies the key, always computed with sha256), and it belongs to one user, who can have many keys but cannot store the same key, or two keys with the same fingerprint, twice. A key does nothing until a model authorizes it. Each authorization is its own small record that links one key to one model, so a key can be authorized on many models and a model can authorize many keys. The user and the model are described on their own pages, and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
+:caption: The controller keeps one record for each SSH key that a user adds or imports. The record holds the key's text, its comment, and its fingerprint (a short code that identifies the key) with the algorithm that computed it, md5 or sha256, and it belongs to one user, who can have many keys but cannot store the same key, or two keys with the same fingerprint, twice. A key does nothing until a model authorizes it. Each authorization is its own small record that links one key to one model, so a key can be authorized on many models and a model can authorize many keys. The user and the model are described on their own pages, and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Five boxes of the same size, each with a filled table mark in the corner, and two of them (user and model) also with an outlined arrow mark for records that other pages describe. A user has many SSH keys (1 to m). Each SSH key names one fingerprint hash algorithm (m to 1) and is linked to models through model authorizations (1 to m). Each model has many model authorizations, so a key can be authorized on many models and a model can authorize many keys.
 ```
 
@@ -31,13 +31,14 @@ The SSH key data model is the set of records that the {ref}`controller database 
 
 The controller keeps three kinds of record for SSH keys: the key itself, the algorithm that made its fingerprint, and the authorization that links a key to a model. Each has its own rules:
 
-- **SSH key:** The key's owner, its comment, its public key text, and its fingerprint with the algorithm that produced it. The controller's own key, which it generates at {ref}`bootstrap <bootstrap-a-controller>` on a machine {ref}`cloud <cloud>` and keeps in the {ref}`controller configuration <controller-configuration>` key `system-ssh-keys` so that it can reach the machines it manages, carries a reserved comment.
+- **SSH key:** The key's owner, its comment, its public key text, and its fingerprint with the algorithm that produced it.
   - *Rules:*
     - A user stores the same key, or the same fingerprint, only once.
-- **Fingerprint hash algorithm:** The allowed values are `md5` and `sha256`, and Juju computes and stores `sha256` for every key.
+- **Fingerprint hash algorithm:** The allowed values are `md5` and `sha256`.
 - **Model authorization:** Links one key to one model.
   - *Rules:*
-    - The set of keys that a model effectively authorizes leaves out the keys of users who are removed or disabled. The keys stay stored.
+    - A key is authorized on a model once.
+    - The set of keys that a model honors leaves out the keys of disabled users and of removed users. A disabled user's keys stay stored.
 - **User and model:** The records on the two ends of a key's relations. Other pages own them: see {ref}`user <user>` and {ref}`model <model>`. The figure shows them for context. A key has one user, and a model authorization names one model.
 
 An SSH key is a row in the table `user_public_ssh_key`, and the algorithm of its fingerprint comes from the lookup table `ssh_fingerprint_hash_algorithm`. Each model authorization is a row in `model_authorized_keys`. The view `v_model_authorized_keys` applies the rule about removed and disabled users: query the view, not the table, to see the keys a model honors. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
@@ -54,13 +55,13 @@ SSH key operations are the actions a {ref}`client <client>` can take on keys thr
 See also: {ref}`Juju | Add an SSH key <add-an-ssh-key>`
 ```
 
-Adding SSH keys stores one or more keys for the authenticated user and authorizes them on the model. A key comes into being here or through import.
+Adding SSH keys stores one or more keys for the authenticated user and authorizes them on the model. A key comes into being here or through import. The controller computes the fingerprint of each key with sha256.
 
 The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller, and the change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
 - *Rules:*
-  - A key that carries the reserved comment of the controller's own key is refused, for adding and for importing.
+  - A key whose comment is `juju-system-key`, the comment of the key that the controller generates at {ref}`bootstrap <bootstrap-a-controller>` on a machine {ref}`cloud <cloud>` and keeps in the {ref}`controller configuration <controller-configuration>` key `system-ssh-keys` so that it can reach the machines it manages, is refused, for adding and for importing.
 - *Errors:* The client receives each as its own error code with this message, where the user name is the one in the call:
   - **`one or more public keys to be added for user "<name>" already exist`**: *Trigger:* Adding a key the user already has. *Remediation:* None needed; the key is in place.
   - **`one or more public keys to be added for user "<name>" is invalid`**: *Trigger:* A key that is not a valid public key. *Remediation:* Provide the public half of the key, in the format of an `authorized_keys` line.

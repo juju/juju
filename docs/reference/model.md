@@ -25,12 +25,11 @@ A **model** is the workspace on a {ref}`controller <controller>` that holds a de
 
 The model data model is the set of records that describe a model in the {ref}`controller database <database>` and in the model's own {ref}`model database <database>`. The records, with the rules that apply to each, are:
 
-- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-data-model>`, and {ref}`credential <credential>`, its life, and whether it is active. The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name; the user who adds a model is normally its qualifier.
+- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-data-model>`, and {ref}`credential <credential>`, its life, and whether it is active (a model is active once its creation or import has finished). The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name; the user who adds a model is normally its qualifier.
   - *Rules:*
     - A model's name and qualifier together are unique, so two users can each have a model with the same name.
     - A model has a life: alive, dying, or dead. See {ref}`Destroying models <model-destroying>`.
-    - A model is inactive until its creation has finished. The controller starts workers (the processes that do the controller's work for a model) only for active models, and it cannot report the life of an inactive model.
-- **Model type:** One of `iaas` or `caas`. The type follows the model's cloud: a model on a {ref}`Kubernetes cloud <kubernetes-cloud>` is `caas`, and a model on any other cloud is `iaas`. The type decides which workers run for the model and whether its {ref}`applications <application>` scale in pods or on {ref}`machines <machine>`.
+- **Model type:** One of `iaas` or `caas`. The type decides which workers run for the model and whether its {ref}`applications <application>` scale in pods or on {ref}`machines <machine>`.
 - **Namespace:** The name of the model database, which holds the model's contents. A model has one namespace.
 - **Model database:** The model database holds the model's {ref}`machines <machine>`, {ref}`applications <application>`, {ref}`units <unit>`, {ref}`relations <relation>`, and the rest of its contents. It also holds the model's configuration (a set of key and value pairs), its default {ref}`storage <storage>` pools, its target agent version (the version its {ref}`agents <agent>` should run, with the latest version known and the agent stream), and these records about the model itself:
   - **Model identity copy:** A read-only copy of the model's identity (its UUID, controller, name, qualifier, type, cloud, region, credential, and whether it is the controller model), so that processes of the model need not reach the controller database.
@@ -80,7 +79,9 @@ The operation's required access, rules, and errors are:
   - A request that names no {ref}`region <cloud-data-model>` uses the default region when the cloud is the default cloud.
   - A request that names no {ref}`credential <credential>` uses the caller's default credential for that cloud. If the caller has none, the model is added without a credential, which only some clouds accept.
   - The name cannot be empty and the qualifier must be a valid user name. A caller who is not a superuser can add models only with their own name as the qualifier.
-  - The name and qualifier together must be new.
+  - The name and qualifier together must be new, except that a model that is still inactive, because an earlier creation did not finish, is replaced by the new one.
+  - The model type is `caas` when the cloud is a {ref}`Kubernetes cloud <kubernetes-cloud>` and `iaas` for any other cloud.
+  - The model stays inactive until every step of its creation has finished.
   - The controller opens a provider for the cloud with the credential before it writes anything, and refuses the request if the provider cannot be opened.
   - The model's {ref}`agent <agent>` version defaults to the controller's version. A requested version cannot be higher than the controller's, and a lower one needs agent binaries for it on the controller. The agent stream defaults to the model default for the cloud or region, and then to `released`.
   - The controller discovers the cloud's {ref}`spaces <space>` for the new model.
