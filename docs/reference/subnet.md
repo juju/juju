@@ -30,16 +30,17 @@ The subnet data model is the set of records that the {ref}`model database <datab
     - A subnet belongs to at most one space.
 - **Provider subnet:** The ID that the cloud gave a subnet.
   - *Rules:*
-    - A cloud ID appears once and is not empty, and a subnet has at most one.
+    - A cloud ID appears once and is not empty.
+    - A subnet has at most one cloud ID.
 - **Provider network:** The ID of a cloud network, such as a VPC, that contains subnets.
   - *Rules:*
     - A cloud ID appears once.
 - **Subnet's provider network:** The link between a subnet and its provider network.
   - *Rules:*
-    - A subnet has at most one.
+    - A subnet has at most one provider network.
 - **Space:** A space that holds subnets. Another page owns it: see {ref}`space <space>`.
 
-A subnet is a row in the table `subnet`, and its cloud ID is a row in `provider_subnet`. Its provider network is linked by a row in `provider_network_subnet` to a row in `provider_network`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`. The {ref}`availability zones <zone>` in which a subnet is available are linked to it by their own records.
+A subnet is a row in the table `subnet`. Its cloud ID is a row in `provider_subnet`. Its provider network is linked by a row in `provider_network_subnet` to a row in `provider_network`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`. The {ref}`availability zones <zone>` in which a subnet is available are linked to it by their own records.
 
 (subnet-change-streams)=
 ## Subnet change streams
