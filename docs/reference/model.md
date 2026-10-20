@@ -34,7 +34,7 @@ The model data model is the set of records that describe a model in the {ref}`co
 - **Model database:** The model database holds the model's {ref}`machines <machine>`, {ref}`applications <application>`, {ref}`units <unit>`, {ref}`relations <relation>`, and the rest of its contents. It also holds the model's configuration (a set of key and value pairs), its default {ref}`storage <storage>` pools, its target agent version (the version its {ref}`agents <agent>` should run, with the latest version known and the agent stream), and these records about the model itself:
   - **Model identity copy:** A read-only copy of the model's identity (its UUID, controller, name, qualifier, type, cloud, region, credential, and whether it is the controller model), so that processes of the model need not reach the controller database.
   - **Model constraints:** The model's {ref}`constraints <constraint>`: one record, or none when no constraints are set.
-  - **Model life copy:** A copy of the model's life. The controller database record is the authority, and the copy can lag it.
+  - **Model life copy:** A copy of the model's life. The controller database record is the authority. The copy can lag it.
   - **Migrating marker:** A record that exists while the model is migrating.
 - **Cloud, region, and credential:** The records a model points at. Other pages own them: see {ref}`cloud <cloud>`, which also describes regions, and {ref}`credential <credential>`. The region and the credential are optional.
 - **Secret backend:** The backend that stores the model's {ref}`secrets <secret>`, chosen from the controller's secret backends. See {ref}`secret backend <secret-backend>`.
@@ -42,9 +42,9 @@ The model data model is the set of records that describe a model in the {ref}`co
 - **Migration and migration phase:** A record of each attempt to migrate the model to another controller, with the migration phase the attempt is in (one of a fixed list, see {ref}`Migrating models <model-migrating>`), the history of its phases, its latest status message, the reports of the model's {ref}`agents <agent>`, and the credentials for the target controller.
   - *Rules:*
     - A model has at most one active migration. A migration is active until it reaches `done`, `reap-failed`, or `abort-done`.
-    - A model has at most one import record on the target controller, and the record is in one of three phases: `importing`, `activating`, or `aborting`.
+    - A model has at most one import record on the target controller. The record is in one of three phases: `importing`, `activating`, or `aborting`.
 
-A model is a row in the table `model`, and its namespace, secret backend, and last logins are rows in `model_namespace`, `model_secret_backend`, and `model_last_login`. The model type comes from the lookup table `model_type`, and the migration records are rows in the tables whose names start with `model_migration`. A model's contents are rows in the tables `model`, `model_config`, `model_constraint`, `model_life`, `model_migrating`, `model_storage_pool`, and `agent_version` of its model database. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A model is a row in the table `model`. Its namespace, secret backend, and last logins are rows in `model_namespace`, `model_secret_backend`, and `model_last_login`. The model type comes from the lookup table `model_type`. The migration records are rows in the tables whose names start with `model_migration`. A model's contents are rows in the tables `model`, `model_config`, `model_constraint`, `model_life`, `model_migrating`, `model_storage_pool`, and `agent_version` of its model database. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (model-change-streams)=
 ## Model change streams
@@ -83,7 +83,7 @@ The operation's required access, rules, and errors are:
   - The model type is `caas` when the cloud is a {ref}`Kubernetes cloud <kubernetes-cloud>` and `iaas` for any other cloud.
   - The model stays inactive until every step of its creation has finished.
   - The controller opens a provider (the part of Juju that talks to the cloud's API) for the cloud with the credential before it writes anything, and refuses the request if the provider cannot be opened.
-  - The model's {ref}`agent <agent>` version defaults to the controller's version. A requested version cannot be higher than the controller's, and a lower one needs agent binaries for it on the controller. The agent stream defaults to the model default for the cloud or region, and then to `released`.
+  - The model's {ref}`agent <agent>` version defaults to the controller's version. A requested version cannot be higher than the controller's. A lower one needs agent binaries for it on the controller. The agent stream defaults to the model default for the cloud or region, then to `released`.
   - The controller discovers the cloud's {ref}`spaces <space>` for the new model.
   - The creator receives {ref}`admin access <user-access-model-admin>` to the new model.
 - *Errors:*
@@ -180,12 +180,12 @@ The operation's required access, rules, and errors are:
 - *Required access:* {ref}`Write access <user-access-model-write>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses the request.
-  - A request that names no version upgrades a workload model to the highest version that runs on the controller's nodes, and the controller model to the highest patch version for which the controller holds agent binaries. A request can also change the agent stream, and it can ask for a dry run, which runs the checks, reports the version it would choose, and changes nothing.
-  - The version cannot be lower than the model's current target version and cannot be higher than the controller's version, and the controller must hold agent binaries for it.
+  - A request that names no version upgrades a workload model to the highest version that runs on the controller's nodes. The same request upgrades the controller model to the highest patch version for which the controller holds agent binaries. A request can also change the agent stream or ask for a dry run, which runs the checks, reports the version it would choose, and changes nothing.
+  - The version cannot be lower than the model's current target version or higher than the controller's version. The controller must also hold agent binaries for it.
   - A workload model with machines on a base that is not a supported workload base cannot be upgraded.
   - When the call returns, the model's target agent version is set, and its agents upgrade afterwards.
   - A model upgrade cannot be aborted or reversed.
-  - The controller model upgrades to a patch version only. Every controller node must already run the controller's current version, and the controller must hold binaries for the architecture of each node.
+  - The controller model upgrades to a patch version only. Every controller node must already run the controller's current version. The controller must also hold binaries for the architecture of each node.
 - *Errors:*
   - **`unauthorized to upgrade model`**: *Trigger:* The caller lacks the access above, or named another model. *Remediation:* Ask a model administrator or a superuser.
   - **`model agent binaries are not available for version "<version>"`** and **`controller agent binaries are not available for version "<version>"`**: *Trigger:* The controller holds no binaries for the version, or for a node's architecture. *Remediation:* Choose a version whose binaries are available.
@@ -213,11 +213,11 @@ See also: {ref}`Juju | Migrate a model <migrate-a-model>`
 :alt: Five slides. The first is a state diagram of ten phases. A row of quiesce, import, validation, success, log-transfer, and reap, each leading to the next. Reap leads to done and to reap-failed. Quiesce, import, and validation each also lead to abort, which leads to abort-done. The other four are sequence diagrams. The first has the client, the source controller, and the target controller: the client requests the migration, the source runs its prechecks, the target runs its prechecks, and the source returns a migration ID. The second has the source, the model agents, and the target: the agents quiesce and report ready, the prechecks run again, and the source sends the model to the target. The third has the source, the agents, the target, and the cloud: the agents log in to the target and report, and the target checks the machines against the cloud and is prepared to activate the model. The fourth has the source, the agents, and the target: the agents report and switch to the target, the target takes over the cloud resources, the source copies the logs, and removes the model.
 ```
 
-Migrating models moves a model from one {ref}`controller <controller>`, the source, to another, the target. The source controller drives the migration through a sequence of phases, and the model's {ref}`agents <agent>` take part in several of them.
+Migrating models moves a model from one {ref}`controller <controller>`, the source, to another, the target. The source controller drives the migration through a sequence of phases. The model's {ref}`agents <agent>` take part in several of them.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the source controller, and the address, the certificate, and a {ref}`user's <user>` credentials for the target controller.
+- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the source controller, plus the address, the certificate, and a {ref}`user's <user>` credentials for the target controller.
 - *Rules:*
   - The source and the target both run prechecks (checks that a model can be migrated, such as that every machine is alive) before the model is quiesced and again when the model is stable. A request can ask for the prechecks only.
   - Every user with access to the model must exist on the target, unless the request skips the user checks. When external users (those with an `@` in their name) have access, the two controllers must also use the same identity provider URL (the address of the service that authenticates external users).
@@ -227,7 +227,7 @@ The operation's required access, rules, and errors are:
   - A migration cannot be aborted after `validation`. A failure in `quiesce`, `import`, or `validation` aborts it: the source removes the imported copy from the target and the migration ends in `abort-done`, with the model still on the source.
   - The target holds an imported model inactive until the migration activates it. When the source removes the model, it keeps a redirect record with the target's addresses and the model's users, so that agents that were offline learn where the model went.
   - The source copies the model's logs to the target in `log-transfer`, unless the controller forwards logs to [Loki](https://grafana.com/oss/loki/).
-  - A migration that fails to remove the model from the source ends in `reap-failed`, and the model is already live on the target.
+  - A migration that fails to remove the model from the source ends in `reap-failed`. The model is already live on the target.
 - *Errors:* A precheck that fails when the migration is requested is returned as the call's error, with a prefix such as `source prechecks failed:`. A failure after that becomes the migration's status, `aborted, removing model from target controller: <reason>`, where the reason is one of the messages below. An error raised while the target imports the model has the prefix `model data transfer failed, failed to import model into target controller`, followed by a colon and the message. The messages are:
   - **`model is <life>`**, **`model is being imported as part of another migration`**, and **`model has revoked credentials`**: *Trigger:* The model is dying or dead, is itself being imported, or has a {ref}`credential <credential>` that was revoked. *Remediation:* Wait for the removal or import to finish, or set a valid credential.
   - **`cannot initiate migration as the users granted access to the model do not exist on the destination controller…`** and **`cannot initiate migration as external users have been granted access to the model and the two controllers have different identity provider configurations…`**: *Trigger:* A user of the model is missing on the target, or external users have access and the identity providers differ. Both messages list the users involved. *Remediation:* Add the users to the target, or remove them from the model.
@@ -264,7 +264,7 @@ The operation's required access, rules, and errors are:
   - A model that holds persistent storage is destroyed only when the request says whether to destroy or release the storage.
   - A request with the force option removes what the normal removal cannot, after waiting for the maximum wait time the request names.
   - A model that is being imported by a {ref}`migration <model-migrating>` is removed through the migration's abort, not through this operation.
-  - A model stays dying until every one of its machines is gone, and a machine that hosts containers is removed after its containers.
+  - A model stays dying until every one of its machines is gone. A machine that hosts containers is removed after its containers.
   - The model's database is deleted last, after the rest of the model is removed.
 - *Errors:*
   - **`model "<uuid>" has persistent storage`**: *Trigger:* The model holds persistent storage and the request does not say what to do with it. The {ref}`client <client>` receives it with the code for persistent storage. *Remediation:* Destroy or release the storage in the request.
