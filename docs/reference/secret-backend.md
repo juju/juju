@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage secret backends <manage-secret-backends>`
 ```
 
-A **secret backend** is a service that stores the content of {ref}`secrets <secret>`, such as a Vault server or a Kubernetes namespace, registered on a {ref}`controller <controller>` under a name. Every {ref}`model <model>` uses exactly one backend for the secrets it creates, and the controller keeps no content of its own for a secret that lives in an external backend: it keeps only which backend holds each secret revision. Two backends exist on every controller: `internal`, which keeps content in the database, and `kubernetes`, which keeps content in the model's namespace on a Kubernetes cloud. A new model uses `internal` on a machine cloud and `kubernetes` on a Kubernetes cloud.
+A **secret backend** is a service that stores the content of {ref}`secrets <secret>`, such as a Vault server or a Kubernetes namespace, registered on a {ref}`controller <controller>` under a name. Every {ref}`model <model>` uses one backend for the secrets it creates, and every controller has two built-in backends: `internal`, which keeps content in the database, and `kubernetes`, which keeps it in the model's namespace on a Kubernetes cloud.
 
 (secret-backend-data-model)=
 ## Secret backend data model
@@ -137,6 +137,7 @@ The operation's required access, rules, and errors are:
 - *Required access:* {ref}`Read access <user-access-model-read>` to the model to get the backend, and {ref}`write access <user-access-model-write>` to set it.
 - *Rules:*
   - The name `auto` chooses `internal` on a machine model and `kubernetes` on a Kubernetes model, and getting the backend reports those two as `auto`.
+  - A new model uses `internal` on a machine cloud and `kubernetes` on a Kubernetes cloud.
   - The names `internal` and `kubernetes`, and any name that ends in `-local`, are refused: use `auto` to return to the default.
   - The controller checks neither that the backend answers nor that its type fits the model.
 - *Errors:*

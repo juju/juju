@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage machines <manage-machines>`
 ```
 
-A **machine** is a {ref}`compute resource <resource-compute>` that a {ref}`model <model>` requests from a machine {ref}`cloud <cloud>` to run {ref}`units <unit>`, whether the cloud provides bare metal, virtual machines, or LXD containers on a host. A machine is requested explicitly, by adding it, or implicitly, by deploying an {ref}`application <application>` or adding a unit. A machine has a name that is a number, such as `0`; a LXD container on a machine is also a machine, with the name `0/lxd/5` (container `5` on machine `0`). A machine usually hosts one unit, and several units of the same or different applications can share a machine. A machine runs a {ref}`machine agent <machine-agent>`, and it lives until a user removes it or the model is destroyed.
+A **machine** is a {ref}`compute resource <resource-compute>` that a {ref}`model <model>` requests from a machine {ref}`cloud <cloud>` to host {ref}`units <unit>`, usually one, though several units of the same or different {ref}`applications <application>` can share it. A machine is requested explicitly, by adding it, or implicitly, by deploying an application or adding a unit, and whether the cloud provides bare metal, virtual machines, or LXD containers, the result is a machine. A machine has a number as its name, such as `0`, and a LXD container on a machine has the name `0/lxd/5` (container `5` on machine `0`).
 
 (machine-designations)=
 ## Machine designations

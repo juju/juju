@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage controllers <manage-controllers>`
 ```
 
-A **controller** is the part of Juju that keeps the declared state of every {ref}`model <model>` and does the work that makes the {ref}`cloud <cloud>` match it: it runs the API server that {ref}`clients <client>` and {ref}`agents <agent>` connect to, keeps the database of everything Juju knows, and runs the workers that act on each model, such as the ones that provision machines and migrate models. A controller comes into being at {ref}`bootstrap <bootstrap-a-controller>` and holds one **controller model**, which holds the controller's own machines. On a machine cloud, a controller is one or more **controller nodes** (for {ref}`high availability <high-availability>`), each a {ref}`machine <machine>` that runs a {ref}`unit agent <unit-agent>`, the code of the [`juju-controller`](https://charmhub.io/juju-controller) charm, and a {ref}`controller agent <controller-agent>` with the API server and one node of the embedded [Dqlite](https://canonical.com/dqlite) {ref}`database <database>`. On a Kubernetes cloud, a node is a pod.
+A **controller** is the part of Juju that keeps the declared state of every {ref}`model <model>` and does the work that makes the {ref}`cloud <cloud>` match it: it runs the API server that {ref}`clients <client>` and {ref}`agents <agent>` connect to, keeps the database of everything Juju knows, and runs the workers that act on each model. A controller comes into being at {ref}`bootstrap <bootstrap-a-controller>` and holds one **controller model**, which holds the controller's own machines. On a machine cloud a controller is one or more **controller nodes**, for {ref}`high availability <high-availability>`, and on a Kubernetes cloud a node is a pod.
 
 (controller-data-model)=
 ## Controller data model
@@ -107,7 +107,7 @@ Also, Juju will apply default S3 policy permissions, but you are free to change 
 (controller-workers)=
 ## Controller workers
 
-A **worker** is a long-running process inside an agent that does one job, such as serving the API or starting machines. An agent starts its workers with a dependency engine, which starts, stops, and restarts each worker as the workers it needs come and go. The controller's workers are the workers that a controller agent runs, and the engines that the controller agent starts for models and units.
+A **worker** is a long-running process inside an agent that does one job, such as serving the API or starting machines. An agent starts its workers with a dependency engine, which starts, stops, and restarts each worker as the workers it needs come and go. The controller's workers are the workers that a controller agent runs, and the engines that the controller agent starts for models and units. Each controller node runs a {ref}`unit agent <unit-agent>` and the code of the [`juju-controller`](https://charmhub.io/juju-controller) charm, and a {ref}`controller agent <controller-agent>` that runs the API server and one node of the embedded [Dqlite](https://canonical.com/dqlite) {ref}`database <database>`.
 
 The interface that shows them is the engine report: on a controller machine the shell function `juju_engine_report` prints the state of every worker of the agent, and the same report is served at the route `/depengine` of the agent's introspection socket, a file in the agent's directory that only the machine's administrator can open. The names below are the names that the report uses, and the list follows the report in grouping workers by the engine that runs them.
 
