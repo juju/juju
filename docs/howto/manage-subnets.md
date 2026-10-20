@@ -8,7 +8,7 @@ myst:
 # How to manage subnets
 
 ```{ibnote}
-See also: {ref}`Spaces <space>`
+See also: {ref}`subnet`
 ```
 
 (list-subnets)=

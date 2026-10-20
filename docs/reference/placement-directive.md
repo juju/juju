@@ -57,7 +57,7 @@ Available for MAAS.
 (placement-directive-zone)=
 ### `zone=<zone>`
 
-**Purpose:** To specify an availability zone.
+**Purpose:** To specify an availability zone. See {ref}`Requesting zones <zone-requesting>`.
 
 ```{important}
 

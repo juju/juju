@@ -197,9 +197,11 @@ Juju provisions and manages the cloud resources -- machines, networking, storage
 
    .. slice:: Networking
 
-      :doc:`Space, subnet, and zone reference <reference/space>`
+      :doc:`Space reference <reference/space>`
       :doc:`Manage spaces <howto/manage-spaces>`
+      :doc:`Subnet reference <reference/subnet>`
       :doc:`Manage subnets <howto/manage-subnets>`
+      :doc:`Zone reference <reference/zone>`
 
    .. slice:: Storage
 
