@@ -35,12 +35,13 @@ The credential data model is the set of records that the {ref}`controller databa
     - A credential's name is not empty.
     - A cloud can hold one credential of a given name for each owner, so two owners can each have a credential with the same name on one cloud.
 - **Authentication type:** How the credential authenticates against the cloud. The types that exist are those listed on the {ref}`cloud <cloud-data-model>` page.
-- **Credential attribute:** One key and value of a credential, such as `username` or `access-key`. Which keys a credential needs depends on the cloud type and on the authentication type, and the {ref}`page of each cloud <list-of-supported-clouds>` lists them.
+- **Credential attribute:** One key and value of a credential, such as `username` or `access-key`. Which keys a credential needs depends on the cloud type and on the authentication type. The {ref}`page of each cloud <list-of-supported-clouds>` lists them.
   - *Rules:*
-    - A credential has each key once, and a key is not empty.
+    - A credential has each key once.
+    - A key is not empty.
 - **User, cloud, and model:** The records at the far ends of a credential. Other pages own them: see {ref}`user <user>`, {ref}`cloud <cloud>`, and {ref}`model <model>`.
 
-A credential is a row in the table `cloud_credential`, and its attributes are rows in `cloud_credential_attribute`. The allowed authentication types come from the lookup table `auth_type`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A credential is a row in the table `cloud_credential`. Its attributes are rows in `cloud_credential_attribute`. The allowed authentication types come from the lookup table `auth_type`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (credential-change-streams)=
 ## Credential change streams
@@ -50,7 +51,7 @@ Credential change streams are the notifications that tell the agents of a model 
 (credential-operations)=
 ## Credential operations
 
-Credential operations are the actions a {ref}`client <client>` can take on credentials through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, update, and remove. Choosing the credential of a model is described on the {ref}`model <model-configuring>` page. A credential belongs to its owner. The owner can act on the credential, and so can a controller superuser. Only the owner sees the contents of a credential.
+Credential operations are the actions a {ref}`client <client>` can take on credentials through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, update, and remove. Choosing the credential of a model is described on the {ref}`model <model-configuring>` page. A credential belongs to its owner. The owner can act on the credential. A controller superuser can act on it too. Only the owner sees the contents of a credential.
 
 (credential-adding)=
 ### Adding credentials
@@ -65,7 +66,8 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* The credential's owner, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
-  - The credential's owner must exist, and the cloud must be one that the controller knows.
+  - The credential's owner must exist.
+  - The cloud must be one that the controller knows.
   - The authentication type must be one that the cloud admits.
   - The call takes a list of credentials. Each credential in the list gets its own result.
 - *Errors:* The client receives each in the result for the credential:
@@ -89,7 +91,9 @@ The operation's required access, rules, and errors are:
 - *Required access:* To list the tags of a user's credentials on a cloud, or to show one credential without its secrets, the owner or {ref}`superuser access <user-access-controller-superuser>` to the controller. To show the contents of credentials with the models that use them, the owner only: a superuser has no special right here.
 - *Rules:*
   - Showing a credential without secrets leaves out the attributes that the cloud's credential schema marks as hidden, and names them as redacted.
-  - The contents of credentials include whether each is valid, and a model is named with its access for the owner. A request can ask for secrets to be included.
+  - The contents of credentials include whether each is valid.
+  - A model is named with its access for the owner.
+  - A request can ask for secrets to be included.
   - The call takes a list of users. Each user in the list gets its own result.
 - *Errors:* The client receives each in the result for the request:
   - **`permission denied`**: *Trigger:* The caller is neither the user nor a superuser, when listing the tags. The client receives it with the code `unauthorized access`. *Remediation:* Ask the user, or a superuser.
