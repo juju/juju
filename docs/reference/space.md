@@ -57,7 +57,7 @@ A space is a row in the table `space`, and a cloud's ID for it is a row in `prov
 (space-change-streams)=
 ## Space change streams
 
-Space change streams are the changes that the workers of a model and of the controller follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). No client can watch spaces or subnets.
+Space change streams are the changes that the workers of a model and of the controller follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). No client can watch spaces or subnets, but the firewaller follows the subnets of a model and a controller worker follows spaces and subnets:
 
 - **Subnets:** The firewaller follows the subnets of the model. When a subnet changes, including when it moves to another space, the firewaller reloads the spaces and works out again the ingress rules of the units of applications that are exposed to spaces.
 - **Spaces and subnets:** On the controller, the `api-address-setter` worker follows the spaces and subnets (see {ref}`controller workers <controller-workers>`).

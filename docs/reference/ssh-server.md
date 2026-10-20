@@ -51,7 +51,7 @@ The controller's host key is a row in the table `controller_ssh_host_key` and it
 (ssh-server-change-streams)=
 ## SSH server change streams
 
-SSH server change streams are the changes that the SSH server and the machine agents follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed).
+SSH server change streams are the changes that the SSH server and the machine agents follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed), and the SSH server follows its port and the controller configuration, while each machine agent follows the connection requests that name its machine:
 
 - **Server port:** The SSH server follows its port record. When the value changes, the server stops, waits until the old listener has released the port, and starts again on the new one. Stopping closes every connection that is open.
 - **Controller configuration:** The SSH server follows the controller configuration. When {ref}`ssh-max-concurrent-connections <controller-config-ssh-max-concurrent-connections>` changes, it restarts in the same way with the new limit. Other keys leave the server running.

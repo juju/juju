@@ -51,7 +51,7 @@ A secret backend is a row in the table `secret_backend`, its type comes from the
 (secret-backend-change-streams)=
 ## Secret backend change streams
 
-Secret backend change streams are the changes that the workers of a controller and the agents of a model follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed).
+Secret backend change streams are the changes that the workers of a controller and the agents of a model follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed), and the controller follows the token rotation records of the backends, while the agents of a model follow the model's choice of backend:
 
 - **Token rotation:** The `secret-backend-rotate` worker of the primary controller (the one controller that runs the controller's single-instance workers, see {ref}`controller workers <controller-workers>`) follows the token rotation records. It sets one timer for the earliest due time, and when the timer fires it replaces the token of each due backend with a new one that the backend issues.
 - **Model backend:** The unit agents and the model's own workers follow the model's backend record. When it changes, they move the content of the secrets they own from the old backend to the new one, as {ref}`Setting and getting model secret backends <secret-backend-setting>` describes. A unit agent moves the secrets of its unit and, on the leader, those of its application, and the model's workers move the user secrets.

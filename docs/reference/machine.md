@@ -47,10 +47,7 @@ The machine data model is the set of records that the {ref}`model database <data
 - **Machine status:** The status that the machine's agent reports: one of `error`, `started`, `pending`, `stopped`, and `down`.
   - *Rules:*
     - A machine has at most one.
-- **Platform:** The machine's base, which is its operating system and channel, and its architecture.
-
-(machine-base)=
-  A **base** identifies an operating system image: the name of the operating system, the symbol `@`, and the channel, given as `<track>` or `<track>/<risk>`, such as `ubuntu@22.04` or `ubuntu@22.04/stable`. A base replaces the older notion of a series. A machine's base must be an Ubuntu base.
+- **Platform:** The machine's base, which is its operating system and channel, and its architecture. A base identifies an operating system image: the name of the operating system, the symbol `@`, and the channel, given as `<track>` or `<track>/<risk>`, such as `ubuntu@22.04` or `ubuntu@22.04/stable`. A base replaces the older notion of a series, and a machine's base must be an Ubuntu base.
 - **Cloud instance:** The instance that the cloud started for the machine: its instance ID and display name, its hardware (architecture, memory, cores, root disk, and availability zone), and its life.
   - *Rules:*
     - A machine has at most one.
@@ -78,7 +75,7 @@ A machine is a row in the table `machine`, and its status is a row in `machine_s
 (machine-change-streams)=
 ## Machine change streams
 
-Machine change streams are the changes that the workers and agents of a model follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed).
+Machine change streams are the changes that the workers and agents of a model follow, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed), and workers and agents follow the machines of a model, a machine's life and what depends on it, the containers of a host, the reboot flag, provisioning errors, and agent start times:
 
 - **Machines of the model:** The compute provisioner follows the machines that are not containers, and starts an instance for each new one. It also follows a request to reprovision a machine.
 - **A machine's life and its dependants:** A machine's agent follows its machine's life and the life of its units, its child machines, and its storage, so that it can stop and mark the machine dead when the last of them has gone.
