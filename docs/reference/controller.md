@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage controllers <manage-controllers>`
 ```
 
-A **controller** is the part of Juju that keeps the declared state of every {ref}`model <model>` and does the work that makes the {ref}`cloud <cloud>` match it: it runs the API server that {ref}`clients <client>` and {ref}`agents <agent>` connect to, keeps the database of everything Juju knows, and runs the workers that act on each model. A controller comes into being at {ref}`bootstrap <bootstrap-a-controller>` and holds one **controller model**, which holds the controller's own machines. On a machine cloud a controller is one or more **controller nodes**, for {ref}`high availability <high-availability>`, and on a Kubernetes cloud a node is a pod.
+A **controller** is the part of Juju that keeps the declared state of every {ref}`model <model>` and makes the {ref}`cloud <cloud>` match it. A controller comes into being at {ref}`bootstrap <bootstrap-a-controller>` and holds one **controller model**, which holds the controller's own machines. On a machine cloud a controller is one or more **controller nodes**, for {ref}`high availability <high-availability>`, and on a Kubernetes cloud a node is a pod.
 
 (controller-data-model)=
 ## Controller data model
@@ -19,8 +19,8 @@ A **controller** is the part of Juju that keeps the declared state of every {ref
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller data model
-:caption: The controller database keeps one record for each controller node. A node has one agent version record (a node has one, a record belongs to one node), one password record, and many addresses of three kinds: agent addresses, client addresses, and peer addresses. A node has many of each, and an address belongs to at most one node: an agent address or client address that belongs to no node is shared, such as the address of a Kubernetes service in front of the controller pods, and a peer address always belongs to a node. The controller's own identity and its configuration are single records that have no connection to a node, so the figure leaves them out.
-:alt: Six boxes of the same size, each with a filled table mark in the corner, inside a group named Controller database. Controller node is in the middle. Node agent version is above it (1 to 1), Node password is below it (1 to 1), Client address is to its left (m to 1), Agent address is above Client address, and both point at Controller node through dashed lines (m to 1) because the node is optional, and Peer address is to its right (1 to m).
+:caption: The controller database keeps one record for each controller node. A node has at most one agent version record, at most one password record, and many addresses of three kinds: agent addresses, client addresses, and peer addresses. A node has many of each, and an address belongs to at most one node: an agent address or client address that belongs to no node is shared, such as the address of a Kubernetes service in front of the controller pods, and a peer address always belongs to a node. The controller's own identity is a single record, and its configuration is a set of key and value rows. Neither connects to a node, so the figure leaves them out.
+:alt: Six boxes of the same size, each with a filled table mark in the corner, inside a group named Controller database. Controller node is in the middle. Node agent version is above it (0 or 1 to 1), Node password is below it (0 or 1 to 1), Client address is to its left (m to 1), Agent address is above Client address, and both point at Controller node through dashed lines (m to 1) because the node is optional, and Peer address is to its right and points at Controller node through a solid line (m to 1) because the node is required.
 ```
 
 The controller data model is the set of records that the {ref}`controller database <database>` keeps about the controller itself, its nodes, and the addresses at which the nodes can be reached. The records, with the rules that apply to each, are:
@@ -28,10 +28,10 @@ The controller data model is the set of records that the {ref}`controller databa
 - **Controller:** The controller's UUID, the UUID of its controller model, the agent version it should run, its API port, and its certificates, keys, and system identity.
   - *Rules:*
     - The database keeps at most one.
-- **Controller configuration:** The controller's settings, as key and value pairs, such as the {ref}`API port <controller-config-api-port>` and the limits that {ref}`Configuring controllers <controller-configuring>` lists.
+- **Controller configuration:** The controller's settings, as key and value pairs, such as the limits that {ref}`Configuring controllers <controller-configuring>` lists.
   - *Rules:*
     - A key appears once.
-- **Controller node:** One controller machine or pod, with its life (alive, dying, or dead), the ID that Dqlite gave the node, and the address Dqlite listens on.
+- **Controller node:** One controller machine or pod, with its life (alive, dying, or dead), the ID that {ref}`Dqlite <database>`, the controller's embedded database, gave the node, and the address Dqlite listens on.
   - *Rules:*
     - Two nodes cannot share a Dqlite node ID, or a Dqlite address.
 - **Node agent version:** The agent version and architecture that a node last reported. The architecture is one of `amd64`, `arm64`, `ppc64el`, `s390x`, and `riscv64`.
@@ -55,7 +55,7 @@ A controller is the one row of the table `controller`, and its settings are rows
 (controller-storage)=
 ## Controller storage
 
-A Juju controller has two basic persistent storage needs: {ref}`database <database>` access and blob storage. By default, Juju will use the filesystem of the controller's supporting infrastructure.
+A controller keeps its records in its {ref}`database <database>` and its blobs, such as charms, in an object store. The object store is a file store on the controller by default.
 
 <!-- ADD BACK IN WHEN WE MOVE THOSE VALUES INTO SECRETS.
 
@@ -109,16 +109,16 @@ Also, Juju will apply default S3 policy permissions, but you are free to change 
 
 A **worker** is a long-running process inside an agent that does one job, such as serving the API or starting machines. An agent starts its workers with a dependency engine, which starts, stops, and restarts each worker as the workers it needs come and go. The controller's workers are the workers that a controller agent runs, and the engines that the controller agent starts for models and units. Each controller node runs a {ref}`unit agent <unit-agent>` and the code of the [`juju-controller`](https://charmhub.io/juju-controller) charm, and a {ref}`controller agent <controller-agent>` that runs the API server and one node of the embedded [Dqlite](https://canonical.com/dqlite) {ref}`database <database>`.
 
-The interface that shows them is the engine report: on a controller machine the shell function `juju_engine_report` prints the state of every worker of the agent, and the same report is served at the route `/depengine` of the agent's introspection socket, a file in the agent's directory that only the machine's administrator can open. The names below are the names that the report uses, and the list below groups the workers by where they run: in the controller agent's own engine, on one controller only, and in the engines that the controller agent starts for each model and each unit:
+The interface that shows them is the engine report: on a controller machine the shell function `juju_engine_report` prints the state of every worker of the agent, and the same report is served at the route `/depengine` of the agent's introspection socket. The names below are the names that the report uses, and the list below groups the workers by where they run: in the controller agent's own engine, on one controller only, and in the engines that the controller agent starts for each model and each unit:
 
 - **The controller agent's own engine.** A controller agent is the machine agent of a controller machine (on Kubernetes, of a controller pod). Among others, its engine runs:
   - *Serving the API:* `api-server` and `http-server` serve the API, `api-remote-caller` keeps connections to the other controllers, `ssh-server` and `ssh-tunneler` serve and track {ref}`SSH sessions <juju-ssh>`, and `jwt-parser` parses JSON Web Tokens for the workers that need them.
   - *Keeping the database:* `db-accessor` runs this machine's Dqlite node and joins it to the cluster, and `upgrade-database-runner` applies schema upgrades when the controller upgrades.
-  - *Keeping credentials current:* `certificate-watcher` loads the API certificate, and `secret-backend-rotate` rotates the tokens of {ref}`secret backends <secret-backend>`.
+  - *Keeping credentials current:* `certificate-watcher` loads the API certificate.
   - *Running models:* `model-worker-manager` starts one engine for each active model (see below).
-  - *Operating the controller:* `backup-creator` creates backup archives, `controller-log-router` and `controller-log-sink` route and store the controller's logs, `upgrade-controller-steps-runner` runs the controller's upgrade steps, `external-controller-updater` keeps the records of other controllers up to date for cross-model relations, and `deployer` starts the agents of the units that run on the machine, such as the controller charm's unit.
-- **One controller at a time.** Some workers run on exactly one controller, the primary. The primary is the controller that holds the lease named `singular-controller` for the controller model; a lease is a claim that lasts a minute and that its holder renews, and when the holder stops, another controller claims it. The workers that run only on the primary are `api-address-setter` (publishes each node's API addresses, filtered by the {ref}`juju-mgmt-space <controller-config-juju-mgmt-space>` setting), `change-stream-pruner` (prunes the controller database's change stream), `external-controller-updater`, `secret-backend-rotate`, and `object-store-drainer`. Every other controller runs `object-store-guard`.
-- **One engine for each model.** `model-worker-manager` follows the set of active models, starts an engine for each model, and stops it when the model is dead. An engine runs the workers that act on one model: `provider-tracker` opens the cloud for the model, `removal` removes entities, `migration-master` drives {ref}`migrations <model-migrating>`, `charm-revisioner` checks Charmhub for new charm revisions every 24 hours, `storage-provisioner` provisions storage, `secrets-pruner` prunes obsolete secret revisions, and `operation-pruner` prunes old action results. A machine model's engine also runs `compute-provisioner` (starts and stops machines), `firewaller`, and `instance-poller` (refreshes instance information from the cloud), and a Kubernetes model's engine runs `caas-application-provisioner`, `caas-firewaller`, `caas-model-operator`, and `caas-model-config-manager`. Every controller runs an engine for every active model, and each model has its own lease: the workers `provider-tracker`, `migration-master`, `charm-revisioner`, `operation-pruner`, and `change-stream-pruner`, and on Kubernetes `caas-model-operator` and `caas-model-config-manager`, run only on the controller that holds the model's lease, so the workers of different models may run on different controllers.
+  - *Operating the controller:* `backup-creator` creates backup archives, `controller-log-router` and `controller-log-sink` route and store the controller's logs, `upgrade-controller-steps-runner` runs the controller's upgrade steps, and `deployer` starts the agents of the units that run on the machine, such as the controller charm's unit.
+- **One controller at a time.** Some workers run on exactly one controller, the primary. The primary is the controller that holds the lease of type `singular-controller` for the controller model; a lease is a claim that lasts a minute and that its holder renews, and when the holder stops, another controller claims it. The workers that run only on the primary are `api-address-setter` (publishes each node's API addresses, filtered by the {ref}`juju-mgmt-space <controller-config-juju-mgmt-space>` setting), `change-stream-pruner` (prunes the controller database's change stream), `external-controller-updater` (keeps the records of other controllers up to date for cross-model relations), `secret-backend-rotate` (rotates the tokens of {ref}`secret backends <secret-backend>`), and `object-store-drainer`. Every other controller runs `object-store-guard`.
+- **One engine for each model.** `model-worker-manager` follows the set of active models, starts an engine for each model, and stops it when the model is dead. An engine runs the workers that act on one model: `provider-tracker` opens the cloud for the model, `removal` removes entities, `migration-master` drives {ref}`migrations <model-migrating>`, `charm-revisioner` checks Charmhub for new charm revisions every 24 hours, `storage-provisioner` provisions storage, `secrets-pruner` prunes obsolete secret revisions, and `operation-pruner` prunes old action results. A machine model's engine also runs `compute-provisioner` (starts and stops machines), `firewaller`, and `instance-poller` (refreshes instance information from the cloud), and a Kubernetes model's engine runs `caas-application-provisioner`, `caas-firewaller`, `caas-model-operator`, and `caas-model-config-manager`. Every controller runs an engine for every active model, and each model has its own lease: the workers `provider-tracker`, `migration-master`, `charm-revisioner`, `operation-pruner`, and `change-stream-pruner` (which prunes the model database's change stream), and on Kubernetes `caas-model-operator` and `caas-model-config-manager`, run only on the controller that holds the model's lease, so the workers of different models may run on different controllers.
 - **One engine for each unit.** `deployer` starts an engine for each unit on the machine. The engine runs the unit agent's workers, such as `uniter`, which runs the charm's hooks.
 
 (controller-change-streams)=
@@ -126,14 +126,14 @@ The interface that shows them is the engine report: on a controller machine the 
 
 Controller change streams are the notifications that tell the controller's workers and the agents of every model that something about the controller has changed, so that nothing has to poll. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed), and the controller's configuration, its set of nodes, and its API addresses each have one:
 
-- **Controller configuration:** Workers follow the controller configuration and react to the keys that concern them: `api-address-setter` follows `juju-mgmt-space`, and the auditing and agent configuration workers follow their own keys.
+- **Controller configuration:** Workers follow the controller configuration and react to the keys that concern them: `api-address-setter` follows `juju-mgmt-space`, and the audit configuration and agent configuration workers follow their own keys.
 - **Controller nodes:** `api-address-setter` follows the set of controller nodes and publishes the API addresses again when a node joins, leaves, or changes address.
-- **API addresses:** Every machine and unit agent follows the API addresses and rewrites its own configuration file when they change, so that it can reach a controller after the control plane changes.
+- **API addresses:** A machine agent follows the API addresses and stores them when they change, so that it can reach a controller after its addresses change.
 
 (controller-operations)=
 ## Controller operations
 
-Controller operations are the actions that a {ref}`client <client>` can take on a controller through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): bootstrap, configure, make highly available, list nodes, list and remove blocks, and destroy. Operations on the SSH server are described on the {ref}`SSH server <juju-ssh>` page, the migration of a model on the {ref}`model <model-migrating>` page, and the access that users hold on the controller on the {ref}`user <user>` page.
+Controller operations are the actions that a {ref}`client <client>` can take on a controller through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). Operations on the SSH server are described on the {ref}`SSH server <juju-ssh>` page, the migration of a model on the {ref}`model <model-migrating>` page, and the access that users hold on the controller on the {ref}`user <user>` page.
 
 (controller-bootstrapping)=
 ### Bootstrapping controllers
@@ -149,7 +149,7 @@ See also: {ref}`Juju | Bootstrap a controller <bootstrap-a-controller>`
 :alt: A sequence diagram with five participants: the client, the cloud, the controller machine, the controller database, and Charmhub. The client asks the cloud for an instance and receives it, then waits for SSH and runs the configure script on the controller machine. The controller machine starts the first database node and writes the controller records to the controller database, starts the machine agent as a service, and runs the bootstrap worker. The machine fetches the controller charm from Charmhub, records the controller application and that bootstrap is complete in the controller database, and the client polls the controller machine's API address.
 ```
 
-Bootstrapping controllers creates a controller on a cloud: an instance or pod, the controller's database and records, and the application that runs the controller charm. The caller needs no access on a controller, because none exists yet.
+Bootstrapping controllers creates a controller on a cloud: an instance or pod, the controller's database and records, and the application that runs the controller charm.
 
 The operation's required access and rules are:
 
@@ -187,7 +187,7 @@ The operation's required access, rules, and errors are:
 - *Errors:*
   - **`unknown controller config setting "<key>"`** and **`can not change "<key>" after bootstrap`**: *Trigger:* The key does not exist, or it is not in the list above. *Remediation:* Set a key from the list.
   - **`unable to coerce controller config key "<key>": <reason>`**: *Trigger:* The value does not fit the key's type. *Remediation:* Correct the value.
-  - **`cannot parse caas-image-repo: <reason>`**, **`cannot change caas-image-repo as it is not currently set`**, **`cannot change caas-image-repo: repository read-only, only authentication can be updated`**, **`cannot change caas-image-repo: unable to remove authentication details`**, and **`cannot change caas-image-repo: unable to add authentication details`**: *Trigger:* The value is not a valid repository, no repository is set, or the change breaks one of the `caas-image-repo` rules above. *Remediation:* Keep the repository and the use of credentials as they are, and change only the credentials.
+  - **`cannot parse caas-image-repo: <reason>`**, **`cannot change caas-image-repo as it is not currently set`**, **`cannot change caas-image-repo: repository read-only, only authentication can be updated`**, **`cannot change caas-image-repo: unable to remove authentication details`**, and **`cannot change caas-image-repo: unable to add authentication details`**: *Trigger:* The value is not a valid repository, no repository is set, or the change breaks one of the `caas-image-repo` rules above. *Remediation:* Send the repository that is already set, with new credentials.
   - **`permission denied`**: *Trigger:* The caller is not a superuser. *Remediation:* Ask a superuser.
 
 (controller-ha)=
@@ -203,23 +203,23 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Write access <user-access-model-write>` to the controller model, and the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, as for adding any unit to a machine model. The `HighAvailability` facade's own call that would add nodes, `EnableHA`, is refused for every caller.
 - *Rules:*
-  - Juju sets no database roles. Dqlite chooses them: by default the first three nodes become voters (nodes that take part in leader elections), the next three become stand-bys (nodes that take a voter's place), and any further node is a spare, and the cluster leader checks the roles every 30 seconds.
+  - Juju sets no database roles. Dqlite chooses them, as voters (nodes that take part in leader elections), stand-bys (nodes that take a voter's place), or spares.
   - A controller cannot be scaled down to zero units.
-  - A new node joins the database cluster once the controller charm has written the node's database address to the node's controller configuration file, and until then the node's `dbaccessor` worker waits.
+  - A new node's `db-accessor` worker waits until the controller charm has written the node's database address to the node's controller configuration file.
   - Removing a controller unit removes the node: the node's addresses, agent version, password, and upgrade record are deleted, and the node's record stays as a dead node, without its Dqlite node ID and address, so that a late worker cannot create it again.
   - The `HighAvailability` facade refuses a Kubernetes controller.
 - *Errors:*
   - **`enable HA not supported`**: *Trigger:* A call to `EnableHA`. The client receives it with the code for an unsupported operation. *Remediation:* Add units to the controller application instead.
   - **`cannot scale controller application to 0 units`**: *Trigger:* A request that leaves the controller application with no units. *Remediation:* Keep at least one controller unit.
-  - **`adding units to a container-based model is not supported`**: *Trigger:* Adding a unit to the controller application of a Kubernetes controller. The client receives it with the code for an unsupported operation. *Remediation:* None; adding controller nodes is available on machine clouds only.
-  - **`high availability on kubernetes controllers not supported`**: *Trigger:* A call to the `HighAvailability` facade on a Kubernetes controller. The client receives it with the code for an unsupported operation. *Remediation:* None; the facade is available on machine clouds only.
+  - **`adding units to a container-based model is not supported`**: *Trigger:* Adding a unit to the controller application of a Kubernetes controller. The client receives it with the code for an unsupported operation. *Remediation:* Use a machine cloud for a controller that needs more than one node.
+  - **`high availability on kubernetes controllers not supported`**: *Trigger:* A call to the `HighAvailability` facade on a Kubernetes controller. The client receives it with the code for an unsupported operation. *Remediation:* Use a machine cloud for a controller that needs more than one node.
 
 (controller-listing-nodes)=
 ### Listing controller nodes
 
 Listing controller nodes returns the controller nodes with the addresses at which a client can reach each one, in order of node ID. The list is empty while the controller has published no addresses.
 
-The operation's required access is {ref}`login access <user-access-controller-login>` to the controller. A caller without it receives `permission denied`.
+The operation's required access is {ref}`login access <user-access-controller-login>` to the controller. A caller without it receives `permission denied`. On a Kubernetes controller the call fails with **`high availability on kubernetes controllers not supported`** and the code for an unsupported operation, because the `HighAvailability` facade refuses a Kubernetes controller.
 
 (controller-blocks)=
 ### Listing blocked models and removing blocks
@@ -254,7 +254,7 @@ The operation's required access, rules, and errors are:
   - The request carries the force option, the maximum wait, and whether to destroy the storage of hosted models, and passes them to the removal of the controller model and of each hosted model.
   - A hosted model with persistent storage is removed only when the request says whether to destroy or release the storage.
 - *Errors:*
-  - **`current model is not the controller model`**: *Trigger:* The call ran on another model. *Remediation:* Run it on the controller model.
+  - **`current model is not the controller model`**: *Trigger:* The call ran on another model. The client receives it with the code for a bad request. *Remediation:* Run it on the controller model.
   - **`found blocks in controller models`**: *Trigger:* A hosted model has a block. The client receives it with the code for a blocked operation. *Remediation:* Remove the blocks.
   - **`cannot destroy controller with hosted models`**: *Trigger:* Hosted models exist and the request does not ask to destroy them. The client receives it with the code `controller has hosted models`. *Remediation:* Ask to destroy the hosted models in the request, or destroy them first.
   - **`invalid cloud credential, use --force`**: *Trigger:* The controller model's credential is invalid and the request has no force option. *Remediation:* Update the credential, or add the force option.
