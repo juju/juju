@@ -837,3 +837,441 @@ diagram "SSH proxy machine reverse tunnel" from "Juju" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller and model DDL;
+// the model database nodes are renamed (model_copy, model_db_life) because
+// both databases have a table named model.
+model "ModelSchema" {
+
+  nodes {
+    auth_type [type: record, label: "auth_type",
+                 ground: "controller:auth_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+    cloud [type: context-record, label: "Cloud",
+                 ground: "controller:cloud"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        cloud_type_id [label: "cloud_type_id", type: "int", fk: true]
+        endpoint [label: "endpoint", type: "text"]
+        identity_endpoint [label: "identity_endpoint", type: "text", null: true]
+        storage_endpoint [label: "storage_endpoint", type: "text", null: true]
+        skip_tls_verify [label: "skip_tls_verify", type: "bool"]
+      }
+    }
+
+    cloud_credential [type: context-record, label: "Credential",
+                 ground: "controller:cloud_credential"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        auth_type_id [label: "auth_type_id", type: "text", fk: true]
+        owner_uuid [label: "owner_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        revoked [label: "revoked", type: "bool", null: true]
+        invalid [label: "invalid", type: "bool", null: true]
+        invalid_reason [label: "invalid_reason", type: "text", null: true]
+      }
+    }
+
+    cloud_region [type: context-record, label: "Region",
+                 ground: "controller:cloud_region"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        endpoint [label: "endpoint", type: "text", null: true]
+        identity_endpoint [label: "identity_endpoint", type: "text", null: true]
+        storage_endpoint [label: "storage_endpoint", type: "text", null: true]
+      }
+    }
+
+    cloud_type [type: record, label: "cloud_type",
+                 ground: "controller:cloud_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    external_controller [type: record, label: "external_controller",
+                 ground: "controller:external_controller"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        alias [label: "alias", type: "text", null: true]
+        ca_cert [label: "ca_cert", type: "text"]
+      }
+    }
+
+    life [type: record, label: "life",
+                 ground: "controller:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    model [type: record, label: "Model",
+                 ground: "controller:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        activated [label: "activated", type: "bool"]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        cloud_region_uuid [label: "cloud_region_uuid", type: "text", fk: true, null: true]
+        cloud_credential_uuid [label: "cloud_credential_uuid", type: "text", fk: true, null: true]
+        model_type_id [label: "model_type_id", type: "int", fk: true]
+        life_id [label: "life_id", type: "int", fk: true]
+        name [label: "name", type: "text"]
+        qualifier [label: "qualifier", type: "text"]
+      }
+    }
+
+    model_migration_export [type: record, label: "Migration",
+                 ground: "controller:model_migration_export"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        model_uuid [label: "model_uuid", type: "text", fk: true]
+        target_controller_uuid [label: "target_controller_uuid", type: "text", fk: true]
+        current_phase_id [label: "current_phase_id", type: "int", fk: true]
+        updated_at [label: "updated_at", type: "timestamp"]
+        start_time [label: "start_time", type: "timestamp"]
+      }
+    }
+
+    model_migration_import [type: record, label: "Import claim",
+                 ground: "controller:model_migration_import"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        model_uuid [label: "model_uuid", type: "text"]
+        source_migration_uuid [label: "source_migration_uuid", type: "text"]
+        phase_type_id [label: "phase_type_id", type: "int", fk: true]
+        updated_at [label: "updated_at", type: "datetime"]
+      }
+    }
+
+    model_migration_import_phase_type [type: record, label: "model_migration_import_phase_type",
+                 ground: "controller:model_migration_import_phase_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    model_migration_phase [type: record, label: "Migration phase",
+                 ground: "controller:model_migration_phase"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+    model_namespace [type: record, label: "Namespace",
+                 ground: "controller:model_namespace"] {
+      fields {
+        namespace [label: "namespace", type: "text"]
+        model_uuid [label: "model_uuid", type: "text", fk: true, uk: true]
+      }
+    }
+
+    model_type [type: record, label: "Model type",
+                 ground: "controller:model_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    user [type: record, label: "user",
+                 ground: "controller:user"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        display_name [label: "display_name", type: "text", null: true]
+        external [label: "external", type: "bool"]
+        removed [label: "removed", type: "bool"]
+        created_by_uuid [label: "created_by_uuid", type: "text", fk: true]
+        created_at [label: "created_at", type: "timestamp"]
+      }
+    }
+
+    model_db_life [type: record, label: "life",
+                 ground: "model:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    model_copy [type: record, label: "Model identity copy",
+                 ground: "model:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_uuid [label: "controller_uuid", type: "text"]
+        name [label: "name", type: "text"]
+        qualifier [label: "qualifier", type: "text"]
+        type [label: "type", type: "text"]
+        cloud [label: "cloud", type: "text"]
+        cloud_type [label: "cloud_type", type: "text"]
+        cloud_region [label: "cloud_region", type: "text", null: true]
+        credential_owner [label: "credential_owner", type: "text", null: true]
+        credential_name [label: "credential_name", type: "text", null: true]
+        is_controller_model [label: "is_controller_model", type: "bool", null: true]
+      }
+    }
+
+    model_config [type: record, label: "Model configuration",
+                 ground: "model:model_config"] {
+      fields {
+        value [label: "value", type: "text"]
+      }
+    }
+
+    model_constraint [type: record, label: "Model constraints",
+                 ground: "model:model_constraint"] {
+      fields {
+        model_uuid [label: "model_uuid", type: "text", pk: true, fk: true]
+        constraint_uuid [label: "constraint_uuid", type: "text"]
+      }
+    }
+
+    model_life [type: record, label: "Model life copy",
+                 ground: "model:model_life"] {
+      fields {
+        model_uuid [label: "model_uuid", type: "text", pk: true, fk: true]
+        life_id [label: "life_id", type: "text", fk: true]
+      }
+    }
+
+    model_migrating [type: record, label: "Migrating marker",
+                 ground: "model:model_migrating"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        model_uuid [label: "model_uuid", type: "text", fk: true, uk: true]
+      }
+    }
+
+  }
+
+  edges {
+    cloud.cloud_type_id -> cloud_type.id [type: data]
+    cloud_credential.cloud_uuid -> cloud.uuid [type: data]
+    cloud_credential.auth_type_id -> auth_type.id [type: data]
+    cloud_credential.owner_uuid -> user.uuid [type: data]
+    cloud_region.cloud_uuid -> cloud.uuid [type: data]
+    model.cloud_uuid -> cloud.uuid [type: data]
+    model.cloud_region_uuid -> cloud_region.uuid [type: data]
+    model.cloud_credential_uuid -> cloud_credential.uuid [type: data]
+    model.model_type_id -> model_type.id [type: data]
+    model.life_id -> life.id [type: data]
+    model_migration_export.target_controller_uuid -> external_controller.uuid [type: data]
+    model_migration_export.current_phase_id -> model_migration_phase.id [type: data]
+    model_migration_import.phase_type_id -> model_migration_import_phase_type.id [type: data]
+    model_namespace.model_uuid -> model.uuid [type: data]
+    user.created_by_uuid -> user.uuid [type: data]
+    model_constraint.model_uuid -> model_copy.uuid [type: data]
+    model_life.model_uuid -> model_copy.uuid [type: data]
+    model_life.life_id -> model_db_life.id [type: data]
+    model_migrating.model_uuid -> model_copy.uuid [type: data]
+    // No foreign key in the DDL: a migration outlives the model's row.
+    model_migration_export.model_uuid -> model.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Model data model" from "ModelSchema" {
+  select {
+    nodes: model model_type model_namespace cloud cloud_region cloud_credential model_migration_export model_migration_phase model_copy model_constraint model_life model_migrating
+    edges: type data
+    except: model -> life
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    cloud left-of model gap: 70
+    cloud align-middle model
+    cloud_region above cloud gap: 60
+    cloud_region align-centre cloud
+    cloud_credential below cloud gap: 60
+    cloud_credential align-centre cloud
+    model_type above model gap: 60
+    model_type align-centre model
+    model_namespace right-of model gap: 70
+    model_namespace align-middle model
+    model_migration_export below model gap: 60
+    model_migration_export align-centre model
+    model_migration_phase right-of model_migration_export gap: 70
+    model_migration_phase align-middle model_migration_export
+    model_copy right-of model_namespace gap: 120
+    model_copy align-middle model
+    model_constraint above model_copy gap: 60
+    model_constraint align-centre model_copy
+    model_life below model_copy gap: 60
+    model_life align-centre model_copy
+    model_migrating right-of model_copy gap: 70
+    model_migrating align-middle model_copy
+    model_type same-size model
+    model_namespace same-size model
+    cloud same-size model
+    cloud_region same-size model
+    cloud_credential same-size model
+    model_migration_export same-size model
+    model_migration_phase same-size model
+    model_copy same-size model
+    model_constraint same-size model
+    model_life same-size model
+    model_migrating same-size model
+  }
+  annotations {
+    box [nodes: "cloud cloud_region cloud_credential model model_type model_namespace model_migration_export model_migration_phase", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+    box [nodes: "model_copy model_constraint model_life model_migrating", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// The phases of a model migration and the changes the code allows
+// (core/migration/phase.go, validTransitions). Labels are the names the
+// controller stores (model_migration_phase).
+model "MigrationPhases" {
+
+  nodes {
+    mg_quiesce [label: "quiesce"]
+    mg_import [label: "import"]
+    mg_validation [label: "validation"]
+    mg_success [label: "success"]
+    mg_logtransfer [label: "log-transfer"]
+    mg_reap [label: "reap"]
+    mg_reapfailed [label: "reap-failed"]
+    mg_done [label: "done"]
+    mg_abort [label: "abort"]
+    mg_abortdone [label: "abort-done"]
+  }
+
+  behaviours {
+    behaviour "migration-phase" {
+      mg_quiesce -> mg_import: call "next phase"
+      mg_import -> mg_validation: call "next phase"
+      mg_validation -> mg_success: call "next phase"
+      mg_success -> mg_logtransfer: call "next phase"
+      mg_logtransfer -> mg_reap: call "next phase"
+      mg_reap -> mg_done: call "next phase"
+      mg_reap -> mg_reapfailed: call "next phase"
+      mg_validation -> mg_abort: call "abort"
+      mg_import -> mg_abort: call "abort"
+      mg_quiesce -> mg_abort: call "abort"
+      mg_abort -> mg_abortdone: call "next phase"
+    }
+  }
+
+  edges {
+    mg_quiesce -> mg_import [type: control]
+    mg_quiesce -> mg_abort [type: control]
+    mg_import -> mg_validation [type: control]
+    mg_import -> mg_abort [type: control]
+    mg_validation -> mg_success [type: control]
+    mg_validation -> mg_abort [type: control]
+    mg_success -> mg_logtransfer [type: control]
+    mg_logtransfer -> mg_reap [type: control]
+    mg_reap -> mg_done [type: control]
+    mg_reap -> mg_reapfailed [type: control]
+    mg_abort -> mg_abortdone [type: control]
+  }
+
+  style { extends: juju }
+}
+
+state "Model migration phase" from "MigrationPhases" {
+  select { behaviour: "migration-phase" }
+}
+
+// Sources of the steps, in order (worker, facade or state code under
+// internal/worker/migrationmaster, internal/worker/migrationminion and
+// apiserver/facades/client/controller):
+//   request and prechecks: InitiateMigration, runMigrationPrechecks
+//   quiesce, validation, success: migrationmaster doQUIESCE, doVALIDATION,
+//     doSUCCESS; minion doQUIESCE, doVALIDATION, doSUCCESS
+//   import: transferModel (ImportV2, UploadBinaries)
+//   machines: checkTargetMachines (CheckMachines); activate: activateModel
+//   cloud resources: transferResources (AdoptResources)
+//   reap: doREAP (MarkModelAsGone)
+model "MigrationSequence" {
+
+  nodes {
+    ms_client     [type: juju-software, label: "Client"]
+    ms_source     [type: juju-software, label: "Source controller"]
+    ms_target     [type: juju-software, label: "Target controller"]
+    ms_agents     [type: juju-software, label: "Model agents"]
+    ms_cloud      [type: external, label: "Cloud"]
+  }
+
+  edges {
+    ms_client -> ms_source [type: api]
+    ms_source -> ms_target [type: api]
+    ms_source -> ms_agents [type: api]
+    ms_agents -> ms_source [type: api]
+    ms_agents -> ms_target [type: api]
+    ms_target -> ms_cloud  [type: api]
+    ms_source -> ms_source [type: api]
+  }
+
+  behaviours {
+    behaviour "migration-request" {
+      ms_client -> ms_source: call "request the migration"
+      ms_source -> ms_source: self "check access and run the source prechecks"
+      ms_source -> ms_target: call "connect, and run the target prechecks"
+      ms_target -> ms_source: return "ok"
+      ms_source -> ms_client: return "migration ID"
+    }
+    behaviour "migration-quiesce-import" {
+      ms_source -> ms_agents: call "quiesce: stop work and report"
+      ms_agents -> ms_source: return "ready"
+      ms_source -> ms_target: call "run the prechecks again"
+      ms_target -> ms_source: return "ok"
+      ms_source -> ms_target: call "import: send the model, charms, agent binaries, and resources"
+      ms_target -> ms_source: return "model imported, not active"
+    }
+    behaviour "migration-validation" {
+      ms_source -> ms_agents: call "validation: connect to the target and report"
+      ms_agents -> ms_target: call "log in and validate"
+      ms_agents -> ms_source: return "validated"
+      ms_source -> ms_target: call "check the machines, then activate the model"
+      ms_target -> ms_cloud: call "list the model's machines"
+      ms_cloud -> ms_target: return "instances"
+      ms_target -> ms_source: return "machines match, model prepared"
+    }
+    behaviour "migration-success-reap" {
+      ms_source -> ms_agents: call "success: report, then switch to the target"
+      ms_agents -> ms_source: return "reported"
+      ms_source -> ms_target: call "take over the cloud resources"
+      ms_source -> ms_target: call "log-transfer: copy the model's logs"
+      ms_source -> ms_source: self "reap: remove the model and keep a redirect record"
+    }
+  }
+
+  style { extends: juju }
+}
+
+sequence "Migration request" from "MigrationSequence" {
+  select { behaviour: "migration-request" }
+}
+
+sequence "Migration quiesce and import" from "MigrationSequence" {
+  select { behaviour: "migration-quiesce-import" }
+}
+
+sequence "Migration validation" from "MigrationSequence" {
+  select { behaviour: "migration-validation" }
+}
+
+sequence "Migration success and reap" from "MigrationSequence" {
+  select { behaviour: "migration-success-reap" }
+}
