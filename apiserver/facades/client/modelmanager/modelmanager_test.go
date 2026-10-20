@@ -1646,6 +1646,23 @@ func (s *modelManagerStateSuite) TestModifyModelAccessInvalidAction(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
+	err := s.modelInfoErrorForMigratedModel(c, names.NewUserTag("admin"))
+	s.assertRedirectToTarget(c, err)
+}
+
+func (s *modelManagerStateSuite) TestModelInfoForMigratedModelExternalUser(c *gc.C) {
+	// The external user has no stored access to the model.
+	err := s.modelInfoErrorForMigratedModel(c, names.NewUserTag("jaas-abc@external"))
+	s.assertRedirectToTarget(c, err)
+}
+
+func (s *modelManagerStateSuite) TestModelInfoForMigratedModelLocalUserNoAccess(c *gc.C) {
+	err := s.modelInfoErrorForMigratedModel(c, names.NewUserTag("some-other-user"))
+	c.Assert(params.IsRedirect(err), jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *modelManagerStateSuite) modelInfoErrorForMigratedModel(c *gc.C, caller names.UserTag) error {
 	user := names.NewUserTag("admin")
 
 	modelState := s.Factory.MakeModel(c, &factory.ModelParams{
@@ -1676,8 +1693,11 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
 	anAuthoriser := s.authoriser
-	anAuthoriser.Tag = user
-	st := common.NewUserAwareModelManagerBackend(model, s.StatePool, user)
+	anAuthoriser.Tag = caller
+	// Grant read access so that the model lookup, and not the permission
+	// check, determines the outcome.
+	anAuthoriser.HasReadTag = caller
+	st := common.NewUserAwareModelManagerBackend(model, s.StatePool, caller)
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
 		common.NewModelManagerBackend(s.Model, s.StatePool),
@@ -1697,11 +1717,14 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
-	resErr0 := errors.Cause(res.Results[0].Error)
-	c.Assert(params.IsRedirect(resErr0), gc.Equals, true)
+	return errors.Cause(res.Results[0].Error)
+}
+
+func (s *modelManagerStateSuite) assertRedirectToTarget(c *gc.C, resErr0 error) {
+	c.Assert(params.IsRedirect(resErr0), jc.IsTrue)
 
 	pErr, ok := resErr0.(*params.Error)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	var info params.RedirectErrorInfo
 	c.Assert(pErr.UnmarshalInfo(&info), jc.ErrorIsNil)
