@@ -2037,7 +2037,7 @@ model "MachineProvisioning" {
   behaviours {
     behaviour "provision-machine" {
       pv_provisioner -> pv_db:          call "see a new machine and read its provisioning information"
-      pv_provisioner -> pv_db:          call "set the instance status to provisioning"
+      pv_provisioner -> pv_db:          call "set the instance status to allocating"
       pv_provisioner -> pv_cloud:       call "start an instance, trying each availability zone, up to ten attempts"
       pv_cloud       -> pv_provisioner: return "instance"
       pv_provisioner -> pv_db:          call "record the instance ID, hardware, and nonce"
