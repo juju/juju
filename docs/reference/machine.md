@@ -43,7 +43,8 @@ The machine data model is the set of records that the {ref}`model database <data
 - **Machine:** The machine's name, its life (alive, dying, or dead), the hostname that its agent reported, the time its agent started, whether to keep its instance when the machine is removed, and the hash of its agent's password.
   - *Rules:*
     - A machine's name appears once.
-    - A machine has a life, and the database refuses to move it backwards.
+    - A machine has a life.
+    - The database refuses to move the life of a machine backwards.
 - **Machine status:** The status that the machine's agent reports: one of `error`, `started`, `pending`, `stopped`, and `down`.
   - *Rules:*
     - A machine has at most one.
@@ -52,7 +53,8 @@ The machine data model is the set of records that the {ref}`model database <data
   - *Rules:*
     - A machine has at most one.
     - The instance has a life of its own, separate from the machine's, and the database refuses to move it backwards.
-    - An instance ID, and a display name, appears once among the machines of the model when it is set.
+    - An instance ID appears once among the machines of the model when it is set.
+    - A display name appears once among the machines of the model when it is set.
 - **Instance status:** The status of the cloud instance: one of `unknown`, `pending`, `allocating`, `running`, and `provisioning error`.
   - *Rules:*
     - An instance has at most one.
@@ -67,10 +69,11 @@ The machine data model is the set of records that the {ref}`model database <data
     - A machine has at most one.
 - **Block device:** A disk that the machine's agent reported, with its name, size, and the names under which the machine links to it.
   - *Rules:*
-    - A machine has at most one block device of a given name, and a link name appears once on a machine.
-- **Other records:** The machine's running agent version and architecture, the flag that says it needs to reboot, the tags that the cloud reported for its instance, its constraints and container type, the marks that it is provisioned manually and that a reprovision was requested, and the LXD profiles recorded for it. Its volumes, filesystems, and SSH host keys are also kept per machine, and the {ref}`SSH server <juju-ssh>` page describes the host keys. Each belongs to one machine, and a machine has at most one of each except for the tags and the profiles.
+    - A machine has at most one block device of a given name.
+    - A link name appears once on a machine.
+- **Other records:** The machine's running agent version and architecture, the flag that says it needs to reboot, the tags that the cloud reported for its instance, its constraints and container type, the marks that it is provisioned manually and that a reprovision was requested, and the LXD profiles recorded for it. Its volumes, filesystems, and SSH host keys are also kept per machine, and the {ref}`SSH server <juju-ssh>` page describes the host keys. Each belongs to one machine. A machine has at most one of each except for the tags and the profiles.
 
-A machine is a row in the table `machine`, and its status is a row in `machine_status`. Its platform, parent, and placement are rows in `machine_platform`, `machine_parent`, and `machine_placement`, and its agent presence and block devices are rows in `machine_agent_presence` and `block_device`, with the link names in `block_device_link_device`. Its cloud instance is a row in `machine_cloud_instance` and the instance's status a row in `machine_cloud_instance_status`, and the tags are rows in `instance_tag`. The remaining records are rows in `machine_agent_version`, `machine_requires_reboot`, `machine_constraint`, `machine_container_type`, `machine_manual`, `machine_reprovision`, and `machine_lxd_profile`. The values of the statuses come from the lookup tables `machine_status_value` and `machine_cloud_instance_status_value`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A machine is a row in the table `machine`. Its status is a row in `machine_status`. Its platform, parent, and placement are rows in `machine_platform`, `machine_parent`, and `machine_placement`, and its agent presence and block devices are rows in `machine_agent_presence` and `block_device`, with the link names in `block_device_link_device`. Its cloud instance is a row in `machine_cloud_instance`. The instance's status is a row in `machine_cloud_instance_status`. The tags are rows in `instance_tag`. The remaining records are rows in `machine_agent_version`, `machine_requires_reboot`, `machine_constraint`, `machine_container_type`, `machine_manual`, `machine_reprovision`, and `machine_lxd_profile`. The values of the statuses come from the lookup tables `machine_status_value` and `machine_cloud_instance_status_value`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (machine-change-streams)=
 ## Machine change streams
@@ -95,22 +98,28 @@ Machine operations are the actions a {ref}`client <client>` can take on machines
 See also: {ref}`Juju | Add a machine <add-a-machine>`
 ```
 
-Adding machines creates machines or containers in a model, and the compute provisioner then starts an instance for each. A request carries, for each machine, an optional base, constraints, a container type, a parent, and a placement.
+Adding machines creates machines or containers in a model. The compute provisioner then starts an instance for each. A request carries, for each machine, an optional base, constraints, a container type, a parent, and a placement.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model, and the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request names a {ref}`machine designation <machine-designations>`: a new machine, a container on a new or existing machine, or a placement directive. A request that names an existing machine adds no machine and only checks that its architecture meets the constraints.
-  - A container type needs no parent, and a parent needs a container type. A container type and a placement directive exclude one another. The only container type is `lxd`.
-  - The base defaults to the model's preferred base, and its operating system must be Ubuntu.
-  - A provider placement must name this model: its scope is `model-uuid` or the model's UUID, and its directive is the model's UUID.
-  - The constraints of the model and the constraints of the machine are merged, and the machine's win. The `container` constraint is dropped, and the cloud checks that it can start an instance with the merged constraints and the placement before anything is stored.
+  - A container type needs no parent.
+  - A parent needs a container type.
+  - A container type and a placement directive exclude one another. The only container type is `lxd`.
+  - The base defaults to the model's preferred base.
+  - The operating system of the base must be Ubuntu.
+  - A provider placement must name this model: its scope is `model-uuid` or the model's UUID. Its directive is the model's UUID.
+  - The constraints of the model and the constraints of the machine are merged. The machine's win.
+  - The `container` constraint is dropped.
+  - The cloud checks, before anything is stored, that it can start an instance with the merged constraints and the placement.
   - A space in the constraints must exist.
-  - The name of a new machine is the next number in the model, and the name of a container is `<parent>/lxd/<n>`, with `n` the next number for that parent.
+  - The name of a new machine is the next number in the model.
+  - The name of a container is `<parent>/lxd/<n>`, with `n` the next number for that parent.
   - A machine is created alive, with the status `pending` and an instance with the status `pending` and no instance ID. A request that carries an instance ID, a nonce, and hardware characteristics, as manual provisioning does, records them with the machine, unless it names a container type or a placement, which discard them. An instance ID that starts with `manual:` marks the machine as manually provisioned.
   - The call takes a list of machines. Each machine in the list gets its own result.
-- *Errors:* The client receives `permission denied` (code `unauthorized access`) and `operation is blocked` (code `operation is blocked`) for the whole call, and every other error in the result for its machine, with no code:
+- *Errors:* The client receives `permission denied` (code `unauthorized access`) and `operation is blocked` (code `operation is blocked`) for the whole call. Every other error is in the result for its machine, with no code:
   - **`parent machine specified without container type`**: *Trigger:* A parent without a container type. *Remediation:* Name the container type `lxd`.
   - **`container type and placement are mutually exclusive`**: *Trigger:* Both are in the request. *Remediation:* Give only one.
   - **`invalid container type`**: *Trigger:* A container type other than `lxd`. *Remediation:* Use `lxd`.
@@ -149,7 +158,8 @@ The operation's required access and rules are:
 - *Rules:*
   - The provisioner starts an instance only for machines that have no instance ID and whose status is `pending` or whose instance status is `allocating`.
   - It spreads the machines of an application across availability zones where the cloud supports it.
-  - It tries each availability zone before it uses up an attempt, and it makes ten attempts, ten seconds apart.
+  - It tries each availability zone before it uses up an attempt.
+  - It makes ten attempts, ten seconds apart.
   - It gives the instance a random password for the agent, a nonce, the API addresses, the CA certificate, the constraints, the tags, and the agent binaries.
   - It records the instance ID once. A machine whose instance is recorded cannot be given another instance without {ref}`reprovisioning <machine-reprovisioning>`.
   - If it cannot record the instance, it stops the instance.
@@ -169,7 +179,8 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Write access <user-access-model-write>` to the model.
 - *Rules:*
-  - The machine must exist with a recorded architecture, and the model must have an agent version with binaries for the machine's operating system and architecture.
+  - The machine must exist with a recorded architecture.
+  - The model must have an agent version with binaries for the machine's operating system and architecture.
   - Every call sets a new random password for the machine's agent, so a script that was fetched before is no longer valid.
   - A request can leave out the package update and upgrade commands. Otherwise the model's `enable-os-refresh-update` and `enable-os-upgrade` keys decide.
 - *Errors:* The client receives each with no code unless one is given:
@@ -190,11 +201,11 @@ Retrying provisioning of machines marks the provisioning error of a machine as t
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model, and the change block must not be on.
+- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block must not be on.
 - *Rules:*
   - A machine whose instance status is not `provisioning error` is skipped when the request asks for all machines, and is an error when the request names it.
   - A machine ID that does not exist in the model is ignored without an error.
-  - The status and its message stay as they were. The retry only sets a `transient` mark in the status data, and the provisioner starts a new instance within a minute.
+  - The status and its message stay as they were. The retry only sets a `transient` mark in the status data. The provisioner then starts a new instance within a minute.
   - Once a minute the provisioner looks for machines whose provisioning failed with an error marked as transient, and starts them again.
 - *Errors:*
   - **`machine <name> is not in an error state (<status>)`**: *Trigger:* A named machine is not in a provisioning error. *Remediation:* Retry only machines whose status shows a provisioning error.
@@ -205,17 +216,18 @@ The operation's required access, rules, and errors are:
 (machine-reprovisioning)=
 ### Reprovisioning machines
 
-Reprovisioning machines replaces the lost cloud instance of a machine with a new one, and the machine keeps its name. It detaches the instance that is gone and puts the machine back to `pending`, so that the compute provisioner starts a new instance. The operation is available on controllers that serve version 12 of the machine manager facade.
+Reprovisioning machines replaces the lost cloud instance of a machine with a new one. The machine keeps its name. It detaches the instance that is gone and puts the machine back to `pending`, so that the compute provisioner starts a new instance. The operation is available on controllers that serve version 12 of the machine manager facade.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model, and the change block must not be on.
+- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block must not be on.
 - *Rules:*
   - A machine can be reprovisioned only if it is alive, is not a container, a controller, or a manually provisioned machine, hosts no containers, has no model-scoped storage attached, and has no reprovision request pending.
-  - The machine's agent must be gone, and the cloud must report that the instance is gone or not running: a running instance refuses the request.
+  - The machine's agent must be gone.
+  - The cloud must report that the instance is gone or not running: a running instance refuses the request.
   - No model migration and no controller upgrade can be in progress.
-  - The reprovision clears the machine's addresses and network records, the block devices that no volume uses, its machine-scoped storage, and the instance's tags. Its units leave their relation scopes and are replaced with new units, and it clears the machine's nonce, hostname, and agent start time and empties its instance record.
-  - It sets both the machine status and the instance status to `pending`, with the message `reprovisioning requested` and the old instance ID in the status data, and the provisioner removes the marker when the new instance is recorded.
+  - The reprovision clears the machine's addresses and network records, the block devices that no volume uses, its machine-scoped storage, and the instance's tags. Its units leave their relation scopes and are replaced with new units. The reprovision also clears the machine's nonce, hostname, and agent start time and empties its instance record.
+  - It sets both the machine status and the instance status to `pending`, with the message `reprovisioning requested` and the old instance ID in the status data. The provisioner removes the marker when the new instance is recorded.
 - *Errors:* The client receives each with no error code:
   - **`model migration is in progress; cannot reprovision machine "<name>"`** and **`controller upgrade is in progress; cannot reprovision machine "<name>"`**: *Trigger:* A migration or upgrade is running. *Remediation:* Wait for it to finish.
   - **`reprovisioning machine "<name>": <reason>`**: *Trigger:* The reason is one of `reprovision request already exists`, `machine is not alive`, `machine is a container`, `machine is a controller machine`, `machine is manually provisioned`, `machine hosts child containers`, `model-scoped storage attached to machine`, `storage scope is ambiguous`, or `machine storage is not alive`. *Remediation:* Remove the child containers or the model-scoped storage, or wait for the pending request. A container, controller, or manual machine cannot be reprovisioned.
