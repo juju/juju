@@ -113,7 +113,7 @@ Listing SSH keys returns the authorized keys of the authenticated user on the mo
 See also: {ref}`Juju | Remove an SSH key <remove-an-ssh-key>`
 ```
 
-Removing SSH keys takes keys off the model, matched by fingerprint, public key text or comment. A user's key that no model authorizes any more is deleted from the user's record too.
+Removing SSH keys takes keys off the model, matched by fingerprint, public key text, or comment. A user's key that no model authorizes any more is deleted from the user's record too.
 
 The operation's required access and rules are:
 

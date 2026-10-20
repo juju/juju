@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju cloud reference: what a cloud is, the data the controller keeps about it, its types, and the operations that list, add, update and remove clouds."
+    description: "Juju cloud reference: what a cloud is, the data the controller keeps about it, its types, and the operations that list, add, update, and remove clouds."
 ---
 
 (cloud)=
@@ -29,7 +29,7 @@ A **cloud** (also called a **substrate**) is anything with an API that can give 
 :alt: Seven boxes of the same size, each with a filled table mark in the corner, and two of them (model and credential) also with an outlined arrow mark for records that other pages describe. Cloud is in the middle. Above it, cloud type has many clouds (1 to m). To its left, a cloud has many regions (1 to m). To its right, a cloud has many models (1 to m). Below it, a cloud has many CA certificates, many admitted authentication types, and many credentials (each 1 to m).
 ```
 
-The cloud data model is the set of records that the {ref}`controller database <database>` keeps for the clouds the controller knows: one record per cloud, and records for its regions, CA certificates and admitted authentication types.
+The cloud data model is the set of records that the {ref}`controller database <database>` keeps for the clouds the controller knows: one record per cloud, and records for its regions, CA certificates, and admitted authentication types.
 
 The records, with the rules that apply to each, are:
 
