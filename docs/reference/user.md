@@ -135,7 +135,7 @@ The **change block** is an operator setting that makes the controller refuse ope
 ### Adding users
 
 ```{ibnote}
-See also: {ref}`Juju | Add a user <add-a-user>`
+See also: {ref}`Juju | Add a user <add-a-user>`, {ref}`Terraform Provider for Juju | Manage users <tfjuju:manage-users>`
 ```
 
 Adding users (`AddUser`) creates local users with {ref}`login access <user-access-controller-login>` to the controller. A user created without a password gets a secret key that the new user exchanges for a first password (see {ref}`registering users <user-registering>`).
@@ -328,7 +328,7 @@ The caller, the rules, and the errors are:
 ### Granting and revoking access
 
 ```{ibnote}
-See also: {ref}`Juju | Manage user access <manage-user-access>`
+See also: {ref}`Juju | Manage user access <manage-user-access>`, {ref}`Terraform Provider for Juju | Manage user access <tfjuju:manage-user-access>`
 ```
 
 Granting and revoking access changes the {ref}`access level <user-access-levels>` of users on a controller (`ModifyControllerAccess`), a model (`ModifyModelAccess`), a cloud (`ModifyCloudAccess`), or an offer (`ModifyOfferAccess`). A change names the user, the object, the action (`grant` or `revoke`), and the level.

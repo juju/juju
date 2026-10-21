@@ -199,7 +199,7 @@ The caller, the rules, and the errors are:
 ### Migrating models
 
 ```{ibnote}
-See also: {ref}`Juju | Migrate a model <migrate-a-model>`
+See also: {ref}`Juju | Migrate a model <migrate-a-model>`, {ref}`Terraform Provider for Juju | Migrate a model <tfjuju:migrate-a-model>`
 ```
 
 ```{ggarch}

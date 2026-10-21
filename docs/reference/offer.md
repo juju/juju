@@ -169,7 +169,7 @@ The caller, the rules, and the errors are:
 ### Granting and revoking offer access
 
 ```{ibnote}
-See also: {ref}`Juju | Control access to an offer <control-access-to-an-offer>`
+See also: {ref}`Juju | Control access to an offer <control-access-to-an-offer>`, {ref}`Terraform Provider for Juju | Manage access to an offer <tfjuju:manage-access-to-an-offer>`
 ```
 
 Granting and revoking offer access changes the access level of a user on an offer. The call takes a list of changes, each with an offer URL, a user, an access level (read, consume, or admin), and an action (`grant` or `revoke`).
@@ -222,7 +222,7 @@ The caller, the rules, and the errors are:
 ### Consuming offers
 
 ```{ibnote}
-See also: {ref}`Juju | Integrate with an offer <integrate-with-an-offer>`
+See also: {ref}`Juju | Integrate with an offer <integrate-with-an-offer>`, {ref}`Terraform Provider for Juju | Integrate with an offer <tfjuju:integrate-with-an-offer>`
 ```
 
 Consuming offers adds a remote application to the consuming model: a local proxy for the offered application. The proxy has the offer's endpoints and takes the name that the request gives, or the offer's name. The call creates no relation.

@@ -111,7 +111,7 @@ Secret calls are the calls on secrets: add, list, read, grant, revoke, update, r
 ### Adding secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`, {ref}`Terraform Provider for Juju | Manage secrets <tfjuju:manage-secrets>`
 ```
 
 Adding secrets creates a secret with its first revision. A client adds user secrets, which the model owns. A charm adds application secrets and unit secrets with the hook command {ref}`secret-add <hook-command-secret-add>`.
@@ -202,7 +202,7 @@ The caller, the rules, and the errors are:
 ### Granting and revoking access to secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`, {ref}`Terraform Provider for Juju | Manage secrets <tfjuju:manage-secrets>`
 ```
 
 Granting and revoking access to secrets gives applications and units the right to read a secret, and takes it away. A client grants and revokes access to a user secret for applications. A charm grants and revokes access to its own secrets with the hook commands {ref}`secret-grant <hook-command-secret-grant>` and {ref}`secret-revoke <hook-command-secret-revoke>`.
@@ -237,7 +237,7 @@ The caller, the rules, and the errors are:
 ### Updating secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`, {ref}`Terraform Provider for Juju | Manage secrets <tfjuju:manage-secrets>`
 ```
 
 Updating secrets changes the content or the metadata of a secret. New content adds a revision. A client updates user secrets. A charm updates its own secrets with the hook command {ref}`secret-set <hook-command-secret-set>`.
@@ -291,7 +291,7 @@ The caller, the rules, and the errors are:
 ### Removing secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`, {ref}`Terraform Provider for Juju | Manage secrets <tfjuju:manage-secrets>`
 ```
 
 Removing secrets deletes a secret with all its revisions, or deletes chosen revisions of it. The controller schedules the removal, so it finishes after the call returns. A client removes user secrets. A charm removes its own secrets and revisions with the hook command {ref}`secret-remove <hook-command-secret-remove>`.

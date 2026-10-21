@@ -104,7 +104,7 @@ Unit calls are the calls that {ref}`clients <client>` and unit agents can take o
 ### Adding units
 
 ```{ibnote}
-See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Add a unit <add-a-unit>`
+See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Add a unit <add-a-unit>`, {ref}`Terraform Provider for Juju | Control the number of units <tfjuju:control-the-number-of-units>`
 ```
 
 Adding units creates one or more units of an application on a machine model. The request names the application and the number of units, and can give a placement directive and existing storage for each unit. The answer lists the names of the new units. Each new unit gets a machine. The {ref}`compute provisioner <machine-provisioning>` then starts an instance for it. A Kubernetes model sets the scale of the application instead (see {ref}`scaling applications <application-scaling>`).
@@ -193,7 +193,7 @@ The caller, the rules, and the errors are:
 ### Removing units
 
 ```{ibnote}
-See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Remove a unit <remove-a-unit>`
+See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Remove a unit <remove-a-unit>`, {ref}`Terraform Provider for Juju | Control the number of units <tfjuju:control-the-number-of-units>`
 ```
 
 Removing units makes units dying and schedules their removal on a machine model. The request names units by tag. It can ask to destroy the units' storage, to force the removal, to wait before the force applies, and to do a dry run. The unit agent of each unit then runs the {ref}`stop <hook-stop>` and {ref}`remove <hook-remove>` hooks and leaves its relations. Juju deletes the unit's records. A Kubernetes model removes units by setting the scale (see {ref}`scaling applications <application-scaling>`). Removing an application removes its units (see {ref}`removing applications <application-removing>`).

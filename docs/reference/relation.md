@@ -96,7 +96,7 @@ Relation calls are the calls that {ref}`clients <client>` and unit agents can ta
 ### Adding relations
 
 ```{ibnote}
-See also: {ref}`Juju | Manage relations <manage-relations>`
+See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Provider for Juju | Manage relations <tfjuju:manage-relations>`
 ```
 
 A client adds a relation between two endpoints of two applications of a model. The request names two endpoints as `<application>` or `<application>:<endpoint>`.
@@ -136,7 +136,7 @@ The caller, the rules, and the errors are:
 ### Removing relations
 
 ```{ibnote}
-See also: {ref}`Juju | Manage relations <manage-relations>`
+See also: {ref}`Juju | Manage relations <manage-relations>`, {ref}`Terraform Provider for Juju | Manage relations <tfjuju:manage-relations>`
 ```
 
 A client removes a relation, which ends it between two applications and deletes its records. The request names the relation by its two endpoints or by its relation ID. A request can force the removal and can give a time to wait for the units to leave before the removal is forced.

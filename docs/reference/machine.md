@@ -93,7 +93,7 @@ Machine calls are the calls a {ref}`client <client>` can take on machines throug
 ### Adding machines
 
 ```{ibnote}
-See also: {ref}`Juju | Add a machine <add-a-machine>`
+See also: {ref}`Juju | Add a machine <add-a-machine>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 Adding machines creates machines or containers in a model. The compute provisioner then starts an instance for each. A request carries, for each machine, an optional base, constraints, a container type, a parent, and a placement.
@@ -261,7 +261,7 @@ The caller, the rules, and the errors are:
 ### Removing machines
 
 ```{ibnote}
-See also: {ref}`Juju | Remove a machine <remove-a-machine>`
+See also: {ref}`Juju | Remove a machine <remove-a-machine>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 Removing machines marks machines dying together with their containers and units, and schedules the removal of each. A machine is deleted when its instance has been stopped and everything on it is gone.

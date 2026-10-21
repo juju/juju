@@ -166,7 +166,7 @@ The caller, the rules, and the errors are:
 ### Listing storage pools
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage pools <manage-storage-pools>`
+See also: {ref}`Juju | Manage storage pools <manage-storage-pools>`, {ref}`Terraform Provider for Juju | Manage storage pools <tfjuju:manage-storage-pools>`
 ```
 
 Listing storage pools returns the pools of the model, with the provider type of each and its attributes.
@@ -184,7 +184,7 @@ The caller, the rules, and the errors are:
 ### Creating storage pools
 
 ```{ibnote}
-See also: {ref}`Juju | Manage storage pools <manage-storage-pools>`
+See also: {ref}`Juju | Manage storage pools <manage-storage-pools>`, {ref}`Terraform Provider for Juju | Manage storage pools <tfjuju:manage-storage-pools>`
 ```
 
 Creating storage pools stores a new pool in the model: a name, a provider type, and attributes for that provider, such as the volume type of an EBS pool or the path of a `rootfs` pool.

@@ -95,7 +95,7 @@ The caller, the rules, and the errors are:
 ### Adding spaces
 
 ```{ibnote}
-See also: {ref}`Juju | Add a space <add-a-space>`
+See also: {ref}`Juju | Add a space <add-a-space>`, {ref}`Terraform Provider for Juju | Manage spaces <tfjuju:manage-spaces>`
 ```
 
 Adding spaces creates spaces and puts the subnets with the given CIDRs into them.
@@ -151,7 +151,7 @@ The caller, the rules, and the errors are:
 ### Removing spaces
 
 ```{ibnote}
-See also: {ref}`Juju | Remove a space <remove-a-space>`
+See also: {ref}`Juju | Remove a space <remove-a-space>`, {ref}`Terraform Provider for Juju | Manage spaces <tfjuju:manage-spaces>`
 ```
 
 Removing spaces deletes spaces and returns what depended on them to `alpha`.

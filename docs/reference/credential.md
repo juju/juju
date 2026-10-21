@@ -55,7 +55,7 @@ Credential calls are the calls a {ref}`client <client>` can take on credentials 
 ### Adding credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Add a credential <add-a-credential>`
+See also: {ref}`Juju | Add a credential <add-a-credential>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 Adding credentials stores credentials for a user on the controller. Adding a credential whose name the owner already uses on that cloud replaces it.
@@ -100,7 +100,7 @@ The caller, the rules, and the errors are:
 ### Updating credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Update a credential <update-a-credential>`
+See also: {ref}`Juju | Update a credential <update-a-credential>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 Updating credentials replaces the contents of credentials, after checking that the models that use them can still reach their clouds. A credential that is invalid becomes valid again when it is replaced.
@@ -124,7 +124,7 @@ The caller, the rules, and the errors are:
 ### Removing credentials
 
 ```{ibnote}
-See also: {ref}`Juju | Remove a credential <remove-a-credential>`
+See also: {ref}`Juju | Remove a credential <remove-a-credential>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
 Removing credentials deletes credentials from the controller, and takes them off the models that use them.
