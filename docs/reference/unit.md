@@ -344,6 +344,10 @@ The caller, the rules, and the errors are:
 (unit-saving-state)=
 ### Writing unit state
 
+```{ibnote}
+See also: {ref}`Ops | Manage stored state <ops:manage-stored-state>`
+```
+
 A unit agent stores the state that it needs to resume after a restart, and reads it back. The request can give the state of the agent's operations, its storage, its secrets, the charm's state items, and the relation state items. The charm state is what the charm sets with the {ref}`state-set <hook-command-state-set>` hook command.
 
 The caller, the rules, and the errors are:

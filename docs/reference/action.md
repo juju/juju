@@ -87,7 +87,7 @@ The caller, the rules, and the errors are:
 ### Running actions
 
 ```{ibnote}
-See also: {ref}`Juju | Run an action <manage-actions>`
+See also: {ref}`Juju | Run an action <manage-actions>`, {ref}`Ops | Manage actions <ops:manage-actions>`
 ```
 
 ```{ggarch}

@@ -266,7 +266,7 @@ The caller, the rules, and the errors are:
 ### Configuring applications
 
 ```{ibnote}
-See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Configure an application <configure-an-application>`
+See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Configure an application <configure-an-application>`, {ref}`Ops | Manage configuration <ops:manage-configuration>`
 ```
 
 Configuring applications sets or unsets the {ref}`configuration <application-configuration>` keys of applications, including the `trust` setting. A request lists applications. Each entry has the application name and either the keys with their values or the keys to unset.
@@ -504,6 +504,10 @@ The caller, the rules, and the errors are:
 
 (application-setting-workload-version)=
 ### Setting workload versions
+
+```{ibnote}
+See also: {ref}`Ops | Set the workload version <ops:how-to-set-the-workload-version>`
+```
 
 The unit agent reports the version of the software that its unit runs, through the {ref}`application-version-set <hook-command-application-version-set>` hook command. The request gives the unit and the version.
 

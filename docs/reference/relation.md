@@ -219,6 +219,10 @@ The caller, the rules, and the errors are:
 (relation-reading-data)=
 ### Reading relation data
 
+```{ibnote}
+See also: {ref}`Ops | Manage relations <ops:manage-relations>`
+```
+
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Sharing relation settings
@@ -253,6 +257,10 @@ The caller, the rules, and the errors are:
 
 (relation-writing-data)=
 ### Writing relation data
+
+```{ibnote}
+See also: {ref}`Ops | Manage relations <ops:manage-relations>`
+```
 
 The unit agent sets and removes settings of a unit or of an application in a relation, through the {ref}`relation-set <hook-command-relation-set>` hook command. The command takes `key=value` pairs, a relation ID, a file of settings, and an option to write the application settings.
 

@@ -111,7 +111,7 @@ Secret calls are the calls on secrets: add, list, read, grant, revoke, update, r
 ### Adding secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Adding secrets creates a secret with its first revision. A client adds user secrets, which the model owns. A charm adds application secrets and unit secrets with the hook command {ref}`secret-add <hook-command-secret-add>`.
@@ -146,7 +146,7 @@ The caller, the rules, and the errors are:
 ### Listing secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Listing secrets returns the secrets of a model with their metadata, revisions, and grants, and can return their content. A charm lists the secrets that it owns with the hook commands {ref}`secret-ids <hook-command-secret-ids>` and {ref}`secret-info-get <hook-command-secret-info-get>`.
@@ -178,7 +178,7 @@ The caller, the rules, and the errors are:
 ### Reading secret content
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Reading secret content returns the content of one revision of a secret to a unit. A charm reads a secret with the hook command {ref}`secret-get <hook-command-secret-get>`. A unit that reads a secret becomes its consumer and tracks a revision of it.
@@ -202,7 +202,7 @@ The caller, the rules, and the errors are:
 ### Granting and revoking access to secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Granting and revoking access to secrets gives applications and units the right to read a secret, and takes it away. A client grants and revokes access to a user secret for applications. A charm grants and revokes access to its own secrets with the hook commands {ref}`secret-grant <hook-command-secret-grant>` and {ref}`secret-revoke <hook-command-secret-revoke>`.
@@ -237,7 +237,7 @@ The caller, the rules, and the errors are:
 ### Updating secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Updating secrets changes the content or the metadata of a secret. New content adds a revision. A client updates user secrets. A charm updates its own secrets with the hook command {ref}`secret-set <hook-command-secret-set>`.
@@ -269,7 +269,7 @@ The caller, the rules, and the errors are:
 ### Rotating secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Rotating secrets asks the owner of a charm secret to add a revision when the secret's rotation is due. Expiry works alike: it asks the owner to remove a revision when the revision's expiry time has passed. Juju runs a hook on the owner for each: {ref}`secret-rotate <hook-secret-rotate>` and {ref}`secret-expired <hook-secret-expired>`.
@@ -291,7 +291,7 @@ The caller, the rules, and the errors are:
 ### Removing secrets
 
 ```{ibnote}
-See also: {ref}`Juju | Manage secrets <manage-secrets>`
+See also: {ref}`Juju | Manage secrets <manage-secrets>`, {ref}`Ops | Manage secrets <ops:manage-secrets>`
 ```
 
 Removing secrets deletes a secret with all its revisions, or deletes chosen revisions of it. The controller schedules the removal, so it finishes after the call returns. A client removes user secrets. A charm removes its own secrets and revisions with the hook command {ref}`secret-remove <hook-command-secret-remove>`.

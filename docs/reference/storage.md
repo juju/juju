@@ -211,7 +211,7 @@ A client cannot yet update or remove a pool: both calls answer `not yet availabl
 ### Adding storage to units
 
 ```{ibnote}
-See also: {ref}`Juju | Add storage <add-storage>`
+See also: {ref}`Juju | Add storage <add-storage>`, {ref}`Ops | Manage storage <ops:manage-storage>`
 ```
 
 Adding storage to a unit creates new storages of one of the unit's charm storage names, from the directive that the unit already keeps. A client adds storages with `juju add-storage`. A charm adds them with the {ref}`storage-add <hook-command-storage-add>` hook command, which takes a storage name and a count, and takes effect when the hook that ran it succeeds.
