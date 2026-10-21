@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -116,11 +117,11 @@ func (st *State) NamespaceForWatchRemovals() string {
 // entities.
 func (st *State) NamespaceForWatchEntityRemovals() (eventsource.NamespaceQuery, map[string]string) {
 	return st.initialEntityRemovalQuery(), map[string]string{
-		"custom_application_uuid_lifecycle":      "application",
-		"custom_machine_uuid_lifecycle":          "machine",
-		"custom_model_life_model_uuid_lifecycle": "model",
-		"custom_relation_uuid_lifecycle":         "relation",
-		"custom_unit_uuid_lifecycle":             "unit",
+		"custom_application_uuid_lifecycle": "application",
+		"custom_machine_uuid_lifecycle":     "machine",
+		schema.NamespaceModelLife:           "model",
+		"custom_relation_uuid_lifecycle":    "relation",
+		"custom_unit_uuid_lifecycle":        "unit",
 	}
 }
 

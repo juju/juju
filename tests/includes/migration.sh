@@ -2,13 +2,14 @@
 
 # Helpers shared by the migration suite for migrating juju 3.6 models
 # into a controller built from this branch (4.0). The source controllers
-# are bootstrapped with a juju 3.6 client binary (default
-# /snap/bin/juju_36, override with JUJU_MIGRATION_36_BIN); the migration
-# target is the suite's own 4.0 controller. All clients share
+# are bootstrapped with a juju 3.6 client binary (set JUJU_MIGRATION_36_BIN
+# to override the /snap/bin/juju default, which the suite pins to the
+# 3.6/stable snap channel itself); the migration target is the suite's
+# own 4.0 controller. All clients share
 # ~/.local/share/juju, so a 3.6 client and the 4.0 client see the same
 # controllers and credentials.
 
-JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju_36}"
+JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju}"
 
 # bootstrap_controller_36 bootstraps a juju 3.6 source controller on the
 # same cloud and region as the suite's 4.0 target controller. The controller
@@ -196,6 +197,17 @@ migrate_36() {
 	model=${2}
 	target_ctrl=${3}
 	expect_abort=${4:-}
+
+	# Juju 3.6 auto-configures fan networking on models of clouds whose
+	# provider implements SuperSubnets but not container addresses (e.g.
+	# EC2 models get fan-config "172.31.0.0/16=252.0.0.0/8" and
+	# container-networking-method=fan) even though the models here only
+	# deploy to VM machines and never use fan overlays. Fan networking is
+	# removed in 4.0 and the target migration prechecks reject models
+	# carrying fan config, so unset the auto-set values, the same way the
+	# upgrade guide tells operators to before migrating.
+	${JUJU_36} model-config -m "${src_ctrl}:${model}" \
+		"fan-config=" "container-networking-method=" >/dev/null
 
 	${JUJU_36} switch "${src_ctrl}"
 	if ! ${JUJU_36} migrate "${model}" "${target_ctrl}"; then
@@ -426,6 +438,106 @@ arm_wrench_die_in_export() {
 cleanup_wrench_die_in_export_36() {
 	${JUJU_36} ssh -m "mig36-abort-src-12345:controller" controller/0 \
 		'sudo mkdir -p /var/lib/juju/wrench && : | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null' >/dev/null 2>&1 || true
+}
+
+# ensure_juju36_client pins the regular juju snap to the 3.6/stable
+# channel when the default /snap/bin/juju location is in use, mirroring
+# the upgrade suite's prior-stable install (tests/suites/upgrade/
+# streams.sh). A custom JUJU_MIGRATION_36_BIN is used as-is. Call this
+# un-captured from the wrapper path (like run_migration_*); never from
+# inside a $( ...) capture, or sudo's password prompt has no terminal.
+# The channel the snap tracked before pinning is captured so the
+# framework cleanup can restore it (restore_juju36_channel): a local
+# run must not leave the developer's juju pinned to 3.6.
+ensure_juju36_client() {
+	if [[ ${JUJU_36} != "/snap/bin/juju" ]]; then
+		return
+	fi
+	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]]; then
+		return
+	fi
+
+	# Persist the original state once: setup runs in a subshell, but
+	# cleanup runs in the parent shell. Record absence explicitly so
+	# missing state can never authorise removing a pre-installed snap.
+	if [[ ! -f "${TEST_DIR}/mig36-snap-was-installed" ]]; then
+		local was_installed=false prev_channel snap_list
+		if ! snap_list=$(snap list 2>/dev/null); then
+			echo "failed to read installed snaps; refusing to change the juju snap" >&2
+			return 1
+		fi
+		if grep -q '^juju[[:space:]]' <<<"${snap_list}"; then
+			was_installed=true
+			prev_channel=$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}') || return 1
+			if [[ -z ${prev_channel} ]]; then
+				echo "failed to record the juju snap channel; refusing to change it" >&2
+				return 1
+			fi
+			printf '%s\n' "${prev_channel}" >"${TEST_DIR}/mig36-prev-channel" || return 1
+		fi
+		printf '%s\n' "${was_installed}" >"${TEST_DIR}/mig36-snap-was-installed" || return 1
+	fi
+
+	local attempts=0
+	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]]; do
+		if (( attempts >= 3 )); then
+			echo "failed to install the juju 3.6 snap after ${attempts} attempts" >&2
+			return 1
+		fi
+
+		# Re-evaluate install vs refresh on every attempt: a failed
+		# attempt may leave the snap listed but unusable, and retrying
+		# install against a listed snap fails deterministically.
+		local action opts
+		if snap list juju >/dev/null 2>&1; then
+			action="refresh"
+			opts=""
+			if (( attempts > 0 )); then
+				# Like the upgrade suite: a channel-changing
+				# refresh is rejected without --amend, so a
+				# byte-identical retry cannot succeed.
+				opts=" --amend"
+			fi
+		else
+			action="install"
+			opts=""
+		fi
+		sudo snap "${action}" juju --classic --channel 3.6/stable${opts} 2>&1 && break || sleep 10
+		attempts=$((attempts + 1))
+	done
+}
+
+# restore_juju36_channel returns the regular juju snap to the state it
+# was in before ensure_juju36_client pinned it to 3.6/stable: refreshed
+# back to its previously tracked channel, or removed again when the
+# suite installed it in the first place. The runner calls this after all
+# controller cleanup, not through the ordered cleanup callback list.
+restore_juju36_channel() {
+	local was_installed prev_channel
+	if ! IFS= read -r was_installed <"${TEST_DIR}/mig36-snap-was-installed"; then
+		echo "WARNING: cannot read the original juju snap state; leaving the snap unchanged" >&2
+		return
+	fi
+	case "${was_installed}" in
+	false)
+		if ! sudo snap remove juju; then
+			echo "WARNING: failed to remove the juju snap installed by the migration suite" >&2
+		fi
+		;;
+	true)
+		if ! IFS= read -r prev_channel <"${TEST_DIR}/mig36-prev-channel" || [[ -z ${prev_channel} ]]; then
+			echo "WARNING: cannot read the original juju snap channel; leaving the snap unchanged" >&2
+			return
+		fi
+		if ! sudo snap refresh juju --channel "${prev_channel}" --amend; then
+			echo "WARNING: failed to restore the juju snap to ${prev_channel}; restore it manually with:" >&2
+			echo "  sudo snap refresh juju --channel '${prev_channel}' --amend" >&2
+		fi
+		;;
+	*)
+		echo "WARNING: invalid original juju snap state; leaving the snap unchanged" >&2
+		;;
+	esac
 }
 
 # mig36_gate echoes a skip reason and returns non-zero when the juju 3.6

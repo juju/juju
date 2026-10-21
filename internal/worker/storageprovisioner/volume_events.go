@@ -299,6 +299,13 @@ func updatePendingVolume(ctx context.Context, deps *dependencies, params storage
 		deps.config.Logger.Debugf(ctx,
 			"pending volume %v create scheduled", params.Tag)
 		delete(deps.incompleteVolumeParams, params.Tag)
+
+		if pending, ok := deps.schedule.Get(params.Tag); ok {
+			if op, ok := pending.(*createVolumeOp); ok {
+				op.args = params
+				return
+			}
+		}
 		scheduleOperations(deps, &createVolumeOp{args: params})
 	}
 }
@@ -329,6 +336,13 @@ func updatePendingVolumeAttachment(
 		deps.config.Logger.Debugf(ctx,
 			"pending volume attachment %v attach scheduled", id)
 		delete(deps.incompleteVolumeAttachmentParams, id)
+
+		if pending, ok := deps.schedule.Get(id); ok {
+			if op, ok := pending.(*attachVolumeOp); ok {
+				op.args = params
+				return
+			}
+		}
 		scheduleOperations(deps, &attachVolumeOp{args: params})
 		return
 	}

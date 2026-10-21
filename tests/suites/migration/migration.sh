@@ -1,12 +1,10 @@
 #!/usr/bin/env -S bash -e
 
 # Integration tests for model migrations into a controller built from this
-# branch.
-#
-# The juju 3.6 scenarios bootstrap their source controllers with a juju 3.6
-# client binary (default /snap/bin/juju_36, override with
-# JUJU_MIGRATION_36_BIN); the migration target is the suite's own
-# controller.
+# branch. The juju 3.6 scenarios bootstrap their source controllers with a
+# juju 3.6 client binary (the suite pins the regular juju snap to
+# 3.6/stable itself; set JUJU_MIGRATION_36_BIN to use a custom client);
+# the migration target is the suite's own controller.
 #
 # The same-version scenarios migrate between two controllers built from this
 # branch: the suite controller and one bootstrapped with

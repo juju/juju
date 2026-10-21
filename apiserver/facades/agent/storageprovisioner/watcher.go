@@ -21,7 +21,7 @@ import (
 // watcher and maps the events to a specific type T using the provided mapper function.
 // The mapper function should take the context and the events as input and return a slice of T or an error.
 // The watcher will emit the mapped results on its Changes channel.
-type stringSourcedWatcher[T any] struct {
+type stringSourcedWatcher[T comparable] struct {
 	catacomb catacomb.Catacomb
 
 	sourceWatcher watcher.StringsWatcher
@@ -30,7 +30,7 @@ type stringSourcedWatcher[T any] struct {
 	out chan []T
 }
 
-func newStringSourcedWatcher[T any](
+func newStringSourcedWatcher[T comparable](
 	sourceWatcher watcher.StringsWatcher,
 	mapper func(ctx context.Context, events ...string) ([]T, error),
 ) (*stringSourcedWatcher[T], error) {
@@ -53,10 +53,13 @@ func (w *stringSourcedWatcher[T]) loop() error {
 	defer close(w.out)
 
 	var (
-		changes []T
-		out     chan []T
-		initial bool = true
+		changes        []T
+		pendingChanges = make(map[T]struct{})
+		out            chan []T
+		initial        = true
 	)
+
+	ctx := w.catacomb.Context(context.Background())
 
 	for {
 		select {
@@ -71,7 +74,7 @@ func (w *stringSourcedWatcher[T]) loop() error {
 				continue
 			}
 
-			results, err := w.mapper(w.catacomb.Context(context.Background()), events...)
+			results, err := w.mapper(ctx, events...)
 			if err != nil {
 				return errors.Errorf("processing changes: %w", err)
 			}
@@ -80,16 +83,25 @@ func (w *stringSourcedWatcher[T]) loop() error {
 				continue
 			}
 
-			if changes == nil {
-				changes = results
-			} else {
-				changes = append(changes, results...)
+			// Add the results to the pending changes, ensuring uniqueness,
+			// whilst keeping the order of the results as they were received
+			// from the mapper.
+			for _, result := range results {
+				if _, ok := pendingChanges[result]; ok {
+					continue
+				}
+				pendingChanges[result] = struct{}{}
+				changes = append(changes, result)
 			}
+
 			// If we have changes, we need to dispatch them.
 			out = w.out
+
 		case out <- changes:
 			// We have dispatched. Reset changes for the next batch.
 			changes = nil
+			clear(pendingChanges)
+
 			out = nil
 			initial = false
 		}
