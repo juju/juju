@@ -60,7 +60,7 @@ See more: {ref}`command-juju-integrate`
 ### Add a cross-model relation
 
 ```{ibnote}
-See also: {ref}`cross-model-relation`
+See also: {ref}`Juju | Cross-model relation <cross-model-relation>`
 ```
 
 In a cross-model relation there is also an 'offering' model and a 'consuming' model. The admin of the 'offering' model 'offers' an application for consumption outside of the model and grants an external user access to it. The user on the 'consuming' model can then find an offer to use, consume the offer, and integrate an application on their model with the 'offer' via the same `integrate` command as in the same-model case (just that the offer must be specified in terms of its offer URL or its consume alias). This creates a local proxy for the offer in the consuming model, and the application is subsequently treated as any other application in the model.
