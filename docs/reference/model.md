@@ -46,7 +46,7 @@ The model database schema is the set of records that describe a model in the {re
 (model-change-streams)=
 ## Model change streams
 
-Model change streams are the notifications that tell a worker (a process of the {ref}`controller <controller>` that does its work for a model) or an {ref}`agent <agent>` that something about a model has changed, delivered through a watcher (an object that tells its holder when something it follows has changed). Clients read model state through the controller API (the set of calls that clients and agents make to the controller), so the streams reach only the controller's workers and the model's agents, and they carry the set of active models, the phase of a migration, the model's credential, its target agent version, and its configuration:
+Model change streams are the notifications that tell a worker (a process of the {ref}`controller <controller>` that does its work for a model) or an {ref}`agent <agent>` that something about a model has changed, delivered through a {ref}`watcher <watcher>`. Clients read model state through the controller API (the set of calls that clients and agents make to the controller), so the streams reach only the controller's workers and the model's agents, and they carry the set of active models, the phase of a migration, the model's credential, its target agent version, and its configuration:
 
 - **Active models:** The controller starts the processes of each model that joins the set of active models.
 - **Migration phase:** Every agent of a model (machine and unit agents) follows the phase of the model's migration. The agents act on each phase and report success or failure back, as {ref}`Migrating models <model-migrating>` describes.

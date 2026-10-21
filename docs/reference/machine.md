@@ -76,7 +76,7 @@ The machine database schema is the set of records that the {ref}`model database 
 (machine-change-streams)=
 ## Machine change streams
 
-Machine change streams are the changes that the workers and agents of a model follow, so that they rarely have to poll. A change stream is delivered through a watcher (an object that tells its holder when something it follows has changed), and workers and agents follow the machines of a model, a machine's life and what depends on it, the containers of a host, the reboot flag, and agent start times:
+Machine change streams are the changes that the workers and agents of a model follow, so that they rarely have to poll. A change stream is delivered through a {ref}`watcher <watcher>`, and workers and agents follow the machines of a model, a machine's life and what depends on it, the containers of a host, the reboot flag, and agent start times:
 
 - **Machines of the model:** The compute provisioner follows the machines that are not containers, and starts an instance for each new one. It also follows a request to reprovision a machine.
 - **A machine's life and its dependants:** A machine's agent follows its machine's life and the life of its units, its child machines, and its storage, so that it can stop and mark the machine dead when the last of them has gone.

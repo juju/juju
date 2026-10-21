@@ -182,7 +182,7 @@ The records of the scale and the provisioning, with the rules that apply to each
 (application-change-streams)=
 ## Application change streams
 
-Application change streams are the notifications that tell the agents and workers of a model that something about an application has changed, so that they rarely have to poll. A change stream is delivered through a watcher (an object that tells its holder when something it follows has changed). A {ref}`worker <agent-workers>` is a long-running component inside an agent that does one job. Units, a machine firewall, and the Kubernetes workers follow these changes in an application:
+Application change streams are the notifications that tell the agents and workers of a model that something about an application has changed, so that they rarely have to poll. A change stream is delivered through a {ref}`watcher <watcher>`. A {ref}`worker <agent-workers>` is a long-running component inside an agent that does one job. Units, a machine firewall, and the Kubernetes workers follow these changes in an application:
 
 - **The application record:** A {ref}`unit agent <unit-agent>` follows the record of its own application, and learns of a change of the charm, the life, or the default space.
 - **Configuration:** A unit agent follows the config hash of its application, and runs the {ref}`config-changed <hook-config-changed>` hook when the hash differs from the one it last saw. The trust setting is part of the same hash.

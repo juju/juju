@@ -91,7 +91,7 @@ The model database also keeps a record that holds only the secret's ID, and look
 (secret-change-streams)=
 ## Secret change streams
 
-Secret change streams are the notifications that tell the unit {ref}`agents <agent>` of a model what happened to the secrets they consume or own. They also tell the {ref}`controller <controller>` which revisions to remove. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). The streams carry:
+Secret change streams are the notifications that tell the unit {ref}`agents <agent>` of a model what happened to the secrets they consume or own. They also tell the {ref}`controller <controller>` which revisions to remove. A change stream is delivered through a {ref}`watcher <watcher>`. The streams carry:
 
 - **Consumed secrets:** A unit agent calls `WatchConsumedSecretsChanges` to hear that a secret its unit consumes has a revision newer than the one the unit tracks. The agent then runs the {ref}`secret-changed <hook-secret-changed>` hook.
 - **Rotation:** A unit agent calls `WatchSecretsRotationChanges` to hear that a secret it owns is due for rotation. The agent then runs the {ref}`secret-rotate <hook-secret-rotate>` hook.

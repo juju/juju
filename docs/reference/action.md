@@ -53,7 +53,7 @@ The action database schema is the set of records that the {ref}`model database <
 (action-change-streams)=
 ## Action change streams
 
-Action change streams are the notifications about tasks. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). The streams are:
+Action change streams are the notifications about tasks. A change stream is delivered through a {ref}`watcher <watcher>`. The streams are:
 
 - **Task log messages.** A client calls `WatchActionsProgress` with the tag of a task to hear each new log message of that task. Each message arrives as a JSON string with the fields `message` and `timestamp`. The call needs a logged-in client and checks no model access. A tag that is not an action tag fails with the parse error and no code. A task that does not exist fails with the code `not found`.
 - **Tasks of a unit.** The unit agent calls `WatchActionNotifications` to hear the number of each task of its unit that becomes pending or aborting.

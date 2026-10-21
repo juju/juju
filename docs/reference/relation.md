@@ -82,7 +82,7 @@ The life and the scope of a relation come from lookup tables. A unit in scope re
 (relation-change-streams)=
 ## Relation change streams
 
-Relation change streams are the notifications that the {ref}`agent <agent>` of a unit follows, so that it can run the relation {ref}`hooks <hook>` at the right time. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). A unit's agent follows the relations of its unit and the units on the other side of each relation:
+Relation change streams are the notifications that the {ref}`agent <agent>` of a unit follows, so that it can run the relation {ref}`hooks <hook>` at the right time. A change stream is delivered through a {ref}`watcher <watcher>`. A unit's agent follows the relations of its unit and the units on the other side of each relation:
 
 - **Relations of a unit:** `WatchUnitRelations` reports the relations of a unit and the changes of their life and suspended state. For a principal unit, these are all the relations of its application. For a subordinate unit, these are the relations with the application of its principal unit.
 - **Units of a relation:** `WatchRelationUnits` reports, for one unit and one relation, the units of the other side that enter and leave the scope, and the changes to their settings and to the application settings of the other side.

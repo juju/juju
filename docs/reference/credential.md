@@ -44,7 +44,7 @@ The credential database schema is the set of records that the {ref}`controller d
 (credential-change-streams)=
 ## Credential change streams
 
-Credential change streams are the notifications that tell the agents of a model that the model's credential has changed. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). An agent of a model calls `WatchModelCredential` to hear that the model now uses a different credential, and `ModelCredential` to read the credential's tag and whether it is valid.
+Credential change streams are the notifications that tell the agents of a model that the model's credential has changed. A change stream is delivered through a {ref}`watcher <watcher>`. An agent of a model calls `WatchModelCredential` to hear that the model now uses a different credential, and `ModelCredential` to read the credential's tag and whether it is valid.
 
 (credential-calls)=
 ## Credential calls

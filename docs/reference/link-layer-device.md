@@ -82,7 +82,7 @@ The link-layer device database schema is the set of records that the {ref}`model
 (link-layer-device-change-streams)=
 ## Link-layer device change streams
 
-Link-layer device change streams are the notifications that tell the {ref}`unit agents <unit-agent>` of a model that the addresses of their unit or the endpoint bindings of its application changed. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). A unit agent calls `WatchUnitAddressesHash` to hear that the addresses of its unit have a new hash. The hash covers the addresses on the network node of the unit, or, on Kubernetes, on the network node of its application's cloud service, together with the endpoint bindings of the application (the space each of its endpoints is bound to). When the hash changes, the agent runs the {ref}`config-changed <hook-config-changed>` hook.
+Link-layer device change streams are the notifications that tell the {ref}`unit agents <unit-agent>` of a model that the addresses of their unit or the endpoint bindings of its application changed. A change stream is delivered through a {ref}`watcher <watcher>`. A unit agent calls `WatchUnitAddressesHash` to hear that the addresses of its unit have a new hash. The hash covers the addresses on the network node of the unit, or, on Kubernetes, on the network node of its application's cloud service, together with the endpoint bindings of the application (the space each of its endpoints is bound to). When the hash changes, the agent runs the {ref}`config-changed <hook-config-changed>` hook.
 
 (link-layer-device-calls)=
 ## Link-layer device calls
