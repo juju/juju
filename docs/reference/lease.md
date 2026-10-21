@@ -51,14 +51,14 @@ The operation's required access, rules, and errors are:
   - The claim names the lease, the holder, and a duration.
   - The duration must be positive.
   - A granted lease expires at the end of its duration, unless its holder claims it again before that, or the lease is pinned.
-  - The holder of the singular lease of a model is the controller node that runs the workers the model needs once; the holder of a leadership lease is a unit name; the holder of the backup lease is a controller node.
+  - A leadership lease is named for its {ref}`application <application>` and held by a unit name; a singular lease is named for its model and held by the controller node that runs the workers the model needs once; a backup lease is named for the controller and held by a controller node.
 - *Errors:* The caller receives each from the claim:
-  - **`lease claim denied`**: *Trigger:* Another holder holds the lease for longer than the asked duration. *Remediation:* Ask again with a shorter duration, or wait for the lease to expire.
+  - **`lease claim denied`**: *Trigger:* Another holder holds the lease. *Remediation:* Wait for the lease to expire or be released, then claim it again.
 
 (lease-revoking)=
 ### Revoking leases
 
-Revoking leases releases a lease before it expires, so that another holder can claim it. The removal job of a unit revokes the leadership lease of the unit when it removes the unit. The backup creator revokes the backup lease when the archive is written.
+Revoking leases releases a lease before it expires, so that another holder can claim it. The removal job of a unit revokes the unit's claim on its application's leadership lease when it removes the unit. The backup creator revokes the backup lease when a backup creation call finishes.
 
 The operation's required access, rules, and errors are:
 
@@ -83,4 +83,4 @@ The operation's required access and rules are:
 (lease-and-model-migration)=
 ## Leases and model migration
 
-A migration carries the leadership of a model's applications to the target controller, so that the leader units stay the leaders after the move. It carries nothing else: the times of the other leases are stale by the time the import runs, the pins are left behind, and a singular lease names a controller node of the source controller, so all of them are claimed anew on the target. See {ref}`Migrating models <model-migrating>`.
+A migration carries the leadership of a model's applications to the target controller, so that the leader units stay the leaders after the move. It carries nothing else: the times of the other leases are stale by the time the import runs, the pins are left behind, and a singular lease is held by a controller node of the source controller, so all of them are claimed anew on the target. See {ref}`Migrating models <model-migrating>`.
