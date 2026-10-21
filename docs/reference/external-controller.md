@@ -16,6 +16,7 @@ An **external controller** is a {ref}`controller <controller>` that this control
 (external-controller-data-model)=
 ## External controller data model
 
+```{ggarch}
 :file: ../juju.ggarch
 :view: External controller data model
 :caption: The controller database keeps one record for each external controller, one address record for each of the API servers of that controller, and one model record for each model on it that a model of this controller uses. An external controller has many addresses and many models, and an address and a model each belong to one external controller.
@@ -45,7 +46,7 @@ External controller change streams are the notifications that tell the workers o
 (external-controller-operations)=
 ## External controller operations
 
-External controller operations are the actions that write and read the records. A client reaches the records through {ref}`consuming an offer <offer-consuming>` and through asking for the API addresses of a model ({ref}`reading a model's controller <external-controller-reading>`); a worker of the controller keeps them current, and a migration writes them again.
+External controller operations are the actions that write and read the records. A client reaches the records through {ref}`consuming an offer <offer-consuming>` and through asking for the API addresses of a model ({ref}`reading a model's controller <external-controller-reading>`). A worker of the controller keeps them current. A migration writes them again.
 
 (external-controller-recording)=
 ### Recording external controllers
@@ -92,4 +93,4 @@ The operation's required access and rules are:
 (external-controller-and-model-migration)=
 ## External controllers and model migration
 
-A migration writes the records at both ends. The controller that receives a model records the controller the model came from, together with the controllers that host the offers the model consumes; it refuses to overwrite a record that holds a different alias, certificate, or address list, and refuses to move a model that another controller already hosts, which fails the import. The controller that a model leaves records the controller the model moves to when the migration starts, and keeps the records working for the consumers that stay: the workers that call the migrated model follow its redirection and record the controller it moved to. See {ref}`Migrating models <model-migrating>`.
+A migration writes the records at both ends. The controller that receives a model records the controller the model came from, together with the controllers that host the offers the model consumes; it refuses to overwrite a record that holds a different alias, certificate, or address list, and refuses to move a model that another controller already hosts, which fails the import. The controller that a model leaves records the controller the model moves to when the migration starts. It keeps the records working for the consumers that stay: the workers that call the migrated model follow its redirection and record the controller it moved to. See {ref}`Migrating models <model-migrating>`.
