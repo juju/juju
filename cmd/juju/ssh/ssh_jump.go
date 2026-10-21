@@ -10,6 +10,7 @@ package ssh
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -232,6 +233,74 @@ func (p *sshJump) setArgs(args []string) {
 // resolveTarget resolves the target for the SSH jump provider into a virtual
 // hostname to be reached through the controller jump server.
 func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
+	resolved, err := p.resolveVirtualTarget(ctx, target)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	targetKeys, err := p.getKeys(ctx, resolved.host)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Probe the configured jump endpoints once to select a reachable endpoint
+	// whose host key matches the controller key. The proxy command can then use
+	// that verified endpoint directly.
+	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
+	jumpServerHostKey, err := gossh.ParsePublicKey(p.jumpServerHostKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "parsing controller SSH server host key")
+	}
+	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(gossh.MarshalAuthorizedKey(jumpServerHostKey))})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := p.generateKnownHosts(address.Host(), resolved.host, targetKeys.PublicKey); err != nil {
+		return nil, errors.Trace(err)
+	}
+	resolved.via = &resolvedTarget{
+		user: p.jumpUser,
+		host: address.Host(),
+	}
+	return resolved, nil
+}
+
+func (p *sshJump) printHostKeys(ctx context.Context, w io.Writer) error {
+	target, err := p.resolveVirtualTarget(ctx, p.target)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	targetKeys, err := p.getKeys(ctx, target.host)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	jumpKey, err := gossh.ParsePublicKey(p.jumpServerHostKey)
+	if err != nil {
+		return errors.Annotate(err, "parsing controller SSH server host key")
+	}
+	targetKey, err := gossh.ParsePublicKey(targetKeys.PublicKey)
+	if err != nil {
+		return errors.Annotatef(err, "parsing SSH host key for %q", target.host)
+	}
+	addresses := make([]string, len(p.controllersAddresses))
+	for i, host := range p.controllersAddresses {
+		addresses[i] = knownhosts.Normalize(net.JoinHostPort(host, strconv.Itoa(p.jumpHostPort)))
+	}
+	_, err = fmt.Fprintf(w,
+		"Controller SSH jump server (%s):\n%s key fingerprint is %s.\n\n"+
+			"Target virtual host (%s):\n%s key fingerprint is %s.\n",
+		strings.Join(addresses, ", "), hostKeyAlgorithm(jumpKey), gossh.FingerprintSHA256(jumpKey),
+		target.host, hostKeyAlgorithm(targetKey), gossh.FingerprintSHA256(targetKey),
+	)
+	return errors.Annotate(err, "printing SSH host key fingerprints")
+}
+
+func hostKeyAlgorithm(key gossh.PublicKey) string {
+	if strings.HasPrefix(key.Type(), "ecdsa-sha2-") {
+		return "ECDSA"
+	}
+	return strings.ToUpper(strings.TrimPrefix(key.Type(), "ssh-"))
+}
+
+func (p *sshJump) resolveVirtualTarget(ctx context.Context, target string) (*resolvedTarget, error) {
 	user, target := splitUserTarget(target)
 	resolvedTargetName, err := p.maybeResolveLeaderUnit(ctx, target)
 	if err != nil {
@@ -251,37 +320,10 @@ func (p *sshJump) resolveTarget(ctx context.Context, target string) (*resolvedTa
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	targetKeys, err := p.getKeys(ctx, virtualHostname)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if user == "" {
+		user = finalDestinationUser
 	}
-	// Probe the configured jump endpoints once to select a reachable endpoint
-	// whose host key matches the controller key. The proxy command can then use
-	// that verified endpoint directly.
-	availableAddresses := network.NewMachineHostPorts(p.jumpHostPort, p.controllersAddresses...).HostPorts()
-	jumpServerHostKey, err := gossh.ParsePublicKey(p.jumpServerHostKey)
-	if err != nil {
-		return nil, errors.Annotate(err, "parsing controller SSH server host key")
-	}
-	address, err := p.hostChecker.FindHost(availableAddresses, []string{string(gossh.MarshalAuthorizedKey(jumpServerHostKey))})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := p.generateKnownHosts(address.Host(), virtualHostname, targetKeys.PublicKey); err != nil {
-		return nil, errors.Trace(err)
-	}
-	resolved := &resolvedTarget{
-		user: finalDestinationUser,
-		host: virtualHostname,
-		via: &resolvedTarget{
-			user: p.jumpUser,
-			host: address.Host(),
-		},
-	}
-	if user != "" {
-		resolved.user = user
-	}
-	return resolved, nil
+	return &resolvedTarget{user: user, host: virtualHostname}, nil
 }
 
 // generateKnownHosts writes a temporary known_hosts file pinning the jump server
