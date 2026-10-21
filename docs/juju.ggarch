@@ -3988,9 +3988,9 @@ diagram "Relation database schema" from "JujuSchema" {
     relation_application_setting align-centre relation_endpoint
     relation_unit_setting below relation_unit gap: 60
     relation_unit_setting align-centre relation_unit
-    relation_status above relation gap: 60
+    relation_status below relation gap: 60
     relation_status align-centre relation
-    relation_status_type above relation_status gap: 60
+    relation_status_type below relation_status gap: 60
     relation_status_type align-centre relation_status
     relation_unit_setting_archive left-of relation gap: 70
     relation_unit_setting_archive align-middle relation
