@@ -3881,8 +3881,8 @@ diagram "Offer database schema" from "JujuSchema" {
     offer_connection align-middle offer
     relation right-of offer_connection gap: 70
     relation align-middle offer_connection
-    permission below offer gap: 90
-    permission align-centre offer
+    permission right-of relation gap: 90
+    permission align-middle relation
     user right-of permission gap: 70
     user align-middle permission
     offer_connection same-size offer
