@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju offer reference: the application endpoints that a model makes available for cross-model relations, the records behind them, the permissions on them, and the operations that create, list, find, show, grant, consume, and destroy offers."
+    description: "Juju offer reference: the application endpoints that a model makes available for cross-model relations, the records behind them, the permissions on them, and the operations that create, list, find, show, grant, consume, and remove offers."
 ---
 
 (offer)=
@@ -54,7 +54,7 @@ The errors of the call are:
 (offer-operations)=
 ## Offer operations
 
-Offer operations are the actions a {ref}`client <client>` can take on offers through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): create, list, find, show, grant access, revoke access, get consume details, consume, and destroy. Every operation needs a user who is logged in as a client.
+Offer operations are the actions a {ref}`client <client>` can take on offers through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): create, list, find, show, grant access, revoke access, get consume details, consume, and remove. Every operation needs a user who is logged in as a client.
 
 An offer URL names an offer in the form `[<source>:][<qualifier>/]<model>.<offer-name>`. The qualifier is the one that the {ref}`model <model>` carries. It defaults to the caller's. The source names another controller. Showing and getting consume details refuse a URL that has a source. The model name and the offer name must be valid. An offer name follows the rules of an application name. An operation that takes URLs fails a URL with one of these errors:
 
@@ -93,7 +93,7 @@ The operation's required access, rules, and errors are:
   - **`checking user "<owner tag>" has admin permission on model "<uuid>": permission denied`**: *Trigger:* The owner is another user who lacks the access. The client receives it with the code `not valid`. *Remediation:* Grant the owner admin access to the model, or name another owner.
   - **`"<tag>" is not a valid tag`** and **`"<tag>" is not a valid model tag`** (or **`user tag`**): *Trigger:* The model tag or the owner tag is malformed, or of another kind. *Remediation:* Use a tag of the right kind.
   - **`application name cannot be empty`**, **`owner name cannot be empty`**, and **`endpoints cannot be empty`**: *Trigger:* The part is missing. The client receives them with the code `not valid`. *Remediation:* Provide it.
-  - **`offer "<name>" already exists, updating offers is not supported`**: *Trigger:* An offer with this name exists and offers other endpoints, or another application. The client receives it with the code `bad request`. *Remediation:* {ref}`Destroy the offer <offer-destroying>` first, or choose another name.
+  - **`offer "<name>" already exists, updating offers is not supported`**: *Trigger:* An offer with this name exists and offers other endpoints, or another application. The client receives it with the code `bad request`. *Remediation:* {ref}`Remove the offer <offer-removing>` first, or choose another name.
   - **`application "<name>" not found in model "<uuid>"`**: *Trigger:* The model has no such application. The client receives it with the code `not found`. *Remediation:* Name an application of the model.
   - **`creating offer "<name>": application is dead`**: *Trigger:* The application is dead. *Remediation:* Offer another application.
   - **`creating offer "<name>": "<endpoints>": endpoint not found`** and **`creating offer "<name>": not all endpoints found "<endpoints>" for application "<uuid>"`**: *Trigger:* An endpoint is not one of the application's endpoints. *Remediation:* Name endpoints of the application's charm.
@@ -247,14 +247,14 @@ The operation's required access, rules, and errors are:
   - **`permission denied`**: *Trigger:* The caller has no write access to the model. The client receives it with the code `unauthorized access`. *Remediation:* Ask an admin of the model to grant write access.
   - **The operator's block message**, or `the operation has been blocked` when the operator gave none (code `operation is blocked`): *Trigger:* The change block is on. *Remediation:* Ask the operator to lift the block.
 
-(offer-destroying)=
-### Destroying offers
+(offer-removing)=
+### Removing offers
 
 ```{ibnote}
 See also: {ref}`Juju | Remove an offer <remove-an-offer>`
 ```
 
-Destroying offers removes offers from the offering model at once, with the permissions on them.
+Removing offers deletes offers from the offering model at once, with the permissions on them.
 
 The operation's required access, rules, and errors are:
 
