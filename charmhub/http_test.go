@@ -243,6 +243,7 @@ func (s *APIRequesterSuite) TestDoRetryTLSHandshakeTimeout(c *gc.C) {
 	}))
 	server.TLS = &tls.Config{
 		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			// this simulates a TLS handshake timeout on the first attempt
 			if atomic.AddInt32(&handshakes, 1) == 1 {
 				<-releaseHandshake
 			}
