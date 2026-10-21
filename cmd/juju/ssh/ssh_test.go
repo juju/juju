@@ -79,6 +79,35 @@ func (*CmdSuite) TestSSHCommandErrorsShowCommandWithDirect(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "--show-command cannot be used with --direct")
 }
 
+func (*CmdSuite) TestSSHCommandPrintKeys(c *tc.C) {
+	for _, modelType := range []model.ModelType{model.IAAS, model.CAAS} {
+		com := NewSSHCommandForTest(
+			nil, nil, nil, nil, nil,
+			baseTestingRetryStrategy, baseTestingRetryStrategy,
+		)
+		com.SetClientStore(clientStoreWithModelType(modelType))
+		c.Assert(com.SetModelIdentifier("arthur:admin/controller", false), tc.ErrorIsNil)
+
+		c.Assert(cmdtesting.InitCommand(com, []string{"--print-keys", "mysql/0"}), tc.ErrorIsNil)
+		c.Check(com.printKeys, tc.IsTrue)
+		c.Check(com.provider, tc.Equals, &com.sshJump)
+		c.Check(com.provider.getTarget(), tc.Equals, "mysql/0")
+	}
+}
+
+func (*CmdSuite) TestSSHCommandPrintKeysConflictingFlags(c *tc.C) {
+	for _, flag := range []string{"--direct", "--show-command"} {
+		com := NewSSHCommandForTest(
+			nil, nil, nil, nil, nil,
+			baseTestingRetryStrategy, baseTestingRetryStrategy,
+		)
+		c.Assert(com.SetModelIdentifier("arthur:admin/controller", false), tc.ErrorIsNil)
+
+		err := cmdtesting.InitCommand(com, []string{"--print-keys", flag, "0"})
+		c.Check(err, tc.ErrorMatches, "--print-keys cannot be used with "+flag)
+	}
+}
+
 func initSCPCommand(args ...string) (*scpCommand, error) {
 	com := &scpCommand{}
 	return com, cmdtesting.InitCommand(com, args)
