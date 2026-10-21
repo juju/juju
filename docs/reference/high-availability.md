@@ -91,9 +91,7 @@ An obvious example of this is a model's compute provisioner - we would never
 want more than one actor attempting to start a cloud instance for a new
 machine.
 
-Single instance workers are those declared in the model manifolds configuration
-that use the `isResponsible` decorator. This in turn is based on a flag set by the
-`singular` worker.
+Single instance workers are those declared in the model {ref}`manifold <agent-workers>` configuration that use the `isResponsible` decorator. This in turn is based on a flag set by the `singular` worker.
 
 The `singular` worker only sets the flag if it is the current lease holder for
 the `singular-controller` namespace. See the appropriate documentation for more
