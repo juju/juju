@@ -480,11 +480,8 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
-// TestRefreshPinnedSameRevisionReusesID verifies that switching channels with
-// the deployed revision pinned returns ErrAlreadyUpToDate without adding the
-// charm. If resolution supplies a hash but no ID, the returned origin retains
-// the deployed Charmhub ID alongside the resolved hash and channel, so it can
-// still be used to update resources.
+// TestRefreshPinnedSameRevisionReusesID checks that refreshing to a new
+// channel with the same pinned revision keeps the deployed charm's ID.
 func (s *charmHubCharmRefresherSuite) TestRefreshPinnedSameRevisionReusesID(c *tc.C) {
 	ctrl := gomock.NewController(c)
 
