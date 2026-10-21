@@ -61,7 +61,7 @@ SSH server change streams are the changes that the SSH server and the machine ag
 (ssh-server-operations)=
 ## SSH server operations
 
-SSH server operations are the actions that a {ref}`client <client>` can take through the SSH server and the controller API (the set of calls that clients and agents make to the controller): connecting to machines and to Kubernetes units, relaying sessions, finding the server, addressing targets, and checking host keys.
+SSH server operations are the actions that a {ref}`client <client>` and a machine agent can take through the SSH server and the controller API (the set of calls that clients and agents make to the controller): connecting to machines and to Kubernetes units, relaying sessions, finding the server, addressing targets, and checking host keys, all by a client; and answering connection requests and reporting host keys, by a {ref}`machine agent <machine-agent>` (the process that runs a machine's agent, logged in as that machine, acting only for it).
 
 (ssh-server-connecting-machine)=
 ### Connecting to machines through the SSH server
@@ -95,7 +95,6 @@ The operation's required access, rules, and errors are:
   - A request expires 60 seconds after the server stores it.
   - Storing, reading, or watching requests removes expired ones.
   - The machine has 60 seconds to call back, so its own host keys must be on record within that time.
-  - The tunnel is accepted only from the machine that the request names.
   - The one-time key is removed from the machine when the tunnel closes.
   - A connection to a machine needs the machine's agent to run. If the agent cannot start, use the cloud's own tools or the cloud-init user data to reach the machine instead (see {ref}`access-a-machine-via-ssh`).
 - *Errors:* An SSH client shows each of the following in its own way. The first reaches the client before the SSH protocol starts, the next four as the failure to authenticate or to open the channel, and the last as text on the session's standard error with exit status 1:
@@ -197,11 +196,45 @@ The operation's required access, rules, and errors are:
 - *Required access:* {ref}`Login access <user-access-controller-login>` to the controller for the controller's host key, and {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller for the others.
 - *Rules:*
   - Asking for a target's virtual host key creates an `ssh-ed25519` key if the target has none yet.
-  - A machine's own host keys are those its agent reported once when it started, from `/etc/ssh/ssh_host_*_key.pub`. The list is empty until the agent has reported. The host keys of a unit are those of its machine.
+  - A machine's own host keys are those its agent reported when it started. The list is empty until the agent has reported. The host keys of a unit are those of its machine.
   - A client compares the keys it is shown on the outer and inner connections with the keys that these calls return.
 - *Errors:* The client receives each as the error of the request:
   - **`could not parse hostname`**: *Trigger:* A name that is not a virtual hostname. *Remediation:* Use the name that {ref}`addressing <ssh-server-addressing>` returns.
   - **`permission denied`**: *Trigger:* The caller lacks the required access. *Remediation:* Ask for it.
+
+
+(ssh-server-answering)=
+### Answering connection requests
+
+Answering connection requests lets a machine agent open the reverse tunnel that a client's session runs through: the agent watches for the requests that name its machine, reads each one, and calls the controller back.
+
+The operation's required access, rules, and errors are:
+
+- *Required access:* A machine agent, for its own machine. The machine comes from the login, never from the call.
+- *Rules:*
+  - The watcher emits the tunnel IDs of the requests that name the agent's machine.
+  - For each tunnel ID, the agent reads the request: the controller addresses to call back, the port of the machine's SSH server, and the one-time public key for the connection.
+  - The agent dials one of the controller addresses on a new HTTPS connection and asks for the tunnel route `GET /model/<model UUID>/ssh-tunnel/<tunnel ID>`. The connection is authenticated as the machine agent, with the model-scoped login that the log endpoint uses, and upgraded into the tunnel.
+  - The controller accepts the tunnel only from the machine that the request names, and holds the connection until the tunnel ends.
+- *Errors:* The agent receives each in the result of the call:
+  - **`permission denied`**: *Trigger:* The caller is not a machine agent. The agent receives it with the code `unauthorized access`. *Remediation:* Log in as the machine.
+  - **`getting SSH connection request "<tunnel ID>": SSH connection request "<tunnel ID>" not found`**: *Trigger:* The tunnel ID names no request of the agent's machine. The agent receives it with no error code. *Remediation:* Read a tunnel ID that the watcher emitted.
+  - On the tunnel route the controller answers each as an HTTP response: **`authenticated machine not found`** (status 401), when the request's login names no machine, and **`missing tunnel ID`** (status 400), when the path names no tunnel ID.
+
+(ssh-server-reporting-host-keys)=
+### Reporting SSH host keys
+
+Reporting SSH host keys stores the public halves of the keys that the SSH server on a machine itself presents, so that a client can check them before it connects.
+
+The operation's required access, rules, and errors are:
+
+- *Required access:* A machine agent, for its own machine.
+- *Rules:*
+  - The agent sends the keys it read from `/etc/ssh/ssh_host_*_key.pub` when it started.
+  - A call replaces the machine's keys.
+- *Errors:* The agent receives each in the result of the call:
+  - **`permission denied`**: *Trigger:* The request names a machine other than the agent's own. The agent receives it with the code `unauthorized access`. *Remediation:* Send the tag of the agent's own machine.
+  - **`machine "<tag>" not found`**: *Trigger:* The machine does not exist. The agent receives it with the code for a missing entity. *Remediation:* Check the machine's tag.
 
 ## SSH server and model migration
 
