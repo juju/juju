@@ -5228,3 +5228,191 @@ diagram "Model migration data model" from "ModelMigrationSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+// Scaffolded by tools/build_page_schema.py from the 4.1 model and controller
+// DDL, then merged: the stored-object tables exist in the controller database
+// and in each model database, the backend tables only in the controller
+// database. The agent binary, the file resource, the task output, and the life
+// lookup belong to other pages and are drawn trimmed, as context records.
+model "ObjectStoreSchema" {
+
+  nodes {
+    object_store_metadata [type: record, label: "Stored\nobject",
+                 ground: "model:object_store_metadata"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        sha_256 [label: "sha_256", type: "text"]
+        sha_384 [label: "sha_384", type: "text"]
+        size [label: "size", type: "int"]
+      }
+    }
+
+    object_store_metadata_path [type: record, label: "Path",
+                 ground: "model:object_store_metadata_path"] {
+      fields {
+        path [label: "path", type: "text", pk: true]
+        metadata_uuid [label: "metadata_uuid", type: "text", fk: true]
+      }
+    }
+
+    object_store_placement [type: record, label: "Placement",
+                 ground: "model:object_store_placement"] {
+      fields {
+        uuid [label: "uuid", type: "text", fk: true]
+        node_id [label: "node_id", type: "text"]
+      }
+    }
+
+    agent_binary_store [type: context-record, label: "Agent\nbinary",
+                 ground: "model:agent_binary_store"] {
+      fields {
+        version [label: "version", type: "text"]
+        architecture_id [label: "architecture_id", type: "int"]
+        object_store_uuid [label: "object_store_uuid", type: "text", fk: true]
+      }
+    }
+
+    resource_file_store [type: context-record, label: "File\nresource",
+                 ground: "model:resource_file_store"] {
+      fields {
+        resource_uuid [label: "resource_uuid", type: "text", pk: true, fk: true]
+        store_uuid [label: "store_uuid", type: "text", fk: true]
+      }
+    }
+
+    operation_task_output [type: context-record, label: "Task\noutput",
+                 ground: "model:operation_task_output"] {
+      fields {
+        task_uuid [label: "task_uuid", type: "text", pk: true, fk: true]
+        store_path [label: "store_path", type: "text", fk: true]
+      }
+    }
+
+    object_store_backend [type: record, label: "Backend",
+                 ground: "controller:object_store_backend"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        life_id [label: "life_id", type: "int", fk: true]
+        type_id [label: "type_id", type: "int", fk: true]
+        updated_at [label: "updated_at", type: "datetime"]
+      }
+    }
+
+    object_store_backend_type [type: record, label: "Backend\ntype",
+                 ground: "controller:object_store_backend_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+        type [label: "type", type: "text"]
+      }
+    }
+
+    object_store_backend_s3_config [type: record, label: "S3\nconfig",
+                 ground: "controller:object_store_backend_s3_config"] {
+      fields {
+        object_store_backend_uuid [label: "object_store_backend_uuid", type: "text", pk: true, fk: true]
+        bucket [label: "bucket", type: "text", null: true]
+        region [label: "region", type: "text", null: true]
+        endpoint [label: "endpoint", type: "text"]
+        static_key [label: "static_key", type: "text"]
+        static_secret [label: "static_secret", type: "text"]
+      }
+    }
+
+    object_store_drain_info [type: record, label: "Drain",
+                 ground: "controller:object_store_drain_info"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        phase_type_id [label: "phase_type_id", type: "int", fk: true]
+        from_backend_uuid [label: "from_backend_uuid", type: "text", fk: true, null: true]
+        to_backend_uuid [label: "to_backend_uuid", type: "text", fk: true]
+      }
+    }
+
+    object_store_drain_phase_type [type: record, label: "Drain\nphase\ntype",
+                 ground: "controller:object_store_drain_phase_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+    life [type: context-record, label: "Life",
+                 ground: "controller:life"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+  }
+
+  edges {
+    object_store_metadata_path.metadata_uuid -> object_store_metadata.uuid [type: data]
+    object_store_placement.uuid -> object_store_metadata.uuid [type: data]
+    agent_binary_store.object_store_uuid -> object_store_metadata.uuid [type: data]
+    resource_file_store.store_uuid -> object_store_metadata.uuid [type: data]
+    operation_task_output.store_path -> object_store_metadata_path.path [type: data]
+    object_store_backend.life_id -> life.id [type: data]
+    object_store_backend.type_id -> object_store_backend_type.id [type: data]
+    object_store_backend_s3_config.object_store_backend_uuid -> object_store_backend.uuid [type: data]
+    object_store_drain_info.phase_type_id -> object_store_drain_phase_type.id [type: data]
+    object_store_drain_info.from_backend_uuid -> object_store_backend.uuid [type: data]
+    object_store_drain_info.to_backend_uuid -> object_store_backend.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Object store data model" from "ObjectStoreSchema" {
+  select {
+    nodes: object_store_metadata object_store_metadata_path object_store_placement agent_binary_store resource_file_store operation_task_output object_store_backend object_store_backend_type object_store_backend_s3_config object_store_drain_info object_store_drain_phase_type life
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    object_store_metadata_path above object_store_metadata gap: 60
+    object_store_metadata_path align-centre object_store_metadata
+    operation_task_output above object_store_metadata_path gap: 60
+    operation_task_output align-centre object_store_metadata_path
+    object_store_placement below object_store_metadata gap: 60
+    object_store_placement align-centre object_store_metadata
+    agent_binary_store left-of object_store_metadata gap: 70
+    agent_binary_store align-middle object_store_metadata
+    resource_file_store right-of object_store_metadata gap: 70
+    resource_file_store align-middle object_store_metadata
+
+    object_store_backend below object_store_placement gap: 240
+    object_store_backend align-centre object_store_placement
+    object_store_drain_info left-of object_store_backend gap: 70
+    object_store_drain_info align-middle object_store_backend
+    object_store_drain_phase_type above object_store_drain_info gap: 60
+    object_store_drain_phase_type align-centre object_store_drain_info
+    life above object_store_backend gap: 60
+    life align-centre object_store_backend
+    object_store_backend_type below object_store_drain_info gap: 60
+    object_store_backend_type align-centre object_store_drain_info
+    object_store_backend_s3_config below object_store_backend gap: 60
+    object_store_backend_s3_config align-centre object_store_backend
+
+    object_store_metadata same-size agent_binary_store
+    object_store_metadata_path same-size object_store_metadata
+    object_store_placement same-size object_store_metadata
+    agent_binary_store same-size resource_file_store
+    operation_task_output same-size object_store_metadata
+    object_store_backend same-size object_store_metadata
+    life same-size object_store_metadata
+    object_store_backend_type same-size object_store_metadata
+    object_store_backend_s3_config same-size object_store_metadata
+    object_store_drain_info same-size object_store_metadata
+    object_store_drain_phase_type same-size object_store_metadata
+  }
+  annotations {
+    box [nodes: "object_store_metadata object_store_metadata_path object_store_placement agent_binary_store resource_file_store operation_task_output", label: "Controller database and model databases",
+         style: "solid", color: "#E95420", padding: 24]
+    box [nodes: "object_store_backend object_store_backend_type object_store_backend_s3_config object_store_drain_info object_store_drain_phase_type life", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
