@@ -18,7 +18,7 @@ The annotation data model is the set of records that the model database keeps ab
   - *Rules:*
     - An entity holds each key once.
     - The value is always present.
-    - The charm and unit records are the only ones the database links to their entities; the application, machine, and storage records name their entity by UUID with no link, so the annotations of a removed entity stay until the entity's own removal job clears them.
+    - The charm and unit records are the only ones the database links to their entities; the application, machine, and storage records name their entity by UUID with no link. The removal job of a unit or an application also clears its annotations; a removed machine or storage instance leaves its annotations in place.
 
 The annotations of a model are rows in `annotation_model`; the others are rows in `annotation_application`, `annotation_charm`, `annotation_machine`, `annotation_unit`, `annotation_storage_instance`, `annotation_storage_volume`, and `annotation_storage_filesystem`, each named after the entity it serves. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
@@ -40,8 +40,8 @@ The operation's required access, rules, and errors are:
   - A key holds no period.
   - A key is not empty and holds no whitespace only.
 - *Errors:* The client receives each in the result for the entity, with the entity's tag in the text:
-  - **`setting annotations for "<tag>": key "<key>" contains period`**: *Trigger:* The key holds a period. The client receives it with the code `not valid`. *Remediation:* Use a key with no period.
-  - **`setting annotations for "<tag>": key is empty string`**: *Trigger:* A key is empty or whitespace only. The client receives it with the code `not valid`. *Remediation:* Name each key.
+  - **`setting annotations for "<tag>": key "<key>" contains period`**: *Trigger:* The key holds a period. The client receives it with no error code. *Remediation:* Use a key with no period.
+  - **`setting annotations for "<tag>": key is empty string`**: *Trigger:* A key is empty or whitespace only. The client receives it with no error code. *Remediation:* Name each key.
   - **`setting annotations for "<tag>": unknown kind "<kind>"`**: *Trigger:* The tag names an entity kind that carries no annotations, such as a controller. The client receives it with no error code. *Remediation:* Name a model, application, charm, machine, unit, or storage instance.
   - **`setting annotations for "charm-<URL>": <reason>`**: *Trigger:* The charm URL cannot be parsed. The client receives it with no error code. *Remediation:* Send the charm's URL.
 
