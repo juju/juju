@@ -36,8 +36,6 @@ The space database schema is the set of records that the {ref}`model database <d
   - *Rules:*
     - A subnet belongs to at most one space.
 
-A space is a row in the table `space`. A cloud's ID for it is a row in `provider_space`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (space-operations)=
 ## Space operations
 

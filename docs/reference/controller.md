@@ -50,8 +50,6 @@ The controller database schema is the set of records that the {ref}`controller d
   - *Rules:*
     - An address appears once for a node.
 
-A controller is the one row of the table `controller`. Its settings are rows in `controller_config`. A controller node is a row in `controller_node`. Its records are rows in `controller_node_agent_version`, `controller_node_password`, `controller_agent_address`, `controller_client_address`, and `controller_peer_address`. The tables `controller_node` and `controller_node_agent_version` use the lookup tables `life` and `architecture`. The table `controller_node_password` uses `password_hash_algorithm`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (controller-storage)=
 ## Controller storage
 

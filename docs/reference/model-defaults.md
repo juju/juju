@@ -35,8 +35,6 @@ The model defaults database schema is the set of records that the controller dat
     - A key is not empty.
 - **Cloud and cloud region:** The records at the far ends of the defaults. Other pages own them: see {ref}`cloud <cloud>` and the {ref}`regions <cloud-database-schema>` of a cloud.
 
-A cloud default is a row in the table `cloud_defaults`. A region default is a row in `cloud_region_defaults`. {ref}`juju-db-repl` shows the definition of either with `.ddl <name>`.
-
 (model-defaults-operations)=
 ## Model default operations
 

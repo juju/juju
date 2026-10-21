@@ -37,8 +37,6 @@ The controller upgrade database schema is the set of records that the controller
     - A node has one row per upgrade.
 - **Controller node:** The node taking part. Another page owns it: see {ref}`controller <controller>`.
 
-An upgrade is a row in the table `upgrade_info`. Its state is a row in the lookup table `upgrade_state_type`. A node's part is a row in `upgrade_info_controller_node`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (controller-upgrade-change-streams)=
 ## Controller upgrade change streams
 

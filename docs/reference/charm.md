@@ -37,6 +37,7 @@ The charm database schema is the set of records that the {ref}`model database <d
     - A reference name is not empty.
     - The architecture, when present, is one of `amd64`, `arm64`, `ppc64el`, `s390x`, and `riscv64`. The charm of a remote application has none.
     - The source is one of `local`, `charmhub`, and `cmr`.
+    - Only an insertion or a deletion alters a charm's records: the database refuses a change to the row of any of them except the charm itself, its download information, its tags, its categories, and its storage properties.
 - **Metadata:** What the author declared about the charm: its name, summary, description, minimum Juju version, the user it runs as (`default`, `root`, `sudoer`, or `non-root`), and its `assumes` expression (the conditions that the model must satisfy). Terms, tags, and categories are lists of free-form values in their own records.
 
   (charm-taxonomy-by-role)=
@@ -154,8 +155,6 @@ Charms are also described by what they do for their workload and by how their au
 
 (bare-charm)=
 - **Bare charms** use no framework and implement every {ref}`hook <hook>` by hand, so they are also called hooks-based or hooks-only charms. Ops superseded them.
-
-A charm is a row in the table `charm`. Its metadata is a row in `charm_metadata`. Its relations are rows in `charm_relation`. The other records of a charm are rows in `charm_extra_binding`, `charm_config`, `charm_action`, `charm_resource`, `charm_storage` (with `charm_storage_property`), `charm_device`, `charm_container` (with `charm_container_mount`), `charm_manifest_base`, `charm_hash`, `charm_download_info`, `charm_term`, `charm_tag`, and `charm_category`. The allowed values come from the lookup tables `charm_source`, `charm_relation_role`, `charm_relation_scope`, `charm_config_type`, `charm_resource_kind`, `charm_storage_kind`, `charm_run_as_kind`, `charm_provenance`, `hash_kind`, `os`, and `architecture`. A database trigger refuses to change a row of every table above except `charm`, `charm_download_info`, `charm_tag`, `charm_category`, `charm_storage_property`, and the lookup tables, so that only an insertion or a deletion alters it. The view `v_application_charm_download_info` joins an application to the download information of its charm. {ref}`juju-db-repl` shows the definition of any table with `.ddl <name>`.
 
 (charm-change-streams)=
 ## Charm change streams

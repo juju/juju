@@ -41,8 +41,6 @@ The controller keeps three kinds of record for SSH keys: the key itself, the alg
     - The set of keys that a model honors leaves out the keys of disabled users. A disabled user's keys stay stored.
 - **User and model:** The records on the two ends of a key's relations. Other pages own them: see {ref}`user <user>` and {ref}`model <model>`. The figure shows them for context. A key has one user. A model authorization names one model.
 
-An SSH key is a row in the table `user_public_ssh_key`. The algorithm of its fingerprint comes from the lookup table `ssh_fingerprint_hash_algorithm`. Each model authorization is a row in `model_authorized_keys`. The view `v_model_authorized_keys` applies the rule about disabled users: query the view, not the table, to see the keys a model honors. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (ssh-key-operations)=
 ## SSH key operations
 

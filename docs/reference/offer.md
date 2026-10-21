@@ -29,6 +29,7 @@ The offer database schema is the set of records that the offering model keeps ab
   - *Rules:*
     - An offer exposes each endpoint once.
     - All the endpoints of an offer belong to one application.
+    - An offer without a description shows the description of its application's charm.
 - **Offer connection:** One consumer's use of the offer: the offer, the relation that consumes it, and the name of the user who created the connection. The relation is a cross-model relation, described on the {ref}`relation <cross-model-relation>` page.
 - **Permission:** The access level of one user on the offer.
   - *Rules:*
@@ -38,8 +39,6 @@ The offer database schema is the set of records that the offering model keeps ab
   - *Rules:*
     - A model consumes an offer once.
 - **Relation and user:** The records at the far ends of a connection and a permission. Other pages own them: see {ref}`relation <relation>` and {ref}`user <user>`.
-
-An offer is a row in the table `offer` of the offering model's database. The endpoints it exposes are rows in `offer_endpoint`, each pointing to an application endpoint. Each offer connection is a row in `offer_connection`. The view `v_offer_detail` joins an offer with its application, {ref}`charm <charm>`, endpoints, and connection counts. It also applies the rule that an offer without a description shows the description of the application's charm. A model's consumed offers are rows in `application_remote_offerer`. A permission is a row in the controller database table `permission`, whose column `grant_on` holds the offer's UUID. The view `v_permission_offer` lists the permissions that name an offer. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (offer-change-streams)=
 ## Offer change streams

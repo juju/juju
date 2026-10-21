@@ -48,8 +48,6 @@ The records, with the rules that apply to each, are:
 - **Admitted authentication type:** One of the ways a credential can authenticate against the cloud. The possible values are `access-key`, `instance-role`, `userpass`, `oauth1`, `oauth2`, `jsonfile`, `clientcertificate`, `httpsig`, `interactive`, `empty`, `certificate`, `oauth2withcert`, `service-principal-secret`, `managed-identity`, and `service-account`.
 - **Model and credential:** The records that point at a cloud. Other pages own them: see {ref}`model <model>` and {ref}`credential <credential>`. The figure shows them for context.
 
-A cloud is a row in the table `cloud`. Its regions, CA certificates, and admitted authentication types are rows in `cloud_region`, `cloud_ca_cert`, and `cloud_auth_type`, and the allowed cloud types and authentication types come from the lookup tables `cloud_type` and `auth_type`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (cloud-change-streams)=
 ## Cloud change streams
 

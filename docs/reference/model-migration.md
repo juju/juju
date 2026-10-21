@@ -69,8 +69,6 @@ The model migration database schema is the set of records that the two controlle
   - *Rules:*
     - A model keeps one progress record.
 
-An export is a row in the table `model_migration_export`; its history in `model_migration_export_phase`; its status message in `model_migration_export_status`; its minion reports in `model_migration_export_minion_sync`; its offers in `model_migration_export_offer`; its target authorization in `model_migration_export_target_auth`. The phases are rows in the lookup table `model_migration_phase`. A redirect is a row in `model_migration_redirect`. Its users are rows in `model_migration_redirect_user`. An import is a row in `model_migration_import`, with its phase in the lookup table `model_migration_import_phase_type`, its offers in `model_migration_import_offer`, and its external models in `model_migration_import_external_controller_model`. All of these are in the controller database; the migrating marker is a row in `model_migrating` and the log transfer progress in `log_transfer_progress`, both in the model database. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (model-migration-change-streams)=
 ## Model migration change streams
 

@@ -51,8 +51,6 @@ The object store database schema is the set of records that the controller datab
 - **Agent binary, file store, and task output:** The records that name stored objects: an {ref}`agent version <agent-version>`'s binary, a charm resource's file store, and an {ref}`action <action>` task's output. Other pages own them.
 - **Lookups:** The allowed values of the backend type and the drain phase come from the lookup tables `object_store_backend_type` and `object_store_drain_phase_type`. The life values come from the shared lookup table `life`.
 
-A stored object is a row in the table `object_store_metadata`, which exists in the controller database and in each model database. Its paths are rows in `object_store_metadata_path` and its placements are rows in `object_store_placement`, which exist in both databases too. The backends are rows in `object_store_backend`, which exists only in the controller database; an S3 backend's configuration is a row in `object_store_backend_s3_config` and a drain is a row in `object_store_drain_info`. The view `v_object_store_metadata` joins each stored object with its path. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (object-store-operations)=
 ## Object store operations
 

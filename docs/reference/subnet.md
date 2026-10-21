@@ -40,7 +40,7 @@ The subnet database schema is the set of records that the {ref}`model database <
     - A subnet has at most one provider network.
 - **Space:** A space that holds subnets. Another page owns it: see {ref}`space <space>`.
 
-A subnet is a row in the table `subnet`. Its cloud ID is a row in `provider_subnet`. Its provider network is linked by a row in `provider_network_subnet` to a row in `provider_network`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`. The {ref}`availability zones <zone>` in which a subnet is available are linked to it by their own records.
+The {ref}`availability zones <zone>` in which a subnet is available are linked to it by their own records.
 
 (subnet-change-streams)=
 ## Subnet change streams

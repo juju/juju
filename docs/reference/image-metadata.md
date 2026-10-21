@@ -32,8 +32,6 @@ The image metadata database schema is the set of records that the controller dat
     - The entry with the highest priority wins when several entries match a machine.
 - **Architecture:** The architecture the image is built for, such as `amd64` or `arm64`. The architectures are the shared names of the platforms Juju builds for; no page owns them.
 
-An image is a row in the table `cloud_image_metadata` of the controller database. {ref}`juju-db-repl` shows its definition with `.ddl cloud_image_metadata`.
-
 (image-metadata-operations)=
 ## Image metadata operations
 

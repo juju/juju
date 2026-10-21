@@ -32,8 +32,6 @@ The lease database schema is the set of records that the controller database kee
   - *Rules:*
     - A lease has each pinned entity once.
 
-A lease is a row in the table `lease`. Its type is a row in the lookup table `lease_type`. A pin is a row in `lease_pin`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (lease-operations)=
 ## Lease operations
 

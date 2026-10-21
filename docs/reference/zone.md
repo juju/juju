@@ -33,8 +33,6 @@ The zone database schema is the set of records that the {ref}`model database <da
     - A subnet is linked to a zone at most once.
 - **Subnet:** The record at the far end of the link. Another page owns it: see {ref}`subnet <subnet>`.
 
-A zone is a row in the table `availability_zone`. The link to a subnet is a row in `availability_zone_subnet`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (zone-operations)=
 ## Zone operations
 

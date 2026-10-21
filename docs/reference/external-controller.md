@@ -36,8 +36,6 @@ The external controller database schema is the set of records that the controlle
   - *Rules:*
     - A model appears once. It belongs to one external controller.
 
-An external controller is a row in the table `external_controller`. Its addresses are rows in `external_controller_address`. Its models are rows in `external_model`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (external-controller-change-streams)=
 ## External controller change streams
 

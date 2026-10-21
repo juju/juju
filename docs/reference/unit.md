@@ -82,8 +82,6 @@ The unit database schema is the set of records that the {ref}`model database <da
 
 The records that other pages own refer to a unit: its {ref}`application <application>`, {ref}`charm <charm>`, {ref}`relations <relation>` and settings, {ref}`secrets <secret>`, {ref}`storage <storage>` attachments, resources, and the tasks of an {ref}`action <action>`.
 
-A unit is a row in the table `unit`. Its principal is a row in `unit_principal`. Its workload status, agent status, and pod status are rows in `unit_workload_status`, `unit_agent_status`, and `k8s_pod_status`, whose values come from the lookup tables `workload_status_value`, `unit_agent_status_value`, and `k8s_pod_status_value`. Its agent presence, workload version, agent version, and resolved marker are rows in `unit_agent_presence`, `unit_workload_version`, `unit_agent_version`, and `unit_resolved`, and the resolve modes come from the lookup table `resolve_mode`. Its unit state, charm state, and relation state are rows in `unit_state`, `unit_state_charm`, and `unit_state_relation`. Its pod and the pod's ports are rows in `k8s_pod` and `k8s_pod_port`. The leader is a row in the controller database table `lease`. The views `v_unit_agent_status`, `v_unit_workload_status`, and `v_full_unit_status` join a unit with its statuses and its presence. {ref}`juju-db-repl` shows any definition with `.ddl <name>`.
-
 (unit-change-streams)=
 ## Unit change streams
 

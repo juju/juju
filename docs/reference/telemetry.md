@@ -35,8 +35,6 @@ The telemetry database schema is the set of records that the {ref}`controller da
   - *Rules:*
     - The controller keeps at most one log forwarding configuration.
 
-The workload tracing configuration is a set of rows in the table `workload_tracing_config`. The charm tracing configuration is a set of rows in `charm_tracing_config`. Each row is one field and its value. The log forwarding configuration is one row in `logging_loki_config`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (telemetry-change-streams)=
 ## Telemetry change streams
 

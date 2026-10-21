@@ -47,8 +47,6 @@ The SSH server database schema is the set of records that the {ref}`controller d
     - The tunnel ID is unique.
 - **Machine and unit:** The records on the far end of the host keys and requests. Other pages own them: see {ref}`machine <machine>` and {ref}`unit <unit>`.
 
-The controller's host key is a row in the table `controller_ssh_host_key` and its port is a row in `controller_ssh_server_port`. In the model database, a machine's own host keys are rows in `machine_ssh_host_key`, its virtual host key is a row in `machine_virtual_ssh_host_key`, a Kubernetes unit's virtual host key is a row in `unit_virtual_ssh_host_key`, and a connection request is a row in `ssh_connection_request`. Both databases keep the lookup table `ssh_key_algorithm_type`, which holds the three algorithm names. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (ssh-server-change-streams)=
 ## SSH server change streams
 

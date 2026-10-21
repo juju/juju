@@ -73,8 +73,6 @@ The machine database schema is the set of records that the {ref}`model database 
     - A link name appears once on a machine.
 - **Other records:** The machine's running agent version and architecture, the flag that says it needs to reboot, the tags that the cloud reported for its instance, its constraints and container type, and the marks that it is provisioned manually and that a reprovision was requested. Its volumes, filesystems, and SSH host keys are also kept per machine, and the {ref}`SSH server <juju-ssh>` page describes the host keys. Each belongs to one machine. A machine has at most one of each except for the tags.
 
-A machine is a row in the table `machine`. Its status is a row in `machine_status`. Its platform, parent, and placement are rows in `machine_platform`, `machine_parent`, and `machine_placement`, and its agent presence and block devices are rows in `machine_agent_presence` and `block_device`, with the link names in `block_device_link_device`. Its cloud instance is a row in `machine_cloud_instance`. The instance's status is a row in `machine_cloud_instance_status`. The tags are rows in `instance_tag`. The remaining records are rows in `machine_agent_version`, `machine_requires_reboot`, `machine_constraint`, `machine_container_type`, `machine_manual`, and `machine_reprovision`. The values of the statuses come from the lookup tables `machine_status_value` and `machine_cloud_instance_status_value`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (machine-change-streams)=
 ## Machine change streams
 

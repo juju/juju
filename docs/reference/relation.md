@@ -79,8 +79,6 @@ The relation database schema is the set of records that the {ref}`model database
 
 The life and the scope of a relation come from lookup tables. A unit in scope refers to a {ref}`unit <unit>`.
 
-A relation is a row in the table `relation`. Its endpoints are rows in `relation_endpoint`. Its units in scope are rows in `relation_unit`. Its status is a row in `relation_status` whose values come from the lookup table `relation_status_type`. The unit settings are rows in `relation_unit_setting`. The application settings are rows in `relation_application_setting`. The archived settings are rows in `relation_unit_setting_archive`. The departed units are rows in `relation_unit_departure`. The CIDRs are rows in `relation_network_ingress` and `relation_network_egress`. The view `v_relation_status` shows each status by name. The view `v_relation_endpoint` shows each endpoint with its application, endpoint name, interface, and role. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (relation-change-streams)=
 ## Relation change streams
 

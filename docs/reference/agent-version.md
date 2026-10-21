@@ -36,8 +36,6 @@ The agent version database schema is the set of records that the databases keep 
     - A catalogue holds each version and architecture once.
 - **Architecture and the stored object:** What a binary is built for and where it is stored. The stored object is described on the {ref}`object store <object-store>` page; the architectures are the shared names of the platforms Juju builds for.
 
-An agent version is a row in the table `agent_version` of the model database. Its stream is a row in the lookup table `agent_stream`. An agent binary is a row in `agent_binary_store`, which exists in the controller database and in each model database; the view `v_agent_binary_store` joins each binary with its architecture name, its size, its hashes, and its path. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (agent-version-change-streams)=
 ## Agent version change streams
 

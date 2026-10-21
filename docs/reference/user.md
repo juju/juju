@@ -51,8 +51,6 @@ The user database schema is the set of records that the {ref}`controller databas
     - A user has at most one last-login record for a model.
 - **Model:** The record at the far end of a last login. Another page owns it: see {ref}`model <model>`.
 
-A user is a row in the table `user`. Its authentication is a row in `user_authentication`, its password a row in `user_password`, and its activation key a row in `user_activation_key`. A permission is a row in `permission`, which names its object in the column `grant_on` (the name of a cloud, or the UUID of a controller, model, or offer). The allowed pairs of object type and access level come from the lookup tables `permission_object_type`, `permission_access_type`, and `permission_object_access`. A last login is a row in `model_last_login`. The view `v_user_auth` joins a user with its disabled flag, and the view `v_user_last_login` gives the latest login of each user. The views `v_permission_controller`, `v_permission_cloud`, and `v_permission_model` list only the permissions whose object exists. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (user-access-levels)=
 ## User access levels
 

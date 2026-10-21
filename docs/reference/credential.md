@@ -41,8 +41,6 @@ The credential database schema is the set of records that the {ref}`controller d
     - A key is not empty.
 - **User, cloud, and model:** The records at the far ends of a credential. Other pages own them: see {ref}`user <user>`, {ref}`cloud <cloud>`, and {ref}`model <model>`.
 
-A credential is a row in the table `cloud_credential`. Its attributes are rows in `cloud_credential_attribute`. The allowed authentication types come from the lookup table `auth_type`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (credential-change-streams)=
 ## Credential change streams
 

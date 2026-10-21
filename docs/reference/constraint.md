@@ -40,8 +40,6 @@ The constraint database schema is the set of records that the {ref}`model databa
     - A constraint has each zone once.
 - **Model, application, and machine:** The holders, each with at most one constraint. Other pages own them: see {ref}`model <model>`, {ref}`application <application>`, and {ref}`machine <machine>`.
 
-A constraint is a row in the table `constraint`. Its tags, spaces, and zones are rows in `constraint_tag`, `constraint_space`, and `constraint_zone`. The view `v_constraint` shows each constraint with the name of its container type. Each holder's constraint is a row in `model_constraint`, `application_constraint`, or `machine_constraint`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (list-of-constraints)=
 ## List of constraints
 

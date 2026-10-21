@@ -43,8 +43,6 @@ The model database schema is the set of records that describe a model in the {re
     - A model has at most one active migration. A migration is active until it reaches `done`, `reap-failed`, or `abort-done`.
     - A model has at most one import record on the target controller. The record is in one of three phases: `importing`, `activating`, or `aborting`.
 
-A model is a row in the table `model`. Its secret backend and last logins are rows in `model_secret_backend` and `model_last_login`. The model type comes from the lookup table `model_type`. The migration records are rows in the tables whose names start with `model_migration`. A model's contents are rows in the tables `model`, `model_config`, `model_constraint`, `model_life`, `model_migrating`, `model_storage_pool`, and `agent_version` of its model database. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (model-change-streams)=
 ## Model change streams
 

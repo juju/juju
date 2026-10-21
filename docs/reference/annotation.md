@@ -20,8 +20,6 @@ The annotation database schema is the set of records that the model database kee
     - The value is always present.
     - The charm and unit records are the only ones the database links to their entities; the application, machine, and storage records name their entity by UUID with no link. The removal job of a unit or an application also clears its annotations; a removed machine or storage instance leaves its annotations in place.
 
-The annotations of a model are rows in `annotation_model`; the others are rows in `annotation_application`, `annotation_charm`, `annotation_machine`, `annotation_unit`, `annotation_storage_instance`, `annotation_storage_volume`, and `annotation_storage_filesystem`, each named after the entity it serves. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (annotation-operations)=
 ## Annotation operations
 

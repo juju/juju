@@ -64,8 +64,6 @@ The charm resource database schema is the set of records that the {ref}`model da
   - *Rules:*
     - A storage key appears once.
 
-A charm resource is a row in the table `charm_resource`. Its kind is a row of `charm_resource_kind`. A resource is a row in the table `resource`. Its origin and state are rows of `resource_origin_type` and `resource_state`. An application resource is a row in `application_resource`. A pending resource is a row in `pending_application_resource`. A unit resource is a row in `unit_resource`. The retrieved-by record is a row in `resource_retrieved_by`, with its type in `resource_retrieved_by_type`. A file store is a row in `resource_file_store`. An image store is a row in `resource_image_store`. Image metadata is a row in `resource_container_image_metadata_store`. The views `v_resource`, `v_application_resource`, and `v_unit_resource` join these records for listing. {ref}`juju-db-repl` shows any definition with `.ddl <name>`.
-
 (charm-resource-change-streams)=
 ## Charm resource change streams
 

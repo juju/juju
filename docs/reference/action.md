@@ -50,8 +50,6 @@ The action database schema is the set of records that the {ref}`model database <
 - **Task log message:** One progress message of a task, with the time it was recorded.
 - **Unit, machine, and charm action:** The records at the far ends of a task and an operation. Other pages own them: see {ref}`unit <unit>`, {ref}`machine <machine>`, and {ref}`charm <charm>`.
 
-An operation is a row in the table `operation`. Its parameters are rows in `operation_parameter`. Its link to a charm action is a row in `operation_action`. A task is a row in `operation_task`. The target of a task is a row in `operation_unit_task` or `operation_machine_task`. Its output path is a row in `operation_task_output`, its status is a row in `operation_task_status`, and its log messages are rows in `operation_task_log`. The allowed statuses come from the lookup table `operation_task_status_value`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (action-change-streams)=
 ## Action change streams
 

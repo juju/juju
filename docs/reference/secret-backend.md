@@ -46,8 +46,6 @@ The secret backend database schema is the set of records that the {ref}`controll
     - A backend holds a secret revision of a model once.
 - **Model:** The record at the far end of the model backend and the secret reference. Another page owns it: see {ref}`model <model>`.
 
-A secret backend is a row in the table `secret_backend`, its type comes from the lookup table `secret_backend_type`, and its settings are rows in `secret_backend_config`. A token rotation is a row in `secret_backend_rotation`, a model's backend is a row in `model_secret_backend`, and a secret reference is a row in `secret_backend_reference`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
-
 (secret-backend-change-streams)=
 ## Secret backend change streams
 
