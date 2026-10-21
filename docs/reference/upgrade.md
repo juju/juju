@@ -35,7 +35,6 @@ The controller upgrade data model is the set of records that the controller data
 - **Controller node's upgrade:** One node's part in the move: when the node finished its upgrade steps.
   - *Rules:*
     - A node has one row per upgrade.
-    - Every node of the controller has its row from the start of the upgrade.
 - **Controller node:** The node taking part. Another page owns it: see {ref}`controller <controller>`.
 
 An upgrade is a row in the table `upgrade_info`. Its state is a row in the lookup table `upgrade_state_type`. A node's part is a row in `upgrade_info_controller_node`. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
@@ -74,8 +73,8 @@ The operation's required access, rules, and errors are:
   - **`controller agent binaries are not available for version "<version>"`**: *Trigger:* No agent binaries for the target version exist on the controller. The client receives it with the code `not found`. *Remediation:* Put the binaries of that version on the controller first.
   - **`controller upgrading is blocked for reason: controller nodes [<nodes>] are not running controller version "<version>"`**: *Trigger:* A node of the controller runs an older version than the others. The client receives it with the code `not supported`. *Remediation:* Bring every node to the current version.
   - **`cannot upgrade the controller to version "<version>" because it is lower than the current running version`**: *Trigger:* The target version is below the running version. The client receives it with the code `not supported`. *Remediation:* Name the running version or a higher patch version.
-  - **`cannot upgrade the controller to a version that is more than a patch version increase`**: *Trigger:* The target version raises the major or minor version. The client receives it with no error code. *Remediation:* Upgrade one patch version at a time.
-  - **`agent stream "<stream>" is not a recognised valid value`**: *Trigger:* The named agent stream does not exist. The client receives it with no error code. *Remediation:* Use a valid agent stream.
+  - **`cannot upgrade the controller to a version that is more than a patch version increase`**: *Trigger:* The target version raises the major or minor version. The client receives it with the code `not valid`. *Remediation:* Upgrade one patch version at a time.
+  - **`agent stream "<stream>" is not recognised as a valid value`**: *Trigger:* The named agent stream is none of `released`, `proposed`, `testing`, and `devel`. The client receives it with the code `not valid`. *Remediation:* Use a valid agent stream.
   - **`unauthorized to upgrade model`**: *Trigger:* The caller has neither superuser access to the controller nor write access to the controller model. The client receives it with the code `unauthorized access`. *Remediation:* Ask a superuser.
 
 (controller-upgrade-running)=
@@ -94,9 +93,9 @@ The operation's required access and rules are:
 
 - *Required access:* The {ref}`controller agent <controller-agent>` of each node of the controller. No client calls it.
 - *Rules:*
-  - The first node to run creates the upgrade record, with a row for every node of the controller. A node that finds a record already there joins the upgrade instead of creating one.
-  - Each node marks itself ready. When every node is ready, the leading node starts the upgrade and applies the schema patches, to the controller database first, then to the model databases.
-  - The database part must finish within twenty minutes of the record's creation, or the upgrade fails.
+  - The first node to run creates the upgrade record. A node that finds a record already there joins the upgrade instead of creating one.
+  - Each node marks itself ready, which adds its own row to the record. When every node is ready, the leading node starts the upgrade and applies the schema patches, to the controller database first, then to the model databases.
+  - The leading node waits at most twenty minutes for the other nodes to register. If the time runs out, the worker stops, the record stays in the state `created`, and the agent restarts and tries the upgrade again.
   - After the databases, each node runs the code-level upgrade steps for the controller, and marks itself done when they succeed. A node waits for the others for at most ten minutes.
   - When every node is done, the upgrade is complete.
-  - A failure in the database part or in the steps of a node puts the upgrade in the state `error`. A failed upgrade does not block a new one.
+  - A failure in the database part puts the upgrade in the state `error`. A failure in the steps of a node leaves the upgrade in the state `db-completed`; the agent restarts and runs the steps again. A failed upgrade does not block a new one.
