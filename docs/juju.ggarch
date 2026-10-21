@@ -3334,12 +3334,12 @@ diagram "Controller database schema" from "JujuSchema" {
     controller_node_agent_version align-centre controller_node
     controller_node_password below controller_node gap: 60
     controller_node_password align-centre controller_node
-    controller_client_address left-of controller_node gap: 70
+    controller_client_address left-of controller_node gap: 90
     controller_client_address align-middle controller_node
-    controller_agent_address above controller_client_address gap: 60
+    controller_agent_address above controller_client_address gap: 0
     controller_agent_address align-centre controller_client_address
-    controller_peer_address right-of controller_node gap: 70
-    controller_peer_address align-middle controller_node
+    controller_peer_address below controller_client_address gap: 0
+    controller_peer_address align-centre controller_client_address
     controller_node_agent_version same-size controller_node
     controller_node_password same-size controller_node
     controller_agent_address same-size controller_node
