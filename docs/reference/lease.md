@@ -73,7 +73,7 @@ Pinning leases keeps a lease from expiring while an entity needs it held, and un
 
 The operation's required access and rules are:
 
-- *Required access:* The controller itself. No client or agent calls it in 4.1.
+- *Required access:* The controller itself. No client or agent calls it.
 - *Rules:*
   - A pin names a lease and an entity. Several entities can pin the same lease, each with its own pin.
   - A lease with no pin expires as usual once its duration ends.

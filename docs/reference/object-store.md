@@ -81,7 +81,7 @@ The operation's required access, rules, and errors are:
   - **`invalid S3 config: validating S3 credentials: <reason>`** (400): *Trigger:* A required field is missing, or the bucket name breaks the rule above. The reason names the field, for example `endpoint is required`. *Remediation:* Correct the field.
   - **`saving S3 config: transitioning backend to S3: draining already in progress`** (500): *Trigger:* A drain is running and the configuration differs from the one that started it. *Remediation:* Wait for the drain to finish, then send the request again.
   - **`saving S3 config: transitioning backend to S3: backend transition not supported`** (500): *Trigger:* The current backend is an S3 backend. *Remediation:* Removing an S3 configuration is not supported at this time.
-  - **`removing S3 config is not supported at this time`** (501): *Trigger:* A `DELETE` request to the same endpoint. *Remediation:* None; the S3 configuration cannot be removed in 4.1.
+  - **`removing S3 config is not supported at this time`** (501): *Trigger:* A `DELETE` request to the same endpoint. *Remediation:* None; the S3 configuration cannot be removed.
 
 A successful request answers `updated S3 config` (200).
 

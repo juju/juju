@@ -181,7 +181,7 @@ See also: {ref}`Juju | Cancel a task <manage-action-tasks>`
 :alt: A state diagram with seven states. Pending goes to running and to cancelled. Running goes to aborting, to completed, and to failed. Aborting goes to aborted, to completed, and to failed.
 ```
 
-Canceling tasks lets a client stop tasks that have not finished and returns each task with its new status. In 4.1 the statement that updates the status (`domain/operation/state/task.go:472-480`) names `status_id`, which the type it takes its values from (`domain/operation/state/types.go:82-87`) does not have.
+Canceling tasks lets a client stop tasks that have not finished and returns each task with its new status.
 
 The operation's required access, rules, and errors are:
 
@@ -331,4 +331,4 @@ The operation's rules are:
 
 ## Actions and model migration
 
-When a {ref}`model <model>` is migrated to another controller, its operations and tasks move with their parameters, statuses, results, and log messages. A task with an empty or malformed receiver name is skipped with a warning. A task whose unit or machine does not exist on the target controller fails the import. See {ref}`Migrating models <model-migrating>`.
+When a {ref}`model <model>` is migrated to another controller, its operations and tasks move, with two exceptions: a task with an empty or malformed receiver name is skipped with a warning; a task whose unit or machine does not exist on the target controller fails the import. See {ref}`Migrating models <model-migrating>`.

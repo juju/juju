@@ -111,7 +111,7 @@ The operation's required access, rules, and errors are:
 - *Rules:*
   - The same rules as for {ref}`adding <credential-adding>` apply to the owner, the cloud, and the authentication type.
   - A separate call checks a credential without storing it and returns for each model that uses the credential the errors that the check found. It needs the same access.
-  - The update is refused if the check finds an error for any model that uses the credential, unless a superuser forces it. The answer lists the models and their errors either way. In 4.1 the check of a model reports no errors, so the update is never refused for this reason.
+  - The update is refused if the check finds an error for any model that uses the credential, unless a superuser forces it. The answer lists the models and their errors either way. The check of a model reports no errors, so the update is never refused for this reason.
   - With the force option, the result carries no error for the credential, including the errors below for the cloud and the authentication type, so check that the credential is stored.
   - The call takes a list of credentials. Each credential in the list gets its own result.
 - *Errors:* A refused force fails the whole call and carries no error code. The client receives the others in the result for the credential:

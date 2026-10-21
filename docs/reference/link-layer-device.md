@@ -44,7 +44,7 @@ The link-layer device database schema is the set of records that the {ref}`model
 - **DNS server:** One DNS server of a device.
   - *Rules:*
     - A device lists each DNS server once.
-- **Route:** One route of a device: its destination CIDR (the block of addresses the route covers), its gateway IP, and its metric. No operation stores a route in 4.1.
+- **Route:** One route of a device: its destination CIDR (the block of addresses the route covers), its gateway IP, and its metric. No call stores a route.
   - *Rules:*
     - A device has each destination once.
 - **IP address:** One address of a device: the address with its subnet mask, its type, the way it is configured, its origin, its scope, and whether it is a secondary address (not the primary address of its device) or a shadow address (one the cloud assigned rather than observed on a device).
