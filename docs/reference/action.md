@@ -29,7 +29,7 @@ See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions),
 
 The action data model is the set of records that the {ref}`model database <database>` keeps about operations and their tasks. The same records hold commands that a user runs on units or {ref}`machines <machine>`: a command run is an operation with no link to a charm action. The records, with the rules that apply to each, are:
 
-- **Operation:** One run of an action or of a command on one or more targets. It has a number that identifies it, a summary, the times it was enqueued, started, and completed, whether its tasks may run in parallel, and an execution group. A task that is not parallel, or that has an execution group, waits for the machine lock of its target. Tasks of one execution group share one lock, so they run one at a time.
+- **Operation:** One run of an action or of a command on one or more targets. It has a number that identifies it, a summary, the times it was enqueued, started, and completed, whether its tasks may run in parallel, and an execution group (a name that makes the tasks of one group run one at a time).
   - *Rules:*
     - An operation number is used once.
     - An operation has at most one link to a charm action. An operation with the link runs that action. An operation without it runs a command.
@@ -42,11 +42,11 @@ The action data model is the set of records that the {ref}`model database <datab
     - A task number is used once.
     - A task is linked to a unit or to a machine, never to both. The link is never updated.
     - A task has at most one output.
-- **Task status:** The current status of a task, with a message and the time of the last change.
+- **Task status:** The current status of a task, with a message and the time of the last change. A new task has the status `pending`.
   - *Rules:*
     - A task has at most one status.
     - The status is one of the task status values.
-- **Task status value:** The allowed statuses: `pending`, `running`, `aborting`, `completed`, `failed`, `cancelled`, `aborted`, and `error`. The {ref}`status of a task <action-task-status>` changes as the task runs.
+- **Task status value:** The allowed statuses: `pending`, `running`, `aborting`, `completed`, `failed`, `cancelled`, `aborted`, and `error`. A task is active while it is `pending`, `running`, or `aborting`. Every other status is final. {ref}`Canceling tasks <action-cancelling>` and {ref}`Running tasks <action-execution>` change the status.
 - **Task log message:** One progress message of a task, with the time it was recorded.
 - **Unit, machine, and charm action:** The records at the far ends of a task and an operation. Other pages own them: see {ref}`unit <unit>`, {ref}`machine <machine>`, and {ref}`charm <charm>`.
 
@@ -64,7 +64,7 @@ Action change streams are the notifications about tasks. A change stream is deli
 (action-operations)=
 ## Action operations
 
-Action operations are the things a {ref}`client <client>` and an {ref}`agent <agent>` can do with actions and tasks through the controller API (the set of calls that clients and agents make to the controller): list actions, run actions, run commands, show tasks, cancel tasks, list operations, show operations, and run tasks. The controller also prunes old operations on its own. The calls of a client belong to the `Action` facade (a named group of API calls).
+Action operations are the calls that {ref}`clients <client>`, {ref}`agents <agent>`, and hook tools make through the controller API (the set of calls that clients and agents make to the controller). A client works with actions, tasks, and operations. The calls of a client belong to the `Action` facade (a named group of API calls). An {ref}`agent <agent>` is a unit agent, the process that runs a unit's charm, or a machine agent, the process that runs commands on a machine. Each logs in as its own unit or machine and acts only for it, so no model access level or block applies to its calls. An agent runs the tasks that target it. A hook tool gives the action code its parameters and takes its results. The controller also prunes old operations on its own.
 
 (action-listing)=
 ### Listing actions
@@ -73,11 +73,11 @@ Action operations are the things a {ref}`client <client>` and an {ref}`agent <ag
 See also: {ref}`Juju | Manage actions <manage-actions>`
 ```
 
-Listing actions returns the actions that the charm of each named application defines, each with its description and its parameter schema.
+Listing actions lets a client read the actions that the charm of each named application defines, each with its description and its parameter schema.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model.
+- *Required access:* A client with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
   - The call takes a list of applications. Each application in the list gets its own result.
 - *Errors:* The client receives each in the result for the application, except where stated:
@@ -99,18 +99,18 @@ See also: {ref}`Juju | Run an action <manage-actions>`
 :alt: A sequence diagram with four participants: the client, the controller, the unit agent, and the charm action code. The client asks the controller to enqueue the action on a unit. The controller stores the operation and one pending task for each unit, and returns the operation and task numbers to the client. The controller then notifies the unit agent of the pending task. The unit agent gets the task and marks it running, then runs the action code with its parameters. The action code returns progress messages, results, and failure to the unit agent, which logs progress and then records status, results, and message on the controller.
 ```
 
-Running actions queues one action on one or more units of one application. The controller returns the number of the operation and the number of the task of each unit. The run itself goes on in the background, on the {ref}`unit agent <unit-agent>` of each unit. A target is a unit, or the leader unit of an application written as `<application>/leader` (the {ref}`leader unit <leader-unit>` at that moment). A tag is the typed name of an entity, such as `unit-mysql-0`.
+Running actions lets a client queue one action on one or more units of one application. The controller returns the number of the operation and the number of the task of each unit. The run itself goes on in the background, on the {ref}`unit agent <unit-agent>` of each unit. A target is a unit, or the leader unit of an application written as `<application>/leader` (the {ref}`leader unit <leader-unit>` at that moment). A tag is the typed name of an entity, such as `unit-mysql-0`.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model.
+- *Required access:* A client with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
   - The request must name at least one action.
   - The actions of a request differ only in their receiver. They have the same name, parallel flag, execution group, and parameters. The check compares the first two actions of the request.
   - All receivers are units of one application.
   - The charm of the application must define the action.
   - The parameters are stored as given.
-  - The operation summary is `action "<name>"`. Each task starts pending.
+  - The operation summary is `action "<name>"`.
   - A receiver that is not a valid unit tag, a unit that does not exist, or a leader that cannot be found fails alone. The other receivers still get their tasks.
 - *Errors:* The client receives each as the error of the call, except where stated, and with no code unless one is given:
   - **`permission denied`**: *Trigger:* The caller lacks write access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
@@ -130,15 +130,14 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Run an action <manage-actions>`
 ```
 
-Running commands queues one shell command as an operation on machines, on units, on all units of applications, or on the leader units of applications, with one task for each target. The command is recorded as an operation with the summary `exec "<command>"`. Running commands also queues the command on all machines of a machine model.
+Running commands lets a client queue one shell command as an operation on machines, on units, on all units of applications, or on the leader units of applications, with one task for each target. The command is recorded as an operation with the summary `exec "<command>"`. Running commands also queues the command on all machines of a machine model.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Required access:* A client with {ref}`admin access <user-access-model-admin>` to the model. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
 - *Rules:*
   - A command that contains `juju-exec` or `juju-run` is refused.
   - The operation has the parameters `command` and `timeout`. The timeout is in nanoseconds. The value zero sets no limit.
-  - Each task starts pending.
   - The call on all machines queues one task for each alive machine. It needs a machine model.
   - A target that does not exist fails alone. The other targets still get their tasks.
 - *Errors:* The client receives each as the error of the call, except where stated, and with no code unless one is given:
@@ -157,11 +156,11 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Show details about a task <manage-action-tasks>`
 ```
 
-Showing tasks returns, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what `action-set` stored. For a command it holds `return-code`, `stdout`, and `stderr` (see {ref}`Running tasks <action-execution>`).
+Showing tasks lets a client read, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what `action-set` stored, and for a command the output that {ref}`Running tasks <action-execution>` describes.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model.
+- *Required access:* A client with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - The call takes a list of tasks. Each task in the list gets its own result.
   - A task that fails to load gets the same error as a bad tag.
@@ -176,15 +175,24 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Cancel a task <manage-action-tasks>`
 ```
 
-Canceling tasks stops tasks that have not finished and returns each task with its new status. A task changes status as described in {ref}`Status of a task <action-task-status>`. In 4.1 the statement that updates the status (`domain/operation/state/task.go:472-480`) names `status_id`, which the type it takes its values from (`domain/operation/state/types.go:82-87`) does not have.
+(action-task-status)=
+```{ggarch}
+:file: ../juju.ggarch
+:view: Task status
+:caption: A task starts as `pending`. A pending task becomes `running` when its agent starts it. It becomes `cancelled` when a client cancels it. A running task becomes `aborting` when a client cancels it. A running or aborting task becomes `completed` or `failed` when the agent reports the result. An aborting task becomes `aborted` when the agent reports that it stopped. Recording a result stores the reported status whatever the current status is, and accepts `completed`, `failed`, `cancelled`, `aborted`, and `error`. The figure shows the changes that canceling and the unit agent make.
+:alt: A state diagram with seven states. Pending goes to running and to cancelled. Running goes to aborting, to completed, and to failed. Aborting goes to aborted, to completed, and to failed.
+```
+
+Canceling tasks lets a client stop tasks that have not finished and returns each task with its new status. In 4.1 the statement that updates the status (`domain/operation/state/task.go:472-480`) names `status_id`, which the type it takes its values from (`domain/operation/state/types.go:82-87`) does not have.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model.
+- *Required access:* A client with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
-  - A pending task becomes `cancelled`, so it never runs.
-  - A running task becomes `aborting`. When the unit agent sees that status, it stops the running action.
-  - A task that is `completed`, `failed`, `cancelled`, `aborted`, or in `error` keeps its status. The code leaves a task that is already `aborting` unchanged too.
+  - The call sets the status of a task as follows:
+    - A `pending` task becomes `cancelled`, so it never runs.
+    - A `running` task becomes `aborting`. When the unit agent sees that status, it stops the running action.
+    - A task with a final status keeps its status. The code leaves a task that is already `aborting` unchanged too.
   - The call takes a list of tasks. Each task in the list gets its own result.
 - *Errors:* The client receives each in the result for the task, except where stated:
   - **`permission denied`**: *Trigger:* The caller lacks write access. This fails the whole call. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
@@ -198,13 +206,13 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | View the pending, running, or completed operations <manage-action-operations>`
 ```
 
-Listing operations returns operations in the order of their numbers, each with its summary, times, derived status, and the result of each of its tasks, in the form of showing a task.
+Listing operations lets a client read operations in the order of their numbers, each with its summary, times, derived status, and the result of each of its tasks, in the form of showing a task.
 
 The status of an operation has no record of its own. Each time the operation is read, it is the first of `running`, `aborting`, `pending`, `error`, `failed`, `cancelled`, and `completed` that any of its tasks has. An operation with no tasks has the status `error`. An operation whose tasks are all `aborted` has the status `pending`, because `aborted` is not in that order.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model.
+- *Required access:* A client with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - A request can filter by action names, applications, machines, units, and task statuses. With no filter, all operations return.
   - An operation matches the applications, machines, and units of a filter when any of its tasks is on any of them. It matches the statuses when any of its tasks has any of them.
@@ -220,11 +228,11 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Show details about an operation <manage-action-operations>`
 ```
 
-Showing operations returns the operations with the numbers in the request, in the same form as listing them, with the same derived status.
+Showing operations lets a client read the operations with the numbers in the request, in the same form as listing them, with the same derived status.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model.
+- *Required access:* A client with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - The call takes a list of operations. Each operation in the list gets its own result.
 - *Errors:* The client receives each in the result for the operation, except where stated:
@@ -235,28 +243,25 @@ The operation's required access, rules, and errors are:
 (action-execution)=
 ### Running tasks
 
-Running tasks makes the agent of a unit or machine run the pending tasks that target it. The calls belong to the `Uniter` facade of the unit agent and the `MachineActions` facade of the machine agent. The unit agent runs the charm's action code. The machine agent runs commands.
+Running tasks lets the unit agent of a unit or the machine agent of a machine run the pending tasks that target it. The unit agent calls the `Uniter` facade and runs the charm's action code. The machine agent calls the `MachineActions` facade and runs commands. The status changes that an agent makes are in the {ref}`figure of canceling tasks <action-task-status>`.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* The agent of the unit or machine that the task targets.
+- *Required access:* A unit agent, for its own unit, or a machine agent, for its own machine.
 - *Rules:*
-  - `ActionStatus` (unit agent) returns only the status of a task. The unit agent uses it to see that a running task became `aborting`.
-  - `RunningActions` (machine agent) lists the numbers of the running tasks of the machine.
-  - Getting a task returns its action name, parameters, parallel flag, and execution group while the task is pending.
-  - Starting a task sets its start time and its status to running. A task can start only while it is pending.
+  - Getting a task returns its action name, parameters, parallel flag, and execution group while the task is `pending`.
+  - The unit agent calls `ActionStatus` to read only the status of a task. This shows it that a running task became `aborting`.
+  - The machine agent calls `RunningActions` to list the numbers of the running tasks of its machine.
+  - The agent sets the status of a task as follows:
+    - Starting a task sets its start time and its status to `running`. A task can start only while it is `pending`.
+    - Finishing a task stores the status, the message, and the results. The status must be `completed`, `failed`, `cancelled`, `aborted`, or `error`. The results are stored as a file in the object store when there are any. The operation gets its completion time when none of its tasks is active.
+    - The unit agent reports `completed`. It reports `failed` when the action code called `action-fail` or ended with an error. It reports `aborted` instead of `failed` when the task was `aborting`. If the changes that the action requested cannot be committed, it reports `failed` and appends the error to `stderr`.
+  - A task that is not parallel, or that has an execution group, waits for the machine lock of its target. Tasks of one execution group share one lock, so they run one at a time.
   - Logging a message appends it to the log of the task.
-  - Finishing a task stores the status, the message, and the results. The status must be one of `completed`, `failed`, `cancelled`, `aborted`, or `error`. The results are stored as a file in the object store when there are any. The operation gets its completion time when none of its tasks is active.
-  - The unit agent runs an action in the hook environment, so every {ref}`hook command <list-of-hook-commands>` is available, together with the four action commands below. The environment has the {ref}`generic environment variables <generic-environment-variables>` and these:
+  - The unit agent runs an action in the hook environment, so every {ref}`hook command <list-of-hook-commands>` is available. The environment has the {ref}`generic environment variables <generic-environment-variables>` and these:
     - `JUJU_ACTION_NAME`: the name of the action.
     - `JUJU_ACTION_UUID`: the number of the task.
     - `JUJU_ACTION_TAG`: the tag of the task.
-  - The action code uses the action commands as follows:
-    - {ref}`action-get <hook-command-action-get>` prints a parameter, addressed by a path of keys joined with periods.
-    - {ref}`action-set <hook-command-action-set>` adds values to the results.
-    - {ref}`action-fail <hook-command-action-fail>` marks the run as failed with a message. Without a message the message is `action failed without reason given, check action for errors`.
-    - {ref}`action-log <hook-command-action-log>` records a progress message at once.
-  - The status that the unit agent reports is completed. It is failed when the action code called `action-fail` or ended with an error, and aborted instead of failed when the task was aborting. If the changes that the action requested cannot be committed, the status is failed and the error is appended to `stderr`.
   - The output of a command holds `return-code`, `stdout`, and `stderr`. Output that is not valid UTF-8 is encoded in base64, with `stdout-encoding` or `stderr-encoding` set to `base64`.
   - A command with a timeout other than zero is stopped when the timeout ends.
   - A unit agent that was interrupted during an action fails that action with the message `action terminated` when it restarts.
@@ -271,17 +276,49 @@ The operation's required access, rules, and errors are:
   - **`starting task "<number>": task "<number>": task not pending`**: *Trigger:* The agent started a task that is no longer pending. The agent receives it with no code.
   - **`Status is not valid for completed tasks`**: *Trigger:* The reported status is not final. The agent receives it with no code.
 
-(action-task-status)=
-#### Status of a task
+(action-getting-parameters)=
+### Getting action parameters
 
-```{ggarch}
-:file: ../juju.ggarch
-:view: Task status
-:caption: A task starts as `pending`. A pending task becomes `running` when its agent starts it. It becomes `cancelled` when a user cancels it. A running task becomes `aborting` when a user cancels it. A running or aborting task becomes `completed` or `failed` when the agent reports the result. An aborting task becomes `aborted` when the agent reports that it stopped. Recording a result stores the reported status whatever the current status is, and accepts `completed`, `failed`, `cancelled`, `aborted`, and `error`. The figure shows the changes that cancelling and the unit agent make.
-:alt: A state diagram with seven states. Pending goes to running and to cancelled. Running goes to aborting, to completed, and to failed. Aborting goes to aborted, to completed, and to failed.
-```
+Getting action parameters lets the action code read the parameters of its task through the hook tool {ref}`action-get <hook-command-action-get>`.
 
-The status of a task shows where the task is in its run. A task is active while it is `pending`, `running`, or `aborting`. A task is finished when it is `completed`, `failed`, `cancelled`, `aborted`, or in `error`.
+The operation's required access and rules are:
+
+- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Rules:*
+  - The tool prints the value at a path of keys joined with periods, or all parameters when it has no path.
+
+(action-setting-results)=
+### Setting action results
+
+Setting action results lets the action code add values to the results of its task through the hook tool {ref}`action-set <hook-command-action-set>`.
+
+The operation's required access and rules are:
+
+- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Rules:*
+  - A key is a path of keys joined with periods. Each key is made of lowercase letters, digits, and hyphens, and starts and ends with a letter or digit. The keys `stdout`, `stdout-encoding`, `stderr`, and `stderr-encoding` are reserved. Every value is a string.
+
+(action-failing)=
+### Setting action failure
+
+Setting action failure lets the action code mark its task as failed through the hook tool {ref}`action-fail <hook-command-action-fail>`.
+
+The operation's required access and rules are:
+
+- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Rules:*
+  - Without a message, the message is `action failed without reason given, check action for errors`.
+
+(action-logging)=
+### Logging action progress
+
+Logging action progress lets the action code record a progress message of its task through the hook tool {ref}`action-log <hook-command-action-log>`. The unit agent sends the message to the controller at once.
+
+The operation's required access and rules are:
+
+- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Rules:*
+  - A call without a message fails with `no message specified`.
 
 (action-pruning)=
 ### Pruning operations
@@ -290,9 +327,9 @@ Pruning operations deletes old operations with their parameters, tasks, statuses
 
 The operation's rules are:
 
-- - *Rules:*
-  - An operation that completed longer ago than `max-action-results-age` is deleted. The default is `336h` (two weeks). An age of zero turns this off. Only completed operations are deleted by age.
-  - When the stored operations are larger than `max-action-results-size`, the oldest are deleted, those that completed first, as many as the excess divided by the average size of an operation. The default is `5G`. A size of zero turns this off.
+- *Rules:*
+  - An operation that completed longer ago than `max-action-results-age` is deleted. An age of zero turns this off. Only completed operations are deleted by age.
+  - When the stored operations are larger than `max-action-results-size`, the oldest are deleted, those that completed first, as many as the excess divided by the average size of an operation. A size of zero turns this off.
 
 ## Actions and model migration
 
