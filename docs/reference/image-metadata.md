@@ -37,7 +37,7 @@ An image is a row in the table `cloud_image_metadata` of the controller database
 (image-metadata-operations)=
 ## Image metadata operations
 
-Image metadata operations are the actions that manage the controller's cache of image metadata. The caller of each is a client with {ref}`superuser access <user-access-controller-superuser>` to the controller. The cache also fills without a client: a {ref}`bootstrap <bootstrap-a-controller>` with `--metadata-source` uploads the metadata of a local directory to the controller. When Juju starts a machine, it looks for an image in this order: the controller's cache, the URL the model's `image-metadata-url` configuration names, the locations the provider offers, and the public `https://streams.canonical.com/juju` location. Each location is searched for signed metadata first and unsigned second.
+Image metadata operations are the actions that manage the controller's cache of image metadata. The caller of each is a client with {ref}`superuser access <user-access-controller-superuser>` to the controller. The cache also fills without a client: a {ref}`bootstrap <bootstrap-a-controller>` with `--metadata-source` uploads the metadata of a local directory to the controller. When Juju starts a machine, it looks for an image in this order: the controller's cache, the URL the model's `image-metadata-url` configuration names, the locations the provider offers, and the public `http://cloud-images.ubuntu.com/releases` location, whose `daily` stream lives under `http://cloud-images.ubuntu.com/daily`. Each location is searched for signed metadata first and unsigned second.
 
 (image-metadata-listing)=
 ### Listing image metadata
@@ -49,22 +49,25 @@ The operation's required access and rules are:
 - *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - A filter names a region, versions, architectures, a stream, a virtualisation type, and a root storage type; an empty filter matches every entry.
-  - The answer groups the entries by source, and orders them by priority.
+  - The answer is one list, ordered by priority. An entry that did not come from a `custom` source matches only for five minutes after it was cached.
 
 (image-metadata-saving)=
 ### Saving image metadata
 
-Saving image metadata stores entries in the controller's cache, one result for each entry in the request. An entry for a combination that the controller already caches replaces the cached image ID.
+Saving image metadata stores entries in the controller's cache, one result for each list of entries in the request. An entry for a combination that the controller already caches replaces the cached image ID.
 
 The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - An entry names its image ID, its source, its stream, its region, the version of the operating system, its architecture, and, when it has them, its virtualisation type and its root storage type and size.
-  - An entry that names no stream uses the model's `image-stream` configuration value.
+  - An entry that names no stream uses the model's `image-stream` configuration value. An entry that names no region uses the model's cloud region.
+  - A save also removes the cached entries that did not come from a `custom` source and are older than five minutes.
   - An entry from a `custom` source with no priority gets the priority of custom cloud data, which outranks the public metadata.
-- *Errors:* The client receives each in the result for the entry:
-  - **`missing <fields>: not valid for image "<image ID>"`**: *Trigger:* The entry names no version, stream, source, architecture, or region. The client receives it with the code `not valid`. *Remediation:* Fill the missing fields.
+- *Errors:* The client receives each in the result for the list of entries:
+  - **`missing <fields>: invalid metadata for image <image ID>`**: *Trigger:* The entry names no version, stream, source, architecture, or region. The client receives it with no error code. *Remediation:* Fill the missing fields.
+  - **`unsupported architecture "<name>" (should be any of [<architectures>]): invalid metadata`**: *Trigger:* The architecture is not one Juju builds for. The client receives it with no error code. *Remediation:* Name an architecture Juju builds for.
+  - **`image metadata already exists`**: *Trigger:* One list of the request holds two entries for the same combination. The client receives it with no error code. *Remediation:* Send each combination once per list.
 
 (image-metadata-deleting)=
 ### Deleting image metadata
@@ -82,4 +85,4 @@ The operation's required access, rules, and errors are:
 (image-metadata-and-model-migration)=
 ## Image metadata and model migration
 
-A migration carries the cached image metadata with the model to the target controller, so that machines of the model can start there unchanged. See {ref}`Migrating models <model-migrating>`.
+A migration carries the model's custom image metadata — the entries whose source is `custom` — to the target controller, so that machines of the model can start there unchanged. Entries from other sources are not carried: they expire from the cache five minutes after they were cached. See {ref}`Migrating models <model-migrating>`.
