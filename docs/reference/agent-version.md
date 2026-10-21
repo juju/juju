@@ -51,9 +51,9 @@ Agent version operations are the actions that put agent binaries on the controll
 
 Uploading agent binaries puts one binary on the controller, as a gzipped tarball, for one version and one architecture. A binary that the controller already holds with the same hash is left as it is.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`admin access <user-access-model-admin>` to the model the request names. A request naming the controller model needs superuser access. A change block on that model refuses the upload.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`admin access <user-access-model-admin>` to the model the request names. A request naming the controller model needs superuser access. A change block on that model refuses the upload.
 - *Rules:*
   - The request is a `POST` of the tarball with the content type `application/x-tar-gz`, and names the binary version in the query parameter `binaryVersion`, in the form `<version>-<series>-<architecture>`, such as `4.5.0-noble-amd64`.
   - The handler keeps the number and the architecture of the version; the series in between is ignored.
@@ -72,9 +72,9 @@ The operation's required access, rules, and errors are:
 
 Finding agent binaries returns to an agent the binaries it should run: those of the target version of its machine or unit, for its architecture, with the URL to download each from. A machine agent asks for its machine; a unit agent for its unit.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The agent of the machine or unit it names, logged in as that machine or unit.
+- *Caller:* A machine agent, for its own machine, or a unit agent, for its own unit.
 - *Rules:*
   - Every URL points at one of the controller's API servers. A binary that no catalogue holds is fetched from the metadata source when the agent downloads it.
 - *Errors:* The agent receives each in the result for its entity:
