@@ -14,7 +14,7 @@ An **annotation** is a key and value that a {ref}`client <client>` attaches to a
 
 The annotation data model is the set of records that the model database keeps about annotations. Every record has the same shape: one row per key, with its value. The records, with the rules that apply to each, are:
 
-- **Annotation:** One key and value of one entity. The entities that carry annotations are the {ref}`model <model>` itself, an {ref}`application <application>`, a {ref}`charm <charm>`, a {ref}`machine <machine>`, a {ref}`unit <unit>`, and a storage instance of the model ({ref}`storage <storage>`); a model that arrived from another controller can also carry them for a storage volume or a storage filesystem, and a client in 4.1 sets and reads the annotations of a storage instance only. The model database keeps the model's own annotations without an entity key, because the database is the model's.
+- **Annotation:** One key and value of one entity. The entities that carry annotations are the {ref}`model <model>` itself, an {ref}`application <application>`, a {ref}`charm <charm>`, a {ref}`machine <machine>`, a {ref}`unit <unit>`, and a storage instance of the model ({ref}`storage <storage>`). A model that arrived from another controller can also carry them for a storage volume or a storage filesystem; a client in 4.1 sets and reads the annotations of a storage instance only. The model database keeps the model's own annotations without an entity key, because the database is the model's.
   - *Rules:*
     - An entity holds each key once.
     - The value is always present.
