@@ -2369,3 +2369,864 @@ diagram "Credential data model" from "CredentialSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+
+model "UserSchema" {
+
+  nodes {
+    user [type: record, label: "User",
+                 ground: "controller:user"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        display_name [label: "display_name", type: "text", null: true]
+        external [label: "external", type: "bool"]
+        removed [label: "removed", type: "bool"]
+        created_by_uuid [label: "created_by_uuid", type: "text", fk: true]
+        created_at [label: "created_at", type: "timestamp"]
+      }
+    }
+
+    user_authentication [type: record, label: "Authentication",
+                 ground: "controller:user_authentication"] {
+      fields {
+        user_uuid [label: "user_uuid", type: "text", pk: true, fk: true]
+        disabled [label: "disabled", type: "bool"]
+      }
+    }
+
+    user_password [type: record, label: "Password",
+                 ground: "controller:user_password"] {
+      fields {
+        user_uuid [label: "user_uuid", type: "text", pk: true, fk: true]
+        password_hash [label: "password_hash", type: "text"]
+        password_salt [label: "password_salt", type: "text"]
+      }
+    }
+
+    user_activation_key [type: record, label: "Activation\nkey",
+                 ground: "controller:user_activation_key"] {
+      fields {
+        user_uuid [label: "user_uuid", type: "text", pk: true, fk: true]
+        activation_key [label: "activation_key", type: "text"]
+      }
+    }
+
+    permission [type: record, label: "Permission",
+                 ground: "controller:permission"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        access_type_id [label: "access_type_id", type: "int"]
+        object_type_id [label: "object_type_id", type: "int"]
+        grant_on [label: "grant_on", type: "text"]
+        grant_to [label: "grant_to", type: "text", fk: true]
+      }
+    }
+
+    model_last_login [type: record, label: "Last login",
+                 ground: "controller:model_last_login"] {
+      fields {
+        model_uuid [label: "model_uuid", type: "text", fk: true]
+        user_uuid [label: "user_uuid", type: "text", fk: true]
+        time [label: "time", type: "timestamp"]
+      }
+    }
+
+    model [type: context-record, label: "Model",
+                 ground: "controller:model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+  }
+
+  edges {
+    user.created_by_uuid -> user.uuid [type: data]
+    user_authentication.user_uuid -> user.uuid [type: data]
+    user_password.user_uuid -> user_authentication.user_uuid [type: data]
+    user_activation_key.user_uuid -> user_authentication.user_uuid [type: data]
+    permission.grant_to -> user.uuid [type: data]
+    model_last_login.user_uuid -> user.uuid [type: data]
+    model_last_login.model_uuid -> model.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "User data model" from "UserSchema" {
+  select {
+    nodes: user user_authentication user_password user_activation_key permission model_last_login model
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    user_authentication below user gap: 60
+    user_authentication align-centre user
+    user_password left-of user_authentication gap: 70
+    user_password align-middle user_authentication
+    user_activation_key right-of user_authentication gap: 70
+    user_activation_key align-middle user_authentication
+    permission right-of user gap: 70
+    permission align-middle user
+    model_last_login left-of user gap: 70
+    model_last_login align-middle user
+    model left-of model_last_login gap: 70
+    model align-middle model_last_login
+    user_authentication same-size user
+    user_password same-size user
+    user_activation_key same-size user
+    permission same-size user
+    model_last_login same-size user
+    model same-size user
+  }
+  annotations {
+    box [nodes: "user user_authentication user_password user_activation_key permission model_last_login model", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// Action data model, scaffolded by hand from the 4.1 model DDL
+// (operation .. operation_task_status_value). The link records
+// operation_action, operation_unit_task, operation_machine_task and
+// operation_task_output hold keys only and are left out; the task edges to
+// unit, machine and charm action stand for them.
+model "ActionSchema" {
+
+  nodes {
+    operation [type: record, label: "Operation",
+                 ground: "model:operation"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        operation_id [label: "operation_id", type: "int"]
+        summary [label: "summary", type: "text", null: true]
+        enqueued_at [label: "enqueued_at", type: "timestamp"]
+        started_at [label: "started_at", type: "timestamp", null: true]
+        completed_at [label: "completed_at", type: "timestamp", null: true]
+        parallel [label: "parallel", type: "bool", null: true]
+        execution_group [label: "execution_group", type: "text", null: true]
+      }
+    }
+
+    operation_parameter [type: record, label: "Operation\nparameter",
+                 ground: "model:operation_parameter"] {
+      fields {
+        operation_uuid [label: "operation_uuid", type: "text", pk: true, fk: true]
+        key [label: "key", type: "text", pk: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    operation_task [type: record, label: "Task",
+                 ground: "model:operation_task"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        operation_uuid [label: "operation_uuid", type: "text", fk: true]
+        task_id [label: "task_id", type: "text"]
+        enqueued_at [label: "enqueued_at", type: "datetime"]
+        started_at [label: "started_at", type: "datetime", null: true]
+        completed_at [label: "completed_at", type: "datetime", null: true]
+      }
+    }
+
+    operation_task_status [type: record, label: "Task\nstatus",
+                 ground: "model:operation_task_status"] {
+      fields {
+        task_uuid [label: "task_uuid", type: "text", pk: true, fk: true]
+        status_id [label: "status_id", type: "int", fk: true]
+        message [label: "message", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+    operation_task_status_value [type: record, label: "Task status\nvalue",
+                 ground: "model:operation_task_status_value"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+        status [label: "status", type: "text"]
+      }
+    }
+
+    operation_task_log [type: record, label: "Task log\nmessage",
+                 ground: "model:operation_task_log"] {
+      fields {
+        task_uuid [label: "task_uuid", type: "text", fk: true]
+        content [label: "content", type: "text"]
+        created_at [label: "created_at", type: "timestamp"]
+      }
+    }
+
+    unit [type: context-record, label: "Unit",
+                 ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    machine [type: context-record, label: "Machine",
+                 ground: "model:machine"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    charm_action [type: context-record, label: "Charm\naction",
+                 ground: "model:charm_action"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "text", pk: true]
+        key [label: "key", type: "text", pk: true]
+      }
+    }
+
+  }
+
+  edges {
+    operation_parameter.operation_uuid -> operation.uuid [type: data]
+    operation_task.operation_uuid -> operation.uuid [type: data]
+    operation_task_status.task_uuid -> operation_task.uuid [type: data]
+    operation_task_status.status_id -> operation_task_status_value.id [type: data]
+    operation_task_log.task_uuid -> operation_task.uuid [type: data]
+    operation_task -> unit [type: data]
+    operation_task -> machine [type: data]
+    operation -> charm_action [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Action data model" from "ActionSchema" {
+  select {
+    nodes: operation operation_parameter operation_task operation_task_status operation_task_status_value operation_task_log unit machine charm_action
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    operation_task right-of operation gap: 70
+    operation_task align-middle operation
+    operation_parameter above operation gap: 60
+    operation_parameter align-centre operation
+    charm_action below operation gap: 60
+    charm_action align-centre operation
+    operation_task_status above operation_task gap: 60
+    operation_task_status align-centre operation_task
+    operation_task_status_value right-of operation_task_status gap: 70
+    operation_task_status_value align-middle operation_task_status
+    operation_task_log below operation_task gap: 60
+    operation_task_log align-centre operation_task
+    unit right-of operation_task gap: 70
+    unit align-middle operation_task
+    machine below unit gap: 60
+    machine align-centre unit
+    operation_parameter same-size operation
+    operation_task same-size operation
+    operation_task_status same-size operation
+    operation_task_status_value same-size operation
+    operation_task_log same-size operation
+    unit same-size operation
+    machine same-size operation
+    charm_action same-size operation
+  }
+  annotations {
+    box [nodes: "operation operation_parameter operation_task operation_task_status operation_task_status_value operation_task_log unit machine charm_action", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// Task status changes, from the 4.1 code:
+//   domain/operation/state/start.go:600-632 (a task starts pending)
+//   domain/operation/state/task.go:137-213 (StartTask: pending -> running)
+//   domain/operation/state/task.go:485-507 (CancelTask: pending -> cancelled,
+//     running -> aborting)
+//   internal/worker/uniter/runner/context/context.go:1771-1786 (finalizeAction:
+//     completed, failed, or aborted when the task was aborting)
+model "TaskStatusChanges" {
+
+  nodes {
+    ts_pending   [label: "pending"]
+    ts_running   [label: "running"]
+    ts_cancelled [label: "cancelled"]
+    ts_aborting  [label: "aborting"]
+    ts_completed [label: "completed"]
+    ts_failed    [label: "failed"]
+    ts_aborted   [label: "aborted"]
+  }
+
+  behaviours {
+    behaviour "task-status" {
+      ts_pending  -> ts_running:   call "agent starts the task"
+      ts_pending  -> ts_cancelled: call "cancel"
+      ts_running  -> ts_aborting:  call "cancel"
+      ts_running  -> ts_completed: call "agent reports success"
+      ts_running  -> ts_failed:    call "agent reports failure"
+      ts_aborting -> ts_aborted:   call "agent reports the abort"
+      ts_aborting -> ts_completed: call "agent reports success"
+      ts_aborting -> ts_failed:    call "agent reports failure"
+    }
+  }
+
+  edges {
+    ts_pending  -> ts_running   [type: control]
+    ts_pending  -> ts_cancelled [type: control]
+    ts_running  -> ts_aborting  [type: control]
+    ts_running  -> ts_completed [type: control]
+    ts_running  -> ts_failed    [type: control]
+    ts_aborting -> ts_aborted   [type: control]
+    ts_aborting -> ts_completed [type: control]
+    ts_aborting -> ts_failed    [type: control]
+  }
+
+  style { extends: juju }
+}
+
+state "Task status" from "TaskStatusChanges" {
+  select { behaviour: "task-status" }
+}
+
+// Running an action, from the 4.1 code:
+//   1 apiserver/facades/client/action/operation.go:32-134 (EnqueueOperation)
+//   2 apiserver/facades/agent/uniter/uniter.go:1012-1060 (WatchActionNotifications)
+//   3 uniter.go:1228-1260 (Actions: only a pending task)
+//   4 uniter.go:1264-1285 (BeginActions -> StartTask)
+//   5 internal/worker/uniter/runner/jujuc/action-log.go:44-46 -> uniter.go:1338-1360
+//   6 runner/context/context.go:1771-1827 (finalizeAction) -> uniter.go:1309-1335
+model "ActionRun" {
+
+  nodes {
+    ar_client     [type: juju-software, label: "Client"]
+    ar_controller [type: juju-software, label: "Controller"]
+    ar_agent      [type: juju-software, label: "Unit agent"]
+    ar_charm      [type: workload, label: "Charm action code"]
+  }
+
+  edges {
+    ar_client     -> ar_controller [type: api]
+    ar_agent      -> ar_controller [type: api]
+    ar_agent      -> ar_charm      [type: control]
+  }
+
+  behaviours {
+    behaviour "run-action" {
+      ar_client     -> ar_controller: call "enqueue the action on a unit"
+      ar_controller -> ar_controller: self "store the operation and one pending task per unit"
+      ar_controller -> ar_client:     return "operation and task IDs"
+      ar_controller -> ar_agent:      async "notify of the pending task"
+      ar_agent      -> ar_controller: call "get the task, then mark it running"
+      ar_agent      -> ar_charm:      call "run the action with its parameters"
+      ar_charm      -> ar_agent:      return "progress messages, results, and failure"
+      ar_agent      -> ar_controller: call "log progress, then record status, results, and message"
+    }
+  }
+
+  style { extends: juju }
+}
+
+sequence "Running actions" from "ActionRun" {
+  select { behaviour: "run-action" }
+}
+
+// Offer data model. Hand-trimmed from the 4.1 DDL (experiments/e11): the
+// join table offer_endpoint is left out because it holds only keys, the
+// permission lookup tables are left out and their foreign keys dropped,
+// and the relation and user are context records trimmed to their keys.
+model "OfferSchema" {
+
+  nodes {
+    offer [type: record, label: "Offer",
+                 ground: "model:offer"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        description [label: "description", type: "text", null: true]
+      }
+    }
+
+    offer_connection [type: record, label: "Offer\nconnection",
+                 ground: "model:offer_connection"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        offer_uuid [label: "offer_uuid", type: "text", fk: true]
+        remote_relation_uuid [label: "remote_relation_uuid", type: "text", fk: true]
+        username [label: "username", type: "text"]
+      }
+    }
+
+    permission [type: record, label: "Offer\npermission",
+                 ground: "controller:permission"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        access_type_id [label: "access_type_id", type: "int"]
+        object_type_id [label: "object_type_id", type: "int"]
+        grant_on [label: "grant_on", type: "text"]
+        grant_to [label: "grant_to", type: "text", fk: true]
+      }
+    }
+
+    relation [type: context-record, label: "Relation",
+                 ground: "model:relation"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    user [type: context-record, label: "User",
+                 ground: "controller:user"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+  }
+
+  edges {
+    offer_connection.offer_uuid -> offer.uuid [type: data]
+    offer_connection.remote_relation_uuid -> relation.uuid [type: data]
+    permission.grant_to -> user.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Offer data model" from "OfferSchema" {
+  select {
+    nodes: offer offer_connection relation permission user
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    offer_connection right-of offer gap: 70
+    offer_connection align-middle offer
+    relation right-of offer_connection gap: 70
+    relation align-middle offer_connection
+    permission below offer gap: 90
+    permission align-centre offer
+    user right-of permission gap: 70
+    user align-middle permission
+    offer_connection same-size offer
+    relation same-size offer
+    permission same-size offer
+    user same-size offer
+  }
+  annotations {
+    box [nodes: "offer offer_connection relation", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+    box [nodes: "permission user", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed to
+// the records that the page draws. The key-only record secret and the lookups
+// secret_rotate_policy, secret_role, secret_grant_subject_type, and
+// secret_grant_scope_type are left out of the figure, so their fk flags are dropped.
+// secret_unit_consumer.secret_id references secret(id) in the DDL; the figure
+// draws it to the secret metadata, which every secret has.
+model "SecretSchema" {
+
+  nodes {
+    application [type: context-record, label: "Application",
+                 ground: "model:application"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    unit [type: context-record, label: "Unit",
+                 ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    secret_metadata [type: record, label: "Secret",
+                 ground: "model:secret_metadata"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", pk: true]
+        version [label: "version", type: "int"]
+        description [label: "description", type: "text", null: true]
+        rotate_policy_id [label: "rotate_policy_id", type: "int"]
+        auto_prune [label: "auto_prune", type: "bool"]
+        latest_revision_checksum [label: "latest_revision_checksum", type: "text", null: true]
+        create_time [label: "create_time", type: "datetime"]
+        update_time [label: "update_time", type: "datetime"]
+      }
+    }
+
+    secret_application_owner [type: record, label: "Application\nowner",
+                 ground: "model:secret_application_owner"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", fk: true]
+        application_uuid [label: "application_uuid", type: "text", fk: true]
+        label [label: "label", type: "text", null: true]
+      }
+    }
+
+    secret_unit_owner [type: record, label: "Unit\nowner",
+                 ground: "model:secret_unit_owner"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", fk: true]
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        label [label: "label", type: "text", null: true]
+      }
+    }
+
+    secret_model_owner [type: record, label: "Model\nowner",
+                 ground: "model:secret_model_owner"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", pk: true, fk: true]
+        label [label: "label", type: "text", null: true]
+      }
+    }
+
+    secret_unit_consumer [type: record, label: "Consumer",
+                 ground: "model:secret_unit_consumer"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", fk: true]
+        source_model_uuid [label: "source_model_uuid", type: "text"]
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        label [label: "label", type: "text", null: true]
+        current_revision [label: "current_revision", type: "int"]
+      }
+    }
+
+    secret_permission [type: record, label: "Grant",
+                 ground: "model:secret_permission"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", fk: true]
+        role_id [label: "role_id", type: "int"]
+        subject_uuid [label: "subject_uuid", type: "text"]
+        subject_type_id [label: "subject_type_id", type: "int"]
+        scope_uuid [label: "scope_uuid", type: "text"]
+        scope_type_id [label: "scope_type_id", type: "text"]
+      }
+    }
+
+    secret_rotation [type: record, label: "Rotation",
+                 ground: "model:secret_rotation"] {
+      fields {
+        secret_id [label: "secret_id", type: "text", pk: true, fk: true]
+        next_rotation_time [label: "next_rotation_time", type: "datetime"]
+      }
+    }
+
+    secret_revision [type: record, label: "Revision",
+                 ground: "model:secret_revision"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        secret_id [label: "secret_id", type: "text", fk: true]
+        revision [label: "revision", type: "int"]
+        create_time [label: "create_time", type: "datetime"]
+        update_time [label: "update_time", type: "datetime"]
+      }
+    }
+
+    secret_content [type: record, label: "Content\nitem",
+                 ground: "model:secret_content"] {
+      fields {
+        revision_uuid [label: "revision_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        content [label: "content", type: "text"]
+      }
+    }
+
+    secret_value_ref [type: record, label: "Backend\nreference",
+                 ground: "model:secret_value_ref"] {
+      fields {
+        revision_uuid [label: "revision_uuid", type: "text", pk: true, fk: true]
+        backend_uuid [label: "backend_uuid", type: "text"]
+        revision_id [label: "revision_id", type: "text"]
+      }
+    }
+
+    secret_revision_expire [type: record, label: "Revision\nexpiry",
+                 ground: "model:secret_revision_expire"] {
+      fields {
+        revision_uuid [label: "revision_uuid", type: "text", pk: true, fk: true]
+        expire_time [label: "expire_time", type: "datetime"]
+      }
+    }
+
+    secret_revision_obsolete [type: record, label: "Obsolete\nmark",
+                 ground: "model:secret_revision_obsolete"] {
+      fields {
+        revision_uuid [label: "revision_uuid", type: "text", pk: true, fk: true]
+        obsolete [label: "obsolete", type: "bool"]
+        pending_delete [label: "pending_delete", type: "bool"]
+      }
+    }
+
+  }
+
+  edges {
+    secret_application_owner.secret_id -> secret_metadata.secret_id [type: data]
+    secret_application_owner.application_uuid -> application.uuid [type: data]
+    secret_unit_owner.secret_id -> secret_metadata.secret_id [type: data]
+    secret_unit_owner.unit_uuid -> unit.uuid [type: data]
+    secret_model_owner.secret_id -> secret_metadata.secret_id [type: data]
+    secret_unit_consumer.secret_id -> secret_metadata.secret_id [type: data]
+    secret_unit_consumer.unit_uuid -> unit.uuid [type: data]
+    secret_permission.secret_id -> secret_metadata.secret_id [type: data]
+    secret_rotation.secret_id -> secret_metadata.secret_id [type: data]
+    secret_revision.secret_id -> secret_metadata.secret_id [type: data]
+    secret_content.revision_uuid -> secret_revision.uuid [type: data]
+    secret_value_ref.revision_uuid -> secret_revision.uuid [type: data]
+    secret_revision_expire.revision_uuid -> secret_revision.uuid [type: data]
+    secret_revision_obsolete.revision_uuid -> secret_revision.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Secret data model" from "SecretSchema" {
+  select {
+    nodes: application unit secret_metadata secret_application_owner secret_unit_owner secret_model_owner secret_unit_consumer secret_permission secret_rotation secret_revision secret_content secret_value_ref secret_revision_expire secret_revision_obsolete
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    secret_model_owner left-of secret_metadata gap: 70
+    secret_model_owner align-middle secret_metadata
+    secret_application_owner above secret_model_owner gap: 60
+    secret_application_owner align-centre secret_model_owner
+    secret_unit_owner below secret_model_owner gap: 60
+    secret_unit_owner align-centre secret_model_owner
+    application left-of secret_application_owner gap: 70
+    application align-middle secret_application_owner
+    unit left-of secret_unit_owner gap: 70
+    unit align-middle secret_unit_owner
+    secret_unit_consumer below unit gap: 60
+    secret_unit_consumer align-centre unit
+    secret_rotation above secret_metadata gap: 60
+    secret_rotation align-centre secret_metadata
+    secret_permission below secret_metadata gap: 60
+    secret_permission align-centre secret_metadata
+    secret_revision right-of secret_metadata gap: 70
+    secret_revision align-middle secret_metadata
+    secret_content above secret_revision gap: 60
+    secret_content align-centre secret_revision
+    secret_value_ref below secret_revision gap: 60
+    secret_value_ref align-centre secret_revision
+    secret_revision_expire right-of secret_revision gap: 70
+    secret_revision_expire align-middle secret_revision
+    secret_revision_obsolete right-of secret_value_ref gap: 70
+    secret_revision_obsolete align-middle secret_value_ref
+    application same-size secret_metadata
+    unit same-size secret_metadata
+    secret_application_owner same-size secret_metadata
+    secret_unit_owner same-size secret_metadata
+    secret_model_owner same-size secret_metadata
+    secret_unit_consumer same-size secret_metadata
+    secret_permission same-size secret_metadata
+    secret_rotation same-size secret_metadata
+    secret_revision same-size secret_metadata
+    secret_content same-size secret_metadata
+    secret_value_ref same-size secret_metadata
+    secret_revision_expire same-size secret_metadata
+    secret_revision_obsolete same-size secret_metadata
+  }
+  annotations {
+    box [nodes: "application unit secret_metadata secret_application_owner secret_unit_owner secret_model_owner secret_unit_consumer secret_permission secret_rotation secret_revision secret_content secret_value_ref secret_revision_expire secret_revision_obsolete", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL.
+// Key-only records (the unit, the application endpoint, the life and scope
+// lookups, the departed units, and the ingress and egress CIDRs) are left
+// out and described in the page text.
+model "RelationSchema" {
+
+  nodes {
+    relation [type: record, label: "Relation",
+                 ground: "model:relation"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        life_id [label: "life_id", type: "int"]
+        relation_id [label: "relation_id", type: "int"]
+        suspended [label: "suspended", type: "bool", null: true]
+        suspended_reason [label: "suspended_reason", type: "text", null: true]
+        scope_id [label: "scope_id", type: "int"]
+      }
+    }
+
+    relation_endpoint [type: record, label: "Endpoint",
+                 ground: "model:relation_endpoint"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        relation_uuid [label: "relation_uuid", type: "text", fk: true]
+        endpoint_uuid [label: "endpoint_uuid", type: "text"]
+      }
+    }
+
+    relation_unit [type: record, label: "Unit in scope",
+                 ground: "model:relation_unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "text", fk: true]
+        unit_uuid [label: "unit_uuid", type: "text"]
+      }
+    }
+
+    relation_unit_setting [type: record, label: "Unit\nsetting",
+                 ground: "model:relation_unit_setting"] {
+      fields {
+        relation_unit_uuid [label: "relation_unit_uuid", type: "text", fk: true]
+        key [label: "key", type: "text"]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    relation_application_setting [type: record, label: "Application\nsetting",
+                 ground: "model:relation_application_setting"] {
+      fields {
+        relation_endpoint_uuid [label: "relation_endpoint_uuid", type: "text", fk: true]
+        key [label: "key", type: "text"]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    relation_status [type: record, label: "Status",
+                 ground: "model:relation_status"] {
+      fields {
+        relation_uuid [label: "relation_uuid", type: "text", pk: true, fk: true]
+        relation_status_type_id [label: "relation_status_type_id", type: "text", fk: true]
+        message [label: "message", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+    relation_status_type [type: record, label: "Status\nvalue",
+                 ground: "model:relation_status_type"] {
+      fields {
+        id [label: "id", type: "text", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+    relation_unit_setting_archive [type: record, label: "Archived\nsetting",
+                 ground: "model:relation_unit_setting_archive"] {
+      fields {
+        relation_uuid [label: "relation_uuid", type: "text", fk: true]
+        unit_name [label: "unit_name", type: "text"]
+        key [label: "key", type: "text"]
+        value [label: "value", type: "text", null: true]
+      }
+    }
+
+
+
+  }
+
+  edges {
+    relation_endpoint.relation_uuid -> relation.uuid [type: data]
+    relation_unit.relation_endpoint_uuid -> relation_endpoint.uuid [type: data]
+    relation_unit_setting.relation_unit_uuid -> relation_unit.uuid [type: data]
+    relation_application_setting.relation_endpoint_uuid -> relation_endpoint.uuid [type: data]
+    relation_status.relation_uuid -> relation.uuid [type: data]
+    relation_status.relation_status_type_id -> relation_status_type.id [type: data]
+    relation_unit_setting_archive.relation_uuid -> relation.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Relation data model" from "RelationSchema" {
+  select {
+    nodes: relation relation_endpoint relation_unit relation_unit_setting relation_application_setting relation_status relation_status_type relation_unit_setting_archive
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    relation_endpoint right-of relation gap: 70
+    relation_endpoint align-middle relation
+    relation_unit right-of relation_endpoint gap: 70
+    relation_unit align-middle relation_endpoint
+    relation_application_setting below relation_endpoint gap: 60
+    relation_application_setting align-centre relation_endpoint
+    relation_unit_setting below relation_unit gap: 60
+    relation_unit_setting align-centre relation_unit
+    relation_status above relation gap: 60
+    relation_status align-centre relation
+    relation_status_type above relation_status gap: 60
+    relation_status_type align-centre relation_status
+    relation_unit_setting_archive left-of relation gap: 70
+    relation_unit_setting_archive align-middle relation
+    relation_endpoint same-size relation
+    relation_unit same-size relation
+    relation_unit_setting same-size relation
+    relation_application_setting same-size relation
+    relation_status same-size relation
+    relation_status_type same-size relation
+    relation_unit_setting_archive same-size relation
+  }
+  annotations {
+    box [nodes: "relation relation_endpoint relation_unit relation_unit_setting relation_application_setting relation_status relation_status_type relation_unit_setting_archive", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+
+// The status of a relation and the changes the code allows between the four
+// ordinary statuses (domain/status/status.go:186-211, the leader unit's
+// SetRelationStatus). Broken is allowed from every status, and error
+// (with a message) from every status; they are described in the caption.
+model "RelationStatuses" {
+
+  nodes {
+    rs_joining [label: "joining"]
+    rs_joined [label: "joined"]
+    rs_suspending [label: "suspending"]
+    rs_suspended [label: "suspended"]
+  }
+
+  behaviours {
+    behaviour "relation-status" {
+      rs_joining -> rs_joined: call "change status"
+      rs_joining -> rs_suspending: call "change status"
+      rs_joining -> rs_suspended: call "change status"
+      rs_joined -> rs_suspending: call "change status"
+      rs_joined -> rs_suspended: call "change status"
+      rs_suspending -> rs_joining: call "change status"
+      rs_suspending -> rs_joined: call "change status"
+      rs_suspending -> rs_suspended: call "change status"
+      rs_suspended -> rs_joining: call "change status"
+      rs_suspended -> rs_joined: call "change status"
+    }
+  }
+
+  edges {
+    rs_joining -> rs_joined [type: control]
+    rs_joining -> rs_suspending [type: control]
+    rs_joining -> rs_suspended [type: control]
+    rs_joined -> rs_suspending [type: control]
+    rs_joined -> rs_suspended [type: control]
+    rs_suspending -> rs_joining [type: control]
+    rs_suspending -> rs_joined [type: control]
+    rs_suspending -> rs_suspended [type: control]
+    rs_suspended -> rs_joining [type: control]
+    rs_suspended -> rs_joined [type: control]
+  }
+
+  style { extends: juju }
+}
+
+state "Relation status" from "RelationStatuses" {
+  select { behaviour: "relation-status" }
+}
