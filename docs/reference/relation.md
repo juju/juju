@@ -38,7 +38,7 @@ The relation database schema is the set of records that the {ref}`model database
 - **Endpoint:** One end of a relation: the application endpoint that takes part. The application endpoint pairs an application with one of the endpoints of its charm, as the {ref}`application <application-endpoint>` page describes. Each endpoint has a role (`provider`, `requirer`, or `peer`), an interface, and a scope of `global` or `container`. Juju gives every charm an endpoint named `juju-info`, with the role `provider`, the interface `juju-info`, and the scope `global`. Juju adds it when the charm declares no endpoint of that name. The endpoints of a relation decide its kind, which is one of:
 
   (regular-relation)=
-  - **Regular relations** are the base case: a relation with two endpoints, one `provider` and one `requirer`, with the same interface, on two different applications of the same model. Both applications are principal applications. The key of a regular relation lists the requirer first and the provider second.
+  - **Regular relations** are the base case: a relation with two endpoints, one `provider` and one `requirer`, with the same interface, on two different applications of the same model. Both applications are principal applications.
 
   (peer-relation)=
   - **Peer relations** are relations with one endpoint, whose role is `peer`. An application has a relation to itself, so its units are the units of the relation. Juju creates one peer relation for each peer endpoint of an application when it creates the application. The units of an application can use a peer relation to share settings, because each unit can read the settings of the others (see {ref}`reading relation data <relation-reading-data>`). A peer relation cannot be removed on its own (see {ref}`removing relations <relation-removing>`).
@@ -90,7 +90,7 @@ Relation change streams are the notifications that the {ref}`agent <agent>` of a
 (relation-calls)=
 ## Relation calls
 
-Relation calls are the calls that {ref}`clients <client>` and unit agents can take on relations through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level or block applies to a unit agent. Clients add, remove, suspend, resume, and list relations. Unit agents enter and leave a relation, read and write its data, set its status, and look relations up. Offering an application to other models is described on the {ref}`offer <offer>` page. The hooks that Juju runs in response are described on the {ref}`hook <relation-hooks>` page.
+Relation calls are the calls that {ref}`clients <client>` and unit agents can take on relations through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level or block applies to a unit agent. Clients add, remove, suspend, resume, and list relations. Unit agents enter and leave a relation, read and write its data, set its status, and look relations up. The hooks that Juju runs in response are described on the {ref}`hook <relation-hooks>` page.
 
 (relation-adding)=
 ### Adding relations
@@ -320,7 +320,7 @@ The caller, the rules, and the errors are:
   - The application of the unit must be an endpoint of the relation.
   - The change must be one that the {ref}`transition table <relation-status>` allows. The status `error` needs a message.
   - A change from `suspending` to `suspended` keeps the earlier message when the new message is empty.
-  - After a unit of the application enters the relation, the leader unit sets `joined`. After the `relation-broken` hook of a suspended relation, the leader unit sets `suspended`.
+  - After a unit of the application enters the relation, the leader unit sets `joined`. After the {ref}`relation-broken <hook-relation-broken>` hook of a suspended relation, the leader unit sets `suspended`.
 - *Errors:* The unit agent receives each in the result for the entry. The statuses in the messages are shown by their IDs: 0 for `joining`, 1 for `joined`, 2 for `broken`, 3 for `suspending`, 4 for `suspended`, and 5 for `error`:
   - **`updating relation status for "<UUID>": cannot set status <new> when relation has status <current>: relation status transition not valid`**: *Trigger:* The table does not allow the change. *Remediation:* Choose a status that the table allows.
   - **`updating relation status for "<UUID>": cannot set status 5 without message`**: *Trigger:* The new status is `error` and the message is empty. *Remediation:* Give a message.
