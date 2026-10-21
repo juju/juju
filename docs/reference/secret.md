@@ -107,7 +107,7 @@ A unit agent can ask about any unit of its own application. It can ask about the
 (secret-operations)=
 ## Secret operations
 
-Secret operations are the actions on secrets: add, list, read, grant, revoke, update, rotate, and remove. A {ref}`client <client>` takes them on the user secrets of a model through the controller API (the set of calls that clients and agents make to the controller). A charm takes them on its own secrets through {ref}`hook commands <hook-command>`. A client manages the user secrets of a model. A charm manages the secrets that it owns. Juju applies the changes of a hook when the hook succeeds.
+Secret operations are the actions on secrets: add, list, read, grant, revoke, update, rotate, and remove. A {ref}`client <client>` takes them on the user secrets of a model through the controller API (the set of calls that clients and agents make to the controller). A charm takes them on its own secrets through {ref}`hook commands <hook-command>`. A client manages the user secrets of a model. A charm manages the secrets that it owns. Juju applies the changes of a hook when the hook succeeds. A **unit agent** is the {ref}`agent <agent>` process that runs a unit's charm. It logs in as its unit. The facades that serve it accept unit agents only, so no model access level and no block applies to it.
 
 (secret-adding)=
 ### Adding secrets
@@ -120,7 +120,7 @@ Adding secrets creates a secret with its first revision. A client adds user secr
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a unit secret, a unit of the owning application. For an application secret, the {ref}`leader unit <leader-unit>` of that application. No block applies.
+- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit. For an application secret, that unit is the {ref}`leader unit <leader-unit>` of the application.
 - *Rules:*
   - The call takes a list of secrets. Each secret in the list gets its own result.
   - Juju assigns the URI and returns it. The secret starts at revision 1. Its owner has the role `manage`.
@@ -155,7 +155,7 @@ Listing secrets returns the secrets of a model with their metadata, revisions, a
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. A request for the content needs {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller. A charm lists its secrets as a unit agent. No block applies.
+- *Required access:* {ref}`Read access <user-access-model-read>` to the model. A request for the content needs {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller. For a charm secret, a unit agent, for its own unit. No block applies to a client.
 - *Rules:*
   - The answer for a secret holds:
     - The URI, version, owner, description, label, and rotation policy.
@@ -187,7 +187,7 @@ Reading secret content returns the content of one revision of a secret to a unit
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* A unit agent. The unit or its application needs the role `view` or `manage` on the secret. Every unit of an application can read a secret that the application owns. No block applies.
+- *Required access:* A unit agent, for its own unit. The unit or its application has the role `view` or `manage` on the secret. Every unit of an application can read a secret that the application owns.
 - *Rules:*
   - The call names the secret by its URI or by a label. An owner finds its own secret by the owner label. A consumer finds a secret by the label that it gave it.
   - The first read of a secret by a unit tracks the latest revision. Later reads return the tracked revision.
@@ -211,7 +211,7 @@ Granting and revoking access to secrets gives applications and units the right t
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit with the role `manage` on the secret, which is the owning unit or the leader of the owning application. No block applies.
+- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
 - *Rules:*
   - A grant gives the role `view`.
   - A client's call names the secret by URI or by name, and lists the applications. Each application in the list gets its own result. The grant has the model as its scope, so it lasts until a revoke or the removal of the secret.
@@ -246,7 +246,7 @@ Updating secrets changes the content or the metadata of a secret. New content ad
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit with the role `manage` on the secret, which is the owning unit or the leader of the owning application. No block applies.
+- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
 - *Rules:*
   - The call takes a list of updates. Each update in the list gets its own result.
   - An update names the secret by its URI or by its label, not by both, and changes at least one attribute.
@@ -278,7 +278,7 @@ Rotating secrets asks the owner of a charm secret to add a revision when the sec
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* A unit agent, for a secret that the unit owns or, as the leader, its application owns. No block applies.
+- *Required access:* A unit agent, for its own unit. The secret is owned by the unit or, when the unit is the leader, by its application.
 - *Rules:*
   - The unit agent reports a rotation with the call `SecretsRotated` of the `SecretsManager` facade, which sets the next rotation.
   - The next rotation is one interval of the policy after the one that was due. The policy `never` sets none.
@@ -300,7 +300,7 @@ Removing secrets deletes a secret with all its revisions, or deletes chosen revi
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit with the role `manage` on the secret, which is the owning unit or the leader of the owning application. No block applies.
+- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
 - *Rules:*
   - The call takes a list of secrets. Each secret in the list gets its own result. A call with an empty list does nothing.
   - A request names the secret by URI or by label, and can list the revisions to remove. Without revisions, the removal covers all of them.
