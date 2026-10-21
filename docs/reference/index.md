@@ -34,6 +34,7 @@ Clients connect to a controller -- the central management service that coordinat
 - {ref}`juju-ssh`
 - {ref}`controller-upgrade`
 - {ref}`external-controller`
+- {ref}`watcher`
 
 ### Agents and charm runtime
 
