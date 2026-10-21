@@ -5092,3 +5092,139 @@ diagram "Image metadata data model" from "ImageMetadataSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+model "ModelMigrationSchema" {
+
+  nodes {
+    external_controller [type: context-record, label: "External controller",
+                 ground: "controller:external_controller"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    model_migration_export [type: record, label: "Export",
+                 ground: "controller:model_migration_export"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        model_uuid [label: "model_uuid", type: "text"]
+        target_controller_uuid [label: "target_controller_uuid", type: "text", fk: true]
+        current_phase_id [label: "current_phase_id", type: "int", fk: true]
+        updated_at [label: "updated_at", type: "timestamp"]
+        start_time [label: "start_time", type: "timestamp"]
+      }
+    }
+
+    model_migration_export_minion_sync [type: record, label: "Minion report",
+                 ground: "controller:model_migration_export_minion_sync"] {
+      fields {
+        migration_uuid [label: "migration_uuid", type: "text", fk: true]
+        phase_id [label: "phase_id", type: "int", fk: true]
+        entity_key [label: "entity_key", type: "text"]
+        success [label: "success", type: "bool"]
+        reported_at [label: "reported_at", type: "timestamp"]
+      }
+    }
+
+    model_migration_export_offer [type: record, label: "Exported offer",
+                 ground: "controller:model_migration_export_offer"] {
+      fields {
+        migration_uuid [label: "migration_uuid", type: "text", fk: true]
+        offer_uuid [label: "offer_uuid", type: "text"]
+      }
+    }
+
+    model_migration_export_phase [type: record, label: "Export phase",
+                 ground: "controller:model_migration_export_phase"] {
+      fields {
+        migration_uuid [label: "migration_uuid", type: "text", fk: true]
+        model_uuid [label: "model_uuid", type: "text"]
+        phase_id [label: "phase_id", type: "int", fk: true]
+        changed_at [label: "changed_at", type: "timestamp"]
+      }
+    }
+
+    model_migration_export_status [type: record, label: "Status message",
+                 ground: "controller:model_migration_export_status"] {
+      fields {
+        migration_uuid [label: "migration_uuid", type: "text", pk: true, fk: true]
+        message [label: "message", type: "text"]
+        recorded_at [label: "recorded_at", type: "timestamp"]
+      }
+    }
+
+    model_migration_export_target_auth [type: record, label: "Target\nauthorization",
+                 ground: "controller:model_migration_export_target_auth"] {
+      fields {
+        migration_uuid [label: "migration_uuid", type: "text", pk: true, fk: true]
+        external_controller_uuid [label: "external_controller_uuid", type: "text", fk: true]
+        target_user [label: "target_user", type: "text"]
+        target_macaroons [label: "target_macaroons", type: "text", null: true]
+        target_token [label: "target_token", type: "text", null: true]
+        target_skip_user_checks [label: "target_skip_user_checks", type: "bool"]
+      }
+    }
+
+    model_migration_phase [type: record, label: "Migration phase",
+                 ground: "controller:model_migration_phase"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+  }
+
+  edges {
+    model_migration_export.target_controller_uuid -> external_controller.uuid [type: data]
+    model_migration_export.current_phase_id -> model_migration_phase.id [type: data]
+    model_migration_export_minion_sync.migration_uuid -> model_migration_export.uuid [type: data]
+    model_migration_export_minion_sync.phase_id -> model_migration_phase.id [type: data]
+    model_migration_export_offer.migration_uuid -> model_migration_export.uuid [type: data]
+    model_migration_export_phase.migration_uuid -> model_migration_export.uuid [type: data]
+    model_migration_export_phase.phase_id -> model_migration_phase.id [type: data]
+    model_migration_export_status.migration_uuid -> model_migration_export.uuid [type: data]
+    model_migration_export_target_auth.migration_uuid -> model_migration_export.uuid [type: data]
+    model_migration_export_target_auth.external_controller_uuid -> external_controller.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Model migration data model" from "ModelMigrationSchema" {
+  select {
+    nodes: model_migration_export model_migration_phase model_migration_export_phase model_migration_export_status model_migration_export_minion_sync model_migration_export_offer model_migration_export_target_auth external_controller
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    model_migration_phase above model_migration_export gap: 80
+    model_migration_phase align-centre model_migration_export
+    model_migration_export_phase right-of model_migration_phase gap: 70
+    model_migration_export_phase align-middle model_migration_phase
+    external_controller left-of model_migration_export gap: 80
+    external_controller align-middle model_migration_export
+    model_migration_export_status right-of model_migration_export gap: 80
+    model_migration_export_status align-middle model_migration_export
+    model_migration_export_minion_sync below model_migration_export gap: 80
+    model_migration_export_minion_sync align-centre model_migration_export
+    model_migration_export_target_auth below external_controller gap: 80
+    model_migration_export_target_auth align-centre external_controller
+    model_migration_export_offer below model_migration_export_status gap: 80
+    model_migration_export_offer align-centre model_migration_export_status
+    model_migration_phase same-size model_migration_export
+    model_migration_export_phase same-size model_migration_export
+    model_migration_export_status same-size model_migration_export
+    model_migration_export_minion_sync same-size model_migration_export
+    model_migration_export_offer same-size model_migration_export
+    model_migration_export_target_auth same-size model_migration_export
+    external_controller same-size model_migration_export
+  }
+  annotations {
+    box [nodes: "model_migration_export model_migration_phase model_migration_export_phase model_migration_export_status model_migration_export_minion_sync model_migration_export_offer model_migration_export_target_auth external_controller", label: "Source controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
