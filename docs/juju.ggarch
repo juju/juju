@@ -4392,3 +4392,238 @@ diagram "Application scale data model" from "ApplicationSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+// Unit data model (4.1 model DDL). The life, status, resolve mode, and pod status lookups,
+// the network node, and the password hash algorithm are described in the page text.
+model "UnitSchema" {
+
+  nodes {
+    application [type: context-record, label: "Application",
+                 ground: "model:application"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    charm [type: context-record, label: "Charm",
+                 ground: "model:charm"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    k8s_pod [type: record, label: "Pod",
+                 ground: "model:k8s_pod"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        provider_id [label: "provider_id", type: "text"]
+      }
+    }
+
+    k8s_pod_port [type: record, label: "Pod\nport",
+                 ground: "model:k8s_pod_port"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        port [label: "port", type: "text"]
+      }
+    }
+
+    k8s_pod_status [type: record, label: "Pod\nstatus",
+                 ground: "model:k8s_pod_status"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        status_id [label: "status_id", type: "int"]
+        message [label: "message", type: "text", null: true]
+        data [label: "data", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+    unit [type: record, label: "Unit",
+                 ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        application_uuid [label: "application_uuid", type: "text", fk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text"]
+        charm_uuid [label: "charm_uuid", type: "text", fk: true]
+        password_hash_algorithm_id [label: "password_hash_algorithm_id", type: "text", null: true]
+        password_hash [label: "password_hash", type: "text", null: true]
+      }
+    }
+
+    unit_agent_presence [type: record, label: "Agent\npresence",
+                 ground: "model:unit_agent_presence"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        last_seen [label: "last_seen", type: "datetime", null: true]
+      }
+    }
+
+    unit_agent_status [type: record, label: "Agent\nstatus",
+                 ground: "model:unit_agent_status"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        status_id [label: "status_id", type: "int"]
+        message [label: "message", type: "text", null: true]
+        data [label: "data", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+    unit_agent_version [type: record, label: "Agent\nversion",
+                 ground: "model:unit_agent_version"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        version [label: "version", type: "text"]
+        architecture_id [label: "architecture_id", type: "int"]
+      }
+    }
+
+    unit_principal [type: record, label: "Principal",
+                 ground: "model:unit_principal"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        principal_uuid [label: "principal_uuid", type: "text", fk: true]
+      }
+    }
+
+    unit_resolved [type: record, label: "Resolved\nmarker",
+                 ground: "model:unit_resolved"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        mode_id [label: "mode_id", type: "int"]
+      }
+    }
+
+    unit_state [type: record, label: "Unit\nstate",
+                 ground: "model:unit_state"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        uniter_state [label: "uniter_state", type: "text", null: true]
+        storage_state [label: "storage_state", type: "text", null: true]
+        secret_state [label: "secret_state", type: "text", null: true]
+      }
+    }
+
+    unit_state_charm [type: record, label: "Charm\nstate",
+                 ground: "model:unit_state_charm"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    unit_state_relation [type: record, label: "Relation\nstate",
+                 ground: "model:unit_state_relation"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    unit_workload_status [type: record, label: "Workload\nstatus",
+                 ground: "model:unit_workload_status"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        status_id [label: "status_id", type: "int"]
+        message [label: "message", type: "text", null: true]
+        data [label: "data", type: "text", null: true]
+        updated_at [label: "updated_at", type: "datetime", null: true]
+      }
+    }
+
+    unit_workload_version [type: record, label: "Workload\nversion",
+                 ground: "model:unit_workload_version"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", pk: true, fk: true]
+        version [label: "version", type: "text"]
+      }
+    }
+
+  }
+
+  edges {
+    k8s_pod.unit_uuid -> unit.uuid [type: data]
+    k8s_pod_port.unit_uuid -> k8s_pod.unit_uuid [type: data]
+    k8s_pod_status.unit_uuid -> unit.uuid [type: data]
+    unit.application_uuid -> application.uuid [type: data]
+    unit.charm_uuid -> charm.uuid [type: data]
+    unit_agent_presence.unit_uuid -> unit.uuid [type: data]
+    unit_agent_status.unit_uuid -> unit.uuid [type: data]
+    unit_agent_version.unit_uuid -> unit.uuid [type: data]
+    unit_principal.unit_uuid -> unit.uuid [type: data]
+    unit_principal.principal_uuid -> unit.uuid [type: data]
+    unit_resolved.unit_uuid -> unit.uuid [type: data]
+    unit_state.unit_uuid -> unit.uuid [type: data]
+    unit_state_charm.unit_uuid -> unit.uuid [type: data]
+    unit_state_relation.unit_uuid -> unit.uuid [type: data]
+    unit_workload_status.unit_uuid -> unit.uuid [type: data]
+    unit_workload_version.unit_uuid -> unit.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Unit data model" from "UnitSchema" {
+  select {
+    nodes: unit application charm unit_principal unit_agent_presence unit_agent_status unit_agent_version unit_resolved unit_state unit_state_charm unit_state_relation unit_workload_status unit_workload_version k8s_pod k8s_pod_port k8s_pod_status
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    application left-of unit gap: 70
+    application align-middle unit
+    charm right-of unit gap: 70
+    charm align-middle unit
+    unit_workload_status above unit gap: 60
+    unit_workload_status align-centre unit
+    unit_agent_status left-of unit_workload_status gap: 70
+    unit_agent_status align-middle unit_workload_status
+    unit_agent_version left-of unit_agent_status gap: 70
+    unit_agent_version align-middle unit_agent_status
+    unit_workload_version right-of unit_workload_status gap: 70
+    unit_workload_version align-middle unit_workload_status
+    unit_agent_presence right-of unit_workload_version gap: 70
+    unit_agent_presence align-middle unit_workload_version
+    unit_state below unit gap: 60
+    unit_state align-centre unit
+    unit_resolved left-of unit_state gap: 70
+    unit_resolved align-middle unit_state
+    unit_principal right-of unit_state gap: 70
+    unit_principal align-middle unit_state
+    unit_state_charm below unit_state gap: 60
+    unit_state_charm align-centre unit_state
+    unit_state_relation right-of unit_state_charm gap: 70
+    unit_state_relation align-middle unit_state_charm
+    k8s_pod right-of unit_principal gap: 70
+    k8s_pod align-middle unit_principal
+    k8s_pod_port below k8s_pod gap: 60
+    k8s_pod_port align-centre k8s_pod
+    k8s_pod_status above k8s_pod gap: 60
+    k8s_pod_status align-centre k8s_pod
+    application same-size unit
+    charm same-size unit
+    unit_principal same-size unit
+    unit_agent_presence same-size unit
+    unit_agent_status same-size unit
+    unit_agent_version same-size unit
+    unit_resolved same-size unit
+    unit_state same-size unit
+    unit_state_charm same-size unit
+    unit_state_relation same-size unit
+    unit_workload_status same-size unit
+    unit_workload_version same-size unit
+    k8s_pod same-size unit
+    k8s_pod_port same-size unit
+    k8s_pod_status same-size unit
+  }
+  annotations {
+    box [nodes: "unit application charm unit_principal unit_agent_presence unit_agent_status unit_agent_version unit_resolved unit_state unit_state_charm unit_state_relation unit_workload_status unit_workload_version k8s_pod k8s_pod_port k8s_pod_status", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
