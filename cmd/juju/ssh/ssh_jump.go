@@ -284,6 +284,7 @@ func (p *sshJump) printHostKeys(ctx context.Context, w io.Writer) error {
 	for i, host := range p.controllersAddresses {
 		addresses[i] = knownhosts.Normalize(net.JoinHostPort(host, strconv.Itoa(p.jumpHostPort)))
 	}
+	// Match OpenSSH's trust prompt wording and SHA256 fingerprint format.
 	_, err = fmt.Fprintf(w,
 		"Controller SSH jump server (%s):\n%s key fingerprint is %s.\n\n"+
 			"Target virtual host (%s):\n%s key fingerprint is %s.\n",
@@ -294,6 +295,8 @@ func (p *sshJump) printHostKeys(ctx context.Context, w io.Writer) error {
 }
 
 func hostKeyAlgorithm(key gossh.PublicKey) string {
+	// Match OpenSSH's uppercase algorithm labels. For ECDSA, OpenSSH omits
+	// the hash family and curve included in the wire-format key type.
 	if strings.HasPrefix(key.Type(), "ecdsa-sha2-") {
 		return "ECDSA"
 	}
