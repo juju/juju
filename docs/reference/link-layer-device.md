@@ -8,7 +8,7 @@ myst:
 # Link-layer device
 
 ```{ibnote}
-See also: {ref}`Juju | Manage machines <manage-machines>`
+See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
 A **link-layer device** is a network interface — an Ethernet port, a bridge, a bond, or a loopback — that the {ref}`model database <database>` records for a machine, a unit, or a Kubernetes service, with the IP addresses on it. The devices, addresses, and DNS names of one entity hang from its **network node**. The {ref}`machine agent <machine-agent>` reports what it observes on its machine; a worker on the {ref}`controller <controller>` merges what the cloud reports.
@@ -29,11 +29,10 @@ The link-layer device data model is the set of records that the {ref}`model data
   - *Rules:*
     - A machine names one network node, so a network node belongs to at most one machine.
     - A Kubernetes service names one network node, so a network node belongs to at most one Kubernetes service.
-- **Link-layer device:** One network interface of a network node: its name, its MTU, its MAC address, its type, its virtual port type, whether it starts on boot, whether it is up, whether traffic is routed out of it by default, the address of its default gateway, and its VLAN tag.
+- **Link-layer device:** One network interface of a network node: its name, its MTU (the largest packet it passes), its MAC address, its type, its virtual port type, whether it starts on boot, whether it is up, whether traffic is routed out of it by default, the address of its default gateway, and its VLAN tag (the identifier of the virtual LAN it carries; 0 for a normal network, 1 to 4094 for a VLAN).
   - *Rules:*
     - A network node has each device name once.
     - The MAC address can be empty: a placeholder device has none.
-    - The VLAN tag is 0 for a normal network, and 1 to 4094 for a VLAN.
 - **Device type:** The kind of interface. The types are `unknown`, `loopback`, `ethernet`, `802.1q`, `bond`, `bridge`, `vxlan`, and `veth`.
 - **Virtual port type:** The virtual switch port implementation of the device. The types are the empty string, for none, and `openvswitch`.
 - **Parent:** The parent of a device, named as another device.
@@ -45,10 +44,10 @@ The link-layer device data model is the set of records that the {ref}`model data
 - **DNS server:** One DNS server of a device.
   - *Rules:*
     - A device lists each DNS server once.
-- **Route:** One route of a device: its destination CIDR, its gateway IP, and its metric. No operation stores a route in 4.1.
+- **Route:** One route of a device: its destination CIDR (the block of addresses the route covers), its gateway IP, and its metric. No operation stores a route in 4.1.
   - *Rules:*
     - A device has each destination once.
-- **IP address:** One address of a device: the address with its subnet mask, its type, the way it is configured, its origin, its scope, and whether it is a secondary or a shadow address.
+- **IP address:** One address of a device: the address with its subnet mask, its type, the way it is configured, its origin, its scope, and whether it is a secondary address (not the primary address of its device) or a shadow address (one the cloud assigned rather than observed on a device).
   - *Rules:*
     - An address belongs to one device and to one network node.
     - The type is `ipv4` or `ipv6`.
@@ -85,12 +84,12 @@ A network node is a row in the table `net_node`. A device is a row in `link_laye
 (link-layer-device-change-streams)=
 ## Link-layer device change streams
 
-Link-layer device change streams are the notifications that tell the {ref}`unit agents <unit-agent>` of a model that the addresses of their unit changed. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). A unit agent calls `WatchUnitAddressesHash` to hear that the addresses of its unit have a new hash. The hash covers the addresses on the network node of the unit, or, on Kubernetes, on the network node of its application's cloud service, together with the endpoint bindings of the application. When the hash changes, the agent runs the {ref}`config-changed <hook-config-changed>` hook.
+Link-layer device change streams are the notifications that tell the {ref}`unit agents <unit-agent>` of a model that the addresses of their unit or the endpoint bindings of its application changed. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). A unit agent calls `WatchUnitAddressesHash` to hear that the addresses of its unit have a new hash. The hash covers the addresses on the network node of the unit, or, on Kubernetes, on the network node of its application's cloud service, together with the endpoint bindings of the application (the space each of its endpoints is bound to). When the hash changes, the agent runs the {ref}`config-changed <hook-config-changed>` hook.
 
 (link-layer-device-operations)=
 ## Link-layer device operations
 
-Link-layer device operations are the actions on the network records of a machine, a unit, or a Kubernetes service: listing devices and addresses, reading the addresses of a unit, setting the network configuration of a machine, provisioning container networking, and updating addresses from the cloud. A {ref}`client <client>` lists and reads through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A **{ref}`machine agent <machine-agent>`** is the process that runs on a machine. It logs in as its machine and acts only for that machine. A **{ref}`unit agent <unit-agent>`** is the process that runs a unit's charm. It logs in as its unit and acts only for that unit. No model access level applies to an agent. No block applies to these operations.
+Link-layer device operations are the actions on the network records of a machine, a unit, or a Kubernetes service: listing devices and addresses, reading the addresses of a unit, setting the network configuration of a machine, provisioning container networking, and updating addresses from the cloud. A {ref}`client <client>` lists devices and addresses through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A **{ref}`machine agent <machine-agent>`** is the process that runs on a machine. It logs in as its machine and acts only for that machine. A **{ref}`unit agent <unit-agent>`** is the process that runs a unit's charm. It logs in as its unit and acts only for that unit. No model access level applies to an agent. No block applies to these operations.
 
 (link-layer-device-listing)=
 ### Listing network devices and addresses
@@ -108,6 +107,7 @@ The operation's required access, rules, and errors are:
   - The full status lists, for each machine, each device by name, with its MAC address, its gateway, its DNS servers, its spaces, whether it is up, and the addresses on it.
   - Addresses configured as loopback are left out. A device whose addresses are all loopback is left out as well.
   - A machine whose instance is not yet recorded lists no devices.
+  - The full status also lists each machine's own addresses with their scopes. Its DNS name is the first of them.
   - The SSH addresses of a machine are the addresses on its devices. A unit names the machine it runs on, whose addresses are then used.
   - The public address is the address whose scope ranks first: `public` ranks first, then `local-cloud`, then `unknown`. `local-machine` and `link-local` never rank. Within one rank, IPv4 ranks before IPv6.
   - The private address ranks `local-cloud` first, then `public` and `unknown`. Within one rank, IPv4 ranks before IPv6.
@@ -169,7 +169,7 @@ The operation's required access, rules, and errors are:
   - The request names containers. The answer has one result for each.
   - The devices of the host machine are grouped by the {ref}`space <space>` of their addresses. The positive space constraints of a container and the spaces that its application is bound to pick the devices to bridge.
   - A space whose host devices already include a bridge, or an Open vSwitch port, needs no new bridge.
-  - A device can be bridged when it is not a loopback and it has no parent. A VLAN device whose parent is an Ethernet device or a bond can also be bridged.
+  - A device can be bridged when it is not a loopback and it has no parent.
   - With local container networking, no host device is bridged: the default LXD bridge carries the container, every device is configured for DHCP, and at most one device is created with the default bridge as its parent.
   - When the cloud handles container networking and can allocate addresses, the cloud allocates a static address for each device of the container.
 - *Errors:* The client receives each in the result for the container:
@@ -197,4 +197,4 @@ The operation's required access and rules are:
 
 ## Link-layer devices and model migration
 
-A {ref}`migration <model-migrating>` moves the network nodes of a model with their devices, addresses, DNS settings, provider marks, and FQDNs. A cloud service that the model keeps for an application becomes a network node with a placeholder device, so its addresses hang from that node. An address that arrives without a subnet mask keeps the mask of its type: /32 for IPv4, /128 for IPv6.
+A {ref}`migration <model-migrating>` moves the network nodes of a model with their devices, addresses, DNS settings, provider marks, FQDNs, and hostnames. A cloud service that the model keeps for an application becomes a network node with a placeholder device, so its addresses hang from that node. An address that arrives without a subnet mask keeps the mask of its subnet when the model has one, and otherwise the mask of its type: /32 for IPv4, /128 for IPv6.
