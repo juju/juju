@@ -368,6 +368,11 @@ func (r *charmHubRefresher) Allowed(ctx context.Context, cfg RefresherConfig) (b
 func (r *charmHubRefresher) Refresh(ctx context.Context) (*CharmID, error) {
 	newURL, origin, err := r.ResolveCharm(ctx)
 	if errors.Is(err, ErrAlreadyUpToDate) {
+		// This path skips AddCharm, which normally fills in the Charmhub ID.
+		// Reuse the deployed charm's ID if resolution only supplied its hash.
+		if origin.ID == "" && origin.Hash != "" {
+			origin.ID = r.charmOrigin.ID
+		}
 		// The charm itself is up-to-date but we may need the
 		// URL and origin for updating resources.
 		return &CharmID{
