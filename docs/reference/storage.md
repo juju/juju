@@ -25,13 +25,13 @@ A **storage** is a named store that a {ref}`charm <charm>` declares (such as a d
 
 The storage data model is the set of records that the {ref}`model database <database>` keeps about charm storage. The records, with the rules that apply to each, are grouped by who owns a row and when it dies:
 
+(storage-directive)=
 ### Storage directives
 
 A directive tells Juju what to create for one storage name of a charm. The records are:
 
 - **Application storage directive:** What an application's charm asks for, for one storage name: the pool, the count, and the size. The rows of an application are replaced when its charm changes.
 
-  (storage-directive)=
   A client writes a directive as `<name>[=<pool>, <count>, <size>]`, where `<name>` is a storage name of the charm, `<pool>` a pool name, `<count>` a number of stores, and `<size>` a size such as `3G` or `100M`. The order of the three parts does not matter; each is told apart by its shape. A directive of `<name>` alone asks for one store. A part that a client leaves out is filled in when Juju records the directive: the pool from the model's default pool for the storage's kind, the count from the charm's minimum, and the size from the charm's minimum, or 1 GiB when the charm sets none.
   - *Rules:*
     - An application has each storage name once for each of its charms.
@@ -42,9 +42,8 @@ A directive tells Juju what to create for one storage name of a charm. The recor
     - The unit, the pool, and the charm's storage all exist.
 - **Application, unit, and charm storage:** The records at the far ends of a directive. Other pages own them: see {ref}`application <application>`, {ref}`unit <unit>`, and {ref}`charm <charm>`.
 
-### Storage pools
-
 (storage-pool)=
+### Storage pools
 A pool is a named source of storage in the model. The records, with the rules that apply to each, are:
 
 - **Storage pool:** A named source of storage that an administrator defines or that a provider offers: its name, its type, and where it came from. The type names a {ref}`storage provider <storage-provider>`.

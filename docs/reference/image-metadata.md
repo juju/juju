@@ -5,13 +5,13 @@ myst:
 ---
 
 (image-metadata)=
+(metadata)=
 # Image metadata
 
 ```{ibnote}
 See also: {ref}`Juju | Manage metadata <manage-metadata>`
 ```
 
-(metadata)=
 **Image metadata** is the catalogue of the images (the compute instances a {ref}`cloud <cloud>` offers, such as one Ubuntu image per release) that Juju picks a {ref}`machine <machine>`'s image ID from when it starts the machine. Each entry names one image for one combination of a cloud, a region, an operating system version, an architecture, and the way the machine is stored and virtualised. The {ref}`controller database <database>` caches the entries it is given or has used. A client with superuser access manages the cache. The metadata of the {ref}`agent binaries <agent-version>` is a separate catalogue, described on its own page.
 
 (image-metadata-data-model)=

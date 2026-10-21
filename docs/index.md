@@ -184,7 +184,7 @@ Juju provisions and manages the cloud resources -- machines, networking, storage
 
    .. slice:: Metadata
 
-      :doc:`Simplestreams metadata <reference/metadata>`
+      :doc:`Image metadata <reference/image-metadata>`
       :doc:`Manage metadata <howto/manage-metadata>`
 
    .. slice:: Compute
