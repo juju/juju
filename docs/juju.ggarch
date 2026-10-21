@@ -4627,3 +4627,65 @@ diagram "Unit data model" from "UnitSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+model "ExternalControllerSchema" {
+
+  nodes {
+    external_controller [type: record, label: "External controller",
+                 ground: "controller:external_controller"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        alias [label: "alias", type: "text", null: true]
+        ca_cert [label: "ca_cert", type: "text"]
+      }
+    }
+
+    external_controller_address [type: record, label: "External controller\naddress",
+                 ground: "controller:external_controller_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_uuid [label: "controller_uuid", type: "text", fk: true]
+        address [label: "address", type: "text"]
+      }
+    }
+
+    external_model [type: record, label: "External model",
+                 ground: "controller:external_model"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_uuid [label: "controller_uuid", type: "text", fk: true]
+      }
+    }
+
+  }
+
+  edges {
+    external_controller_address.controller_uuid -> external_controller.uuid [type: data]
+    external_model.controller_uuid -> external_controller.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "External controller data model" from "ExternalControllerSchema" {
+  select {
+    nodes: external_controller external_controller_address external_model
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    external_controller_address right-of external_controller gap: 70
+    external_controller_address align-middle external_controller
+    external_model right-of external_controller_address gap: 70
+    external_model align-middle external_controller_address
+    external_controller_address same-size external_controller
+    external_model same-size external_controller
+  }
+  annotations {
+    box [nodes: "external_controller external_controller_address external_model", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
