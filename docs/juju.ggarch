@@ -5679,4 +5679,366 @@ diagram "Link-layer device data model" from "LinkLayerDeviceSchema" {
     box [nodes: "machine unit k8s_service net_node fqdn_link fqdn hostname_link hostname link_layer_device parent dns_search_domain dns_server route ip_address provider_device_mark provider_address_mark subnet", label: "Model database",
          style: "solid", color: "#E95420", padding: 24]
   }
+}// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL, then
+// trimmed to the records the page draws: the key-only records (the
+// statuses and their value lookups, the plan attributes, and the machine
+// volume and machine filesystem links) are left out and described in the
+// page text. The application, the unit, the charm storage, the network
+// node, and the block device are other pages' records, drawn for context.
+// Foreign-key flags stay only on the pointers the figure draws.
+model "StorageSchema" {
+
+  nodes {
+    application [type: context-record, label: "Application",
+                 ground: "model:application"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        charm_uuid [label: "charm_uuid", type: "text"]
+      }
+    }
+
+    application_storage_directive [type: record, label: "Application\ndirective",
+                 ground: "model:application_storage_directive"] {
+      fields {
+        application_uuid [label: "application_uuid", type: "text", fk: true]
+        charm_uuid [label: "charm_uuid", type: "text", fk: true]
+        storage_name [label: "storage_name", type: "text"]
+        storage_pool_uuid [label: "storage_pool_uuid", type: "text", fk: true]
+        size_mib [label: "size_mib", type: "int"]
+        count [label: "count", type: "int"]
+      }
+    }
+
+    block_device [type: context-record, label: "Block\ndevice",
+                 ground: "model:block_device"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        machine_uuid [label: "machine_uuid", type: "text"]
+        name [label: "name", type: "text", null: true]
+        hardware_id [label: "hardware_id", type: "text", null: true]
+        wwn [label: "wwn", type: "text", null: true]
+        serial_id [label: "serial_id", type: "text", null: true]
+        bus_address [label: "bus_address", type: "text", null: true]
+        size_mib [label: "size_mib", type: "int", null: true]
+        mount_point [label: "mount_point", type: "text", null: true]
+        in_use [label: "in_use", type: "bool", null: true]
+        filesystem_label [label: "filesystem_label", type: "text", null: true]
+        host_filesystem_uuid [label: "host_filesystem_uuid", type: "text", null: true]
+        filesystem_type [label: "filesystem_type", type: "text", null: true]
+        provenance_id [label: "provenance_id", type: "int"]
+      }
+    }
+
+    charm_storage [type: context-record, label: "Charm\nstorage",
+                 ground: "model:charm_storage"] {
+      fields {
+        charm_uuid [label: "charm_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        description [label: "description", type: "text", null: true]
+        storage_kind_id [label: "storage_kind_id", type: "int"]
+        shared [label: "shared", type: "bool"]
+        read_only [label: "read_only", type: "bool", null: true]
+        count_min [label: "count_min", type: "int"]
+        count_max [label: "count_max", type: "int"]
+        minimum_size_mib [label: "minimum_size_mib", type: "int", null: true]
+        location [label: "location", type: "text", null: true]
+      }
+    }
+
+    model_storage_pool [type: record, label: "Model\ndefault pool",
+                 ground: "model:model_storage_pool"] {
+      fields {
+        storage_kind_id [label: "storage_kind_id", type: "int", fk: true]
+        storage_pool_uuid [label: "storage_pool_uuid", type: "text", fk: true]
+      }
+    }
+
+    net_node [type: context-record, label: "Network\nnode",
+                 ground: "model:net_node"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    storage_attachment [type: record, label: "Storage\nattachment",
+                 ground: "model:storage_attachment"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        storage_instance_uuid [label: "storage_instance_uuid", type: "text", fk: true]
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        life_id [label: "life_id", type: "int"]
+      }
+    }
+
+    storage_filesystem [type: record, label: "Filesystem",
+                 ground: "model:storage_filesystem"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        filesystem_id [label: "filesystem_id", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        provision_scope_id [label: "provision_scope_id", type: "int"]
+        provider_id [label: "provider_id", type: "text", null: true]
+        size_mib [label: "size_mib", type: "int", null: true]
+        obliterate_on_cleanup [label: "obliterate_on_cleanup", type: "bool", null: true]
+      }
+    }
+
+    storage_filesystem_attachment [type: record, label: "Filesystem\nattachment",
+                 ground: "model:storage_filesystem_attachment"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        storage_filesystem_uuid [label: "storage_filesystem_uuid", type: "text", fk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        provision_scope_id [label: "provision_scope_id", type: "int"]
+        provider_id [label: "provider_id", type: "text", null: true]
+        life_id [label: "life_id", type: "int"]
+        mount_point [label: "mount_point", type: "text", null: true]
+        read_only [label: "read_only", type: "bool", null: true]
+      }
+    }
+
+    storage_instance [type: record, label: "Storage\ninstance",
+                 ground: "model:storage_instance"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        charm_name [label: "charm_name", type: "text", null: true]
+        storage_name [label: "storage_name", type: "text"]
+        storage_kind_id [label: "storage_kind_id", type: "int", fk: true]
+        storage_id [label: "storage_id", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        storage_pool_uuid [label: "storage_pool_uuid", type: "text", fk: true]
+        requested_size_mib [label: "requested_size_mib", type: "int"]
+      }
+    }
+
+    storage_instance_filesystem [type: record, label: "Instance\nfilesystem",
+                 ground: "model:storage_instance_filesystem"] {
+      fields {
+        storage_instance_uuid [label: "storage_instance_uuid", type: "text", pk: true, fk: true]
+        storage_filesystem_uuid [label: "storage_filesystem_uuid", type: "text", fk: true]
+      }
+    }
+
+    storage_instance_volume [type: record, label: "Instance\nvolume",
+                 ground: "model:storage_instance_volume"] {
+      fields {
+        storage_instance_uuid [label: "storage_instance_uuid", type: "text", pk: true, fk: true]
+        storage_volume_uuid [label: "storage_volume_uuid", type: "text", fk: true]
+      }
+    }
+
+    storage_kind [type: record, label: "Kind",
+                 ground: "model:storage_kind"] {
+      fields {
+        id [label: "id", type: "int", pk: true]
+        kind [label: "kind", type: "text"]
+      }
+    }
+
+    storage_pool [type: record, label: "Storage\npool",
+                 ground: "model:storage_pool"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        type [label: "type", type: "text"]
+        origin_id [label: "origin_id", type: "int"]
+      }
+    }
+
+    storage_pool_attribute [type: record, label: "Pool\nattribute",
+                 ground: "model:storage_pool_attribute"] {
+      fields {
+        key [label: "key", type: "text", pk: true]
+        storage_pool_uuid [label: "storage_pool_uuid", type: "text", fk: true]
+        value [label: "value", type: "text"]
+      }
+    }
+
+    storage_unit_owner [type: record, label: "Unit\nowner",
+                 ground: "model:storage_unit_owner"] {
+      fields {
+        storage_instance_uuid [label: "storage_instance_uuid", type: "text", pk: true, fk: true]
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+      }
+    }
+
+    storage_volume [type: record, label: "Volume",
+                 ground: "model:storage_volume"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        volume_id [label: "volume_id", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        provision_scope_id [label: "provision_scope_id", type: "int"]
+        provider_id [label: "provider_id", type: "text", null: true]
+        size_mib [label: "size_mib", type: "int", null: true]
+        hardware_id [label: "hardware_id", type: "text", null: true]
+        wwn [label: "wwn", type: "text", null: true]
+        persistent [label: "persistent", type: "bool", null: true]
+        obliterate_on_cleanup [label: "obliterate_on_cleanup", type: "bool", null: true]
+      }
+    }
+
+    storage_volume_attachment [type: record, label: "Volume\nattachment",
+                 ground: "model:storage_volume_attachment"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        storage_volume_uuid [label: "storage_volume_uuid", type: "text", fk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        life_id [label: "life_id", type: "int"]
+        provision_scope_id [label: "provision_scope_id", type: "int"]
+        provider_id [label: "provider_id", type: "text", null: true]
+        block_device_uuid [label: "block_device_uuid", type: "text", fk: true, null: true]
+        read_only [label: "read_only", type: "bool", null: true]
+      }
+    }
+
+    storage_volume_attachment_plan [type: record, label: "Attachment\nplan",
+                 ground: "model:storage_volume_attachment_plan"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        storage_volume_uuid [label: "storage_volume_uuid", type: "text", fk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        life_id [label: "life_id", type: "int"]
+        provision_scope_id [label: "provision_scope_id", type: "int"]
+        device_type_id [label: "device_type_id", type: "int", null: true]
+      }
+    }
+
+    unit [type: context-record, label: "Unit",
+                 ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        name [label: "name", type: "text"]
+        life_id [label: "life_id", type: "int"]
+        application_uuid [label: "application_uuid", type: "text"]
+        net_node_uuid [label: "net_node_uuid", type: "text"]
+        charm_uuid [label: "charm_uuid", type: "text"]
+      }
+    }
+
+    unit_storage_directive [type: record, label: "Unit\ndirective",
+                 ground: "model:unit_storage_directive"] {
+      fields {
+        unit_uuid [label: "unit_uuid", type: "text", fk: true]
+        charm_uuid [label: "charm_uuid", type: "text", fk: true]
+        storage_name [label: "storage_name", type: "text"]
+        storage_pool_uuid [label: "storage_pool_uuid", type: "text", fk: true]
+        size_mib [label: "size_mib", type: "int"]
+        count [label: "count", type: "int"]
+      }
+    }
+
+  }
+
+  edges {
+    application_storage_directive.application_uuid -> application.uuid [type: data]
+    application_storage_directive.storage_pool_uuid -> storage_pool.uuid [type: data]
+    application_storage_directive.charm_uuid -> charm_storage.charm_uuid [type: data]
+    unit_storage_directive.unit_uuid -> unit.uuid [type: data]
+    unit_storage_directive.storage_pool_uuid -> storage_pool.uuid [type: data]
+    unit_storage_directive.charm_uuid -> charm_storage.charm_uuid [type: data]
+    storage_pool_attribute.storage_pool_uuid -> storage_pool.uuid [type: data]
+    model_storage_pool.storage_pool_uuid -> storage_pool.uuid [type: data]
+    model_storage_pool.storage_kind_id -> storage_kind.id [type: data]
+    storage_instance.storage_pool_uuid -> storage_pool.uuid [type: data]
+    storage_instance.storage_kind_id -> storage_kind.id [type: data]
+    storage_unit_owner.storage_instance_uuid -> storage_instance.uuid [type: data]
+    storage_unit_owner.unit_uuid -> unit.uuid [type: data]
+    storage_attachment.storage_instance_uuid -> storage_instance.uuid [type: data]
+    storage_attachment.unit_uuid -> unit.uuid [type: data]
+    storage_instance_volume.storage_instance_uuid -> storage_instance.uuid [type: data]
+    storage_instance_volume.storage_volume_uuid -> storage_volume.uuid [type: data]
+    storage_instance_filesystem.storage_instance_uuid -> storage_instance.uuid [type: data]
+    storage_instance_filesystem.storage_filesystem_uuid -> storage_filesystem.uuid [type: data]
+    storage_volume_attachment.storage_volume_uuid -> storage_volume.uuid [type: data]
+    storage_volume_attachment.net_node_uuid -> net_node.uuid [type: data]
+    storage_volume_attachment.block_device_uuid -> block_device.uuid [type: data]
+    storage_filesystem_attachment.storage_filesystem_uuid -> storage_filesystem.uuid [type: data]
+    storage_filesystem_attachment.net_node_uuid -> net_node.uuid [type: data]
+    storage_volume_attachment_plan.storage_volume_uuid -> storage_volume.uuid [type: data]
+    storage_volume_attachment_plan.net_node_uuid -> net_node.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}// The view of the connected core: the five groups of the page read
+// left-to-right, the directives and pools, the instances, the mirrored
+// volume and filesystem chains, and the attachments to machines.
+diagram "Storage data model" from "StorageSchema" {
+  select {
+    nodes: application application_storage_directive block_device charm_storage model_storage_pool net_node storage_attachment storage_filesystem storage_filesystem_attachment storage_instance storage_instance_filesystem storage_instance_volume storage_kind storage_pool storage_pool_attribute storage_unit_owner storage_volume storage_volume_attachment storage_volume_attachment_plan unit unit_storage_directive
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    application_storage_directive right-of application gap: 70
+    application_storage_directive align-middle application
+    unit below application gap: 70
+    unit align-centre application
+    unit_storage_directive right-of unit gap: 70
+    unit_storage_directive align-middle unit
+    charm_storage below unit gap: 70
+    charm_storage align-centre unit
+    storage_pool right-of unit_storage_directive gap: 70
+    storage_pool align-middle unit_storage_directive
+    storage_pool_attribute above storage_pool gap: 70
+    storage_pool_attribute align-centre storage_pool
+    model_storage_pool below storage_pool gap: 70
+    model_storage_pool align-centre storage_pool
+    storage_kind below model_storage_pool gap: 70
+    storage_kind align-centre model_storage_pool
+    storage_instance right-of storage_pool gap: 90
+    storage_instance align-middle storage_pool
+    storage_unit_owner above storage_instance gap: 70
+    storage_unit_owner align-centre storage_instance
+    storage_attachment below storage_instance gap: 70
+    storage_attachment align-centre storage_instance
+    storage_instance_volume right-of storage_unit_owner gap: 70
+    storage_instance_volume align-middle storage_unit_owner
+    storage_volume right-of storage_instance_volume gap: 70
+    storage_volume align-middle storage_instance_volume
+    storage_volume_attachment right-of storage_volume gap: 70
+    storage_volume_attachment align-middle storage_volume
+    storage_instance_filesystem right-of storage_attachment gap: 70
+    storage_instance_filesystem align-middle storage_attachment
+    storage_filesystem right-of storage_instance_filesystem gap: 70
+    storage_filesystem align-middle storage_instance_filesystem
+    storage_filesystem_attachment right-of storage_filesystem gap: 70
+    storage_filesystem_attachment align-middle storage_filesystem
+    storage_volume_attachment_plan below storage_volume_attachment gap: 70
+    storage_volume_attachment_plan align-centre storage_volume_attachment
+    net_node right-of storage_volume_attachment_plan gap: 70
+    net_node align-middle storage_volume_attachment_plan
+    block_device above storage_volume_attachment gap: 70
+    block_device align-centre storage_volume_attachment
+    application same-size storage_instance
+    application_storage_directive same-size storage_instance
+    block_device same-size storage_instance
+    charm_storage same-size storage_instance
+    model_storage_pool same-size storage_instance
+    net_node same-size storage_instance
+    storage_attachment same-size storage_instance
+    storage_filesystem same-size storage_instance
+    storage_filesystem_attachment same-size storage_instance
+    storage_instance_filesystem same-size storage_instance
+    storage_instance_volume same-size storage_instance
+    storage_kind same-size storage_instance
+    storage_pool same-size storage_instance
+    storage_pool_attribute same-size storage_instance
+    storage_unit_owner same-size storage_instance
+    storage_volume same-size storage_instance
+    storage_volume_attachment same-size storage_instance
+    storage_volume_attachment_plan same-size storage_instance
+    unit same-size storage_instance
+    unit_storage_directive same-size storage_instance
+  }
+  annotations {
+    box [nodes: "application application_storage_directive block_device charm_storage model_storage_pool net_node storage_attachment storage_filesystem storage_filesystem_attachment storage_instance storage_instance_filesystem storage_instance_volume storage_kind storage_pool storage_pool_attribute storage_unit_owner storage_volume storage_volume_attachment storage_volume_attachment_plan unit unit_storage_directive", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
 }
