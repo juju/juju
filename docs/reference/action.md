@@ -189,7 +189,7 @@ The operation's required access, rules, and errors are:
 - *Rules:*
   - The call sets the status of a task as follows:
     - A `pending` task becomes `cancelled`, so it never runs.
-    - A `running` task becomes `aborting`. When the unit agent sees that status, it stops the running action.
+    - A `running` task becomes `aborting`. When the unit agent sees that status, it stops the running action by killing its process. The action code is not told of the cancel, so it cannot run cleanup before the process ends.
     - A task with a final status keeps its status. The code leaves a task that is already `aborting` unchanged too.
   - The call takes a list of tasks. Each task in the list gets its own result.
 - *Errors:* The client receives each in the result for the task, except where stated:
@@ -252,7 +252,7 @@ The operation's required access, rules, and errors are:
   - The machine agent calls `RunningActions` to list the numbers of the running tasks of its machine.
   - The agent sets the status of a task as follows:
     - Starting a task sets its start time and its status to `running`. A task can start only while it is `pending`.
-    - Finishing a task stores the status, the message, and the results. The status must be `completed`, `failed`, `cancelled`, `aborted`, or `error`. The results are stored as a file in the object store when there are any. The operation gets its completion time when none of its tasks is active.
+    - Finishing a task stores the status, the message, and the results. The status must be `completed`, `failed`, `cancelled`, `aborted`, or `error`. The results are stored as a file in the object store when there are any. An aborted task keeps the results that its action code stored before the agent killed its process. The operation gets its completion time when none of its tasks is active.
     - The unit agent reports `completed`. It reports `failed` when the action code called `action-fail` or ended with an error. It reports `aborted` instead of `failed` when the task was `aborting`. If the changes that the action requested cannot be committed, it reports `failed` and appends the error to `stderr`.
   - A task that is not parallel, or that has an execution group, waits for the machine lock of its target. Tasks of one execution group share one lock, so they run one at a time.
   - Logging a message appends it to the log of the task.
