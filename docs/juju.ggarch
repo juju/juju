@@ -5035,3 +5035,60 @@ diagram "Lease data model" from "LeaseSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+model "ImageMetadataSchema" {
+
+  nodes {
+    architecture [type: context-record, label: "Architecture",
+                 ground: "controller:architecture"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+      }
+    }
+
+    cloud_image_metadata [type: record, label: "Image",
+                 ground: "controller:cloud_image_metadata"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        created_at [label: "created_at", type: "datetime"]
+        source [label: "source", type: "text"]
+        stream [label: "stream", type: "text"]
+        region [label: "region", type: "text"]
+        version [label: "version", type: "text"]
+        architecture_id [label: "architecture_id", type: "int", fk: true]
+        virt_type [label: "virt_type", type: "text"]
+        root_storage_type [label: "root_storage_type", type: "text"]
+        root_storage_size [label: "root_storage_size", type: "int", null: true]
+        priority [label: "priority", type: "int", null: true]
+        image_id [label: "image_id", type: "text"]
+      }
+    }
+
+  }
+
+  edges {
+    cloud_image_metadata.architecture_id -> architecture.id [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Image metadata data model" from "ImageMetadataSchema" {
+  select {
+    nodes: cloud_image_metadata architecture
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    architecture right-of cloud_image_metadata gap: 70
+    architecture align-middle cloud_image_metadata
+    architecture same-size cloud_image_metadata
+  }
+  annotations {
+    box [nodes: "cloud_image_metadata architecture", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
