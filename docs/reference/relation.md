@@ -24,7 +24,7 @@ A **relation** is a connection between two {ref}`applications <application>` of 
 ```
 
 (relation-kinds)=
-The relation database schema is the set of records that the {ref}`model database <database>` keeps about the relations of a model. The endpoints of a relation decide its kind: regular, peer, subordinate, or cross-model. The records, with the rules that apply to each, are:
+The relation database schema is the set of records that the {ref}`model database <database>` keeps about the relations of a model. The records, with the rules that apply to each, are:
 
 - **Relation:** The relation's ID, its life (alive, dying, or dead; Juju deletes a dying relation and never marks it dead), its scope (`global` or `container`), and whether it is suspended and why.
 
@@ -226,7 +226,7 @@ See also: {ref}`Ops | Manage relations <ops:manage-relations>`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Sharing relation settings
-:caption: A change of settings reaches another unit in six steps. When the hook of unit A ends successfully, its unit agent commits the relation settings that the hook set. The controller stores them and a hash of them in one transaction in the model database, holding the application's lease when application settings change. A watcher that the controller keeps for the unit agent of unit B reports that the settings of unit A have a new version. The unit agent of unit B asks the controller for the settings of unit A and runs the relation-changed hook. A commit from a unit that is not unit A fails with permission denied. A commit of application settings from a unit that is not the leader fails because the lease is not held. Nothing is stored when the commit fails.
+:caption: A change of settings reaches another unit in six steps. When the hook of unit A ends successfully, its unit agent commits the relation settings that the hook set. The controller stores them and a hash of them in one transaction in the model database, holding the application's lease when application settings change. A watcher that the controller keeps for the unit agent of unit B reports that the settings of unit A have a new version. The unit agent of unit B asks the controller for the settings of unit A and runs the {ref}`relation-changed <hook-relation-changed>` hook. A commit from a unit that is not unit A fails with permission denied. A commit of application settings from a unit that is not the leader fails because the lease is not held. Nothing is stored when the commit fails.
 :alt: A sequence diagram with four participants: the unit agent of unit A, the controller, the model database, and the unit agent of unit B. The unit agent of unit A commits its relation settings to the controller when its hook ends. The controller stores the settings and their hash in the model database. The controller tells the unit agent of unit B that the settings of unit A have a new version. The unit agent of unit B asks the controller for the settings of unit A, receives them, and runs the relation-changed hook.
 ```
 

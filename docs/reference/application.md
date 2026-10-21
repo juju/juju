@@ -42,12 +42,12 @@ The records of the application itself, with the rules that apply to each, are:
     - The operating system is `ubuntu`.
     - The architecture is one of `amd64`, `arm64`, `ppc64el`, `s390x`, and `riscv64`.
 
-- **Channel:** The {ref}`charm channel <charm-channel>` that the application follows: a risk, with an optional track and branch. A local charm has none.
+- **Channel:** The {ref}`charm channel <charm-channel>` that the application follows: a risk, with an optional track and branch.
   - *Rules:*
     - An application has at most one.
     - A channel has a risk.
 
-- **Status:** The status of the application, with a message, data, and the time of the last change. While the value is `unset`, the status that a client sees is derived from the statuses of the units (see {ref}`application status <application-status>`).
+- **Status:** The status of the application, with a message, data, and the time of the last change.
   - *Rules:*
     - An application has at most one.
     - The value is one of `unset`, `unknown`, `maintenance`, `waiting`, `blocked`, `active`, `terminated`, and `error`.
@@ -62,7 +62,7 @@ The records of the application itself, with the rules that apply to each, are:
     - The model has at most one.
     - The database refuses to update a controller mark. A mark can be inserted and deleted.
 
-- **Agent:** The hash of the password with which the application's agent logs in. The Kubernetes provisioner sets the password (see {ref}`application change streams <application-change-streams>`). The agent of the application's pods logs in with it as the application.
+- **Agent:** The hash of the password with which the application's agent logs in.
   - *Rules:*
     - An application has at most one.
     - The hash algorithm is `sha512`.
@@ -84,7 +84,7 @@ The records of the configuration and the constraints, with the rules that apply 
     - An application has each key once.
     - The type is one of `string`, `int`, `float`, `boolean`, and `secret`.
 
-- **Config hash:** The SHA-256 hash of the application's config items, sorted by key, and of its trust setting. A unit agent compares it with the hash it last saw to learn that the configuration has changed.
+- **Config hash:** The SHA-256 hash of the application's config items, sorted by key, and of its trust setting.
   - *Rules:*
     - An application has at most one.
     - A hash is required.
@@ -158,13 +158,13 @@ An application is exposed when it has at least one exposed space or exposed CIDR
 The records of the scale and the provisioning, with the rules that apply to each, are:
 
 
-- **Scale:** The number of units that the application should have (the scale), the target of a scaling that is in progress, whether a scaling is in progress, and the lowest unit number that the application's StatefulSet uses (the start ordinal, which is 0 at first and moves up when a unit with a lower number is removed). An application on a machine cloud has no scale record.
+- **Scale:** The number of units that the application should have (the scale), the target of a scaling that is in progress, whether a scaling is in progress, and the lowest unit number that the application's StatefulSet uses (the start ordinal, which is 0 at first and moves up when a unit with a lower number is removed).
   - *Rules:*
     - An application has at most one.
     - A scaling is not in progress at first.
     - A start ordinal is required.
 
-- **Provisioner mark:** A record that exists while the Kubernetes provisioner manages the Kubernetes resources of the application. Removing the application waits until the mark is gone.
+- **Provisioner mark:** A record that exists while the Kubernetes provisioner manages the Kubernetes resources of the application.
   - *Rules:*
     - An application has at most one.
 
@@ -211,7 +211,7 @@ The caller, the rules, and the errors are:
 - *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request that names a charm has the channel `stable` and one unit unless it says otherwise. The controller takes the architecture from the constraints, else from the model, and takes the base from the request, else from the machines of the placement directives, else from the model's `default-base` setting. It resolves the charm for that platform. A base that the charm does not support is refused unless the request is forced.
-  - A request that gives a charm needs the charm's URL to include its revision, and needs a pending resource for each resource of the charm.
+  - A request that gives a charm needs the charm's URL to include its revision, and needs a pending resource for each resource of the charm. A local charm has no channel.
   - A request with no application name uses the name of the charm.
   - An application name starts with a lowercase letter and holds lowercase letters, digits, and hyphens. A hyphen is followed by at least one letter somewhere before the next hyphen, so `a-1` is not valid and `a-b1` is.
   - The name of an application appears once in the model.

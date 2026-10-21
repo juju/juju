@@ -29,7 +29,7 @@ The unit database schema is the set of records that the {ref}`model database <da
   - *Rules:*
     - A unit name appears once in the model.
     - A password hash appears once among the units. A unit with no password has no hash.
-    - A unit's life never moves backward. A `dying` unit never becomes `alive`. A `dead` unit never becomes `dying`.
+    - A unit's life never moves backward.
     - A unit has an application, a charm, and a network node.
 (leader-unit)=
 - **Leader:** The unit that holds the lease of its application, which makes it the **leader unit** (the leader) of the application. The lease is a record in the {ref}`controller database <database>`, named by the application. The leader is the one unit that may change what is shared by all units of the application: the application's status, its secrets, and its settings in a relation. An application has at most one leader. A unit agent claims leadership (see {ref}`requesting unit leadership <unit-claiming-leadership>`).
