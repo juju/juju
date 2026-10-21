@@ -1694,6 +1694,9 @@ func (s *modelManagerStateSuite) modelInfoErrorForMigratedModel(c *gc.C, caller 
 
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = caller
+	// Grant read access so that the model lookup, and not the permission
+	// check, determines the outcome.
+	anAuthoriser.HasReadTag = caller
 	st := common.NewUserAwareModelManagerBackend(model, s.StatePool, caller)
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
