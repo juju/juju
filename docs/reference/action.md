@@ -73,9 +73,9 @@ See also: {ref}`Juju | Manage actions <manage-actions>`
 
 Listing actions lets a client read the actions that the charm of each named application defines, each with its description and its parameter schema.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`write access <user-access-model-write>` to the model.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
   - The call takes a list of applications. Each application in the list gets its own result.
 - *Errors:* The client receives each in the result for the application, except where stated:
@@ -99,9 +99,9 @@ See also: {ref}`Juju | Run an action <manage-actions>`
 
 Running actions lets a client queue one action on one or more units of one application. The controller returns the number of the operation and the number of the task of each unit. The run itself goes on in the background, on the {ref}`unit agent <unit-agent>` of each unit. A target is a unit, or the leader unit of an application written as `<application>/leader` (the {ref}`leader unit <leader-unit>` at that moment). A tag is the typed name of an entity, such as `unit-mysql-0`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`write access <user-access-model-write>` to the model.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
   - The request must name at least one action.
   - The actions of a request differ only in their receiver. They have the same name, parallel flag, execution group, and parameters. The check compares the first two actions of the request.
@@ -130,9 +130,9 @@ See also: {ref}`Juju | Run an action <manage-actions>`
 
 Running commands lets a client queue one shell command as an operation on machines, on units, on all units of applications, or on the leader units of applications, with one task for each target. The command is recorded as an operation with the summary `exec "<command>"`. Running commands also queues the command on all machines of a machine model.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`admin access <user-access-model-admin>` to the model. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block (an operator setting that makes the controller refuse the calls that change the model; a refused call fails with an "operation blocked" error that carries the operator's message) must not be on.
 - *Rules:*
   - A command that contains `juju-exec` or `juju-run` is refused.
   - The operation has the parameters `command` and `timeout`. The timeout is in nanoseconds. The value zero sets no limit.
@@ -156,9 +156,9 @@ See also: {ref}`Juju | Show details about a task <manage-action-tasks>`
 
 Showing action tasks lets a client read, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what `action-set` stored, and for a command the output that {ref}`Running action tasks <action-execution>` describes.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`read access <user-access-model-read>` to the model.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - The call takes a list of tasks. Each task in the list gets its own result.
   - A task that fails to load gets the same error as a bad tag.
@@ -183,9 +183,9 @@ See also: {ref}`Juju | Cancel a task <manage-action-tasks>`
 
 Canceling action tasks lets a client stop tasks that have not finished and returns each task with its new status.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`write access <user-access-model-write>` to the model.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
   - The call sets the status of a task as follows:
     - A `pending` task becomes `cancelled`, so it never runs.
@@ -208,9 +208,9 @@ Listing action operations lets a client read operations in the order of their nu
 
 The status of an operation has no record of its own. Each time the operation is read, it is the first of `running`, `aborting`, `pending`, `error`, `failed`, `cancelled`, and `completed` that any of its tasks has. An operation with no tasks has the status `error`. An operation whose tasks are all `aborted` has the status `pending`, because `aborted` is not in that order.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`read access <user-access-model-read>` to the model.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - A request can filter by action names, applications, machines, units, and task statuses. With no filter, all operations return.
   - An operation matches the applications, machines, and units of a filter when any of its tasks is on any of them. It matches the statuses when any of its tasks has any of them.
@@ -228,9 +228,9 @@ See also: {ref}`Juju | Show details about an operation <manage-action-operations
 
 Showing action operations lets a client read the operations with the numbers in the request, in the same form as listing them, with the same derived status.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A client with {ref}`read access <user-access-model-read>` to the model.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - The call takes a list of operations. Each operation in the list gets its own result.
 - *Errors:* The client receives each in the result for the operation, except where stated:
@@ -243,9 +243,9 @@ The operation's required access, rules, and errors are:
 
 Running action tasks lets the unit agent of a unit or the machine agent of a machine run the pending tasks that target it. The unit agent calls the `Uniter` facade and runs the charm's action code. The machine agent calls the `MachineActions` facade and runs commands. The status changes that an agent makes are in the {ref}`figure of canceling action tasks <action-task-status>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit, or a machine agent, for its own machine.
+- *Caller:* A unit agent, for its own unit, or a machine agent, for its own machine.
 - *Rules:*
   - Getting a task returns its action name, parameters, parallel flag, and execution group while the task is `pending`.
   - The unit agent calls `ActionStatus` to read only the status of a task. This shows it that a running task became `aborting`.
@@ -279,9 +279,9 @@ The operation's required access, rules, and errors are:
 
 Getting action parameters lets the action code read the parameters of its task through the hook tool {ref}`action-get <hook-command-action-get>`.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Caller:* The action code of a running task, through the unit agent for its own unit.
 - *Rules:*
   - The tool prints the value at a path of keys joined with periods, or all parameters when it has no path.
 
@@ -290,9 +290,9 @@ The operation's required access and rules are:
 
 Setting action results lets the action code add values to the results of its task through the hook tool {ref}`action-set <hook-command-action-set>`.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Caller:* The action code of a running task, through the unit agent for its own unit.
 - *Rules:*
   - A key is a path of keys joined with periods. Each key is made of lowercase letters, digits, and hyphens, and starts and ends with a letter or digit. The keys `stdout`, `stdout-encoding`, `stderr`, and `stderr-encoding` are reserved. Every value is a string.
 
@@ -301,9 +301,9 @@ The operation's required access and rules are:
 
 Setting action failure lets the action code mark its task as failed through the hook tool {ref}`action-fail <hook-command-action-fail>`.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Caller:* The action code of a running task, through the unit agent for its own unit.
 - *Rules:*
   - Without a message, the message is `action failed without reason given, check action for errors`.
 
@@ -312,9 +312,9 @@ The operation's required access and rules are:
 
 Logging action progress lets the action code record a progress message of its task through the hook tool {ref}`action-log <hook-command-action-log>`. The unit agent sends the message to the controller at once.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The action code of a running task, through the unit agent for its own unit.
+- *Caller:* The action code of a running task, through the unit agent for its own unit.
 - *Rules:*
   - A call without a message fails with `no message specified`.
 
@@ -323,7 +323,7 @@ The operation's required access and rules are:
 
 Pruning action operations deletes old operations with their parameters, tasks, statuses, and log messages, and the stored results of their tasks. The controller does this on its own for each model, once about every 24 hours (a random interval between 12 and 36 hours), and again when the model configuration key {ref}`max-action-results-age <model-config-max-action-results-age>` or {ref}`max-action-results-size <model-config-max-action-results-size>` changes.
 
-The operation's rules are:
+The rules are:
 
 - *Rules:*
   - An operation that completed longer ago than `max-action-results-age` is deleted. An age of zero turns this off. Only completed operations are deleted by age.
