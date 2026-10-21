@@ -102,6 +102,8 @@ The records of the configuration and the constraints, with the rules that apply 
     - An application has each device name once.
     - A device constraint has each attribute key once.
 
+- **Device attribute:** One attribute of the device request, as a key and a value.
+
 (application-endpoint)=
 ### Application endpoints and bindings
 
@@ -208,7 +210,7 @@ The caller, the rules, and the errors are:
 
 - *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
-  - A request that names a charm has the channel `stable` and one unit unless it says otherwise. The controller takes the architecture from the constraints, else from the model, and takes the base from the request, else from the model's `default-base` setting, else from the machines of the placement directives. It resolves the charm for that platform. A base that the charm does not support is refused unless the request is forced.
+  - A request that names a charm has the channel `stable` and one unit unless it says otherwise. The controller takes the architecture from the constraints, else from the model, and takes the base from the request, else from the machines of the placement directives, else from the model's `default-base` setting. It resolves the charm for that platform. A base that the charm does not support is refused unless the request is forced.
   - A request that gives a charm needs the charm's URL to include its revision, and needs a pending resource for each resource of the charm.
   - A request with no application name uses the name of the charm.
   - An application name starts with a lowercase letter and holds lowercase letters, digits, and hyphens. A hyphen is followed by at least one letter somewhere before the next hyphen, so `a-1` is not valid and `a-b1` is.
