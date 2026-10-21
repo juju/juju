@@ -16,7 +16,9 @@ An **application** is the deployment of one {ref}`charm <charm>` in a {ref}`mode
 (application-database-schema)=
 ## Application database schema
 
-The application database schema is the set of records that the {ref}`model database <database>` keeps about the applications of a model. The records fall into five groups: the application itself, its configuration and constraints, its endpoints and bindings, its exposure, and its scale. The application itself has one figure and these records:
+The application database schema is the set of records that the {ref}`model database <database>` keeps about the applications of a model. The records fall into five groups: the application itself, its configuration and constraints, its endpoints and bindings, its exposure, and its scale and Kubernetes provisioning.
+
+### The application itself
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -65,7 +67,7 @@ The records of the application itself, with the rules that apply to each, are:
     - An application has at most one.
     - The hash algorithm is `sha512`.
 
-The configuration and the constraints of an application have their own figure:
+### Application configuration and constraints
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -101,7 +103,7 @@ The records of the configuration and the constraints, with the rules that apply 
     - A device constraint has each attribute key once.
 
 (application-endpoint)=
-The endpoints of an application and the spaces that they are bound to have their own figure:
+### Application endpoints and bindings
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -120,7 +122,7 @@ The records of the endpoints and bindings, with the rules that apply to each, ar
   - *Rules:*
     - An application has each charm extra binding once.
 
-The exposure of an application has its own figure:
+### Application exposure
 
 ```{ggarch}
 :file: ../juju.ggarch
@@ -142,7 +144,7 @@ The records of the exposure, with the rules that apply to each, are:
 
 An application is exposed when it has at least one exposed space or exposed CIDR.
 
-The scale of an application and its Kubernetes provisioning have their own figure:
+### Application scale and Kubernetes provisioning
 
 ```{ggarch}
 :file: ../juju.ggarch
