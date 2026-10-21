@@ -382,7 +382,7 @@ By the time this event is emitted, the only available data concerning the relati
  - the name of the joining unit.
  - the `private-address` of the joining unit.
 
-In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
+In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation settings. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
 
 From the perspective of an application called `foo`, which can relate to an application called `bar`:
 

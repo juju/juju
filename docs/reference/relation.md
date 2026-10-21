@@ -13,42 +13,6 @@ See also: {ref}`Juju | Manage relations <manage-relations>`
 
 A **relation** is a connection between two {ref}`applications <application>` of a {ref}`model <model>` through one {ref}`endpoint <application-endpoint>` of each, or between an application and itself through one of its own endpoints. The {ref}`units <unit>` on the two sides of a relation use it to exchange data and to learn when a unit of the other side joins, changes its data, or leaves.
 
-(relation-kinds)=
-## Relation kinds
-
-The kind of a relation depends on where its applications are and on whether one of them is a subordinate.
-
-(peer-relation)=
-### Peer relation
-
-A **peer** relation is a relation that an application has to itself, through an endpoint with the role `peer`. Juju creates one peer relation for each peer endpoint of an application when it creates the application. A peer relation has one endpoint. Its units are the units of the application. The units of an application can use a peer relation to share data, because each unit can read the data of the others (see {ref}`reading relation data <relation-reading-data>`). A peer relation cannot be removed on its own (see {ref}`removing relations <relation-removing>`).
-
-(regular-relation)=
-### Regular relation
-
-A **regular** relation is a relation between two different principal applications of the same model, through two endpoints that have the same interface and opposite roles, one `provider` and one `requirer`. A regular relation has two endpoints.
-
-(subordinate-relation)=
-### Subordinate relation
-
-A **subordinate** relation is a relation between a subordinate application and a principal application of the same model. It has two endpoints with the same interface and opposite roles, as a regular relation has. A subordinate application is one whose {ref}`charm <subordinate-charm>` is deployed on the same machine as the principal application it accompanies.
-
-Each endpoint has a scope of `global` or `container`. A relation is container-scoped when either of its endpoints is container-scoped, and global-scoped otherwise. A subordinate relation is container-scoped. When a unit of a principal application enters the scope of a container-scoped relation with a subordinate application, Juju creates a unit of the subordinate application on the machine of the principal unit, unless that principal unit already has one.
-
-(the-implicit-juju-info-relation-endpoint)=
-#### The implicit `juju-info` relation endpoint
-
-Every charm has an endpoint named `juju-info`, with the role `provider`, the interface `juju-info`, and the scope `global`. Juju adds it to a charm that does not declare an endpoint of that name. The endpoint lets a {ref}`subordinate charm <subordinate-charm>` attach to a principal application that exposes no other suitable interface, so it is mostly useful for {ref}`machine charms <machine-charm>`.
-
-A subordinate charm consumes the `juju-info` endpoint by declaring an endpoint with the role `requirer`, the interface `juju-info`, and the scope `container`. The container scope puts the unit of the subordinate application on the machine of the principal unit. The usual name for that endpoint is `juju-info`, but any name works. General-purpose machine subordinates that have no application-specific data to exchange use this endpoint, for example [`ntp`](https://charmhub.io/ntp), [`telegraf`](https://charmhub.io/telegraf), [`nrpe`](https://charmhub.io/nrpe), and [`canonical-livepatch`](https://charmhub.io/canonical-livepatch).
-
-When a request names only the two applications and several pairs of their endpoints can connect, the request is ambiguous and fails. A subordinate that declares an endpoint matching an endpoint of the principal, besides its `juju-info` endpoint, is such a case. Name the endpoint of each application to select the pair (see {ref}`adding relations <relation-adding>`).
-
-(cross-model-relation)=
-### Cross-model relation
-
-A **cross-model** relation (also called a CMR) is a relation between two applications of different models, possibly on different controllers or clouds. The model that holds the relation represents the application of the other model as a remote application. Cross-model relations connect, for example, databases on bare metal with applications in Kubernetes. The {ref}`offer <offer>` page describes how an application is made available to other models. A cross-model relation can be suspended and resumed. It can have egress CIDRs. Removing it also removes the units that stand for the remote side.
-
 (relation-data-model)=
 ## Relation data model
 
@@ -59,13 +23,26 @@ A **cross-model** relation (also called a CMR) is a relation between two applica
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Relation is in the middle. Status is above it (1 to 1) and Status value is above Status (m to 1). Archived setting is to its left (m to 1). Endpoint is to its right (m to 1). Unit in scope is to the right of Endpoint (m to 1). Application setting is below Endpoint (m to 1). Unit setting is below Unit in scope (m to 1).
 ```
 
-The relation data model is the set of records that the {ref}`model database <database>` keeps about the relations of a model. The records, with the rules that apply to each, are:
+(relation-kinds)=
+The relation data model is the set of records that the {ref}`model database <database>` keeps about the relations of a model. The endpoints of a relation decide its kind: regular, peer, subordinate, or cross-model. The records, with the rules that apply to each, are:
 
 - **Relation:** The relation's ID, its life (alive, dying, or dead; Juju deletes a dying relation and never marks it dead), its scope (`global` or `container`), and whether it is suspended and why.
   - *Rules:*
     - A relation has a UUID that is not empty.
     - A relation ID appears once in the model.
-- **Endpoint:** One end of a relation: the application endpoint that takes part. The application endpoint pairs an application with one of the endpoints of its charm, as the {ref}`application <application-endpoint>` page describes.
+- **Endpoint:** One end of a relation: the application endpoint that takes part. The application endpoint pairs an application with one of the endpoints of its charm, as the {ref}`application <application-endpoint>` page describes. Each endpoint has a role (`provider`, `requirer`, or `peer`), an interface, and a scope of `global` or `container`. The endpoints of a relation decide its kind, which is one of:
+
+  (regular-relation)=
+  - **Regular relations** are the base case: a relation with two endpoints, one `provider` and one `requirer`, with the same interface, on two different applications of the same model. Both applications are principal applications. The key of a regular relation lists the requirer first and the provider second.
+
+  (peer-relation)=
+  - **Peer relations** are relations with one endpoint, whose role is `peer`. An application has a relation to itself, so its units are the units of the relation. Juju creates one peer relation for each peer endpoint of an application when it creates the application. The units of an application can use a peer relation to share settings, because each unit can read the settings of the others (see {ref}`reading relation data <relation-reading-data>`). A peer relation cannot be removed on its own (see {ref}`removing relations <relation-removing>`).
+
+  (subordinate-relation)=
+  - **Subordinate relations** are relations with two endpoints in which the {ref}`charm <subordinate-charm>` of one application is a subordinate charm and the relation is container-scoped. A subordinate application is one that runs on the same machine as the principal application it accompanies. A relation is container-scoped when either of its endpoints is container-scoped. When a unit of the principal application enters the scope of the relation, Juju creates a unit of the subordinate application on the machine of the principal unit, unless that principal unit already has one. The {ref}`implicit juju-info endpoint <the-implicit-juju-info-relation-endpoint>` is often the endpoint of a subordinate relation.
+
+  (cross-model-relation)=
+  - **Cross-model relations** (also called CMRs) are relations with two endpoints in which one endpoint belongs to a remote application. A remote application represents an application of another model, possibly on another controller or cloud. Cross-model relations connect, for example, databases on bare metal with applications in Kubernetes. The {ref}`offer <offer>` page describes how an application is made available to other models. A cross-model relation can be suspended and resumed. It can have egress CIDRs. Removing it also removes the units that stand for the remote side.
   - *Rules:*
     - A relation lists an application endpoint once.
 - **Unit in scope:** A unit that has entered the relation. It belongs to the endpoint of the unit's application.
@@ -81,7 +58,7 @@ The relation data model is the set of records that the {ref}`model database <dat
     - An endpoint has each key once.
     - A key is not empty.
     - A value is not empty.
-- **Status:** The status of the relation, with a message and the time of the last change.
+- **Status:** The status of the relation, with a message and the time of the last change. The status changes when a relation is suspended or resumed (see {ref}`suspending relations <relation-suspending>`) and when a unit sets it (see {ref}`setting relation status <relation-setting-status>`).
   - *Rules:*
     - A relation has at most one status.
     - The status is one of `joining`, `joined`, `broken`, `suspending`, `suspended`, and `error`.
@@ -99,38 +76,19 @@ The life and the scope of a relation come from lookup tables. A unit in scope re
 
 A relation is a row in the table `relation`. Its endpoints are rows in `relation_endpoint`. Its units in scope are rows in `relation_unit`. Its status is a row in `relation_status` whose values come from the lookup table `relation_status_type`. The unit settings are rows in `relation_unit_setting`. The application settings are rows in `relation_application_setting`. The archived settings are rows in `relation_unit_setting_archive`. The departed units are rows in `relation_unit_departure`. The CIDRs are rows in `relation_network_ingress` and `relation_network_egress`. The view `v_relation_status` shows each status by name. The view `v_relation_endpoint` shows each endpoint with its application, endpoint name, interface, and role. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
+(the-implicit-juju-info-relation-endpoint)=
+### The implicit `juju-info` relation endpoint
+
+Every charm has an endpoint named `juju-info`, with the role `provider`, the interface `juju-info`, and the scope `global`. Juju adds it to a charm that does not declare an endpoint of that name. The endpoint lets a {ref}`subordinate charm <subordinate-charm>` attach to a principal application that exposes no other suitable interface, so it is mostly useful for {ref}`machine charms <machine-charm>`.
+
+A subordinate charm consumes the `juju-info` endpoint by declaring an endpoint with the role `requirer`, the interface `juju-info`, and the scope `container`. The container scope puts the unit of the subordinate application on the machine of the principal unit. The usual name for that endpoint is `juju-info`, but any name works. General-purpose machine subordinates that have no application-specific data to exchange use this endpoint, for example [`ntp`](https://charmhub.io/ntp), [`telegraf`](https://charmhub.io/telegraf), [`nrpe`](https://charmhub.io/nrpe), and [`canonical-livepatch`](https://charmhub.io/canonical-livepatch).
+
+When a request names only the two applications and several pairs of their endpoints can connect, the request is ambiguous and fails. A subordinate that declares an endpoint matching an endpoint of the principal, besides its `juju-info` endpoint, is such a case. Name the endpoint of each application to select the pair (see {ref}`adding relations <relation-adding>`).
+
 (relation-identification)=
 ### Relation identification
 
-A relation is named by its **relation ID**, the number in the data model above, or by its **relation key**. Juju assigns relation IDs in increasing order from one sequence for the whole model. The key lists the endpoints as `<application>:<endpoint>`. The key of a non-peer relation has two endpoints separated by a space, the requirer first and the provider second. The key of a peer relation has one endpoint. In a hook, a relation is also named `<endpoint>:<relation ID>`.
-
-(relation-status)=
-## Relation status
-
-```{ggarch}
-:file: ../juju.ggarch
-:view: Relation status
-:caption: A leader unit moves a relation between the statuses joining, joined, suspending, and suspended only along the arrows. A relation can also change to broken from every status. A relation can change to error, with a message, from every status. Broken accepts no change except to error. Error accepts a change to every other status. Setting the status that a relation already has is always accepted.
-:alt: A state diagram of four statuses. Joining leads to joined, suspending, and suspended. Joined leads to suspending and suspended. Suspending leads to joining, joined, and suspended. Suspended leads to joining and joined.
-```
-
-A relation has one status, which tells how the relation stands with the units of its applications. A new relation starts as `joining`, whether a client or Juju creates it. The next statuses come from two places:
-
-- **A leader unit:** After a unit of an application enters the relation, the {ref}`leader unit <leader-unit>` of the application sets `joined`. After the `relation-broken` hook of a suspended relation, the leader sets `suspended`. Only the unit that holds the leadership of the application can set the status (see {ref}`setting relation status <relation-setting-status>`).
-- **A client:** Suspending a cross-model relation sets `suspending`, and resuming it sets `joining` (see {ref}`suspending relations <relation-suspending>`).
-
-The changes that a leader unit makes are checked against these rules. The first column is the current status. The second column lists the statuses that can follow:
-
-| Current status | Allowed next statuses |
-|-|-|
-| `joining` | `joined`, `suspending`, `suspended`, `broken`, `error` |
-| `joined` | `suspending`, `suspended`, `broken`, `error` |
-| `suspending` | `joining`, `joined`, `suspended`, `broken`, `error` |
-| `suspended` | `joining`, `joined`, `broken`, `error` |
-| `broken` | `error` |
-| `error` | `joining`, `joined`, `suspending`, `suspended`, `broken` |
-
-The status `error` needs a message. A change from `suspending` to `suspended` keeps the earlier message when the new message is empty. The status that a client sets on a cross-model relation is not checked against the table.
+A relation is named by its **relation ID**, the number in the data model above, or by its **relation key**. Juju assigns relation IDs in increasing order from one sequence for the whole model. The key lists the endpoints as `<application>:<endpoint>`. The key of a relation with two endpoints lists them separated by a space, the requirer first and the provider second. The key of a peer relation has one endpoint. In a hook, a relation is also named `<endpoint>:<relation ID>`.
 
 (relation-change-streams)=
 ## Relation change streams
@@ -225,7 +183,7 @@ The operation's required access, rules, and errors are:
 - *Rules:*
   - Only a cross-model relation can be suspended.
   - An entry that asks for the state the relation already has changes nothing.
-  - Suspending marks the relation suspended, with the message as the reason, and sets the status `suspending` with the message. Resuming marks the relation not suspended and sets the status `joining` with no message.
+  - Suspending marks the relation suspended, with the message as the reason, and sets the status `suspending` with the message. Resuming marks the relation not suspended and sets the status `joining` with no message. These changes are not checked against the {ref}`transition table <relation-status>`.
 - *Errors:* The client receives each in the result for the entry, except the last:
   - **`relation <id> not found`** (code `not found`): *Trigger:* No relation has the ID. *Remediation:* {ref}`List the relations <relation-listing>` and use an existing ID.
   - **`relation must be a remote relation to be suspended`**: *Trigger:* The relation is not cross-model. *Remediation:* Choose a cross-model relation.
@@ -272,11 +230,27 @@ The operation's required access, rules, and errors are:
 (relation-reading-data)=
 ### Reading relation data
 
+```{ggarch}
+:file: ../juju.ggarch
+:view: Sharing relation settings
+:caption: A change of settings reaches another unit in six steps. When the hook of unit A ends successfully, its unit agent commits the relation settings that the hook set. The controller stores them and a hash of them in one transaction in the model database, holding the application's lease when application settings change. A watcher that the controller keeps for the unit agent of unit B reports that the settings of unit A have a new version. The unit agent of unit B asks the controller for the settings of unit A and runs the relation-changed hook. A commit from a unit that is not unit A fails with permission denied. A commit of application settings from a unit that is not the leader fails because the lease is not held. Nothing is stored when the commit fails.
+:alt: A sequence diagram with four participants: the unit agent of unit A, the controller, the model database, and the unit agent of unit B. The unit agent of unit A commits its relation settings to the controller when its hook ends. The controller stores the settings and their hash in the model database. The controller tells the unit agent of unit B that the settings of unit A have a new version. The unit agent of unit B asks the controller for the settings of unit A, receives them, and runs the relation-changed hook.
+```
+
 Reading relation data returns the settings of a unit or of an application in a relation. The settings are keys and values, all of them strings. The `relation-get` hook tool (see {ref}`relation-get <hook-command-relation-get>`) reads them. It takes an optional key, a unit or application name, a relation ID, and an option to read the application settings.
+
+What a caller reads and writes depends on whether the unit is the leader of its application. The table shows, for a unit of an application in the relation, what it does with each set of settings:
+
+| Caller | Own unit's settings | Another unit's settings | Own application's settings | Other application's settings |
+|-|-|-|-|-|
+| Unit | read, write | read | read | read |
+| Leader unit | read, write | read | read, write | read |
+
+In a peer relation the relation has one endpoint, so the application on the other side is the unit's own application. Every unit reads the settings of the other units and the application settings. Only the leader writes the application settings.
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* The agent of the unit (see {ref}`entering and leaving scope <relation-scope-operation>`).
+- *Required access:* The agent of the unit (see {ref}`entering and leaving relation scopes <relation-scope-operation>`).
 - *Rules:*
   - A unit reads its own settings with a call that serves only that unit. It reads the settings of another unit, or of an application, with a call that names the unit or application.
   - A unit can read the settings of a unit by name, including a unit that has left. The settings of a unit that left come from the archive and stay until the relation is removed.
@@ -293,9 +267,16 @@ The operation's required access, rules, and errors are:
 
 Writing relation data sets and removes settings of a unit or of an application in a relation. The `relation-set` hook tool (see {ref}`relation-set <hook-command-relation-set>`) writes them. It takes `key=value` pairs, a relation ID, a file of settings, and an option to write the application settings.
 
+The table shows what a unit of an application in the relation writes:
+
+| Caller | Own unit's settings | Another unit's settings | Own application's settings | Other application's settings |
+|-|-|-|-|-|
+| Unit | write | no | no | no |
+| Leader unit | write | no | write | no |
+
 The operation's required access, rules, and errors are:
 
-- *Required access:* The agent of the unit (see {ref}`entering and leaving scope <relation-scope-operation>`). Writing the application settings needs the unit to be the leader of its application.
+- *Required access:* The agent of the unit (see {ref}`entering and leaving relation scopes <relation-scope-operation>`). Writing the application settings needs the unit to be the leader of its application.
 - *Rules:*
   - A unit writes only its own settings. The leader also writes the settings of its own application. No call writes the settings of another unit.
   - A key with an empty value is removed. A value is stored as a string.
@@ -329,6 +310,34 @@ The operation's required access, rules, and errors are:
   - **`lease not held`**: *Trigger:* The unit is not the leader of its application. The message can have a prefix. *Remediation:* Run the call on the leader unit.
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The unit is not the caller, the relation does not exist, or the application of the unit is not an endpoint of the relation. *Remediation:* Use the unit that the agent runs. Use a relation of its application.
 
+(relation-status)=
+#### Status of a relation
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Relation status
+:caption: A leader unit moves a relation between the statuses joining, joined, suspending, and suspended only along the arrows. A relation can also change to broken from every status. A relation can change to error, with a message, from every status. Broken accepts no change except to error. Error accepts a change to every other status. Setting the status that a relation already has is always accepted.
+:alt: A state diagram of four statuses. Joining leads to joined, suspending, and suspended. Joined leads to suspending and suspended. Suspending leads to joining, joined, and suspended. Suspended leads to joining and joined.
+```
+
+The status of a relation shows how the relation stands with the units of its applications. A new relation starts as `joining`, whether a client or Juju creates it. The next statuses come from two places:
+
+- **A leader unit:** After a unit of an application enters the relation, the {ref}`leader unit <leader-unit>` of the application sets `joined`. After the `relation-broken` hook of a suspended relation, the leader sets `suspended`.
+- **A client:** Suspending a cross-model relation sets `suspending`, and resuming it sets `joining` (see {ref}`suspending relations <relation-suspending>`).
+
+The changes that a leader unit makes are checked against these rules. The first column is the current status. The second column lists the statuses that can follow:
+
+| Current status | Allowed next statuses |
+|-|-|
+| `joining` | `joined`, `suspending`, `suspended`, `broken`, `error` |
+| `joined` | `suspending`, `suspended`, `broken`, `error` |
+| `suspending` | `joining`, `joined`, `suspended`, `broken`, `error` |
+| `suspended` | `joining`, `joined`, `broken`, `error` |
+| `broken` | `error` |
+| `error` | `joining`, `joined`, `suspending`, `suspended`, `broken` |
+
+The status `error` needs a message. A change from `suspending` to `suspended` keeps the earlier message when the new message is empty. The status that a client sets on a cross-model relation is not checked against the table.
+
 (relation-lookup)=
 ### Finding relations in hooks
 
@@ -336,7 +345,7 @@ Finding relations returns the relations a unit takes part in. The `relation-ids`
 
 The operation's required access and rules are:
 
-- *Required access:* The agent of the unit (see {ref}`entering and leaving scope <relation-scope-operation>`).
+- *Required access:* The agent of the unit (see {ref}`entering and leaving relation scopes <relation-scope-operation>`).
 - *Rules:*
   - A relation is returned only to an agent whose application is an endpoint of the relation. The answer has the relation's ID, key, life, whether it is suspended, the unit's endpoint, and the application on the other side with its model UUID.
   - The model UUID of the other side is the UUID of the unit's own model unless the relation is cross-model.

@@ -3230,3 +3230,52 @@ model "RelationStatuses" {
 state "Relation status" from "RelationStatuses" {
   select { behaviour: "relation-status" }
 }
+
+// Sharing relation settings: one change of unit A's settings reaching unit B,
+// from the 4.1 code.
+//   step 1: apiserver/facades/agent/uniter/uniter.go:2864 (CommitHookChanges),
+//     :2927 (commitHookChangesForOneUnit); the caller must be unit A itself
+//     (:2953 for the settings, :2878 for the unit)
+//   step 2: domain/unitstate/service/commithook.go:29 (CommitHookChanges),
+//     :174-189 (the lease is held when application settings change);
+//     domain/unitstate/state/commithook.go:28-50 and unitrelations.go:130-260
+//     (settings and their hash written in one transaction)
+//   step 3: domain/schema/model/sql triggers trg_log_relation_unit_settings_hash_*
+//     (change log), apiserver/facades/agent/uniter/watcherrelationunit.go
+//     (newRelationUnitsWatcher), uniter.go:2026 (WatchRelationUnits)
+//   step 4 and 5: uniter.go:1955 (ReadRemoteSettings), :1972-2018
+//   step 6: the relation-changed hook (docs/reference/hook.md)
+model "RelationSettingsSharing" {
+
+  nodes {
+    rss_agent_a [type: juju-software, label: "Unit agent of unit A"]
+    rss_ctl     [type: juju-software, label: "Controller"]
+    rss_db      [type: database, label: "Model database"]
+    rss_agent_b [type: juju-software, label: "Unit agent of unit B"]
+  }
+
+  edges {
+    rss_agent_a -> rss_ctl     [type: api]
+    rss_ctl     -> rss_db      [type: api]
+    rss_ctl     -> rss_agent_b [type: stream]
+    rss_agent_b -> rss_ctl     [type: api]
+    rss_agent_b -> rss_agent_b [type: api]
+  }
+
+  behaviours {
+    behaviour "sharing-relation-settings" {
+      rss_agent_a -> rss_ctl:     call "the hook of unit A ends: commit its relation settings"
+      rss_ctl     -> rss_db:      call "store the settings and their hash in one transaction"
+      rss_ctl     -> rss_agent_b: async "watcher: the settings of unit A have a new version"
+      rss_agent_b -> rss_ctl:     call "read the settings of unit A"
+      rss_ctl     -> rss_agent_b: return "the settings"
+      rss_agent_b -> rss_agent_b: self "run the relation-changed hook"
+    }
+  }
+
+  style { extends: juju }
+}
+
+sequence "Sharing relation settings" from "RelationSettingsSharing" {
+  select { behaviour: "sharing-relation-settings" }
+}
