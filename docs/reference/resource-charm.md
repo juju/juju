@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju charm resource reference: the file and OCI image content that a charm declares, the records the model keeps about it, how a unit fetches it, and the operations that list, add, upload, activate, download, poll, and remove resources."
+    description: "Juju charm resource reference: the file and OCI image content that a charm declares, the records the model keeps about it, how a unit fetches it, and the calls that list, add, upload, activate, download, poll, and remove resources."
 ---
 
 (charm-resource)=
@@ -71,10 +71,10 @@ Charm resource change streams are the notifications that tell a unit agent that 
 
 - **Application changes:** A unit agent calls `WatchApplication` to hear that its application changed, which includes a new charm URL and a higher charm modified version. Uploading a resource for an application raises its charm modified version (see {ref}`uploading resources <charm-resource-uploading>`). The unit agent then runs the {ref}`upgrade-charm <hook-upgrade-charm>` hook, which is the place for a charm to fetch its resources again.
 
-(charm-resource-operations)=
-## Charm resource operations
+(charm-resource-calls)=
+## Charm resource calls
 
-Charm resource operations are the actions that {ref}`clients <client>`, unit agents, and the controller take on charm resources. A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level or block applies to a unit agent. Clients list the resources of a charm and of an application, add, upload, and activate resources, and download them. Unit agents fetch the content that a hook asks for. The controller polls Charmhub for new revisions and removes resources that nothing uses.
+Charm resource calls are the calls that {ref}`clients <client>`, unit agents, and the controller take on charm resources. A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level or block applies to a unit agent. Clients list the resources of a charm and of an application, add, upload, and activate resources, and download them. Unit agents fetch the content that a hook asks for. The controller polls Charmhub for new revisions and removes resources that nothing uses.
 
 (charm-resource-listing-charm-resources)=
 ### Listing charm resources
@@ -85,9 +85,9 @@ See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 
 Listing charm resources shows the resources that a charm on Charmhub declares, each with its latest revision. A client calls `ListCharmResources` on the `Charms` facade with one or more charm URLs and their origins.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The charm URL must be a Charmhub charm.
   - The channel, base, and architecture in the origin select the revision. The architecture defaults to the default architecture of the model.
@@ -104,9 +104,9 @@ See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 
 Adding resources records which revision or upload to use for each resource of a charm before an application is created or its charm changes. A client calls `AddPendingResources` on the `Resources` facade with an application tag, a charm URL, the charm's origin, and one entry for each resource. Each entry has a name, an origin, and for a `store` origin a revision. The answer lists one resource ID for each entry, in order. {ref}`Activating resources <charm-resource-activating>` uses the IDs.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A user who can log in to the model, which needs {ref}`read access <user-access-model-read>`. The facade checks no further access level and no block.
+- *Caller:* A client, for a user who can log in to the model, which needs {ref}`read access <user-access-model-read>`. The facade checks no further access level and no block.
 - *Rules:*
   - The application does not have to exist.
   - The charm and each named charm resource must already be in the model.
@@ -132,9 +132,9 @@ See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 
 Uploading resources stores the content of a resource that has the origin `upload`. A client sends `PUT /model/<uuid>/applications/<application>/resources/<name>` with the content as the body. The request is either for a resource that {ref}`adding resources <charm-resource-adding>` made, which it names with the query `pendingid=<resource ID>`, or for the resource that the application uses now, which it names with no pending ID.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - The request has the content type `application/octet-stream`, the header `Content-Sha384` with the SHA-384 fingerprint of the content, a `Content-Disposition` header with a `filename` parameter, and the size in `Content-Length`.
   - The resource must have the origin `upload`.
@@ -163,9 +163,9 @@ The operation's required access, rules, and errors are:
 
 Activating resources makes the pending resources of an application the ones it uses. A client does it when it deploys an application or refreshes its charm, by passing the resource IDs that {ref}`adding resources <charm-resource-adding>` returned.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, except for a refresh that forces its units.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, except for a refresh that forces its units.
 - *Rules:*
   - A deployment names one resource ID for each resource that the charm declares.
   - Each ID must be a resource that is pending for the application, in the state `available`, with the charm resource name, the charm, and the kind of the destination charm.
@@ -190,9 +190,9 @@ See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 
 Listing resources shows, for each application that a client names, its resources, the resources of each unit, and the newer revisions that Charmhub carries. A client calls `ListResources` on the `Resources` facade with application tags.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A user who can log in to the model, which needs {ref}`read access <user-access-model-read>`. The facade checks no further access level and no block.
+- *Caller:* A client, for a user who can log in to the model, which needs {ref}`read access <user-access-model-read>`. The facade checks no further access level and no block.
 - *Rules:*
   - The call takes a list of application tags. Each tag gets its own result.
   - A result holds the application's resources (the state `available`), the resources of each of its units, and its `potential` resources, which are the newer revisions in Charmhub.
@@ -207,9 +207,9 @@ The operation's required access, rules, and errors are:
 
 Downloading resources gives a client the stored content of an application's resource. A client sends `GET /model/<uuid>/applications/<application>/resources/<name>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. A controller agent, a machine agent, or an application agent can also download. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. A controller agent, a machine agent, or an application agent can also download. No block applies.
 - *Rules:*
   - The resource is the one that the application uses for the name.
   - The answer is the content as `application/octet-stream`, with its size in `Content-Length`.
@@ -236,9 +236,9 @@ See also: {ref}`resource-get <hook-command-resource-get>`
 
 Fetching resources gives a unit the content of its application's resource as a file. A hook runs the `resource-get` hook tool. The unit agent asks the controller for the content and for the details of the resource, then the tool prints the path of the file. A charm can run the tool in any {ref}`hook <hook>`. The `install` and `upgrade-charm` hooks are the usual places.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. The content request is `GET /model/<uuid>/units/<unit>/resources/<name>`. An application agent can ask for any unit of its application. The details request is `GetResourceInfo` on the `ResourcesHookContext` facade.
+- *Caller:* A unit agent, for its own unit. The content request is `GET /model/<uuid>/units/<unit>/resources/<name>`. An application agent can ask for any unit of its application. The details request is `GetResourceInfo` on the `ResourcesHookContext` facade.
 - *Rules:*
   - Juju looks for the resource that the application uses for the name. When the application has none, it looks for the resource that the unit uses.
   - When the controller stores the content, it sends it.
@@ -262,9 +262,9 @@ The operation's required access, rules, and errors are:
 
 Polling Charmhub for resource revisions lets Juju tell users that a newer revision of a resource exists. The controller does it for each application whose charm comes from Charmhub, in the pass in which it checks for new charm revisions. A client sees the result as the `potential` resources in {ref}`listing resources <charm-resource-listing>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The controller.
+- *Caller:* The controller.
 - *Rules:*
   - The pass runs about every 24 hours, with a random delay.
   - An application whose charm has no resources is skipped.
@@ -279,9 +279,9 @@ The operation's required access, rules, and errors are:
 
 Removing resources deletes a resource and its stored content once nothing uses it. The controller does it, as a removal job that an earlier operation schedules.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The controller.
+- *Caller:* The controller.
 - *Rules:*
   - Juju schedules a job when an upload, an activation, or polling replaces a resource, and when an activation detaches a resource.
   - The job deletes the resource only when no application resource, pending resource, or unit resource refers to it. It deletes the retrieved-by record and the store link with it. It deletes the stored content or the image metadata when nothing else uses it.

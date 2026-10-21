@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju machine reference: what a machine is, the records the model keeps about it, the changes that agents and workers follow, and the operations that add, provision, list, show, retry, reprovision, and remove machines."
+    description: "Juju machine reference: what a machine is, the records the model keeps about it, the changes that agents and workers follow, and the calls that add, provision, list, show, retry, reprovision, and remove machines."
 ---
 
 (machine)=
@@ -84,10 +84,10 @@ Machine change streams are the changes that the workers and agents of a model fo
 - **Reboot:** A machine agent follows the reboot flag of its machine and of its parent, and reboots or shuts down as the flag says.
 - **Agent start times:** The instance poller follows the life, agent start time, and reprovision state of every machine in the model.
 
-(machine-operations)=
-## Machine operations
+(machine-calls)=
+## Machine calls
 
-Machine operations are the actions a {ref}`client <client>` can take on machines through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, get the provisioning script, retry provisioning, reprovision, show status, and remove. Connecting to a machine is described on the {ref}`SSH server <juju-ssh>` page. The constraints of a machine are described on the {ref}`constraint <constraint>` page.
+Machine calls are the calls a {ref}`client <client>` can take on machines through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, get the provisioning script, retry provisioning, reprovision, show status, and remove. Connecting to a machine is described on the {ref}`SSH server <juju-ssh>` page. The constraints of a machine are described on the {ref}`constraint <constraint>` page.
 
 (machine-adding)=
 ### Adding machines
@@ -98,9 +98,9 @@ See also: {ref}`Juju | Add a machine <add-a-machine>`
 
 Adding machines creates machines or containers in a model. The compute provisioner then starts an instance for each. A request carries, for each machine, an optional base, constraints, a container type, a parent, and a placement.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request names a {ref}`machine designation <machine-designations>`: a new machine, a container on a new or existing machine, or a placement directive. A request that names an existing machine adds no machine and only checks that its architecture meets the constraints.
   - A container type needs no parent.
@@ -150,9 +150,9 @@ See also: {ref}`Juju | Add a machine <add-a-machine>`
 
 Provisioning machines turns a machine record into a running cloud instance with a machine agent. The compute provisioner, the process on the controller that starts instances, does it for every machine that is not a container, and each machine's agent does it for the containers of that machine.
 
-The operation's required access and rules are:
+The caller, the rules, and the errors are:
 
-- *Required access:* No client calls this operation. The provisioner runs it for every new machine, which a user creates by adding a machine, deploying an application, or adding a unit.
+- *Caller:* No client makes this call. The provisioner runs it for every new machine, which a user creates by adding a machine, deploying an application, or adding a unit.
 - *Rules:*
   - The provisioner starts an instance only for machines that have no instance ID and whose status is `pending` or whose instance status is `allocating`.
   - It spreads the machines of an application across availability zones where the cloud supports it.
@@ -173,9 +173,9 @@ See also: {ref}`Juju | Add a machine <add-a-machine>`
 
 Getting provisioning scripts returns a shell script that installs and starts the machine agent on a machine that Juju did not start, for manual provisioning. A client first adds the machine with an instance ID that starts with `manual:`, its hardware, and a nonce, and then runs the script on the host.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model.
 - *Rules:*
   - The machine must exist with a recorded architecture.
   - The model must have an agent version with binaries for the machine's operating system and architecture.
@@ -197,9 +197,9 @@ See also: {ref}`Juju | Retry provisioning for a failed machine <retry-provisioni
 
 Retrying provisioning of machines marks the provisioning error of a machine as transient, so that the provisioner starts an instance for it again within a minute. A request names machines, or all machines.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block must not be on.
 - *Rules:*
   - A machine whose instance status is not `provisioning error` is skipped when the request asks for all machines, and is an error when the request names it.
   - A machine ID that does not exist in the model is ignored without an error.
@@ -214,11 +214,11 @@ The operation's required access, rules, and errors are:
 (machine-reprovisioning)=
 ### Reprovisioning machines
 
-Reprovisioning machines replaces the lost cloud instance of a machine with a new one. The machine keeps its name. It detaches the instance that is gone and puts the machine back to `pending`, so that the compute provisioner starts a new instance. The operation is available on controllers that serve version 12 of the machine manager facade.
+Reprovisioning machines replaces the lost cloud instance of a machine with a new one. The machine keeps its name. It detaches the instance that is gone and puts the machine back to `pending`, so that the compute provisioner starts a new instance. The call is available on controllers that serve version 12 of the machine manager facade.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block must not be on.
 - *Rules:*
   - A machine can be reprovisioned only if it is alive, is not a container, a controller, or a manually provisioned machine, hosts no containers, has no model-scoped storage attached, and has no reprovision request pending.
   - The machine's agent must be gone.
@@ -246,9 +246,9 @@ See also: {ref}`Juju | List all machines <list-all-machines>`, {ref}`Juju | View
 
 Showing the status of machines returns the machines of a model, with their containers nested under them, as one part of the model's full status. Each machine has its ID, hostname, DNS name, addresses, base, hardware, constraints, agent status, and instance status, and the controller machines have their jobs and whether they hold a vote in the database cluster.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A machine's instance ID is `pending` until the cloud has returned an instance.
   - The agent status is `down`, with the message `agent is not communicating with the server`, whenever neither the machine's agent nor the agent of one of its containers is connected, unless the stored status is `pending` or `stopped`.
@@ -266,9 +266,9 @@ See also: {ref}`Juju | Remove a machine <remove-a-machine>`
 
 Removing machines marks machines dying together with their containers and units, and schedules the removal of each. A machine is deleted when its instance has been stopped and everything on it is gone.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model, and neither the remove block nor the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) may be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. Neither the remove block nor the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) may be on.
 - *Rules:*
   - Without the force option, a machine that hosts containers or units is refused.
   - A request can ask for a dry run, which reports the units, storage, and containers that the removal affects and changes nothing, and can ask to keep the instance, so that the cloud keeps the instance running.

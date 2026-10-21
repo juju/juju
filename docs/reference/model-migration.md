@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Migrate a model <migrate-a-model>`
 ```
 
-A **model migration** is the move of a {ref}`model <model>` from one {ref}`controller <controller>`, the source, to another, the target. The operation — its phases, its rules, and its errors — is described on the {ref}`model <model-migrating>` page; this page holds the records the move leaves behind: the source controller keeps the history of its export attempts and, when the model is gone, a redirect to the target; the target keeps the state of its import; the model's own database keeps the markers of the move. The {ref}`external controller <external-controller>` records name the target.
+A **model migration** is the move of a {ref}`model <model>` from one {ref}`controller <controller>`, the source, to another, the target. The migration — its phases, its rules, and its errors — is described on the {ref}`model <model-migrating>` page; this page holds the records the move leaves behind: the source controller keeps the history of its export attempts and, when the model is gone, a redirect to the target; the target keeps the state of its import; the model's own database keeps the markers of the move. The {ref}`external controller <external-controller>` records name the target.
 
 (model-migration-database-schema)=
 ## Model migration database schema
@@ -74,7 +74,7 @@ The model migration database schema is the set of records that the two controlle
 
 Model migration change streams are the notifications that tell the agents of the model and the workers of the controllers that the migration has moved. A unit agent's watcher on the migration flag fires when the export of the model changes phase, and when an import claim for the model appears or disappears. The status watcher tells it each phase, with the addresses of both controllers, so that the agent stops its work in `quiesce` and checks the target in `validation`. The migration master of the source watches the phases of its export and the reports of the agents, so that each phase waits for every agent to answer. The phase history is what the change log records; the status messages are kept out of it, because they change often and would drown the watchers.
 
-(model-migration-operations)=
-## Model migration operations
+(model-migration-calls)=
+## Model migration calls
 
-Model migration operations are described on the {ref}`model <model-migrating>` page: a client asks the source controller for a migration; the page states the required access, the rules of every phase, and the errors of the prechecks. The {ref}`external controller <external-controller>` page states how the records of the target controller come to be. The {ref}`lease <lease-and-model-migration>` page states which leases travel.
+The calls of a migration are described on the {ref}`model <model-migrating>` page: a client asks the source controller for a migration; the page states the caller, the rules of every phase, and the errors of the prechecks. The {ref}`external controller <external-controller>` page states how the records of the target controller come to be. The {ref}`lease <lease-and-model-migration>` page states which leases travel.

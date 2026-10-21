@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju link-layer device reference: what a link-layer device is, the records the model keeps about network devices, IP addresses, DNS names, and the network node of a machine or unit, the changes that reach units, and the operations that list addresses, read a unit's addresses, set a machine's network configuration, provision container networking, and update addresses from the cloud."
+    description: "Juju link-layer device reference: what a link-layer device is, the records the model keeps about network devices, IP addresses, DNS names, and the network node of a machine or unit, the changes that reach units, and the calls that list addresses, read a unit's addresses, set a machine's network configuration, provision container networking, and update addresses from the cloud."
 ---
 
 (link-layer-device)=
@@ -84,10 +84,10 @@ The link-layer device database schema is the set of records that the {ref}`model
 
 Link-layer device change streams are the notifications that tell the {ref}`unit agents <unit-agent>` of a model that the addresses of their unit or the endpoint bindings of its application changed. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). A unit agent calls `WatchUnitAddressesHash` to hear that the addresses of its unit have a new hash. The hash covers the addresses on the network node of the unit, or, on Kubernetes, on the network node of its application's cloud service, together with the endpoint bindings of the application (the space each of its endpoints is bound to). When the hash changes, the agent runs the {ref}`config-changed <hook-config-changed>` hook.
 
-(link-layer-device-operations)=
-## Link-layer device operations
+(link-layer-device-calls)=
+## Link-layer device calls
 
-Link-layer device operations are the actions on the network records of a machine, a unit, or a Kubernetes service: listing devices and addresses, reading the addresses of a unit, setting the network configuration of a machine, provisioning container networking, and updating addresses from the cloud. A {ref}`client <client>` lists devices and addresses through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A **{ref}`machine agent <machine-agent>`** is the process that runs on a machine. It logs in as its machine and acts only for that machine. A **{ref}`unit agent <unit-agent>`** is the process that runs a unit's charm. It logs in as its unit and acts only for that unit. No model access level applies to an agent. No block applies to these operations.
+Link-layer device calls are the calls on the network records of a machine, a unit, or a Kubernetes service: listing devices and addresses, reading the addresses of a unit, setting the network configuration of a machine, provisioning container networking, and updating addresses from the cloud. A {ref}`client <client>` lists devices and addresses through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A **{ref}`machine agent <machine-agent>`** is the process that runs on a machine. It logs in as its machine and acts only for that machine. A **{ref}`unit agent <unit-agent>`** is the process that runs a unit's charm. It logs in as its unit and acts only for that unit. No model access level applies to an agent. No block applies to these calls.
 
 (link-layer-device-listing)=
 ### Listing network devices and addresses
@@ -98,9 +98,9 @@ See also: {ref}`Juju | View the status of a machine <view-the-status-of-a-machin
 
 Listing network devices and addresses returns the devices of each machine of a model with the addresses on them, as part of the model's full status, and returns the address to reach a machine or a unit over SSH.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For the full status, {ref}`read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. For the SSH addresses, {ref}`admin access <user-access-model-admin>` to the model, or superuser access to the controller.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller, for the full status. For the SSH addresses, {ref}`admin access <user-access-model-admin>` to the model, or superuser access to the controller.
 - *Rules:*
   - The full status lists, for each machine, each device by name, with its MAC address, its gateway, its DNS servers, its spaces, whether it is up, and the addresses on it.
   - Addresses configured as loopback are left out. A device whose addresses are all loopback is left out as well.
@@ -120,9 +120,9 @@ The operation's required access, rules, and errors are:
 
 Reading the addresses of a unit returns the public and the private address of a unit to its agent. The addresses of a unit are the addresses on its network node; on Kubernetes they also include the addresses on the network node of its application's cloud service.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The public address is the first address whose scope is `public`. Failing that, `local-cloud` ranks next, then `unknown`.
   - The private address is the first address whose scope is `local-cloud`. Failing that, `public` ranks next, then `unknown`.
@@ -137,9 +137,9 @@ The operation's required access, rules, and errors are:
 
 Setting the network configuration of a machine stores the interfaces that a machine agent observes on its machine, with the addresses on them and the DNS settings of each device. The machiner worker reports whenever the addresses of its machine change. The worker that creates containers on a host machine reports the host's configuration before it creates one.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A machine agent, for its own machine.
+- *Caller:* A machine agent, for its own machine.
 - *Rules:*
   - A report with no interfaces changes nothing.
   - The devices and addresses arrive with the origin `machine`.
@@ -160,9 +160,9 @@ The operation's required access, rules, and errors are:
 
 Provisioning container networking reads the devices of a host machine to plan the bridges that the host needs for containers and the network configuration that a container starts with. The machine agent of a host machine calls it for each container it creates.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A machine agent, for its own machine, which is the host of the containers named in the request.
+- *Caller:* A machine agent, for its own machine, which is the host of the containers named in the request.
 - *Rules:*
   - The request names containers. The answer has one result for each.
   - The devices of the host machine are grouped by the {ref}`space <space>` of their addresses. The positive space constraints of a container and the spaces that its application is bound to pick the devices to bridge.
@@ -181,9 +181,9 @@ The operation's required access, rules, and errors are:
 
 Updating a machine's addresses from the cloud merges what the cloud reports about the interfaces of a machine into the records of that machine. The instance poller, a worker on the controller, runs it for each machine that has an instance ID.
 
-The operation's required access and rules are:
+The caller, the rules, and the errors are:
 
-- *Required access:* No client calls this operation. The instance poller runs it for every machine that reports an instance ID.
+- *Caller:* No client makes this call. The instance poller runs it for every machine that reports an instance ID.
 - *Rules:*
   - The cloud reports devices and addresses. They are merged into the devices and addresses of the machine's network node.
   - A cloud can know a device by its hardware address only. Such a device takes the name of the stored device with the same hardware address.

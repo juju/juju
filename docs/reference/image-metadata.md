@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju image metadata reference: the catalogue of cloud images that Juju picks a machine's image from, the record the controller database caches, and the operations that list, save, and delete it."
+    description: "Juju image metadata reference: the catalogue of cloud images that Juju picks a machine's image from, the record the controller database caches, and the calls that list, save, and delete it."
 ---
 
 (image-metadata)=
@@ -12,7 +12,7 @@ myst:
 See also: {ref}`Juju | Manage metadata <manage-metadata>`
 ```
 
-**Image metadata** is the catalogue of the images (the compute instances a {ref}`cloud <cloud>` offers, such as one Ubuntu image per release) that Juju picks a {ref}`machine <machine>`'s image ID from when it starts the machine. Each entry names one image for one combination of a cloud, a region, an operating system version, an architecture, and the way the machine is stored and virtualised. The {ref}`controller database <database>` caches the entries it is given or has used. A client with superuser access manages the cache. The metadata of the {ref}`agent binaries <agent-version>` is a separate catalogue, described on its own page.
+**Image metadata** is the catalogue of the images (the compute instances a {ref}`cloud <cloud>` offers, such as one Ubuntu image per release) that Juju picks a {ref}`machine <machine>`'s image ID from when it starts the machine. Each entry names one image for one combination of a cloud, a region, an operating system version, an architecture, and the way the machine is stored and virtualised. The {ref}`controller database <database>` caches the entries it is given or has used. A client, for a user with superuser access to the controller, manages the cache. The metadata of the {ref}`agent binaries <agent-version>` is a separate catalogue, described on its own page.
 
 (image-metadata-database-schema)=
 ## Image metadata database schema
@@ -32,19 +32,19 @@ The image metadata database schema is the set of records that the controller dat
     - The entry with the highest priority wins when several entries match a machine.
 - **Architecture:** The architecture the image is built for, such as `amd64` or `arm64`. The architectures are the shared names of the platforms Juju builds for; no page owns them.
 
-(image-metadata-operations)=
-## Image metadata operations
+(image-metadata-calls)=
+## Image metadata calls
 
-Image metadata operations are the actions that manage the controller's cache of image metadata. The caller of each is a client with {ref}`superuser access <user-access-controller-superuser>` to the controller. The cache also fills without a client: a {ref}`bootstrap <bootstrap-a-controller>` with `--metadata-source` uploads the metadata of a local directory to the controller. When Juju starts a machine, it looks for an image in this order: the controller's cache, the URL the model's `image-metadata-url` configuration names, the locations the provider offers, and the public `http://cloud-images.ubuntu.com/releases` location, whose `daily` stream lives under `http://cloud-images.ubuntu.com/daily`. Each location is searched for signed metadata first and unsigned second.
+Image metadata calls are the calls that manage the controller's cache of image metadata. Each is made by a client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. The cache also fills without a client: a {ref}`bootstrap <bootstrap-a-controller>` with `--metadata-source` uploads the metadata of a local directory to the controller. When Juju starts a machine, it looks for an image in this order: the controller's cache, the URL the model's `image-metadata-url` configuration names, the locations the provider offers, and the public `http://cloud-images.ubuntu.com/releases` location, whose `daily` stream lives under `http://cloud-images.ubuntu.com/daily`. Each location is searched for signed metadata first and unsigned second.
 
 (image-metadata-listing)=
 ### Listing image metadata
 
 Listing image metadata returns the cached entries that match a filter, each with its image ID and its attributes. The entries come ordered by priority.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - A filter names a region, versions, architectures, a stream, a virtualisation type, and a root storage type; an empty filter matches every entry.
   - The answer is one list, ordered by priority. An entry that did not come from a `custom` source matches only for five minutes after it was cached.
@@ -54,9 +54,9 @@ The operation's required access and rules are:
 
 Saving image metadata stores entries in the controller's cache, one result for each list of entries in the request. An entry for a combination that the controller already caches replaces the cached image ID.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - An entry names its image ID, its source, its stream, its region, the version of the operating system, its architecture, and, when it has them, its virtualisation type and its root storage type and size.
   - An entry that names no stream uses the model's `image-stream` configuration value. An entry that names no region uses the model's cloud region.
@@ -72,9 +72,9 @@ The operation's required access, rules, and errors are:
 
 Deleting image metadata removes the cached entries of one image ID, one result for each image in the request.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - Deleting removes every entry that names the image ID.
 - *Errors:* The client receives each in the result for the image:

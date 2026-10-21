@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju application reference: what an application is, the records the model keeps about it, the changes that agents and workers follow, and the operations that deploy, show, configure, scale, constrain, expose, bind, upgrade, and remove applications and that let units report on them."
+    description: "Juju application reference: what an application is, the records the model keeps about it, the changes that agents and workers follow, and the calls that deploy, show, configure, scale, constrain, expose, bind, upgrade, and remove applications and that let units report on them."
 ---
 
 (application)=
@@ -188,10 +188,10 @@ Application change streams are the notifications that tell the agents and worker
 
 The application worker of a Kubernetes model carries out these changes in the Kubernetes cluster. When it starts for an alive application, it sets a new password for the application's agent and stores its hash in the agent record. It marks the application with a provisioner mark before it creates Kubernetes resources. It clears the mark when a dead application's resources are gone. It writes the scale record as it scales. It creates or removes pods to match the scale. When a pod's unit is removed, it removes the unit's record. It writes the operator status: `waiting` with the message `waiting for units to settle down` while units are being added, `active` after that, and `error` with the message of the failure when it cannot create the resources. It also copies the status that the Kubernetes Service reports into the operator status. It records the addresses of the Service.
 
-(application-operations)=
-## Application operations
+(application-calls)=
+## Application calls
 
-Application operations are the actions that {ref}`clients <client>` and unit agents can take on applications through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. No model access level or block applies to a unit agent. Clients deploy, show, configure, scale, constrain, expose, bind, upgrade, and remove applications. Unit agents read the application's configuration and status, and report its status and workload version. Adding and removing relations is described on the {ref}`relation <relation>` page, consuming an offer on the {ref}`offer <offer>` page, removing a single unit and resolving the errors of units on the {ref}`unit <unit>` page, and changing the storage directives of an application on the {ref}`storage <storage-directive>` page.
+Application calls are the calls that {ref}`clients <client>` and unit agents can take on applications through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. No model access level or block applies to a unit agent. Clients deploy, show, configure, scale, constrain, expose, bind, upgrade, and remove applications. Unit agents read the application's configuration and status, and report its status and workload version. Adding and removing relations is described on the {ref}`relation <relation>` page, consuming an offer on the {ref}`offer <offer>` page, removing a single unit and resolving the errors of units on the {ref}`unit <unit>` page, and changing the storage directives of an application on the {ref}`storage <storage-directive>` page.
 
 (application-deploying)=
 ### Deploying applications
@@ -202,9 +202,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>`
 
 Deploying applications creates an application from a charm, with its units. A client names a charm and the controller finds its revision, or the client gives a charm that it has already added to the model, such as a local charm or a charm of a bundle. The request can give the application's name, the number of units, configuration, trust, constraints, placement directives, storage, devices, endpoint bindings, resources, and a force option.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request that names a charm has the channel `stable` and one unit unless it says otherwise. The controller takes the architecture from the constraints, else from the model, and takes the base from the request, else from the model's `default-base` setting, else from the machines of the placement directives. It resolves the charm for that platform. A base that the charm does not support is refused unless the request is forced.
   - A request that gives a charm needs the charm's URL to include its revision, and needs a pending resource for each resource of the charm.
@@ -245,9 +245,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>`
 
 Showing applications returns what a client needs to describe applications. A request names applications by tag. The answer has one result for each. The read calls answer four questions: what the applications are (`ApplicationsInfo`, `UnitsInfo`), how one application is configured (`Get`, `CharmConfig`, `GetConfig`), which charm one application runs (`GetCharmURLOrigin`), and which unit leads one application (`Leader`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - The details of an application are its tag, the name of its charm, its base, its channel (only for a Charmhub charm that has one), its constraints, whether it is a principal application, whether it is exposed, its life, its endpoint bindings (endpoint name to space name, with the empty name for the default space), and its exposed endpoints (endpoint name to spaces and ranges, with the empty name for all endpoints).
   - A subordinate application has no constraints in the answer.
@@ -269,9 +269,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Config
 
 Configuring applications sets or unsets the {ref}`configuration <application-configuration>` keys of applications, including the `trust` setting. A request lists applications. Each entry has the application name and either the keys with their values or the keys to unset.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on. Reading the configuration needs {ref}`read access <user-access-model-read>`.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on. Reading the configuration needs {ref}`read access <user-access-model-read>`.
 - *Rules:*
   - A value is given as a string. The controller converts it to the type of the charm option.
   - The key `trust` is a setting of the application, not an option of the charm. It must be a boolean.
@@ -301,9 +301,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Scale 
 
 Scaling applications changes the number of units of an application. On a Kubernetes model a client sets the scale of the application. The provisioner then adds or removes pods. On a machine model a client adds units. Each unit gets a machine. Removing a single unit is described on the {ref}`unit <unit>` page.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request on a Kubernetes model gives either a new scale or a change of scale for each application, never both.
   - A change of scale is relative to the stored scale and cannot take it below zero. The request fails when the scale changed between its read and its write.
@@ -332,9 +332,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Manage
 
 Setting application constraints stores the {ref}`constraints <constraint>` that Juju uses when it asks for the machines or pods of the application's units. A client also reads them.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on. Reading the constraints needs {ref}`read access <user-access-model-read>`.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on. Reading the constraints needs {ref}`read access <user-access-model-read>`.
 - *Rules:*
   - Each call replaces all the constraints of the application.
   - A constraint that the cloud does not support is accepted and logged. Juju ignores it when it provisions.
@@ -356,9 +356,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Manage
 
 Exposing applications lets machines outside the model reach the ports that the units of an application opened. The request names the endpoints to expose, and for each endpoint the spaces and the CIDR ranges that may reach it. Unexposing removes the exposure of the named endpoints.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request that names no endpoint exposes every endpoint to `0.0.0.0/0` and `::/0`.
   - An endpoint that names no space and no range is exposed to `0.0.0.0/0` and `::/0`.
@@ -384,9 +384,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Change
 
 Changing endpoint bindings binds endpoints of applications to {ref}`spaces <space>`. A request lists applications. Each entry has the bindings to merge (endpoint name to space name, with the empty name for the default space) and a force option.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request changes only the endpoints that it names. The other bindings stay as they are.
   - An endpoint is an endpoint or an extra binding of the application's charm. The empty name is the default space of the application.
@@ -409,9 +409,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Upgrad
 
 Upgrading applications replaces the charm of an application with another revision, or with another charm. The request names the application, the charm's URL and origin, and can give storage directives, endpoint bindings, resources, and the options to force the base and to proceed with units that are in error.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, unless the request forces the units.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, unless the request forces the units.
 - *Rules:*
   - The application and the new charm must exist. The application must not be dead.
   - A relation of the application must have a counterpart in the new charm with the same role, interface, and scope, and a limit that the existing relations meet. A peer relation of the old charm needs a peer endpoint of the same name in the new charm.
@@ -441,9 +441,9 @@ See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Remove
 
 Removing applications removes an application with its units and with the records and cloud resources that depend on them. The request names applications by tag. It can ask to destroy the storage of the units, to force the removal, to wait before the force applies, and to do a dry run. Removing a remote application that a model consumes is a separate call with the same access and blocks.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. Neither the remove block nor the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) may be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. Neither the remove block nor the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) may be on.
 - *Rules:*
   - The controller application cannot be removed.
   - A dry run changes nothing. It returns the units that the removal would destroy, and on a machine model the storage that it would destroy and the storage that it would detach.
@@ -462,9 +462,9 @@ The operation's required access, rules, and errors are:
 
 The unit agent reads the configuration of its application, through the `config-get` hook tool (see {ref}`config-get <hook-command-config-get>`). The agent asks for the settings of its unit, and gets the merged configuration of the application's charm. It runs the `config-changed` hook when the config hash of its application differs from the one it last saw.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The answer has every option of the charm. An option that has no config item has the charm's default.
 
@@ -473,9 +473,9 @@ The operation's required access and rules are:
 
 The unit agent of the leader unit reads the status of its application through the `status-get` hook tool, with the option `--application` (see {ref}`status-get <hook-command-status-get>`). The answer has the status of the application and the statuses of its units.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. The unit must be the leader of its application.
+- *Caller:* A unit agent, for its own unit. The unit must be the leader of its application.
 - *Rules:*
   - The application status is the stored status, or the status derived from the unit statuses while the stored value is `unset` (see {ref}`application status <application-status>`).
 - *Errors:* The unit agent receives each in the result for the unit:
@@ -487,9 +487,9 @@ The operation's required access, rules, and errors are:
 
 The unit agent of the leader unit sets the status of its application through the `status-set` hook tool, with the option `--application` (see {ref}`status-set <hook-command-status-set>`). The request gives the unit, the status, a message, and data. The controller records the time of the change and adds it to the status history.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. The unit must be the leader of its application.
+- *Caller:* A unit agent, for its own unit. The unit must be the leader of its application.
 - *Rules:*
   - The hook tool accepts `maintenance`, `blocked`, `waiting`, and `active`.
   - The status replaces the earlier status of the application, with its message and data.
@@ -505,9 +505,9 @@ The operation's required access, rules, and errors are:
 
 The unit agent reports the version of the software that its unit runs, through the `application-version-set` hook tool (see {ref}`application-version-set <hook-command-application-version-set>`). The request gives the unit and the version.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The version is stored for the unit and for its application in the same transaction. The last version that a unit reported is the application's version.
   - The hook tool needs a version.

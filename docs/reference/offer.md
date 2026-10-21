@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju offer reference: the application endpoints that a model makes available for cross-model relations, the records behind them, the permissions on them, and the operations that create, list, find, show, grant, consume, and remove offers."
+    description: "Juju offer reference: the application endpoints that a model makes available for cross-model relations, the records behind them, the permissions on them, and the calls that create, list, find, show, grant, consume, and remove offers."
 ---
 
 (offer)=
@@ -50,12 +50,12 @@ The errors of the call are:
 - **`offer "<uuid>" not found`**: *Trigger:* The offering model has no such offer. The client receives it with the code `not found`. *Remediation:* {ref}`Find the offer <offer-finding>` again.
 - **The reason that the controller gives**: *Trigger:* The offer UUID cannot be parsed, or the macaroon does not allow access to the offer. *Remediation:* Pass the UUID and the macaroon from the consume details.
 
-(offer-operations)=
-## Offer operations
+(offer-calls)=
+## Offer calls
 
-Offer operations are the actions a {ref}`client <client>` can take on offers through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): create, list, find, show, grant access, revoke access, get consume details, consume, and remove. Every operation needs a user who is logged in as a client.
+Offer calls are the calls a {ref}`client <client>` can take on offers through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): create, list, find, show, grant access, revoke access, get consume details, consume, and remove. Every call needs a user who is logged in as a client.
 
-An offer URL names an offer in the form `[<source>:][<qualifier>/]<model>.<offer-name>`. The qualifier is the one that the {ref}`model <model>` carries. It defaults to the caller's. The source names another controller. Showing and getting consume details refuse a URL that has a source. The model name and the offer name must be valid. An offer name follows the rules of an application name. An operation that takes URLs fails a URL with one of these errors:
+An offer URL names an offer in the form `[<source>:][<qualifier>/]<model>.<offer-name>`. The qualifier is the one that the {ref}`model <model>` carries. It defaults to the caller's. The source names another controller. Showing and getting consume details refuse a URL that has a source. The model name and the offer name must be valid. An offer name follows the rules of an application name. A call that takes URLs fails a URL with one of these errors:
 
 - **`offer URL has invalid form, must be [<source>:][<qualifier>]<model>.<offername>: "<url>"`**: *Trigger:* The URL does not have that form. *Remediation:* Write the URL in that form.
 - **`offer URL is missing model`** and **`offer URL is missing the name`**: *Trigger:* The URL has no model, or no offer name. *Remediation:* Add the missing part.
@@ -73,9 +73,9 @@ See also: {ref}`Juju | Create an offer <create-an-offer>`
 
 Creating offers makes endpoints of an application available at an offer URL, for the user that the request names as the owner. The call takes a list of offers and accepts exactly one.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the offering model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. When the owner is another user, that user needs the same access.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the offering model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller. When the owner is another user, that user needs the same access.
 - *Rules:*
   - The offering model is the one that the request names. When the request names none, it is the model of the call.
   - The owner is the user that the request names. When the request names none, it is the caller. The owner must exist and be enabled.
@@ -108,9 +108,9 @@ See also: {ref}`Juju | View an offer's details <view-an-offers-details>`
 
 Listing offers returns the details of the offers that match filters, in the models that the filters name, together with their connections.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to each model that a filter names, or {ref}`superuser access <user-access-controller-superuser>` to the controller. Offer admin access is not enough.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to each model that a filter names, or with {ref}`superuser access <user-access-controller-superuser>` to the controller. Offer admin access is not enough.
 - *Rules:*
   - At least one filter is required. Each filter names a model. The qualifier of that model defaults to the caller's.
   - A filter can hold an offer name, an application name, a description, endpoint terms, allowed consumers, and connected users. The offer name and the description match when they contain the given text, ignoring case. The application name matches exactly. An endpoint term (a name, an interface, and a role, each optional) is its own alternative, so an offer matches when any endpoint term matches, or when the remaining terms together match. A filter that names only a model matches every offer in it.
@@ -136,9 +136,9 @@ See also: {ref}`Juju | Find an offer to use <find-an-offer-to-use>`
 
 Finding offers returns the offers that match filters and that the caller can see. A caller sees an offer when the caller has read access to its model or access to the offer at the read level or above.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A login only. An offer that the caller may not see is left out of the answer, with no error.
+- *Caller:* A client, for a logged-in user. An offer that the caller may not see is left out of the answer, with no error.
 - *Rules:*
   - The filters and the results are those of {ref}`listing <offer-listing>`.
   - A request with exactly one filter and no model name queries every model on the controller.
@@ -154,9 +154,9 @@ See also: {ref}`Juju | View an offer's details <view-an-offers-details>`
 
 Showing offers returns the details of the offers that the given URLs name.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The same as {ref}`finding <offer-finding>`.
+- *Caller:* The same as {ref}`finding <offer-finding>`.
 - *Rules:*
   - The call takes a list of URLs. Each URL gets its own result, an offer or an error.
   - The URL must be local and must not name an endpoint.
@@ -174,9 +174,9 @@ See also: {ref}`Juju | Control access to an offer <control-access-to-an-offer>`
 
 Granting and revoking offer access changes the access level of a user on an offer. The call takes a list of changes, each with an offer URL, a user, an access level (read, consume, or admin), and an action (`grant` or `revoke`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, {ref}`admin access <user-access-model-admin>` to the offering model, or {ref}`admin access <user-access-offer-admin>` to the offer.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, with {ref}`admin access <user-access-model-admin>` to the offering model, or with {ref}`admin access <user-access-offer-admin>` to the offer.
 - *Rules:*
   - A grant sets the user's permission to the given level, and creates the permission when the user has none. A user who already has that level or a higher one gets an error.
   - A revoke sets the user's access to the level below the revoked one: revoking admin leaves consume, revoking consume leaves read, and revoking read removes the permission.
@@ -191,7 +191,7 @@ The operation's required access, rules, and errors are:
   - **`updating offer permission for "<user>" on "<offer uuid>": looking up user "<user>": "<user>": user not found`** (or **`user authentication disabled`**): *Trigger:* The user does not exist, or is disabled. *Remediation:* Name an existing, enabled user.
   - **`updating offer permission for "<user>" on "<offer uuid>": user "<user>" already has "<access>" access or greater`**: *Trigger:* A grant of a level that the user has. *Remediation:* Continue; the user has the access.
   - **`updating offer permission for "<user>" on "<offer uuid>": offer permission for "<user>" on "<offer uuid>" permission not found`**: *Trigger:* A revoke from a user with no permission on the offer. *Remediation:* Continue; the user has no access to revoke.
-  - The URL errors and the model error of the {ref}`opener <offer-operations>`. For the user, the tag errors of {ref}`creating <offer-creating>`.
+  - The URL errors and the model error of the {ref}`opener <offer-calls>`. For the user, the tag errors of {ref}`creating <offer-creating>`.
 
 (offer-consume-details)=
 ### Getting consume details
@@ -202,9 +202,9 @@ See also: {ref}`Juju | Integrate with an offer <integrate-with-an-offer>`
 
 Getting consume details returns what a consuming model needs to use an offer: the offer, how to reach the offering controller, and a macaroon (a token that proves the right to use the offer) for one user.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the offering model or {ref}`superuser access <user-access-controller-superuser>` to the controller, or {ref}`consume access <user-access-offer-consume>` (or higher) to the offer. Asking for another user's details needs superuser access.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the offering model or with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`consume access <user-access-offer-consume>` (or higher) to the offer. Asking for another user's details needs superuser access.
 - *Rules:*
   - The user is the caller, or the user that the request names.
   - The call takes a list of URLs. Each URL gets its own result.
@@ -213,7 +213,7 @@ The operation's required access, rules, and errors are:
   - The result holds the offer's UUID, URL, name, source model, and endpoints (name, interface, role, and limit). It holds the offering controller's tag, API addresses, and certificate authority certificate (the certificate that a consumer trusts when it connects to the controller). It holds a macaroon for the user, in the macaroon format that the request names.
   - The controller's public DNS address, when configured, comes first among the addresses.
 - *Errors:* The client receives each in the result for the URL. The permission error for another user's details is the error of the whole call:
-  - **`unable parse offer URL "<url>": <reason>`**: *Trigger:* The URL cannot be parsed. The client receives it with the code `bad request`. *Remediation:* Write the URL in the form of the {ref}`opener <offer-operations>`.
+  - **`unable parse offer URL "<url>": <reason>`**: *Trigger:* The URL cannot be parsed. The client receives it with the code `bad request`. *Remediation:* Write the URL in the form of the {ref}`opener <offer-calls>`.
   - **`saas application "<url>" shouldn't include endpoint`** and **`query for non-local application offers`**: *Trigger:* As for {ref}`showing <offer-showing>`. The client receives them with the code `not supported`. *Remediation:* Use the offer's local URL.
   - **`application offer "<url>" not found`**: *Trigger:* The model has no such offer. The client receives it with the code `not found`. *Remediation:* {ref}`Find the offer <offer-finding>`.
   - **`permission denied`**: *Trigger:* The caller has no access to the offer, or asked for another user's details without superuser access. *Remediation:* Ask an admin of the offer to {ref}`grant consume access <offer-access>`.
@@ -225,11 +225,11 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | Integrate with an offer <integrate-with-an-offer>`
 ```
 
-Consuming offers adds a remote application to the consuming model: a local proxy for the offered application. The proxy has the offer's endpoints and takes the name that the request gives, or the offer's name. The operation creates no relation.
+Consuming offers adds a remote application to the consuming model: a local proxy for the offered application. The proxy has the offer's endpoints and takes the name that the request gives, or the offer's name. The call creates no relation.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the consuming model. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the consuming model. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
 - *Rules:*
   - The call takes a list of offers, each with the details that {ref}`getting consume details <offer-consume-details>` returned.
   - The model stores the offering controller's details, unless that controller is this one.
@@ -255,9 +255,9 @@ See also: {ref}`Juju | Remove an offer <remove-an-offer>`
 
 Removing offers deletes offers from the offering model at once, with the permissions on them.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the offering model or {ref}`superuser access <user-access-controller-superuser>` to the controller. Offer admin access is not enough.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the offering model or with {ref}`superuser access <user-access-controller-superuser>` to the controller. Offer admin access is not enough.
 - *Rules:*
   - The call takes a list of URLs and a force option. Each URL gets its own result.
   - An offer that has connections is refused, unless the request forces the removal.
@@ -268,7 +268,7 @@ The operation's required access, rules, and errors are:
   - **`permission denied`**: *Trigger:* The caller is not an admin of the model. The client receives it with the code `unauthorized access`. *Remediation:* Ask an admin of the model or a superuser.
   - **`"<name>": offer not found`**: *Trigger:* The model has no offer with that name. It has no code. *Remediation:* {ref}`Find the offer <offer-finding>`.
   - **`deleting offer "<uuid>": cannot delete offer {"<uuid>"}, it has <n> connections`**: *Trigger:* The offer has connections and the request does not force the removal. It has no code. *Remediation:* {ref}`Remove the relations <manage-offers>` first, or force the removal.
-  - The URL errors and the model error of the {ref}`opener <offer-operations>`.
+  - The URL errors and the model error of the {ref}`opener <offer-calls>`.
 
 ## Offers and model migration
 

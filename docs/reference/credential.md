@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju credential reference: what a cloud credential is, the records the controller keeps about it, the changes that follow it, and the operations that add, list, show, update, and remove credentials."
+    description: "Juju credential reference: what a cloud credential is, the records the controller keeps about it, the changes that follow it, and the calls that add, list, show, update, and remove credentials."
 ---
 
 (credential)=
@@ -46,10 +46,10 @@ The credential database schema is the set of records that the {ref}`controller d
 
 Credential change streams are the notifications that tell the agents of a model that the model's credential has changed. A change stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). An agent of a model calls `WatchModelCredential` to hear that the model now uses a different credential, and `ModelCredential` to read the credential's tag and whether it is valid.
 
-(credential-operations)=
-## Credential operations
+(credential-calls)=
+## Credential calls
 
-Credential operations are the actions a {ref}`client <client>` can take on credentials through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, update, and remove. Choosing the credential of a model is described on the {ref}`model <model-configuring>` page. A credential belongs to its owner. The owner can act on the credential. A controller superuser can act on it too. Only the owner sees the contents of a credential.
+Credential calls are the calls a {ref}`client <client>` can take on credentials through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, update, and remove. Choosing the credential of a model is described on the {ref}`model <model-configuring>` page. A credential belongs to its owner. The owner can act on the credential. A controller superuser can act on it too. Only the owner sees the contents of a credential.
 
 (credential-adding)=
 ### Adding credentials
@@ -60,9 +60,9 @@ See also: {ref}`Juju | Add a credential <add-a-credential>`
 
 Adding credentials stores credentials for a user on the controller. Adding a credential whose name the owner already uses on that cloud replaces it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The credential's owner, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for the credential's owner or for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - The credential's owner must exist.
   - The cloud must be one that the controller knows.
@@ -84,9 +84,9 @@ See also: {ref}`Juju | View all the known credentials <view-all-the-known-creden
 
 Listing credentials returns the tags of a user's credentials on a cloud, and shows the contents of one credential, or of all of the caller's credentials, with the models that use each.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* To list the tags of a user's credentials on a cloud, or to show one credential without its secrets, the owner or {ref}`superuser access <user-access-controller-superuser>` to the controller. To show the contents of credentials with the models that use them, the owner only: a superuser has no special right here.
+- *Caller:* A client, for the owner or for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, to list the tags of a user's credentials on a cloud or to show one credential without its secrets. To show the contents of credentials with the models that use them, the owner only: a superuser has no special right here.
 - *Rules:*
   - Showing a credential without secrets leaves out the attributes that the cloud's credential schema marks as hidden, and names them as redacted.
   - The contents of credentials include whether each is valid.
@@ -105,9 +105,9 @@ See also: {ref}`Juju | Update a credential <update-a-credential>`
 
 Updating credentials replaces the contents of credentials, after checking that the models that use them can still reach their clouds. A credential that is invalid becomes valid again when it is replaced.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The credential's owner, or {ref}`superuser access <user-access-controller-superuser>` to the controller. Forcing the update needs superuser access. No block applies.
+- *Caller:* A client, for the credential's owner or for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. Forcing the update needs superuser access. No block applies.
 - *Rules:*
   - The same rules as for {ref}`adding <credential-adding>` apply to the owner, the cloud, and the authentication type.
   - A separate call checks a credential without storing it and returns for each model that uses the credential the errors that the check found. It needs the same access.
@@ -129,9 +129,9 @@ See also: {ref}`Juju | Remove a credential <remove-a-credential>`
 
 Removing credentials deletes credentials from the controller, and takes them off the models that use them.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The credential's owner, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for the credential's owner or for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - A credential that a model uses cannot be removed unless the request forces the removal. A forced removal leaves each of those models with no credential.
   - A removal deletes the credential's attributes and the credential.

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju charm reference: what a charm is, the records the model keeps about it, the changes that follow it, and the operations that resolve, add, upload, list, show, download, and remove charms."
+    description: "Juju charm reference: what a charm is, the records the model keeps about it, the changes that follow it, and the calls that resolve, add, upload, list, show, download, and remove charms."
 ---
 
 (charm)=
@@ -161,10 +161,10 @@ Charms are also described by what they do for their workload and by how their au
 
 Charm change streams are the notifications that tell the {ref}`workers <model-agent>` of a model that an application needs a charm that the archive of an application's charm is not yet stored. A stream is delivered through a watcher (an API object that tells its holder when something it follows has changed). The stream of applications with a pending charm carries the UUID of an application when a record of the application changes while the application's charm is not available and comes from Charmhub or from a local archive. Its first notification lists every application with a pending charm at that moment. Juju uses it to download charms (see {ref}`downloading pending charms <charm-downloading-pending>`).
 
-(charm-operations)=
-## Charm operations
+(charm-calls)=
+## Charm calls
 
-Charm operations are the actions that find, add, upload, list, show, and download charms. They also include the background work that fetches, reserves, and removes charms. A {ref}`client <client>` calls resolving, listing charm resources, getting download information, adding, listing, and showing through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A client calls uploading and downloading archives through two HTTP routes. A **unit agent** is the process that runs the unit's charm, logged in as its unit and acting only for that unit. A unit agent downloads archives and reads archive checksums. The workers of the {ref}`model agent <model-agent>` (the process that runs the workers of a model) perform the rest. An **origin** is the description of where a charm comes from: its source, channel, base (an operating system and its release), architecture, revision, Charmhub identifier, and hash.
+Charm calls are the calls that find, add, upload, list, show, and download charms. They also include the background work that fetches, reserves, and removes charms. A {ref}`client <client>` calls resolving, listing charm resources, getting download information, adding, listing, and showing through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A client calls uploading and downloading archives through two HTTP routes. A **unit agent** is the process that runs the unit's charm, logged in as its unit and acting only for that unit. A unit agent downloads archives and reads archive checksums. The workers of the {ref}`model agent <model-agent>` (the process that runs the workers of a model) perform the rest. An **origin** is the description of where a charm comes from: its source, channel, base (an operating system and its release), architecture, revision, Charmhub identifier, and hash.
 
 (charm-resolving)=
 ### Resolving charms
@@ -175,9 +175,9 @@ See also: {ref}`Juju | Manage charms <manage-charms>`
 
 Resolving charms finds, for each reference, the Charmhub revision that matches a requested channel, base, architecture, and revision.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The call takes a list of references, each with an origin. Each reference in the list gets its own result.
   - A result holds the URL of the charm, its origin, and the bases that the charm supports.
@@ -198,9 +198,9 @@ See also: {ref}`Juju | Manage charms <manage-charms>`, {ref}`Juju | Manage charm
 
 Listing charm resources returns the resources that a Charmhub charm releases in a channel.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The call takes a list of charm URLs with origins. Each entry in the list gets its own list of resources.
   - Only Charmhub charms are listed.
@@ -220,9 +220,9 @@ See also: {ref}`Juju | Manage charms <manage-charms>`
 
 Getting download information returns the URL from which the archive of a Charmhub charm can be fetched, with the charm's origin. The call fetches nothing.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The call takes a list of charm URLs with origins. Each entry in the list gets its own URL and origin.
   - The origin is normalized as for {ref}`listing charm resources <charm-listing-resources>`.
@@ -241,9 +241,9 @@ See also: {ref}`Juju | Deploy a charm <deploy-a-charm>`
 
 Adding charms stores a pending record for a Charmhub charm in the model, so that an application can use it. The archive follows later (see {ref}`downloading pending charms <charm-downloading-pending>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - The origin's source is `charm-hub`.
   - The origin's base has a name and a channel.
@@ -272,9 +272,9 @@ See also: {ref}`Juju | Deploy a charm <deploy-a-charm>`
 
 Uploading charms stores the archive of a local charm in the model, with its records, in one request to `/model-<model UUID>/charms/<name>-<SHA-256 prefix>`, so that an application can use it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - The request is an HTTP `PUT` with the content type `application/zip` and the header `Juju-Curl`, which holds the charm's URL.
   - The last part of the path, after the last hyphen, is a prefix of the archive's SHA-256 digest at least seven characters long. The text before it is the charm's name.
@@ -304,9 +304,9 @@ See also: {ref}`Juju | Manage charms <manage-charms>`
 
 Listing charms returns the URLs of the charms that the model has stored.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - A request can name charms. Without names the answer holds every charm. With names it holds only the charms whose reference name is one of them.
   - The answer holds Charmhub and local charms, pending ones included. The stand-in charms of remote applications are left out.
@@ -325,9 +325,9 @@ See also: {ref}`Juju | Manage charms <manage-charms>`
 
 Showing charms returns what a stored charm declares: its metadata, configuration options, actions, and manifest, with its revision and version.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The request names the charm by URL. The URL has a revision.
   - Configuration options, actions, and the manifest are left out of the answer when the charm declares none.
@@ -340,9 +340,9 @@ The operation's required access, rules, and errors are:
 
 Downloading charm archives streams the archive of a stored charm out of the model's object store, in a request to `/model-<model UUID>/charms/<name>-<SHA-256 prefix>`. The unit agent of a unit uses it to install the unit's charm.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* Any caller that has authenticated. The route has no further check.
+- *Caller:* Any caller that has authenticated. The route has no further check.
 - *Rules:*
   - The request is an HTTP `GET`. The archive is the one whose SHA-256 digest starts with the prefix, which is at least seven characters long. The name before the prefix is not used to find it.
   - The answer holds the header `x-amz-checksum-sha256` with the digest, base64-encoded, so that the caller can verify the archive.
@@ -355,9 +355,9 @@ The operation's required access, rules, and errors are:
 
 Reading charm archive checksums returns the SHA-256 digest of the archive of each charm that is available. A unit agent reads it before it downloads the archive.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The call takes a list of charm URLs. Each URL in the list gets its own digest or error.
   - A charm that is still pending has no digest.
@@ -370,9 +370,9 @@ The operation's required access, rules, and errors are:
 
 Downloading pending charms fetches the archive of every pending Charmhub charm that an application uses, and makes the charm available. The workers of the {ref}`model agent <model-agent>` perform it, one for each application, when the application with a pending charm appears in the change stream.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The workers of the model agent.
+- *Caller:* The workers of the model agent.
 - *Rules:*
   - A worker reads the download URL and the hash from the charm's records. It downloads the archive to a temporary file, with up to three attempts 20 seconds apart and five minutes for each.
   - The download is accepted when its SHA-256 digest equals the stored hash.
@@ -389,9 +389,9 @@ The operation's required access, rules, and errors are:
 
 Reserving charm revisions adds a pending record for each newer revision that Charmhub has released for the charm of an application. The workers of the model agent perform it about every 24 hours.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The workers of the model agent.
+- *Caller:* The workers of the model agent.
 - *Rules:*
   - A worker asks Charmhub about every Charmhub application of the model, with the application's revision, channel, base, and architecture.
   - The record is pending. Its source is `charmhub`. Its revision, hash, and download information come from Charmhub's answer, and the download information has the origin `download`.
@@ -408,9 +408,9 @@ The operation's required access, rules, and errors are:
 
 Removing charms deletes a charm's records when nothing uses it. It happens when the removal of an application or a unit finishes.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The workers of the model agent, which remove the application or unit.
+- *Caller:* The workers of the model agent, which remove the application or unit.
 - *Rules:*
   - Juju deletes the charm only when no application and no unit points at it. Otherwise it keeps the charm and logs the number of uses.
   - The deletion removes the records about the charm, then the charm itself.

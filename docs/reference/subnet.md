@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju subnet reference: what a subnet is, the records the model keeps about it, the changes that follow it, and the operations that list subnets and move them between spaces."
+    description: "Juju subnet reference: what a subnet is, the records the model keeps about it, the changes that follow it, and the calls that list subnets and move them between spaces."
 ---
 
 (subnet)=
@@ -47,10 +47,10 @@ The {ref}`availability zones <zone>` in which a subnet is available are linked t
 
 Subnet change streams are notifications that tell a worker of the controller that a subnet changed. A change to a subnet, including a move to another space, changes the addresses that the ingress rules of {ref}`units <unit>` of applications exposed to that space allow, and the firewaller (the worker that opens and closes ports on the cloud) applies the change. The {ref}`controller workers <controller-workers>` section lists the other workers that follow subnets.
 
-(subnet-operations)=
-## Subnet operations
+(subnet-calls)=
+## Subnet calls
 
-Subnet operations are the actions a {ref}`client <client>` can take on subnets through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): list, find by CIDR, and move to a space. Subnets enter a model when {ref}`spaces are reloaded <space-reloading>` and when machines report their addresses.
+Subnet calls are the calls a {ref}`client <client>` can take on subnets through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): list, find by CIDR, and move to a space. Subnets enter a model when {ref}`spaces are reloaded <space-reloading>` and when machines report their addresses.
 
 (subnet-listing)=
 ### Listing subnets
@@ -61,9 +61,9 @@ See also: {ref}`Juju | List subnets <list-subnets>`
 
 Listing subnets returns the subnets of a model, optionally filtered by space and zone.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - A filter by space keeps the subnets in that space. A space that does not exist gives an empty list.
   - A filter by zone hides a subnet only if the subnet has zones and none is the one asked for, so a subnet with no zone always passes.
@@ -76,9 +76,9 @@ The operation's required access, rules, and errors are:
 
 Finding subnets by CIDR returns, for each CIDR given, the subnets that it matches.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model.
 - *Rules:*
   - A CIDR must be in its canonical form: `10.0.0.5/24` is not, and `10.0.0.0/24` is.
   - The answer includes each subnet's UUID, which {ref}`moving subnets <subnet-moving>` needs.
@@ -96,11 +96,11 @@ See also: {ref}`Juju | Move a subnet to another space <move-a-subnet-to-another-
 
 Moving subnets to spaces puts the listed subnets into a space, and refuses the move when it would leave a machine without the addresses that its applications or constraints need.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model. The change block must be off.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block must be off.
 - *Rules:*
-  - The cloud must support spaces, and Juju must define them: the cloud must not discover them (see {ref}`space operations <space-operations>`).
+  - The cloud must support spaces, and Juju must define them: the cloud must not discover them (see {ref}`space calls <space-calls>`).
   - The call takes a list of moves. Each move in the list gets its own result. Each move names at least one subnet by its tag, which is `subnet-` followed by its UUID. Each move also names a destination space by its tag, such as `space-alpha`. The destination must exist.
   - A subnet that is already in the destination is skipped without an error. A UUID that matches no subnet is ignored. The result lists only the subnets that moved.
   - A move is refused unless both of these hold:

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju cloud reference: what a cloud is, the data the controller keeps about it, its types, and the operations that list, add, update, and remove clouds."
+    description: "Juju cloud reference: what a cloud is, the data the controller keeps about it, its types, and the calls that list, add, update, and remove clouds."
 ---
 
 (cloud)=
@@ -53,10 +53,10 @@ The records, with the rules that apply to each, are:
 
 Cloud change streams are the notifications that tell the agent of a model on a Kubernetes cloud that the model's cloud spec has changed. The cloud spec is the cloud's definition and region together with the model's credential. The agent follows it through the `WatchCloudSpecsChanges` method of the CAAS agent facade (a group of related API methods) and applies a change without restarting, when the cloud type supports that.
 
-(cloud-operations)=
-## Cloud operations
+(cloud-calls)=
+## Cloud calls
 
-Cloud operations are the actions a {ref}`client <client>` can take on clouds through the controller API (the set of calls that clients and agents make to the controller): add, list, show, update, and remove.
+Cloud calls are the calls a {ref}`client <client>` can take on clouds through the controller API (the set of calls that clients and agents make to the controller): add, list, show, update, and remove.
 
 (cloud-adding)=
 ### Adding clouds
@@ -67,9 +67,9 @@ See also: {ref}`Juju | Add a cloud <add-a-cloud>`
 
 Adding clouds registers a new cloud with the {ref}`controller <controller>`. The controller refuses a machine cloud that is not compatible with the cloud it was bootstrapped on, unless the caller forces it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A Kubernetes cloud can always be added. Any other cloud type must be allowed for the type of cloud that the controller was {ref}`bootstrapped <bootstrap-a-controller>` on, as the table below shows, or the caller must force the addition:
 
@@ -99,9 +99,9 @@ See also: {ref}`Juju | View all the known clouds <view-all-the-known-clouds>`, {
 
 Listing clouds returns the clouds that the caller can use, and showing a cloud returns one cloud's definition and the users who have access to it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* None beyond being logged in. A caller with {ref}`superuser access <user-access-controller-superuser>` sees every cloud. Any other caller sees the clouds on which they hold at least {ref}`add-model access <user-access-cloud-add-model>`.
+- *Caller:* A client, for a logged-in user. A user with {ref}`superuser access <user-access-controller-superuser>` sees every cloud. Any other user sees the clouds on which they hold at least {ref}`add-model access <user-access-cloud-add-model>`.
 - *Rules:*
   - A cloud the caller cannot use is left out of a list. Asking for the definition of such a cloud returns `cloud "<name>" not found`.
   - Showing a cloud lists its users only to a controller superuser or a cloud administrator. Any other caller sees only their own access.
@@ -119,9 +119,9 @@ See also: {ref}`Juju | Update a cloud <update-a-cloud>`
 
 Updating clouds replaces the definition of clouds the controller already knows.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A cloud's type cannot change.
   - The default region and the `empty` authentication type are filled in as when adding.
@@ -139,9 +139,9 @@ See also: {ref}`Juju | Remove a cloud <remove-a-cloud>`
 
 Removing clouds deletes clouds the controller no longer needs.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`administrator access <user-access-cloud-admin>` to the cloud.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`administrator access <user-access-cloud-admin>` to the cloud.
 - *Rules:*
   - A cloud that any model is deployed into, including the controller's own model, cannot be removed.
   - Removing a cloud also removes its credentials, regions, CA certificates, admitted authentication types, and every user's access to it.

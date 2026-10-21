@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju annotation reference: the key and value pairs that a client attaches to a model, an application, a charm, a machine, a unit, or a storage instance, and the operations that set and read them."
+    description: "Juju annotation reference: the key and value pairs that a client attaches to a model, an application, a charm, a machine, a unit, or a storage instance, and the calls that set and read them."
 ---
 
 (annotation)=
@@ -20,19 +20,19 @@ The annotation database schema is the set of records that the model database kee
     - The value is always present.
     - The charm and unit records are the only ones the database links to their entities; the application, machine, and storage records name their entity by UUID with no link. The removal job of a unit or an application also clears its annotations; a removed machine or storage instance leaves its annotations in place.
 
-(annotation-operations)=
-## Annotation operations
+(annotation-calls)=
+## Annotation calls
 
-Annotation operations are the actions a {ref}`client <client>` can take on annotations through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): set them and read them. The entity a request names is a tag, such as `application-mysql`, or a charm's URL after `charm-`.
+Annotation calls are the calls a {ref}`client <client>` can take on annotations through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): set them and read them. The entity a request names is a tag, such as `application-mysql`, or a charm's URL after `charm-`.
 
 (annotation-setting)=
 ### Setting annotations
 
 Setting annotations attaches key and value pairs to entities, one result per entity. A key that the request leaves out keeps its value; a key with an empty value is removed.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - The call takes a list of entities, each with its pairs. Each entity in the list gets its own result.
   - A key holds no period.
@@ -48,9 +48,9 @@ The operation's required access, rules, and errors are:
 
 Reading annotations returns the key and value pairs of entities, one result per entity.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The call takes a list of entities. Each entity in the list gets its own result.
   - An entity with no annotations returns an empty set.

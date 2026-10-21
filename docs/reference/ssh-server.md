@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "SSH server reference: the service in a controller that proxies users' SSH sessions to machines and Kubernetes units, the records it keeps, the changes it follows, and the operations and errors a client meets."
+    description: "SSH server reference: the service in a controller that proxies users' SSH sessions to machines and Kubernetes units, the records it keeps, the changes it follows, and the calls and errors a client meets."
 ---
 
 (juju-ssh)=
@@ -56,10 +56,10 @@ SSH server change streams are the changes that the SSH server and the machine ag
 - **Controller configuration:** The SSH server follows the controller configuration. When {ref}`ssh-max-concurrent-connections <controller-config-ssh-max-concurrent-connections>` changes, it restarts in the same way with the new limit.
 - **Connection requests:** A machine agent follows the connection requests that name its own machine, and hears about each addition or update.
 
-(ssh-server-operations)=
-## SSH server operations
+(ssh-server-calls)=
+## SSH server calls
 
-SSH server operations are the actions that a {ref}`client <client>` and a machine agent can take through the SSH server and the controller API (the set of calls that clients and agents make to the controller): connecting to machines and to Kubernetes units, relaying sessions, finding the server, addressing targets, and checking host keys, all by a client; and answering connection requests and reporting host keys, by a {ref}`machine agent <machine-agent>` (the process that runs a machine's agent, logged in as that machine, acting only for it).
+SSH server calls are the calls that a {ref}`client <client>` and a machine agent can take through the SSH server and the controller API (the set of calls that clients and agents make to the controller): connecting to machines and to Kubernetes units, relaying sessions, finding the server, addressing targets, and checking host keys, all by a client; and answering connection requests and reporting host keys, by a {ref}`machine agent <machine-agent>` (the process that runs a machine's agent, logged in as that machine, acting only for it).
 
 (ssh-server-connecting-machine)=
 ### Connecting to machines through the SSH server
@@ -78,9 +78,9 @@ See also: {ref}`Juju | Access a machine via SSH <access-a-machine-via-ssh>`
 
 Connecting to machines through the SSH server opens a session (a shell or one command), a port forward, or a file transfer on a machine, or on the machine that runs a unit, through the SSH server. Every connection runs as two SSH connections that both end at the controller. The outer connection ends at the SSH tunnel server, the part of the SSH server that listens on the port. It authenticates the user and asks the server, with SSH's direct TCP forwarding (a request to open a channel to a named host and port), for a channel to a **virtual hostname**, a name under `juju.local` that identifies a target in a model. The inner connection runs through that channel and ends at the target SSH server, a second server inside the controller that presents the target's virtual host key. A machine's virtual hostname is `<machine>.<model UUID>.juju.local`. A unit's is `<unit number>.<application>.<model UUID>.juju.local`. The machine calls the controller, so only the machine needs a network path, the one to the controller's API addresses. The machine's SSH server can stay closed to the network. The firewall rules that machine agents already need suffice.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The user needs a {ref}`key stored for them <ssh-key>` that the model authorizes, and either {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* The user needs a {ref}`key stored for them <ssh-key>` that the model authorizes, and either {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - The user name of the outer connection is the Juju user, such as `admin` or `alice@external`, and the key must be one that the user has stored.
   - The access and the key are checked against the model that the virtual hostname names, once for each requested channel.
@@ -120,9 +120,9 @@ See also: {ref}`Juju | Access a unit via SSH <access-a-unit-via-ssh>`
 
 Connecting to Kubernetes units through the SSH server opens a session, a port forward, or a file transfer in a container of a unit's pod, through the SSH server. The server reaches the pod through the {ref}`Kubernetes cloud's <kubernetes-cloud>` API server, which the controller already needs to manage the cloud, so no machine calls back.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The same as for connecting to machines.
+- *Caller:* The same as for connecting to machines.
 - *Rules:*
   - The target must be a container, so the virtual hostname is `<container>.<unit number>.<application>.<model UUID>.juju.local`. A hostname without the container is not served in a Kubernetes model.
   - The server finds the unit's pod in the namespace of the model (for the controller's own model, the controller's namespace) and runs the command there with the model's cloud credential. A session without a command runs `/bin/sh`. The session runs as the user that the container runs as.
@@ -137,9 +137,9 @@ The operation's required access, rules, and errors are:
 
 Relaying sessions to the SSH server lets an intermediary, such as JIMM (a service that sits in front of Juju controllers), carry a user's SSH session to a target over an upgraded HTTPS connection, so that the intermediary authenticates the user. The intermediary calls the API server's endpoint `GET /ssh-relay/<virtual hostname>`. The session then ends in the target SSH server exactly as it does after the outer connection.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A bearer JWT (a signed token) whose claims give the user admin access to the model that the virtual hostname names.
+- *Caller:* An intermediary, with a bearer JWT (a signed token) whose claims give the user admin access to the model that the virtual hostname names.
 - *Rules:*
   - The intermediary does the authentication, so the key checks of the outer connection do not apply.
   - The endpoint admits at most {ref}`ssh-max-concurrent-connections <controller-config-ssh-max-concurrent-connections>` relays at once, counted apart from the connections of the SSH tunnel server.
@@ -155,9 +155,9 @@ The operation's required access, rules, and errors are:
 
 Finding the SSH server returns the port that the SSH server listens on and the controller's host key. The server listens on every address of each controller node, so a client combines the port with an address of the controller.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Login access <user-access-controller-login>` to the controller, because users who connect through the server are not necessarily controller administrators.
+- *Caller:* A client, for a user with {ref}`login access <user-access-controller-login>` to the controller, because users who connect through the server are not necessarily controller administrators.
 - *Rules:*
   - The port comes from the stored port record. It is set at run time over the controller's control socket, so read it here instead of from the controller configuration key {ref}`ssh-server-port <controller-config-ssh-server-port>`.
 - *Errors:*
@@ -168,9 +168,9 @@ The operation's required access, rules, and errors are:
 
 Addressing SSH server targets turns a machine or unit into the names a client needs to reach it: its virtual hostname and its public, private, or all addresses.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A machine gives the machine form of the virtual hostname.
   - A unit gives the unit form, or the container form when the call names a container.
@@ -189,9 +189,9 @@ The operation's required access, rules, and errors are:
 
 Checking SSH server host keys returns the keys that a client should expect, so that it can verify a server instead of trusting it on first use: the controller's host key for the outer connection, the target's virtual host key for the inner connection, and a machine's own host keys.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Login access <user-access-controller-login>` to the controller for the controller's host key, and {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller for the others.
+- *Caller:* A client, for a user with {ref}`login access <user-access-controller-login>` to the controller for the controller's host key, and with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller for the others.
 - *Rules:*
   - Asking for a target's virtual host key creates an `ssh-ed25519` key if the target has none yet.
   - A machine's own host keys are those its agent reported when it started. The list is empty until the agent has reported. The host keys of a unit are those of its machine.
@@ -206,9 +206,9 @@ The operation's required access, rules, and errors are:
 
 Answering connection requests lets a machine agent open the reverse tunnel that a client's session runs through: the agent watches for the requests that name its machine, reads each one, and calls the controller back.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A machine agent, for its own machine. The machine comes from the login, never from the call.
+- *Caller:* A machine agent, for its own machine. The machine comes from the login, never from the call.
 - *Rules:*
   - The watcher emits the tunnel IDs of the requests that name the agent's machine.
   - For each tunnel ID, the agent reads the request: the controller addresses to call back, the port of the machine's SSH server, and the one-time public key for the connection.
@@ -224,9 +224,9 @@ The operation's required access, rules, and errors are:
 
 Reporting SSH host keys stores the public halves of the keys that the SSH server on a machine itself presents, so that a client can check them before it connects.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A machine agent, for its own machine.
+- *Caller:* A machine agent, for its own machine.
 - *Rules:*
   - The agent sends the keys it read from `/etc/ssh/ssh_host_*_key.pub` when it started.
   - A call replaces the machine's keys.

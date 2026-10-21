@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju unit reference: what a unit is, the records the model keeps about it, the leader, the changes that unit agents follow, and the operations that add, show, resolve, and remove units and that unit agents use to report and to claim leadership."
+    description: "Juju unit reference: what a unit is, the records the model keeps about it, the leader, the changes that unit agents follow, and the calls that add, show, resolve, and remove units and that unit agents use to report and to claim leadership."
 ---
 
 (unit)=
@@ -95,10 +95,10 @@ Unit change streams are the notifications that the {ref}`agent <agent>` of a uni
 
 A unit agent follows other changes too: the configuration of its application (see {ref}`application change streams <application-change-streams>`), its relations (see {ref}`relation change streams <relation-change-streams>`), the tasks queued for it (see {ref}`action change streams <action-change-streams>`), and its secrets (see {ref}`secret change streams <secret-change-streams>`).
 
-(unit-operations)=
-## Unit operations
+(unit-calls)=
+## Unit calls
 
-Unit operations are the actions that {ref}`clients <client>` and unit agents can take on units through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level and no block applies to a unit agent. Clients add, show, find the leader of, resolve, and remove units. Unit agents log in, set statuses, report versions and passwords, claim leadership, keep their state, read their details, and end their units. Adding relations is described on the {ref}`relation <relation>` page, and running actions on the {ref}`action <action>` page. The hooks that Juju runs in response are described on the {ref}`hook <hook>` page.
+Unit calls are the calls that {ref}`clients <client>` and unit agents can take on units through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level and no block applies to a unit agent. Clients add, show, find the leader of, resolve, and remove units. Unit agents log in, set statuses, report versions and passwords, claim leadership, keep their state, read their details, and end their units. Adding relations is described on the {ref}`relation <relation>` page, and running actions on the {ref}`action <action>` page. The hooks that Juju runs in response are described on the {ref}`hook <hook>` page.
 
 (unit-adding)=
 ### Adding units
@@ -109,9 +109,9 @@ See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Add a unit <add-a-un
 
 Adding units creates one or more units of an application on a machine model. The request names the application and the number of units, and can give a placement directive and existing storage for each unit. The answer lists the names of the new units. Each new unit gets a machine. The {ref}`compute provisioner <machine-provisioning>` then starts an instance for it. A Kubernetes model sets the scale of the application instead (see {ref}`scaling applications <application-scaling>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - The number of units is at least one.
   - The application must exist and be alive.
@@ -137,9 +137,9 @@ See also: {ref}`Juju | Manage units <manage-units>` > {ref}`View details about a
 
 Showing units returns the details of units. The request names units, or applications whose units are all returned. The answer holds, for each unit, its tag, life, workload version, charm URL, whether it is the leader, and the relation data of its application. On a machine model it holds the unit's machine, public address, and opened ports. On a Kubernetes model it holds the provider ID of the pod, its address, and its ports. A unit's statuses are in the status of the model (see {ref}`showing unit statuses <unit-showing-status>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. A caller with read access to the model can always call it.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. A caller with read access to the model can always call it.
 - *Rules:*
   - A tag names a unit or an application. A tag of another kind gets an error in its place.
   - A unit is the leader when its name is the holder of its application's lease.
@@ -154,9 +154,9 @@ The operation's required access, rules, and errors are:
 
 Finding leaders returns the name of the {ref}`leader unit <leader-unit>` of an application.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. A caller with read access to the model can always call it.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. A caller with read access to the model can always call it.
 - *Rules:*
   - The request names one application by tag.
   - The answer is the name of the unit that holds the application's lease. An application with no leader has none to return.
@@ -173,9 +173,9 @@ See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Mark unit errors as 
 
 Setting resolved markers marks the units that are in error as resolved, so that their agents move on. The request names units, or asks for all units, and says whether the failed hook runs again. The controller records the resolved marker. The unit agent follows it (see {ref}`reading resolved markers <unit-resolved-marker>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request names units or asks for all units, never both.
   - A request that asks to retry gets the resolve mode `retry-hooks`. Any other request gets `no-hooks`.
@@ -198,9 +198,9 @@ See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Remove a unit <remov
 
 Removing units makes units dying and schedules their removal on a machine model. The request names units by tag. It can ask to destroy the units' storage, to force the removal, to wait before the force applies, and to do a dry run. The unit agent of each unit then runs the `stop` and `remove` hooks and leaves its relations. Juju deletes the unit's records. A Kubernetes model removes units by setting the scale (see {ref}`scaling applications <application-scaling>`). Removing an application removes its units (see {ref}`removing applications <application-removing>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The remove block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The remove block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A model that runs on Kubernetes refuses the request.
   - A unit of a subordinate application cannot be removed on its own. Removing the relation removes the subordinate units.
@@ -226,9 +226,9 @@ See also: {ref}`Juju | Manage units <manage-units>`
 
 Showing unit statuses reports the workload status and the agent status of each unit in the status of a model. A unit agent can read the workload status of its own unit too. The status page describes the meaning of each value (see {ref}`unit status <unit-status>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For a client, {ref}`read access <user-access-model-read>` to the model, or superuser access to the controller. For a unit agent, its own unit.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller. A unit agent, for its own unit.
 - *Rules:*
   - A unit whose agent is not logged in (it has no agent presence) shows the agent status `lost` with the message `agent is not communicating with the server`. It shows the workload status `unknown` with a message that points to the debug log, unless the workload is `error` or `terminated`.
   - A unit whose agent is `allocating` is treated as present.
@@ -243,9 +243,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent logs in to the controller as its unit, with the password of the unit. The login records the unit's presence.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The password must match the hash that the controller keeps for the unit (see {ref}`setting passwords <unit-setting-passwords>`).
   - A successful login writes the unit's agent presence. The record is deleted when the connection ends. A connection from a controller to a model does not change the presence of the model's units.
@@ -260,9 +260,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent changes the password of its unit. The request gives the unit and the new password. The controller keeps a hash of it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The password has at least 24 bytes.
   - The controller stores a SHA-512 hash of the password and the algorithm that made it. It replaces the earlier hash.
@@ -276,9 +276,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent reports two statuses of its unit: its own agent status and the workload status that a charm sets with the `status-set` hook tool (see {ref}`status-set <hook-command-status-set>`). The request gives the unit, the status, a message, and data. The controller records the time of the change and adds it to the status history.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The agent status is one of `executing`, `idle`, `error`, `failed`, and `rebooting`. The agent sets `executing` when it runs a hook and `idle` when it has nothing to do. The agent status `error` needs a message. Juju sets `allocating` when it creates the unit and shows `lost` when the agent is not present, so the agent cannot set them.
   - The workload status is one of the eight values. The hook tool accepts `maintenance`, `blocked`, `waiting`, and `active`.
@@ -295,9 +295,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent reports the version and the architecture of its own binary, so that the controller knows which agents have upgraded. The unit agent of a machine model reports it through the `Upgrader` facade.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The version must be valid and the architecture must be one that the model database knows.
   - The unit must not be dead.
@@ -313,9 +313,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent claims the lease of its application for its unit, to become or to stay the {ref}`leader unit <leader-unit>`. The request gives the application, the unit, and a duration in seconds. An agent that is not the leader can instead ask to be told when the lease expires.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit and its own application. An agent that logs in as an application can claim for that application.
+- *Caller:* A unit agent, for its own unit and its own application. An agent that logs in as an application can claim for that application.
 - *Rules:*
   - The duration is at least 5 seconds and at most 5 minutes.
   - A lease that nobody holds is granted to the claimant. The holder of a lease extends it by claiming again. A claim on a lease that another unit holds is denied.
@@ -330,9 +330,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent reads the resolved marker of its unit and clears it once it has acted. When the marker is `retry-hooks`, the agent runs the hook that failed again. When the marker is `no-hooks`, it skips that hook. The marker is set by {ref}`setting resolved markers <unit-resolving>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - A unit with no marker has the mode `none`.
   - The agent clears the marker before it runs or skips the hook.
@@ -346,9 +346,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent stores the state that it needs to resume after a restart, and reads it back. The request can give the state of the agent's operations, its storage, its secrets, the charm's state items, and the relation state items. The charm state is what the charm sets with the `state-set` hook tool (see {ref}`state-set <hook-command-state-set>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - Only the parts that the request gives are written. The others stay as they are.
   - The charm state items that the request gives replace all earlier charm state items.
@@ -363,9 +363,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent reads facts about its unit: the machine it is assigned to, its public and private addresses, its availability zone, the URL of its charm, its principal, and whether it has subordinates. The charm reads some of these through hook tools (see {ref}`unit-get <hook-command-unit-get>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The availability zone of a unit comes from its machine. A unit with no machine, or a machine with no zone, has the empty zone.
   - A unit with no principal answers that it has none.
@@ -380,9 +380,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent records the charm that its unit now runs, after the agent has upgraded the unit's charm. The request gives the unit and the charm URL.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The unit must not be dead.
   - A request for the charm that the unit already runs changes nothing.
@@ -396,9 +396,9 @@ The operation's required access, rules, and errors are:
 
 A unit agent ends its own unit, or the subordinates of its unit. The agent asks for the unit to be destroyed, for example when the last relation to a principal unit ends. When Juju makes a unit `dying`, the agent runs the `stop` and `remove` hooks, waits until the unit has no subordinates, deletes the content of the secrets that the unit owns, and then marks the unit `dead`. The agent reads the life of a unit with `Life`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - Destroying a unit is the same as {ref}`removing units <unit-removing>` without destroying storage, forcing, or waiting.
   - A subordinate unit destroys itself when no alive relation with its principal's application is left.

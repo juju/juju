@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju availability zone reference: what a zone is, the records the model keeps about it, how a constraint and a placement directive name it, and the operation that lists the zones of a cloud."
+    description: "Juju availability zone reference: what a zone is, the records the model keeps about it, how a constraint and a placement directive name it, and the call that lists the zones of a cloud."
 ---
 
 (zone)=
@@ -33,19 +33,19 @@ The zone database schema is the set of records that the {ref}`model database <da
     - A subnet is linked to a zone at most once.
 - **Subnet:** The record at the far end of the link. Another page owns it: see {ref}`subnet <subnet>`.
 
-(zone-operations)=
-## Zone operations
+(zone-calls)=
+## Zone calls
 
-Zone operations are the actions a {ref}`client <client>` can take on zones through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). The only one lists the zones of the cloud.
+Zone calls are the calls a {ref}`client <client>` can take on zones through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). The only one lists the zones of the cloud.
 
 (zone-listing)=
 ### Listing zones
 
 Listing zones returns the availability zones that the cloud reports and whether each is available.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The answer comes live from the cloud, not from the model database, so it can name zones that the model has no subnet in.
   - A cloud that cannot report zones gives an empty list: Kubernetes, Azure, and manual clouds report none.

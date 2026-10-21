@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju lease reference: the time-limited claims that decide which controller node runs the singular workers, which unit leads an application, and which node creates a backup, with the records that keep them and the operations that claim, revoke, and pin them."
+    description: "Juju lease reference: the time-limited claims that decide which controller node runs the singular workers, which unit leads an application, and which node creates a backup, with the records that keep them and the calls that claim, revoke, and pin them."
 ---
 
 (lease)=
@@ -32,19 +32,19 @@ The lease database schema is the set of records that the controller database kee
   - *Rules:*
     - A lease has each pinned entity once.
 
-(lease-operations)=
-## Lease operations
+(lease-calls)=
+## Lease calls
 
-Lease operations are the actions that claim, keep, and release leases. The callers are the workers of the controller and the {ref}`unit agents <unit-agent>` of a model: a unit agent claims the leadership lease of its application (see {ref}`requesting unit leadership <unit-claiming-leadership>`), a worker of the controller claims the singular lease of a model, and the backup creator claims the backup lease of the controller model.
+Lease calls are the calls that claim, keep, and release leases. The callers are the workers of the controller and the {ref}`unit agents <unit-agent>` of a model: a unit agent claims the leadership lease of its application (see {ref}`requesting unit leadership <unit-claiming-leadership>`), a worker of the controller claims the singular lease of a model, and the backup creator claims the backup lease of the controller model.
 
 (lease-claiming)=
 ### Claiming leases
 
 Claiming leases asks to hold a lease for a holder for a duration, or to keep it. A claim on a lease that nobody holds is granted; a claim by the holder extends the lease; a claim on a lease that another holder holds is denied.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent for its application's leadership lease; a worker of the controller for a singular or a backup lease. No model access level applies.
+- *Caller:* A unit agent for its application's leadership lease; a worker of the controller for a singular or a backup lease. No model access level applies.
 - *Rules:*
   - The claim names the lease, the holder, and a duration.
   - The duration must be positive.
@@ -58,9 +58,9 @@ The operation's required access, rules, and errors are:
 
 Revoking leases releases a lease before it expires, so that another holder can claim it. The removal job of a unit revokes the unit's claim on its application's leadership lease when it removes the unit. The backup creator revokes the backup lease when a backup creation call finishes.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The holder of the lease, or the controller itself for a removal. No model access level applies.
+- *Caller:* The holder of the lease, or the controller itself for a removal. No model access level applies.
 - *Rules:*
   - A revoked lease is gone at once: the next claim on it is granted.
 - *Errors:* The caller receives each from the revoke:
@@ -71,9 +71,9 @@ The operation's required access, rules, and errors are:
 
 Pinning leases keeps a lease from expiring while an entity needs it held, and unpinning lets it expire again. A pinned lease stays with its holder until every pin is removed.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The controller itself. No client or agent calls it.
+- *Caller:* The controller itself. No client or agent calls it.
 - *Rules:*
   - A pin names a lease and an entity. Several entities can pin the same lease, each with its own pin.
   - A lease with no pin expires as usual once its duration ends.

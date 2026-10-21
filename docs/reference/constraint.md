@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju constraint reference: what a constraint is, the records that keep it, the constraint keys, and how constraints combine, and the operations that set and read the constraints of models, applications, and machines."
+    description: "Juju constraint reference: what a constraint is, the records that keep it, the constraint keys, and how constraints combine, and the calls that set and read the constraints of models, applications, and machines."
 ---
 
 (constraint)=
@@ -135,10 +135,10 @@ Constraint merging combines the constraints that apply to one machine into one s
 - The cloud can register keys that conflict, such as `instance-type` with `arch`, `mem`, `cores`, and `cpu-power` on EC2. A key from the more specific holder removes the conflicting keys of the model.
 - A machine keeps the merged result. Changing a constraint afterwards affects only machines that Juju creates later.
 
-(constraint-operations)=
-## Constraint operations
+(constraint-calls)=
+## Constraint calls
 
-Constraint operations are the actions a {ref}`client <client>` can take on constraints through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): set the constraints of a model, get them, set those of an application, get them, give those of a machine, and read them. Each call acts on one holder. Deploying an application with constraints is described on the {ref}`application <application>` page.
+Constraint calls are the calls a {ref}`client <client>` can take on constraints through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): set the constraints of a model, get them, set those of an application, get them, give those of a machine, and read them. Each call acts on one holder. Deploying an application with constraints is described on the {ref}`application <application>` page.
 
 (constraint-model-setting)=
 ### Setting model constraints
@@ -149,9 +149,9 @@ See also: {ref}`Juju | Manage constraints for a model <manage-constraints-for-a-
 
 Setting model constraints stores the constraints of a model, replacing the whole set. A client that bootstraps a controller sets the constraints of the controller model with the bootstrap constraints and those of the controller application with the bootstrap machine constraints.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - The old tags, spaces, and zones are removed and the request's are stored.
   - A space the request names must exist in the model.
@@ -169,9 +169,9 @@ The operation's required access, rules, and errors are:
 
 Getting model constraints returns the constraints of a model. A model without constraints gets an empty result.
 
-The operation's required access, rules, and errors are:
+The caller and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`admin access <user-access-model-admin>`, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or {ref}`admin access <user-access-model-admin>`, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Errors:*
   - **`model "<model uuid>" not found`**: *Trigger:* The model does not exist. The client receives it with the code `model not found`. *Remediation:* Use an existing model.
   - **`permission denied`**: *Trigger:* The caller lacks the access above. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
@@ -185,9 +185,9 @@ See also: {ref}`Juju | Manage constraints for an application <manage-constraints
 
 Setting application constraints stores the constraints of one application, replacing the whole set: the tags, spaces, and zones of the old set are removed, and a key left unset loses its value.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - The application must exist.
   - The container type must be `lxd` or `none`. A space the request names must exist in the model.
@@ -206,9 +206,9 @@ The operation's required access, rules, and errors are:
 
 Getting application constraints returns the constraints of one or more applications. An application without constraints gets an empty result.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The call takes a list of applications. Each application in the list gets its own result.
 - *Errors:* A refused read fails the whole call with `permission denied` (code `unauthorized access`). The client receives the others in the result for the application:
@@ -221,9 +221,9 @@ The operation's required access, rules, and errors are:
 
 Setting machine constraints gives a machine its constraints when a client adds the machine (see {ref}`adding machines <machine-adding>`). No call changes them afterwards.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block must not be on.
 - *Rules:*
   - Juju merges the request's constraints with the model's (see {ref}`constraint merging <constraint-merging>`) and stores the result with the machine.
   - The cloud then prechecks the merged constraints.
@@ -236,6 +236,6 @@ The operation's required access, rules, and errors are:
 
 Getting machine constraints shows the constraints of each machine in the model's status.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or superuser access to the controller. A machine agent or the controller reads the constraints of a machine to provision it.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or superuser access to the controller. A machine agent or the controller reads the constraints of a machine to provision it.

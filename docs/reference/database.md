@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju database reference: the Dqlite databases of a controller, the records they keep about changes, sequences, and model databases, and the operations that query, register, number, and delete them."
+    description: "Juju database reference: the Dqlite databases of a controller, the records they keep about changes, sequences, and model databases, and the calls that query, register, number, and delete them."
 ---
 
 (database)=
@@ -65,10 +65,10 @@ The {ref}`db shell <juju-db-repl>` shows the change log of the current database 
 - `.change-log` lists every change with its ID, edit type, change namespace, row identifier, and time ({ref}`details <juju-db-repl-change-log>`).
 - `.change-stream` lists the changes that a subscriber would receive: one for each change namespace and row identifier, with the highest ID ({ref}`details <juju-db-repl-change-stream>`).
 
-(database-operations)=
-## Database operations
+(database-calls)=
+## Database calls
 
-Database operations are the actions that read a database, number its records, and register or delete a model database. A person with a shell on a controller machine can query the databases. The {ref}`controller agent <controller-agent>` (the process on each controller node that runs the controller's workers) performs the other operations. The agent is the caller of each of them, because no client calls them directly.
+Database calls are the calls that read a database, number its records, and register or delete a model database. A person with a shell on a controller machine can query the databases. The {ref}`controller agent <controller-agent>` (the process on each controller node that runs the controller's workers) makes the other calls. The agent is the caller of each of them, because no client makes them directly.
 
 (database-querying)=
 ### Querying databases
@@ -83,9 +83,9 @@ Querying databases runs SQL against the controller database or a model database 
 A write (`INSERT`, `UPDATE`, or `DELETE`) changes the state of the controller directly. Write only when Juju developers direct it or to recover a controller, and back up the controller first.
 ```
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A shell on a controller machine, where the `juju_db_repl` command runs.
+- *Caller:* A shell on a controller machine, where the `juju_db_repl` command runs.
 - *Rules:*
   - The shell starts in the controller database.
   - The `.switch` command takes `controller` or `model-<name>`. The `.open` command takes a model UUID. The `.models` command lists the model databases.
@@ -99,9 +99,9 @@ The operation's required access, rules, and errors are:
 
 Registering model databases adds the UUID of a model to the database namespaces of the controller when the model is created. The {ref}`controller agent <controller-agent>` is the caller.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The controller agent.
+- *Caller:* The controller agent.
 - *Rules:*
   - The namespace is the UUID of the model.
   - A UUID that is already registered is refused with `database namespace already registered for model "<uuid>"`.
@@ -111,9 +111,9 @@ The operation's required access and rules are:
 
 Allocating sequence numbers hands out the next number of a counter that Juju keeps for the names and IDs it assigns in order. Juju allocates the number inside the transaction that needs it.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The controller agent, in the model database of the model whose record needs the number.
+- *Caller:* The controller agent, in the model database of the model whose record needs the number.
 - *Rules:*
   - The first number of a sequence is 0. Each allocation hands out the number one higher than the last.
   - A model keeps one sequence for each of these namespaces: `machine` (machine IDs), `machine_container_<parent machine ID>` (container numbers on a machine), `application_<application name>` (unit numbers of an application), `charm_<charm name>` (revisions of a charm that needs sequencing), `application_charm_<application UUID>` (the modified version of an application's charm), `operation` (operation and task IDs), `relation` (relation IDs), `storage`, `filesystem`, and `volume` (the IDs of storage instances, filesystems, and volumes).
@@ -124,9 +124,9 @@ The operation's required access and rules are:
 
 Deleting model databases removes the database of a model from the controller after the model is gone. The {ref}`controller agent <controller-agent>` of each controller node is the caller.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The controller agent.
+- *Caller:* The controller agent.
 - *Rules:*
   - When a model is {ref}`destroyed <model-destroying>` and its records are removed, the agent deletes its database last.
   - The removal of a model also deletes the model's UUID from the database namespaces, so that the database cannot come back.

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju model reference: what a model is, the data the controller keeps about it, the change streams that agents and workers follow, and the operations that add, list, show, configure, upgrade, migrate, and destroy models."
+    description: "Juju model reference: what a model is, the data the controller keeps about it, the change streams that agents and workers follow, and the calls that add, list, show, configure, upgrade, migrate, and destroy models."
 ---
 
 (model)=
@@ -54,10 +54,10 @@ Model change streams are the notifications that tell a worker (a process of the 
 - **Target agent version:** Every machine and unit agent follows the model's target agent version and upgrades itself to it when it changes. See {ref}`Upgrading models <model-upgrading>`.
 - **Model configuration:** Agents follow changes to the model's configuration, including its `logging-config` key.
 
-(model-operations)=
-## Model operations
+(model-calls)=
+## Model calls
 
-Model operations are the actions a {ref}`client <client>` can take on models through the {ref}`controller <controller>` API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, configure, change the {ref}`credential <credential>`, upgrade, migrate, and destroy. Granting and revoking a user's access to a model is described on the {ref}`user <user>` page.
+Model calls are the calls a {ref}`client <client>` can take on models through the {ref}`controller <controller>` API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, configure, change the {ref}`credential <credential>`, upgrade, migrate, and destroy. Granting and revoking a user's access to a model is described on the {ref}`user <user>` page.
 
 (model-adding)=
 ### Adding models
@@ -68,9 +68,9 @@ See also: {ref}`Juju | Add a model <add-a-model>`
 
 Adding models creates a model on the {ref}`controller <controller>`. When the call returns, the model's records exist and its workers (the processes that do the controller's work for the model) are running.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Add-model access <user-access-cloud-add-model>` to the {ref}`cloud <cloud>`, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`add-model access <user-access-cloud-add-model>` to the {ref}`cloud <cloud>`, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A request that names no cloud uses the controller's default cloud.
   - A request that names no {ref}`region <cloud-database-schema>` uses the default region when the cloud is the default cloud.
@@ -103,9 +103,9 @@ See also: {ref}`Juju | View all the models available on a controller <view-all-t
 
 Listing models returns the models a {ref}`user <user>` can see, either as a plain list or as summaries with a model's status, counts of {ref}`machines <machine>`, cores, and {ref}`units <unit>`, and the user's access and last connection.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* None beyond being logged in, when the caller asks about themselves. A superuser can ask about any user.
+- *Caller:* A client, for a user that is logged in, when the caller asks about themselves. A superuser can ask about any user.
 - *Rules:*
   - A superuser's plain list contains every model on the {ref}`controller <controller>`. For any other caller, a list holds the models they have access to.
   - Summaries cover the models of the named user. Only a superuser can ask for the summaries of every model on the controller.
@@ -123,9 +123,9 @@ See also: {ref}`Juju | View details about a model <view-details-about-a-model>`
 
 Showing a model returns a model's details: its name, UUID, type, qualifier, life, {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, and {ref}`credential <credential>` (with whether the credential is valid), its {ref}`agent <agent>` version, its status, its {ref}`users <user>`, and its supported features.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. A caller with {ref}`write <user-access-model-write>` or {ref}`admin <user-access-model-admin>` access, or a superuser, also receives the model's {ref}`machines <machine>` and its {ref}`secret <secret>` backends.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. A caller with {ref}`write <user-access-model-write>` or {ref}`admin <user-access-model-admin>` access, or a superuser, also receives the model's {ref}`machines <machine>` and its {ref}`secret <secret>` backends.
 - *Rules:*
   - A superuser sees every user with access to the model, and any other caller sees only themselves.
   - While the model's status is busy, the details include the latest migration status message and its start time.
@@ -142,9 +142,9 @@ See also: {ref}`Juju | Configure a model <configure-a-model>`
 
 Configuring models changes the settings of a model: its configuration keys, its {ref}`constraints <constraint>`, the defaults that new models start with, its {ref}`secret <secret>` backend, and its {ref}`credential <credential>`. The keys a model accepts are listed in the {ref}`list of model configuration keys <list-of-model-configuration-keys>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model for configuration keys, constraints, and the secret backend; {ref}`read access <user-access-model-read>` to read them. Setting a key that the model configuration schema marks as secret needs {ref}`admin access <user-access-model-admin>`. Setting or reading model defaults, which apply to new models of a {ref}`cloud <cloud>` or {ref}`region <cloud-database-schema>`, needs {ref}`superuser access <user-access-controller-superuser>`. Changing the credential needs admin access to the model or superuser access.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model for configuration keys, constraints, and the secret backend; {ref}`read access <user-access-model-read>` to read them. Setting a key that the model configuration schema marks as secret needs {ref}`admin access <user-access-model-admin>`. Setting or reading model defaults, which apply to new models of a {ref}`cloud <cloud>` or {ref}`region <cloud-database-schema>`, needs {ref}`superuser access <user-access-controller-superuser>`. Changing the credential needs admin access to the model or superuser access.
 - *Rules:*
   - A change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses changes to configuration keys, constraints, and the credential. A change block on the {ref}`controller <controller>` model refuses changes to the defaults.
   - Only a superuser can set a logging configuration that includes the `TRACE` level.
@@ -161,7 +161,7 @@ The operation's required access, rules, and errors are:
   - **`secret backend "<name>" not found`** and **`secret backend "<name>" not valid`**: *Trigger:* The named backend does not exist, or cannot back this model. *Remediation:* Name an existing backend that suits the model.
   - **`missing cloud name`**, **`cloud tag "<tag>" not valid`**, **`cloud "<cloud>" not found`**, and **`cloud "<cloud>" region "<region>" not found`**: *Trigger:* A request for model defaults names no cloud, a malformed cloud, or a cloud or region that does not exist. *Remediation:* Name an existing cloud and region.
   - **`permission denied`**: *Trigger:* The caller lacks the access above. *Remediation:* Ask a model administrator or a superuser.
-  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this operation checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
 
 (model-upgrading)=
 ### Upgrading models
@@ -172,9 +172,9 @@ See also: {ref}`Juju | Upgrade a model <upgrade-a-model>`
 
 Upgrading models raises the target agent version of a model, which makes the model's machine and unit {ref}`agents <agent>` upgrade themselves to it. A request for the controller model upgrades the controller together with its model.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses the request.
   - A request that names no version upgrades a workload model to the highest version that runs on the controller's nodes. The same request upgrades the controller model to the highest patch version for which the controller holds agent binaries. A request can also change the agent stream or ask for a dry run, which runs the checks, reports the version it would choose, and changes nothing.
@@ -193,7 +193,7 @@ The operation's required access, rules, and errors are:
   - **`cannot upgrade the controller to a version that is more than a patch version increase`**: *Trigger:* The version differs from the controller's in the major or minor number. *Remediation:* Choose a patch version, or {ref}`migrate <model-migrating>` the model to a controller of the newer version.
   - **`agent stream "<stream>" is not a recognised valid value`** and **`agent stream "<stream>" is not recognised as a valid value`**: *Trigger:* The stream is not a valid agent stream. *Remediation:* Use a valid stream.
   - **`aborting model upgrades is not supported`**: *Trigger:* A request to abort an upgrade. *Remediation:* Let the upgrade finish, then upgrade again to the version you want.
-  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this operation checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
 
 (model-migrating)=
 ### Migrating models
@@ -212,9 +212,9 @@ See also: {ref}`Juju | Migrate a model <migrate-a-model>`
 
 Migrating models moves a model from one {ref}`controller <controller>`, the source, to another, the target. The source controller drives the migration through a sequence of phases. The model's {ref}`agents <agent>` take part in several of them.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the source controller, plus the address, the certificate, and a {ref}`user's <user>` credentials for the target controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the source controller, plus the address, the certificate, and a {ref}`user's <user>` credentials for the target controller.
 - *Rules:*
   - The source and the target both run prechecks (checks that a model can be migrated, such as that every machine is alive) before the model is quiesced and again when the model is stable. A request can ask for the prechecks only.
   - Every user with access to the model must exist on the target, unless the request skips the user checks. When external users (those with an `@` in their name) have access, the two controllers must also use the same identity provider URL (the address of the service that authenticates external users).
@@ -252,15 +252,15 @@ See also: {ref}`Juju | Destroy a model <destroy-a-model>`
 
 Destroying models removes a model and everything in it, including the {ref}`cloud <cloud>` resources behind its machines. The {ref}`controller <controller>` marks the model dying and schedules the removal of its {ref}`relations <relation>`, {ref}`units <unit>`, {ref}`machines <machine>`, {ref}`applications <application>`, and {ref}`storage <storage>`; when all of it is gone, the model is dead and the controller deletes its database.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A destroy block, a remove block, or a change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses the request.
   - The controller model is destroyed only with the force option.
   - A model that holds persistent storage is destroyed only when the request says whether to destroy or release the storage.
   - A request with the force option removes what the normal removal cannot, after waiting for the maximum wait time the request names.
-  - A model that is being imported by a {ref}`migration <model-migrating>` is removed through the migration's abort, not through this operation.
+  - A model that is being imported by a {ref}`migration <model-migrating>` is removed through the migration's abort, not through this call.
   - A model stays dying until every one of its machines is gone. A machine that hosts containers is removed after its containers.
   - The model's database is deleted last, after the rest of the model is removed.
 - *Errors:*
@@ -268,4 +268,4 @@ The operation's required access, rules, and errors are:
   - **`removing model "<uuid>": cannot remove controller model "<uuid>" without force`**: *Trigger:* Destroying the controller model without the force option. *Remediation:* Request the destruction with the force option.
   - **`removing model "<uuid>": …model "<uuid>" is being migrated: model has an active migration import claim`**: *Trigger:* A normal removal targets a model that is being imported. *Remediation:* Abort the migration.
   - **`permission denied`**: *Trigger:* The caller is not an administrator of the model. *Remediation:* Ask a model administrator or a superuser.
-  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this operation checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.

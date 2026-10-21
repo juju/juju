@@ -41,19 +41,19 @@ The external controller database schema is the set of records that the controlle
 
 External controller change streams are the notifications that tell the workers of the controller that an external controller record has changed. The worker that keeps the records current holds the watcher: when the stream names a controller that the worker does not follow yet, the worker starts one follower for that controller; when the stream names a controller that it already follows, the worker stops that follower (see {ref}`refreshing external controller addresses <external-controller-refreshing>`). A worker that calls a remote relation reads the record of the controller that hosts the model it calls, at the moment it connects.
 
-(external-controller-operations)=
-## External controller operations
+(external-controller-calls)=
+## External controller calls
 
-External controller operations are the actions that write and read the records. A client reaches the records through {ref}`consuming an offer <offer-consuming>` and through asking for the API addresses of a model ({ref}`reading a model's controller <external-controller-reading>`). A worker of the controller keeps them current. A migration writes them again.
+External controller calls are the calls that write and read the records. A client reaches the records through {ref}`consuming an offer <offer-consuming>` and through asking for the API addresses of a model ({ref}`reading a model's controller <external-controller-reading>`). A worker of the controller keeps them current. A migration writes them again.
 
 (external-controller-recording)=
 ### Recording external controllers
 
 Recording external controllers saves the controller that hosts an offer, when a client consumes the offer. The record replaces the alias, the certificate, and the whole address list of the controller, and adds the model that hosts the offer to its models.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The same access as for {ref}`consuming an offer <offer-consuming>`: {ref}`write access <user-access-model-write>` to the consuming model, with no block on changes.
+- *Caller:* A client, for a user with the same access as for {ref}`consuming an offer <offer-consuming>`: {ref}`write access <user-access-model-write>` to the consuming model, with no block on changes.
 - *Rules:*
   - A consume that carries no controller info writes no record.
   - An offer hosted by this controller leaves no record: consuming it changes nothing here.
@@ -68,9 +68,9 @@ The operation's required access, rules, and errors are:
 
 Reading a model's controller returns the API addresses and the certificate of the controller that hosts a model. A client or an agent calls `ControllerAPIInfoForModels` for it.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* Any logged-in client or agent. No model access level applies.
+- *Caller:* Any logged-in client or agent. No model access level applies.
 - *Rules:*
   - A model on this controller returns this controller's addresses.
   - A model on an external controller returns the addresses and the certificate from its record.
@@ -81,9 +81,9 @@ The operation's required access and rules are:
 
 Refreshing external controller addresses keeps the address list of each record current. A worker of the controller does it: for each external controller it connects to the controller as an anonymous client, calls `WatchControllerInfo` on it, and saves the new address list when the controller reports a change.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The controller itself. No client or agent calls it.
+- *Caller:* The controller itself. No client or agent calls it.
 - *Rules:*
   - The worker keeps the alias and the certificate of the record, and replaces only the addresses.
   - A controller that cannot report its own addresses, such as one behind a load balancer, is left as it is.

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju secret reference: what a secret is, the records the model keeps about its revisions, owners, consumers, and grants, the changes that reach units, and the operations that add, list, read, grant, update, rotate, and remove secrets."
+    description: "Juju secret reference: what a secret is, the records the model keeps about its revisions, owners, consumers, and grants, the changes that reach units, and the calls that add, list, read, grant, update, rotate, and remove secrets."
 ---
 
 (secret)=
@@ -102,10 +102,10 @@ Secret change streams are the notifications that tell the unit {ref}`agents <age
 
 A unit agent can ask about any unit of its own application. It can ask about the application itself only when its unit is the leader.
 
-(secret-operations)=
-## Secret operations
+(secret-calls)=
+## Secret calls
 
-Secret operations are the actions on secrets: add, list, read, grant, revoke, update, rotate, and remove. A {ref}`client <client>` takes them on the user secrets of a model through the controller API (the set of calls that clients and agents make to the controller). A charm takes them on its own secrets through {ref}`hook commands <hook-command>`. A client manages the user secrets of a model. A charm manages the secrets that it owns. Juju applies the changes of a hook when the hook succeeds. A **unit agent** is the {ref}`agent <agent>` process that runs a unit's charm. It logs in as its unit. The facades that serve it accept unit agents only, so no model access level and no block applies to it.
+Secret calls are the calls on secrets: add, list, read, grant, revoke, update, rotate, and remove. A {ref}`client <client>` takes them on the user secrets of a model through the controller API (the set of calls that clients and agents make to the controller). A charm takes them on its own secrets through {ref}`hook commands <hook-command>`. A client manages the user secrets of a model. A charm manages the secrets that it owns. Juju applies the changes of a hook when the hook succeeds. A **unit agent** is the {ref}`agent <agent>` process that runs a unit's charm. It logs in as its unit. The facades that serve it accept unit agents only, so no model access level and no block applies to it.
 
 (secret-adding)=
 ### Adding secrets
@@ -116,9 +116,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Adding secrets creates a secret with its first revision. A client adds user secrets, which the model owns. A charm adds application secrets and unit secrets with the hook command {ref}`secret-add <hook-command-secret-add>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit. For an application secret, that unit is the {ref}`leader unit <leader-unit>` of the application.
+- *Caller:* For a user secret, a client, for a user with {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit. For an application secret, that unit is the {ref}`leader unit <leader-unit>` of the application.
 - *Rules:*
   - The call takes a list of secrets. Each secret in the list gets its own result.
   - Juju assigns the URI and returns it. The secret starts at revision 1. Its owner has the role `manage`.
@@ -151,9 +151,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Listing secrets returns the secrets of a model with their metadata, revisions, and grants, and can return their content. A charm lists the secrets that it owns with the hook commands {ref}`secret-ids <hook-command-secret-ids>` and {ref}`secret-info-get <hook-command-secret-info-get>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. A request for the content needs {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller. For a charm secret, a unit agent, for its own unit. No block applies to a client.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. A request for the content needs {ref}`admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller. For a charm secret, a unit agent, for its own unit. No block applies to a client.
 - *Rules:*
   - The answer for a secret holds:
     - The URI, version, owner, description, label, and rotation policy.
@@ -183,9 +183,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Reading secret content returns the content of one revision of a secret to a unit. A charm reads a secret with the hook command {ref}`secret-get <hook-command-secret-get>`. A unit that reads a secret becomes its consumer and tracks a revision of it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. The unit or its application has the role `view` or `manage` on the secret. Every unit of an application can read a secret that the application owns.
+- *Caller:* A unit agent, for its own unit. The unit or its application has the role `view` or `manage` on the secret. Every unit of an application can read a secret that the application owns.
 - *Rules:*
   - The call names the secret by its URI or by a label. An owner finds its own secret by the owner label. A consumer finds a secret by the label that it gave it.
   - The first read of a secret by a unit tracks the latest revision. Later reads return the tracked revision.
@@ -207,9 +207,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Granting and revoking access to secrets gives applications and units the right to read a secret, and takes it away. A client grants and revokes access to a user secret for applications. A charm grants and revokes access to its own secrets with the hook commands {ref}`secret-grant <hook-command-secret-grant>` and {ref}`secret-revoke <hook-command-secret-revoke>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
+- *Caller:* For a user secret, a client, for a user with {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
 - *Rules:*
   - A grant gives the role `view`.
   - A client's call names the secret by URI or by name, and lists the applications. Each application in the list gets its own result. The grant has the model as its scope, so it lasts until a revoke or the removal of the secret.
@@ -242,9 +242,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Updating secrets changes the content or the metadata of a secret. New content adds a revision. A client updates user secrets. A charm updates its own secrets with the hook command {ref}`secret-set <hook-command-secret-set>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
+- *Caller:* For a user secret, a client, for a user with {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
 - *Rules:*
   - The call takes a list of updates. Each update in the list gets its own result.
   - An update names the secret by its URI or by its label, not by both, and changes at least one attribute.
@@ -274,9 +274,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Rotating secrets asks the owner of a charm secret to add a revision when the secret's rotation is due. Expiry works alike: it asks the owner to remove a revision when the revision's expiry time has passed. Juju runs a hook on the owner for each: {ref}`secret-rotate <hook-secret-rotate>` and {ref}`secret-expired <hook-secret-expired>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. The secret is owned by the unit or, when the unit is the leader, by its application.
+- *Caller:* A unit agent, for its own unit. The secret is owned by the unit or, when the unit is the leader, by its application.
 - *Rules:*
   - The unit agent reports a rotation with the call `SecretsRotated` of the `SecretsManager` facade, which sets the next rotation.
   - The next rotation is one interval of the policy after the one that was due. The policy `never` sets none.
@@ -296,9 +296,9 @@ See also: {ref}`Juju | Manage secrets <manage-secrets>`
 
 Removing secrets deletes a secret with all its revisions, or deletes chosen revisions of it. The controller schedules the removal, so it finishes after the call returns. A client removes user secrets. A charm removes its own secrets and revisions with the hook command {ref}`secret-remove <hook-command-secret-remove>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For a user secret, {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
+- *Caller:* For a user secret, a client, for a user with {ref}`write access <user-access-model-write>` to the model. For a charm secret, a unit agent, for its own unit, which is the owning unit or the leader of the owning application and has the role `manage` on the secret. No block applies to a client.
 - *Rules:*
   - The call takes a list of secrets. Each secret in the list gets its own result. A call with an empty list does nothing.
   - A request names the secret by URI or by label, and can list the revisions to remove. Without revisions, the removal covers all of them.

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju user reference: what a user is, the records the controller keeps about users and their access, the access levels, and the operations that add, list, enable, disable, remove, and register users, change passwords, log in, and grant or revoke access."
+    description: "Juju user reference: what a user is, the records the controller keeps about users and their access, the access levels, and the calls that add, list, enable, disable, remove, and register users, change passwords, log in, and grant or revoke access."
 ---
 
 (user)=
@@ -73,7 +73,7 @@ The holder can log in to the controller (see {ref}`logging in <user-logging-in>`
 (user-access-controller-superuser)=
 #### `superuser`
 
-The holder can do everything that the operations of the controller, cloud, and model pages list superuser access for, and manages users. The controller gives it to the user `admin` when it is {ref}`bootstrapped <bootstrap-a-controller>`. External users inherit the higher of their own level and the level of the special user `everyone@external`, which acts as a group for every external user.
+The holder can do everything that the calls of the controller, cloud, and model pages list superuser access for, and manages users. The controller gives it to the user `admin` when it is {ref}`bootstrapped <bootstrap-a-controller>`. External users inherit the higher of their own level and the level of the special user `everyone@external`, which acts as a group for every external user.
 
 ### Valid access levels for clouds
 
@@ -123,10 +123,10 @@ The holder can relate an application to the offer. Revoking this level suspends 
 
 The holder can grant or revoke offer access to others.
 
-(user-operations)=
-## User operations
+(user-calls)=
+## User calls
 
-User operations are the actions a {ref}`client <client>` can take on users through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, enable, disable, remove, change a password, register, log in, and grant or revoke access. Most calls take a list. Each entry in the list gets its own result. Logging in and registering handle one user for each request. A user is named by a tag of the form `user-<name>`.
+User calls are the calls a {ref}`client <client>` can take on users through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, enable, disable, remove, change a password, register, log in, and grant or revoke access. Most calls take a list. Each entry in the list gets its own result. Logging in and registering handle one user for each request. A user is named by a tag of the form `user-<name>`.
 
 (user-change-block)=
 The **change block** is an operator setting that makes the controller refuse operations that change the model. A refused operation fails with an "operation blocked" error that carries the operator's message. The calls below that name the change block check the controller model's block.
@@ -140,9 +140,9 @@ See also: {ref}`Juju | Add a user <add-a-user>`
 
 Adding users (`AddUser`) creates local users with {ref}`login access <user-access-controller-login>` to the controller. A user created without a password gets a secret key that the new user exchanges for a first password (see {ref}`registering users <user-registering>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. The {ref}`change block <user-change-block>` must not be on.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. The {ref}`change block <user-change-block>` must not be on.
 - *Rules:*
   - The name starts and ends with a letter or digit, has only letters, digits, `.`, `+`, and `-` between them, and has at least two characters.
   - The name must be local: a name with a domain is refused.
@@ -166,9 +166,9 @@ See also: {ref}`Juju | Manage users <manage-users>`
 
 Listing users (`UserInfo`) returns a user's name, display name, creator, creation time, last connection, whether it is disabled, and its access to the controller. A second call (`ModelUserInfo`) returns the users of a model with their model access and last connection to it.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A caller logged in as a user. To see another user, {ref}`superuser access <user-access-controller-superuser>` to the controller. For the users of a model, {ref}`read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A caller logged in as a user. To see another user, {ref}`superuser access <user-access-controller-superuser>` to the controller. For the users of a model, {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - A request without names returns every user that is not removed when the caller is a superuser, and only the caller otherwise. Disabled users are left out unless the request asks for them.
   - A disabled user shows an empty access level.
@@ -186,9 +186,9 @@ The operation's required access, rules, and errors are:
 
 Reading controller access (`GetControllerAccess` of the controller) returns the controller access level of each user in the request.
 
-The operation's required access and errors are:
+The caller and the errors are:
 
-- *Required access:* A superuser can read any user's level, and any other caller can read only their own. No block applies.
+- *Caller:* A superuser can read any user's level, and any other caller can read only their own. No block applies.
 - *Errors:* The client receives each in the result for the user, with no error code unless stated:
   - **`permission denied`**: *Trigger:* A caller who is not a superuser asked about another user. The client receives it with the code `unauthorized access`. *Remediation:* Ask for your own level, or ask a superuser.
   - **`access not found for "<name>" on "<controller UUID>"`**: *Trigger:* The user holds no controller access, or is disabled or removed. *Remediation:* {ref}`Grant access <user-granting-access>` or {ref}`enable the user <user-enabling>`.
@@ -203,9 +203,9 @@ See also: {ref}`Juju | Manage users <manage-users>`
 
 Enabling users (`EnableUser`) lets disabled users log in again. Enabling a user who is already enabled succeeds.
 
-The operation's required access and errors are:
+The caller and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. The {ref}`change block <user-change-block>` must not be on.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. The {ref}`change block <user-change-block>` must not be on.
 - *Errors:* A refused access or block fails the whole call with the errors of {ref}`adding users <user-adding>`. The client receives the others in the result for the user, with no error code:
   - **`failed to enable user: enabling user with uuid "<name>": active user "<name>": user not found`**: *Trigger:* No user that is not removed has the name. *Remediation:* {ref}`List the users <user-listing>` and use an existing name.
   - The tag errors of {ref}`listing users <user-listing>`.
@@ -219,9 +219,9 @@ See also: {ref}`Juju | Manage users <manage-users>`
 
 Disabling users (`DisableUser`) stops users from logging in. Disabling a user who is already disabled succeeds.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The same as {ref}`enabling users <user-enabling>`.
+- *Caller:* The same as {ref}`enabling users <user-enabling>`.
 - *Rules:*
   - A disabled user fails every login with the same error as a wrong password, and shows no access to the controller.
   - A disabled user's password, activation key, and permissions stay stored. The user cannot be granted access and cannot have a password set.
@@ -240,9 +240,9 @@ See also: {ref}`Juju | Manage users <manage-users>`
 
 Removing users (`RemoveUser`) marks users as removed for good. The controller keeps the user's record for auditing.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. The {ref}`change block <user-change-block>` must not be on.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. The {ref}`change block <user-change-block>` must not be on.
 - *Rules:*
   - Removing a user deletes the user's SSH keys with their model authorizations (see {ref}`SSH key <ssh-key>`), its password, its activation key, and all its permissions.
   - The user `admin` cannot be removed.
@@ -262,9 +262,9 @@ See also: {ref}`Juju | Manage a user's login details <manage-a-users-login-detai
 
 Changing passwords sets a new password for users (`SetPassword`) or resets it (`ResetPassword`). Setting a password stores a new salted hash and discards any activation key. Resetting a password deletes the stored password and returns a new random secret key for the user, who exchanges it for a password (see {ref}`registering users <user-registering>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* To set a password, {ref}`superuser access <user-access-controller-superuser>` to the controller, or being the user whose password changes. To reset a password, superuser access. The {ref}`change block <user-change-block>` must not be on.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller or for the user whose password changes, to set a password; to reset a password, for a user with superuser access. The {ref}`change block <user-change-block>` must not be on.
 - *Rules:*
   - A new password is not empty after trimming spaces and is at most 1024 bytes.
   - A password cannot be set for a disabled user.
@@ -288,9 +288,9 @@ See also: {ref}`Juju | Add a user <add-a-user>`
 
 Registering users completes the setup of a user who holds a secret key (from {ref}`adding <user-adding>` or a password reset). A client sends a POST request to the controller's `/register` route with the user's tag, a nonce (a one-time value that the client chooses), and a message sealed with the secret key (encrypted and authenticated with it). The controller sets the password that the message holds and discards the activation key. It answers with the controller's CA certificate (the certificate of the authority that signed the controller's TLS certificate) and UUID, sealed with the same key. The answer can also hold the proxy settings that the client needs to reach the controller.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* Knowing the user's secret key. No login is needed.
+- *Caller:* A client that knows the user's secret key. No login is needed.
 - *Rules:*
   - A secret key works once, because setting the password discards it.
   - The answer sets a short-lived local-login macaroon (a bearer token that lets the client log in as the user) in a cookie.
@@ -311,9 +311,9 @@ See also: {ref}`Juju | Manage users <manage-users>`
 
 Logging in (`Login` of the `Admin` facade) authenticates a user and opens a session: all later requests on the connection act as that user. The answer holds the user's tag, its access to the controller and to the model addressed, the controller tag, the server addresses, the server version, and the facades (named groups of API calls) the user may call.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A local user logs in with the name and password, or with a macaroon. An external user logs in with a macaroon from the identity provider. A user who logs in to a controller needs {ref}`login access <user-access-controller-login>` to it. A user who logs in to a model needs access to the model, unless the user is a superuser.
+- *Caller:* A local user logs in with the name and password, or with a macaroon. An external user logs in with a macaroon from the identity provider. A user who logs in to a controller needs {ref}`login access <user-access-controller-login>` to it. A user who logs in to a model needs access to the model, unless the user is a superuser.
 - *Rules:*
   - A request without a password is authenticated with macaroons. When none is valid, the answer asks the client to discharge a macaroon (to have it confirmed by the third party named in it). The client then logs in again with the result.
   - Every authenticated login stores the time as the user's last login to the model.
@@ -333,9 +333,9 @@ See also: {ref}`Juju | Manage user access <manage-user-access>`
 
 Granting and revoking access changes the {ref}`access level <user-access-levels>` of users on a controller (`ModifyControllerAccess`), a model (`ModifyModelAccess`), a cloud (`ModifyCloudAccess`), or an offer (`ModifyOfferAccess`). A change names the user, the object, the action (`grant` or `revoke`), and the level.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* For a controller, {ref}`superuser access <user-access-controller-superuser>` to it. For a model, {ref}`admin access <user-access-model-admin>` to it or superuser access. For a cloud, {ref}`admin access <user-access-cloud-admin>` to it or superuser access. For an offer, {ref}`admin access <user-access-offer-admin>` to it, admin access to its model, or superuser access. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to a controller; with {ref}`admin access <user-access-model-admin>` to a model, or superuser access; with {ref}`admin access <user-access-cloud-admin>` to a cloud, or superuser access; or with {ref}`admin access <user-access-offer-admin>` to an offer, admin access to its model, or superuser access. No block applies.
 - *Rules:*
   - The level must be valid for the type of object (see {ref}`access levels <user-access-levels>`).
   - Granting a level to a user who holds it or a higher one is refused.

@@ -35,10 +35,10 @@ The model defaults database schema is the set of records that the controller dat
     - A key is not empty.
 - **Cloud and cloud region:** The records at the far ends of the defaults. Other pages own them: see {ref}`cloud <cloud>` and the {ref}`regions <cloud-database-schema>` of a cloud.
 
-(model-defaults-operations)=
-## Model default operations
+(model-defaults-calls)=
+## Model default calls
 
-Model default operations are part of {ref}`configuring models <model-configuring>`: a client reads the defaults of a cloud, sets them, and removes them, for a {ref}`cloud <cloud>` or for one of its {ref}`regions <cloud-database-schema>`.
+Model default calls are part of {ref}`configuring models <model-configuring>`: a client reads the defaults of a cloud, sets them, and removes them, for a {ref}`cloud <cloud>` or for one of its {ref}`regions <cloud-database-schema>`.
 
 When a {ref}`model <model>` is created, its {ref}`model configuration <model-configuration>` takes each key's value from the most specific source that sets it: the defaults built into this version of Juju come first, then the defaults of the cloud's provider (the part of Juju that talks to the cloud's API), the cloud's defaults, the region's defaults, and finally the model's fixed metadata, which no one can change. A new model takes its values from the defaults at the moment it is created; a change later on does not reach models that exist ({ref}`adding a model <add-a-model>`). The default values of each key are listed with the key in the {ref}`list of model configuration keys <list-of-model-configuration-keys>`.
 
@@ -47,9 +47,9 @@ When a {ref}`model <model>` is created, its {ref}`model configuration <model-con
 
 Reading model defaults lists the default value of each {ref}`model configuration <model-configuration>` key that a {ref}`cloud <cloud>` carries, together with the value that one of its {ref}`regions <cloud-database-schema>` carries for the same key.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - Each key's result carries the cloud's default value and, for each region that has one, the region's value for the key.
 - *Errors:*
@@ -61,9 +61,9 @@ The operation's required access, rules, and errors are:
 
 Setting model defaults writes the value of one or more {ref}`model configuration <model-configuration>` keys for a {ref}`cloud <cloud>` or for one of its {ref}`regions <cloud-database-schema>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A change block on the controller model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses a set.
   - Setting a key that the cloud or the region already carries replaces its value.
@@ -77,9 +77,9 @@ The operation's required access, rules, and errors are:
 
 Removing model defaults removes the default value of one or more {ref}`model configuration <model-configuration>` keys from a {ref}`cloud <cloud>` or from one of its {ref}`regions <cloud-database-schema>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A change block on the controller model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses a removal.
 - *Errors:*

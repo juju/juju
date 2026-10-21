@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju action reference: what an action is, the operations and tasks that record its runs, the status of a task, and the operations that list, run, show, cancel, and prune them."
+    description: "Juju action reference: what an action is, the operations and tasks that record its runs, the status of a task, and the calls that list, run, show, cancel, and prune them."
 ---
 
 (action)=
@@ -59,10 +59,10 @@ Action change streams are the notifications about tasks. A change stream is deli
 - **Tasks of a unit.** The unit agent calls `WatchActionNotifications` to hear the number of each task of its unit that becomes pending or aborting.
 - **Tasks of a machine.** The machine agent calls `WatchActionNotifications` of the `MachineActions` facade to hear the number of each task of its machine that becomes pending.
 
-(action-operations)=
-## Action operations
+(action-calls)=
+## Action calls
 
-Action operations are the calls that {ref}`clients <client>`, {ref}`agents <agent>`, and hook tools make through the controller API (the set of calls that clients and agents make to the controller). A client works with actions, tasks, and operations. The calls of a client belong to the `Action` facade (a named group of API calls). An {ref}`agent <agent>` is a unit agent, the process that runs a unit's charm, or a machine agent, the process that runs commands on a machine. Each logs in as its own unit or machine and acts only for it, so no model access level or block applies to its calls. An agent runs the tasks that target it. A hook tool gives the action code its parameters and takes its results. The controller also prunes old operations on its own.
+Action calls are the calls that {ref}`clients <client>`, {ref}`agents <agent>`, and hook tools make through the controller API (the set of calls that clients and agents make to the controller). A client works with actions, tasks, and operations. The calls of a client belong to the `Action` facade (a named group of API calls). An {ref}`agent <agent>` is a unit agent, the process that runs a unit's charm, or a machine agent, the process that runs commands on a machine. Each logs in as its own unit or machine and acts only for it, so no model access level or block applies to its calls. An agent runs the tasks that target it. A hook tool gives the action code its parameters and takes its results. The controller also prunes old operations on its own.
 
 (action-listing)=
 ### Listing actions

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju controller reference: what a controller is, the data it keeps about itself and its nodes, the workers it runs, the changes its processes follow, and the operations that bootstrap, configure, make highly available, and destroy it."
+    description: "Juju controller reference: what a controller is, the data it keeps about itself and its nodes, the workers it runs, the changes its processes follow, and the calls that bootstrap, configure, make highly available, and destroy it."
 ---
 
 (controller)=
@@ -128,10 +128,10 @@ Controller change streams are the notifications that tell the controller's worke
 - **Controller nodes:** `api-address-setter` follows the set of controller nodes and publishes the API addresses again when a node joins, leaves, or changes address.
 - **API addresses:** A machine agent follows the API addresses and stores them when they change, so that it can reach a controller after its addresses change.
 
-(controller-operations)=
-## Controller operations
+(controller-calls)=
+## Controller calls
 
-Controller operations are the actions that a {ref}`client <client>` can take on a controller through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). Operations on the SSH server are described on the {ref}`SSH server <juju-ssh>` page, the migration of a model on the {ref}`model <model-migrating>` page, and the access that users hold on the controller on the {ref}`user <user>` page.
+Controller calls are the calls that a {ref}`client <client>` can take on a controller through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). Calls on the SSH server are described on the {ref}`SSH server <juju-ssh>` page, the migration of a model on the {ref}`model <model-migrating>` page, and the access that users hold on the controller on the {ref}`user <user>` page.
 
 (controller-bootstrapping)=
 ### Bootstrapping controllers
@@ -149,9 +149,9 @@ See also: {ref}`Juju | Bootstrap a controller <bootstrap-a-controller>`
 
 Bootstrapping controllers creates a controller on a cloud: an instance or pod, the controller's database and records, and the application that runs the controller charm.
 
-The operation's required access and rules are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A {ref}`credential <credential>` for the {ref}`cloud <cloud>`.
+- *Caller:* A client, for a user with a {ref}`credential <credential>` for the {ref}`cloud <cloud>`.
 - *Rules:*
   - The client starts the instance and connects to it over SSH, so the client needs a network path to the instance.
   - The controller machine is machine `0`. The controller application is named `controller`.
@@ -168,9 +168,9 @@ See also: {ref}`Juju | Configure a controller <configure-a-controller>`, {ref}`J
 
 Configuring controllers reads the controller's configuration and changes the settings that may change after bootstrap. The workers that follow a key act on a change as soon as it is stored.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* Reading needs only that the caller is logged in. Changing needs {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user that is logged in, to read; for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, to change. No block applies.
 - *Rules:*
   - A change can set only these keys. Every other key is fixed at bootstrap:
     - Log files: `agent-logfile-max-backups`, `agent-logfile-max-size`, `model-logfile-max-backups`, and `model-logfile-max-size`.
@@ -197,9 +197,9 @@ See also: {ref}`Juju | Make a controller highly available <make-a-controller-hig
 
 Making controllers highly available adds controller nodes, so that the controller keeps working when a machine fails. A node is a unit of the controller application in the controller model. The way to add one is the operation that adds a unit to any application. {ref}`High availability <high-availability>` shows what each node runs.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the controller model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, as for adding any unit to a machine model. The `HighAvailability` facade's own call that would add nodes, `EnableHA`, is refused for every caller.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the controller model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on, as for adding any unit to a machine model. The `HighAvailability` facade's own call that would add nodes, `EnableHA`, is refused for every caller.
 - *Rules:*
   - Juju sets no database roles. Dqlite chooses them, as voters (nodes that take part in leader elections), stand-bys (nodes that take a voter's place), or spares.
   - A controller cannot be scaled down to zero units.
@@ -217,16 +217,16 @@ The operation's required access, rules, and errors are:
 
 Listing controller nodes returns the controller nodes with the addresses at which a client can reach each one, in order of node ID. The list is empty while the controller has published no addresses.
 
-The operation's required access is {ref}`login access <user-access-controller-login>` to the controller. A caller without it receives `permission denied`. On a Kubernetes controller the call fails with **`high availability on kubernetes controllers not supported`** and the code for an unsupported operation, because the `HighAvailability` facade refuses a Kubernetes controller.
+The call is made by a client, for a user with {ref}`login access <user-access-controller-login>` to the controller. A caller without it receives `permission denied`. On a Kubernetes controller the call fails with **`high availability on kubernetes controllers not supported`** and the code for an unsupported operation, because the `HighAvailability` facade refuses a Kubernetes controller.
 
 (controller-blocks)=
 ### Listing blocked models and removing blocks
 
 Listing blocked models returns every model that has a block, with its block types, in order of name and then qualifier. Removing blocks removes the blocks of every model on the controller.
 
-The operations' required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - Removing blocks acts on every model on the controller, so the request must say so.
 - *Errors:*
@@ -242,9 +242,9 @@ See also: {ref}`Juju | Remove a controller <remove-a-controller>`
 
 Destroying controllers removes a controller, its controller model, and, when the request says so, every model it hosts. The controller marks the controller model dying and removes each hosted model as {ref}`Destroying models <model-destroying>` describes.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller. The call must run on the controller model.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. The call must run on the controller model.
 - *Rules:*
   - A block of any type on any hosted model refuses the request. A destroy, remove, or change block on the controller model refuses it too. {ref}`Removing blocks <controller-blocks>` lifts them.
   - A request that does not ask to destroy the hosted models is refused while any hosted model exists.

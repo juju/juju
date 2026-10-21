@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju agent version reference: the target version and stream a model's agents are told to run, the catalogue of stored agent binaries, and the operations that upload the binaries and hand them to the agents."
+    description: "Juju agent version reference: the target version and stream a model's agents are told to run, the catalogue of stored agent binaries, and the calls that upload the binaries and hand them to the agents."
 ---
 
 (agent-version)=
@@ -41,10 +41,10 @@ The agent version database schema is the set of records that the databases keep 
 
 Agent version change streams are the notifications that tell the agents of a model that the target version has changed. A machine agent calls `WatchAPIVersion` for its machine; a {ref}`unit agent <unit-agent>` calls it for its unit. When the watcher fires, the agent asks for the binaries of the new target version and swaps its own binary for one of them.
 
-(agent-version-operations)=
-## Agent version operations
+(agent-version-calls)=
+## Agent version calls
 
-Agent version operations are the actions that put agent binaries on the controller and hand them to the agents. A client with admin access uploads binaries; an agent asks for the binaries of its target version. Setting the target version itself is part of {ref}`upgrading models <model-upgrading>`, which also states the checks a version must pass.
+Agent version calls are the calls that put agent binaries on the controller and hand them to the agents. A client, for a user with admin access, uploads binaries; an agent asks for the binaries of its target version. Setting the target version itself is part of {ref}`upgrading models <model-upgrading>`, which also states the checks a version must pass.
 
 (agent-version-uploading)=
 ### Uploading agent binaries

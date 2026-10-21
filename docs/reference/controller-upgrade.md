@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju controller upgrade reference: the record the controller keeps of an upgrade, its states and per-node progress, the change streams, and the operations that start an upgrade and carry it out."
+    description: "Juju controller upgrade reference: the record the controller keeps of an upgrade, its states and per-node progress, the change streams, and the calls that start an upgrade and carry it out."
 ---
 
 (controller-upgrade)=
@@ -42,10 +42,10 @@ The controller upgrade database schema is the set of records that the controller
 
 Controller upgrade change streams are the notifications that tell the agents of the controller nodes that the upgrade records changed. A node's agent calls `WatchForUpgradeState` to hear that the upgrade reached a state, and `WatchForUpgradeReady` to hear that every node of the controller has registered for the upgrade, which is the moment the database part can start.
 
-(controller-upgrade-operations)=
-## Controller upgrade operations
+(controller-upgrade-calls)=
+## Controller upgrade calls
 
-Controller upgrade operations are the actions that start an upgrade and carry it out. A client with {ref}`superuser access <user-access-controller-superuser>` starts it; the agents of the controller nodes create the record and run the move. Setting the target {ref}`agent <agent>` version of a model, which upgrades the agents of that model, is described on the {ref}`agent version <agent-version>` page.
+Controller upgrade calls are the calls that start an upgrade and carry it out. A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, starts it; the agents of the controller nodes create the record and run the move. Setting the target {ref}`agent <agent>` version of a model, which upgrades the agents of that model, is described on the {ref}`agent version <agent-version>` page.
 
 (controller-upgrade-starting)=
 ### Upgrading the controller
@@ -56,9 +56,9 @@ See also: {ref}`Juju | Upgrade a controller <upgrade-a-controller>`
 
 Upgrading the controller starts the move of a controller's nodes to a newer patch version of Juju. The call names the target version or asks for the newest one available, checks that the controller can reach it, and sets the target versions.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`write access <user-access-model-write>` to the controller model. A change block on the controller model refuses the call.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`write access <user-access-model-write>` to the controller model. A change block on the controller model refuses the call.
 - *Rules:*
   - The target version must be a patch version of the current one: a higher major or minor version is refused.
   - The target version must not be below the version the controller runs.
@@ -87,9 +87,9 @@ The operation's required access, rules, and errors are:
 
 Running the upgrade carries the move out, once every node has downloaded the new binary and restarted into it. The agents of the controller nodes do it: one node leads the database part; every node runs its own steps.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* The {ref}`controller agent <controller-agent>` of each node of the controller. No client calls it.
+- *Caller:* The {ref}`controller agent <controller-agent>` of each node of the controller. No client makes this call.
 - *Rules:*
   - The first node to run creates the upgrade record. A node that finds a record already there joins the upgrade instead of creating one.
   - Each node marks itself ready, which adds its own row to the record. When every node is ready, the leading node starts the upgrade and applies the schema patches, to the controller database first, then to the model databases.

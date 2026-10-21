@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju secret backend reference: what a secret backend is, the records the controller keeps about backends, the changes that move secrets between backends, and the operations that add, list, set, update, and remove them."
+    description: "Juju secret backend reference: what a secret backend is, the records the controller keeps about backends, the changes that move secrets between backends, and the calls that add, list, set, update, and remove them."
 ---
 
 (secret-backend)=
@@ -54,10 +54,10 @@ Secret backend change streams are the changes that the workers (background proce
 - **Token rotation:** The primary controller (the one controller that runs the controller's single-instance workers, see {ref}`controller workers <controller-workers>`) follows the token rotation records through the watcher `WatchSecretBackendRotationChanges`. It sets one timer for the earliest due time, and when the timer fires it replaces the token of each due backend with a new one that the backend issues.
 - **Model backend:** The unit agents and the model's own workers follow the model's backend record. When it changes, they move the content of the secrets they own from the old backend to the new one, as {ref}`Setting and getting model secret backends <secret-backend-setting>` describes. A unit agent moves the secrets of its unit and, on the leader, those of its application, and the model's workers move the user secrets.
 
-(secret-backend-operations)=
-## Secret backend operations
+(secret-backend-calls)=
+## Secret backend calls
 
-Secret backend operations are the actions a {ref}`client <client>` can take on secret backends through the controller API (the set of calls that clients and agents make to the controller): add, list, update, remove, set a model's backend, and get a model's backend. Operations on the secrets themselves are described on the {ref}`secret <secret>` page.
+Secret backend calls are the calls that a {ref}`client <client>` can take on secret backends through the controller API (the set of calls that clients and agents make to the controller): add, list, update, remove, set a model's backend, and get a model's backend. Calls on the secrets themselves are described on the {ref}`secret <secret>` page.
 
 (secret-backend-adding)=
 ### Adding secret backends
@@ -68,9 +68,9 @@ See also: {ref}`Juju | Add a secret backend <add-a-secret-backend>`
 
 Adding secret backends registers external backends on the controller. A backend type is one of the registered types: `controller`, `kubernetes`, and `vault`. The controller checks the backend's configuration and that the backend answers before it stores anything.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - The name cannot be `auto`, `internal`, or `kubernetes`, and cannot end in `-local`.
   - The configuration must contain the keys that the type requires and no key that the type does not know. The keys of a `vault` backend are:
@@ -114,9 +114,9 @@ See also: {ref}`Juju | View all the secret backends available on a controller <v
 
 Listing secret backends returns the backends of the controller, each with its type, its token rotation interval, its configuration, the number of secrets it holds, and its status. A request can name the backends it wants.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* Any logged-in user. A request that asks for secret values to be shown needs {ref}`superuser access <user-access-controller-superuser>` to the controller. A caller without it receives `permission denied`.
+- *Caller:* A client, for a user that is logged in. A request that asks for secret values to be shown needs a user with {ref}`superuser access <user-access-controller-superuser>` to the controller. A user without it receives `permission denied`.
 - *Rules:*
   - A backend's status is `active`, except for a backend of the type `vault`, which the controller contacts: if it does not answer, the status is `error` and the message is the reason.
   - The configuration leaves out the secret keys (`token` and `client-key` for `vault`, and `token`, `password`, and `client-key` for `kubernetes`) unless the request asks to show them.
@@ -131,9 +131,9 @@ See also: {ref}`Juju | Set or get the secret backend for a model <set-or-get-the
 
 Setting and getting model secret backends chooses, or reports, the backend that a model uses for the secrets it creates. Setting a backend does not move the secrets that already exist: the agents of the model do that, as {ref}`secret backend change streams <secret-backend-change-streams>` describe.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model to get the backend, and {ref}`write access <user-access-model-write>` to set it.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model to get the backend, and with {ref}`write access <user-access-model-write>` to set it.
 - *Rules:*
   - The name `auto` chooses `internal` on a machine model and `kubernetes` on a Kubernetes model, and getting the backend reports those two as `auto`.
   - The names `internal` and `kubernetes`, and any name that ends in `-local`, are refused: use `auto` to return to the default.
@@ -153,9 +153,9 @@ See also: {ref}`Juju | Update a secret backend <update-a-secret-backend>`
 
 Updating secret backends renames a backend, changes its token rotation interval, and changes or removes keys of its configuration. A backend that models already use keeps serving them.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A request names the backend by its current name.
   - The new configuration is merged into the old: supplied keys replace existing ones, and keys that the request lists for removal are deleted.
@@ -182,9 +182,9 @@ See also: {ref}`Juju | Remove a secret backend <remove-a-secret-backend>`
 
 Removing secret backends deletes backends from the controller and returns the models that used them to their default backend.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A backend that holds the content of any secret revision cannot be removed, unless the request forces the removal. A backend that models use but that holds no content can be removed.
   - A removal deletes the backend's settings and token rotation, resets each model that used the backend to its default backend, which starts the move of those models' secrets (see {ref}`secret backend change streams <secret-backend-change-streams>`), and deletes the backend's secret references. A forced removal deletes the backend's secret references, so the controller no longer tracks the content that remains in the backend.

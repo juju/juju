@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju network space reference: what a space is, the records the model keeps about it, and the operations that list, reload, add, rename, and remove spaces."
+    description: "Juju network space reference: what a space is, the records the model keeps about it, and the calls that list, reload, add, rename, and remove spaces."
 ---
 
 (space)=
@@ -36,12 +36,12 @@ The space database schema is the set of records that the {ref}`model database <d
   - *Rules:*
     - A subnet belongs to at most one space.
 
-(space-operations)=
-## Space operations
+(space-calls)=
+## Space calls
 
-Space operations are the actions a {ref}`client <client>` can take on spaces through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): list, show, reload, add, rename, move subnets, and remove. Listing subnets and moving them are described on the {ref}`subnet <subnet>` page, and listing availability zones on the {ref}`zone <zone>` page. A model on a Kubernetes cloud allows only listing, showing, and reloading spaces: any other operation fails with `facade method "Spaces.<method>" not supported on container models` and the code `not supported`.
+Space calls are the calls a {ref}`client <client>` can take on spaces through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): list, show, reload, add, rename, move subnets, and remove. Listing subnets and moving them are described on the {ref}`subnet <subnet>` page, and listing availability zones on the {ref}`zone <zone>` page. A model on a Kubernetes cloud allows only listing, showing, and reloading spaces: any other call fails with `facade method "Spaces.<method>" not supported on container models` and the code `not supported`.
 
-The operations that change spaces need a cloud that supports them. The clouds that support spaces are MAAS, EC2, OpenStack, GCE, Azure, LXD (when the LXD server offers the `network` API extension), and manual clouds. OCI and VMware vSphere clouds do not support spaces. On MAAS the cloud owns the spaces: Juju copies them, and refuses to rename or remove them. On every other cloud the operator manages spaces in Juju.
+The calls that change spaces need a cloud that supports them. The clouds that support spaces are MAAS, EC2, OpenStack, GCE, Azure, LXD (when the LXD server offers the `network` API extension), and manual clouds. OCI and VMware vSphere clouds do not support spaces. On MAAS the cloud owns the spaces: Juju copies them, and refuses to rename or remove them. On every other cloud the operator manages spaces in Juju.
 
 (space-listing)=
 ### Listing spaces
@@ -52,9 +52,9 @@ See also: {ref}`Juju | View available spaces <view-available-spaces>`, {ref}`Juj
 
 Listing spaces returns the spaces of a model with their subnets, and shows one space with the applications bound to it and a count of its machines.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
 - *Rules:*
   - The list includes `alpha`.
   - Showing spaces takes a list of spaces. Each space in the list gets its own result.
@@ -74,9 +74,9 @@ See also: {ref}`Juju | Reload spaces <reload-spaces>`
 
 Reloading spaces reads the spaces and subnets from the cloud again and stores them in the model. Juju does it by itself when it bootstraps a controller and when it creates a model. A user does it when the cloud's network has changed.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - On a cloud that discovers spaces (only MAAS), Juju adds each space that the cloud reports. It makes the name from the cloud's name: lower case, spaces turned into hyphens, and characters other than letters, digits, and hyphens removed. It adds a hyphen and a number if the name is taken.
   - On a cloud that discovers spaces, Juju removes a space that has a cloud ID and that the cloud no longer reports, unless something still depends on it. Juju never removes `alpha`.
@@ -100,9 +100,9 @@ See also: {ref}`Juju | Add a space <add-a-space>`
 
 Adding spaces creates spaces and puts the subnets with the given CIDRs into them.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block must not be on.
 - *Rules:*
   - The cloud must support spaces. Unlike renaming and removing, adding is allowed on MAAS.
   - The call takes a list of spaces. Each space in the list gets its own result. A space that was created stays when a later one fails.
@@ -127,9 +127,9 @@ See also: {ref}`Juju | Rename a space <rename-a-space>`
 
 Renaming spaces gives spaces new names.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block must not be on.
 - *Rules:*
   - The call takes a list of spaces. Each space in the list gets its own result.
   - The cloud must support spaces. The cloud must not discover its spaces (on MAAS, rename the space in MAAS and {ref}`reload spaces <space-reloading>`).
@@ -156,9 +156,9 @@ See also: {ref}`Juju | Remove a space <remove-a-space>`
 
 Removing spaces deletes spaces and returns what depended on them to `alpha`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model is needed. The change block must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model. The change block must not be on.
 - *Rules:*
   - The call takes a list of spaces. Each space in the list gets its own result. A database failure ends the whole request. The spaces after it are not processed.
   - The cloud must support spaces. The cloud must not discover its spaces.

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju relation reference: what a relation is, its kinds (peer, subordinate, cross-model), the records the model keeps about it, its status, the data its units exchange, and the operations that add, remove, suspend, list, and use relations."
+    description: "Juju relation reference: what a relation is, its kinds (peer, subordinate, cross-model), the records the model keeps about it, its status, the data its units exchange, and the calls that add, remove, suspend, list, and use relations."
 ---
 
 (relation)=
@@ -87,10 +87,10 @@ Relation change streams are the notifications that the {ref}`agent <agent>` of a
 - **Relations of a unit:** `WatchUnitRelations` reports the relations of a unit and the changes of their life and suspended state. For a principal unit, these are all the relations of its application. For a subordinate unit, these are the relations with the application of its principal unit.
 - **Units of a relation:** `WatchRelationUnits` reports, for one unit and one relation, the units of the other side that enter and leave the scope, and the changes to their settings and to the application settings of the other side.
 
-(relation-operations)=
-## Relation operations
+(relation-calls)=
+## Relation calls
 
-Relation operations are the actions that {ref}`clients <client>` and unit agents can take on relations through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level or block applies to a unit agent. Clients add, remove, suspend, resume, and list relations. Unit agents enter and leave a relation, read and write its data, set its status, and look relations up. Offering an application to other models is described on the {ref}`offer <offer>` page. The hooks that Juju runs in response are described on the {ref}`hook <relation-hooks>` page.
+Relation calls are the calls that {ref}`clients <client>` and unit agents can take on relations through the controller API (the set of calls that clients and agents make to the controller). A **{ref}`unit agent <unit-agent>`** is the process that runs the charm of a unit. It logs in as its unit and acts only for that unit. An agent that logs in as an application acts for any unit of that application. No model access level or block applies to a unit agent. Clients add, remove, suspend, resume, and list relations. Unit agents enter and leave a relation, read and write its data, set its status, and look relations up. Offering an application to other models is described on the {ref}`offer <offer>` page. The hooks that Juju runs in response are described on the {ref}`hook <relation-hooks>` page.
 
 (relation-adding)=
 ### Adding relations
@@ -101,9 +101,9 @@ See also: {ref}`Juju | Manage relations <manage-relations>`
 
 A client adds a relation between two endpoints of two applications of a model. The request names two endpoints as `<application>` or `<application>:<endpoint>`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - A request names exactly two endpoints. A name without an endpoint selects the endpoint of that application that can connect to the other side.
   - The answer lists the endpoint of each application with its name, role, interface, whether it is optional, its limit, and its scope.
@@ -141,9 +141,9 @@ See also: {ref}`Juju | Manage relations <manage-relations>`
 
 A client removes a relation, which ends it between two applications and deletes its records. The request names the relation by its two endpoints or by its relation ID. A request can force the removal and can give a time to wait for the units to leave before the removal is forced.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. Neither the remove block nor the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) may be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. Neither the remove block nor the change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) may be on.
 - *Rules:*
   - A request names two endpoints, or no endpoint and a relation ID. A peer relation cannot be named.
   - Names without endpoints select the relation that exists between the two applications. When several relations exist between them, the request is refused.
@@ -166,9 +166,9 @@ The operation's required access, rules, and errors are:
 
 A client suspends a cross-model relation to stop it without removing it, and resumes it to start it again. A request lists relations by ID. Each entry gives the ID, whether the relation is suspended, and a message. The call answers with one result for each entry.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - Only a cross-model relation can be suspended.
   - An entry that asks for the state the relation already has changes nothing.
@@ -187,9 +187,9 @@ See also: {ref}`Juju | Manage relations <manage-relations>`
 
 A client lists the relations of a model as part of the model's status. Each relation has its ID, key, interface, scope, endpoints, and status. Each endpoint has its application, endpoint name, role, and whether the application is a subordinate. The status has its value, message, data, and the time of the last change.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A status request with filters lists only the relations whose applications both match the filters.
 
@@ -198,9 +198,9 @@ The operation's required access and rules are:
 
 The unit agent enters a unit into the scope of a relation to record that the unit takes part in it, and takes the unit out of the scope to record that it no longer does. It enters the scope before it runs the {ref}`relation-joined <hook-relation-joined>` hooks. It leaves the scope when the unit departs (see {ref}`relation-departed <hook-relation-departed>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - A unit enters the scope of a relation when its application is an endpoint of the relation. The relation and the unit must be alive.
   - A unit that is already in scope stays as it is, with its settings. No error is returned, even when the unit or the relation is dying.
@@ -237,9 +237,9 @@ What a caller reads and writes depends on whether the unit is the leader of its 
 
 In a peer relation the relation has one endpoint, so the application on the other side is the unit's own application. Every unit reads the settings of the other units and the application settings. Only the leader writes the application settings.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - A unit reads its own settings with a call that serves only that unit. It reads the settings of another unit, or of an application, with a call that names the unit or application.
   - A unit can read the settings of a unit by name, including a unit that has left. The settings of a unit that left come from the archive and stay until the relation is removed.
@@ -263,9 +263,9 @@ The table shows what a unit of an application in the relation writes:
 | Unit | write | no | no | no |
 | Leader unit | write | no | write | no |
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. Writing the application settings needs the unit to be the leader of its application.
+- *Caller:* A unit agent, for its own unit. Writing the application settings needs the unit to be the leader of its application.
 - *Rules:*
   - A unit writes only its own settings. The leader also writes the settings of its own application. No call writes the settings of another unit.
   - A key with an empty value is removed. A value is stored as a string.
@@ -304,9 +304,9 @@ The transition table lists, for each current status, the statuses that can follo
 | `broken` | `error` |
 | `error` | `joining`, `joined`, `suspending`, `suspended`, `broken` |
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit. The unit must be the leader of its application.
+- *Caller:* A unit agent, for its own unit. The unit must be the leader of its application.
 - *Rules:*
   - The unit named in the request must be the caller.
   - The application of the unit must be an endpoint of the relation.
@@ -325,9 +325,9 @@ The operation's required access, rules, and errors are:
 
 The unit agent finds the relations a unit takes part in, through the hook tools. The `relation-ids` tool (see {ref}`relation-ids <hook-command-relation-ids>`) lists the relation IDs of an endpoint name. The `relation-list` tool (see {ref}`relation-list <hook-command-relation-list>`) lists the units of a relation or, with an option, its remote application. The `relation-model-get` tool (see {ref}`relation-model-get <hook-command-relation-model-get>`) returns the UUID of the model of the application on the other side. The agent also asks the controller for a relation by its key or ID, and for the scope state and suspended state of each relation of a unit.
 
-The operation's required access and rules are:
+The caller and the rules are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - A relation is returned only to an agent whose application is an endpoint of the relation. The answer has the relation's ID, key, life, whether it is suspended, the unit's endpoint, and the application on the other side with its model UUID.
   - The model UUID of the other side is the UUID of the unit's own model unless the relation is cross-model.

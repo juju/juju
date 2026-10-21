@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju storage reference: what charm storage is, the records the model keeps about directives, pools, instances, volumes, filesystems, and attachments, the changes that reach units and machines, and the operations that add, list, attach, detach, remove, and provision storage."
+    description: "Juju storage reference: what charm storage is, the records the model keeps about directives, pools, instances, volumes, filesystems, and attachments, the changes that reach units and machines, and the calls that add, list, attach, detach, remove, and provision storage."
 ---
 
 (storage)=
@@ -132,10 +132,10 @@ Storage change streams are the notifications that tell the agents of a model wha
 
 No stream reports storage pools: a pool changes only when a client changes it.
 
-(storage-operations)=
-## Storage operations
+(storage-calls)=
+## Storage calls
 
-Storage operations are the actions on the storages, pools, volumes, filesystems, and attachments of a model. A {ref}`client <client>` takes them through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A **unit agent** is the {ref}`agent <agent>` process that runs a unit's charm: it logs in as its unit and acts only for that unit. A **machine agent** is the agent process of a machine: it acts for its own machine and for the containers on it. A controller's machine agent acts for the whole model. The facades that serve the agents accept no model access level, so none of the agent operations below name one. Clients act first, in the order of the {ref}`storage how-to <manage-storage>`: add, view, detach, attach, import, remove; then the pool how-to adds and lists pools.
+Storage calls are the calls on the storages, pools, volumes, filesystems, and attachments of a model. A {ref}`client <client>` takes them through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller). A **unit agent** is the {ref}`agent <agent>` process that runs a unit's charm: it logs in as its unit and acts only for that unit. A **machine agent** is the agent process of a machine: it acts for its own machine and for the containers on it. A controller's machine agent acts for the whole model. The facades that serve the agents accept no model access level, so none of the agent calls below name one. Clients act first, in the order of the {ref}`storage how-to <manage-storage>`: add, view, detach, attach, import, remove; then the pool how-to adds and lists pools.
 
 (storage-listing)=
 ### Listing storage
@@ -146,9 +146,9 @@ See also: {ref}`Juju | View the available storage <view-the-available-storage>`,
 
 Listing storage returns the storages of the model. The answer carries the volumes and filesystems that back them, with their statuses, owners, attachments, machines, and locations.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - `ListStorageDetails` returns every storage of the model: its tag, its owner unit, its kind, its life, whether it is persistent, its status, and its attachments with their machines and locations. The call takes at least one filter, and returns the same list for each filter; filters do not select anything.
   - `StorageDetails` returns the details of the storages the caller names by tag, one result per tag. A client shows one storage with `juju storage show`.
@@ -171,9 +171,9 @@ See also: {ref}`Juju | Manage storage pools <manage-storage-pools>`
 
 Listing storage pools returns the pools of the model, with the provider type of each and its attributes.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - Each filter returns the pools that match it: by name, by provider, or by both at once.
   - A list without filters returns every pool of the model.
@@ -189,9 +189,9 @@ See also: {ref}`Juju | Manage storage pools <manage-storage-pools>`
 
 Creating storage pools stores a new pool in the model: a name, a provider type, and attributes for that provider, such as the volume type of an EBS pool or the path of a `rootfs` pool.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - The name follows RFC 1035, with up to 128 characters: it starts with a letter, continues with letters, digits, and single hyphens, and ends with a letter or a digit.
   - The provider must be one that the model's cloud offers.
@@ -216,9 +216,9 @@ See also: {ref}`Juju | Add storage <add-storage>`
 
 Adding storage to a unit creates new storages of one of the unit's charm storage names, from the directive that the unit already keeps. A client adds storages with `juju add-storage`. A charm adds them with the {ref}`storage-add <hook-command-storage-add>` hook command, which takes a storage name and a count, and takes effect when the hook that ran it succeeds.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on. A charm's `storage-add` reaches the same call through its unit agent.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on. A charm's `storage-add` reaches the same call through its unit agent.
 - *Rules:*
   - The request names one unit and one storage name, and may override the pool and the size of the unit's directive, and the count.
   - The unit's charm must declare the storage name. The unit must be alive.
@@ -245,9 +245,9 @@ See also: {ref}`Juju | Attach storage <attach-storage>`, {ref}`Juju | Reuse stor
 
 Attaching a storage to a unit hands an existing storage to a unit that the charm allows to use it. A client attaches a detached storage with `juju attach-storage`, and can deploy or add a unit with `--attach-storage`.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
 - *Rules:*
   - The unit and the storage must both exist and be alive.
   - The unit's charm must declare the storage's name. The storage's kind must fit that declaration.
@@ -281,9 +281,9 @@ See also: {ref}`Juju | Detach storage <detach-storage>`
 
 Detaching a storage takes it off one unit, or off every unit, without destroying it. What backs it stays, so the storage can attach to another unit later. The client can force the detach and give a time to wait.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - A request that names a unit detaches that unit's attachment. A request without a unit detaches every attachment of the storage.
   - A detach that would leave a unit with fewer storages of a name than the charm's minimum is refused.
@@ -306,9 +306,9 @@ See also: {ref}`Juju | Remove storage <remove-storage>`
 
 Removing a storage sets it dying so that the controller removes it from the model. A request can destroy what backs it on the cloud instead of releasing it, and can destroy the attachments first.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - A removal that is not destroyed only releases what backs the storage: the cloud keeps it, and Juju lets go of it.
   - A destroyed removal also destroys what backs the storages, including a persistent volume, once the attachments are gone.
@@ -329,9 +329,9 @@ See also: {ref}`Juju | Reuse storage <reuse-storage>`
 
 Importing a filesystem adopts a filesystem that the provider already knows into the model, as a new storage of one of the unit's charm storage names. The block kind cannot be adopted.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model. No block applies.
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - The request names the provider ID of the filesystem, the pool to record it under, and the storage name it will serve. It can force the adoption when the filesystem is in use.
   - The answer names the new storage by its tag.
@@ -346,9 +346,9 @@ The operation's required access, rules, and errors are:
 
 The machine agent provisions the volumes and filesystems of its machines: it watches what is due, asks the provider to create or attach each one, and records what it got. The controller runs one provisioner for the whole model; a machine agent runs one for its own machines.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A machine agent, for its own machines and the containers on them. A controller's machine agent acts for the whole model.
+- *Caller:* A machine agent, for its own machines and the containers on them. A controller's machine agent acts for the whole model.
 - *Rules:*
   - `VolumeParams` and `FilesystemParams` return what the provider needs to create or attach each one: the pool's provider, the size, the attributes of the pool, and the tags of the model.
   - `SetVolumeInfo` and `SetFilesystemInfo` record what the provider created: its provider ID, its size, and for a volume its hardware ID, worldwide name, and whether it is persistent. The request cannot change the pool.
@@ -365,9 +365,9 @@ The operation's required access, rules, and errors are:
 
 The machine agent attaches the volumes and filesystems of its machines. For a volume that the machine cannot see yet, it first plans the attachment, and a cloud that needs it applies the plan.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A machine agent, for its own machines and the containers on them. A controller's machine agent acts for the whole model.
+- *Caller:* A machine agent, for its own machines and the containers on them. A controller's machine agent acts for the whole model.
 - *Rules:*
   - `VolumeAttachmentParams` and `FilesystemAttachmentParams` return what the provider needs to attach each one to a machine, including the machine's instance ID and the provider ID of the volume.
   - `SetVolumeAttachmentInfo` records whether the attachment is read-only. It also records the device name, the device link, or the bus address under which the machine sees the volume. The same call records the plan's outcome when one exists.
@@ -384,9 +384,9 @@ The operation's required access, rules, and errors are:
 
 The unit agent reads the storages of its unit, and takes them off the unit's record when the charm is done with them. The charm reads the same through the `storage-get`, `storage-list`, and `storage-id` hook commands.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A unit agent, for its own unit.
+- *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - `UnitStorageAttachments` returns the tags of the storages attached to the unit.
   - `StorageAttachments` returns the details of one attachment: its location (the mount point of the filesystem, or the device of the volume), its life, and the machine it is on.

@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "SSH key reference: the public keys that users store on the controller, how a model authorizes them, the operations that add, import, list, and remove them, and the errors those raise."
+    description: "SSH key reference: the public keys that users store on the controller, how a model authorizes them, the calls that add, import, list, and remove them, and the errors those raise."
 ---
 
 (ssh-key)=
@@ -41,10 +41,10 @@ The controller keeps three kinds of record for SSH keys: the key itself, the alg
     - The set of keys that a model honors leaves out the keys of disabled users. A disabled user's keys stay stored.
 - **User and model:** The records on the two ends of a key's relations. Other pages own them: see {ref}`user <user>` and {ref}`model <model>`. The figure shows them for context. A key has one user. A model authorization names one model.
 
-(ssh-key-operations)=
-## SSH key operations
+(ssh-key-calls)=
+## SSH key calls
 
-SSH key operations are the actions a {ref}`client <client>` can take on keys through the controller API (the set of calls that clients and agents make to the controller): add, import, list, and remove. Each acts on the model it addresses. The caller needs access to that model. Add, list, and remove act on the account that the client is logged in with. Import acts on the user that the request names. The keys it imports become the keys of that user.
+SSH key calls are the calls a {ref}`client <client>` can take on keys through the controller API (the set of calls that clients and agents make to the controller): add, import, list, and remove. Each acts on the model it addresses. The caller needs access to that model. Add, list, and remove act on the account that the client is logged in with. Import acts on the user that the request names. The keys it imports become the keys of that user.
 
 (ssh-key-adding)=
 ### Adding SSH keys
@@ -55,9 +55,9 @@ See also: {ref}`Juju | Add an SSH key <add-an-ssh-key>`
 
 Adding SSH keys stores one or more keys for the authenticated user and authorizes them on the model. The controller computes the fingerprint of each key with sha256.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
 - *Rules:*
   - A key whose comment is `juju-system-key`, the comment of the key that the controller generates at {ref}`bootstrap <bootstrap-a-controller>` and keeps in the {ref}`controller configuration <controller-configuration>` key `system-ssh-keys` so that it can reach the machines it manages, is refused.
 - *Errors:* The client receives each as its own error code with this message, where the user name is the one in the call:
@@ -83,9 +83,9 @@ See also: {ref}`Juju | Import an SSH key <import-an-ssh-key>`
 
 Importing SSH keys fetches the keys of an account at an outside source and authorizes them on the model. The sources are [Launchpad](https://launchpad.net/) (`lp:<name>`) and [GitHub](https://github.com/) (`gh:<name>`).
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The same as adding. The change block must not be on. The access needed does not depend on whose keys are imported: a caller who may import keys can import them for any existing user. The keys are authorized on this model.
+- *Caller:* The same as adding. The change block must not be on. The access needed does not depend on whose keys are imported: a caller who may import keys can import them for any existing user. The keys are authorized on this model.
 - *Rules:*
   - A key that carries the reserved comment of the controller's own key is refused.
   - An import skips keys that are already authorized on the model, without an error.
@@ -106,7 +106,7 @@ See also: {ref}`Juju | View the available SSH keys <view-the-available-ssh-keys>
 
 Listing SSH keys returns the authorized keys of the authenticated user on the model. A client can ask for the full key text or only the fingerprint. The caller needs {ref}`read access <user-access-model-read>` to the model (a higher level includes it).
 
-The operation's errors are:
+The errors are:
 
 - *Errors:* The client receives each with its own error code:
   - **`invalid user name: "<name>"`** (code `invalid user name`) and **`user "<name>" does not exist`** (code `user not found`): *Trigger:* The account that the client is logged in with has an invalid name, or does not exist. *Remediation:* Log in as an existing user.
@@ -120,9 +120,9 @@ See also: {ref}`Juju | Remove an SSH key <remove-an-ssh-key>`
 
 Removing SSH keys takes keys off the model, matched by fingerprint, public key text, or comment. A user's key that no model authorizes any more is deleted from the user's record too.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* {ref}`Admin access <user-access-model-admin>` to the model or {ref}`superuser access <user-access-controller-superuser>` to the controller, and neither the remove block (an operator setting that makes the controller refuse operations that remove things from the model, such as machines, applications, units, relations, and keys) nor the change block may be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller, and neither the remove block (an operator setting that makes the controller refuse operations that remove things from the model, such as machines, applications, units, relations, and keys) nor the change block may be on.
 - *Rules:*
   - A target that matches no key is ignored. The client gets no error.
   - Removing a user deletes the user's keys and their authorizations.

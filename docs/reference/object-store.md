@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju object store reference: the records the controller and model databases keep about stored files, the backends that hold them (file system or S3), the drain that switches between backends, and the operations that store, get, and drain files."
+    description: "Juju object store reference: the records the controller and model databases keep about stored files, the backends that hold them (file system or S3), the drain that switches between backends, and the calls that store, get, and drain files."
 ---
 
 (object-store)=
@@ -51,10 +51,10 @@ The object store database schema is the set of records that the controller datab
 - **Agent binary, file store, and task output:** The records that name stored objects: an {ref}`agent version <agent-version>`'s binary, a charm resource's file store, and an {ref}`action <action>` task's output. Other pages own them.
 - **Lookups:** The allowed values of the backend type and the drain phase come from the lookup tables `object_store_backend_type` and `object_store_drain_phase_type`. The life values come from the shared lookup table `life`.
 
-(object-store-operations)=
-## Object store operations
+(object-store-calls)=
+## Object store calls
 
-Object store operations are the actions on the files and the backends of the object store. No client API call reaches the object store directly: the workers of the controller and the {ref}`agents <agent>` of its models store and get files. The workers of the controller drain the files when the backend changes. The one caller outside Juju is the user the {ref}`controller machine agent <controller-agent>` runs as, on the controller machine, who sets the S3 configuration over the controller's control socket (a Unix socket named `control.socket` in the data directory of the controller machine agent, which accepts JSON `POST` requests). The `juju-controller` charm is the usual caller.
+Object store calls are the calls on the files and the backends of the object store. No client API call reaches the object store directly: the workers of the controller and the {ref}`agents <agent>` of its models store and get files. The workers of the controller drain the files when the backend changes. The one caller outside Juju is the user the {ref}`controller machine agent <controller-agent>` runs as, on the controller machine, who sets the S3 configuration over the controller's control socket (a Unix socket named `control.socket` in the data directory of the controller machine agent, which accepts JSON `POST` requests). The `juju-controller` charm is the usual caller.
 
 Every model of the controller uses the controller's alive backend. The controller creates the backend of type `file` when the controller database is created, so the file system is the backend until an S3 backend takes over.
 
@@ -63,9 +63,9 @@ Every model of the controller uses the controller's alive backend. The controlle
 
 Configuring the S3 backend sets an S3-compatible store as the backend that holds the controller's files. A `POST` request to the `/s3-config` endpoint of the control socket carries a JSON body with the fields `bucket`, `region`, `endpoint`, `access_key`, and `secret_key`. The operation marks the current file backend as dying, adds the S3 backend as the alive backend with its configuration, and starts a {ref}`drain <object-store-draining>` that moves the files.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* The user the controller machine agent runs as, on the controller machine. The request goes over the control socket, so the caller must be on that machine.
+- *Caller:* The user the controller machine agent runs as, on the controller machine. The request goes over the control socket, so the caller must be on that machine.
 - *Rules:*
   - The endpoint, the access key, and the secret key are required.
   - A bucket name has at least 3 and at most 63 characters, only lowercase letters, digits, and hyphens; it begins and ends with a letter or a digit, starts with neither `xn--` nor `sthree-`, and does not end with `-s3alias`.
@@ -90,9 +90,9 @@ A successful request answers `updated S3 config` (200).
 
 Draining the object store moves every file from a dying backend to the backend that replaced it. A drain starts when {ref}`configuring the S3 backend <object-store-configuring-s3>` succeeds. A worker of the controller carries it out.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A worker of the controller. No caller can start a drain on its own.
+- *Caller:* A worker of the controller. No caller can start a drain on its own.
 - *Rules:*
   - The drain starts in the phase `draining`. It ends in the phase `completed` when every file has moved, and in the phase `error` when a step fails.
   - A drain in the phase `error` stays there; moving the rest of the files needs manual intervention.
@@ -109,9 +109,9 @@ The operation's required access, rules, and errors are:
 
 Storing files writes a file into the controller's backend and records its stored object and path. The callers are the workers of the controller and the agents of its models: the controller stores the agent binaries that {ref}`uploading agent binaries <agent-version-uploading>` receives, a unit agent stores the files of the charm resources it downloads, and a controller worker stores the output of an action task.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A worker of the controller or an agent of one of its models. No client API call stores a file directly.
+- *Caller:* A worker of the controller or an agent of one of its models. No client API call stores a file directly.
 - *Rules:*
   - The file is written to a temporary file first, and both hashes are computed while it is written. The temporary file is moved to its final place, a file named by the file's SHA-384 hash, only after the whole file is written.
   - Before the file is written or removed, the caller claims a {ref}`lease <lease>` on the file's hash, so that no two callers move the same file at once. The lease is held for 30 seconds and extended while the write runs.
@@ -134,9 +134,9 @@ The operation's required access, rules, and errors are:
 
 Getting files returns a stored file to the worker or agent that asked for it. The file is found by its path, by its SHA-256 hash, or by the first 7 to 64 characters of its SHA-256 hash.
 
-The operation's required access, rules, and errors are:
+The caller, the rules, and the errors are:
 
-- *Required access:* A worker of the controller or an agent of one of its models. A client reads a stored file through the operation that owns it, such as {ref}`downloading a charm resource <charm-resource-listing>`.
+- *Caller:* A worker of the controller or an agent of one of its models. A client reads a stored file through the operation that owns it, such as {ref}`downloading a charm resource <charm-resource-listing>`.
 - *Rules:*
   - A hash prefix has at least 7 and at most 64 characters, each a digit or a letter from `a` to `f`.
   - A file that the controller node does not hold is fetched from another controller node. The placements of the stored object name the nodes to ask, in no fixed order, so that the load spreads over the nodes. With no placement, the controller asks the nodes it knows.
