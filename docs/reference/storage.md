@@ -19,7 +19,7 @@ A **storage** is a named store that a {ref}`charm <charm>` declares (such as a d
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Storage data model
-:caption: The model database keeps one record for each named store. A storage directive belongs to one application or one unit, names one charm storage, and draws from one pool. A model names a default pool for each kind of storage, and the kind is one of two: block or filesystem. A pool has any number of attributes, and any number of directives and storages draw from it. A storage belongs to one unit through its owner record, and the units that the charm allows attach it through attachment records (a unit appears once per storage). A storage has at most one volume and at most one filesystem, and each of those links back to at most one storage. A volume attaches to one network node (a machine or a container) at a time, and names the block device it brought on that node. A filesystem attaches to one network node, with its mount point. An attachment plan is the planned form of a volume attachment: one per volume and node, naming the device type before the volume is on the machine. The application, the unit, the charm storage, the network node, and the block device are described on their own pages, and the figure shows them only for context. All boxes are records, and the five with a second, outlined arrow mark in the corner are the records that other pages describe.
+:caption: The model database keeps one record for each named store. A storage directive belongs to one application or one unit, names one charm storage, and draws from one pool. A model names a default pool for each kind of storage, and the kind is one of two: block or filesystem. A pool has any number of attributes, and any number of directives and storages draw from it. A storage belongs to one unit through its owner record, and the units that the charm allows attach it through attachment records (a unit appears once per storage). A storage has at most one volume and at most one filesystem, and each of those links back to at most one storage. A volume attaches to one network node (a machine or a container) at a time, and names the block device it brought on that node. An attachment plan is the planned form of a volume attachment: one per volume and node, naming the device type before the volume is on the machine. The application, the unit, the charm storage, the network node, and the block device are described on their own pages, and the figure shows them only for context. All boxes are records, and the five with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Twenty-one boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the top left, with Unit below it and Charm storage below Unit. Application directive is to the right of Application, and Unit directive to the right of Unit; both directives join down and to the left to Charm storage. Storage pool is in the middle, with Pool attribute above it, Model default pool below it, and Kind below that. Storage instance is to the right of the pool, with Unit owner above it and Storage attachment below it; Unit owner and Storage attachment both reach Unit on the far left. Instance volume is to the right of Unit owner, then Volume, then Volume attachment, with Block device above Volume attachment and Network node on the far right. Instance filesystem is to the right of Storage attachment, then Filesystem, then Filesystem attachment, which also reaches Network node. Attachment plan sits below Volume attachment and reaches both Volume and Network node. Application, Unit, Charm storage, Network node, and Block device have an outlined arrow mark for records that other pages describe.
 ```
 
@@ -61,7 +61,6 @@ A pool is a named source of storage in the model. The records, with the rules th
 - **Pool attribute:** One key and value of a pool, such as the volume type of an EBS pool or the path of a `rootfs` pool.
   - *Rules:*
     - A pool has each key once.
-    - A value is never empty.
 - **Model default pool:** The pool that a storage of a given kind draws from when its directive names no pool. One row names the kind and the pool. The model config keys `storage-default-block-source` and `storage-default-filesystem-source` choose them.
 - **Kind:** What a storage is: one of `block` (a volume) and `filesystem` (a mount). The charm fixes the kind when it declares the storage.
 
@@ -73,7 +72,7 @@ A unit owns the storages that its charm asked for. The records are:
   - *Rules:*
     - A storage ID appears once in the model.
     - The pool exists.
-- **Unit owner:** The unit that owns a storage, and keeps it when the unit is removed. This is not an attachment: an owner holds the storage for the unit, and other units can still attach it when the charm allows.
+- **Unit owner:** The unit that owns a storage. When the unit is removed, the storage dies with it. This is not an attachment: an owner holds the storage for its unit, and other units can still attach it while it lives, when the charm allows.
   - *Rules:*
     - A storage has at most one owning unit.
 - **Storage attachment:** A unit that a storage is attached to, with the attachment's life.
@@ -154,11 +153,16 @@ The operation's required access, rules, and errors are:
 - *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
   - `ListStorageDetails` returns every storage of the model: its tag, its owner unit, its kind, its life, whether it is persistent, its status, and its attachments with their machines and locations. The call takes at least one filter, and returns the same list for each filter; filters do not select anything.
+  - `StorageDetails` returns the details of the storages the caller names by tag, one result per tag. A client shows one storage with `juju storage show`.
   - `ListVolumes` and `ListFilesystems` take the same filters and return what backs the storages: the volume or filesystem, its provider ID, its size, its life, its status, the storage it belongs to, its attachments with their machines and devices or mount points, and the machine that hosts it.
-  - A machine filter narrows a volume or filesystem list to what is attached to or hosted by that machine.
-- *Errors:* The client receives each in the result for the request:
+  - A machine filter narrows a volume or filesystem list to the ones attached to that machine.
+- *Errors:* The client receives each as the error of the whole call, except the last, which arrives in the result for the tag:
   - **`not authorized for request`**: *Trigger:* The caller has neither read access to the model nor superuser access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
   - **`at least one filter is required`**: *Trigger:* The call gave no filter. The client receives it with the code `not valid`. *Remediation:* Give one filter.
+  - **`invalid storage entity tag %d`** (code `not valid`): *Trigger:* A tag in the `StorageDetails` request is malformed. *Remediation:* Use the tag of a storage of the model.
+  - **`tag kind %q not supported`** (code `not valid`): *Trigger:* A tag in the `StorageDetails` request is not a storage tag. *Remediation:* Name a storage by its tag.
+  - **`invalid storage id supplied`** (code `not valid`): *Trigger:* The ID inside a storage tag is not a valid storage ID. *Remediation:* Use the tag of a storage of the model.
+  - **`storage instance %q not found`** (code `not found`): *Trigger:* No storage has the ID that the tag names. *Remediation:* {ref}`List the storages <storage-listing>` and use one of them.
 
 (storage-pool-listing)=
 ### Listing storage pools
@@ -173,7 +177,7 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* {ref}`Read access <user-access-model-read>` to the model, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
 - *Rules:*
-  - A list takes any number of name filters and provider filters, and returns the union of what they match. The default pools that the model was created with match any filter.
+  - Each filter returns the pools that match it: by name, by provider, or by both at once.
   - A list without filters returns every pool of the model.
   - Each result carries the pool's name, its provider, and its attributes.
 - *Errors:* **`not authorized for request`** (code `unauthorized access`): *Trigger:* The caller has neither read access nor superuser access. *Remediation:* Ask a model administrator.
@@ -203,7 +207,7 @@ The operation's required access, rules, and errors are:
 
 ### Updating and removing storage pools
 
-A client cannot yet update or remove a pool: both calls answer `not yet available in <version>` with the code `not yet available`, whatever the arguments say. The operation keeps its write access for when it lands.
+A client cannot yet update or remove a pool: both calls answer `not yet available in <version>` with the code `not yet available; try again later`, whatever the arguments say.
 
 (storage-adding)=
 ### Adding storage to units
@@ -227,7 +231,8 @@ The operation's required access, rules, and errors are:
 - *Errors:* The client receives each in the result for the request:
   - **`not authorized for request`** (code `unauthorized access`): *Trigger:* The caller lacks write access to the model. This fails the whole call. *Remediation:* Ask a model administrator.
   - **the operator's block message, or `the operation has been blocked` when the operator gave none** (code `operation is blocked`): *Trigger:* The change block is on. This fails the whole call. *Remediation:* Ask the operator to lift the block.
-  - **`invalid unit name %q`** (code `not valid`) and **`unit %q does not exist`** (code `not found`): *Trigger:* The unit tag is malformed, or names no unit. *Remediation:* Name a unit of the model.
+  - **`"<tag>" is not a valid unit tag`**: *Trigger:* The unit tag is malformed. The client receives it with no error code. *Remediation:* Use the tag of a unit of the model.
+  - **`invalid unit name %q`** (code `not valid`) and **`unit %q does not exist`** (code `not found`): *Trigger:* The unit name inside the tag is not a valid unit name, or names no unit. *Remediation:* Name a unit of the model.
   - **`invalid storage pool name`** (code `not valid`) and **`storage pool %q does not exist`** (code `not found`): *Trigger:* The pool override is not a valid pool name, or names no pool. *Remediation:* {ref}`List the pools <storage-pool-listing>` and use one of them.
   - **`storage directive %s count %d too large`** (code `not valid`): *Trigger:* The count does not fit in the request. *Remediation:* Ask for fewer storages.
   - **`invalid storage name %q`** (code `not valid`) and **`storage name %q not supported by charm`** (code `not supported`): *Trigger:* The storage name is malformed, or the unit's charm declares no such storage. *Remediation:* Use a storage name of the charm.
@@ -283,7 +288,7 @@ The operation's required access, rules, and errors are:
 - *Required access:* {ref}`Write access <user-access-model-write>` to the model. No block applies.
 - *Rules:*
   - A request that names a unit detaches that unit's attachment. A request without a unit detaches every attachment of the storage.
-  - A detach that would leave a unit with fewer storages of a name than the charm's minimum is refused, unless the request forces it.
+  - A detach that would leave a unit with fewer storages of a name than the charm's minimum is refused.
   - The attachment is marked dying; the unit agent runs {ref}`storage-detaching <hook-storage-detaching>` and gives the storage back.
 - *Errors:* The client receives each in the result for the request:
   - **`not authorized for request`** (code `unauthorized access`): *Trigger:* The caller lacks write access to the model. This fails the whole call. *Remediation:* Ask a model administrator.
@@ -292,7 +297,7 @@ The operation's required access, rules, and errors are:
   - **`storage %q does not exist`** (code `not found`): *Trigger:* The storage names no storage. *Remediation:* {ref}`List the storages <storage-listing>` and use one of them.
   - **`unit %q does not exist`** (code `not found`): *Trigger:* The unit names no unit. *Remediation:* Name a unit of the model.
   - **`storage %q is not attached to unit %q`** (code `not found`): *Trigger:* The unit does not use the storage. *Remediation:* Detach it without the unit, or from the unit that has it.
-  - **`removing storage from unit would violate charm storage %q requirements of having minimum %d storage instances`** (code `not valid`): *Trigger:* The detach would go under the charm's minimum. *Remediation:* Force the detach, or add another storage first.
+  - **`removing storage from unit would violate charm storage %q requirements of having minimum %d storage instances`** (code `not valid`): *Trigger:* The detach would go under the charm's minimum. *Remediation:* Add another storage of that name first, or remove the unit.
 
 (storage-removing)=
 ### Removing storages
