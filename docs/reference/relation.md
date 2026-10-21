@@ -16,27 +16,27 @@ A **relation** is a connection between two {ref}`applications <application>` of 
 (relation-kinds)=
 ## Relation kinds
 
-Relations differ by the roles and scopes of their endpoints and by where their applications are.
+The kind of a relation depends on where its applications are and on whether one of them is a subordinate.
 
 (peer-relation)=
 ### Peer relation
 
 A **peer** relation is a relation that an application has to itself, through an endpoint with the role `peer`. Juju creates one peer relation for each peer endpoint of an application when it creates the application. A peer relation has one endpoint. Its units are the units of the application. The units of an application can use a peer relation to share data, because each unit can read the data of the others (see {ref}`reading relation data <relation-reading-data>`). A peer relation cannot be removed on its own (see {ref}`removing relations <relation-removing>`).
 
-(non-peer-relation)=
-### Non-peer relation
+(regular-relation)=
+### Regular relation
 
-A **non-peer** relation is a relation between two different applications, through two endpoints that have the same interface and opposite roles, one `provider` and one `requirer`. A non-peer relation has two endpoints.
-
-Each endpoint has a scope of `global` or `container`. A relation is container-scoped when either of its endpoints is container-scoped, and global-scoped otherwise.
+A **regular** relation is a relation between two different principal applications of the same model, through two endpoints that have the same interface and opposite roles, one `provider` and one `requirer`. A regular relation has two endpoints.
 
 (subordinate-relation)=
-#### Subordinate relation
+### Subordinate relation
 
-A **subordinate** relation is a {ref}`non-peer <non-peer-relation>` relation in which at least one application is a subordinate and the relation is container-scoped. A subordinate application is one whose {ref}`charm <subordinate-charm>` is deployed on the same machine as the principal application it accompanies. When a unit of a principal application enters the scope of a container-scoped relation with a subordinate application, Juju creates a unit of the subordinate application on the machine of the principal unit, unless that principal unit already has one.
+A **subordinate** relation is a relation between a subordinate application and a principal application of the same model. It has two endpoints with the same interface and opposite roles, as a regular relation has. A subordinate application is one whose {ref}`charm <subordinate-charm>` is deployed on the same machine as the principal application it accompanies.
+
+Each endpoint has a scope of `global` or `container`. A relation is container-scoped when either of its endpoints is container-scoped, and global-scoped otherwise. A subordinate relation is container-scoped. When a unit of a principal application enters the scope of a container-scoped relation with a subordinate application, Juju creates a unit of the subordinate application on the machine of the principal unit, unless that principal unit already has one.
 
 (the-implicit-juju-info-relation-endpoint)=
-##### The implicit `juju-info` relation endpoint
+#### The implicit `juju-info` relation endpoint
 
 Every charm has an endpoint named `juju-info`, with the role `provider`, the interface `juju-info`, and the scope `global`. Juju adds it to a charm that does not declare an endpoint of that name. The endpoint lets a {ref}`subordinate charm <subordinate-charm>` attach to a principal application that exposes no other suitable interface, so it is mostly useful for {ref}`machine charms <machine-charm>`.
 
@@ -44,15 +44,10 @@ A subordinate charm consumes the `juju-info` endpoint by declaring an endpoint w
 
 When a request names only the two applications and several pairs of their endpoints can connect, the request is ambiguous and fails. A subordinate that declares an endpoint matching an endpoint of the principal, besides its `juju-info` endpoint, is such a case. Name the endpoint of each application to select the pair (see {ref}`adding relations <relation-adding>`).
 
-(non-subordinate-relation)=
-#### Non-subordinate relation
-
-A **non-subordinate** relation (also called a regular relation) is a {ref}`non-peer <non-peer-relation>` relation between two principal applications.
-
 (cross-model-relation)=
-##### Cross-model relation
+### Cross-model relation
 
-A **cross-model** relation (also called a CMR) is a {ref}`non-subordinate <non-subordinate-relation>` relation in which one application is in another model, possibly on another controller or cloud. The model that holds the relation represents the application of the other model as a remote application. Cross-model relations connect, for example, databases on bare metal with applications in Kubernetes. The {ref}`offer <offer>` page describes how an application is made available to other models. A cross-model relation can be suspended and resumed. It can have egress CIDRs. Removing it also removes the units that stand for the remote side.
+A **cross-model** relation (also called a CMR) is a relation between two applications of different models, possibly on different controllers or clouds. The model that holds the relation represents the application of the other model as a remote application. Cross-model relations connect, for example, databases on bare metal with applications in Kubernetes. The {ref}`offer <offer>` page describes how an application is made available to other models. A cross-model relation can be suspended and resumed. It can have egress CIDRs. Removing it also removes the units that stand for the remote side.
 
 (relation-data-model)=
 ## Relation data model
@@ -216,7 +211,7 @@ The operation's required access, rules, and errors are:
   - **`endpoints ["<name 1>" "<name 2>"] are ambiguous, specify relation endpoints or id`** (code `bad request`): *Trigger:* Several relations exist between the two applications. *Remediation:* Name the endpoints or the relation ID.
   - **`removing a peer relation`**: *Trigger:* The request names one endpoint. *Remediation:* Name two endpoints.
   - **`invalid endpoint length: <n>, must be 2 or 0 with relation ID provided`**: *Trigger:* The request names more than two endpoints. *Remediation:* Name two endpoints or a relation ID.
-  - **`cannot remove a peer relation`**: *Trigger:* The relation ID is that of a peer relation. *Remediation:* Name a non-peer relation.
+  - **`cannot remove a peer relation`**: *Trigger:* The relation ID is that of a peer relation. *Remediation:* Name a regular, subordinate, or cross-model relation.
   - **`permission denied`** (code `unauthorized access`) and **the operator's block message**, or `the operation has been blocked` when the operator gave none (code `operation is blocked`): *Trigger:* The caller lacks write access, or the remove block or the change block is on. *Remediation:* Ask a model admin, or ask the operator to lift the block.
 
 (relation-suspending)=
