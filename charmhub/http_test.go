@@ -41,6 +41,16 @@ func (s *APIRequesterSuite) TestIsTimeout(c *gc.C) {
 	}{
 		{name: "nil"},
 		{name: "ordinary error", err: errors.New("boom")},
+		{name: "context canceled", err: context.Canceled},
+		{name: "context deadline exceeded", err: context.DeadlineExceeded},
+		{
+			name: "wrapped context canceled",
+			err:  errors.Trace(&url.Error{Err: errors.Trace(context.Canceled)}),
+		},
+		{
+			name: "wrapped context deadline exceeded",
+			err:  errors.Trace(&url.Error{Err: errors.Trace(context.DeadlineExceeded)}),
+		},
 		{name: "non-timeout", err: &net.DNSError{}},
 		{name: "timeout", err: &net.DNSError{IsTimeout: true}, timeout: true},
 		{
@@ -207,6 +217,7 @@ func (s *APIRequesterSuite) TestDoRetryNetworkTimeout(c *gc.C) {
 func (s *APIRequesterSuite) TestDoDoesNotRetryPermanentErrors(c *gc.C) {
 	for _, cause := range []error{
 		context.Canceled,
+		context.DeadlineExceeded,
 		x509.UnknownAuthorityError{},
 	} {
 		ctrl := gomock.NewController(c)

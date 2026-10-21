@@ -129,7 +129,8 @@ func newAPIRequester(httpClient HTTPClient, logger Logger) *apiRequester {
 // Do performs the *http.Request and returns a *http.Response or an error.
 //
 // Retry empty responses (io.EOF) and network timeouts, including TLS handshake
-// timeouts.
+// timeouts. Empty responses are received from Charmhub fairly regularly and are
+// not valid HTTP responses because they contain no headers.
 func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 	// To retry requests with a body, we need to read the entire body in
 	// up-front, otherwise it'll be empty on retries.
@@ -172,6 +173,9 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 }
 
 func isTimeout(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
 	for cause := err; cause != nil; cause = errors.Unwrap(cause) {
 		if timeout, ok := cause.(interface{ Timeout() bool }); ok && timeout.Timeout() {
 			return true
