@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage the juju CLI client <manage-juju>`
 ```
 
-A **client** is software that acts for a {ref}`Juju user <user>`: it logs in as the user and makes the user's calls through the {ref}`controller <controller>` API (the set of calls that clients and {ref}`agents <agent>` make to the controller). An {ref}`agent <agent>`, in contrast, acts for its own machine or unit. A client can do what its user holds {ref}`access <user-access-levels>` for, and nothing more.
+A **client** is software that acts for a {ref}`Juju user <user>`: it logs in as the user and makes the user's calls through the {ref}`controller <controller>` API (the set of calls that clients and {ref}`agents <agent>` make to the controller). An {ref}`agent <agent>`, in contrast, acts for its own machine, unit, model, or controller.
 
 (juju-clients)=
 ## Juju clients
@@ -21,11 +21,9 @@ The clients that act for a Juju {ref}`user <user>` are:
 - **The {ref}`juju CLI <juju-cli>`:** the command-line client, which manages {ref}`controllers <controller>`, {ref}`models <model>`, and {ref}`applications <application>`.
 - **The {ref}`Juju dashboard <juju-dashboard>`:** a web interface that shows the models of many controllers.
 - **The {ref}`web CLI <juju-web-cli>`:** model-level CLI commands from inside the dashboard.
-- **[JAAS](https://canonical-jaas-documentation.readthedocs-hosted.com/en/latest/) (Juju as a Service):** a hosted gateway, JIMM, that manages many controllers from one place and speaks the controller API to each, driven through the `jaas` CLI.
+- **[JAAS](https://canonical-jaas-documentation.readthedocs-hosted.com/v3/) (Juju as a Service):** a hosted gateway, JIMM, that manages many controllers from one place and speaks the controller API to each, driven through the `jaas` CLI.
 - **The [Terraform provider for Juju](https://documentation.ubuntu.com/terraform-provider-juju/latest/):** Juju resources managed from Terraform code.
 - **[Jubilant](https://documentation.ubuntu.com/jubilant/):** Juju driven from Python code, for charm integration tests.
-
-Each of them acts for the user that runs it.
 
 (client-login)=
 ## Login
@@ -37,7 +35,7 @@ An {ref}`agent <agent>` logs in as its own unit, machine, application, model, or
 (client-access)=
 ## Access
 
-A client holds no {ref}`access level <user-access-levels>` of its own: the levels attach to the {ref}`user <user>`. The controller checks each call against the level of the user that the client logged in as, so any client that logs in as the user can make the calls that the user's level allows. A Caller line on these pages therefore names a client together with the level of its user, as in *A client, for a user with {ref}`read access <user-access-model-read>` to the model*.
+The {ref}`access levels <user-access-levels>` attach to the {ref}`user <user>` that a client acts for: the controller checks each call against the level of that user, so every client that logs in as the user can make the calls that the user's level allows.
 
 (client-store)=
 ## The client store
