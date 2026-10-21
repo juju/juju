@@ -4689,3 +4689,195 @@ diagram "External controller data model" from "ExternalControllerSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the cloud
+// and cloud region are context records trimmed to their keys.
+model "CloudDefaultsSchema" {
+
+  nodes {
+    cloud [type: context-record, label: "Cloud",
+                 ground: "controller:cloud"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    cloud_defaults [type: record, label: "Cloud default",
+                 ground: "controller:cloud_defaults"] {
+      fields {
+        key [label: "key", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+        value [label: "value", type: "text", null: true]
+      }
+    }
+
+    cloud_region [type: context-record, label: "Cloud\nregion",
+                 ground: "controller:cloud_region"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        cloud_uuid [label: "cloud_uuid", type: "text", fk: true]
+      }
+    }
+
+    cloud_region_defaults [type: record, label: "Region default",
+                 ground: "controller:cloud_region_defaults"] {
+      fields {
+        key [label: "key", type: "text", pk: true]
+        region_uuid [label: "region_uuid", type: "text", fk: true]
+        value [label: "value", type: "text", null: true]
+      }
+    }
+
+  }
+
+  edges {
+    cloud_defaults.cloud_uuid -> cloud.uuid [type: data]
+    cloud_region.cloud_uuid -> cloud.uuid [type: data]
+    cloud_region_defaults.region_uuid -> cloud_region.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Model defaults data model" from "CloudDefaultsSchema" {
+  select {
+    nodes: cloud_defaults cloud cloud_region cloud_region_defaults
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    cloud right-of cloud_defaults gap: 70
+    cloud align-middle cloud_defaults
+    cloud_region right-of cloud gap: 70
+    cloud_region align-middle cloud
+    cloud_region_defaults right-of cloud_region gap: 70
+    cloud_region_defaults align-middle cloud_region
+    cloud same-size cloud_defaults
+    cloud_region same-size cloud_defaults
+    cloud_region_defaults same-size cloud_defaults
+  }
+  annotations {
+    box [nodes: "cloud_defaults cloud cloud_region cloud_region_defaults", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+// Scaffolded by tools/build_page_schema.py from the 4.1 controller DDL; the
+// controller node is a context record trimmed to its key.
+model "UpgradeSchema" {
+
+  nodes {
+    controller_node [type: context-record, label: "Controller node",
+                 ground: "controller:controller_node"] {
+      fields {
+        controller_id [label: "controller_id", type: "text", pk: true]
+      }
+    }
+
+    upgrade_info [type: record, label: "Upgrade",
+                 ground: "controller:upgrade_info"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        previous_version [label: "previous_version", type: "text"]
+        target_version [label: "target_version", type: "text"]
+        state_type_id [label: "state_type_id", type: "int", fk: true]
+      }
+    }
+
+    upgrade_info_controller_node [type: record, label: "Controller node's\nupgrade",
+                 ground: "controller:upgrade_info_controller_node"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        controller_node_id [label: "controller_node_id", type: "text", fk: true]
+        upgrade_info_uuid [label: "upgrade_info_uuid", type: "text", fk: true]
+        node_upgrade_completed_at [label: "node_upgrade_completed_at", type: "timestamp", null: true]
+      }
+    }
+
+    upgrade_state_type [type: record, label: "Upgrade state",
+                 ground: "controller:upgrade_state_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+  }
+
+  edges {
+    upgrade_info.state_type_id -> upgrade_state_type.id [type: data]
+    upgrade_info_controller_node.controller_node_id -> controller_node.controller_id [type: data]
+    upgrade_info_controller_node.upgrade_info_uuid -> upgrade_info.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+// Upgrade state changes, from the 4.1 code:
+//   domain/upgrade/state/state.go:220-268 (StartUpgrade: created -> started)
+//   domain/upgrade/state/state.go:269-283 (SetDBUpgradeCompleted: started -> db-completed)
+//   domain/upgrade/state/state.go:285-300 (SetDBUpgradeFailed: started -> error)
+//   domain/upgrade/state/state.go:308-387 (SetControllerDone: db-completed ->
+//     steps-completed when every node is done)
+model "UpgradeStateChanges" {
+
+  nodes {
+    us_created     [label: "created"]
+    us_started     [label: "started"]
+    us_dbcompleted [label: "db-completed"]
+    us_stepsdone   [label: "steps-completed"]
+    us_error       [label: "error"]
+  }
+
+  behaviours {
+    behaviour "upgrade-state" {
+      us_created     -> us_started:     call "every node registered"
+      us_started     -> us_dbcompleted: call "schema patches applied"
+      us_started     -> us_error:       call "the database part fails"
+      us_dbcompleted -> us_stepsdone:   call "the last node finishes its steps"
+    }
+  }
+
+  edges {
+    us_created     -> us_started     [type: control]
+    us_started     -> us_dbcompleted [type: control]
+    us_started     -> us_error       [type: control]
+    us_dbcompleted -> us_stepsdone   [type: control]
+  }
+
+  style { extends: juju }
+
+}
+
+state "Upgrade state" from "UpgradeStateChanges" {
+  select { behaviour: "upgrade-state" }
+}
+
+diagram "Controller upgrade data model" from "UpgradeSchema" {
+  select {
+    nodes: upgrade_info upgrade_state_type upgrade_info_controller_node controller_node
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    upgrade_info right-of upgrade_state_type gap: 70
+    upgrade_info align-middle upgrade_state_type
+    upgrade_info_controller_node right-of upgrade_info gap: 70
+    upgrade_info_controller_node align-middle upgrade_info
+    controller_node right-of upgrade_info_controller_node gap: 70
+    controller_node align-middle upgrade_info_controller_node
+    upgrade_info same-size upgrade_state_type
+    upgrade_info_controller_node same-size upgrade_state_type
+    controller_node same-size upgrade_state_type
+  }
+  annotations {
+    box [nodes: "upgrade_info upgrade_state_type upgrade_info_controller_node controller_node", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
