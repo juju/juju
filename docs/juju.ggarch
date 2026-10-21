@@ -4601,8 +4601,8 @@ diagram "External controller database schema" from "JujuSchema" {
   positions {
     external_controller_address right-of external_controller gap: 70
     external_controller_address align-middle external_controller
-    external_model right-of external_controller_address gap: 70
-    external_model align-middle external_controller_address
+    external_model below external_controller_address gap: 60
+    external_model align-centre external_controller_address
     external_controller_address same-size external_controller
     external_model same-size external_controller
   }
