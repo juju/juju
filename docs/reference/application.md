@@ -183,7 +183,7 @@ The records of the scale and the provisioning, with the rules that apply to each
 Application change streams are the notifications that tell the agents and workers of a model that something about an application has changed, so that they rarely have to poll. A change stream is delivered through a watcher (an object that tells its holder when something it follows has changed). A {ref}`worker <agent-workers>` is a long-running component inside an agent that does one job. Units, a machine firewall, and the Kubernetes workers follow these changes in an application:
 
 - **The application record:** A {ref}`unit agent <unit-agent>` follows the record of its own application, and learns of a change of the charm, the life, or the default space.
-- **Configuration:** A unit agent follows the config hash of its application, and runs the `config-changed` {ref}`hook <hook-config-changed>` when the hash differs from the one it last saw. The trust setting is part of the same hash.
+- **Configuration:** A unit agent follows the config hash of its application, and runs the {ref}`config-changed <hook-config-changed>` hook when the hash differs from the one it last saw. The trust setting is part of the same hash.
 - **Exposure:** On a machine model the `firewaller` worker follows the exposed spaces and ranges of each application. It opens or closes the firewall for the ports that units opened when the exposure changes.
 - **Applications, scale, trust, and unit life:** On a Kubernetes model, `caas-application-provisioner` follows the set of applications that the model holds. It starts one application worker for each application. That worker follows the application's scale, its settings (trust), and the life of its units. `caas-firewaller` follows the set of applications to run the firewalls of the model.
 - **Pending charms:** A worker follows the applications whose charm is still being downloaded, and downloads the charm (see {ref}`charm <charm>`).
@@ -462,7 +462,7 @@ The caller, the rules, and the errors are:
 (application-reading-configuration)=
 ### Reading application configuration
 
-The unit agent reads the configuration of its application, through the `config-get` hook tool (see {ref}`config-get <hook-command-config-get>`). The agent asks for the settings of its unit, and gets the merged configuration of the application's charm. It runs the `config-changed` hook when the config hash of its application differs from the one it last saw.
+The unit agent reads the configuration of its application, through the {ref}`config-get <hook-command-config-get>` hook command. The agent asks for the settings of its unit, and gets the merged configuration of the application's charm. It runs the {ref}`config-changed <hook-config-changed>` hook when the config hash of its application differs from the one it last saw.
 
 The caller and the rules are:
 
@@ -473,7 +473,7 @@ The caller and the rules are:
 (application-reading-status)=
 ### Reading application status
 
-The unit agent of the leader unit reads the status of its application through the `status-get` hook tool, with the option `--application` (see {ref}`status-get <hook-command-status-get>`). The answer has the status of the application and the statuses of its units.
+The unit agent of the leader unit reads the status of its application through the {ref}`status-get <hook-command-status-get>` hook command, with the option `--application`. The answer has the status of the application and the statuses of its units.
 
 The caller, the rules, and the errors are:
 
@@ -487,34 +487,34 @@ The caller, the rules, and the errors are:
 (application-setting-status)=
 ### Setting application status
 
-The unit agent of the leader unit sets the status of its application through the `status-set` hook tool, with the option `--application` (see {ref}`status-set <hook-command-status-set>`). The request gives the unit, the status, a message, and data. The controller records the time of the change and adds it to the status history.
+The unit agent of the leader unit sets the status of its application through the {ref}`status-set <hook-command-status-set>` hook command, with the option `--application`. The request gives the unit, the status, a message, and data. The controller records the time of the change and adds it to the status history.
 
 The caller, the rules, and the errors are:
 
 - *Caller:* A unit agent, for its own unit. The unit must be the leader of its application.
 - *Rules:*
-  - The hook tool accepts `maintenance`, `blocked`, `waiting`, and `active`.
+  - The hook command accepts `maintenance`, `blocked`, `waiting`, and `active`.
   - The status replaces the earlier status of the application, with its message and data.
   - Setting a status ends the derivation from the unit statuses (see {ref}`application status <application-status>`).
 - *Errors:* The unit agent receives each in the result for the unit:
-  - **`invalid status "<status>", expected one of [maintenance blocked waiting active]`**: *Trigger:* The hook tool got another status. This comes from the hook tool. *Remediation:* Use one of the four.
-  - **`this unit is not the leader`**: *Trigger:* A unit that is not the leader used the option `--application`. This comes from the hook tool. *Remediation:* Run the tool on the leader unit.
+  - **`invalid status "<status>", expected one of [maintenance blocked waiting active]`**: *Trigger:* The hook command got another status. This comes from the hook command. *Remediation:* Use one of the four.
+  - **`this unit is not the leader`**: *Trigger:* A unit that is not the leader used the option `--application`. This comes from the hook command. *Remediation:* Run the command on the leader unit.
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The unit is not the leader, or is not the unit that the agent runs. *Remediation:* Use the unit that the agent runs, and set the status from the leader.
   - **`unit "<name>" not found`** (code `not found`): *Trigger:* The unit does not exist. *Remediation:* Use an existing unit.
 
 (application-setting-workload-version)=
 ### Setting workload versions
 
-The unit agent reports the version of the software that its unit runs, through the `application-version-set` hook tool (see {ref}`application-version-set <hook-command-application-version-set>`). The request gives the unit and the version.
+The unit agent reports the version of the software that its unit runs, through the {ref}`application-version-set <hook-command-application-version-set>` hook command. The request gives the unit and the version.
 
 The caller, the rules, and the errors are:
 
 - *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The version is stored for the unit and for its application in the same transaction. The last version that a unit reported is the application's version.
-  - The hook tool needs a version.
+  - The hook command needs a version.
 - *Errors:* The unit agent receives each in the result for the unit:
-  - **`no version specified`**: *Trigger:* The hook tool got no version. This comes from the hook tool. *Remediation:* Pass the version.
+  - **`no version specified`**: *Trigger:* The hook command got no version. This comes from the hook command. *Remediation:* Pass the version.
   - **`unit "<name>" not found`** (code `not found`): *Trigger:* The unit does not exist. *Remediation:* Use an existing unit.
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The tag is not that of the unit that the agent runs. *Remediation:* Use the unit that the agent runs.
 

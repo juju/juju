@@ -234,7 +234,7 @@ See also: {ref}`resource-get <hook-command-resource-get>`
 :alt: A sequence diagram with three participants: the unit agent, the controller, and Charmhub. The unit agent asks the controller for a resource by name. The controller finds the stored content and downloads the revision from Charmhub, which returns the content. The controller stores the content and who retrieved it, and returns the content and its fingerprint to the unit agent. The controller then records that the unit uses the resource. The unit agent asks for the resource's details, then checks the fingerprint and writes the file.
 ```
 
-Fetching resources gives a unit the content of its application's resource as a file. A hook runs the `resource-get` hook tool. The unit agent asks the controller for the content and for the details of the resource, then the tool prints the path of the file. A charm can run the tool in any {ref}`hook <hook>`. The `install` and `upgrade-charm` hooks are the usual places.
+Fetching resources gives a unit the content of its application's resource as a file. A hook runs the {ref}`resource-get <hook-command-resource-get>` hook command. The unit agent asks the controller for the content and for the details of the resource, then the command prints the path of the file. A charm can run the command in any {ref}`hook <hook>`. The {ref}`install <hook-install>` and {ref}`upgrade-charm <hook-upgrade-charm>` hooks are the usual places.
 
 The caller, the rules, and the errors are:
 
@@ -249,10 +249,10 @@ The caller, the rules, and the errors are:
   - After Juju sends the content, it records that the unit uses the resource. A failure is only logged.
   - `GetResourceInfo` takes resource names and answers each one with the resource, using the same lookup. A name with no resource gets a `not found` error in its own result.
   - The unit agent writes the file under the unit's resources directory, at the path of the charm resource. A file that already has the same fingerprint stays as it is. Otherwise the agent checks the fingerprint and the size of the content it writes.
-  - The tool takes one resource name.
-- *Errors:* The hook tool prints the first two. The controller returns the others:
+  - The command takes one resource name.
+- *Errors:* The hook command prints the first two. The controller returns the others:
   - **`could not download resource: <reason>`**: *Trigger:* The request failed or the content did not match its fingerprint. *Remediation:* Read the reason, then retry the hook.
-  - **`missing required resource name`**: *Trigger:* The tool ran with no name. *Remediation:* Run `resource-get <name>`.
+  - **`missing required resource name`**: *Trigger:* The command ran with no name. *Remediation:* Run `resource-get <name>`.
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The named unit is not the caller's unit, nor a unit of the application agent's application. *Remediation:* Ask for the caller's own unit.
   - **`missing resource name bad request`** (code `bad request`): *Trigger:* The name in the URL is empty. *Remediation:* Give a name.
   - **`resource "<name>" not found`** (code `not found`): *Trigger:* The application and the unit have no such resource, or an `upload` resource has no stored content, or a local charm's `store` resource has no stored content. *Remediation:* {ref}`List the resources <charm-resource-listing>` and upload the content.

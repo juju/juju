@@ -62,7 +62,7 @@ Action change streams are the notifications about tasks. A change stream is deli
 (action-calls)=
 ## Action calls
 
-Action calls are the calls that {ref}`clients <client>`, {ref}`agents <agent>`, and hook tools make through the controller API (the set of calls that clients and agents make to the controller). A client works with actions, tasks, and operations. The calls of a client belong to the `Action` facade (a named group of API calls). An {ref}`agent <agent>` is a unit agent, the process that runs a unit's charm, or a machine agent, the process that runs commands on a machine. Each logs in as its own unit or machine and acts only for it, so no model access level or block applies to its calls. An agent runs the tasks that target it. A hook tool gives the action code its parameters and takes its results. The controller also prunes old operations on its own.
+Action calls are the calls that {ref}`clients <client>`, {ref}`agents <agent>`, and hook commands make through the controller API (the set of calls that clients and agents make to the controller). A client works with actions, tasks, and operations. The calls of a client belong to the `Action` facade (a named group of API calls). An {ref}`agent <agent>` is a unit agent, the process that runs a unit's charm, or a machine agent, the process that runs commands on a machine. Each logs in as its own unit or machine and acts only for it, so no model access level or block applies to its calls. An agent runs the tasks that target it. A hook command gives the action code its parameters and takes its results. The controller also prunes old operations on its own.
 
 (action-listing)=
 ### Listing actions
@@ -154,7 +154,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Show details about a task <manage-action-tasks>`
 ```
 
-Showing action tasks lets a client read, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what `action-set` stored, and for a command the output that {ref}`Running action tasks <action-execution>` describes.
+Showing action tasks lets a client read, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what the {ref}`action-set <hook-command-action-set>` command stored, and for a command the output that {ref}`Running action tasks <action-execution>` describes.
 
 The caller, the rules, and the errors are:
 
@@ -253,7 +253,7 @@ The caller, the rules, and the errors are:
   - The agent sets the status of a task as follows:
     - Starting a task sets its start time and its status to `running`. A task can start only while it is `pending`.
     - Finishing a task stores the status, the message, and the results. The status must be `completed`, `failed`, `cancelled`, `aborted`, or `error`. The results are stored as a file in the object store when there are any. An aborted task keeps the results that its action code stored before the agent killed its process. The operation gets its completion time when none of its tasks is active.
-    - The unit agent reports `completed`. It reports `failed` when the action code called `action-fail` or ended with an error. It reports `aborted` instead of `failed` when the task was `aborting`. If the changes that the action requested cannot be committed, it reports `failed` and appends the error to `stderr`.
+    - The unit agent reports `completed`. It reports `failed` when the action code called the {ref}`action-fail <hook-command-action-fail>` command or ended with an error. It reports `aborted` instead of `failed` when the task was `aborting`. If the changes that the action requested cannot be committed, it reports `failed` and appends the error to `stderr`.
   - A task that is not parallel, or that has an execution group, waits for the machine lock of its target. Tasks of one execution group share one lock, so they run one at a time.
   - Logging a message appends it to the log of the task.
   - The unit agent runs an action in the hook environment, so every {ref}`hook command <list-of-hook-commands>` is available. The environment has the {ref}`generic environment variables <generic-environment-variables>` and these:
@@ -277,18 +277,18 @@ The caller, the rules, and the errors are:
 (action-getting-parameters)=
 ### Getting action parameters
 
-Getting action parameters lets the action code read the parameters of its task through the hook tool {ref}`action-get <hook-command-action-get>`.
+Getting action parameters lets the action code read the parameters of its task through the {ref}`action-get <hook-command-action-get>` hook command.
 
 The caller and the rules are:
 
 - *Caller:* The action code of a running task, through the unit agent for its own unit.
 - *Rules:*
-  - The tool prints the value at a path of keys joined with periods, or all parameters when it has no path.
+  - The command prints the value at a path of keys joined with periods, or all parameters when it has no path.
 
 (action-setting-results)=
 ### Setting action results
 
-Setting action results lets the action code add values to the results of its task through the hook tool {ref}`action-set <hook-command-action-set>`.
+Setting action results lets the action code add values to the results of its task through the {ref}`action-set <hook-command-action-set>` hook command.
 
 The caller and the rules are:
 
@@ -299,7 +299,7 @@ The caller and the rules are:
 (action-failing)=
 ### Setting action failure
 
-Setting action failure lets the action code mark its task as failed through the hook tool {ref}`action-fail <hook-command-action-fail>`.
+Setting action failure lets the action code mark its task as failed through the {ref}`action-fail <hook-command-action-fail>` hook command.
 
 The caller and the rules are:
 
@@ -310,7 +310,7 @@ The caller and the rules are:
 (action-logging)=
 ### Logging action progress
 
-Logging action progress lets the action code record a progress message of its task through the hook tool {ref}`action-log <hook-command-action-log>`. The unit agent sends the message to the controller at once.
+Logging action progress lets the action code record a progress message of its task through the {ref}`action-log <hook-command-action-log>` hook command. The unit agent sends the message to the controller at once.
 
 The caller and the rules are:
 

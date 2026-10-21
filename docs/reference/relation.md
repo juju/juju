@@ -226,7 +226,7 @@ The caller, the rules, and the errors are:
 :alt: A sequence diagram with four participants: the unit agent of unit A, the controller, the model database, and the unit agent of unit B. The unit agent of unit A commits its relation settings to the controller when its hook ends. The controller stores the settings and their hash in the model database. The controller tells the unit agent of unit B that the settings of unit A have a new version. The unit agent of unit B asks the controller for the settings of unit A, receives them, and runs the relation-changed hook.
 ```
 
-The unit agent reads the settings of a unit or of an application in a relation, through the `relation-get` hook tool (see {ref}`relation-get <hook-command-relation-get>`). The settings are keys and values, all of them strings. The tool takes an optional key, a unit or application name, a relation ID, and an option to read the application settings.
+The unit agent reads the settings of a unit or of an application in a relation, through the {ref}`relation-get <hook-command-relation-get>` hook command. The settings are keys and values, all of them strings. The command takes an optional key, a unit or application name, a relation ID, and an option to read the application settings.
 
 What a caller reads and writes depends on whether the unit is the leader of its application. The table shows, for a unit of an application in the relation, what it does with each set of settings:
 
@@ -245,16 +245,16 @@ The caller, the rules, and the errors are:
   - A unit can read the settings of a unit by name, including a unit that has left. The settings of a unit that left come from the archive and stay until the relation is removed.
   - The leader of an application reads the application's own settings with a call that needs the lease. A unit that is not the leader reads them with the call that names the application.
   - A key that does not exist returns an empty value.
-  - The hook tool needs a relation ID, which in a relation hook defaults to the relation of the hook. The default unit is the remote unit of the hook (`JUJU_REMOTE_UNIT`).
+  - The hook command needs a relation ID, which in a relation hook defaults to the relation of the hook. The default unit is the remote unit of the hook (`JUJU_REMOTE_UNIT`).
 - *Errors:* The unit agent receives each in the result for the unit:
   - **`relation unit not found`**: *Trigger:* The named unit is not in the relation and has no archived settings. *Remediation:* Name a unit that is, or was, in the relation.
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The caller is not the unit, the relation does not exist, or the unit is not the leader and asked the call for its own application settings. *Remediation:* Use the unit that the agent runs, and read the application settings with the call that names the application.
-  - **`no relation id specified`**, **`no unit or application specified`**, **`expected unit name, got application name "<name>"`**, and **`invalid unit name "<name>"`**: *Trigger:* The hook tool has no relation ID, has no unit or application to read, is given an application name without the option for the application settings, or is given an invalid unit name. These come from the hook tool. *Remediation:* Pass the relation ID with `-r`, and name a unit or, with the option for the application settings, an application.
+  - **`no relation id specified`**, **`no unit or application specified`**, **`expected unit name, got application name "<name>"`**, and **`invalid unit name "<name>"`**: *Trigger:* The hook command has no relation ID, has no unit or application to read, is given an application name without the option for the application settings, or is given an invalid unit name. These come from the hook command. *Remediation:* Pass the relation ID with `-r`, and name a unit or, with the option for the application settings, an application.
 
 (relation-writing-data)=
 ### Writing relation data
 
-The unit agent sets and removes settings of a unit or of an application in a relation, through the `relation-set` hook tool (see {ref}`relation-set <hook-command-relation-set>`). The tool takes `key=value` pairs, a relation ID, a file of settings, and an option to write the application settings.
+The unit agent sets and removes settings of a unit or of an application in a relation, through the {ref}`relation-set <hook-command-relation-set>` hook command. The command takes `key=value` pairs, a relation ID, a file of settings, and an option to write the application settings.
 
 The table shows what a unit of an application in the relation writes:
 
@@ -274,7 +274,7 @@ The caller, the rules, and the errors are:
   - The unit must be in the scope of the relation.
   - The keys and values of one set of settings add up to 16 MiB at most.
 - *Errors:* The unit agent receives each in the result for the unit:
-  - **`cannot write relation settings`**: *Trigger:* The tool was asked for the application settings by a unit that is not the leader. This comes from the hook tool. *Remediation:* Run the tool on the leader unit.
+  - **`cannot write relation settings`**: *Trigger:* The command was asked for the application settings by a unit that is not the leader. This comes from the hook command. *Remediation:* Run the command on the leader unit.
   - **`lease not held`**: *Trigger:* The unit is not the leader of its application, or lost the leadership while the changes were committed. The message can have a prefix. *Remediation:* Retry the hook.
   - **`update relation settings: setting relation settings for relation "<UUID>": relation unit/application not found for unit "<UUID>" and relation "<UUID>"`** (code `not found`): *Trigger:* The unit is not in the scope of the relation. *Remediation:* Write only while the unit is in the relation.
   - **`update relation settings: setting relation settings for relation "<UUID>": checking relation unit settings size: max allowed total size (16777216): quota limit exceeded`** (code `quota limit exceeded`): *Trigger:* The unit settings are larger than the limit. For the application settings, the text after the relation is `setting relation application settings: checking relation application settings size: max allowed total size (16777216): quota limit exceeded`. *Remediation:* Remove keys or store the data elsewhere.
@@ -323,7 +323,7 @@ The caller, the rules, and the errors are:
 (relation-lookup)=
 ### Finding relations
 
-The unit agent finds the relations a unit takes part in, through the hook tools. The `relation-ids` tool (see {ref}`relation-ids <hook-command-relation-ids>`) lists the relation IDs of an endpoint name. The `relation-list` tool (see {ref}`relation-list <hook-command-relation-list>`) lists the units of a relation or, with an option, its remote application. The `relation-model-get` tool (see {ref}`relation-model-get <hook-command-relation-model-get>`) returns the UUID of the model of the application on the other side. The agent also asks the controller for a relation by its key or ID, and for the scope state and suspended state of each relation of a unit.
+The unit agent finds the relations a unit takes part in, through the hook commands. The {ref}`relation-ids <hook-command-relation-ids>` command lists the relation IDs of an endpoint name. The {ref}`relation-list <hook-command-relation-list>` command lists the units of a relation or, with an option, its remote application. The {ref}`relation-model-get <hook-command-relation-model-get>` command returns the UUID of the model of the application on the other side. The agent also asks the controller for a relation by its key or ID, and for the scope state and suspended state of each relation of a unit.
 
 The caller and the rules are:
 
@@ -331,9 +331,9 @@ The caller and the rules are:
 - *Rules:*
   - A relation is returned only to an agent whose application is an endpoint of the relation. The answer has the relation's ID, key, life, whether it is suspended, the unit's endpoint, and the application on the other side with its model UUID.
   - The model UUID of the other side is the UUID of the unit's own model unless the relation is cross-model.
-  - `relation-ids` leaves out the relations whose life is dead and lists the IDs sorted as `<endpoint>:<ID>`.
-  - `relation-list` lists the units that are in scope on the other side.
-  - The tools that read a relation need a relation ID, which in a relation hook defaults to the relation of the hook.
+  - The {ref}`relation-ids <hook-command-relation-ids>` command leaves out the relations whose life is dead and lists the IDs sorted as `<endpoint>:<ID>`.
+  - The {ref}`relation-list <hook-command-relation-list>` command lists the units that are in scope on the other side.
+  - The commands that read a relation need a relation ID, which in a relation hook defaults to the relation of the hook.
 
 ## Relations and model migration
 

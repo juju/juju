@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage storage <manage-storage>`, {ref}`Juju | Manage storage pools <manage-storage-pools>`
 ```
 
-A **storage** is a named store that a {ref}`charm <charm>` declares (such as a database directory or a block device) and that Juju provisions for a {ref}`unit <unit>` from a {ref}`storage pool <storage-pool>` of the {ref}`model <model>`. A filesystem storage lives on the machine that hosts the unit and dies with it. A block storage is a volume that can outlive that machine and attach to another one. A charm can ask for more of its storage while the unit runs, and can read what it got, with the {ref}`storage-add <hook-command-storage-add>` and `storage-get` hook commands.
+A **storage** is a named store that a {ref}`charm <charm>` declares (such as a database directory or a block device) and that Juju provisions for a {ref}`unit <unit>` from a {ref}`storage pool <storage-pool>` of the {ref}`model <model>`. A filesystem storage lives on the machine that hosts the unit and dies with it. A block storage is a volume that can outlive that machine and attach to another one. A charm can ask for more of its storage while the unit runs, and can read what it got, with the {ref}`storage-add <hook-command-storage-add>` and {ref}`storage-get <hook-command-storage-get>` hook commands.
 
 (storage-database-schema)=
 ## Storage database schema
@@ -382,7 +382,7 @@ The caller, the rules, and the errors are:
 
 ### Reading a unit's storage attachments
 
-The unit agent reads the storages of its unit, and takes them off the unit's record when the charm is done with them. The charm reads the same through the `storage-get`, `storage-list`, and `storage-id` hook commands.
+The unit agent reads the storages of its unit, and takes them off the unit's record when the charm is done with them. The charm reads the same through the {ref}`storage-get <hook-command-storage-get>`, {ref}`storage-list <hook-command-storage-list>`, and `storage-id` hook commands.
 
 The caller, the rules, and the errors are:
 
@@ -391,7 +391,7 @@ The caller, the rules, and the errors are:
   - `UnitStorageAttachments` returns the tags of the storages attached to the unit.
   - `StorageAttachments` returns the details of one attachment: its location (the mount point of the filesystem, or the device of the volume), its life, and the machine it is on.
   - `StorageAttachmentLife` returns the life of one attachment, and `RemoveStorageAttachments` marks a dead attachment gone.
-  - The {ref}`storage-attached <hook-storage-attached>` hook of a storage runs before the `install` hook on a machine model, and after the `start` hook on Kubernetes. The {ref}`storage-detaching <hook-storage-detaching>` hook runs while the storage is being taken off.
+  - The {ref}`storage-attached <hook-storage-attached>` hook of a storage runs before the {ref}`install <hook-install>` hook on a machine model, and after the {ref}`start <hook-start>` hook on Kubernetes. The {ref}`storage-detaching <hook-storage-detaching>` hook runs while the storage is being taken off.
 - *Errors:* The agent receives each in the result for the entity:
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The agent acts for a unit that is not its own. *Remediation:* Use the unit that the agent runs.
   - **`unit %q not found`** (code `not found`): *Trigger:* The unit names no unit. *Remediation:* Use the unit that the agent runs.

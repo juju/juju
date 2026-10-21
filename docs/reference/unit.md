@@ -63,7 +63,7 @@ The unit database schema is the set of records that the {ref}`model database <da
 - **Unit state:** The state that the unit agent keeps in the controller so that it can resume after a restart: the state of the agent's operations, of its storage, and of its secrets, each a piece of text that the agent writes.
   - *Rules:*
     - A unit has at most one unit state record.
-- **Charm state:** One key and value that the charm stored for its unit (see the `state-set` {ref}`hook tool <hook-command-state-set>`).
+- **Charm state:** One key and value that the charm stored for its unit (see the {ref}`state-set <hook-command-state-set>` hook command).
   - *Rules:*
     - A unit has each key once.
 - **Relation state:** One key and value that the agent stores for each relation of its unit.
@@ -89,7 +89,7 @@ Unit change streams are the notifications that the {ref}`agent <agent>` of a uni
 
 - **Unit record:** `WatchUnit` reports a change of the unit's own record, of its principal, and of its resolved marker. The unit agent then reads the life of the unit again.
 - **Resolved marker:** `WatchUnitResolveMode` reports that a client set or cleared the resolved marker of the unit. The unit agent then reads the marker.
-- **Addresses:** `WatchUnitAddressesHash` reports a change of the hash of the unit's addresses and of the endpoint bindings of the spaces that the addresses belong to. The unit agent runs the `config-changed` {ref}`hook <hook-config-changed>` when the hash differs from the one it last saw.
+- **Addresses:** `WatchUnitAddressesHash` reports a change of the hash of the unit's addresses and of the endpoint bindings of the spaces that the addresses belong to. The unit agent runs the {ref}`config-changed <hook-config-changed>` hook when the hash differs from the one it last saw.
 - **Agent version:** `WatchAPIVersion` of the `Upgrader` facade reports that the model's target agent version changed. It is served on a machine model.
 - **Leadership:** The unit agent's leadership tracker renews the lease of its unit, or learns through `BlockUntilLeadershipReleased` that the lease of another unit has expired. The agent runs the `leader-elected` hook when its unit becomes the leader. It runs the `leader-deposed` hook when its unit stops being the leader.
 
@@ -196,7 +196,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Manage units <manage-units>` > {ref}`Remove a unit <remove-a-unit>`
 ```
 
-Removing units makes units dying and schedules their removal on a machine model. The request names units by tag. It can ask to destroy the units' storage, to force the removal, to wait before the force applies, and to do a dry run. The unit agent of each unit then runs the `stop` and `remove` hooks and leaves its relations. Juju deletes the unit's records. A Kubernetes model removes units by setting the scale (see {ref}`scaling applications <application-scaling>`). Removing an application removes its units (see {ref}`removing applications <application-removing>`).
+Removing units makes units dying and schedules their removal on a machine model. The request names units by tag. It can ask to destroy the units' storage, to force the removal, to wait before the force applies, and to do a dry run. The unit agent of each unit then runs the {ref}`stop <hook-stop>` and {ref}`remove <hook-remove>` hooks and leaves its relations. Juju deletes the unit's records. A Kubernetes model removes units by setting the scale (see {ref}`scaling applications <application-scaling>`). Removing an application removes its units (see {ref}`removing applications <application-removing>`).
 
 The caller, the rules, and the errors are:
 
@@ -274,14 +274,14 @@ The caller, the rules, and the errors are:
 (unit-setting-status)=
 ### Setting unit statuses
 
-A unit agent reports two statuses of its unit: its own agent status and the workload status that a charm sets with the `status-set` hook tool (see {ref}`status-set <hook-command-status-set>`). The request gives the unit, the status, a message, and data. The controller records the time of the change and adds it to the status history.
+A unit agent reports two statuses of its unit: its own agent status and the workload status that a charm sets with the {ref}`status-set <hook-command-status-set>` hook command. The request gives the unit, the status, a message, and data. The controller records the time of the change and adds it to the status history.
 
 The caller, the rules, and the errors are:
 
 - *Caller:* A unit agent, for its own unit.
 - *Rules:*
   - The agent status is one of `executing`, `idle`, `error`, `failed`, and `rebooting`. The agent sets `executing` when it runs a hook and `idle` when it has nothing to do. The agent status `error` needs a message. Juju sets `allocating` when it creates the unit and shows `lost` when the agent is not present, so the agent cannot set them.
-  - The workload status is one of the eight values. The hook tool accepts `maintenance`, `blocked`, `waiting`, and `active`.
+  - The workload status is one of the eight values. The hook command accepts `maintenance`, `blocked`, `waiting`, and `active`.
   - A status replaces the earlier status of its kind, with its message and data.
   - Setting the status of the application is described in {ref}`setting application status <application-setting-status>`.
 - *Errors:* The agent receives each in the result for the unit:
@@ -344,7 +344,7 @@ The caller, the rules, and the errors are:
 (unit-saving-state)=
 ### Writing unit state
 
-A unit agent stores the state that it needs to resume after a restart, and reads it back. The request can give the state of the agent's operations, its storage, its secrets, the charm's state items, and the relation state items. The charm state is what the charm sets with the `state-set` hook tool (see {ref}`state-set <hook-command-state-set>`).
+A unit agent stores the state that it needs to resume after a restart, and reads it back. The request can give the state of the agent's operations, its storage, its secrets, the charm's state items, and the relation state items. The charm state is what the charm sets with the {ref}`state-set <hook-command-state-set>` hook command.
 
 The caller, the rules, and the errors are:
 
@@ -361,7 +361,7 @@ The caller, the rules, and the errors are:
 (unit-reading-details)=
 ### Reading unit details
 
-A unit agent reads facts about its unit: the machine it is assigned to, its public and private addresses, its availability zone, the URL of its charm, its principal, and whether it has subordinates. The charm reads some of these through hook tools (see {ref}`unit-get <hook-command-unit-get>`).
+A unit agent reads facts about its unit: the machine it is assigned to, its public and private addresses, its availability zone, the URL of its charm, its principal, and whether it has subordinates. The charm reads some of these through hook commands (see the {ref}`unit-get <hook-command-unit-get>` command).
 
 The caller, the rules, and the errors are:
 
@@ -394,7 +394,7 @@ The caller, the rules, and the errors are:
 (unit-ending)=
 ### Destroying units
 
-A unit agent ends its own unit, or the subordinates of its unit. The agent asks for the unit to be destroyed, for example when the last relation to a principal unit ends. When Juju makes a unit `dying`, the agent runs the `stop` and `remove` hooks, waits until the unit has no subordinates, deletes the content of the secrets that the unit owns, and then marks the unit `dead`. The agent reads the life of a unit with `Life`.
+A unit agent ends its own unit, or the subordinates of its unit. The agent asks for the unit to be destroyed, for example when the last relation to a principal unit ends. When Juju makes a unit `dying`, the agent runs the {ref}`stop <hook-stop>` and {ref}`remove <hook-remove>` hooks, waits until the unit has no subordinates, deletes the content of the secrets that the unit owns, and then marks the unit `dead`. The agent reads the life of a unit with `Life`.
 
 The caller, the rules, and the errors are:
 
