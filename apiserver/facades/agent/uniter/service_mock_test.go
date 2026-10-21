@@ -63,6 +63,7 @@ type MockApplicationServiceMockRecorder struct {
 	getAvailableCharmArchiveSHA256Expects   []*gomock.Call2_2[context.Context, charm.CharmLocator, string, error]
 	getCAASUnitContextExpects               []*gomock.Call2_2[context.Context, unit.Name, service.CAASUnitContext, error]
 	getCharmLocatorByApplicationNameExpects []*gomock.Call2_2[context.Context, string, charm.CharmLocator, error]
+	getCharmLocatorByUnitNameExpects        []*gomock.Call2_2[context.Context, unit.Name, charm.CharmLocator, error]
 	getCharmModifiedVersionExpects          []*gomock.Call2_2[context.Context, application.UUID, int, error]
 	getIAASUnitContextExpects               []*gomock.Call2_2[context.Context, unit.Name, service.IAASUnitContext, error]
 	getUnitLifeExpects                      []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
@@ -239,6 +240,24 @@ func (mr *MockApplicationServiceMockRecorder) GetCharmLocatorByApplicationName(c
 
 // MockApplicationServiceGetCharmLocatorByApplicationNameCall is the typed call wrapper for GetCharmLocatorByApplicationName.
 type MockApplicationServiceGetCharmLocatorByApplicationNameCall = gomock.Call2_2[context.Context, string, charm.CharmLocator, error]
+
+// GetCharmLocatorByUnitName mocks base method.
+func (m *MockApplicationService) GetCharmLocatorByUnitName(ctx context.Context, name unit.Name) (charm.CharmLocator, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getCharmLocatorByUnitNameExpects, m.ctrl, m, "GetCharmLocatorByUnitName", ctx, name)
+}
+
+// GetCharmLocatorByUnitName indicates an expected call of GetCharmLocatorByUnitName.
+func (mr *MockApplicationServiceMockRecorder) GetCharmLocatorByUnitName(ctx, name any) *MockApplicationServiceGetCharmLocatorByUnitNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, unit.Name, charm.CharmLocator, error](mr.mock.ctrl.T, mr.mock, "GetCharmLocatorByUnitName", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.getCharmLocatorByUnitNameExpects = append(mr.getCharmLocatorByUnitNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockApplicationServiceGetCharmLocatorByUnitNameCall is the typed call wrapper for GetCharmLocatorByUnitName.
+type MockApplicationServiceGetCharmLocatorByUnitNameCall = gomock.Call2_2[context.Context, unit.Name, charm.CharmLocator, error]
 
 // GetCharmModifiedVersion mocks base method.
 func (m *MockApplicationService) GetCharmModifiedVersion(arg0 context.Context, arg1 application.UUID) (int, error) {
