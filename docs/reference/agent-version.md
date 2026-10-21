@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Upgrade a model <upgrade-a-model>`
 ```
 
-The **agent version** of a {ref}`model <model>` is the version of Juju that the model's {ref}`agents <agent>` are told to run, together with the agent stream they take it from. The model database keeps one record, which also names the newest version the controller has seen. The binaries themselves are gzipped tarballs in the controller's {ref}`object store <object-store>`; the controller database and each model database keep a catalogue of the binaries they hold. A client sets the target version by {ref}`upgrading models <model-upgrading>`.
+The **agent version** of a {ref}`model <model>` is the version of Juju that the model's {ref}`agents <agent>` are told to run, together with the agent stream they take it from. The model database keeps one record, which also names the newest version the controller has seen. The binaries themselves are gzipped tarballs in the {ref}`object store <object-store>` of the controller or of the model whose catalogue lists them; the controller database and each model database keep a catalogue of the binaries they hold. A client sets the target version by {ref}`upgrading models <model-upgrading>`.
 
 (agent-version-data-model)=
 ## Agent version data model
@@ -19,8 +19,8 @@ The **agent version** of a {ref}`model <model>` is the version of Juju that the 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Agent version data model
-:caption: The model database keeps one agent version record, which names one agent stream (a stream is named by many models). The controller database and each model database keep one record for each agent binary they hold: its version, its architecture, and the stored object it is (a stored object is one binary). A binary belongs to one stored object and names one architecture; the catalogue of the controller can be read by every model. The stored object and the architecture are described elsewhere and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
-:alt: Two groups of boxes of the same size, each box with a filled table mark in the corner. The group named Model database holds Agent version and Agent stream in a row, joined m to 1. The group named Controller database and model databases holds Agent binary, Architecture, and Stored object in a row; Agent binary joins Architecture (m to 1) and Stored object (m to 1). Architecture and Stored object have an outlined arrow mark for records described elsewhere.
+:caption: The model database keeps one agent version record, which names one agent stream. The controller database and each model database keep one record for each agent binary they hold: its version, its architecture, and the stored object it is (a stored object is one binary). A binary belongs to one stored object and names one architecture; the catalogue of the controller can be read by every model. The stored object and the architecture are described elsewhere and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
+:alt: Two groups of boxes of the same size, each box with a filled table mark in the corner. The group named Model database holds Agent version and Agent stream in a row, joined 1 to 1. The group named Controller database and model databases holds Agent binary, Architecture, and Stored object in a row; Agent binary joins Architecture (m to 1) and Stored object (m to 1). Architecture and Stored object have an outlined arrow mark for records described elsewhere.
 ```
 
 The agent version data model is the set of records that the databases keep about the versions the agents run. The records, with the rules that apply to each, are:
@@ -55,15 +55,19 @@ Uploading agent binaries puts one binary on the controller, as a gzipped tarball
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`admin access <user-access-model-admin>` to the model the request names. A change block on that model refuses the upload.
+- *Required access:* {ref}`Superuser access <user-access-controller-superuser>` to the controller, or {ref}`admin access <user-access-model-admin>` to the model the request names. A request naming the controller model needs superuser access. A change block on that model refuses the upload.
 - *Rules:*
-  - The request is a `POST` of the tarball with the content type `application/x-tar-gz`, and names the binary version in the form `<version>-<architecture>`, such as `4.5.0-amd64`.
-  - The controller stores the tarball in its object store and adds it to the catalogue of the model the request names; for the controller model, it adds it to the controller's catalogue, which every model can use.
-  - The upload names no series: one tarball is one architecture.
+  - The request is a `POST` of the tarball with the content type `application/x-tar-gz`, and names the binary version in the query parameter `binaryVersion`, in the form `<version>-<series>-<architecture>`, such as `4.5.0-noble-amd64`.
+  - The handler keeps the number and the architecture of the version; the series in between is ignored.
+  - The tarball is stored in the object store of the model the request names, and added to that model's catalogue. A request naming the controller model stores the binary in the controller's object store and catalogue, which every model can use.
+  - A binary that the catalogue already holds with the same hash is left as it is.
 - *Errors:* The client receives each with the HTTP status 400:
-  - **`agent binary version "<version>" is not valid`**: *Trigger:* The binary version cannot be read. *Remediation:* Send the version in the form `<version>-<architecture>`.
+  - **`expected binaryVersion argument`**: *Trigger:* The request names no binary version. *Remediation:* Name the version in the query parameter `binaryVersion`.
+  - **`invalid agent binary version "<version>"`**: *Trigger:* The named version cannot be read as a version, a series, and an architecture. *Remediation:* Send the version in the form `<version>-<series>-<architecture>`.
+  - **`agent binary version "<version>" is not valid`**: *Trigger:* The version has a zero number, or an architecture Juju does not know. *Remediation:* Send a supported version and architecture.
   - **`unsupported architecture "<architecture>"`**: *Trigger:* The architecture is not one Juju knows. *Remediation:* Use a supported architecture.
   - **`no agent binaries uploaded`**: *Trigger:* The request body is empty. *Remediation:* Send the tarball as the body.
+  - **`expected Content-Type: application/x-tar-gz, got: <type>`**: *Trigger:* The request has another content type. *Remediation:* Send the tarball with the content type `application/x-tar-gz`.
 
 (agent-version-finding)=
 ### Finding agent binaries
@@ -74,8 +78,7 @@ The operation's required access, rules, and errors are:
 
 - *Required access:* The agent of the machine or unit it names, logged in as that machine or unit.
 - *Rules:*
-  - The binaries of the model's own catalogue come first; the controller's catalogue answers for the rest.
-  - The URL points at the controller's API server, or at the metadata source the controller is configured with.
+  - Every URL points at one of the controller's API servers. A binary that no catalogue holds is fetched from the metadata source when the agent downloads it.
 - *Errors:* The agent receives each in the result for its entity:
   - **`permission denied`**: *Trigger:* The entity tag cannot be read, or the caller is not the agent of the entity it names. The client receives it with the code `unauthorized access`. *Remediation:* Send the tag of the agent's own machine or unit.
   - **`"<machine or unit>" not found`** and **`target agent version for <machine or unit> not found`**: *Trigger:* No such machine or unit exists, or it has no target version recorded. The client receives them with the code `not found`. *Remediation:* Send the tag of the agent's own machine or unit; set the model's target agent version first for the second.
