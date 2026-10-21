@@ -20,7 +20,7 @@ A **model migration** is the move of a {ref}`model <model>` from one {ref}`contr
 :file: ../juju.ggarch
 :view: Model migration data model
 :caption: The source controller keeps one export record for each attempt to move a model, with the current phase (a phase is the current phase of many exports), the target controller, the phase history (each phase entered once per export), the last status message, one report per machine or unit agent for each phase, the offers to keep for the cleanup, and the user and credentials for reaching the target. The external controller is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
-:alt: Eight boxes of the same size inside a group named Source controller database, each with a filled table mark in the corner. Export is in the middle. Migration phase is above it (m to 1) and External controller is to its left (m to 1). Export phase is above Export phase on the right, joined to both Export (m to 1) and Migration phase. Status message is to the right of Export (1 to 1). Minion report is below Export, joined to both Export and Migration phase. Exported offer and Target authorization are below External controller, joined to Export.
+:alt: Eight boxes of the same size inside a group named Source controller database, each with a filled table mark in the corner. Export is in the middle. Migration phase is above Export (m to 1) and Export phase is to the right of Migration phase, joined to Export (m to 1) and to Migration phase (m to 1). External controller is to the left of Export (m to 1), with Target authorization below it (1 to 1). Status message is to the right of Export (1 to 1), with Exported offer below it (m to 1). Minion report is below Export, joined to Export (m to 1) and to Migration phase (m to 1). External controller has an outlined arrow mark for the record that another page describes.
 ```
 
 The model migration data model is the set of records that the two controllers and the model's own database keep about a migration. The records, with the rules that apply to each, are:
@@ -37,7 +37,7 @@ The model migration data model is the set of records that the two controllers an
 - **Status message:** The free-form message that the migration master last reported for an export, with the time it was recorded.
   - *Rules:*
     - An export has one status message at a time.
-- **Minion report:** One report of a machine or unit {ref}`agent <agent>` of the model, for one phase of an export: whether its work succeeded, and when it reported. The phase `quiesce` and the phase `validation` wait for these reports.
+- **Minion report:** One report of a machine or unit {ref}`agent <agent>` of the model, for one phase of an export: whether its work succeeded, and when it reported. The phases `quiesce`, `validation`, and `success` wait for these reports.
   - *Rules:*
     - An export holds one report per agent and phase.
 - **Exported offer:** One offer of the model, captured before the model's database is purged, so that the source can remove the offer's permissions after the model is gone.
@@ -47,13 +47,13 @@ The model migration data model is the set of records that the two controllers an
   - *Rules:*
     - An export has one target authorization.
 - **External controller:** The target the model moves to. Another page owns it: see {ref}`external controller <external-controller>`.
-- **Redirect:** Where a model went, on the source controller after the model is gone: the migration that moved it, the target controller, its addresses, its certificate, an alias, when the redirect was made, and when the move completed. The record has no link to the model: the model is gone when the redirect is there. It stays until the source forgets the model.
+- **Redirect:** Where a model went, on the source controller after the model is gone: the migration that moved it, the target controller, its addresses, its certificate, an alias, when the redirect was made, and when the move completed. The record has no link to the model: the model is gone when the redirect is there. It stays until the model moves again: a later move overwrites the record.
   - *Rules:*
     - A model has at most one redirect.
 - **Redirect user:** One user of the model at the moment it moved, with the access level the user had. The snapshot is independent of the live permissions, which are removed with the model.
   - *Rules:*
     - A redirect holds each user once.
-- **Import:** The incoming model, on the target controller: the migration it came in, its phase (`importing`, `activating`, or `aborting`), and when the phase last changed. The target holds the model inactive while the phase is `importing`.
+- **Import:** The incoming model, on the target controller: the migration it came in, its phase (`importing`, `activating`, or `aborting`), and when the phase last changed. The target holds the model inactive for as long as the import claim exists: the model becomes usable when the import completes and the claim is released.
   - *Rules:*
     - The target keeps one import per model.
 - **Imported offer:** One offer that the model consumes, captured so that the target can wire the model's cross-model relations when it activates the model.
@@ -62,7 +62,7 @@ The model migration data model is the set of records that the two controllers an
 - **Imported external model:** One mapping that says which controller hosts a model whose offer the imported model consumes, captured so that the wiring survives a controller restart.
   - *Rules:*
     - An import holds each such model once.
-- **Migrating marker:** The marker in the model's own database that the model is being migrated. It exists while a migration of the model runs. Its presence is what the {ref}`agents <agent>` of the model watch to stop their work.
+- **Migrating marker:** The marker in the model's own database that the target controller is importing the model. The target creates it when it starts to import the model and removes it when the import completes or aborts. While it is there, the target refuses changes to the model database. The {ref}`agents <agent>` of the model learn that the model is migrating from the {ref}`controller <controller>`, not from the marker.
   - *Rules:*
     - A model has at most one marker.
 - **Log transfer progress:** How far the model's logs have been copied to the target, in the model's own database: the time of the last copied entry.
@@ -74,7 +74,7 @@ An export is a row in the table `model_migration_export`; its history in `model_
 (model-migration-change-streams)=
 ## Model migration change streams
 
-Model migration change streams are the notifications that tell the agents of the model and the workers of the controllers that the migration has moved. An agent of the model watches the migrating marker and the migration status. A watcher on the marker tells it that a migration has begun. The status watcher tells it each phase and status message, so that the agent stops its work in `quiesce` and checks the target in `validation`. The migration master of the source watches the phases of its export. The phase history is what the change log records; the status messages are kept out of it, because they change often and would drown the watchers.
+Model migration change streams are the notifications that tell the agents of the model and the workers of the controllers that the migration has moved. A unit agent's watcher on the migration flag fires when the export of the model changes phase, and when an import claim for the model appears or disappears. The status watcher tells it each phase, with the addresses of both controllers, so that the agent stops its work in `quiesce` and checks the target in `validation`. The migration master of the source watches the phases of its export and the reports of the agents, so that each phase waits for every agent to answer. The phase history is what the change log records; the status messages are kept out of it, because they change often and would drown the watchers.
 
 (model-migration-operations)=
 ## Model migration operations
