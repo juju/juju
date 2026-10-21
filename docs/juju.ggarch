@@ -5416,3 +5416,267 @@ diagram "Object store data model" from "ObjectStoreSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL and trimmed
+// to the records that the page draws. The machine, unit, Kubernetes service,
+// and subnet are context records trimmed to the parts that point here; the
+// machine, unit, and subnet pages and the application page (for the
+// Kubernetes service) own them. The lookups (link_layer_device_type,
+// virtual_port_type, ip_address_type, ip_address_origin, ip_address_scope,
+// ip_address_config_type, network_address_scope) are left out of the figure
+// and listed in the page text.
+model "LinkLayerDeviceSchema" {
+
+  nodes {
+    machine [type: context-record, label: "Machine",
+                 ground: "model:machine"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+      }
+    }
+
+    unit [type: context-record, label: "Unit",
+                 ground: "model:unit"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+      }
+    }
+
+    k8s_service [type: context-record, label: "Kubernetes\nservice",
+                 ground: "model:k8s_service"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+      }
+    }
+    net_node [type: record, label: "Network\nnode",
+                 ground: "model:net_node"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+    fqdn_link [type: record, label: "FQDN\nlink",
+                 ground: "model:net_node_fqdn_address"] {
+      fields {
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        address_uuid [label: "address_uuid", type: "text", fk: true]
+      }
+    }
+
+    fqdn [type: record, label: "FQDN",
+                 ground: "model:fqdn_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        address [label: "address", type: "text"]
+        scope_id [label: "scope_id", type: "int"]
+      }
+    }
+
+    hostname_link [type: record, label: "Hostname\nlink",
+                 ground: "model:net_node_hostname_address"] {
+      fields {
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        address_uuid [label: "address_uuid", type: "text", fk: true]
+      }
+    }
+
+    hostname [type: record, label: "Hostname",
+                 ground: "model:hostname_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        hostname [label: "hostname", type: "text"]
+        scope_id [label: "scope_id", type: "int"]
+      }
+    }
+
+    link_layer_device [type: record, label: "Link-layer\ndevice",
+                 ground: "model:link_layer_device"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        name [label: "name", type: "text"]
+        mtu [label: "mtu", type: "int", null: true]
+        mac_address [label: "mac_address", type: "text", null: true]
+        device_type_id [label: "device_type_id", type: "int"]
+        virtual_port_type_id [label: "virtual_port_type_id", type: "int"]
+        is_auto_start [label: "is_auto_start", type: "bool"]
+        is_enabled [label: "is_enabled", type: "bool"]
+        is_default_gateway [label: "is_default_gateway", type: "bool"]
+        gateway_address [label: "gateway_address", type: "text", null: true]
+        vlan_tag [label: "vlan_tag", type: "int"]
+      }
+    }
+
+    parent [type: record, label: "Parent",
+                 ground: "model:link_layer_device_parent"] {
+      fields {
+        device_uuid [label: "device_uuid", type: "text", pk: true, fk: true]
+        parent_uuid [label: "parent_uuid", type: "text", fk: true]
+      }
+    }
+
+    dns_search_domain [type: record, label: "DNS\nsearch domain",
+                 ground: "model:link_layer_device_dns_domain"] {
+      fields {
+        device_uuid [label: "device_uuid", type: "text", fk: true]
+        search_domain [label: "search_domain", type: "text"]
+      }
+    }
+
+    dns_server [type: record, label: "DNS\nserver",
+                 ground: "model:link_layer_device_dns_address"] {
+      fields {
+        device_uuid [label: "device_uuid", type: "text", fk: true]
+        dns_address [label: "dns_address", type: "text"]
+      }
+    }
+
+    route [type: record, label: "Route",
+                 ground: "model:link_layer_device_route"] {
+      fields {
+        device_uuid [label: "device_uuid", type: "text", fk: true]
+        destination_cidr [label: "destination_cidr", type: "text"]
+        gateway_ip [label: "gateway_ip", type: "text"]
+        metric [label: "metric", type: "int"]
+      }
+    }
+
+    ip_address [type: record, label: "IP\naddress",
+                 ground: "model:ip_address"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        net_node_uuid [label: "net_node_uuid", type: "text", fk: true]
+        device_uuid [label: "device_uuid", type: "text", fk: true]
+        address_value [label: "address_value", type: "text"]
+        subnet_uuid [label: "subnet_uuid", type: "text", fk: true, null: true]
+        type_id [label: "type_id", type: "int"]
+        config_type_id [label: "config_type_id", type: "int"]
+        origin_id [label: "origin_id", type: "int"]
+        scope_id [label: "scope_id", type: "int"]
+        is_secondary [label: "is_secondary", type: "bool", null: true]
+        is_shadow [label: "is_shadow", type: "bool", null: true]
+      }
+    }
+
+    provider_device_mark [type: record, label: "Provider\ndevice mark",
+                 ground: "model:provider_link_layer_device"] {
+      fields {
+        provider_id [label: "provider_id", type: "text", pk: true]
+        device_uuid [label: "device_uuid", type: "text", fk: true]
+      }
+    }
+
+    provider_address_mark [type: record, label: "Provider\naddress mark",
+                 ground: "model:provider_ip_address"] {
+      fields {
+        provider_id [label: "provider_id", type: "text", pk: true]
+        address_uuid [label: "address_uuid", type: "text", fk: true]
+      }
+    }
+
+    subnet [type: context-record, label: "Subnet",
+                 ground: "model:subnet"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+  }
+
+  edges {
+    machine.net_node_uuid -> net_node.uuid [type: data]
+    unit.net_node_uuid -> net_node.uuid [type: data]
+    k8s_service.net_node_uuid -> net_node.uuid [type: data]
+    fqdn_link.net_node_uuid -> net_node.uuid [type: data]
+    fqdn_link.address_uuid -> fqdn.uuid [type: data]
+    hostname_link.net_node_uuid -> net_node.uuid [type: data]
+    hostname_link.address_uuid -> hostname.uuid [type: data]
+    link_layer_device.net_node_uuid -> net_node.uuid [type: data]
+    parent.device_uuid -> link_layer_device.uuid [type: data]
+    parent.parent_uuid -> link_layer_device.uuid [type: data]
+    dns_search_domain.device_uuid -> link_layer_device.uuid [type: data]
+    dns_server.device_uuid -> link_layer_device.uuid [type: data]
+    route.device_uuid -> link_layer_device.uuid [type: data]
+    ip_address.net_node_uuid -> net_node.uuid [type: data]
+    ip_address.device_uuid -> link_layer_device.uuid [type: data]
+    ip_address.subnet_uuid -> subnet.uuid [type: data]
+    provider_device_mark.device_uuid -> link_layer_device.uuid [type: data]
+    provider_address_mark.address_uuid -> ip_address.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Link-layer device data model" from "LinkLayerDeviceSchema" {
+  select {
+    nodes: machine unit k8s_service net_node fqdn_link fqdn hostname_link hostname link_layer_device parent dns_search_domain dns_server route ip_address provider_device_mark provider_address_mark subnet
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    unit above machine gap: 70
+    unit align-centre machine
+    k8s_service below machine gap: 70
+    k8s_service align-centre machine
+    machine left-of net_node gap: 90
+    machine align-middle net_node
+
+    fqdn_link above net_node gap: 80
+    fqdn_link align-centre net_node
+    fqdn above fqdn_link gap: 60
+    fqdn align-centre fqdn_link
+    hostname_link below net_node gap: 80
+    hostname_link align-centre net_node
+    hostname below hostname_link gap: 60
+    hostname align-centre hostname_link
+
+    link_layer_device right-of net_node gap: 90
+    link_layer_device align-middle net_node
+    ip_address right-of link_layer_device gap: 90
+    ip_address align-middle link_layer_device
+    subnet right-of ip_address gap: 90
+    subnet align-middle ip_address
+
+    dns_search_domain above link_layer_device gap: 70
+    dns_search_domain align-centre link_layer_device
+    dns_server above dns_search_domain gap: 60
+    dns_server align-centre dns_search_domain
+
+    provider_device_mark below link_layer_device gap: 70
+    provider_device_mark align-centre link_layer_device
+    parent below provider_device_mark gap: 60
+    parent align-centre provider_device_mark
+    route below parent gap: 60
+    route align-centre parent
+
+    provider_address_mark below ip_address gap: 70
+    provider_address_mark align-centre ip_address
+
+    machine same-size net_node
+    unit same-size net_node
+    k8s_service same-size net_node
+    fqdn_link same-size net_node
+    fqdn same-size net_node
+    hostname_link same-size net_node
+    hostname same-size net_node
+    link_layer_device same-size net_node
+    parent same-size net_node
+    dns_search_domain same-size net_node
+    dns_server same-size net_node
+    route same-size net_node
+    ip_address same-size net_node
+    provider_device_mark same-size net_node
+    provider_address_mark same-size net_node
+    subnet same-size net_node
+  }
+  annotations {
+    box [nodes: "machine unit k8s_service net_node fqdn_link fqdn hostname_link hostname link_layer_device parent dns_search_domain dns_server route ip_address provider_device_mark provider_address_mark subnet", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
