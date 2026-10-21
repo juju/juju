@@ -90,7 +90,7 @@ model "Juju" {
     ha_machine [type: node, label: "Controller machine", deployed: true] {
       ha_api      [type: juju-software, label: "API server"]
       ha_dbworker [type: juju-software, label: "dbaccessor worker"]
-      ha_dqlite   [type: database, label: "Dqlite node\n(controller and model\ndatabases)"]
+      ha_dqlite   [type: database, label: "Dqlite node"]
     }
     ha_callers [type: juju-software, label: "Clients and agents"]
   }
