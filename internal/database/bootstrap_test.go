@@ -32,7 +32,7 @@ func TestBootstrapSuite(t *testing.T) {
 }
 
 func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
-	const bootstrapAddress = "10.0.0.1"
+	const bootstrapAddress = "127.0.0.1"
 	addresses := network.NewMachineAddresses(
 		[]string{bootstrapAddress}, network.WithScope(network.ScopeCloudLocal),
 	).AsProviderAddresses()
@@ -108,7 +108,7 @@ func (s *bootstrapSuite) TestBootstrapNoAddress(c *tc.C) {
 
 func (s *bootstrapSuite) TestBootstrapOperationsStopOnFailure(c *tc.C) {
 	addresses := network.NewMachineAddresses(
-		[]string{"10.0.0.1"}, network.WithScope(network.ScopeCloudLocal),
+		[]string{"127.0.0.1"}, network.WithScope(network.ScopeCloudLocal),
 	).AsProviderAddresses()
 	mgr := &testNodeManager{c: c}
 	expected := errors.New("seed failed")
