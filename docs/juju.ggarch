@@ -4881,3 +4881,157 @@ diagram "Controller upgrade data model" from "UpgradeSchema" {
          style: "solid", color: "#E95420", padding: 24]
   }
 }
+// Scaffolded by tools/build_page_schema.py from the 4.1 model DDL; the object
+// store metadata and the shared architecture lookup are context records
+// trimmed to their keys.
+model "AgentVersionSchema" {
+
+  nodes {
+    agent_binary_store [type: record, label: "Agent binary",
+                 ground: "model:agent_binary_store"] {
+      fields {
+        version [label: "version", type: "text"]
+        architecture_id [label: "architecture_id", type: "int", fk: true]
+        object_store_uuid [label: "object_store_uuid", type: "text", fk: true]
+      }
+    }
+
+    agent_stream [type: record, label: "Agent stream",
+                 ground: "model:agent_stream"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        name [label: "name", type: "text"]
+      }
+    }
+
+    agent_version [type: record, label: "Agent version",
+                 ground: "model:agent_version"] {
+      fields {
+        stream_id [label: "stream_id", type: "int", fk: true]
+        target_version [label: "target_version", type: "text"]
+        latest_version [label: "latest_version", type: "text"]
+      }
+    }
+
+    architecture [type: context-record, label: "Architecture",
+                 ground: "model:architecture"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+      }
+    }
+
+    object_store_metadata [type: context-record, label: "Object store\nmetadata",
+                 ground: "model:object_store_metadata"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+      }
+    }
+
+  }
+
+  edges {
+    agent_binary_store.architecture_id -> architecture.id [type: data]
+    agent_binary_store.object_store_uuid -> object_store_metadata.uuid [type: data]
+    agent_version.stream_id -> agent_stream.id [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Agent version data model" from "AgentVersionSchema" {
+  select {
+    nodes: agent_version agent_stream agent_binary_store object_store_metadata architecture
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    agent_stream right-of agent_version gap: 70
+    agent_stream align-middle agent_version
+    agent_binary_store below agent_version gap: 90
+    agent_binary_store align-centre agent_version
+    architecture right-of agent_binary_store gap: 70
+    architecture align-middle agent_binary_store
+    object_store_metadata right-of architecture gap: 70
+    object_store_metadata align-middle architecture
+    agent_stream same-size agent_version
+    agent_binary_store same-size agent_version
+    architecture same-size agent_version
+    object_store_metadata same-size agent_version
+  }
+  annotations {
+    box [nodes: "agent_version agent_stream", label: "Model database",
+         style: "solid", color: "#E95420", padding: 24]
+    box [nodes: "agent_binary_store object_store_metadata architecture", label: "Controller database and model databases",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
+model "LeaseSchema" {
+
+  nodes {
+    lease [type: record, label: "Lease",
+                 ground: "controller:lease"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        lease_type_id [label: "lease_type_id", type: "int", fk: true]
+        model_uuid [label: "model_uuid", type: "text", null: true]
+        name [label: "name", type: "text", null: true]
+        holder [label: "holder", type: "text", null: true]
+        start [label: "start", type: "timestamp", null: true]
+        expiry [label: "expiry", type: "timestamp", null: true]
+      }
+    }
+
+    lease_pin [type: record, label: "Lease pin",
+                 ground: "controller:lease_pin"] {
+      fields {
+        uuid [label: "uuid", type: "text", pk: true]
+        lease_uuid [label: "lease_uuid", type: "text", fk: true, null: true]
+        entity_id [label: "entity_id", type: "text", null: true]
+      }
+    }
+
+    lease_type [type: record, label: "Lease type",
+                 ground: "controller:lease_type"] {
+      fields {
+        id [label: "id", type: "int", pk: true, null: true]
+        type [label: "type", type: "text", null: true]
+      }
+    }
+
+  }
+
+  edges {
+    lease.lease_type_id -> lease_type.id [type: data]
+    lease_pin.lease_uuid -> lease.uuid [type: data]
+  }
+
+  style { extends: juju }
+
+}
+
+diagram "Lease data model" from "LeaseSchema" {
+  select {
+    nodes: lease lease_type lease_pin
+    edges: type data
+    labels: hidden
+    fields: hidden
+    sizing: uniform
+    routing: orthogonal
+  }
+  positions {
+    lease right-of lease_type gap: 70
+    lease align-middle lease_type
+    lease_pin right-of lease gap: 70
+    lease_pin align-middle lease
+    lease same-size lease_type
+    lease_pin same-size lease_type
+  }
+  annotations {
+    box [nodes: "lease_type lease lease_pin", label: "Controller database",
+         style: "solid", color: "#E95420", padding: 24]
+  }
+}
