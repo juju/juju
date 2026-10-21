@@ -89,7 +89,7 @@ Machine change streams are the changes that the workers and agents of a model fo
 (machine-operations)=
 ## Machine operations
 
-Machine operations are the actions a {ref}`client <client>` can take on machines through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, get the provisioning script, retry provisioning, reprovision, show status, and remove. Connecting to a machine is described on the {ref}`SSH server <juju-ssh>` page, and the constraints of a machine on the {ref}`constraint <constraint>` page.
+Machine operations are the actions a {ref}`client <client>` can take on machines through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, get the provisioning script, retry provisioning, reprovision, show status, and remove. Connecting to a machine is described on the {ref}`SSH server <juju-ssh>` page. The constraints of a machine are described on the {ref}`constraint <constraint>` page.
 
 (machine-adding)=
 ### Adding machines

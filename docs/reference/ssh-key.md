@@ -46,7 +46,7 @@ An SSH key is a row in the table `user_public_ssh_key`. The algorithm of its fin
 (ssh-key-operations)=
 ## SSH key operations
 
-SSH key operations are the actions a {ref}`client <client>` can take on keys through the controller API (the set of calls that clients and agents make to the controller): add, import, list, and remove. Each acts on the model it addresses, and the caller needs access to that model. Add, list, and remove act on the account that the client is logged in with. Import acts on the user that the request names. The keys it imports become the keys of that user.
+SSH key operations are the actions a {ref}`client <client>` can take on keys through the controller API (the set of calls that clients and agents make to the controller): add, import, list, and remove. Each acts on the model it addresses. The caller needs access to that model. Add, list, and remove act on the account that the client is logged in with. Import acts on the user that the request names. The keys it imports become the keys of that user.
 
 (ssh-key-adding)=
 ### Adding SSH keys
