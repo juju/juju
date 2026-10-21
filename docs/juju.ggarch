@@ -5375,8 +5375,8 @@ diagram "Object store data model" from "ObjectStoreSchema" {
   positions {
     object_store_metadata_path above object_store_metadata gap: 60
     object_store_metadata_path align-centre object_store_metadata
-    operation_task_output above object_store_metadata_path gap: 60
-    operation_task_output align-centre object_store_metadata_path
+    operation_task_output above resource_file_store gap: 60
+    operation_task_output align-centre resource_file_store
     object_store_placement below object_store_metadata gap: 60
     object_store_placement align-centre object_store_metadata
     agent_binary_store left-of object_store_metadata gap: 70
@@ -5410,7 +5410,9 @@ diagram "Object store data model" from "ObjectStoreSchema" {
     object_store_drain_phase_type same-size object_store_metadata
   }
   annotations {
-    box [nodes: "object_store_metadata object_store_metadata_path object_store_placement agent_binary_store resource_file_store operation_task_output", label: "Controller database and model databases",
+    box [nodes: "object_store_metadata object_store_metadata_path object_store_placement agent_binary_store", label: "Controller database and model databases",
+         style: "solid", color: "#E95420", padding: 24]
+    box [nodes: "resource_file_store operation_task_output", label: "Model databases",
          style: "solid", color: "#E95420", padding: 24]
     box [nodes: "object_store_backend object_store_backend_type object_store_backend_s3_config object_store_drain_info object_store_drain_phase_type life", label: "Controller database",
          style: "solid", color: "#E95420", padding: 24]

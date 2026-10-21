@@ -7,7 +7,7 @@ myst:
 (object-store)=
 # Object store
 
-The **object store** is the storage of files that a {ref}`controller <controller>` keeps outside its {ref}`databases <database>`: the agent binaries, the files of charm {ref}`resources <charm-resource>`, the output of action tasks, and the archives that backups read. The files live in a backend, which is either the controller's own file system or an S3-compatible store. The controller database and each {ref}`model <model>` database keep the records of the files they hold.
+The **object store** is the storage of files that a {ref}`controller <controller>` keeps outside its {ref}`databases <database>`: the agent binaries, the files of charm {ref}`resources <charm-resource>`, the output of action tasks, and the files that a backup copies into its archive. The files live in a backend, which is either the controller's own file system or an S3-compatible store. The controller database and each {ref}`model <model>` database keep the records of the files they hold.
 
 (object-store-data-model)=
 ## Object store data model
@@ -15,8 +15,8 @@ The **object store** is the storage of files that a {ref}`controller <controller
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Object store data model
-:caption: The controller database and each model database keep one record for each stored file, and the controller database also keeps the backend records. A stored object has many paths (each path belongs to one stored object) and many placements (each names one controller node). An agent binary names one stored object, and a file resource names one. A task output names one path. The controller database keeps one record for each backend, which has one life (alive, dying, or dead) and one type, `file` or `s3`; an S3 backend has one S3 config. A drain names the backend it moves files from and the backend it moves them to, and has one drain phase. The agent binary, the file resource, the task output, and the life lookup are described elsewhere and the figure shows them only for context: all boxes are records, and the four with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
-:alt: Two groups of boxes of the same size. The upper group is named Controller database and model databases. Stored object is in the middle. Path is above it (m to 1) and Task output is above Path (m to 1). Placement is below Stored object (m to 1). Agent binary is to its left (m to 1) and File resource is to its right (m to 1). The lower group is named Controller database. Backend is in the middle, with Life above it (m to 1) and S3 config below it (1 to 1). Drain is to the left of Backend (m to 1), and Drain phase type is above Drain (m to 1). Agent binary, File resource, Task output, and Life have an outlined arrow mark for records described elsewhere.
+:caption: The controller database and each model database keep one record for each stored file, and the controller database also keeps the backend records. A stored object has many paths (each path belongs to one stored object) and many placements (each names one controller node). An agent binary names one stored object. The file resource and the task output are records of the model databases alone: a file resource names one stored object, and a task output names one path. The controller database keeps one record for each backend, which has one life (alive, dying, or dead) and one type, `file` or `s3`; an S3 backend has one S3 config. A drain names the backend it moves files from and the backend it moves them to, and has one drain phase. The agent binary, the file resource, the task output, and the life lookup are described elsewhere and the figure shows them only for context: all boxes are records, and the four with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
+:alt: Three groups of boxes of the same size. The group named Controller database and model databases holds Stored object in the middle, with Path above it (m to 1), Placement below it (m to 1), and Agent binary to its left (m to 1). The group named Model databases holds File resource, to the right of Stored object (m to 1), and Task output above File resource, joined to Path by a line that crosses the group border (m to 1). The group named Controller database holds Backend in the middle, with Life above it (m to 1), S3 config below it (1 to 1), Drain to its left (m to 1), and Drain phase type above Drain (m to 1). Agent binary, File resource, Task output, and Life have an outlined arrow mark for records described elsewhere.
 ```
 
 The object store data model is the set of records that the controller database and each model database keep about the files they hold. The controller database also keeps the records of the backend that holds them. The records, with the rules that apply to each, are:
@@ -63,7 +63,6 @@ Every model of the controller uses the controller's alive backend. The controlle
 (object-store-configuring-s3)=
 ### Configuring the S3 backend
 
-
 Configuring the S3 backend sets an S3-compatible store as the backend that holds the controller's files. A `POST` request to the `/s3-config` endpoint of the control socket carries a JSON body with the fields `bucket`, `region`, `endpoint`, `access_key`, and `secret_key`. The operation marks the current file backend as dying, adds the S3 backend as the alive backend with its configuration, and starts a {ref}`drain <object-store-draining>` that moves the files.
 
 The operation's required access, rules, and errors are:
@@ -71,7 +70,7 @@ The operation's required access, rules, and errors are:
 - *Required access:* The user the controller machine agent runs as, on the controller machine. The request goes over the control socket, so the caller must be on that machine.
 - *Rules:*
   - The endpoint, the access key, and the secret key are required.
-  - A bucket name has at least 3 and at most 63 characters, only lowercase letters, digits, dots, and hyphens, and begins and ends with a letter or a digit.
+  - A bucket name has at least 3 and at most 63 characters, only lowercase letters, digits, and hyphens; it begins and ends with a letter or a digit, starts with neither `xn--` nor `sthree-`, and does not end with `-s3alias`.
   - A request without a bucket uses the bucket `juju-<controller UUID>`.
   - Only a switch from the `file` backend is accepted. A switch from one S3 backend to another is refused.
   - A repeated request with the same configuration, while the drain it started is running, changes nothing.
@@ -80,9 +79,10 @@ The operation's required access, rules, and errors are:
   - **`missing request body`** (400): *Trigger:* The request has no body. *Remediation:* Send the JSON fields.
   - **`request body is not valid JSON: <reason>`** (400): *Trigger:* The body is not valid JSON. *Remediation:* Send the JSON fields.
   - **`request body must not exceed 1048576 bytes`** (413): *Trigger:* The body is larger than the limit. *Remediation:* Send only the fields above.
-  - **`invalid S3 config: <reason>`** (400): *Trigger:* A required field is missing, or the bucket name breaks the rule above. The reason names the field. *Remediation:* Correct the field.
-  - **`saving S3 config: draining already in progress`** (500): *Trigger:* A drain is running and the configuration differs from the one that started it. *Remediation:* Wait for the drain to finish, then send the request again.
-  - **`saving S3 config: backend transition not supported`** (500): *Trigger:* The current backend is an S3 backend. *Remediation:* Removing an S3 configuration is not supported at this time.
+  - **`request Content-Type must be application/json`** (415): *Trigger:* The request's Content-Type header is not `application/json`. *Remediation:* Send the header.
+  - **`invalid S3 config: validating S3 credentials: <reason>`** (400): *Trigger:* A required field is missing, or the bucket name breaks the rule above. The reason names the field, for example `endpoint is required`. *Remediation:* Correct the field.
+  - **`saving S3 config: transitioning backend to S3: draining already in progress`** (500): *Trigger:* A drain is running and the configuration differs from the one that started it. *Remediation:* Wait for the drain to finish, then send the request again.
+  - **`saving S3 config: transitioning backend to S3: backend transition not supported`** (500): *Trigger:* The current backend is an S3 backend. *Remediation:* Removing an S3 configuration is not supported at this time.
   - **`removing S3 config is not supported at this time`** (501): *Trigger:* A `DELETE` request to the same endpoint. *Remediation:* None; the S3 configuration cannot be removed in 4.1.
 
 A successful request answers `updated S3 config` (200).
@@ -100,10 +100,10 @@ The operation's required access, rules, and errors are:
   - A drain in the phase `error` stays there; moving the rest of the files needs manual intervention.
   - While the drain runs, writes to the object store wait. Reads continue from the dying backend until the switch.
   - The worker moves the controller's agent binaries first, then the files of each model.
-  - The worker retries a file that fails to move, up to 10 times, 30 seconds apart, and gives a model one hour in total.
+  - The worker retries a model's drain run up to 10 times, 30 seconds apart, and waits at most one hour for all the models together; the agent binaries get one hour of their own.
   - A completed drain marks the dying backend dead. The controller then has one alive backend, the one moved to.
 - *Errors:* The worker records each by setting the phase to `error`:
-  - **`draining agent binaries: <reason>`** and **`draining models: <reason>`**: *Trigger:* A file failed to move after the retries. *Remediation:* Find the reason in the controller's log, fix it, and switch again.
+  - **`draining agent binaries: <reason>`** and **`draining models: <reason>`**: *Trigger:* A drain run failed after its retries. *Remediation:* Find the reason in the controller's log, fix it, and switch again.
   - **`getting model namespaces: <reason>`** and **`completing draining: <reason>`**: *Trigger:* The controller database refused a step of the drain. *Remediation:* Find the reason in the controller's log and retry the switch.
 
 (object-store-storing)=
@@ -145,8 +145,8 @@ The operation's required access, rules, and errors are:
   - A file fetched from another node is checked against the stored object's size and SHA-384 hash. The file is then written to the local file system and placed on the node, so that the next read is local.
 - *Errors:* The operation returns each to its caller:
   - **`size mismatch for "<path>": expected <n>, got <m>`** and **`hash mismatch for "<path>": expected "<hash>", got "<hash>"`**: *Trigger:* The file that another node sent does not match the stored object. *Remediation:* Remove the file from the node that holds it, so that it is fetched again.
-  - **`minimum hash prefix length is 7`** and **`invalid hash prefix`**: *Trigger:* The hash prefix is shorter than 7 characters, or has a character outside the allowed set. *Remediation:* Use a longer prefix, or fix the characters.
+  - **`minimum has prefix length is 7: minimum hash prefix length is 7`** and **`<prefix>: invalid hash prefix`**: *Trigger:* The prefix is shorter than 7, longer than 64, or has a character outside `a` to `f` and `0` to `9`. *Remediation:* Use a longer prefix, or fix the characters.
 
 ## Object store and model migration
 
-A {ref}`migration <model-migrating>` moves the stored-object, path, and placement records of a model with its database, but it does not copy the files: they stay in the source controller's backend. A migrated model reads its files from the target controller's backend. When the migration activates the model, the controller checks the {ref}`agent binaries <agent-version>` at the target version in the catalogues of the controller and of the model: for every architecture that the model's running agents report, a binary must exist in the target controller's object store. A missing binary does not fail the migration; the model keeps its current agent version. The controller warns. See {ref}`Migrating models <model-migrating>`.
+A migration does not carry the model's stored-object, path, and placement records: the target drops them from the imported database. The charms, the agent binaries, and the resources transfer over the migration's file endpoints. The target stores each file again and records its stored object and path. A migrated model reads its files from the target controller's backend. When the migration activates the model, the controller checks the {ref}`agent binaries <agent-version>` at the target version in the catalogues of the controller and of the model: for every architecture that the model's running agents report, a binary must exist in the controller's catalogue or in the model's own. A missing binary does not fail the migration; the model keeps its current agent version. The controller warns. See {ref}`Migrating models <model-migrating>`.
