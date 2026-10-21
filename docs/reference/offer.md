@@ -20,7 +20,7 @@ An **offer** is a set of the {ref}`endpoints <application-endpoint>` of one {ref
 :file: ../juju.ggarch
 :view: Offer data model
 :caption: The model database of the offering model keeps one record for each offer. The record holds the offer's name and an optional description. It also lists the application endpoints that the offer exposes, which the figure leaves out. An offer has many offer connections, one for each relation that consumes it. Each offer connection records the user who made it and belongs to one relation. The controller database keeps one permission for each user of an offer. A permission holds the offer's UUID and an access level, and belongs to one user. A user has many permissions. Because the two databases are separate, no link joins a permission to its offer. A consuming model keeps its own record of each offer that it consumes, which the figure does not draw. The relation and the user are described on their own pages. The figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
-:alt: Five boxes of the same size, each with a filled table mark in the corner. In a group named Model database, Offer is on the left, Offer connection is in the middle, and Relation is on the right. An offer has many offer connections (1 to m). Many offer connections belong to one relation (m to 1). In a group named Controller database below it, Offer permission is on the left and User is on the right. Many offer permissions belong to one user (m to 1). No line joins Offer permission to Offer. Relation and User have an outlined arrow mark for records that other pages describe.
+:alt: Five boxes of the same size, each with a filled table mark in the corner. In a group named Model database, Offer is on the left, Offer connection is in the middle, and Relation is on the right. An offer has many offer connections (1 to m). Many offer connections belong to one relation (m to 1). In a group named Controller database below it, Permission is on the left and User is on the right. Many permissions belong to one user (m to 1). No line joins Permission to Offer. Relation and User have an outlined arrow mark for records that other pages describe.
 ```
 
 The offer data model is the set of records that the offering model keeps about an offer, with the permissions that the {ref}`controller database <database>` keeps for it. The records, with the rules that apply to each, are:
@@ -30,7 +30,7 @@ The offer data model is the set of records that the offering model keeps about a
     - An offer exposes each endpoint once.
     - All the endpoints of an offer belong to one application.
 - **Offer connection:** One consumer's use of the offer: the offer, the relation that consumes it, and the name of the user who created the connection. The relation is a cross-model relation, described on the {ref}`relation <cross-model-relation>` page.
-- **Offer permission:** The access level of one user on the offer.
+- **Permission:** The access level of one user on the offer.
   - *Rules:*
     - A user has at most one permission on an offer.
     - The access level of an offer permission is {ref}`read <user-access-offer-read>`, {ref}`consume <user-access-offer-consume>`, or {ref}`admin <user-access-offer-admin>`.
@@ -39,7 +39,7 @@ The offer data model is the set of records that the offering model keeps about a
     - A model consumes an offer once.
 - **Relation and user:** The records at the far ends of a connection and a permission. Other pages own them: see {ref}`relation <relation>` and {ref}`user <user>`.
 
-An offer is a row in the table `offer` of the offering model's database. The endpoints it exposes are rows in `offer_endpoint`, each pointing to an application endpoint. Each offer connection is a row in `offer_connection`. The view `v_offer_detail` joins an offer with its application, {ref}`charm <charm>`, endpoints, and connection counts. It also applies the rule that an offer without a description shows the description of the application's charm. A model's consumed offers are rows in `application_remote_offerer`. An offer permission is a row in the controller database table `permission`, whose column `grant_on` holds the offer's UUID. The view `v_permission_offer` lists the permissions that name an offer. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+An offer is a row in the table `offer` of the offering model's database. The endpoints it exposes are rows in `offer_endpoint`, each pointing to an application endpoint. Each offer connection is a row in `offer_connection`. The view `v_offer_detail` joins an offer with its application, {ref}`charm <charm>`, endpoints, and connection counts. It also applies the rule that an offer without a description shows the description of the application's charm. A model's consumed offers are rows in `application_remote_offerer`. A permission is a row in the controller database table `permission`, whose column `grant_on` holds the offer's UUID. The view `v_permission_offer` lists the permissions that name an offer. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (offer-change-streams)=
 ## Offer change streams

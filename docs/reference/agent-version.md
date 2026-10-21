@@ -20,7 +20,7 @@ The **agent version** of a {ref}`model <model>` is the version of Juju that the 
 :file: ../juju.ggarch
 :view: Agent version data model
 :caption: The model database keeps one agent version record, which names one agent stream (a stream is named by many models). The controller database and each model database keep one record for each agent binary they hold: its version, its architecture, and the stored object it is (a stored object is one binary). A binary belongs to one stored object and names one architecture; the catalogue of the controller can be read by every model. The stored object and the architecture are described elsewhere and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
-:alt: Two groups of boxes of the same size, each box with a filled table mark in the corner. The group named Model database holds Agent version and Agent stream in a row, joined m to 1. The group named Controller database and model databases holds Agent binary, Architecture, and Object store metadata in a row; Agent binary joins Architecture (m to 1) and Object store metadata (m to 1). Architecture and Object store metadata have an outlined arrow mark for records described elsewhere.
+:alt: Two groups of boxes of the same size, each box with a filled table mark in the corner. The group named Model database holds Agent version and Agent stream in a row, joined m to 1. The group named Controller database and model databases holds Agent binary, Architecture, and Stored object in a row; Agent binary joins Architecture (m to 1) and Stored object (m to 1). Architecture and Stored object have an outlined arrow mark for records described elsewhere.
 ```
 
 The agent version data model is the set of records that the databases keep about the versions the agents run. The records, with the rules that apply to each, are:
@@ -34,7 +34,7 @@ The agent version data model is the set of records that the databases keep about
 - **Agent binary:** One stored agent binary: its version and its architecture.
   - *Rules:*
     - A catalogue holds each version and architecture once.
-- **Architecture and object store metadata:** What a binary is built for and where it is stored. The stored object is described on the {ref}`object store <object-store>` page; the architectures are the shared names of the platforms Juju builds for.
+- **Architecture and the stored object:** What a binary is built for and where it is stored. The stored object is described on the {ref}`object store <object-store>` page; the architectures are the shared names of the platforms Juju builds for.
 
 An agent version is a row in the table `agent_version` of the model database. Its stream is a row in the lookup table `agent_stream`. An agent binary is a row in `agent_binary_store`, which exists in the controller database and in each model database; the view `v_agent_binary_store` joins each binary with its architecture name, its size, its hashes, and its path. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
