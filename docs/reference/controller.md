@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage controllers <manage-controllers>`
 
 A **controller** is the part of Juju that keeps the declared state of every {ref}`model <model>` and makes the {ref}`cloud <cloud>` match it. A controller comes into being at {ref}`bootstrap <bootstrap-a-controller>` and holds one **controller model**, which holds the controller's own machines. On a machine cloud a controller is one or more **controller nodes**, for {ref}`high availability <high-availability>`, and on a Kubernetes cloud a node is a pod.
 
-(controller-data-model)=
-## Controller data model
+(controller-database-schema)=
+## Controller database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Controller data model
+:view: Controller database schema
 :caption: The controller database keeps one record for each controller node. A node has at most one agent version record, at most one password record, and many addresses of three kinds: agent addresses, client addresses, and peer addresses. A node has many of each, and an address belongs to at most one node: an agent address or client address that belongs to no node is shared, such as the address of a Kubernetes service in front of the controller pods, and a peer address always belongs to a node. The controller's own identity is a single record, and its configuration is a set of key and value rows. Neither connects to a node, so the figure leaves them out.
 :alt: Six boxes of the same size, each with a filled table mark in the corner, inside a group named Controller database. Controller node is in the middle. Node agent version is above it (0 or 1 to 1), Node password is below it (0 or 1 to 1), Client address is to its left (m to 1), Agent address is above Client address, and both point at Controller node through dashed lines (m to 1) because the node is optional, and Peer address is to its right and points at Controller node through a solid line (m to 1) because the node is required.
 ```
 
-The controller data model is the set of records that the {ref}`controller database <database>` keeps about the controller itself, its nodes, and the addresses at which the nodes can be reached. The records, with the rules that apply to each, are:
+The controller database schema is the set of records that the {ref}`controller database <database>` keeps about the controller itself, its nodes, and the addresses at which the nodes can be reached. The records, with the rules that apply to each, are:
 
 - **Controller:** The controller's UUID, the UUID of its controller model, the agent version it should run, its API port, and its certificates, keys, and system identity.
   - *Rules:*

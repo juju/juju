@@ -13,17 +13,17 @@ See also: {ref}`Juju | Upgrade a controller <upgrade-a-controller>`
 
 A **controller upgrade** is the move of all the nodes of a {ref}`controller <controller>` to one newer patch version of Juju: each node swaps the binary of its agent, the controller applies the schema patches to its databases, and every node runs the code-level upgrade steps. The {ref}`controller database <database>` keeps one record per upgrade, with the two versions, the state, and one row per node for its progress. A client starts an upgrade; the agents of the controller nodes carry it out.
 
-(controller-upgrade-data-model)=
-## Controller upgrade data model
+(controller-upgrade-database-schema)=
+## Controller upgrade database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Controller upgrade data model
+:view: Controller upgrade database schema
 :caption: The controller database keeps one record for each upgrade, with the state of the move, and one row for each controller node that takes part. An upgrade has one state (a state is held by many upgrades), and many node rows; a node row belongs to one upgrade and to one controller node, and a controller node has one row per upgrade. The controller node is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
 :alt: Four boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Upgrade state is on the left, Upgrade is next to it (m to 1), then Controller node's upgrade (1 to m), and Controller node is on the right (m to 1). Controller node has an outlined arrow mark for a record that another page describes.
 ```
 
-The controller upgrade data model is the set of records that the controller database keeps about upgrades. The records, with the rules that apply to each, are:
+The controller upgrade database schema is the set of records that the controller database keeps about upgrades. The records, with the rules that apply to each, are:
 
 - **Upgrade:** The version the nodes ran before, the target version, and the state of the move.
   - *Rules:*

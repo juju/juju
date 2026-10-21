@@ -13,18 +13,18 @@ See also: {ref}`manage-charms`
 
 A **charm** is the packaged operations code of an {ref}`application <application>`: an archive with metadata, configuration options, actions, and a manifest, plus the code that deploys, configures, scales, and integrates the application on any {ref}`Juju-supported cloud <list-of-supported-clouds>`. A {ref}`model <model>` keeps one record for each revision of a charm. An {ref}`application <application>` or {ref}`unit <unit>` need not use the revision. Charms come from [Charmhub](https://charmhub.io/) or from a local archive. Juju removes a charm when no application and no unit uses it any more.
 
-(charm-data-model)=
-## Charm data model
+(charm-database-schema)=
+## Charm database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Charm data model
+:view: Charm database schema
 :caption: The model database keeps one record for each charm revision. A charm has one metadata record. A charm has many relations, many manifest bases, many config options, many actions, many resources, and many containers, each as its own record that belongs to one charm. An application points at one charm, and a charm can serve many applications. The application has its own page and the figure shows it only for context. The storage, device, extra binding, hash, download information, term, tag, category, container mount, and storage property records of a charm, and the fixed lists of allowed values, are described in the text and are not boxes in the figure.
 :alt: Nine boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Charm is in the middle. Metadata is above it (1 to 1). Manifest base is below it (m to 1). Application is to its left (m to 1) and has an outlined arrow mark for a record that another page describes. Relation is to its right (m to 1). Config option is above and to the left of Charm and Action is above and to the right (each m to 1). Container is below and to the left and Charm resource is below and to the right (each m to 1).
 ```
 
 (charm-anatomy)=
-The charm data model is the set of records that the {ref}`model database <database>` keeps about the charms of a model. The records, with the rules that apply to each, are:
+The charm database schema is the set of records that the {ref}`model database <database>` keeps about the charms of a model. The records, with the rules that apply to each, are:
 
 - **Charm:** One revision of a charm: where it comes from, its name and revision, the version string that its author set, whether its archive is available, and the place of that archive in the model's object store (the store in which Juju keeps files for the model). A charm record is either pending, with its archive not yet stored (available is false), or available.
 

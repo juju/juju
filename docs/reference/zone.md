@@ -13,17 +13,17 @@ See also: {ref}`Juju | Add a machine <add-a-machine>`, {ref}`Juju | Manage subne
 
 An **availability zone** is a named failure domain of a {ref}`cloud <cloud>`, such as `us-east-1a`, in which a {ref}`subnet <subnet>` is available. A user names zones to say where Juju provisions the {ref}`machines <machine>` that it requests, so that an outage in one zone does not take every machine down. Juju stores a zone when it adds a subnet that is available in it.
 
-(zone-data-model)=
-## Zone data model
+(zone-database-schema)=
+## Zone database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Zone data model
+:view: Zone database schema
 :caption: The model database keeps one record for each availability zone, and one link record for each pair of a zone and a subnet that is available in it. A zone has many links and a subnet has many links, so a zone holds many subnets and a subnet is available in many zones. The subnet is described on its own page and the figure shows it only for context. A box with a second, outlined arrow mark in the corner is a record that another page describes.
 :alt: Three boxes of the same size in a row inside a group named Model database, each with a filled table mark in the corner. Availability zone is on the left, Subnet's zone is in the middle (1 to m), and Subnet is on the right (m to 1), with an outlined arrow mark for a record that another page describes.
 ```
 
-The zone data model is the set of records that the {ref}`model database <database>` keeps about availability zones. The records, with the rules that apply to each, are:
+The zone database schema is the set of records that the {ref}`model database <database>` keeps about availability zones. The records, with the rules that apply to each, are:
 
 - **Availability zone:** A zone's name.
   - *Rules:*

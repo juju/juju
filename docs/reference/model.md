@@ -13,24 +13,23 @@ See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider 
 
 A **model** is the workspace on a {ref}`controller <controller>` that holds a deployment: its {ref}`applications <application>` and what they run on and use, such as {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, and {ref}`secrets <secret>`. A model is deployed into one {ref}`cloud <cloud>`, optionally with one {ref}`credential <credential>`, has its own {ref}`configuration <model-configuration>`, and is shared with other {ref}`users <user>` at an access level of read, write, or admin. Every controller has one **controller model**, named `controller`, which Juju creates at {ref}`bootstrap <bootstrap-a-controller>` to hold the controller's own machines; every other model is a **workload model**.
 
-(model-data-model)=
-## Model data model
+(model-database-schema)=
+## Model database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Model data model
-:caption: The controller database keeps one record for each model. The record holds the model's name and qualifier, which are unique together, its life, and whether it is active, and it names one model type (a type has many models), one cloud, optionally one region, optionally one credential, and one namespace, the name of the model's own database. A model has many migrations, each in one migration phase. The model database keeps its own records of the model: a read-only copy of its identity, its constraints, a copy of its life, and a marker that exists while the model migrates. The cloud, region, and credential are described on their own pages, and the figure shows them only for context: all boxes are records, and the three with a second, outlined arrow mark in the corner are the records that other pages describe.
-:alt: Two groups of boxes of the same size, each with a filled table mark in the corner. The Controller database group has Model in the middle. Above it is Model type (1 to m), to its left is Cloud (1 to m), with Region above and Credential below it, each with an outlined arrow mark, and the Model also points at Region and Credential through dashed lines because both are optional. To its right is Namespace (1 to 1). Below it is Export (1 to m), and to the right of Export is Migration phase (m to 1). The Model database group has Model identity copy in the middle, with Model constraints above it, Model life copy below it, and Migrating marker to its right, each 1 to 1.
+:view: Model database schema
+:caption: The controller database keeps one record for each model. The record holds the model's name and qualifier, which are unique together, its life, and whether it is active, and it names one model type (a type has many models), one cloud, optionally one region, and optionally one credential. A model has many migrations, each in one migration phase. The model database keeps its own records of the model: a read-only copy of its identity, its constraints, a copy of its life, and a marker that exists while the model migrates. The cloud, region, and credential are described on their own pages, and the figure shows them only for context: all boxes are records, and the three with a second, outlined arrow mark in the corner are the records that other pages describe.
+:alt: Two groups of boxes of the same size, each with a filled table mark in the corner. The Controller database group has Model in the middle. Above it is Model type (1 to m), to its left is Cloud (1 to m), with Region above and Credential below it, each with an outlined arrow mark, and the Model also points at Region and Credential through dashed lines because both are optional. Below it is Export (1 to m), and to the right of Export is Migration phase (m to 1). The Model database group has Model identity copy in the middle, with Model constraints above it, Model life copy below it, and Migrating marker to its right, each 1 to 1.
 ```
 
-The model data model is the set of records that describe a model in the {ref}`controller database <database>` and in the model's own {ref}`model database <database>`. The records, with the rules that apply to each, are:
+The model database schema is the set of records that describe a model in the {ref}`controller database <database>` and in the model's own {ref}`model database <database>`. The records, with the rules that apply to each, are:
 
-- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-data-model>`, and {ref}`credential <credential>`, its life, and whether it is active (a model is active once its creation or import has finished). The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name.
+- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, and {ref}`credential <credential>`, its life, and whether it is active (a model is active once its creation or import has finished). The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name.
   - *Rules:*
     - A model's name and qualifier together are unique, so two users can each have a model with the same name.
     - A model has a life: alive, dying, or dead. See {ref}`Destroying models <model-destroying>`.
 - **Model type:** One of `iaas` or `caas`. The type decides whether the model's {ref}`applications <application>` scale in pods or on {ref}`machines <machine>`.
-- **Namespace:** The name of the model database, which holds the model's contents. A model has one namespace.
 - **Model database:** The model database holds the model's {ref}`machines <machine>`, {ref}`applications <application>`, {ref}`units <unit>`, {ref}`relations <relation>`, and the rest of its contents. It also holds the model's configuration (a set of key and value pairs), its default {ref}`storage <storage>` pools, its target agent version (the version its {ref}`agents <agent>` should run, with the latest version known and the agent stream), and these records about the model itself:
   - **Model identity copy:** A read-only copy of the model's identity (its UUID, controller, name, qualifier, type, cloud, region, credential, and whether it is the controller model), so that processes of the model need not reach the controller database.
   - **Model constraints:** The model's {ref}`constraints <constraint>`: one record, or none when no constraints are set.
@@ -44,7 +43,7 @@ The model data model is the set of records that describe a model in the {ref}`co
     - A model has at most one active migration. A migration is active until it reaches `done`, `reap-failed`, or `abort-done`.
     - A model has at most one import record on the target controller. The record is in one of three phases: `importing`, `activating`, or `aborting`.
 
-A model is a row in the table `model`. Its namespace, secret backend, and last logins are rows in `model_namespace`, `model_secret_backend`, and `model_last_login`. The model type comes from the lookup table `model_type`. The migration records are rows in the tables whose names start with `model_migration`. A model's contents are rows in the tables `model`, `model_config`, `model_constraint`, `model_life`, `model_migrating`, `model_storage_pool`, and `agent_version` of its model database. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
+A model is a row in the table `model`. Its secret backend and last logins are rows in `model_secret_backend` and `model_last_login`. The model type comes from the lookup table `model_type`. The migration records are rows in the tables whose names start with `model_migration`. A model's contents are rows in the tables `model`, `model_config`, `model_constraint`, `model_life`, `model_migrating`, `model_storage_pool`, and `agent_version` of its model database. {ref}`juju-db-repl` shows the definition of any of them with `.ddl <name>`.
 
 (model-change-streams)=
 ## Model change streams
@@ -76,7 +75,7 @@ The operation's required access, rules, and errors are:
 - *Required access:* {ref}`Add-model access <user-access-cloud-add-model>` to the {ref}`cloud <cloud>`, or {ref}`superuser access <user-access-controller-superuser>` to the controller.
 - *Rules:*
   - A request that names no cloud uses the controller's default cloud.
-  - A request that names no {ref}`region <cloud-data-model>` uses the default region when the cloud is the default cloud.
+  - A request that names no {ref}`region <cloud-database-schema>` uses the default region when the cloud is the default cloud.
   - A request that names no {ref}`credential <credential>` uses the caller's default credential for that cloud. If the caller has none, the model is added without a credential, which only some clouds accept.
   - The name cannot be empty and the qualifier must be a valid user name. A caller who is not a superuser can add models only with their own name as the qualifier.
   - The name and qualifier together must be new, except that a model that is still inactive, because an earlier creation did not finish, is replaced by the new one.
@@ -124,7 +123,7 @@ The operation's required access, rules, and errors are:
 See also: {ref}`Juju | View details about a model <view-details-about-a-model>`
 ```
 
-Showing a model returns a model's details: its name, UUID, type, qualifier, life, {ref}`cloud <cloud>`, {ref}`region <cloud-data-model>`, and {ref}`credential <credential>` (with whether the credential is valid), its {ref}`agent <agent>` version, its status, its {ref}`users <user>`, and its supported features.
+Showing a model returns a model's details: its name, UUID, type, qualifier, life, {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, and {ref}`credential <credential>` (with whether the credential is valid), its {ref}`agent <agent>` version, its status, its {ref}`users <user>`, and its supported features.
 
 The operation's required access, rules, and errors are:
 
@@ -147,7 +146,7 @@ Configuring models changes the settings of a model: its configuration keys, its 
 
 The operation's required access, rules, and errors are:
 
-- *Required access:* {ref}`Write access <user-access-model-write>` to the model for configuration keys, constraints, and the secret backend; {ref}`read access <user-access-model-read>` to read them. Setting a key that the model configuration schema marks as secret needs {ref}`admin access <user-access-model-admin>`. Setting or reading model defaults, which apply to new models of a {ref}`cloud <cloud>` or {ref}`region <cloud-data-model>`, needs {ref}`superuser access <user-access-controller-superuser>`. Changing the credential needs admin access to the model or superuser access.
+- *Required access:* {ref}`Write access <user-access-model-write>` to the model for configuration keys, constraints, and the secret backend; {ref}`read access <user-access-model-read>` to read them. Setting a key that the model configuration schema marks as secret needs {ref}`admin access <user-access-model-admin>`. Setting or reading model defaults, which apply to new models of a {ref}`cloud <cloud>` or {ref}`region <cloud-database-schema>`, needs {ref}`superuser access <user-access-controller-superuser>`. Changing the credential needs admin access to the model or superuser access.
 - *Rules:*
   - A change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses changes to configuration keys, constraints, and the credential. A change block on the {ref}`controller <controller>` model refuses changes to the defaults.
   - Only a superuser can set a logging configuration that includes the `TRACE` level.

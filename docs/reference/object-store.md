@@ -9,17 +9,17 @@ myst:
 
 The **object store** is the storage of files that a {ref}`controller <controller>` keeps outside its {ref}`databases <database>`: the agent binaries, the files of charm {ref}`resources <charm-resource>`, the output of action tasks, and the files that a backup copies into its archive. The files live in a backend, which is either the controller's own file system or an S3-compatible store. The controller database and each {ref}`model <model>` database keep the records of the files they hold.
 
-(object-store-data-model)=
-## Object store data model
+(object-store-database-schema)=
+## Object store database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Object store data model
+:view: Object store database schema
 :caption: The controller database and each model database keep one record for each stored file, and the controller database also keeps the backend records. A stored object has many paths (each path belongs to one stored object) and many placements (each names one controller node). An agent binary names one stored object. The file store and the task output are records of the model databases alone: a file store names one stored object, and a task output names one path. The controller database keeps one record for each backend, which has one life (alive, dying, or dead) and one type, `file` or `s3`; an S3 backend has one S3 config. A drain names the backend it moves files from and the backend it moves them to, and has one drain phase. The agent binary, the file store, the task output, and the life lookup are described elsewhere and the figure shows them only for context: all boxes are records, and the four with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
 :alt: Three groups of boxes of the same size. The group named Controller database and model databases holds Stored object in the middle, with Path above it (m to 1), Placement below it (m to 1), and Agent binary to its left (m to 1). The group named Model databases holds File store, to the right of Stored object (m to 1), and Task output above File store, joined to Path by a line that crosses the group border (m to 1). The group named Controller database holds Backend in the middle, with Life above it (m to 1), S3 config below it (1 to 1), Drain to its left (m to 1), and Drain phase type above Drain (m to 1). Agent binary, File store, Task output, and Life have an outlined arrow mark for records described elsewhere.
 ```
 
-The object store data model is the set of records that the controller database and each model database keep about the files they hold. The controller database also keeps the records of the backend that holds them. The records, with the rules that apply to each, are:
+The object store database schema is the set of records that the controller database and each model database keep about the files they hold. The controller database also keeps the records of the backend that holds them. The records, with the rules that apply to each, are:
 
 - **Stored object:** One stored file: its SHA-256 hash, its SHA-384 hash, and its size. The hashes identify the content, so the same content is one stored object however many paths name it.
   - *Rules:*

@@ -13,17 +13,17 @@ See also: {ref}`Juju | Access a machine via SSH <access-a-machine-via-ssh>`, {re
 
 The **SSH server** is the service in a {ref}`controller <controller>` that lets a {ref}`user <user>` open an SSH session, forward a port, or copy files on a {ref}`machine <machine>` or in the container of a Kubernetes {ref}`unit <unit>`, with no direct network path from the client to the target. Every controller node runs one SSH server, on port 17022 by default. It ends the user's SSH connection itself and opens its own connection to the target, so that Juju can check who connects and to what.
 
-(ssh-server-data-model)=
-## SSH server data model
+(ssh-server-database-schema)=
+## SSH server database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: SSH server data model
+:view: SSH server database schema
 :caption: The model database keeps three kinds of host key for the SSH server and one kind of request. A machine reports many host keys of its own (a machine has many, a key belongs to one machine), and the SSH server keeps at most one virtual host key for each machine and for each Kubernetes unit. A connection request asks one machine to call the controller back (a machine can have many requests, a request names one machine) and carries an expiry. The machine and the unit are described on their own pages and are shown for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe. The controller database also keeps two records of its own, the SSH server's host key and its port, which have no relations and are not drawn.
 :alt: Six boxes of the same size inside a group named Model database, each with a filled table mark in the corner, and two of them (Machine and Unit) also with an outlined arrow mark for records that other pages describe. Machine host key is to the left of Machine (m to 1). Machine virtual host key is above Machine (0 or 1 to 1). Connection request is below Machine (m to 1). Unit virtual host key is above Unit (0 or 1 to 1), and Unit stands to the right of Machine without a line to it.
 ```
 
-The SSH server data model is the set of records that the {ref}`controller database <database>` and the {ref}`model database <database>` keep so that the SSH server can prove its identity to clients, listen on the right port, and reach machines that do not accept connections from the controller. A host key is the key by which an SSH server proves its identity to a client; a client remembers it and warns when it changes. The records, with the rules that apply to each, are:
+The SSH server database schema is the set of records that the {ref}`controller database <database>` and the {ref}`model database <database>` keep so that the SSH server can prove its identity to clients, listen on the right port, and reach machines that do not accept connections from the controller. A host key is the key by which an SSH server proves its identity to a client; a client remembers it and warns when it changes. The records, with the rules that apply to each, are:
 
 - **Controller host key:** The host key that the SSH server presents on the outer connection of every session (the user's connection to the SSH server, see {ref}`connecting to machines <ssh-server-connecting-machine>`), kept in the controller database with its public half.
   - *Rules:*

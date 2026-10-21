@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage constraints for a model <manage-constraints-for-a-
 
 A **constraint** is a set of requirements on the {ref}`compute resources <resource-compute>` that Juju requests from a {ref}`cloud <cloud>`: the architecture, the cores, the memory, the root disk, and the other keys listed below. A {ref}`model <model>`, an {ref}`application <application>`, and a {ref}`machine <machine>` can each hold one set, and the model database keeps all of them. Each call that sets a holder's requirements replaces the whole set.
 
-(constraint-data-model)=
-## Constraint data model
+(constraint-database-schema)=
+## Constraint database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Constraint data model
+:view: Constraint database schema
 :caption: The model database keeps one record for each constraint. A constraint has many tag entries, space entries, and zone entries. Each entry belongs to one constraint. A space entry names one space. A model, an application, and a machine each hold at most one constraint. The model, the application, the machine, and the space are described on their own pages and the figure shows them only for context: all boxes are records, and the four with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Constraint is in the middle. Application constraint is above it (1 to 1), Model constraints is above and to its left (1 to 1), and Machine constraint is above and to its right (1 to 1); all three have an outlined arrow mark. Space entry is below Constraint (1 to m), Tag entry is below and to its left (1 to m), and Zone entry is below and to its right (1 to m). Space is below Space entry (m to 1) and has an outlined arrow mark.
 ```
 
-The constraint data model is the set of records that the {ref}`model database <database>` keeps about constraints. The records, with the rules that apply to each, are:
+The constraint database schema is the set of records that the {ref}`model database <database>` keeps about constraints. The records, with the rules that apply to each, are:
 
 - **Constraint:** One holder's set of requirements, with one column for each key below. Every column is optional: a key that the holder did not set is empty.
   - *Rules:*

@@ -17,17 +17,17 @@ An **SSH key** is a public key in the [SSH](https://www.ssh.com/academy/ssh-keys
 A session opened through the controller lands as the `ubuntu` account on the machine, and on machines that Juju creates on a cloud that account has passwordless sudo, so authorizing a key gives its holder root access to the model's machines. On a {ref}`Kubernetes cloud <kubernetes-cloud>`, a session runs a shell in the {ref}`unit's <unit>` container through the Kubernetes API server. Authorize keys only for people who need root access to every machine in the model.
 ```
 
-(ssh-key-data-model)=
-## SSH key data model
+(ssh-key-database-schema)=
+## SSH key database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: SSH key data model
+:view: SSH key database schema
 :caption: The controller keeps one record for each SSH key that a user adds or imports. The record holds the key's text, its comment, and its fingerprint (a short code that identifies the key) with the algorithm that computed it, md5 or sha256, and it belongs to one user, who can have many keys but cannot store the same key, or two keys with the same fingerprint, twice. A key does nothing until a model authorizes it. Each authorization is its own small record that links one key to one model, so a key can be authorized on many models and a model can authorize many keys. The user and the model are described on their own pages, and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Five boxes of the same size, each with a filled table mark in the corner, and two of them (user and model) also with an outlined arrow mark for records that other pages describe. A user has many SSH keys (1 to m). Each SSH key names one fingerprint hash algorithm (m to 1) and is linked to models through model authorizations (1 to m). Each model has many model authorizations, so a key can be authorized on many models and a model can authorize many keys.
 ```
 
-The SSH key data model is the set of records that the {ref}`controller database <database>` keeps for SSH keys and their authorizations: one record per key, kept with its user, and one record per model that authorizes a key.
+The SSH key database schema is the set of records that the {ref}`controller database <database>` keeps for SSH keys and their authorizations: one record per key, kept with its user, and one record per model that authorizes a key.
 
 The controller keeps three kinds of record for SSH keys: the key itself, the algorithm that made its fingerprint, and the authorization that links a key to a model. Each has its own rules:
 

@@ -14,17 +14,17 @@ See also: {ref}`Juju | Manage metadata <manage-metadata>`
 
 **Image metadata** is the catalogue of the images (the compute instances a {ref}`cloud <cloud>` offers, such as one Ubuntu image per release) that Juju picks a {ref}`machine <machine>`'s image ID from when it starts the machine. Each entry names one image for one combination of a cloud, a region, an operating system version, an architecture, and the way the machine is stored and virtualised. The {ref}`controller database <database>` caches the entries it is given or has used. A client with superuser access manages the cache. The metadata of the {ref}`agent binaries <agent-version>` is a separate catalogue, described on its own page.
 
-(image-metadata-data-model)=
-## Image metadata data model
+(image-metadata-database-schema)=
+## Image metadata database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Image metadata data model
+:view: Image metadata database schema
 :caption: The controller database keeps one record for each cached image: the image ID for one combination of a source, a stream, a region, an operating system version, an architecture, a virtualisation type, and a root storage type, with the date it was cached and a priority. An image names one architecture (an architecture is named by many images). The priority decides which entry wins when several match a machine.
 :alt: Two boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Image is on the left and Architecture is on the right (m to 1). Architecture has a second, outlined arrow mark in the corner for a record that belongs to no page.
 ```
 
-The image metadata data model is the set of records that the controller database keeps about cached images. The records, with the rules that apply to each, are:
+The image metadata database schema is the set of records that the controller database keeps about cached images. The records, with the rules that apply to each, are:
 
 - **Image:** One cached image: its ID, the source it came from, the stream it belongs to (such as `released` or `daily`), the cloud region it is available in, the version of the operating system it holds, the virtualisation type it runs under, the type and size of its root storage, the date it was cached, and its priority.
   - *Rules:*

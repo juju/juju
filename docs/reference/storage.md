@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage storage <manage-storage>`, {ref}`Juju | Manage sto
 
 A **storage** is a named store that a {ref}`charm <charm>` declares (such as a database directory or a block device) and that Juju provisions for a {ref}`unit <unit>` from a {ref}`storage pool <storage-pool>` of the {ref}`model <model>`. A filesystem storage lives on the machine that hosts the unit and dies with it. A block storage is a volume that can outlive that machine and attach to another one. A charm can ask for more of its storage while the unit runs, and can read what it got, with the {ref}`storage-add <hook-command-storage-add>` and `storage-get` hook commands.
 
-(storage-data-model)=
-## Storage data model
+(storage-database-schema)=
+## Storage database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Storage data model
+:view: Storage database schema
 :caption: The model database keeps one record for each named store. A storage directive belongs to one application or one unit, names one charm storage, and draws from one pool. A model names a default pool for each kind of storage, and the kind is one of two: block or filesystem. A pool has any number of attributes, and any number of directives and storages draw from it. A storage belongs to one unit through its owner record, and the units that the charm allows attach it through attachment records (a unit appears once per storage). A storage has at most one volume and at most one filesystem, and each of those links back to at most one storage. A volume attaches to one network node (a machine or a container) at a time, and names the block device it brought on that node. An attachment plan is the planned form of a volume attachment: one per volume and node, naming the device type before the volume is on the machine. The application, the unit, the charm storage, the network node, and the block device are described on their own pages, and the figure shows them only for context. All boxes are records, and the five with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Twenty-one boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the top left, with Unit below it and Charm storage below Unit. Application directive is to the right of Application, and Unit directive to the right of Unit; both directives join down and to the left to Charm storage. Storage pool is in the middle, with Pool attribute above it, Model default pool below it, and Kind below that. Storage instance is to the right of the pool, with Unit owner above it and Storage attachment below it; Unit owner and Storage attachment both reach Unit on the far left. Instance volume is to the right of Unit owner, then Volume, then Volume attachment, with Block device above Volume attachment and Network node on the far right. Instance filesystem is to the right of Storage attachment, then Filesystem, then Filesystem attachment, which also reaches Network node. Attachment plan sits below Volume attachment and reaches both Volume and Network node. Application, Unit, Charm storage, Network node, and Block device have an outlined arrow mark for records that other pages describe.
 ```
 
-The storage data model is the set of records that the {ref}`model database <database>` keeps about charm storage. The records, with the rules that apply to each, are grouped by who owns a row and when it dies:
+The storage database schema is the set of records that the {ref}`model database <database>` keeps about charm storage. The records, with the rules that apply to each, are grouped by who owns a row and when it dies:
 
 (storage-directive)=
 ### Storage directives

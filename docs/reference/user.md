@@ -17,17 +17,17 @@ A **user** is an identity that logs in to a {ref}`controller <controller>` and h
 A user is not an account on the machine of the {ref}`client <client>`. A user's password authenticates against the controller. A {ref}`credential <credential>` authenticates against a cloud.
 ```
 
-(user-data-model)=
-## User data model
+(user-database-schema)=
+## User database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: User data model
+:view: User database schema
 :caption: The controller database keeps one record for each user. A user has at most one authentication record, which says whether the user is disabled. An authentication record has at most one password and at most one activation key (a one-time secret that lets a new user set a first password). A user has many permissions, and a permission belongs to one user. A user has many last-login records, one for each model the user has logged in to. A last-login record belongs to one user and one model, and a model has many last-login records. The model is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes. Every user also has a creator, which is a user. The figure leaves that link out.
 :alt: Seven boxes of the same size inside a group named Controller database, each with a filled table mark in the corner. User is in the middle of the top row. Last login is to its left (many for each user) and Model is further left (many last logins for each model). Permission is to the right of User (many for each user). Authentication is below User (at most one for each user). Password is to the left of Authentication and Activation key is to the right of it (at most one of each for each authentication record). Model has an outlined arrow mark for a record that another page describes.
 ```
 
-The user data model is the set of records that the {ref}`controller database <database>` keeps about users and their access. Authentication details are kept apart from the user. Each access of a user is a record of its own. The records, with the rules that apply to each, are:
+The user database schema is the set of records that the {ref}`controller database <database>` keeps about users and their access. Authentication details are kept apart from the user. Each access of a user is a record of its own. The records, with the rules that apply to each, are:
 
 - **User:** A user's name, display name, whether it is external, whether it is removed, its creator, and its creation time.
   - *Rules:*
@@ -148,7 +148,7 @@ The operation's required access, rules, and errors are:
 - *Rules:*
   - The name starts and ends with a letter or digit, has only letters, digits, `.`, `+`, and `-` between them, and has at least two characters.
   - The name must be local: a name with a domain is refused.
-  - A password, when given, is not empty and is at most 1024 bytes. The controller stores a salted hash of it (see the {ref}`data model <user-data-model>`).
+  - A password, when given, is not empty and is at most 1024 bytes. The controller stores a salted hash of it (see the {ref}`database schema <user-database-schema>`).
   - A request without a password makes the controller generate a random 32-byte secret key and return it. The key stays valid until the user sets a password.
   - The new user is enabled, its creator is the caller, and the optional display name is stored.
 - *Errors:* A refused access or block fails the whole call. The client receives the others in the result for the user, with no error code unless stated:

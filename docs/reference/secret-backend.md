@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage secret backends <manage-secret-backends>`
 
 A **secret backend** is a service that stores the content of {ref}`secrets <secret>`, such as a Vault server (HashiCorp's secret store) or a Kubernetes namespace (a named group of Kubernetes resources), registered on a {ref}`controller <controller>` under a name. Every {ref}`model <model>` uses one backend for the secrets it creates.
 
-(secret-backend-data-model)=
-## Secret backend data model
+(secret-backend-database-schema)=
+## Secret backend database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Secret backend data model
+:view: Secret backend database schema
 :caption: The controller database keeps one record for each secret backend. A backend has one backend type (a type has many backends), many settings (a setting belongs to one backend), and at most one token rotation record (a rotation belongs to one backend). A model has at most one model backend record, which names the backend the model uses (a backend can serve many models), and the database keeps one secret reference for each secret revision of a model that a backend holds (a backend and a model each have many references). The model is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
 :alt: Seven boxes of the same size, each with a filled table mark in the corner. Six are inside a group named Controller database, and Model is outside it with an outlined arrow mark for a record that another page describes. Secret backend is in the middle. Backend type is to its right (m to 1), Backend setting is below it (1 to m), Token rotation is below and to the left (1 to at most 1), Secret reference is above it (1 to m), and Model backend is to its left (m to 1). Model is to the left of Model backend (1 to at most 1) and also points at Secret reference through a line above (1 to m).
 ```
 
-The secret backend data model is the set of records that the {ref}`controller database <database>` keeps about the backends of a controller and about which models and secrets use them. The records, with the rules that apply to each, are:
+The secret backend database schema is the set of records that the {ref}`controller database <database>` keeps about the backends of a controller and about which models and secrets use them. The records, with the rules that apply to each, are:
 
 - **Secret backend:** A backend's name, its type, and the interval at which its access token is replaced. Every controller has two built-in backends, marked as built in: `internal`, which keeps content in the database, and `kubernetes`, which keeps it in the model's namespace on a Kubernetes cloud.
   - *Rules:*

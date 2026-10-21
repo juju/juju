@@ -13,14 +13,14 @@ See also: {ref}`Juju | Manage applications <manage-applications>`, {ref}`Terrafo
 
 An **application** is the deployment of one {ref}`charm <charm>` in a {ref}`model <model>`: the software that the charm defines, run as {ref}`units <unit>`. An application belongs to one model and has a name that no other application of the model has. An application comes into being when a charm is deployed and goes when it is removed.
 
-(application-data-model)=
-## Application data model
+(application-database-schema)=
+## Application database schema
 
-The application data model is the set of records that the {ref}`model database <database>` keeps about the applications of a model. The records fall into five groups: the application itself, its configuration and constraints, its endpoints and bindings, its exposure, and its scale. The application itself has one figure and these records:
+The application database schema is the set of records that the {ref}`model database <database>` keeps about the applications of a model. The records fall into five groups: the application itself, its configuration and constraints, its endpoints and bindings, its exposure, and its scale. The application itself has one figure and these records:
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Application data model
+:view: Application database schema
 :caption: The model database keeps one record for each application. An application belongs to one charm and to one default space, and a charm and a space each have many applications. An application has at most one status, at most one platform, at most one channel, and at most one agent record. A status takes one of a fixed set of values, and a value has many statuses. The workload version, the controller mark, and the life, operating system, and architecture values are described in the text. The charm and the space are described on their own pages, and the figure shows them only for context.
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the middle. Status is above it (1 to 1), and Status value is above Status (m to 1). Charm is to the left of Application (m to 1), and Space is to its right (m to 1). Charm and Space also have a link mark for records that other pages own. Platform is below Application (1 to 1), Channel is below and to the left (1 to 1), and Agent is below and to the right (1 to 1).
 ```
@@ -69,7 +69,7 @@ The configuration and the constraints of an application have their own figure:
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Application configuration data model
+:view: Application configuration database schema
 :caption: The model database keeps the configuration of an application as one config item for each key, and an application has many config items. A config item has one type, and a type has many config items. An application has at most one config hash, at most one setting record, and at most one application constraint. An application constraint refers to at most one constraint, and a constraint can belong to many application constraints. An application has many device constraints, and a device constraint has many attributes. The constraint is described on its own page, and the figure shows it only for context.
 :alt: Nine boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the middle. Config item is to its left (m to 1), and Config type is to the left of Config item (m to 1). Config hash is above Application (1 to 1), and Setting is below it (1 to 1). Application constraint is to the right of Application (1 to 1), and Constraint is to the right of Application constraint (m to at most 1, with a dashed line). Device constraint is above Application constraint (m to 1), and Device attribute is to the right of Device constraint (m to 1).
 ```
@@ -105,7 +105,7 @@ The endpoints of an application and the spaces that they are bound to have their
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Application endpoint data model
+:view: Application endpoint database schema
 :caption: The model database keeps one endpoint record for each endpoint of the application's charm, and an application has many endpoints. An endpoint refers to one relation that the charm declares, and a charm's relation has many endpoints. An endpoint refers to at most one space, and a space has many endpoints. An application also has many extra bindings. An extra binding refers to one charm extra binding and to at most one space. The application itself refers to one default space. The relation, the charm extra binding, and the space are described on their own pages, and the figure shows them only for context.
 :alt: Six boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is on the left. Space is to its right (Application to Space m to 1). Endpoint is above Space and joins Application (m to 1) and Space (m to at most 1, with a dashed line). Extra binding is below Space and joins Application (m to 1) and Space (m to at most 1, with a dashed line). Relation is to the right of Endpoint (m to 1), and Charm extra binding is to the right of Extra binding (m to 1). Space, Relation, and Charm extra binding also have a link mark for records that other pages own.
 ```
@@ -124,7 +124,7 @@ The exposure of an application has its own figure:
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Application exposure data model
+:view: Application exposure database schema
 :caption: The model database keeps exposure as two kinds of record. An application has many exposed spaces and many exposed CIDRs. Each refers to at most one endpoint, and an endpoint has many of each. An exposed space also refers to one space, which the figure leaves out. An exposed CIDR holds a network range as text and refers to nothing else. An exposed record with no endpoint stands for every endpoint of the application.
 :alt: Four boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is on the left, and Endpoint is to its right (m to 1). Exposed space is above Endpoint, and Exposed CIDR is below it. Each of them joins Application (m to 1) and joins Endpoint (m to at most 1, with a dashed line).
 ```
@@ -146,7 +146,7 @@ The scale of an application and its Kubernetes provisioning have their own figur
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Application scale data model
+:view: Application scale database schema
 :caption: The model database keeps provisioning records for the applications of a Kubernetes model. An application has at most one scale record, at most one provisioner mark, and at most one operator status. A Kubernetes service record belongs to one application and to one network node. The network node is described on its own page, and the figure shows it only for context.
 :alt: Six boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the middle. Scale is above it (1 to 1), and Provisioner mark is below it (1 to 1). Operator status is to its left (1 to 1). Kubernetes service is to its right (m to 1), and Network node is to the right of Kubernetes service (m to 1). Network node also has a link mark for records that another page owns.
 ```

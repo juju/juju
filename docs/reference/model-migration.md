@@ -13,17 +13,17 @@ See also: {ref}`Juju | Migrate a model <migrate-a-model>`
 
 A **model migration** is the move of a {ref}`model <model>` from one {ref}`controller <controller>`, the source, to another, the target. The operation — its phases, its rules, and its errors — is described on the {ref}`model <model-migrating>` page; this page holds the records the move leaves behind: the source controller keeps the history of its export attempts and, when the model is gone, a redirect to the target; the target keeps the state of its import; the model's own database keeps the markers of the move. The {ref}`external controller <external-controller>` records name the target.
 
-(model-migration-data-model)=
-## Model migration data model
+(model-migration-database-schema)=
+## Model migration database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Model migration data model
+:view: Model migration database schema
 :caption: The source controller keeps one export record for each attempt to move a model, with the current phase (a phase is the current phase of many exports), the target controller, the phase history (each phase entered once per export), the last status message, one report per machine or unit agent for each phase, the offers to keep for the cleanup, and the user and credentials for reaching the target. The external controller is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
 :alt: Eight boxes of the same size inside a group named Source controller database, each with a filled table mark in the corner. Export is in the middle. Migration phase is above Export (m to 1) and Export phase is to the right of Migration phase, joined to Export (m to 1) and to Migration phase (m to 1). External controller is to the left of Export (m to 1), with Target authorization below it (1 to 1). Status message is to the right of Export (1 to 1), with Exported offer below it (m to 1). Minion report is below Export, joined to Export (m to 1) and to Migration phase (m to 1). External controller has an outlined arrow mark for the record that another page describes.
 ```
 
-The model migration data model is the set of records that the two controllers and the model's own database keep about a migration. The records, with the rules that apply to each, are:
+The model migration database schema is the set of records that the two controllers and the model's own database keep about a migration. The records, with the rules that apply to each, are:
 
 - **Export:** One attempt to send the model to a target, on the source controller: the target, the phase the attempt has reached, when it started, and when it last changed. A retry is a new export.
   - *Rules:*

@@ -19,17 +19,17 @@ cloud/list-of-supported-clouds/index
 
 A **cloud** (also called a **substrate**) is anything with an API that can give Juju the compute, networking, and, optionally, storage that the {ref}`units <unit>` of an {ref}`application <application>` run on: a public cloud such as Amazon Web Services, Google Compute Engine, Microsoft Azure, or Kubernetes, a private cloud such as OpenStack, or an environment that Juju treats as a cloud, such as MAAS or LXD (see the {ref}`list of supported clouds <list-of-supported-clouds>`). A {ref}`controller <controller>` knows many clouds. Each {ref}`model <model>` is deployed into one of them.
 
-(cloud-data-model)=
-## Cloud data model
+(cloud-database-schema)=
+## Cloud database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Cloud data model
+:view: Cloud database schema
 :caption: The controller keeps one record for each cloud it knows. The record holds the cloud's name, which is unique, and the endpoints Juju talks to, and it names one cloud type from a fixed list. A cloud has many regions, many CA certificates, and many admitted authentication types, each as its own small record. Models and credentials point at a cloud: a cloud has many models deployed into it, and many credentials that authenticate against it. The model and the credential have their own pages, and the figure shows them only for context.
 :alt: Seven boxes of the same size, each with a filled table mark in the corner, and two of them (model and credential) also with an outlined arrow mark for records that other pages describe. Cloud is in the middle. Above it, a cloud type has many clouds. To its left, a cloud has many regions. To its right, a cloud has many models. Below it, a cloud has many CA certificates, many admitted authentication types, and many credentials.
 ```
 
-The cloud data model is the set of records that the {ref}`controller database <database>` keeps for the clouds the controller knows: one record per cloud, and records for its regions, CA certificates, and admitted authentication types.
+The cloud database schema is the set of records that the {ref}`controller database <database>` keeps for the clouds the controller knows: one record per cloud, and records for its regions, CA certificates, and admitted authentication types.
 
 The records, with the rules that apply to each, are:
 

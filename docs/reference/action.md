@@ -17,17 +17,17 @@ An **action** is a named piece of work, with parameters, that a {ref}`charm <cha
 See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions), [Charmhub | `prometheus-k8s` > Actions](https://charmhub.io/prometheus-k8s/actions), etc.
 ```
 
-(action-data-model)=
-## Action data model
+(action-database-schema)=
+## Action database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Action data model
+:view: Action database schema
 :caption: The model database keeps one record for each operation. An operation has many parameters (a parameter belongs to one operation) and many tasks (a task belongs to one operation). An operation that runs an action is linked to the action as the charm declares it. A command run has no such link. A task is linked to one unit or to one machine through a link record that the figure leaves out, so a unit or a machine can have many tasks. A task has one status, which names one of the allowed status values (a value is held by many statuses). A task also has many log messages (a message belongs to one task). The unit, machine, and action are described on their own pages and the figure shows them only for context: all boxes are records, and the three with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Nine boxes of the same size inside a group named Model database. Six of them (Operation, Operation parameter, Task, Task status, Task status value, and Task log message) have a filled table mark in the corner. Operation is on the left. Operation parameter is above it (1 to m), Action is below it (m to 1, optional), and Task is to its right (1 to m). Task status is above Task (1 to 1) and Task status value is to the right of Task status (m to 1). Task log message is below Task (1 to m). Unit is to the right of Task and Machine is below Unit; each is joined to Task (1 to m, one of the two for each task). Unit, Machine, and Action have an outlined arrow mark for records that other pages describe.
 ```
 
-The action data model is the set of records that the {ref}`model database <database>` keeps about operations and their tasks. The same records hold commands that a user runs on units or {ref}`machines <machine>`: a command run is an operation with no link to a declared action. The records, with the rules that apply to each, are:
+The action database schema is the set of records that the {ref}`model database <database>` keeps about operations and their tasks. The same records hold commands that a user runs on units or {ref}`machines <machine>`: a command run is an operation with no link to a declared action. The records, with the rules that apply to each, are:
 
 - **Operation:** One run of an action or of a command on one or more targets. It has a number that identifies it, a summary, the times it was enqueued, started, and completed, whether its tasks may run in parallel, and an execution group (a name that makes the tasks of one group run one at a time).
   - *Rules:*

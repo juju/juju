@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage spaces <manage-spaces>`
 
 A **network space** is a named group of {ref}`subnets <subnet>` that can communicate with one another, which a {ref}`model <model>` uses to segment network traffic for performance, security, and regulatory compliance. Every model has a space named `alpha` that holds each discovered subnet until a user moves it, and users add, rename, and remove the other spaces. On a MAAS cloud, Juju copies the cloud's own spaces into the model.
 
-(space-data-model)=
-## Space data model
+(space-database-schema)=
+## Space database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Space data model
+:view: Space database schema
 :caption: The model database keeps one record for each space. A space that comes from the cloud has one provider space record that holds the cloud's ID for it. A subnet belongs to at most one space, and a space has many subnets. The subnet is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
 :alt: Three boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Space is at the bottom left, Provider space is above it (a provider space belongs to one space, and a space has at most one provider space), and Subnet is to the right of Space, joined through a dashed line (a subnet belongs to at most one space, and a space has many subnets), with an outlined arrow mark for a record that another page describes.
 ```
 
-The space data model is the set of records that the {ref}`model database <database>` keeps about spaces. The records, with the rules that apply to each, are:
+The space database schema is the set of records that the {ref}`model database <database>` keeps about spaces. The records, with the rules that apply to each, are:
 
 - **Space:** A space's name. The `alpha` space exists from the creation of the model.
   - *Rules:*

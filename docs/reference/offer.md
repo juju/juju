@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage offers <manage-offers>`
 
 An **offer** is a set of the {ref}`endpoints <application-endpoint>` of one {ref}`application <application>` that a {ref}`model <model>` makes available, so that applications in other models, on other {ref}`controllers <controller>`, and in other {ref}`clouds <cloud>` can integrate with it through a {ref}`cross-model relation <cross-model-relation>`. An offer lives in the model of the offered application. A consuming model gets a local proxy for the offered application, and integrates with that proxy the same way as with any other application.
 
-(offer-data-model)=
-## Offer data model
+(offer-database-schema)=
+## Offer database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Offer data model
+:view: Offer database schema
 :caption: The model database of the offering model keeps one record for each offer. The record holds the offer's name and an optional description. It also lists the application endpoints that the offer exposes, which the figure leaves out. An offer has many offer connections, one for each relation that consumes it. Each offer connection records the user who made it and belongs to one relation. The controller database keeps one permission for each user of an offer. A permission holds the offer's UUID and an access level, and belongs to one user. A user has many permissions. Because the two databases are separate, no link joins a permission to its offer. A consuming model keeps its own record of each offer that it consumes, which the figure does not draw. The relation and the user are described on their own pages. The figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Five boxes of the same size, each with a filled table mark in the corner. In a group named Model database, Offer is on the left, Offer connection is in the middle, and Relation is on the right. An offer has many offer connections (1 to m). Many offer connections belong to one relation (m to 1). In a group named Controller database below it, Permission is on the left and User is on the right. Many permissions belong to one user (m to 1). No line joins Permission to Offer. Relation and User have an outlined arrow mark for records that other pages describe.
 ```
 
-The offer data model is the set of records that the offering model keeps about an offer, with the permissions that the {ref}`controller database <database>` keeps for it. The records, with the rules that apply to each, are:
+The offer database schema is the set of records that the offering model keeps about an offer, with the permissions that the {ref}`controller database <database>` keeps for it. The records, with the rules that apply to each, are:
 
 - **Offer:** The offer's name, its description, and the application endpoints that it exposes. A listed endpoint shows its name, interface, role, and limit.
   - *Rules:*

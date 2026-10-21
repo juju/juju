@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage subnets <manage-subnets>`
 
 A **subnet** is a range of IP addresses in CIDR notation, such as `10.0.0.0/24`, that can belong to one {ref}`space <space>` of a {ref}`model <model>`. Juju learns subnets from the cloud and from the addresses that machines report. A client can list subnets and move them between spaces.
 
-(subnet-data-model)=
-## Subnet data model
+(subnet-database-schema)=
+## Subnet database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Subnet data model
+:view: Subnet database schema
 :caption: The model database keeps one record for each subnet. A subnet belongs to at most one space (a space has many subnets), has at most one provider subnet record that holds the cloud's ID for it, and at most one provider network (the cloud's network that contains it, such as a VPC), which holds many subnets. A box with a second, outlined arrow mark in the corner is a record that another page describes.
 :alt: Five boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Subnet is in the middle. Space is to its left, joined by a dashed line (optional, one space to many subnets), with an outlined arrow mark for a record that another page describes. Provider subnet is above Subnet (1 to 1). Subnet's provider network is below Subnet (1 to 1), and Provider network is to its right (1 to m).
 ```
 
-The subnet data model is the set of records that the {ref}`model database <database>` keeps about subnets. The records, with the rules that apply to each, are:
+The subnet database schema is the set of records that the {ref}`model database <database>` keeps about subnets. The records, with the rules that apply to each, are:
 
 - **Subnet:** A subnet's CIDR, its VLAN tag, and its space.
   - *Rules:*

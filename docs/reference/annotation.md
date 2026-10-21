@@ -9,10 +9,10 @@ myst:
 
 An **annotation** is a key and value that a {ref}`client <client>` attaches to an entity of a {ref}`model <model>`, to hold information of its own: a ticket number, an owner, a note. The model database keeps one set of annotation records for each kind of entity that carries them. Setting and reading them needs access to the model. The values reach no part of Juju: nothing in the controller or the agents reads them.
 
-(annotation-data-model)=
-## Annotation data model
+(annotation-database-schema)=
+## Annotation database schema
 
-The annotation data model is the set of records that the model database keeps about annotations. Every record has the same shape: one row per key, with its value. The records, with the rules that apply to each, are:
+The annotation database schema is the set of records that the model database keeps about annotations. Every record has the same shape: one row per key, with its value. The records, with the rules that apply to each, are:
 
 - **Annotation:** One key and value of one entity. The entities that carry annotations are the {ref}`model <model>` itself, an {ref}`application <application>`, a {ref}`charm <charm>`, a {ref}`machine <machine>`, a {ref}`unit <unit>`, and a storage instance of the model ({ref}`storage <storage>`). A model that arrived from another controller can also carry them for a storage volume or a storage filesystem; a client in 4.1 sets and reads the annotations of a storage instance only. The model database keeps the model's own annotations without an entity key, because the database is the model's.
   - *Rules:*

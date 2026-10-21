@@ -9,17 +9,17 @@ myst:
 
 A **lease** is a time-limited claim on one named thing, which the holder keeps by renewing it before it expires: as long as the lease is held, no other holder can take the thing. The {ref}`controller database <database>` keeps the leases of every {ref}`model <model>`. Juju uses leases to decide three things that only one may do at a time: which controller node runs the workers that a model needs once (the `singular-controller` type), which {ref}`unit <unit>` is the {ref}`leader unit <leader-unit>` of an application (the `application-leadership` type), and which controller node creates a backup archive at a time (the `backup-creation` type).
 
-(lease-data-model)=
-## Lease data model
+(lease-database-schema)=
+## Lease database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Lease data model
+:view: Lease database schema
 :caption: The controller database keeps one lease record for each claimed thing: its type, the model it belongs to, its name, its holder, when the holder took it, and when it expires. A lease belongs to one lease type (a type is held by many leases), and a lease has many pins (a pin belongs to one lease). A pin names an entity that needs the lease not to expire.
 :alt: Three boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Lease type is on the left, Lease is in the middle (1 to m), and Lease pin is on the right (1 to m).
 ```
 
-The lease data model is the set of records that the controller database keeps about leases. The records, with the rules that apply to each, are:
+The lease database schema is the set of records that the controller database keeps about leases. The records, with the rules that apply to each, are:
 
 - **Lease:** One claimed thing: its type, the model it belongs to, its name, its holder, the moment the holder took it, and the moment it expires.
   - *Rules:*

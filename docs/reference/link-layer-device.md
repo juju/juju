@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provi
 
 A **link-layer device** is a network interface — an Ethernet port, a bridge, a bond, or a loopback — that the {ref}`model database <database>` records for a machine, a unit, or a Kubernetes service, with the IP addresses on it. The devices, addresses, and DNS names of one entity hang from its **network node**. The {ref}`machine agent <machine-agent>` reports what it observes on its machine; a worker on the {ref}`controller <controller>` merges what the cloud reports.
 
-(link-layer-device-data-model)=
-## Link-layer device data model
+(link-layer-device-database-schema)=
+## Link-layer device database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Link-layer device data model
+:view: Link-layer device database schema
 :caption: The model database keeps one record for each network interface. A machine, a unit, and a Kubernetes service each name one network node, and a network node has many devices. A device has a type, a name, a MAC address, an MTU, a VLAN tag, and a parent (a device can be the parent of many devices). It has many DNS search domains, DNS servers, and routes. A device has many IP addresses; an address belongs to one device and one network node, and names at most one subnet. A provider device mark and a provider address mark each join one cloud ID to one device and one address. A network node has many FQDN links and hostname links; each link joins the node to one FQDN or one hostname, and several nodes can share one FQDN or one hostname. The machine, the unit, the Kubernetes service, and the subnet are described on their own pages and the figure shows them only for context.
 :alt: Seventeen boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Network node is in the middle. Machine is to its left, with Unit above it and Kubernetes service below it. FQDN link is above Network node with FQDN above it; Hostname link is below Network node with Hostname below it. Link-layer device is to the right of Network node, with DNS search domain above it and DNS server above that, and Provider device mark below it with Parent and then Route below. IP address is to the right of Link-layer device with Provider address mark below it, and Subnet is to the right of IP address.
 ```
 
-The link-layer device data model is the set of records that the {ref}`model database <database>` keeps about the network interfaces of a machine, a unit, or a Kubernetes service, the IP addresses on them, and the DNS names reported for them. The records, with the rules that apply to each, are:
+The link-layer device database schema is the set of records that the {ref}`model database <database>` keeps about the network interfaces of a machine, a unit, or a Kubernetes service, the IP addresses on them, and the DNS names reported for them. The records, with the rules that apply to each, are:
 
 - **Network node:** The record that a machine, a unit, or a Kubernetes service hangs its devices, addresses, and DNS names from. A unit names one network node: on a machine model it is the network node of the machine the unit runs on, so the units of one machine share a node, and on Kubernetes the unit has a node of its own.
   - *Rules:*

@@ -28,17 +28,17 @@ A **machine designation** is the argument by which a client names machines: its 
 | `0/lxd/4` | LXD container 4 on machine 0 |
 | `3,0/lxd/2,lxd:5` | Machine 3, LXD container 2 on machine 0, and a new LXD container on machine 5 |
 
-(machine-data-model)=
-## Machine data model
+(machine-database-schema)=
+## Machine database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Machine data model
+:view: Machine database schema
 :caption: The model database keeps one record for each machine. A machine has one status record, at most one cloud instance (with its own status), at most one placement, at most one parent machine, at most one agent presence record, and any number of platform records and block devices. A machine in a container has a parent, which is another machine, so a machine can be the parent of many machines.
 :alt: Nine boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Machine is in the middle. Machine status is above it (1 to 1), Platform is above and to the left (m to 1), Block device is above and to the right (m to 1), Parent is to its left and joins Machine twice, once for the container (1 to 1) and once for the host (m to 1), Agent presence is to its right (1 to 1), Placement is below and to the left (1 to 1), and Cloud instance is below it (1 to 1). Instance status is below Cloud instance (1 to 1).
 ```
 
-The machine data model is the set of records that the {ref}`model database <database>` keeps about the machines of a model. The records, with the rules that apply to each, are:
+The machine database schema is the set of records that the {ref}`model database <database>` keeps about the machines of a model. The records, with the rules that apply to each, are:
 
 - **Machine:** The machine's name, its life (alive, dying, or dead), the hostname that its agent reported, the time its agent started, whether to keep its instance when the machine is removed, and the hash of its agent's password.
   - *Rules:*

@@ -16,17 +16,17 @@ See also: {ref}`Juju | Manage the databases <manage-the-databases>`
 
 The **database** of a {ref}`controller <controller>` is the embedded [Dqlite](https://canonical.com/dqlite) SQL database in which the controller keeps its records. A controller has one database for itself and one for each of its {ref}`models <model>`. Every controller node runs one node of the Dqlite cluster, and in a {ref}`high-availability <high-availability>` setup the nodes replicate the data between them.
 
-(database-data-model)=
-## Database data model
+(database-schema)=
+## Database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Change log data model
+:view: Change log database schema
 :caption: Every database keeps a change log. A change belongs to one edit type and one change namespace, and an edit type and a change namespace each have many changes.
 :alt: Three boxes of the same size inside a group named Model database and controller database, each with a filled table mark in the corner. Change is in the middle. Edit type is to its left (m to 1). Change namespace is to its right (m to 1).
 ```
 
-The database data model is the set of records that the controller database and the model databases keep about the databases themselves. Both kinds of database keep the change log, which is the first four records below. The records, with the rules that apply to each, are:
+The database schema is the set of records that the controller database and the model databases keep about the databases themselves. Both kinds of database keep the change log, which is the first four records below. The records, with the rules that apply to each, are:
 
 - **Change:** One create, update, or delete of a row in a watched table (a table whose changes the change log records), with the identifier of the row and the time of the change.
   - *Rules:*
@@ -44,7 +44,7 @@ The database data model is the set of records that the controller database and t
 - **Sequence:** The last number handed out for a sequence namespace (a name such as `machine` or `application_mysql`; see {ref}`allocating sequence numbers <database-allocating-sequence-numbers>`). Only model databases keep sequences.
   - *Rules:*
     - A sequence namespace appears once.
-- **Database namespace:** The name of a model database that the controller hosts, which is the model's UUID. Only the controller database keeps them. The {ref}`model <model-data-model>` page describes the link between a model and its namespace.
+- **Database namespace:** The name of a model database that the controller hosts, which is the model's UUID. Only the controller database keeps them.
   - *Rules:*
     - A database namespace appears once.
 - **Staged database deletion:** The name of a model database that is waiting to be deleted, with the time it was staged. Only the controller database keeps them. A staged deletion has no link to a model record, because the model record is already gone when it exists.

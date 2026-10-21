@@ -20,10 +20,10 @@ Business metrics are the counts that describe a deployment, which the developers
 
 The {ref}`disable-telemetry <model-config-disable-telemetry>` model configuration key turns the metrics off. The check for new charm revisions keeps running either way, without the metrics. The {ref}`transmit-vendor-metrics <model-config-transmit-vendor-metrics>` model configuration key has no effect.
 
-(telemetry-data-model)=
-## Telemetry data model
+(telemetry-database-schema)=
+## Telemetry database schema
 
-The telemetry data model is the set of records that the {ref}`controller database <database>` keeps about the tracing and log forwarding configuration. Each record holds one configuration. No record links to another. The records, with the rules that apply to each, are:
+The telemetry database schema is the set of records that the {ref}`controller database <database>` keeps about the tracing and log forwarding configuration. Each record holds one configuration. No record links to another. The records, with the rules that apply to each, are:
 
 - **Workload tracing configuration:** The configuration of the tracing that Juju itself exports: the traces of the controller and of the agents of every model on it. Its fields are `http-endpoint` and `grpc-endpoint` (the endpoints of the [OpenTelemetry](https://opentelemetry.io/) collector), `ca-certificate`, `insecure-skip-verify`, `stack-traces`, `sample-ratio`, and `tail-sampling-threshold`.
   - *Rules:*

@@ -13,17 +13,17 @@ See also: {ref}`Juju | Upgrade a model <upgrade-a-model>`
 
 The **agent version** of a {ref}`model <model>` is the version of Juju that the model's {ref}`agents <agent>` are told to run, together with the agent stream they take it from. The model database keeps one record, which also names the newest version the controller has seen. The binaries themselves are gzipped tarballs in the {ref}`object store <object-store>` of the controller or of the model whose catalogue lists them; the controller database and each model database keep a catalogue of the binaries they hold. A client sets the target version by {ref}`upgrading models <model-upgrading>`.
 
-(agent-version-data-model)=
-## Agent version data model
+(agent-version-database-schema)=
+## Agent version database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Agent version data model
+:view: Agent version database schema
 :caption: The model database keeps one agent version record, which names one agent stream. The controller database and each model database keep one record for each agent binary they hold: its version, its architecture, and the stored object it is (a stored object is one binary). A binary belongs to one stored object and names one architecture; the catalogue of the controller can be read by every model. The stored object and the architecture are described elsewhere and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that another page describes or that belong to no page.
 :alt: Two groups of boxes of the same size, each box with a filled table mark in the corner. The group named Model database holds Agent version and Agent stream in a row, joined 1 to 1. The group named Controller database and model databases holds Agent binary, Architecture, and Stored object in a row; Agent binary joins Architecture (m to 1) and Stored object (m to 1). Architecture and Stored object have an outlined arrow mark for records described elsewhere.
 ```
 
-The agent version data model is the set of records that the databases keep about the versions the agents run. The records, with the rules that apply to each, are:
+The agent version database schema is the set of records that the databases keep about the versions the agents run. The records, with the rules that apply to each, are:
 
 - **Agent version:** The target version (the version the model's agents should run) and the latest version (the newest one the controller has seen on its metadata source), with the stream the agents take their binaries from.
   - *Rules:*

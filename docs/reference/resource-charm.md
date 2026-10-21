@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 
 A **charm resource** is a named piece of content, a file or an [OCI image](https://opencontainers.org/) reference, that a {ref}`charm <charm>` declares and that the {ref}`units <unit>` of an {ref}`application <application>` of that charm fetch to run. The charm declares the resource. The application uses one revision of it, which comes from Charmhub or from a file that a user uploads.
 
-(charm-resource-data-model)=
-## Charm resource data model
+(charm-resource-database-schema)=
+## Charm resource database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Resource data model
+:view: Resource database schema
 :caption: The model database keeps one record for each resource. A charm resource (declared by a charm) has many resources, and a resource belongs to one charm resource. An application resource links one resource to one application, and an application has many application resources. A pending resource links one resource to the name of an application that does not exist yet. A retrieved-by record belongs to one resource. A unit resource links a unit to a resource, a unit has many unit resources, and a resource has many unit resources. A file store belongs to one resource and points to one stored object, which many file stores can share. An image store belongs to one resource and points to one image metadata record, which many image stores can share. The application, the unit, the charm resource, and the stored object are described on other pages or in the text.
 :alt: Twelve boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Resource is in the middle. Charm resource is to its left (1 to m). Application resource is above it (1 to 1), with Application to the left of Application resource (1 to m) and Pending resource to its right (1 to 1). Retrieved by is to the right of Resource (1 to 1). Unit resource is below Resource (m to 1), with Unit to its left (1 to m). File store is to the right of Unit resource (1 to 1) and Stored object to the right of File store (m to 1). Image store is below File store (1 to 1) and Image metadata to the right of Image store (m to 1).
 ```
 
-The charm resource data model is the set of records that the {ref}`model database <database>` keeps about the resources of a model. A charm declares each resource. The model then holds each revision of it that an application uses or may use, the units that use a revision, and the stored content. The records, with the rules that apply to each, are:
+The charm resource database schema is the set of records that the {ref}`model database <database>` keeps about the resources of a model. A charm declares each resource. The model then holds each revision of it that an application uses or may use, the units that use a revision, and the stored content. The records, with the rules that apply to each, are:
 
 - **Charm resource:** One resource that a charm declares: its name, its kind, the path of the file, and a description. The kind is one of:
   - **`file`** is the base case: content that a unit reads as a file, such as an archive, a database, or a media file.

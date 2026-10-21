@@ -13,17 +13,17 @@ See also: {ref}`Juju | Manage units <manage-units>`
 
 A **unit** is one running instance of an {ref}`application <application>`: the process that runs the application's {ref}`charm <charm>` on one {ref}`machine <machine>` or in one Kubernetes pod, together with the records that the {ref}`model <model>` keeps about it. A unit belongs to one application and is named `<application>/<number>`, such as `mysql/0`. A unit comes into being when units are added to an application, when a principal unit's relation creates a subordinate, or when an application is deployed, and goes when it is removed.
 
-(unit-data-model)=
-## Unit data model
+(unit-database-schema)=
+## Unit database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Unit data model
+:view: Unit database schema
 :caption: The model database keeps one record for each unit. A unit belongs to one application and runs one charm. An application and a charm each have many units. A unit has at most one workload status, one agent status, one workload version, one agent version, one agent presence, one resolved marker, one unit state, one principal (the unit it accompanies, which is another unit, so a unit can be the principal of many units), and, on a Kubernetes model, one pod and one pod status. A unit has many charm state items and many relation state items. A pod has many ports. The status values, the resolve modes, the life values, the network node, and the password hash algorithm are described in the text and are not boxes in the figure, because they are lookups or belong to other pages. The leader is a lease in the controller database and is not in the figure.
 :alt: Sixteen boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Unit is in the middle. Application is to its left (m to 1) and Charm is to its right (m to 1). Application and Charm each have an arrow mark because other pages describe them. Above Unit is a row of five boxes, from left to right Agent version, Agent status, Workload status (directly above Unit), Workload version, and Agent presence, each joined to Unit (1 to 1). Below Unit is a row with Resolved marker, Unit state (directly below Unit), Principal, and Pod, each joined to Unit (1 to 1), and Principal joins Unit twice, once for the subordinate (1 to 1) and once for the principal unit (m to 1). Pod status is above Pod and is joined to Unit (1 to 1). Charm state and Relation state are in a second row below Unit and are joined to Unit (m to 1). Pod port is below Pod (m to 1).
 ```
 
-The unit data model is the set of records that the {ref}`model database <database>` keeps about the units of a model. The records, with the rules that apply to each, are:
+The unit database schema is the set of records that the {ref}`model database <database>` keeps about the units of a model. The records, with the rules that apply to each, are:
 
 - **Unit:** The unit's name, its life (`alive`, `dying`, or `dead`), the application it belongs to, the charm it runs, its network node (the record that its addresses hang from), and an optional hash of the password that its agent logs in with. A unit's name is its application's name, a slash, and a number. Juju numbers the units of an application from 0, in increasing order, from one sequence for each application.
   - *Rules:*

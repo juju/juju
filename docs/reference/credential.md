@@ -18,23 +18,23 @@ A **credential** is the authentication material (such as a user name and passwor
 
 A credential can be held by a {ref}`client <client>`, by a controller, or by both. A **client credential** is one that the client keeps and the controller does not know. A **controller credential** is one stored on a controller, in its database; a client can upload a credential to make it one (see {ref}`adding credentials <credential-adding>`). The sections below describe controller credentials: what a client stores is up to the client.
 
-(credential-data-model)=
-## Credential data model
+(credential-database-schema)=
+## Credential database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Credential data model
+:view: Credential database schema
 :caption: The controller database keeps one record for each credential. A credential belongs to one user and one cloud (a user and a cloud each have many credentials), has one authentication type (a type has many credentials), and has many attributes (an attribute belongs to one credential). A model uses at most one credential, and a credential can serve many models. The user, cloud, and model are described on their own pages and the figure shows them only for context: all boxes are records, and the three with a second, outlined arrow mark in the corner are the records that other pages describe.
 :alt: Six boxes of the same size inside a group named Controller database, each with a filled table mark in the corner. Credential is in the middle. User is above it (1 to m), Cloud is to its left (1 to m), Authentication type is below it (m to 1), and Credential attribute is to its right (1 to m). Model is below and to the right of Credential, joined through a dashed line (a model's credential is optional; 1 to m). User, Cloud, and Model have an outlined arrow mark for records that other pages describe.
 ```
 
-The credential data model is the set of records that the {ref}`controller database <database>` keeps about credentials. The records, with the rules that apply to each, are:
+The credential database schema is the set of records that the {ref}`controller database <database>` keeps about credentials. The records, with the rules that apply to each, are:
 
 - **Credential:** A credential's name, its owner, its cloud, its authentication type, whether it is invalid and why, and whether it is revoked.
   - *Rules:*
     - A credential's name is not empty.
     - A cloud can hold one credential of a given name for each owner, so two owners can each have a credential with the same name on one cloud.
-- **Authentication type:** How the credential authenticates against the cloud. The types that exist are those listed on the {ref}`cloud <cloud-data-model>` page.
+- **Authentication type:** How the credential authenticates against the cloud. The types that exist are those listed on the {ref}`cloud <cloud-database-schema>` page.
 - **Credential attribute:** One key and value of a credential, such as `username` or `access-key`. Which keys a credential needs depends on the cloud type and on the authentication type. The {ref}`page of each cloud <list-of-supported-clouds>` lists them.
   - *Rules:*
     - A credential has each key once.

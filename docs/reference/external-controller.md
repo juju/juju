@@ -13,17 +13,17 @@ See also: {ref}`Juju | Integrate with an offer <integrate-with-an-offer>`
 
 An **external controller** is a {ref}`controller <controller>` that this controller keeps a record of in order to reach it: to use the {ref}`offers <offer>` that it hosts, and to follow a {ref}`model <model>` that moved to it. The {ref}`controller database <database>` holds one record for each external controller, with the addresses of its API servers, the certificate that verifies them, and the models on it that models of this controller use. A record is written when a client consumes an offer and when a model migrates. No operation removes it.
 
-(external-controller-data-model)=
-## External controller data model
+(external-controller-database-schema)=
+## External controller database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: External controller data model
+:view: External controller database schema
 :caption: The controller database keeps one record for each external controller, one address record for each of the API servers of that controller, and one model record for each model on it that a model of this controller uses. An external controller has many addresses and many models, and an address and a model each belong to one external controller.
 :alt: Three boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. External controller is on the left, External controller address is in the middle (1 to m), and External model is on the right (1 to m).
 ```
 
-The external controller data model is the set of records that the controller database keeps about external controllers. The records, with the rules that apply to each, are:
+The external controller database schema is the set of records that the controller database keeps about external controllers. The records, with the rules that apply to each, are:
 
 - **External controller:** The other controller's UUID, an alias (a name that a person can read), and the CA certificate that verifies the TLS certificate of the external controller's API servers.
   - *Rules:*

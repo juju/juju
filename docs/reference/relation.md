@@ -13,18 +13,18 @@ See also: {ref}`Juju | Manage relations <manage-relations>`
 
 A **relation** is a connection between two {ref}`applications <application>` of a {ref}`model <model>` through one {ref}`endpoint <application-endpoint>` of each, or between an application and itself through one of its own endpoints. The {ref}`units <unit>` on the two sides of a relation use it to exchange data and to learn when a unit of the other side joins, changes its data, or leaves.
 
-(relation-data-model)=
-## Relation data model
+(relation-database-schema)=
+## Relation database schema
 
 ```{ggarch}
 :file: ../juju.ggarch
-:view: Relation data model
+:view: Relation database schema
 :caption: The model database keeps one record for each relation. A relation has at most one status record. A status takes one of a fixed set of values, and a value has many statuses. An endpoint record belongs to one relation. A relation has an endpoint record for each application endpoint that takes part. A unit in scope (a unit that has entered the relation) belongs to one endpoint record. An endpoint record has many units in scope. Each unit in scope has many unit settings. Each endpoint record has many application settings. When a unit leaves, its settings are copied to archived settings that belong to the relation. The unit, the application endpoint, the life and scope values, the departed units, and the ingress and egress CIDRs are described in the text and are not boxes in the figure.
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Relation is in the middle. Status is above it (1 to 1) and Status value is above Status (m to 1). Archived setting is to its left (m to 1). Endpoint is to its right (m to 1). Unit in scope is to the right of Endpoint (m to 1). Application setting is below Endpoint (m to 1). Unit setting is below Unit in scope (m to 1).
 ```
 
 (relation-kinds)=
-The relation data model is the set of records that the {ref}`model database <database>` keeps about the relations of a model. The endpoints of a relation decide its kind: regular, peer, subordinate, or cross-model. The records, with the rules that apply to each, are:
+The relation database schema is the set of records that the {ref}`model database <database>` keeps about the relations of a model. The endpoints of a relation decide its kind: regular, peer, subordinate, or cross-model. The records, with the rules that apply to each, are:
 
 - **Relation:** The relation's ID, its life (alive, dying, or dead; Juju deletes a dying relation and never marks it dead), its scope (`global` or `container`), and whether it is suspended and why.
 
