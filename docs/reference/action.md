@@ -46,7 +46,7 @@ The action database schema is the set of records that the {ref}`model database <
   - *Rules:*
     - A task has at most one status.
     - The status is one of the task status values.
-- **Task status value:** The allowed statuses: `pending`, `running`, `aborting`, `completed`, `failed`, `cancelled`, `aborted`, and `error`. A task is active while it is `pending`, `running`, or `aborting`. Every other status is final. {ref}`Canceling tasks <action-cancelling>` and {ref}`Running tasks <action-execution>` change the status.
+- **Task status value:** The allowed statuses: `pending`, `running`, `aborting`, `completed`, `failed`, `cancelled`, `aborted`, and `error`. A task is active while it is `pending`, `running`, or `aborting`. Every other status is final. {ref}`Canceling action tasks <action-cancelling>` and {ref}`Running action tasks <action-execution>` change the status.
 - **Task log message:** One progress message of a task, with the time it was recorded.
 - **Unit, machine, and charm action:** The records at the far ends of a task and an operation. Other pages own them: see {ref}`unit <unit>`, {ref}`machine <machine>`, and {ref}`charm <charm>`.
 
@@ -148,13 +148,13 @@ The operation's required access, rules, and errors are:
   - **`linking task to unit: getting unit UUID for "<unit>": unit "<unit>" not found`**: *Trigger:* The unit does not exist. The client receives it in the result for the unit. *Remediation:* Name an existing unit.
 
 (action-showing-tasks)=
-### Showing tasks
+### Showing action tasks
 
 ```{ibnote}
 See also: {ref}`Juju | Show details about a task <manage-action-tasks>`
 ```
 
-Showing tasks lets a client read, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what `action-set` stored, and for a command the output that {ref}`Running tasks <action-execution>` describes.
+Showing action tasks lets a client read, for each task tag, the receiver, the action name, the parameters, the parallel flag and execution group, the times it was enqueued, started, and completed, the status, the message, the log messages, and the output. The output is a map that holds what `action-set` stored, and for a command the output that {ref}`Running action tasks <action-execution>` describes.
 
 The operation's required access, rules, and errors are:
 
@@ -164,10 +164,10 @@ The operation's required access, rules, and errors are:
   - A task that fails to load gets the same error as a bad tag.
 - *Errors:* The client receives each in the result for the task, except where stated:
   - **`permission denied`**: *Trigger:* The caller lacks read access. This fails the whole call. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
-  - **`id not found`**: *Trigger:* The tag is not an action tag, or no task has that number. The client receives it with the code `not found`. *Remediation:* {ref}`List the operations <action-listing-operations>` and use the tag of one of their tasks.
+  - **`id not found`**: *Trigger:* The tag is not an action tag, or no task has that number. The client receives it with the code `not found`. *Remediation:* {ref}`List the action operations <action-listing-operations>` and use the tag of one of their tasks.
 
 (action-cancelling)=
-### Canceling tasks
+### Canceling action tasks
 
 ```{ibnote}
 See also: {ref}`Juju | Cancel a task <manage-action-tasks>`
@@ -181,7 +181,7 @@ See also: {ref}`Juju | Cancel a task <manage-action-tasks>`
 :alt: A state diagram with seven states. Pending goes to running and to cancelled. Running goes to aborting, to completed, and to failed. Aborting goes to aborted, to completed, and to failed.
 ```
 
-Canceling tasks lets a client stop tasks that have not finished and returns each task with its new status.
+Canceling action tasks lets a client stop tasks that have not finished and returns each task with its new status.
 
 The operation's required access, rules, and errors are:
 
@@ -195,16 +195,16 @@ The operation's required access, rules, and errors are:
 - *Errors:* The client receives each in the result for the task, except where stated:
   - **`permission denied`**: *Trigger:* The caller lacks write access. This fails the whole call. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
   - **`id not found`**: *Trigger:* The tag is not an action tag. The client receives it with the code `not found`. *Remediation:* Use the form `action-<number>`.
-  - **`action <number> not found`**: *Trigger:* No task has that number. The client receives it with the code `not found`. *Remediation:* {ref}`List the operations <action-listing-operations>` and use the tag of one of their tasks.
+  - **`action <number> not found`**: *Trigger:* No task has that number. The client receives it with the code `not found`. *Remediation:* {ref}`List the action operations <action-listing-operations>` and use the tag of one of their tasks.
 
 (action-listing-operations)=
-### Listing operations
+### Listing action operations
 
 ```{ibnote}
 See also: {ref}`Juju | View the pending, running, or completed operations <manage-action-operations>`
 ```
 
-Listing operations lets a client read operations in the order of their numbers, each with its summary, times, derived status, and the result of each of its tasks, in the form of showing a task.
+Listing action operations lets a client read operations in the order of their numbers, each with its summary, times, derived status, and the result of each of its tasks, in the form of showing an action task.
 
 The status of an operation has no record of its own. Each time the operation is read, it is the first of `running`, `aborting`, `pending`, `error`, `failed`, `cancelled`, and `completed` that any of its tasks has. An operation with no tasks has the status `error`. An operation whose tasks are all `aborted` has the status `pending`, because `aborted` is not in that order.
 
@@ -220,13 +220,13 @@ The operation's required access, rules, and errors are:
   - **`permission denied`**: *Trigger:* The caller lacks read access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
 
 (action-showing-operations)=
-### Showing operations
+### Showing action operations
 
 ```{ibnote}
 See also: {ref}`Juju | Show details about an operation <manage-action-operations>`
 ```
 
-Showing operations lets a client read the operations with the numbers in the request, in the same form as listing them, with the same derived status.
+Showing action operations lets a client read the operations with the numbers in the request, in the same form as listing them, with the same derived status.
 
 The operation's required access, rules, and errors are:
 
@@ -236,12 +236,12 @@ The operation's required access, rules, and errors are:
 - *Errors:* The client receives each in the result for the operation, except where stated:
   - **`permission denied`**: *Trigger:* The caller lacks read access. This fails the whole call. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
   - **`"<tag>" is not a valid tag`** and **`"<tag>" is not a valid operation tag`**: *Trigger:* The tag is not an operation tag. The client receives them with no code. *Remediation:* Use the form `operation-<number>`.
-  - **`operation <number> not found`**: *Trigger:* No operation has that number. The client receives it with no code. *Remediation:* {ref}`List the operations <action-listing-operations>` and use one of their numbers.
+  - **`operation <number> not found`**: *Trigger:* No operation has that number. The client receives it with no code. *Remediation:* {ref}`List the action operations <action-listing-operations>` and use one of their numbers.
 
 (action-execution)=
-### Running tasks
+### Running action tasks
 
-Running tasks lets the unit agent of a unit or the machine agent of a machine run the pending tasks that target it. The unit agent calls the `Uniter` facade and runs the charm's action code. The machine agent calls the `MachineActions` facade and runs commands. The status changes that an agent makes are in the {ref}`figure of canceling tasks <action-task-status>`.
+Running action tasks lets the unit agent of a unit or the machine agent of a machine run the pending tasks that target it. The unit agent calls the `Uniter` facade and runs the charm's action code. The machine agent calls the `MachineActions` facade and runs commands. The status changes that an agent makes are in the {ref}`figure of canceling action tasks <action-task-status>`.
 
 The operation's required access, rules, and errors are:
 
@@ -319,9 +319,9 @@ The operation's required access and rules are:
   - A call without a message fails with `no message specified`.
 
 (action-pruning)=
-### Pruning operations
+### Pruning action operations
 
-Pruning operations deletes old operations with their parameters, tasks, statuses, and log messages, and the stored results of their tasks. The controller does this on its own for each model, once about every 24 hours (a random interval between 12 and 36 hours), and again when the model configuration key {ref}`max-action-results-age <model-config-max-action-results-age>` or {ref}`max-action-results-size <model-config-max-action-results-size>` changes.
+Pruning action operations deletes old operations with their parameters, tasks, statuses, and log messages, and the stored results of their tasks. The controller does this on its own for each model, once about every 24 hours (a random interval between 12 and 36 hours), and again when the model configuration key {ref}`max-action-results-age <model-config-max-action-results-age>` or {ref}`max-action-results-size <model-config-max-action-results-size>` changes.
 
 The operation's rules are:
 
