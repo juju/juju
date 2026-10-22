@@ -5,6 +5,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -19,6 +20,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
+
+// ErrTransportTimeout identifies transport timeouts without discarding the
+// original error.
+var ErrTransportTimeout = errors.New("HTTP transport timeout")
 
 // FileProtocolMiddleware registers support for file:// URLs on the given transport.
 func FileProtocolMiddleware(transport *http.Transport) *http.Transport {
@@ -250,6 +255,9 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 func (m retryMiddleware) roundTrip(req *http.Request) (*http.Response, bool, error) {
 	res, err := m.wrappedRoundTripper.RoundTrip(req)
 	if err != nil {
+		if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
+			err = fmt.Errorf("%w: %w", ErrTransportTimeout, err)
+		}
 		return nil, false, err
 	}
 

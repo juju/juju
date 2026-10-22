@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -135,6 +136,36 @@ func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+}
+
+func (s *APIRequesterSuite) TestDoRetryTransportTimeoutBody(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req, err := http.NewRequestWithContext(c.Context(), "POST", "https://api.foo.bar", strings.NewReader("body"))
+	c.Assert(err, tc.ErrorIsNil)
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	attempts := 0
+	mockHTTPClient.EXPECT().Do(req).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+		defer req.Body.Close()
+		body, err := io.ReadAll(req.Body)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(body), tc.Equals, "body")
+		attempts++
+		if attempts == 1 {
+			return nil, errors.Trace(&url.Error{
+				Op: "Post", URL: req.URL.String(), Err: jujuhttp.ErrTransportTimeout,
+			})
+		}
+		return emptyResponse(), nil //nolint:bodyclose
+	}).Times(2)
+
+	requester := newAPIRequester(mockHTTPClient, s.logger)
+	requester.retryDelay = time.Microsecond
+	resp, err := requester.Do(req)
+	c.Assert(err, tc.ErrorIsNil)
+	defer resp.Body.Close()
+	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
 func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *tc.C) {
