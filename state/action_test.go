@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -1319,6 +1320,49 @@ func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 	// this test doesn't flake.
 	c.Assert(float64(len(actions)), jc.LessThan, 2.0*maxLogSize*1.5)
 	c.Assert(float64(len(ops)), gc.Equals, float64(len(actions))/2.0)
+}
+
+func (s *ActionPruningSuite) TestPruneOperationsBySizeMultipleBatches(c *gc.C) {
+	operations, closer := state.GetCollection(s.State, "operations")
+	defer closer()
+	actions, closer := state.GetCollection(s.State, "actions")
+	defer closer()
+
+	// More than two batches must be removed to reach 5 MiB. The parent
+	// collection is already below that limit before pruning starts.
+	const count = 3000
+	var operationDocs, actionDocs []interface{}
+	for i := 0; i < count; i++ {
+		id := fmt.Sprint(i)
+		operationDocs = append(operationDocs, bson.M{
+			"_id": id, "model-uuid": s.State.ModelUUID(),
+			"completed": coretesting.NonZeroTime(), "status": state.ActionCompleted,
+		})
+		actionDocs = append(actionDocs, bson.M{
+			"_id": id, "model-uuid": s.State.ModelUUID(), "operation": id,
+			"results": bson.M{"output": strings.Repeat("x", 8*1024)},
+		})
+	}
+	c.Assert(operations.Writeable().Insert(operationDocs...), jc.ErrorIsNil)
+	c.Assert(actions.Writeable().Insert(actionDocs...), jc.ErrorIsNil)
+
+	c.Assert(state.PruneOperations(nil, s.State, 0, 5), jc.ErrorIsNil)
+	remaining, err := operations.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(remaining, jc.GreaterThan, 0)
+	c.Check(remaining, jc.LessThan, 700)
+	remainingActions, err := actions.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(remainingActions, gc.Equals, remaining)
+	var kept []struct {
+		Operation string `bson:"operation"`
+	}
+	c.Assert(actions.Find(nil).Select(bson.M{"operation": 1}).All(&kept), jc.ErrorIsNil)
+	for _, action := range kept {
+		n, err := operations.FindId(action.Operation).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(n, gc.Equals, 1)
+	}
 }
 
 func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
