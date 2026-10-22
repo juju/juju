@@ -37,7 +37,7 @@ The audit log file can be found only on controller machines.
 
 ### The logsink log file
 
-The logsink file (`logsink.log`) contains all the agent logs shipped to the {ref}`controller <controller>`, in aggregated form. The controller writes the shipped records into this file, and the `juju debug-log` command reads them back through the API.
+The logsink file (`logsink.log`) holds an agent's own logs in aggregated form: each machine agent writes them locally through its log sink, which batches and rotates them. `jujuagentd --log-to-stderr` logs to stderr instead. The agent also streams its buffered records to the controller's logsink endpoint. The {ref}`API server <controller>` stores the received records through its log sink. The `juju debug-log` command reads them back through the API. When the controller has a log forwarding endpoint set, the agent forwards its records to [Loki](https://grafana.com/oss/loki/) instead ({ref}`see telemetry <telemetry>`).
 
 ```{important}
 
@@ -62,3 +62,43 @@ In Kubernetes deployments, logs are written directly to `stdout` of the containe
 
 By default, it will fetch the logs from the main container `charm` container. When fetching logs from other containers, use additional `-c` flag to specify the container, i.e. `kubectl logs -c <container-name> <pod-name> -n <model-name>` .
 
+
+(log-change-streams)=
+## Log change streams
+
+Log change streams are the notifications that tell an agent that the model's logging configuration or the controller's log forwarding endpoint changed. An agent calls `WatchLoggingConfig` with its own tag; the watcher fires on any change to the model configuration. An agent calls `WatchControllerLokiConfig` (in version 2 of the `Logger` facade) with its own tag to hear that the log forwarding endpoint changed.
+
+(log-calls)=
+## Log calls
+
+Log calls are the calls that an {ref}`agent <agent>` makes to read its logging configuration through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): reading the logging configuration and reading the log forwarding endpoint. An agent makes each call with its own tag: no model access level applies.
+
+(log-reading)=
+### Reading the logging configuration
+
+Reading the logging configuration returns the model's logging configuration, the value of the model configuration key `logging-config`, for each tag given.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* An agent — a {ref}`machine agent <machine-agent>`, a {ref}`unit agent <unit-agent>`, an application agent, or a model agent — for its own tag. No model access level applies.
+- *Rules:*
+  - The call takes a list of tags. Each tag in the list gets its own result.
+  - The answer is the same for every tag: the model's `logging-config` value.
+- *Errors:* The agent receives each in the result for its tag:
+  - **`"<tag>" is not a valid tag`**: *Trigger:* A tag that does not parse as a tag. The agent receives it with no error code. *Remediation:* Use the agent's own tag.
+  - **`permission denied`**: *Trigger:* A tag that is not the agent's own. The agent receives it with the code `unauthorized access`. *Remediation:* Use the agent's own tag.
+
+(log-reading-forwarding)=
+### Reading the log forwarding endpoint
+
+Reading the log forwarding endpoint returns the [Loki](https://grafana.com/oss/loki/) push API endpoint that the machine agents of the models on the controller forward their logs to ({ref}`see telemetry <telemetry>`), with the CA certificate that verifies it, whether to skip verifying that certificate, and an organization ID for a multi-tenant Loki. The call is in version 2 of the `Logger` facade.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* An agent — machine, unit, application, or model — for its own tag. No model access level applies.
+- *Rules:*
+  - The call takes one tag.
+  - The answer names the endpoint, whether to skip verifying the certificate, and the organization ID, and carries the CA certificate when one is set.
+- *Errors:* The agent receives each in the result for its tag:
+  - **`loki config not found`**: *Trigger:* The controller has no log forwarding endpoint set. The agent receives it with the code `not found`. *Remediation:* Set the endpoint ({ref}`see telemetry <telemetry>`).
+  - **`"<tag>" is not a valid tag`** and **`permission denied`**: *Trigger and remediation:* As in {ref}`reading the logging configuration <log-reading>`.
