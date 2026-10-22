@@ -69,4 +69,6 @@ func (s *DockerConfigSuite) TestCreateDockerConfigJSON(c *gc.C) {
 			},
 		},
 	})
+	c.Assert(string(config), gc.Equals,
+		`{"auths":{"registry.staging.jujucharms.com":{"username":"docker-registry","password":"hunter2"}}}`)
 }
