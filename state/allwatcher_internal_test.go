@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -974,6 +975,11 @@ func (s *allWatcherStateSuite) TestActionPayloadExcluded(c *gc.C) {
 	want := makeActionInfo(action, s.state)
 	b, err := NewAllWatcherBacking(s.pool)
 	c.Assert(err, jc.ErrorIsNil)
+	// Check the decoded document because ActionInfo has no payload fields.
+	backing := b.(*allWatcherBacking)
+	actionCollection := backing.collectionByName[actionsC]
+	actionCollection.docType = reflect.TypeOf(payloadCheckingAction{})
+	backing.collectionByName[actionsC] = actionCollection
 	change := watcher.Change{C: actionsC, Id: s.state.docID(action.Id())}
 
 	// Both the initial snapshot and subsequent changes omit action payloads.
@@ -1001,6 +1007,23 @@ func (s *allWatcherStateSuite) TestActionPayloadExcluded(c *gc.C) {
 	c.Assert(coll.Writeable().RemoveId(action.Id()), jc.ErrorIsNil)
 	c.Assert(b.Changed(changed, change), jc.ErrorIsNil)
 	c.Check(changed.Get(want.EntityID()), gc.IsNil)
+}
+
+type payloadCheckingAction backingAction
+
+func (a *payloadCheckingAction) mongoID() string {
+	return (*backingAction)(a).mongoID()
+}
+
+func (a *payloadCheckingAction) updated(ctx *allWatcherContext) error {
+	if a.Parameters != nil || a.Results != nil || a.Logs != nil {
+		return errors.New("allwatcher loaded action payloads")
+	}
+	return (*backingAction)(a).updated(ctx)
+}
+
+func (a *payloadCheckingAction) removed(ctx *allWatcherContext) error {
+	return (*backingAction)(a).removed(ctx)
 }
 
 func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {

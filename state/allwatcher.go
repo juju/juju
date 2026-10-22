@@ -1007,12 +1007,10 @@ func (a *backingAction) updated(ctx *allWatcherContext) error {
 		ID:             ctx.id, // local ID isn't available on the action doc
 		Receiver:       a.Receiver,
 		Name:           a.Name,
-		Parameters:     a.Parameters,
 		Parallel:       a.Parallel,
 		ExecutionGroup: a.ExecutionGroup,
 		Status:         string(a.Status),
 		Message:        a.Message,
-		Results:        a.Results,
 		Enqueued:       a.Enqueued,
 		Started:        a.Started,
 		Completed:      a.Completed,
