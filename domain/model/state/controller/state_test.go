@@ -1713,6 +1713,63 @@ func (m *stateSuite) TestGetModelUsersModelNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
 }
 
+func (m *stateSuite) TestGetModelUser(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	jimName := usertesting.GenNewName(c, "jim")
+	m.createModelUser(c, accessState, jimName, m.userUUID, permission.WriteAccess, m.uuid)
+
+	// A user with a local permission row comes back with the stored
+	// access level.
+	info, err := m.modelState.GetModelUser(c.Context(), m.uuid, jimName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, coremodel.ModelUserInfo{
+		Name:           jimName,
+		DisplayName:    jimName.Name(),
+		Access:         permission.WriteAccess,
+		LastModelLogin: time.Time{},
+	})
+
+	// A user row with no permission row still comes back, with an empty
+	// access level. This is the external-user case: EnsureExternalUser
+	// creates the user row but no grant. everyone@external is seeded
+	// first, as the required creator of external users.
+	everyoneUUID := tc.Must(c, user.NewUUID)
+	err = accessState.AddUser(c.Context(), everyoneUUID, permission.EveryoneUserName, "everyone@external", true, everyoneUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	externalName := usertesting.GenNewName(c, "external-user")
+	err = accessState.EnsureExternalUser(c.Context(), externalName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err = m.modelState.GetModelUser(c.Context(), m.uuid, externalName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, coremodel.ModelUserInfo{
+		Name:           externalName,
+		DisplayName:    externalName.Name(),
+		Access:         permission.NoAccess,
+		LastModelLogin: time.Time{},
+	})
+}
+
+func (m *stateSuite) TestGetModelUserModelNotFound(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	_, err := m.modelState.GetModelUser(c.Context(), "bad-uuid", m.userName)
+	c.Assert(err, tc.ErrorIs, modelerrors.NotFound)
+}
+
+func (m *stateSuite) TestGetModelUserUserNotFound(c *tc.C) {
+	m.createControllerModel(c, m.controllerModelUUID, m.userUUID)
+	m.createModel(c, m.uuid, m.userUUID)
+
+	missingName := usertesting.GenNewName(c, "missing-user")
+	_, err := m.modelState.GetModelUser(c.Context(), m.uuid, missingName)
+	c.Assert(err, tc.ErrorIs, modelerrors.UserNotFoundOnModel)
+}
+
 func (m *stateSuite) TestGetModelStateModelNotFound(c *tc.C) {
 	uuid := tc.Must(c, coremodel.NewUUID)
 
