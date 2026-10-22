@@ -205,12 +205,12 @@ The caller, the rules, and the errors are:
   - A model that runs on Kubernetes refuses the request.
   - A unit of a subordinate application cannot be removed on its own. Removing the relation removes the subordinate units.
   - A dry run changes nothing. It returns the storage that the removal would destroy and the storage that it would detach.
-  - The unit becomes `dying` at once. Its storage attachments become dying too. The storage that the unit owns becomes dying when the request destroys storage. A machine becomes dying when the removed units were the last units on it and no container runs on it. A removal job is scheduled for each of them.
+  - The unit becomes `dying` at once. Its storage attachments become dying too. The storage that the unit owns becomes dying when the request destroys storage. A machine becomes dying when the removed units were the last units on it and no container runs on it (see {ref}`removing machines <machine-removing>`). A removal job is scheduled for each of them.
   - The time to wait applies only to a forced removal. A removal that is not forced ignores it.
   - A removal that is not forced makes the unit `dead` once it has no relation in scope and no storage attachment, and then deletes it. Otherwise the job runs again later. A removal that is not forced waits for the unit's subordinate units to be gone before it deletes the unit. A forced removal deletes the unit regardless.
   - A forced removal does not wait for the unit's relations and storage. It leaves the unit's relations itself.
   - Before deleting the unit, the job revokes its leadership, deletes the secrets that it owns, and, for a unit of the controller application in the controller model, deletes the controller node.
-  - Deleting the unit deletes its tasks and annotations, its pod and ports, its status, workload version, agent version, presence, resolved marker, state, ports opened, resources, storage directives, and secret consumer records. The charm is deleted afterward when no other application or unit uses it.
+  - Deleting the unit deletes its tasks and annotations, its pod and ports, its status, workload version, agent version, presence, resolved marker, state, ports opened, resources, storage directives, and secret consumer records. The charm is deleted afterward when no other application or unit uses it (see {ref}`charm <charm>`).
 - *Errors:* The client receives each in the result for the unit, except the first and the last:
   - **`removing units on a non-container model not supported`** (code `not supported`): *Trigger:* The model runs on Kubernetes. *Remediation:* Set the scale of the application.
   - **`unit "<name>" is a subordinate, to remove use remove-relation. Note: this will remove all units of "<application>"`**: *Trigger:* The unit belongs to a subordinate application. *Remediation:* {ref}`Remove the relation <relation-removing>`.

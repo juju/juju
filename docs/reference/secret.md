@@ -317,4 +317,4 @@ The caller, the rules, and the errors are:
 
 ## Secrets and model migration
 
-A {ref}`migration <model-migrating>` moves the secrets of a model with their revisions, content, consumers, and grants. A revision whose content a secret backend holds needs that backend on the target controller. A migration to a controller without it fails with `target controller does not have all required secret backends set up, missing "<backend ID>"`. The built-in `kubernetes` backend of a model on a Kubernetes cloud becomes the target's built-in `kubernetes` backend.
+A {ref}`migration <model-migrating>` moves the secrets of a model with their revisions, content, consumers, and grants. A revision whose content a {ref}`secret backend <secret-backend>` holds needs that backend on the target controller. A migration to a controller without it fails with `target controller does not have all required secret backends set up, missing "<backend ID>"`. The built-in `kubernetes` backend of a model on a Kubernetes cloud becomes the target's built-in `kubernetes` backend.

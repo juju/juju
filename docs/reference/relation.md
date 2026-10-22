@@ -19,7 +19,7 @@ A **relation** is a connection between two {ref}`applications <application>` of 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Relation database schema
-:caption: The model database keeps one record for each relation. A relation has at most one status record. A status takes one of a fixed set of values, and a value has many statuses. An endpoint record belongs to one relation. A relation has an endpoint record for each application endpoint that takes part. A unit in scope (a unit that has entered the relation) belongs to one endpoint record. An endpoint record has many units in scope. Each unit in scope has many unit settings. Each endpoint record has many application settings. When a unit leaves, its settings are copied to archived settings that belong to the relation. The unit, the application endpoint, the life and scope values, the departed units, and the ingress and egress CIDRs are described in the text and are not boxes in the figure.
+:caption: A relation hangs off its endpoints: each endpoint record carries the units that entered it, each unit in scope carries its own settings, and the application settings hang under the endpoint. When a unit leaves, its settings move to the relation's archive. The status hangs off the relation alone.
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Relation is in the middle. Status is below it (1 to 1) and Status value is below Status (m to 1). Archived setting is to its left (m to 1). Endpoint is to its right (m to 1). Unit in scope is to the right of Endpoint (m to 1). Application setting is below Endpoint (m to 1). Unit setting is below Unit in scope (m to 1).
 ```
 
@@ -35,7 +35,7 @@ The relation database schema is the set of records that the {ref}`model database
     - A relation ID appears once in the model.
 
 (the-implicit-juju-info-relation-endpoint)=
-- **Endpoint:** One end of a relation: the application endpoint that takes part. The application endpoint pairs an application with one of the endpoints of its charm, as the {ref}`application <application-endpoint>` page describes. Each endpoint has a role (`provider`, `requirer`, or `peer`), an interface, and a scope of `global` or `container`. Juju gives every charm an endpoint named `juju-info`, with the role `provider`, the interface `juju-info`, and the scope `global`. Juju adds it when the charm declares no endpoint of that name. The endpoints of a relation decide its kind, which is one of:
+- **Endpoint:** One end of a relation: the application endpoint that takes part. The application endpoint pairs an application with one of the endpoints of its charm, as the {ref}`application <application-endpoint>` page describes. Each endpoint has a role (`provider`, `requirer`, or `peer`), an interface, and a scope of `global` or `container`. Juju gives every charm an endpoint named `juju-info`; the {ref}`charm <charm>` page describes it. The endpoints of a relation decide its kind, which is one of:
 
   (regular-relation)=
   - **Regular relations** are the base case: a relation with two endpoints, one `provider` and one `requirer`, with the same interface, on two different applications of the same model. Both applications are principal applications.

@@ -253,7 +253,7 @@ The caller, the rules, and the errors are:
   - A charm with the same reference name and revision already stored is left as it is, whatever its source, and the call succeeds.
   - The charm's name is valid (it starts with a letter and has lowercase letters, digits, and single hyphens), its metadata is present, and its manifest lists at least one base. Every base has the operating system `ubuntu`.
   - The relation names of the charm are unique across the endpoints it provides, requires, and peers. Each endpoint has the role of its group. A name or an interface that Juju reserves (the name `juju` and names that start with `juju-`) is allowed on endpoints that a charm provides or peers on only when the charm's name starts with `juju-`. A charm may require an endpoint with a reserved interface, but not one with a reserved name. The container-scoped endpoints that a subordinate charm requires are the exception.
-  - Juju adds an endpoint named `juju-info`, with the role `provider`, when the charm declares no endpoint of that name.
+  - Juju adds an endpoint named `juju-info`, with the role `provider`, the interface `juju-info`, and the scope `global`, when the charm declares no endpoint of that name.
   - An architecture of a base that Juju does not support is skipped, and Juju logs the skip at info level.
   - The result is the resolved origin.
 - *Errors:* The client receives each with no error code unless stated:

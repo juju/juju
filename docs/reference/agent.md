@@ -1,7 +1,7 @@
 ---
 myst:
   html_meta:
-    description: "Juju agent reference: what an agent is, the machine, controller, unit, and model agents, the workers an agent runs, the engine report, and how an agent logs in, comes, and goes."
+    description: "Juju agent reference: what an agent is, the machine, controller, unit, and model agents, the workers an agent runs, the facades it calls, and how an agent logs in, comes, and goes."
 ---
 
 (agent)=
@@ -41,6 +41,17 @@ The unit agent's `uniter` worker reconciles the unit: it waits for a change in t
 ### Model agent
 
 A **model agent** is the engine that a controller agent runs for one {ref}`model <model>`: the workers that act on the model's records, which the {ref}`controller <controller>` page lists. The `model-worker-manager` worker of the controller agent starts one engine for each model that is active, and stops the engine when the model dies. On a Kubernetes cloud each model also has a **model operator**: a `jujuagentd` process in a pod in the model's Kubernetes namespace, which the controller provisions while the model is active. The model operator logs in with the model's own tag and acts as the model's representative inside the cluster.
+
+(agent-facades)=
+## Agent facades
+
+An agent calls the controller API through facades: named groups of calls, one group per concern, such as `Uniter` or `Machiner`. The controller decides, per facade, which agents it serves, by the tag that the agent logged in with (see {ref}`Agent credentials <agent-credentials>`); the check that names machine agents also serves a controller agent. The facades each kind of agent can call are:
+
+- **Every agent:** `Logger`, `Tracer`, and `ProxyUpdater`. `HostKeyReporter` checks only that the caller owns the machine it names, and `InstanceMutater` checks nothing.
+- **Machine and unit agents:** `Agent`, `MigrationFlag`, `MigrationMinion` with `MigrationStatusWatcher`, and `AgentLifeFlag`, which also serves a model agent and refuses only a login as an application.
+- **Machine agents alone:** `CAASAdmission`, `Deployer`, `DiskManager`, `KeyUpdater`, `Machiner`, `MachineActions`, `Reboot`, and `SSHSession`. `Provisioner` also serves a controller. `StorageProvisioner` serves a machine agent; its volume and filesystem attachment watchers also serve unit and model agents.
+- **Unit agents alone:** `Uniter`, `SecretsDrain`, and `SecretsManager`. A login as an application is served by `CAASApplication`, which also serves unit agents, by `LeadershipService`, `RetryStrategy`, `ResourcesHookContext`, and `PayloadsHookContext`, and, beside machine and unit agents, by `CredentialValidator`.
+- **Model agents:** `CAASAgent` and `Upgrader`, whose check also names machine and unit agents.
 
 (agent-workers)=
 ## Agent workers

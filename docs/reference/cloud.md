@@ -39,10 +39,10 @@ The records, with the rules that apply to each, are:
 - **Cloud type:** The type is one of `kubernetes`, `lxd`, `maas`, `unmanaged`, `azure`, `ec2`, `gce`, `oci`, `openstack`, and `vsphere`. The types fall into two kinds. The kind decides how a model on the cloud runs:
 
   (machine-cloud)=
-  - **Machine clouds** are clouds that provide machine-level infrastructure. They are every type except `kubernetes`. Juju uses the cloud's API to provision or allocate machines (bare metal, virtual machines, or system containers, which are containers that run an operating system, such as LXD containers), plus the networking and storage that those machines need. A model on a machine cloud runs its applications on those machines. See the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
+  - **Machine clouds** are clouds that provide machine-level infrastructure. They are every type except `kubernetes`. Juju uses the cloud's API to provision or allocate machines (bare metal, virtual machines, or system containers, which are containers that run an operating system, such as LXD containers), plus the networking and storage that those machines need. A {ref}`model <model>` on a machine cloud runs its applications on those machines. See the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>`.
 
   (kubernetes-cloud)=
-  - **Kubernetes clouds** are clouds backed by an existing Kubernetes cluster, which is the type `kubernetes`. Juju uses the Kubernetes API to deploy and manage applications in that cluster, and does not provision machine-level infrastructure. A model on a Kubernetes cloud runs its applications in the cluster. See the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
+  - **Kubernetes clouds** are clouds backed by an existing Kubernetes cluster, which is the type `kubernetes`. Juju uses the Kubernetes API to deploy and manage applications in that cluster, and does not provision machine-level infrastructure. A {ref}`model <model>` on a Kubernetes cloud runs its applications in the cluster. See the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
 - **Region:** A part of the cloud, with its own name and, optionally, its own endpoints.
 - **CA certificate:** A certificate of a certificate authority (CA, an organization that vouches for a server's identity) that Juju trusts when it connects to the cloud.
 - **Admitted authentication type:** One of the ways a credential can authenticate against the cloud. The possible values are `access-key`, `instance-role`, `userpass`, `oauth1`, `oauth2`, `jsonfile`, `clientcertificate`, `httpsig`, `interactive`, `empty`, `certificate`, `oauth2withcert`, `service-principal-secret`, `managed-identity`, and `service-account`.
@@ -51,7 +51,7 @@ The records, with the rules that apply to each, are:
 (cloud-change-streams)=
 ## Cloud change streams
 
-Cloud change streams are the notifications that tell the agent of a model on a Kubernetes cloud that the model's cloud spec has changed. The cloud spec is the cloud's definition and region together with the model's credential. The agent follows it through the `WatchCloudSpecsChanges` method of the CAAS agent facade (a group of related API methods) and applies a change without restarting, when the cloud type supports that.
+Cloud change streams are the notifications that tell the agent of a model on a Kubernetes cloud that the model's cloud spec has changed. The cloud spec is the cloud's definition and region together with the model's {ref}`credential <credential>`. The agent follows it through the `WatchCloudSpecsChanges` method of the CAAS agent facade (a group of related API methods) and applies a change without restarting, when the cloud type supports that.
 
 (cloud-calls)=
 ## Cloud calls
@@ -143,8 +143,8 @@ The caller, the rules, and the errors are:
 
 - *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the controller, or with {ref}`administrator access <user-access-cloud-admin>` to the cloud.
 - *Rules:*
-  - A cloud that any model is deployed into, including the controller's own model, cannot be removed.
-  - Removing a cloud also removes its credentials, regions, CA certificates, admitted authentication types, and every user's access to it.
+  - A cloud that any {ref}`model <model>` is deployed into, including the controller's own model, cannot be removed.
+  - Removing a cloud also removes its {ref}`credentials <credential>`, regions, CA certificates, admitted authentication types, and every user's access to it.
 - *Errors:*
   - **`cannot delete cloud "<name>" as it is still referenced by models`**: *Trigger:* Removing a cloud with models. *Remediation:* Remove the models first.
   - **`permission denied`**: *Trigger:* Removing a cloud on which the caller is not an administrator. The client receives it with the code `unauthorized access`. *Remediation:* Ask a cloud administrator or a superuser.

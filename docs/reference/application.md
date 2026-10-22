@@ -23,7 +23,7 @@ The application database schema is the set of records that the {ref}`model datab
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application database schema
-:caption: The model database keeps one record for each application. An application belongs to one charm and to one default space, and a charm and a space each have many applications. An application has at most one status, at most one platform, at most one channel, and at most one agent record. A status takes one of a fixed set of values, and a value has many statuses. The workload version, the controller mark, and the life, operating system, and architecture values are described in the text. The charm and the space are described on their own pages, and the figure shows them only for context.
+:caption: An application sits in the middle of its own records: one status (with the value it names), one platform, one channel, and one agent record. It points at two records that other pages own: the charm it runs and its default space.
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the middle. Status is above it (1 to 1), and Status value is above Status (m to 1). Charm is to the left of Application (m to 1), and Space is to its right (m to 1). Charm and Space also have a link mark for records that other pages own. Platform is below Application (1 to 1), Channel is below and to the left (1 to 1), and Agent is below and to the right (1 to 1).
 ```
 
@@ -72,7 +72,7 @@ The records of the application itself, with the rules that apply to each, are:
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application configuration database schema
-:caption: The model database keeps the configuration of an application as one config item for each key, and an application has many config items. A config item has one type, and a type has many config items. An application has at most one config hash, at most one setting record, and at most one application constraint. An application constraint refers to at most one constraint, and a constraint can belong to many application constraints. An application has many device constraints, and a device constraint has many attributes. The constraint is described on its own page, and the figure shows it only for context.
+:caption: Configuration comes as one item per key, each item carrying its type, with the hash of the items and the trust setting standing beside the application. The constraints stand on the other side: the application constraint names a constraint that another page owns, and each device constraint carries its own attributes.
 :alt: Nine boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the middle. Config item is to its left (m to 1), and Config type is to the left of Config item (m to 1). Config hash is above Application (1 to 1), and Setting is below it (1 to 1). Application constraint is to the right of Application (1 to 1), and Constraint is to the right of Application constraint (m to at most 1, with a dashed line). Device constraint is above Application constraint (m to 1), and Device attribute is to the right of Device constraint (m to 1).
 ```
 
@@ -110,7 +110,7 @@ The records of the configuration and the constraints, with the rules that apply 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application endpoint database schema
-:caption: The model database keeps one endpoint record for each endpoint of the application's charm, and an application has many endpoints. An endpoint refers to one relation that the charm declares, and a charm's relation has many endpoints. An endpoint refers to at most one space, and a space has many endpoints. An application also has many extra bindings. An extra binding refers to one charm extra binding and to at most one space. The application itself refers to one default space. The relation, the charm extra binding, and the space are described on their own pages, and the figure shows them only for context.
+:caption: An endpoint record pairs the application with one relation that its charm declares and with an optional space; an extra binding pairs one of the charm's extra bindings with a space. The application itself carries the default space. The relation, the charm extra binding, and the space are records that other pages own.
 :alt: Six boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is on the left. Space is to its right (Application to Space m to 1). Endpoint is above Space and joins Application (m to 1) and Space (m to at most 1, with a dashed line). Extra binding is below Space and joins Application (m to 1) and Space (m to at most 1, with a dashed line). Relation is to the right of Endpoint (m to 1), and Charm extra binding is to the right of Extra binding (m to 1). Space, Relation, and Charm extra binding also have a link mark for records that other pages own.
 ```
 
@@ -129,7 +129,7 @@ The records of the endpoints and bindings, with the rules that apply to each, ar
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application exposure database schema
-:caption: The model database keeps exposure as two kinds of record. An application has many exposed spaces and many exposed CIDRs. Each refers to at most one endpoint, and an endpoint has many of each. An exposed space also refers to one space, which the figure leaves out. An exposed CIDR holds a network range as text and refers to nothing else. An exposed record with no endpoint stands for every endpoint of the application.
+:caption: Exposure comes as two kinds of record — a space, and a network range as text — each of which can name one endpoint. A record with no endpoint stands for every endpoint of the application.
 :alt: Four boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is on the left, and Endpoint is to its right (m to 1). Exposed space is above Endpoint, and Exposed CIDR is below it. Each of them joins Application (m to 1) and joins Endpoint (m to at most 1, with a dashed line).
 ```
 
@@ -151,7 +151,7 @@ An application is exposed when it has at least one exposed space or exposed CIDR
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application scale database schema
-:caption: The model database keeps provisioning records for the applications of a Kubernetes model. An application has at most one scale record, at most one provisioner mark, and at most one operator status. A Kubernetes service record belongs to one application and to one network node. The network node is described on its own page, and the figure shows it only for context.
+:caption: A Kubernetes model adds provisioning records: the scale, a provisioner mark, and an operator status stand beside the application, and a Kubernetes service record names the network node that holds the service's addresses.
 :alt: Six boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is in the middle. Scale is above it (1 to 1), and Provisioner mark is below it (1 to 1). Operator status is to its left (1 to 1). Kubernetes service is to its right (m to 1), and Network node is to the right of Kubernetes service (m to 1). Network node also has a link mark for records that another page owns.
 ```
 
@@ -217,9 +217,9 @@ The caller, the rules, and the errors are:
   - The name of an application appears once in the model.
   - The controller charm cannot be deployed by hand.
   - A request that names a charm refuses a Kubernetes charm (a charm that declares containers) on a machine model. It accepts a charm that declares no container on a Kubernetes model and warns that the charm has no workload to run there. A subordinate charm gets no warning.
-  - A request creates the number of units that it asks for, each with its own machine on a machine model. A subordinate charm is deployed with no units and no constraints. Its units are created later, when a relation joins the subordinate application to a principal application (see {ref}`subordinate relations <subordinate-relation>`).
+  - A request creates the number of units that it asks for, each with its own {ref}`machine <machine>` on a machine model. A subordinate charm is deployed with no units and no constraints. Its units are created later, when a relation joins the subordinate application to a principal application (see {ref}`subordinate relations <subordinate-relation>`).
   - A charm whose `assumes` expressions the model does not meet is refused unless the request is forced.
-  - The request can name existing storage to attach to the application's first unit. It then must ask for exactly one unit.
+  - The request can name existing storage to attach to the application's first unit. It then must ask for exactly one unit (see {ref}`adding units <unit-adding>`).
   - On a Kubernetes model a charm in the first metadata format, a charm that needs block storage, more than one placement directive, and attaching existing storage are all refused.
   - A new application has the life alive, the status `unset`, the platform and channel that the controller resolved, and a default space that is the model's `default-space` setting or else the alpha space. A binding with an empty endpoint name changes the default space.
   - An application gets one endpoint record for each endpoint of its charm, one extra binding for each extra binding, and one peer relation for each peer endpoint (see {ref}`peer relation <peer-relation>`).
@@ -257,7 +257,7 @@ The caller, the rules, and the errors are:
   - A subordinate application has no constraints in the answer.
   - The answer of the configuration call (`Get`) has the merged charm configuration (each option with its type, description, default, and current value), the application's `trust` setting, its constraints, its base, and its channel. The calls `CharmConfig` and `GetConfig` return the merged configuration alone.
   - The charm of an application is returned as its URL and its origin: source, ID, hash, revision, architecture, base, and channel.
-  - The leader is the name of the unit that holds the leadership of the application.
+  - The leader is the name of the {ref}`unit that holds the application's lease <leader-unit>`.
   - The endpoint names of an application are the endpoints of its charm.
 - *Errors:* The client receives each in the result for the application, except the last:
   - **`application "<name>" not found`** or **`application <name> not found`** (code `not found`): *Trigger:* The model has no application with the name. *Remediation:* Use the name of an existing application.
@@ -303,7 +303,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Manage applications <manage-applications>` > {ref}`Scale an application <scale-an-application>`
 ```
 
-Scaling applications changes the number of units of an application. On a Kubernetes model a client sets the scale of the application. The provisioner then adds or removes pods. On a machine model a client adds units. Each unit gets a machine. Removing a single unit is described on the {ref}`unit <unit>` page.
+Scaling applications changes the number of units of an application. On a Kubernetes model a client sets the scale of the application. The provisioner then adds or removes pods. On a machine model a client {ref}`adds units <unit-adding>`. Each unit gets a {ref}`machine <machine>`. Removing a single unit is described on the {ref}`unit <unit>` page.
 
 The caller, the rules, and the errors are:
 
@@ -315,7 +315,7 @@ The caller, the rules, and the errors are:
   - The answer gives the new scale. The provisioner then moves the pods to the stored scale.
   - A request on a Kubernetes model cannot attach existing storage.
   - A request on a machine model gives the number of units to add and can give a placement directive and existing storage for each unit. The number is at least one.
-  - Existing storage can be attached only when one unit is added.
+  - Existing storage can be attached only when {ref}`one unit is added <unit-adding>`.
   - A machine model refuses to set the scale. A Kubernetes model refuses to add units.
 - *Errors:* The client receives each in the result for the application, except the first two and the last:
   - **`scaling applications on a non-container model not supported`** (code `not supported`): *Trigger:* The model runs on a machine cloud. *Remediation:* Add units.
@@ -451,11 +451,11 @@ The caller, the rules, and the errors are:
 - *Rules:*
   - The controller application cannot be removed.
   - A dry run changes nothing. It returns the units that the removal would destroy, and on a machine model the storage that it would destroy and the storage that it would detach.
-  - The application, its relations, and its units become dying at once. Storage becomes dying too when the request destroys storage. A machine becomes dying when it held only the units that are being removed. The removal of each of them is scheduled.
+  - The application, its relations, and its units become dying at once. Storage becomes dying too when the request destroys storage. A machine becomes dying when it held only the units that are being removed (see {ref}`removing machines <machine-removing>`). The removal of each of them is scheduled.
   - A removal that is not forced makes the application dead when it has no unit and no relation left, and deletes it on a later pass. On a Kubernetes model it also waits until the provisioner has deleted the Kubernetes resources and cleared its mark.
   - A forced removal does not wait for those conditions. The time to wait applies only to a forced removal. With a wait, Juju first tries the removal that is not forced, and forces it when the time has passed.
   - Deleting the application deletes its config items, config hash, setting, constraint, device constraints, endpoints, extra bindings, exposure, platform, channel, status, operator status, agent, workload version, scale, provisioner mark, and Kubernetes service with its network node, the secrets that the application owns, and the offers of the application.
-  - The charm is deleted afterward when no other application or unit uses it.
+  - The charm is deleted afterward when no other application or unit uses it (see {ref}`charm <charm>`).
 - *Errors:* The client receives each in the result for the application, except the last:
   - **`application "<name>" not found`** (code `not found`): *Trigger:* The model has no such application. *Remediation:* Use the name of an existing application.
   - **`removing the controller application not supported`** (code `not supported`): *Trigger:* The charm of the application is the controller charm. *Remediation:* Destroy the controller instead.
