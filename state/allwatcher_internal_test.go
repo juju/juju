@@ -952,6 +952,57 @@ func (s *allWatcherStateSuite) TestChangeActions(c *gc.C) {
 	s.performChangeTestCases(c, changeTestFuncs)
 }
 
+func (s *allWatcherStateSuite) TestActionPayloadExcluded(c *gc.C) {
+	app := AddTestingApplication(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
+	unit, err := app.AddUnit(AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	model, err := s.state.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	operationID, err := model.EnqueueOperation("a test", 1)
+	c.Assert(err, jc.ErrorIsNil)
+	parameters := map[string]interface{}{"input": "action input"}
+	results := map[string]interface{}{"output": "action output"}
+	action, err := model.EnqueueAction(operationID, unit.Tag(), "vacuumdb", parameters, true, "group", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	action, err = action.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(action.Log("progress"), jc.ErrorIsNil)
+	action, err = action.Finish(ActionResults{
+		Status: ActionCompleted, Results: results, Message: "finished",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	want := makeActionInfo(action, s.state)
+	b, err := NewAllWatcherBacking(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	change := watcher.Change{C: actionsC, Id: s.state.docID(action.Id())}
+
+	// Both the initial snapshot and subsequent changes omit action payloads.
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
+	c.Assert(b.GetAll(all), jc.ErrorIsNil)
+	c.Check(all.Get(want.EntityID()), jc.DeepEquals, &want)
+	changed := multiwatcher.NewStore(loggo.GetLogger("test"))
+	c.Assert(b.Changed(changed, change), jc.ErrorIsNil)
+	c.Check(changed.Get(want.EntityID()), jc.DeepEquals, &want)
+
+	// Action result queries still return the full persisted payload.
+	action, err = model.Action(action.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(action.Parameters(), jc.DeepEquals, parameters)
+	gotResults, message := action.Results()
+	c.Check(gotResults, jc.DeepEquals, results)
+	c.Check(message, gc.Equals, "finished")
+	c.Assert(action.Messages(), gc.HasLen, 1)
+	c.Check(action.Messages()[0].MessageValue, gc.Equals, "progress")
+
+	// Removing the document still removes its watcher entry.
+	coll, closer, err := s.state.db().GetCollection(actionsC)
+	c.Assert(err, jc.ErrorIsNil)
+	defer closer()
+	c.Assert(coll.Writeable().RemoveId(action.Id()), jc.ErrorIsNil)
+	c.Assert(b.Changed(changed, change), jc.ErrorIsNil)
+	c.Check(changed.Get(want.EntityID()), gc.IsNil)
+}
+
 func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
@@ -3704,18 +3755,16 @@ func (s entityInfoSlice) Less(i, j int) bool {
 }
 
 func makeActionInfo(a Action, st *State) multiwatcher.ActionInfo {
-	results, message := a.Results()
+	_, message := a.Results()
 	return multiwatcher.ActionInfo{
 		ModelUUID:      st.ModelUUID(),
 		ID:             a.Id(),
 		Receiver:       a.Receiver(),
 		Name:           a.Name(),
-		Parameters:     a.Parameters(),
 		Parallel:       a.Parallel(),
 		ExecutionGroup: a.ExecutionGroup(),
 		Status:         string(a.Status()),
 		Message:        message,
-		Results:        results,
 		Enqueued:       a.Enqueued(),
 		Started:        a.Started(),
 		Completed:      a.Completed(),

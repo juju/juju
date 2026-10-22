@@ -1772,7 +1772,12 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 	}
 	defer closer()
 
-	err = col.FindId(id).One(doc)
+	query := col.FindId(id)
+	if c.name == actionsC {
+		// Action payloads are fetched separately by the action API.
+		query = query.Select(bson.M{"parameters": 0, "results": 0, "messages": 0})
+	}
+	err = query.One(doc)
 	if err == mgo.ErrNotFound {
 		err := doc.removed(ctx)
 		return errors.Trace(err)
@@ -1866,6 +1871,10 @@ func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string,
 		filter = bson.M{"_id": modelUUID}
 	}
 	query := col.Find(filter)
+	if name == actionsC {
+		// Match Changed: the allwatcher does not need action payloads.
+		query = query.Select(bson.M{"parameters": 0, "results": 0, "messages": 0})
+	}
 	// Units are ordered so we load the subordinates first.
 	if name == unitsC {
 		// Subordinates have a principal, so will sort after the
