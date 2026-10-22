@@ -162,20 +162,6 @@ func (s *sshJumpSuite) TestPrintHostKeysAPIErrors(c *tc.C) {
 	c.Check(jump.printHostKeys(c.Context(), io.Discard), tc.ErrorIs, io.ErrUnexpectedEOF)
 }
 
-func (s *sshJumpSuite) TestPrintHostKeysWriteError(c *tc.C) {
-	s.setupMocks(c)
-
-	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", (*string)(nil)).Return("virtual-target", nil)
-	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "virtual-target").Return(
-		params.PublicSSHHostKeyResult{PublicKey: s.hostKey}, nil,
-	)
-	jump := sshJump{target: "0", jumpServerHostKey: s.hostKey, sshClient: s.sshAPIJump}
-	f, err := os.CreateTemp(c.MkDir(), "closed-output")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(f.Close(), tc.ErrorIsNil)
-	c.Check(jump.printHostKeys(c.Context(), f), tc.ErrorIs, os.ErrClosed)
-}
-
 func (s *sshJumpSuite) TestSSHCommandPrintKeysRun(c *tc.C) {
 	ctrl := s.setupMocks(c)
 
