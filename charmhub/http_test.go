@@ -6,11 +6,17 @@ package charmhub
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/errors"
@@ -26,6 +32,42 @@ type APIRequesterSuite struct {
 }
 
 var _ = gc.Suite(&APIRequesterSuite{})
+
+func (s *APIRequesterSuite) TestIsTimeout(c *gc.C) {
+	for _, test := range []struct {
+		name    string
+		err     error
+		timeout bool
+	}{
+		{name: "nil"},
+		{name: "ordinary error", err: errors.New("boom")},
+		{name: "context canceled", err: context.Canceled},
+		{name: "context deadline exceeded", err: context.DeadlineExceeded},
+		{
+			name: "wrapped context canceled",
+			err:  errors.Trace(&url.Error{Err: errors.Trace(context.Canceled)}),
+		},
+		{
+			name: "wrapped context deadline exceeded",
+			err:  errors.Trace(&url.Error{Err: errors.Trace(context.DeadlineExceeded)}),
+		},
+		{name: "non-timeout", err: &net.DNSError{}},
+		{name: "timeout", err: &net.DNSError{IsTimeout: true}, timeout: true},
+		{
+			name: "HTTP wrapper masks underlying timeout",
+			err: errors.Trace(&url.Error{
+				Op: "Post", URL: "https://api.charmhub.io", Err: errors.Trace(&net.DNSError{IsTimeout: true}),
+			}),
+			timeout: true,
+		},
+		{
+			name: "wrapped non-timeout",
+			err:  &url.Error{Err: errors.Trace(&net.DNSError{})},
+		},
+	} {
+		c.Check(isTimeout(test.err), gc.Equals, test.timeout, gc.Commentf("%s", test.name))
+	}
+}
 
 func (s *APIRequesterSuite) TestDo(c *gc.C) {
 	ctrl := gomock.NewController(c)
@@ -151,6 +193,89 @@ func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
 	elapsed := time.Since(start)
 	c.Assert(elapsed >= (1+2+4)*time.Microsecond, gc.Equals, true)
+}
+
+func (s *APIRequesterSuite) TestDoRetryNetworkTimeout(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	req := MustNewRequest(c, "https://api.foo.bar")
+	timeoutErr := &url.Error{
+		Op:  "Get",
+		URL: req.URL.String(),
+		Err: errors.Trace(&net.DNSError{IsTimeout: true}),
+	}
+	mockHTTPClient := NewMockHTTPClient(ctrl)
+	mockHTTPClient.EXPECT().Do(req).Return(nil, timeoutErr).Times(2)
+
+	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester.retryDelay = time.Microsecond
+	_, err := requester.Do(req) //nolint:bodyclose
+	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: .*`)
+}
+
+func (s *APIRequesterSuite) TestDoDoesNotRetryPermanentErrors(c *gc.C) {
+	for _, cause := range []error{
+		context.Canceled,
+		context.DeadlineExceeded,
+		x509.UnknownAuthorityError{},
+	} {
+		ctrl := gomock.NewController(c)
+		req := MustNewRequest(c, "https://api.foo.bar")
+		wrappedErr := &url.Error{Op: "Get", URL: req.URL.String(), Err: cause}
+		mockHTTPClient := NewMockHTTPClient(ctrl)
+		mockHTTPClient.EXPECT().Do(req).Return(nil, wrappedErr)
+
+		requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+		requester.retryDelay = time.Microsecond
+		_, err := requester.Do(req) //nolint:bodyclose
+		c.Check(err, jc.ErrorIs, cause)
+		ctrl.Finish()
+	}
+}
+
+func (s *APIRequesterSuite) TestDoRetryTLSHandshakeTimeout(c *gc.C) {
+	releaseHandshake := make(chan struct{})
+	var handshakes int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", jsonContentType)
+		_, _ = io.Copy(w, req.Body)
+	}))
+	server.TLS = &tls.Config{
+		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			// this simulates a TLS handshake timeout on the first attempt
+			if atomic.AddInt32(&handshakes, 1) == 1 {
+				<-releaseHandshake
+			}
+			return nil, nil
+		},
+	}
+	server.StartTLS()
+	defer server.Close()
+	defer close(releaseHandshake)
+
+	httpClient := jujuhttp.NewClient(
+		jujuhttp.WithCACertificates(string(pem.EncodeToMemory(&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: server.Certificate().Raw,
+		}))),
+		jujuhttp.WithTLSHandshakeTimeout(time.Second),
+		jujuhttp.WithRequestRetrier(defaultRetryPolicy()),
+	)
+	defer httpClient.HTTPClient.(*http.Client).CloseIdleConnections()
+	requester := newAPIRequester(httpClient, &FakeLogger{})
+	requester.retryDelay = time.Microsecond
+
+	body := `{"actions":[],"context":[]}`
+	req, err := http.NewRequest("POST", server.URL+"/v2/charms/refresh", strings.NewReader(body))
+	c.Assert(err, jc.ErrorIsNil)
+	resp, err := requester.Do(req)
+	c.Assert(err, jc.ErrorIsNil)
+	defer resp.Body.Close()
+	responseBody, err := io.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(responseBody), gc.Equals, body)
+	c.Check(atomic.LoadInt32(&handshakes), gc.Equals, int32(2))
 }
 
 func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
