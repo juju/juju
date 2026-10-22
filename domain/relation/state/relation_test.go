@@ -361,6 +361,70 @@ func (s *addRelationSuite) TestAddRelationErrorNotAliveSecond(c *tc.C) {
 		errors.ErrorStack(err)))
 }
 
+func (s *addRelationSuite) TestAddRelationErrorDyingRemoteApplicationOfferer(c *tc.C) {
+	remoteRelation := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	localRelation := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	remoteAppUUID := s.addRemoteApplication(c, "remote-app")
+	localAppUUID := s.addApplication(c, "local-app")
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID, remoteRelation)
+	s.addApplicationEndpointFromRelation(c, localAppUUID, localRelation)
+	s.addRemoteApplicationOfferer(c, remoteAppUUID, life.Dying)
+
+	_, _, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "local-app",
+		EndpointName:    "req",
+	})
+
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	var count int
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM relation").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *addRelationSuite) TestAddRelationErrorDyingSecondRemoteApplicationOfferer(c *tc.C) {
+	localRelation := charm.Relation{
+		Name:  "prov",
+		Role:  charm.RoleProvider,
+		Scope: charm.ScopeGlobal,
+	}
+	remoteRelation := charm.Relation{
+		Name:  "req",
+		Role:  charm.RoleRequirer,
+		Scope: charm.ScopeGlobal,
+	}
+	localAppUUID := s.addApplication(c, "local-app")
+	remoteAppUUID := s.addRemoteApplication(c, "remote-app")
+	s.addApplicationEndpointFromRelation(c, localAppUUID, localRelation)
+	s.addApplicationEndpointFromRelation(c, remoteAppUUID, remoteRelation)
+	s.addRemoteApplicationOfferer(c, remoteAppUUID, life.Dying)
+
+	_, _, err := s.state.AddRelation(c.Context(), domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "local-app",
+		EndpointName:    "prov",
+	}, domainrelation.CandidateEndpointIdentifier{
+		ApplicationName: "remote-app",
+		EndpointName:    "req",
+	})
+
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotAlive)
+	var count int
+	err = s.DB().QueryRow("SELECT COUNT(*) FROM relation").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *addRelationSuite) TestAddRelationErrorProviderCapacityExceeded(c *tc.C) {
 	// Arrange
 	relProvider := charm.Relation{
@@ -573,6 +637,7 @@ func (s *addRelationSuite) TestAddRelationFirstEndpointRemoteSucceeds(c *tc.C) {
 	// Add a remote application and a local application
 	remoteAppUUID := s.addRemoteApplication(c, "remote-app")
 	localAppUUID := s.addApplication(c, "local-app")
+	s.addRemoteApplicationOfferer(c, remoteAppUUID, life.Alive)
 
 	s.addApplicationEndpointFromRelation(c, remoteAppUUID, relProvider)
 	s.addApplicationEndpointFromRelation(c, localAppUUID, relRequirer)
@@ -931,6 +996,21 @@ VALUES (?, ?, NULL, 2)
 	appUUID := s.baseRelationSuite.addApplication(c, charmUUID, applicationName)
 	s.charmByApp[appUUID] = charmUUID
 	return appUUID
+}
+
+func (s *addRelationSuite) addRemoteApplicationOfferer(
+	c *tc.C,
+	appUUID coreapplication.UUID,
+	appLife life.Life,
+) {
+	s.query(c, `
+INSERT INTO application_remote_offerer (
+    uuid, life_id, application_uuid, offer_uuid, offer_url,
+    offerer_model_uuid, macaroon
+) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		uuid.MustNewUUID().String(), appLife, appUUID.String(),
+		uuid.MustNewUUID().String(), "controller:admin/model.offer",
+		uuid.MustNewUUID().String(), "macaroon")
 }
 
 // addApplicationPlatform inserts a new application platform into the database

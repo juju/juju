@@ -243,6 +243,29 @@ type CascadedRelationWithRemoteConsumerLives struct {
 	SyntheticRelationUnitUUIDs []string
 }
 
+// RelationKind identifies the removal path that a relation must be routed
+// to. Ordinary relations are removed by the plain relation removal job.
+// Cross-model relations are removed by the remote offerer or the remote
+// consumer removal paths, which also delete the CMR-specific children of
+// the relation.
+type RelationKind uint8
+
+const (
+	// RelationKindOrdinary indicates a relation between two applications
+	// in the local model, removed by the plain relation removal job.
+	RelationKindOrdinary RelationKind = iota
+
+	// RelationKindWithRemoteOfferer indicates a relation with an
+	// application offered by a remote model, removed by the remote
+	// offerer removal path.
+	RelationKindWithRemoteOfferer
+
+	// RelationKindWithRemoteConsumer indicates a relation with an
+	// application consumed by a remote model, removed by the remote
+	// consumer removal path.
+	RelationKindWithRemoteConsumer
+)
+
 // StorageAttachmentDetachInfo contains the information required to establish
 // if a storage attachment in the model can be detached.
 type StorageAttachmentDetachInfo struct {

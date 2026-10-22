@@ -162,6 +162,49 @@ func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusInvalidSt
 	c.Assert(err, tc.ErrorMatches, `unknown status.*`)
 }
 
+func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusByApplicationUUID(c *tc.C) {
+	appUUID, remoteAppUUID := s.createIAASRemoteApplicationOfferer(c, "foo")
+
+	now := time.Now().UTC()
+	expected := status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte("data"),
+		Since:   new(now),
+	}
+
+	name, err := s.state.SetRemoteApplicationOffererStatusByApplicationUUID(c.Context(), appUUID.String(), expected)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(name, tc.Equals, "foo")
+
+	status, err := s.state.GetRemoteApplicationOffererStatus(c.Context(), remoteAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(status.Status, tc.Equals, expected.Status)
+	c.Check(status.Message, tc.Equals, expected.Message)
+	c.Check(status.Data, tc.DeepEquals, expected.Data)
+	c.Check(status.Since, tc.DeepEquals, expected.Since)
+}
+
+func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusByApplicationUUIDNotFound(c *tc.C) {
+	_, err := s.state.SetRemoteApplicationOffererStatusByApplicationUUID(c.Context(), "missing-uuid", status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusActive,
+	})
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
+func (s *crossModelRelationSuite) TestSetRemoteApplicationOffererStatusByApplicationUUIDNotRemote(c *tc.C) {
+	// A local application has no remote application offerer; a status write
+	// targeted at its UUID must be refused rather than resolved against an
+	// unrelated remote application.
+	appUUID, _ := s.createIAASApplication(c, "foo", life.Alive, s.workloadStatus(time.Now()))
+	s.createIAASRemoteApplicationOfferer(c, "bar")
+
+	_, err := s.state.SetRemoteApplicationOffererStatusByApplicationUUID(c.Context(), appUUID.String(), status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusActive,
+	})
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
 func (s *crossModelRelationSuite) TestGetRemoteApplicationOffererStatusNotFound(c *tc.C) {
 	_, err := s.state.GetRemoteApplicationOffererStatus(c.Context(), "missing-uuid")
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
