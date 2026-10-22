@@ -3765,8 +3765,13 @@ func (w *notifyCollWatcher) loop() error {
 // the lifecycles of the remote relations in the model.
 func (st *State) WatchRemoteRelations() StringsWatcher {
 	// Use a no-op transform func to record the known ids.
+	// The filter func is called from the hub watcher's goroutine as well as
+	// the watcher's own goroutine, so the known ids are protected by a mutex.
+	var knownMu sync.Mutex
 	known := make(map[interface{}]bool)
 	tr := func(id string) string {
+		knownMu.Lock()
+		defer knownMu.Unlock()
 		known[id] = true
 		return id
 	}
@@ -3818,6 +3823,8 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		// The relation (or remote app) may have been deleted, but if it has been
 		// seen previously, return true.
 		if num == 0 {
+			knownMu.Lock()
+			defer knownMu.Unlock()
 			_, seen := known[id]
 			delete(known, id)
 			return seen
