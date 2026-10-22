@@ -24,7 +24,7 @@ A credential can be held by a {ref}`client <client>`, by a controller, or by bot
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Credential database schema
-:caption: The controller database keeps one record for each credential. A credential belongs to one user and one cloud (a user and a cloud each have many credentials), has one authentication type (a type has many credentials), and has many attributes (an attribute belongs to one credential). A model uses at most one credential, and a credential can serve many models. The user, cloud, and model are described on their own pages and the figure shows them only for context: all boxes are records, and the three with a second, outlined arrow mark in the corner are the records that other pages describe.
+:caption: A credential joins one user to one cloud: the authentication type and the attributes are how it authenticates. A model uses at most one credential, so all of a model's cloud calls ride on one choice. The user, the cloud, and the model are other pages' records, shown for context.
 :alt: Six boxes of the same size inside a group named Controller database, each with a filled table mark in the corner. Credential is in the middle. User is above it (1 to m), Cloud is to its left (1 to m), Authentication type is below it (m to 1), and Credential attribute is to its right (1 to m). Model is below and to the right of Credential, joined through a dashed line (a model's credential is optional; 1 to m). User, Cloud, and Model have an outlined arrow mark for records that other pages describe.
 ```
 

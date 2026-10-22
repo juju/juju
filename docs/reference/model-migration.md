@@ -19,7 +19,7 @@ A **model migration** is the move of a {ref}`model <model>` from one {ref}`contr
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Model migration database schema
-:caption: The source controller keeps one export record for each attempt to move a model, with the current phase (a phase is the current phase of many exports), the target controller, the phase history (each phase entered once per export), the last status message, one report per machine or unit agent for each phase, the offers to keep for the cleanup, and the user and credentials for reaching the target. The external controller is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
+:caption: An export is one attempt to move a model: read the current phase first, then the history of phases entered, then the per-agent reports for each phase. The offers and the target authorizations are what the move needs. The external controller is another page's record, shown for context.
 :alt: Eight boxes of the same size inside a group named Source controller database, each with a filled table mark in the corner. Export is in the middle. Migration phase is above Export (m to 1) and Export phase is to the right of Migration phase, joined to Export (m to 1) and to Migration phase (m to 1). External controller is to the left of Export (m to 1), with Target authorization below it (1 to 1). Status message is to the right of Export (1 to 1), with Exported offer below it (m to 1). Minion report is below Export, joined to Export (m to 1) and to Migration phase (m to 1). External controller has an outlined arrow mark for the record that another page describes.
 ```
 

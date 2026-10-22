@@ -19,7 +19,7 @@ A **controller upgrade** is the move of all the nodes of a {ref}`controller <con
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Controller upgrade database schema
-:caption: The controller database keeps one record for each upgrade, with the state of the move, and one row for each controller node that takes part. An upgrade has one state (a state is held by many upgrades), and many node rows; a node row belongs to one upgrade and to one controller node, and a controller node has one row per upgrade. The controller node is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
+:caption: One upgrade moves the whole controller: read the state first, then one row per node that takes part. The upgrade advances through its states by every node's row; the allowed moves are in the Upgrade state figure. The controller node is another page's record, shown for context.
 :alt: Four boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Upgrade state is on the left, Upgrade is next to it (m to 1), then Controller node's upgrade (1 to m), and Controller node is on the right (m to 1). Controller node has an outlined arrow mark for a record that another page describes.
 ```
 

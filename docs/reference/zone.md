@@ -19,7 +19,7 @@ An **availability zone** is a named failure domain of a {ref}`cloud <cloud>`, su
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Zone database schema
-:caption: The model database keeps one record for each availability zone, and one link record for each pair of a zone and a subnet that is available in it. A zone has many links and a subnet has many links, so a zone holds many subnets and a subnet is available in many zones. The subnet is described on its own page and the figure shows it only for context. A box with a second, outlined arrow mark in the corner is a record that another page describes.
+:caption: One link row per pair: a subnet is available in many zones and a zone holds many subnets, because neither owns the other. The zone record itself is only a name, the cloud's failure domain. The subnet is another page's record, shown for context.
 :alt: Three boxes of the same size in a row inside a group named Model database, each with a filled table mark in the corner. Availability zone is on the left, Subnet's zone is in the middle (1 to m), and Subnet is on the right (m to 1), with an outlined arrow mark for a record that another page describes.
 ```
 

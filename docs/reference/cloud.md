@@ -25,7 +25,7 @@ A **cloud** (also called a **substrate**) is anything with an API that can give 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Cloud database schema
-:caption: The controller keeps one record for each cloud it knows. The record holds the cloud's name, which is unique, and the endpoints Juju talks to, and it names one cloud type from a fixed list. A cloud has many regions, many CA certificates, and many admitted authentication types, each as its own small record. Models and credentials point at a cloud: a cloud has many models deployed into it, and many credentials that authenticate against it. The model and the credential have their own pages, and the figure shows them only for context.
+:caption: Read the cloud record first: its type decides how a model on the cloud runs, a machine cloud or Kubernetes, and models and credentials point at it. Regions, CA certificates, and admitted authentication types are lists that belong to the cloud alone. The model and the credential are other pages' records, shown for context.
 :alt: Seven boxes of the same size, each with a filled table mark in the corner, and two of them (model and credential) also with an outlined arrow mark for records that other pages describe. Cloud is in the middle. Above it, a cloud type has many clouds. To its left, a cloud has many regions. To its right, a cloud has many models. Below it, a cloud has many CA certificates, many admitted authentication types, and many credentials.
 ```
 

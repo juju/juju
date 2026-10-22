@@ -19,7 +19,7 @@ An **external controller** is a {ref}`controller <controller>` that this control
 ```{ggarch}
 :file: ../juju.ggarch
 :view: External controller database schema
-:caption: The controller database keeps one record for each external controller, one address record for each of the API servers of that controller, and one model record for each model on it that a model of this controller uses. An external controller has many addresses and many models, and an address and a model each belong to one external controller.
+:caption: One record per external controller, one address per API server, one row per model on it that this controller's models use. The addresses say how to reach it; the model rows say which of its models are in use here.
 :alt: Three boxes of the same size inside a group named Controller database, each with a filled table mark in the corner. External controller is on the left, External controller address is to its right (1 to m), and External model is below the address (1 to m).
 ```
 

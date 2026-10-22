@@ -15,7 +15,7 @@ A **lease** is a time-limited claim on one named thing, which the holder keeps b
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Lease database schema
-:caption: The controller database keeps one lease record for each claimed thing: its type, the model it belongs to, its name, its holder, when the holder took it, and when it expires. A lease belongs to one lease type (a type is held by many leases), and a lease has many pins (a pin belongs to one lease). A pin names an entity that needs the lease not to expire.
+:caption: Read the type and the name first: they say what is claimed. The holder and the expiry say by whom and until when, and the pins name every entity that needs the claim not to expire.
 :alt: Three boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Lease type is on the left, Lease is in the middle (1 to m), and Lease pin is on the right (1 to m).
 ```
 

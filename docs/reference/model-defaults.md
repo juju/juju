@@ -19,7 +19,7 @@ A **model default** is the value of a {ref}`model configuration <model-configura
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Model defaults database schema
-:caption: The controller database keeps one default record for each key of a cloud, and one for each key of one of its regions. A cloud has many defaults, and a default belongs to one cloud. A cloud has many regions, and a region belongs to one cloud; a region has many defaults, and a default belongs to one region. The cloud and the region are described on their own pages and the figure shows them only for context: all boxes are records, and the two with a second, outlined arrow mark in the corner are the records that other pages describe.
+:caption: A default is one key at one scope: the cloud's, or one of its regions'. The same key can appear at both scopes, so a cloud row and a region row are two answers to one question, kept apart. The cloud and the region are other pages' records, shown for context.
 :alt: Four boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Cloud default is on the left, Cloud is next to it (m to 1), then Region (1 to m), and Region default is on the right (m to 1). Cloud and Region have an outlined arrow mark for records that other pages describe.
 ```
 

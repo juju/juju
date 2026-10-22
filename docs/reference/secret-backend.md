@@ -19,7 +19,7 @@ A **secret backend** is a service that stores the content of {ref}`secrets <secr
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Secret backend database schema
-:caption: The controller database keeps one record for each secret backend. A backend has one backend type (a type has many backends), many settings (a setting belongs to one backend), and at most one token rotation record (a rotation belongs to one backend). A model has at most one model backend record, which names the backend the model uses (a backend can serve many models), and the database keeps one secret reference for each secret revision of a model that a backend holds (a backend and a model each have many references). The model is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
+:caption: A backend is where a model's secrets live: the model names one backend, and each revision it holds keeps its own reference to it. The settings and the token rotation are the backend's own configuration. The model is another page's record, shown for context.
 :alt: Seven boxes of the same size, each with a filled table mark in the corner. Six are inside a group named Controller database, and Model is outside it with an outlined arrow mark for a record that another page describes. Secret backend is in the middle. Backend type is to its right (m to 1), Backend setting is below it (1 to m), Token rotation is below and to the left (1 to at most 1), Secret reference is above it (1 to m), and Model backend is to its left (m to 1). Model is to the left of Model backend (1 to at most 1) and also points at Secret reference through a line above (1 to m).
 ```
 

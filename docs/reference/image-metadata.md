@@ -20,7 +20,7 @@ See also: {ref}`Juju | Manage metadata <manage-metadata>`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Image metadata database schema
-:caption: The controller database keeps one record for each cached image: the image ID for one combination of a source, a stream, a region, an operating system version, an architecture, a virtualisation type, and a root storage type, with the date it was cached and a priority. An image names one architecture (an architecture is named by many images). The priority decides which entry wins when several match a machine.
+:caption: One row per cached image, keyed by the whole combination — source, stream, region, operating system version, architecture, virtualisation type, and root storage type. The priority is the tie-breaker: when several images match a machine, the highest priority wins.
 :alt: Two boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Image is on the left and Architecture is on the right (m to 1). Architecture has a second, outlined arrow mark in the corner for a record that belongs to no page.
 ```
 

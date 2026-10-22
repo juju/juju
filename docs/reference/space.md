@@ -19,7 +19,7 @@ A **network space** is a named group of {ref}`subnets <subnet>` that can communi
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Space database schema
-:caption: The model database keeps one record for each space. A space that comes from the cloud has one provider space record that holds the cloud's ID for it. A subnet belongs to at most one space, and a space has many subnets. The subnet is described on its own page and the figure shows it only for context: all boxes are records, and the one with a second, outlined arrow mark in the corner is the record that another page describes.
+:caption: Read the space record first: `alpha` exists from the creation of the model and never goes away, subnets move in and out of spaces, and a provider-space row marks a space that comes from the cloud. The subnet is another page's record, shown for context.
 :alt: Three boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Space is at the bottom left, Provider space is above it (a provider space belongs to one space, and a space has at most one provider space), and Subnet is to the right of Space, joined through a dashed line (a subnet belongs to at most one space, and a space has many subnets), with an outlined arrow mark for a record that another page describes.
 ```
 
