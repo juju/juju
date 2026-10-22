@@ -5,6 +5,7 @@ package http
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -255,8 +256,10 @@ func (m retryMiddleware) RoundTrip(req *http.Request) (*http.Response, error) {
 func (m retryMiddleware) roundTrip(req *http.Request) (*http.Response, bool, error) {
 	res, err := m.wrappedRoundTripper.RoundTrip(req)
 	if err != nil {
-		if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
-			err = fmt.Errorf("%w: %w", ErrTransportTimeout, err)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			if timeout, ok := stderrors.AsType[net.Error](err); ok && timeout.Timeout() {
+				err = fmt.Errorf("%w: %w", ErrTransportTimeout, err)
+			}
 		}
 		return nil, false, err
 	}

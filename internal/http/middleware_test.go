@@ -130,18 +130,20 @@ func (s *RetrySuite) TestTransportTimeoutSentinel(c *tc.C) {
 	req, err := http.NewRequestWithContext(c.Context(), "GET", "https://api.example.com", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	timeoutErr := &net.DNSError{IsTimeout: true}
-	transport := NewMockRoundTripper(ctrl)
-	transport.EXPECT().RoundTrip(req).Return(nil, timeoutErr)
-	client := &http.Client{Transport: makeRetryMiddleware(transport, RetryPolicy{
-		Attempts: 3,
-		Delay:    time.Second,
-		MaxDelay: time.Minute,
-	}, clock.WallClock, loggertesting.WrapCheckLog(c))}
+	for _, transportErr := range []error{timeoutErr, errors.Trace(timeoutErr)} {
+		transport := NewMockRoundTripper(ctrl)
+		transport.EXPECT().RoundTrip(req).Return(nil, transportErr)
+		client := &http.Client{Transport: makeRetryMiddleware(transport, RetryPolicy{
+			Attempts: 3,
+			Delay:    time.Second,
+			MaxDelay: time.Minute,
+		}, clock.WallClock, loggertesting.WrapCheckLog(c))}
 
-	resp, err := client.Do(req) //nolint:bodyclose
-	c.Check(resp, tc.IsNil)
-	c.Check(err, tc.ErrorIs, ErrTransportTimeout)
-	c.Check(err, tc.ErrorIs, timeoutErr)
+		resp, err := client.Do(req) //nolint:bodyclose
+		c.Check(resp, tc.IsNil)
+		c.Check(err, tc.ErrorIs, ErrTransportTimeout)
+		c.Check(err, tc.ErrorIs, timeoutErr)
+	}
 }
 
 func (s *RetrySuite) TestNonTimeoutTransportError(c *tc.C) {
@@ -150,19 +152,26 @@ func (s *RetrySuite) TestNonTimeoutTransportError(c *tc.C) {
 
 	req, err := http.NewRequestWithContext(c.Context(), "GET", "https://api.example.com", nil)
 	c.Assert(err, tc.ErrorIsNil)
-	transportErr := &net.OpError{Op: "dial", Err: errors.New("connection refused")}
-	transport := NewMockRoundTripper(ctrl)
-	transport.EXPECT().RoundTrip(req).Return(nil, transportErr)
-	client := &http.Client{Transport: makeRetryMiddleware(transport, RetryPolicy{
-		Attempts: 3,
-		Delay:    time.Second,
-		MaxDelay: time.Minute,
-	}, clock.WallClock, loggertesting.WrapCheckLog(c))}
+	for _, transportErr := range []error{
+		&net.OpError{Op: "dial", Err: errors.New("connection refused")},
+		context.Canceled,
+		errors.Trace(context.Canceled),
+		context.DeadlineExceeded,
+		errors.Trace(context.DeadlineExceeded),
+	} {
+		transport := NewMockRoundTripper(ctrl)
+		transport.EXPECT().RoundTrip(req).Return(nil, transportErr)
+		client := &http.Client{Transport: makeRetryMiddleware(transport, RetryPolicy{
+			Attempts: 3,
+			Delay:    time.Second,
+			MaxDelay: time.Minute,
+		}, clock.WallClock, loggertesting.WrapCheckLog(c))}
 
-	resp, err := client.Do(req) //nolint:bodyclose
-	c.Check(resp, tc.IsNil)
-	c.Check(err, tc.ErrorIs, transportErr)
-	c.Check(err, tc.Not(tc.ErrorIs), ErrTransportTimeout)
+		resp, err := client.Do(req) //nolint:bodyclose
+		c.Check(resp, tc.IsNil)
+		c.Check(err, tc.ErrorIs, transportErr)
+		c.Check(err, tc.Not(tc.ErrorIs), ErrTransportTimeout)
+	}
 }
 
 func (s *RetrySuite) TestRetryNotRequired(c *tc.C) {
