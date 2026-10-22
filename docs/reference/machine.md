@@ -13,21 +13,6 @@ See also: {ref}`Juju | Manage machines <manage-machines>`
 
 A **machine** is a {ref}`compute resource <resource-compute>` that a {ref}`model <model>` requests from a machine {ref}`cloud <cloud>` to host {ref}`units <unit>`, usually one, though several units of the same or different {ref}`applications <application>` can share it. A machine is requested explicitly, by adding it, or implicitly, by deploying an application or adding a unit, and whether the cloud provides bare metal, virtual machines, or LXD containers, the result is a machine. A machine has a number as its name, such as `0`, and a LXD container on a machine has the name `0/lxd/5` (container `5` on machine `0`).
 
-(machine-designations)=
-## Machine designations
-
-A **machine designation** is the argument by which a client names machines: its shape says whether the machine exists and whether it is a host or a container on a host. A comma separates several. The shapes are:
-
-| Shape of the machine argument | Meaning |
-|-|-|
-| (empty) | A new machine |
-| `0` | Machine 0 |
-| `0,4` | Machines 0 and 4 |
-| `lxd` | A new LXD container, or with `virt-type=virtual-machine` a VM, on a new machine |
-| `lxd:25` | A new LXD container, or with `virt-type=virtual-machine` a VM, on machine 25 |
-| `0/lxd/4` | LXD container 4 on machine 0 |
-| `3,0/lxd/2,lxd:5` | Machine 3, LXD container 2 on machine 0, and a new LXD container on machine 5 |
-
 (machine-database-schema)=
 ## Machine database schema
 

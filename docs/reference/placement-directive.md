@@ -28,21 +28,22 @@ When the location is a key-value pair, its availability and meaning may vary fro
 ## List of placement directive locations
 
 (placement-directive-machine)=
+(machine-designations)=
 ### `<machine>`
 
-Depending on whether this is an existing machine or a new machine, this will be:
+A **machine designation** is the argument by which a command names machines: its shape says whether the machine exists and whether it is a host or a container on a host. A comma separates several:
 
-- The existing machine ID.
+| Shape | Meaning |
+|-|-|
+| (empty) | A new machine |
+| `0` | Machine 0 |
+| `0,4` | Machines 0 and 4 |
+| `lxd` | A new LXD container, or with `virt-type=virtual-machine` a VM, on a new machine |
+| `lxd:25` | A new LXD container, or with `virt-type=virtual-machine` a VM, on machine 25 |
+| `0/lxd/4` | LXD container 4 on machine 0 |
+| `3,0/lxd/2,lxd:5` | Machine 3, LXD container 2 on machine 0, and a new LXD container on machine 5 |
 
-**Examples:** `1` (existing machine `1`),  `5/lxd/0` (existing container `0` on machine `5`)
-
-- A new machine, specifying a type or relative location.
-
-**Examples:** `lxd` (new container on a new machine), `lxd:5` (new container on machine 5)
-
-```{ibnote}
-See more: {ref}`machine-designations`
-```
+**Examples:** `juju add-machine lxd:5` (a new LXD container on machine `5`), `juju deploy --to 0/lxd/4` (deployed onto LXD container `4` on machine `0`)
 
 (placement-directive-subnet)=
 ### `subnet=<subnet>`
