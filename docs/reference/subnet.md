@@ -104,7 +104,7 @@ The caller, the rules, and the errors are:
   - The call takes a list of moves. Each move in the list gets its own result. Each move names at least one subnet by its tag, which is `subnet-` followed by its UUID. Each move also names a destination space by its tag, such as `space-alpha`. The destination must exist.
   - A subnet that is already in the destination is skipped without an error. A UUID that matches no subnet is ignored. The result lists only the subnets that moved.
   - A move is refused unless both of these hold:
-    - Every machine keeps an address in each space that the {ref}`bindings <application>` of its applications and its own constraints require.
+    - Every machine keeps an address in each space that the {ref}`bindings <application>` of its applications and its own {ref}`constraints <constraint>` require.
     - No machine with an address in a moving subnet has a constraint that excludes the destination.
   - The check counts the bindings of the applications with units on the machine and the machine's own constraints. The constraints of the model and of an application are not part of it.
   - A move with the force option set skips the check, logs each failure as a warning, and moves the subnets.

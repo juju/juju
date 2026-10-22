@@ -57,7 +57,7 @@ Adding SSH keys stores one or more keys for the authenticated user and authorize
 
 The caller, the rules, and the errors are:
 
-- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller. The change block (an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`; an operator setting that makes the controller refuse operations that change the model; a refused operation fails with an "operation blocked" error that carries the operator's message) must not be on.
 - *Rules:*
   - A key whose comment is `juju-system-key`, the comment of the key that the controller generates at {ref}`bootstrap <bootstrap-a-controller>` and keeps in the {ref}`controller configuration <controller-configuration>` key `system-ssh-keys` so that it can reach the machines it manages, is refused.
 - *Errors:* The client receives each as its own error code with this message, where the user name is the one in the call:
@@ -122,7 +122,7 @@ Removing SSH keys takes keys off the model, matched by fingerprint, public key t
 
 The caller, the rules, and the errors are:
 
-- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller, and neither the remove block (an operator setting that makes the controller refuse operations that remove things from the model, such as machines, applications, units, relations, and keys) nor the change block may be on.
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model or with {ref}`superuser access <user-access-controller-superuser>` to the controller, and neither the remove block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`; an operator setting that makes the controller refuse operations that remove things from the model, such as machines, applications, units, relations, and keys) nor the change block may be on.
 - *Rules:*
   - A target that matches no key is ignored. The client gets no error.
   - Removing a user deletes the user's keys and their authorizations.

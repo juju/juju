@@ -165,7 +165,7 @@ The caller, the rules, and the errors are:
 - *Caller:* A machine agent, for its own machine, which is the host of the containers named in the request.
 - *Rules:*
   - The request names containers. The answer has one result for each.
-  - The devices of the host machine are grouped by the {ref}`space <space>` of their addresses. The positive space constraints of a container and the spaces that its application is bound to pick the devices to bridge.
+  - The devices of the host machine are grouped by the {ref}`space <space>` of their addresses. The positive space {ref}`constraints <constraint>` of a container and the spaces that its application is bound to pick the devices to bridge.
   - A space whose host devices already include a bridge, or an Open vSwitch port, needs no new bridge.
   - A device can be bridged when it is not a loopback and it has no parent.
   - With local container networking, no host device is bridged: the default LXD bridge carries the container, every device is configured for DHCP, and at most one device is created with the default bridge as its parent.

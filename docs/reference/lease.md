@@ -35,7 +35,7 @@ The lease database schema is the set of records that the controller database kee
 (lease-calls)=
 ## Lease calls
 
-Lease calls are the calls that claim, keep, and release leases. The callers are the workers of the controller and the {ref}`unit agents <unit-agent>` of a model: a unit agent claims the leadership lease of its application (see {ref}`requesting unit leadership <unit-claiming-leadership>`), a worker of the controller claims the singular lease of a model, and the backup creator claims the backup lease of the controller model.
+Lease calls are the calls that claim, keep, and release leases. The callers are the {ref}`workers of the controller <controller-workers>` and the {ref}`unit agents <unit-agent>` of a model: a unit agent claims the leadership lease of its application (see {ref}`requesting unit leadership <unit-claiming-leadership>`), a worker of the controller claims the singular lease of a model, and the backup creator claims the backup lease of the controller model.
 
 (lease-claiming)=
 ### Claiming leases

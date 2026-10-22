@@ -44,7 +44,7 @@ The credential database schema is the set of records that the {ref}`controller d
 (credential-change-streams)=
 ## Credential change streams
 
-Credential change streams are the notifications that tell the agents of a model that the model's credential has changed. A change stream is delivered through a {ref}`watcher <watcher>`. An agent of a model calls `WatchModelCredential` to hear that the model now uses a different credential, and `ModelCredential` to read the credential's tag and whether it is valid.
+Credential change streams are the notifications that tell the {ref}`agents <agent>` of a {ref}`model <model>` that the model's credential has changed. A change stream is delivered through a {ref}`watcher <watcher>`. An agent of a model calls `WatchModelCredential` to hear that the model now uses a different credential, and `ModelCredential` to read the credential's tag and whether it is valid.
 
 (credential-calls)=
 ## Credential calls
@@ -103,7 +103,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Update a credential <update-a-credential>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
-Updating credentials replaces the contents of credentials, after checking that the models that use them can still reach their clouds. A credential that is invalid becomes valid again when it is replaced.
+Updating credentials replaces the contents of credentials, after checking that the {ref}`models <model>` that use them can still reach their {ref}`clouds <cloud>`. A credential that is invalid becomes valid again when it is replaced.
 
 The caller, the rules, and the errors are:
 
@@ -127,7 +127,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Remove a credential <remove-a-credential>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
-Removing credentials deletes credentials from the controller, and takes them off the models that use them.
+Removing credentials deletes credentials from the controller, and takes them off the {ref}`models <model>` that use them.
 
 The caller, the rules, and the errors are:
 

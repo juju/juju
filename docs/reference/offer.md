@@ -55,7 +55,7 @@ The errors of the call are:
 
 Offer calls are the calls a {ref}`client <client>` can take on offers through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): create, list, find, show, grant access, revoke access, get consume details, consume, and remove. Every call needs a user who is logged in as a client.
 
-An offer URL names an offer in the form `[<source>:][<qualifier>/]<model>.<offer-name>`. The qualifier is the one that the {ref}`model <model>` carries. It defaults to the caller's. The source names another controller. Showing and getting consume details refuse a URL that has a source. The model name and the offer name must be valid. An offer name follows the rules of an application name. A call that takes URLs fails a URL with one of these errors:
+An offer URL names an offer in the form `[<source>:][<qualifier>/]<model>.<offer-name>`. The qualifier is the one that the {ref}`model <model>` carries. It defaults to the caller's. The source names another {ref}`external controller <external-controller>`. Showing and getting consume details refuse a URL that has a source. The model name and the offer name must be valid. An offer name follows the rules of an application name. A call that takes URLs fails a URL with one of these errors:
 
 - **`offer URL has invalid form, must be [<source>:][<qualifier>]<model>.<offername>: "<url>"`**: *Trigger:* The URL does not have that form. *Remediation:* Write the URL in that form.
 - **`offer URL is missing model`** and **`offer URL is missing the name`**: *Trigger:* The URL has no model, or no offer name. *Remediation:* Add the missing part.
@@ -82,7 +82,7 @@ The caller, the rules, and the errors are:
   - The application name and at least one endpoint are required. The endpoints are the keys of the request's endpoint list. A name that the request gives an endpoint is not stored.
   - The offer's name is the application's name when the request has no name.
   - The offer's description is stored when the request has one.
-  - The application must exist and must not be dead. Its endpoints must exist and must have the global scope (the scope of an ordinary relation). An endpoint with the container scope (the scope of a subordinate relation) cannot be offered.
+  - The application must exist and must not be dead. Its endpoints must exist and must have the global scope (the scope of a {ref}`regular relation <regular-relation>`). An endpoint with the container scope (the scope of a {ref}`subordinate relation <subordinate-relation>`) cannot be offered.
   - An offer name is unique in the model. Creating an offer with the name, application, and endpoints of an existing offer succeeds and changes nothing.
   - A new offer gives its owner admin access and gives the special user `everyone@external` (the user that stands for every external user) read access.
   - If storing the permissions fails, the offer is deleted again.
@@ -118,7 +118,7 @@ The caller, the rules, and the errors are:
   - An offer name in a filter can be written as a quoted literal (`^name$`). Any other pattern is refused.
   - Each result holds the offer's URL, name, UUID, source model, description, endpoints, application name, {ref}`charm <charm>` URL, users with their access, and connections.
   - The users are every user with a permission on the offer except `everyone@external` (the special user that stands for every external user). When the caller is not among them, the caller is added as admin.
-  - A connection holds the source model, the relation ID, the user, the endpoint, the status with its message and time, and the ingress subnets (the subnets from which the remote side connects).
+  - A connection holds the source {ref}`model <model>`, the {ref}`relation <relation>` ID, the user, the endpoint, the status with its message and time, and the ingress subnets (the subnets from which the remote side connects).
   - The offers come in the order of their models' UUIDs.
 - *Errors:* The client receives each as the error of the whole call:
   - **`permission denied`**: *Trigger:* The caller is not an admin of a named model. The client receives it with the code `unauthorized access`. *Remediation:* Ask an admin of the model or a superuser.
@@ -180,9 +180,9 @@ The caller, the rules, and the errors are:
 - *Rules:*
   - A grant sets the user's permission to the given level, and creates the permission when the user has none. A user who already has that level or a higher one gets an error.
   - A revoke sets the user's access to the level below the revoked one: revoking admin leaves consume, revoking consume leaves read, and revoking read removes the permission.
-  - A revoke that leaves a user below consume suspends every relation to the offer that the user created, with the reason `offer access revoked`. A controller superuser or an admin of the model keeps consume access, so those relations stay active.
+  - A revoke that leaves a user below consume suspends every relation to the offer that the user created, with the reason `offer access revoked`. A controller superuser or an admin of the model keeps consume access, so those {ref}`relations <relation>` stay active.
   - The user must exist and be enabled.
-  - The suspension happens before the permission is looked up, so a revoke that fails may already have suspended the user's relations. To keep them active, resume them.
+  - The suspension happens before the permission is looked up, so a revoke that fails may already have suspended the user's {ref}`relations <relation>`. To keep them active, resume them.
 - *Errors:* The client receives each in the result for the change:
   - **`permission denied`**: *Trigger:* The caller has none of the three accesses. The client receives it with the code `unauthorized access`. *Remediation:* Ask an admin of the offer or the model, or a superuser.
   - **`offer "<url>" not found`**: *Trigger:* The model has no such offer. The client receives it with the code `not found`. *Remediation:* {ref}`Find the offer <offer-finding>`.
@@ -225,7 +225,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Integrate with an offer <integrate-with-an-offer>`, {ref}`Terraform Provider for Juju | Integrate with an offer <tfjuju:integrate-with-an-offer>`
 ```
 
-Consuming offers adds a remote application to the consuming model: a local proxy for the offered application. The proxy has the offer's endpoints and takes the name that the request gives, or the offer's name. The call creates no relation.
+Consuming offers adds a {ref}`remote application <cross-model-relation>` to the consuming {ref}`model <model>`: a local proxy for the offered application. The proxy has the offer's endpoints and takes the name that the request gives, or the offer's name. The call creates no relation.
 
 The caller, the rules, and the errors are:
 
@@ -261,9 +261,9 @@ The caller, the rules, and the errors are:
 - *Rules:*
   - The call takes a list of URLs and a force option. Each URL gets its own result.
   - An offer that has connections is refused, unless the request forces the removal.
-  - A forced removal also deletes the relations of the connections, with their relation units (the records of each unit's membership in a relation).
+  - A forced removal also deletes the {ref}`relations <relation>` of the connections, with their relation units (the records of each unit's membership in a relation).
   - Removing an offer deletes every permission on it. A failure of that step does not fail the call.
-  - Removing an application also deletes the offers of its endpoints.
+  - Removing an {ref}`application <application>` also deletes the offers of its endpoints.
 - *Errors:* The client receives each in the result for the URL, with a code where one is given:
   - **`permission denied`**: *Trigger:* The caller is not an admin of the model. The client receives it with the code `unauthorized access`. *Remediation:* Ask an admin of the model or a superuser.
   - **`"<name>": offer not found`**: *Trigger:* The model has no offer with that name. It has no code. *Remediation:* {ref}`Find the offer <offer-finding>`.

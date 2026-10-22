@@ -135,7 +135,7 @@ The caller, the rules, and the errors are:
   - The cloud must support spaces. The cloud must not discover its spaces (on MAAS, rename the space in MAAS and {ref}`reload spaces <space-reloading>`).
   - A space named `alpha` cannot be renamed.
   - The new name must not be in use, which includes `alpha`.
-  - A space that a constraint names cannot be renamed: the database refuses the change. A rename does not change the `default-space` model configuration key or the `juju-mgmt-space` controller configuration key.
+  - A space that a {ref}`constraint <constraint>` names cannot be renamed: the database refuses the change. A rename does not change the `default-space` model configuration key or the `juju-mgmt-space` controller configuration key.
 - *Errors:*
   - **`spaces not supported`**: *Trigger:* The cloud does not support spaces. The client receives it with the code `not supported`. *Remediation:* Use a cloud that supports spaces.
   - **`modifying provider-sourced spaces not supported`**: *Trigger:* The cloud discovers its spaces. The client receives it with the code `not supported`. *Remediation:* Change the space in MAAS, and {ref}`reload spaces <space-reloading>`.
@@ -164,7 +164,7 @@ The caller, the rules, and the errors are:
   - The cloud must support spaces. The cloud must not discover its spaces.
   - The space named `alpha` cannot be removed.
   - A request can ask for a dry run, which reports what depends on the space and removes nothing. A request that names the space held by the controller configuration key `juju-mgmt-space` is always a dry run. The answer names that key.
-  - A space on which something depends is not removed unless the request forces it. The dependants are a model constraint on the space, an application constraint on it, and an application bound to it, through its default space, an endpoint or extra binding, or the spaces to which it is exposed. Dependants are not an error: unless the request forces the removal, the answer lists them, as application names, and the model for a model constraint. A forced removal lists nothing.
+  - A space on which something depends is not removed unless the request forces it. The dependants are a model {ref}`constraint <constraint>` on the space, an application constraint on it, and an application bound to it, through its default space, an endpoint or extra binding, or the spaces to which it is exposed. Dependants are not an error: unless the request forces the removal, the answer lists them, as application names, and the model for a model constraint. A forced removal lists nothing.
   - A removal deletes the constraints on the space, sets the default space of the applications that used it and the spaces they are exposed to to `alpha`, sets the endpoint and extra bindings to the application's default, moves the subnets of the space to `alpha`, and deletes the space.
   - A removal does not change the `default-space` model configuration key or the `juju-mgmt-space` controller configuration key.
 - *Errors:*

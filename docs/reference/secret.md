@@ -105,7 +105,7 @@ A unit agent can ask about any unit of its own application. It can ask about the
 (secret-calls)=
 ## Secret calls
 
-Secret calls are the calls on secrets: add, list, read, grant, revoke, update, rotate, and remove. A {ref}`client <client>` takes them on the user secrets of a model through the controller API (the set of calls that clients and agents make to the controller). A charm takes them on its own secrets through {ref}`hook commands <hook-command>`. A client manages the user secrets of a model. A charm manages the secrets that it owns. Juju applies the changes of a hook when the hook succeeds. A **unit agent** is the {ref}`agent <agent>` process that runs a unit's charm. It logs in as its unit. The facades that serve it accept unit agents only, so no model access level and no block applies to it.
+Secret calls are the calls on secrets: add, list, read, grant, revoke, update, rotate, and remove. A {ref}`client <client>` takes them on the user secrets of a model through the controller API (the set of calls that clients and agents make to the controller). A charm takes them on its own secrets through {ref}`hook commands <hook-command>`. A client manages the user secrets of a model. A charm manages the secrets that it owns. Juju applies the changes of a hook when the hook succeeds. A **{ref}`unit agent <unit-agent>`** is the process that runs a unit's charm. It logs in as its unit. The facades that serve it accept unit agents only, so no model access level and no block applies to it.
 
 (secret-adding)=
 ### Adding secrets

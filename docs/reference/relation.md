@@ -38,7 +38,7 @@ The relation database schema is the set of records that the {ref}`model database
 - **Endpoint:** One end of a relation: the application endpoint that takes part. The application endpoint pairs an application with one of the endpoints of its charm, as the {ref}`application <application-endpoint>` page describes. Each endpoint has a role (`provider`, `requirer`, or `peer`), an interface, and a scope of `global` or `container`. Juju gives every charm an endpoint named `juju-info`; the {ref}`charm <charm>` page describes it. The endpoints of a relation decide its kind, which is one of:
 
   (regular-relation)=
-  - **Regular relations** are the base case: a relation with two endpoints, one `provider` and one `requirer`, with the same interface, on two different applications of the same model. Both applications are principal applications.
+  - **Regular relations** are the base case: a relation with two endpoints, one `provider` and one `requirer`, with the same interface, on two different {ref}`applications <application>` of the same model. Both applications are {ref}`principal <principal-charm>` applications.
 
   (peer-relation)=
   - **Peer relations** are relations with one endpoint, whose role is `peer`. An application has a relation to itself, so its units are the units of the relation. Juju creates one peer relation for each peer endpoint of an application when it creates the application. The units of an application can use a peer relation to share settings, because each unit can read the settings of the others (see {ref}`reading relation data <relation-reading-data>`). A peer relation cannot be removed on its own (see {ref}`removing relations <relation-removing>`).
@@ -110,7 +110,7 @@ The caller, the rules, and the errors are:
   - Two endpoints can be related when they belong to different applications, have the same interface, and have opposite roles. A peer endpoint cannot be added this way.
   - A request that names only the two applications is refused when several pairs of their endpoints can connect, for example when a subordinate declares an endpoint that matches an endpoint of the principal besides its `juju-info` endpoint. Name the endpoint of each application to select the pair. A request that matches no pair is refused.
   - A pair with a container-scoped endpoint is a match only when at least one of the two applications is a subordinate.
-  - Both applications must be alive.
+  - Both {ref}`applications <application>` must be alive.
   - A relation with a container-scoped endpoint needs the bases (the operating system and channel) of the two applications to be compatible.
   - An endpoint with a limit takes no more relations than the limit.
   - A relation that exists between the two endpoints is not added again.
