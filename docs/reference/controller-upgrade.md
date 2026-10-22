@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Upgrade a controller <upgrade-a-controller>`
 ```
 
-A **controller upgrade** is the move of all the nodes of a {ref}`controller <controller>` to one newer patch version of Juju: each node swaps the binary of its agent, the controller applies the schema patches to its databases, and every node runs the code-level upgrade steps. The {ref}`controller database <database>` keeps one record per upgrade, with the two versions, the state, and one row per node for its progress. A client starts an upgrade; the agents of the controller nodes carry it out.
+A **controller upgrade** is the move of all the nodes of a {ref}`controller <controller>` to one newer patch version of Juju: each node swaps the binary of its {ref}`agent <agent>`, the controller applies the schema patches to its databases, and every node runs the code-level upgrade steps. The {ref}`controller database <database>` keeps one record per upgrade, with the two versions, the state, and one row per node for its progress. A client starts an upgrade; the agents of the controller nodes carry it out.
 
 (controller-upgrade-database-schema)=
 ## Controller upgrade database schema
@@ -40,7 +40,7 @@ The controller upgrade database schema is the set of records that the controller
 (controller-upgrade-change-streams)=
 ## Controller upgrade change streams
 
-Controller upgrade change streams are the notifications that tell the agents of the controller nodes that the upgrade records changed. A node's agent calls `WatchForUpgradeState` to hear that the upgrade reached a state, and `WatchForUpgradeReady` to hear that every node of the controller has registered for the upgrade, which is the moment the database part can start.
+Controller upgrade change streams are the notifications that tell the {ref}`agents <agent>` of the controller nodes that the upgrade records changed. A node's agent calls `WatchForUpgradeState` to hear that the upgrade reached a state, and `WatchForUpgradeReady` to hear that every node of the controller has registered for the upgrade, which is the moment the database part can start.
 
 (controller-upgrade-calls)=
 ## Controller upgrade calls
@@ -85,7 +85,7 @@ The caller, the rules, and the errors are:
 :alt: A state diagram with five states. Created goes to started. Started goes to db-completed and to error. Db-completed goes to steps-completed.
 ```
 
-Running the upgrade carries the move out, once every node has downloaded the new binary and restarted into it. The agents of the controller nodes do it: one node leads the database part; every node runs its own steps.
+Running the upgrade carries the move out, once every node has downloaded the new binary and restarted into it. The {ref}`agents <agent>` of the controller nodes do it: one node leads the database part; every node runs its own steps.
 
 The caller and the rules are:
 

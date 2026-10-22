@@ -14,7 +14,7 @@ See also:
 - {ref}`make-an-application-highly-available`
 ```
 
-In the context of a cloud deployment in general, **high availability (HA)** is the concept of making software resilient to failures by means of running multiple replicas with shared and synchronised software context -- something usually achieved through coordinated {ref}`scaling (out and up) <scaling>`. In Juju, it is supported for controllers on machine clouds and for regular applications on both machine and Kubernetes clouds
+In the context of a cloud deployment in general, **high availability (HA)** is the concept of making software resilient to failures by means of running multiple replicas with shared and synchronised software context -- something usually achieved through coordinated {ref}`scaling (out and up) <scaling>`. In Juju, it is supported for {ref}`controllers <controller>` on machine clouds and for regular {ref}`applications <application>` on both machine and Kubernetes clouds
 
 
 ```{ggarch}
@@ -93,8 +93,6 @@ machine.
 
 Single instance workers are those declared in the model {ref}`manifold <agent-workers>` configuration that use the `isResponsible` decorator. This in turn is based on a flag set by the `singular` worker.
 
-The `singular` worker only sets the flag if it is the current lease holder for
-the `singular-controller` namespace. See the appropriate documentation for more
-information on leases.
+The `singular` worker only sets the flag if it is the current {ref}`lease <lease>` holder for the `singular-controller` namespace.
 
 [Dqlite]: https://dqlite.io/

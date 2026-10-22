@@ -37,7 +37,7 @@ The action database schema is the set of records that the {ref}`model database <
   - *Rules:*
     - An operation has each key once.
     - A parameter can be inserted and deleted, and never updated.
-- **Task:** The run of an operation on one target. It has a number that identifies it and the times it was enqueued, started, and completed. Its output, when it has any, is stored as a file in the model's object store (the store where the model keeps files), and the task refers to that file by its path.
+- **Task:** The run of an operation on one target. It has a number that identifies it and the times it was enqueued, started, and completed. Its output, when it has any, is stored as a file in the model's {ref}`object store <object-store>`, and the task refers to that file by its path.
   - *Rules:*
     - A task number is used once.
     - A task is linked to a unit or to a machine, never to both. The link is never updated.

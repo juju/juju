@@ -40,23 +40,23 @@ The model migration database schema is the set of records that the two controlle
 - **Minion report:** One report of a machine or unit {ref}`agent <agent>` of the model, for one phase of an export: whether its work succeeded, and when it reported. The phases `quiesce`, `validation`, and `success` wait for these reports.
   - *Rules:*
     - An export holds one report per agent and phase.
-- **Exported offer:** One offer of the model, captured before the model's database is purged, so that the source can remove the offer's permissions after the model is gone.
+- **Exported offer:** One {ref}`offer <offer>` of the model, captured before the model's database is purged, so that the source can remove the offer's permissions after the model is gone.
   - *Rules:*
     - An export holds each offer once.
-- **Target authorization:** The user and the credentials the export uses to reach the target controller, with whether the user checks were skipped. The material is per migration; the {ref}`external controller <external-controller>` record it names is shared with the cross-model relations.
+- **Target authorization:** The {ref}`user <user>` and the {ref}`credentials <credential>` the export uses to reach the target controller, with whether the user checks were skipped. The material is per migration; the {ref}`external controller <external-controller>` record it names is shared with the cross-model relations.
   - *Rules:*
     - An export has one target authorization.
 - **External controller:** The target the model moves to. Another page owns it: see {ref}`external controller <external-controller>`.
 - **Redirect:** Where a model went, on the source controller after the model is gone: the migration that moved it, the target controller, its addresses, its certificate, an alias, when the redirect was made, and when the move completed. The record has no link to the model: the model is gone when the redirect is there. It stays until the model moves again: a later move overwrites the record.
   - *Rules:*
     - A model has at most one redirect.
-- **Redirect user:** One user of the model at the moment it moved, with the access level the user had. The snapshot is independent of the live permissions, which are removed with the model.
+- **Redirect user:** One {ref}`user <user>` of the model at the moment it moved, with the access level the user had. The snapshot is independent of the live permissions, which are removed with the model.
   - *Rules:*
     - A redirect holds each user once.
 - **Import:** The incoming model, on the target controller: the migration it came in, its phase (`importing`, `activating`, or `aborting`), and when the phase last changed. The target holds the model inactive for as long as the import claim exists: the model becomes usable when the import completes and the claim is released.
   - *Rules:*
     - The target keeps one import per model.
-- **Imported offer:** One offer that the model consumes, captured so that the target can wire the model's cross-model relations when it activates the model.
+- **Imported offer:** One {ref}`offer <offer>` that the model consumes, captured so that the target can wire the model's cross-model relations when it activates the model.
   - *Rules:*
     - An import holds each offer once.
 - **Imported external model:** One mapping that says which controller hosts a model whose offer the imported model consumes, captured so that the wiring survives a controller restart.

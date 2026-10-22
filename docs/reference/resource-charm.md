@@ -54,7 +54,7 @@ The charm resource database schema is the set of records that the {ref}`model da
 - **Retrieved by:** Who put the content in the store: a `user` (the user who uploaded it), or a `unit` or an `application` (the one whose request made Juju download it from Charmhub).
   - *Rules:*
     - A resource has one retrieved-by record.
-- **File store:** The link from a `file` resource to its content in the object store (the controller's store of blobs), with the content's size in bytes and SHA-384 fingerprint.
+- **File store:** The link from a `file` resource to its content in the {ref}`object store <object-store>`, with the content's size in bytes and SHA-384 fingerprint.
   - *Rules:*
     - A resource has one file store.
 - **Image store:** The link from an `oci-image` resource to its image metadata, with the size and SHA-384 fingerprint of the metadata.
@@ -102,7 +102,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 ```
 
-Adding resources records which revision or upload to use for each resource of a charm before an application is created or its charm changes. A client calls `AddPendingResources` on the `Resources` facade with an application tag, a charm URL, the charm's origin, and one entry for each resource. Each entry has a name, an origin, and for a `store` origin a revision. The answer lists one resource ID for each entry, in order. {ref}`Activating resources <charm-resource-activating>` uses the IDs.
+Adding resources records which revision or upload to use for each resource of a {ref}`charm <charm>` before an {ref}`application <application>` is created or its charm changes. A client calls `AddPendingResources` on the `Resources` facade with an application tag, a charm URL, the charm's origin, and one entry for each resource. Each entry has a name, an origin, and for a `store` origin a revision. The answer lists one resource ID for each entry, in order. {ref}`Activating resources <charm-resource-activating>` uses the IDs.
 
 The caller, the rules, and the errors are:
 
@@ -161,7 +161,7 @@ The caller, the rules, and the errors are:
 (charm-resource-activating)=
 ### Activating resources
 
-Activating resources makes the pending resources of an application the ones it uses. A client does it when it deploys an application or refreshes its charm, by passing the resource IDs that {ref}`adding resources <charm-resource-adding>` returned.
+Activating resources makes the pending resources of an {ref}`application <application>` the ones it uses. A client does it when it deploys an application or refreshes its {ref}`charm <charm>`, by passing the resource IDs that {ref}`adding resources <charm-resource-adding>` returned.
 
 The caller, the rules, and the errors are:
 
@@ -188,7 +188,7 @@ The caller, the rules, and the errors are:
 See also: {ref}`Juju | Manage charm resources <manage-charm-resources>`
 ```
 
-Listing resources shows, for each application that a client names, its resources, the resources of each unit, and the newer revisions that Charmhub carries. A client calls `ListResources` on the `Resources` facade with application tags.
+Listing resources shows, for each {ref}`application <application>` that a client names, its resources, the resources of each {ref}`unit <unit>`, and the newer revisions that Charmhub carries. A client calls `ListResources` on the `Resources` facade with application tags.
 
 The caller, the rules, and the errors are:
 
