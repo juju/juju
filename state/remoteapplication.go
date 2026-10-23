@@ -334,10 +334,7 @@ func (op *DestroyRemoteApplicationOperation) Done(err error) error {
 	// NOTE(tsm): if you change the business logic here, check
 	//            that RemoveOfferOperation is modified to suit
 	if err != nil {
-		if !op.Force {
-			return errors.Annotatef(err, "cannot destroy saas application %q", op.app)
-		}
-		op.AddError(errors.Errorf("force destroy of saas application %v failed but proceeded despite encountering ERROR %v", op.app, err))
+		return errors.Annotatef(err, "cannot destroy saas application %q", op.app)
 	}
 	if err := op.eraseHistory(); err != nil {
 		if !op.Force {
@@ -370,8 +367,8 @@ func (op *DestroyRemoteApplicationOperation) deleteSecretReferences() error {
 }
 
 // DestroyWithForce in addition to doing what Destroy() does,
-// when force is passed in as 'true', forces th destruction of remote application,
-// ignoring errors.
+// when force is passed in as 'true', forces the destruction of the remote
+// application. It also returns all non-fatal operational errors encountered.
 func (a *RemoteApplication) DestroyWithForce(force bool, maxWait time.Duration) (opErrs []error, err error) {
 	defer func() {
 		if err == nil {

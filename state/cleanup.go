@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ const (
 	cleanupForceRemoveUnit               cleanupKind = "forceRemoveUnit"
 	cleanupRemovedUnit                   cleanupKind = "removedUnit"
 	cleanupApplication                   cleanupKind = "application"
+	cleanupRemoteApplication             cleanupKind = "remoteApplication"
 	cleanupForceApplication              cleanupKind = "forceApplication"
 	cleanupApplicationsForDyingModel     cleanupKind = "applications"
 	cleanupDyingMachine                  cleanupKind = "dyingMachine"
@@ -231,6 +233,8 @@ func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) 
 			err = st.cleanupCharm(doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(doc.Prefix, args, secretContentDeleter)
+		case cleanupRemoteApplication:
+			err = st.cleanupRemoteApplication(doc.Prefix, args)
 		case cleanupForceApplication:
 			err = st.cleanupForceApplication(doc.Prefix, args, secretContentDeleter)
 		case cleanupUnitsForDyingApplication:
@@ -708,6 +712,48 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	return err
 }
 
+// cleanupRemoteApplication checks if all references to a dying remote
+// application have been removed, and if so, removes it.
+func (st *State) cleanupRemoteApplication(name string, cleanupArgs []bson.Raw) (err error) {
+	app, err := st.RemoteApplication(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Nothing to do, the remote application is already gone.
+			logger.Tracef("cleanupRemoteApplication(%s): remote application already gone", name)
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	if app.Life() == Alive {
+		return errors.BadRequestf("cleanupRemoteApplication requested for a remote application (%s) that is still alive", name)
+	}
+	// Count the relations that reference the remote application rather
+	// than trusting its relationcount, which may be stale.
+	refCount, err := countRelationsForApplication(st, name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if refCount > 0 {
+		// This is a no-op because whatever still references the remote
+		// application queues a new cleanup once it stops.
+		logger.Tracef("cleanupRemoteApplication(%s) called, but it still has %d relations", name, refCount)
+		return nil
+	}
+	force := false
+	if n := len(cleanupArgs); n != 1 {
+		return errors.Errorf("expected 1 argument, got %d", n)
+	}
+	if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+	}
+	op := app.DestroyOperation(force)
+	err = st.ApplyOperation(op)
+	if len(op.Errors) != 0 {
+		logger.Warningf("operational errors cleaning up remote application %v: %v", name, op.Errors)
+	}
+	return err
+}
+
 // cleanupForceApplication forcibly removes the application.
 func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) (err error) {
 	logger.Debugf("force destroy application: %v", applicationName)
@@ -744,7 +790,7 @@ func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []b
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) (err error) {
+func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw, secretContentDeleter SecretContentDeleter) error {
 	var args DestroyModelParams
 	switch n := len(cleanupArgs); n {
 	case 0:
@@ -756,13 +802,22 @@ func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw, secret
 	default:
 		return errors.Errorf("expected 0-1 arguments, got %d", n)
 	}
-	if err := st.removeOffersForDyingModel(); err != nil {
-		return err
+	force := args.Force != nil && *args.Force
+	offerErr := st.removeOffersForDyingModel(force)
+	if offerErr != nil && !force {
+		return offerErr
 	}
-	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
-		return err
+	remoteAppErr := st.removeRemoteApplicationsForDyingModel(args)
+	if remoteAppErr != nil && !force {
+		return remoteAppErr
 	}
-	return st.removeApplicationsForDyingModel(args, secretContentDeleter)
+	appErr := st.removeApplicationsForDyingModel(args, secretContentDeleter)
+	for _, err := range []error{offerErr, remoteAppErr, appErr} {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (st *State) removeApplicationsForDyingModel(args DestroyModelParams, secretContentDeleter SecretContentDeleter) (err error) {
@@ -787,19 +842,33 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams, secret
 	}
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
+
+	var firstErr error
+	var failed []string
 	for iter.Next(&application.doc) {
 		op := application.DestroyOperation()
 		op.RemoveOffers = true
 		op.Force = force
 		op.MaxWait = args.MaxWait
 		op.SecretContentDeleter = secretContentDeleter
-		err := st.ApplyOperation(op)
+		destroyErr := st.ApplyOperation(op)
 		if len(op.Errors) != 0 {
 			logger.Warningf("operational errors removing application %v for dying model %v: %v", application.Name(), st.ModelUUID(), op.Errors)
 		}
-		if err != nil {
-			return errors.Trace(err)
+		if destroyErr != nil {
+			if !force {
+				return errors.Trace(destroyErr)
+			}
+			logger.Warningf("error removing application %v for dying model %v: %v",
+				application.Name(), st.ModelUUID(), destroyErr)
+			if firstErr == nil {
+				firstErr = destroyErr
+			}
+			failed = append(failed, application.Name())
 		}
+	}
+	if firstErr != nil {
+		return failedRemovalsError(firstErr, "application", failed)
 	}
 	return nil
 }
@@ -815,23 +884,41 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	defer closer()
 	remoteApp := RemoteApplication{st: st}
 	sel := bson.D{{"life", Alive}}
+	force := args.Force != nil && *args.Force
+	if force {
+		// If we're forcing, propagate down to even dying remote
+		// applications, just in case they weren't originally forced.
+		sel = nil
+	}
 	iter := remoteApps.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading remote application document")
 
-	force := args.Force != nil && *args.Force
+	var firstErr error
+	var failed []string
 	for iter.Next(&remoteApp.doc) {
-		errs, err := remoteApp.DestroyWithForce(force, args.MaxWait)
+		errs, destroyErr := remoteApp.DestroyWithForce(force, args.MaxWait)
 		if len(errs) != 0 {
 			logger.Warningf("operational errors removing remote application %v for dying model %v: %v", remoteApp.Name(), st.ModelUUID(), errs)
 		}
-		if err != nil {
-			return errors.Trace(err)
+		if destroyErr != nil {
+			if !force {
+				return errors.Trace(destroyErr)
+			}
+			logger.Warningf("error removing remote application %v for dying model %v: %v",
+				remoteApp.Name(), st.ModelUUID(), destroyErr)
+			if firstErr == nil {
+				firstErr = destroyErr
+			}
+			failed = append(failed, remoteApp.Name())
 		}
+	}
+	if firstErr != nil {
+		return failedRemovalsError(firstErr, "remote application", failed)
 	}
 	return nil
 }
 
-func (st *State) removeOffersForDyingModel() (err error) {
+func (st *State) removeOffersForDyingModel(force bool) (err error) {
 	// This won't miss offers, because a Dying model cannot have offers
 	// added to it. But we do have to remove the offers themselves via
 	// individual transactions, because they could be in any state at all.
@@ -840,17 +927,35 @@ func (st *State) removeOffersForDyingModel() (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var firstErr error
+	var failed []string
 	for _, offer := range allOffers {
 		// Remove with force so that any connections get cleaned up.
 		err := offers.Remove(offer.OfferName, true)
 		if err != nil {
-			logger.Warningf("operational errors removing application offer %v for dying model %v: %v", offer.OfferName, st.ModelUUID(), err)
-		}
-		if err != nil {
-			return errors.Trace(err)
+			if !force {
+				return errors.Trace(err)
+			}
+			logger.Warningf("error removing application offer %v for dying model %v: %v",
+				offer.OfferName, st.ModelUUID(), err)
+			if firstErr == nil {
+				firstErr = err
+			}
+			failed = append(failed, offer.OfferName)
 		}
 	}
+	if firstErr != nil {
+		return failedRemovalsError(firstErr, "application offer", failed)
+	}
 	return nil
+}
+
+// failedRemovalsError names the entities a forced removal left, each
+// logged where it failed, and reports the first failure.
+func failedRemovalsError(firstErr error, kind string, failed []string) error {
+	sort.Strings(failed)
+	return errors.Annotatef(firstErr, "cannot remove %s%s %s",
+		kind, plural(len(failed)), strings.Join(failed, ", "))
 }
 
 // cleanupUnitsForDyingApplication sets all units with the given prefix to Dying,
