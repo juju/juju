@@ -26,6 +26,8 @@ import (
 
 var allWatcherLogger = logger.Child("allwatcher")
 
+var actionInfoProjection = bson.M{"parameters": 0, "results": 0, "messages": 0}
+
 // allWatcherBacking implements AllWatcherBacking by fetching entities
 // for all models from the State.
 type allWatcherBacking struct {
@@ -1773,7 +1775,7 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 	query := col.FindId(id)
 	if c.name == actionsC {
 		// Action payloads are fetched separately by the action API.
-		query = query.Select(bson.M{"parameters": 0, "results": 0, "messages": 0})
+		query = query.Select(actionInfoProjection)
 	}
 	err = query.One(doc)
 	if err == mgo.ErrNotFound {
@@ -1871,7 +1873,7 @@ func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string,
 	query := col.Find(filter)
 	if name == actionsC {
 		// Match Changed: the allwatcher does not need action payloads.
-		query = query.Select(bson.M{"parameters": 0, "results": 0, "messages": 0})
+		query = query.Select(actionInfoProjection)
 	}
 	// Units are ordered so we load the subordinates first.
 	if name == unitsC {

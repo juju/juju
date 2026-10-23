@@ -1322,19 +1322,26 @@ func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 }
 
 func (s *ActionPruningSuite) TestPruneOperationsBySizeMultipleBatches(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	// More than two batches must be removed to reach 5 MiB. The parent
 	// collection is already below that limit before pruning starts.
 	const count = 3000
-	state.PrimeOperations(c, coretesting.NonZeroTime(), unit, count, 1, 8*1024)
+	const messageSize = 8 * 1024
+	const maxLogSize = 5 // MiB
+	state.PrimeOperations(c, clock.Now(), unit, count, 1, messageSize)
 
-	c.Assert(state.PruneOperations(nil, s.State, 0, 5), jc.ErrorIsNil)
+	c.Assert(state.PruneOperations(nil, s.State, 0, maxLogSize), jc.ErrorIsNil)
 	ops, err := s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(ops), jc.GreaterThan, 0)
-	c.Check(len(ops), jc.LessThan, 700)
+	// Each action is larger than its message, so fewer than this many
+	// operation/action pairs can fit within the size limit.
+	c.Check(len(ops), jc.LessThan, maxLogSize*1024*1024/messageSize)
 	actions, err := s.Model.AllActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(actions, gc.HasLen, len(ops))

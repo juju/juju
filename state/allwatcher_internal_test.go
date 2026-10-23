@@ -49,6 +49,7 @@ var (
 	_ backingEntityDoc = (*backingSettings)(nil)
 	_ backingEntityDoc = (*backingOpenedPorts)(nil)
 	_ backingEntityDoc = (*backingAction)(nil)
+	_ backingEntityDoc = (*payloadCheckingAction)(nil)
 	_ backingEntityDoc = (*backingBlock)(nil)
 	_ backingEntityDoc = (*backingGeneration)(nil)
 	_ backingEntityDoc = (*backingPodSpec)(nil)
