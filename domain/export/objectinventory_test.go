@@ -12,7 +12,7 @@ import (
 	domainexport "github.com/juju/juju/domain/export"
 	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	"github.com/juju/juju/domain/export/types/latest"
-	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
+	v4_2_0 "github.com/juju/juju/domain/export/types/v4_2_0"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -49,7 +49,7 @@ func (s *objectInventorySuite) TestControllerObjectInventory(c *tc.C) {
 func (s *objectInventorySuite) TestModelObjectInventory(c *tc.C) {
 	modelUUID := "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	payload := &latest.ModelExport{
-		ObjectStoreMetadata: []v4_1_0.ObjectStoreMetadata{
+		ObjectStoreMetadata: []v4_2_0.ObjectStoreMetadata{
 			{UUID: "uuid-1", Sha256: "sha256-a", Sha384: "sha384-a", Size: 10},
 		},
 	}
