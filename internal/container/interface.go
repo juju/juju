@@ -78,11 +78,3 @@ func (m ManagerConfig) WarnAboutUnused() {
 		logger.Infof(context.TODO(), "unused config option: %q -> %q", key, value)
 	}
 }
-
-// LXDProfileNameRetriever defines an interface for dealing with lxd profile
-// names used to deploy juju containers.
-type LXDProfileNameRetriever interface {
-	// LXDProfileNames returns the list of available LXDProfile names from the
-	// manager.
-	LXDProfileNames(string) ([]string, error)
-}

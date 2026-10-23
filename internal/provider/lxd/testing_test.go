@@ -502,14 +502,6 @@ func (conn *StubClient) GetProfile(name string) (*api.Profile, string, error) {
 	return conn.Profile, "etag", conn.NextErr()
 }
 
-func (conn *StubClient) GetContainerProfiles(name string) ([]string, error) {
-	conn.AddCall("GetContainerProfiles", name)
-	return []string{
-		"default",
-		"juju-model-name",
-	}, conn.NextErr()
-}
-
 func (conn *StubClient) DeleteProfile(name string) error {
 	conn.AddCall("DeleteProfile", name)
 	return conn.NextErr()
@@ -523,16 +515,6 @@ func (conn *StubClient) HasProfile(name string) (bool, error) {
 func (conn *StubClient) GetProfileNames() ([]string, error) {
 	conn.AddCall("GetProfileNames")
 	return conn.ProfileNames, conn.NextErr()
-}
-
-func (conn *StubClient) ReplaceOrAddContainerProfile(name, oldProfile, newProfile string) error {
-	conn.AddCall("ReplaceOrAddContainerProfile", name, oldProfile, newProfile)
-	return conn.NextErr()
-}
-
-func (conn *StubClient) UpdateContainerProfiles(name string, profiles []string) error {
-	conn.AddCall("UpdateContainerProfiles", name, profiles)
-	return conn.NextErr()
 }
 
 func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, etag string) error {
@@ -658,11 +640,6 @@ func (conn *StubClient) WriteContainer(container *lxd.Container) error {
 
 func (conn *StubClient) CreateProfileWithConfig(name string, cfg map[string]string) error {
 	conn.AddCall("CreateProfileWithConfig", name, cfg)
-	return conn.NextErr()
-}
-
-func (conn *StubClient) CreateProfile(post api.ProfilesPost) error {
-	conn.AddCall("CreateProfile", post)
 	return conn.NextErr()
 }
 

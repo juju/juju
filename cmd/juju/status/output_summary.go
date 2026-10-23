@@ -245,7 +245,7 @@ func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineSta
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
-		machineStatus, _ := getStatusAndMessageFromMachineStatus(m)
+		machineStatus := m.JujuStatus.Current
 		if machineStatus == "" {
 			machineStatus = status.Pending
 		}
