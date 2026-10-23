@@ -547,6 +547,7 @@ juju change-user-password <user> --reset
 See more: {ref}`manage-a-users-login-details`
 ```
 
+(remove-a-controller)=
 ## Remove a controller
 
 ```{ibnote}

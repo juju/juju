@@ -17,6 +17,7 @@ Charms can use relations to share secrets, such as API keys, a database’s addr
 The write operations are only available to model admin users looking to manage user-owned secrets. See more: {ref}`secret`.
 ```
 
+(add-a-secret)=
 ## Add a secret
 
 To add a (user) secret, run the `add-secret` command followed by a secret name and a (space-separated list of) key-value pair(s). This will return a secret ID. For example:
@@ -32,6 +33,7 @@ The command also allows you to specify the type of key, whether you want to supp
 See more: {ref}`command-juju-add-secret`
 ```
 
+(view-all-the-available-secrets)=
 ## View all the available secrets
 
 To view all the (user and charm) secrets available in a model, run:
@@ -46,6 +48,7 @@ You can also add options to specify an output format, a model other than the cur
 See more: {ref}`command-juju-secrets`
 ```
 
+(view-details-about-a-secret)=
 ## View details about a secret
 
 To drill down into a (user or charm) secret, run the `show-secret` command followed by the secret name or ID. For example:
@@ -60,6 +63,7 @@ You can also add options to specify the format, the revision, whether to reveal 
 See more: {ref}`command-juju-show-secret`
 ```
 
+(grant-access-to-a-secret)=
 ## Grant access to a secret
 
 Given a charm that has a configuration option that allows it to be configured with a user secret, to grant the application deployed from it access to the secret, run the `grant-secret` command followed by the secret name or ID and by the name of the application. For example:
@@ -78,6 +82,7 @@ juju config <application> <option>=<secret URI>
 See more: {ref}`command-juju-grant-secret`
 ```
 
+(update-a-secret)=
 ## Update a secret
 > *This feature is opt-in because Juju automatically removing secret content might result in data loss.*
 
@@ -91,6 +96,7 @@ juju update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
 See more: {ref}`command-juju-update-secret`
 ```
 
+(remove-a-secret)=
 ## Remove a secret
 
 To remove all the revisions of a (user) secret, run the `remove-secret` command followed by the secret ID. For example:

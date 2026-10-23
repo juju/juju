@@ -1,112 +1,241 @@
 ---
 myst:
   html_meta:
-    description: "Juju constraints reference: customize compute resources with specifications for CPU, memory, storage, networking, and instance types."
+    description: "Juju constraint reference: what a constraint is, the records that keep it, the constraint keys, and how constraints combine, and the calls that set and read the constraints of models, applications, and machines."
 ---
 
 (constraint)=
 # Constraint
 
-In Juju, a **constraint** is a key-value pair that represents a specification that can be passed to certain `juju` commands /command flags to customise the {ref}`compute resources <resource-compute>` (bare metal machines, virtual machines, system containers, Kubernetes containers) spawned by Juju.
-
-If the resource is a bare metal machine or a virtual machine, a constraint represents a minimum, whereas if the resource is a system container or a Kubernetes container it represents a maximum.
-
-For machine (non-Kubernetes) clouds, constraints can be set directly on individual {ref}`machines <machine>`. However, more commonly they are set at the level of the {ref}`controller <controller>`, {ref}`model <model>`, or {ref}`application <application>`. If you set constraints at multiple levels at once -- that is, with overlap -- the constraint applied at the more specific level takes precedence.
-
-The rest of this document describes all the existing constraints.
-
-```{caution}
-
-Some of these keys -- their availability and their meaning -- vary from one cloud to another. Below this is indicated with a generic note. For specifics see {ref}`list-of-supported-clouds` > `<cloud name>`.
-
+```{ibnote}
+See also: {ref}`Juju | Manage constraints for a model <manage-constraints-for-a-model>`, {ref}`Juju | Manage constraints for an application <manage-constraints-for-an-application>`
 ```
+
+A **constraint** is a set of requirements on the {ref}`compute resources <resource-compute>` that Juju requests from a {ref}`cloud <cloud>`: the architecture, the cores, the memory, the root disk, and the other keys listed below. A {ref}`model <model>`, an {ref}`application <application>`, and a {ref}`machine <machine>` can each hold one set, and the model database keeps all of them. Each call that sets a holder's requirements replaces the whole set.
+
+(constraint-database-schema)=
+## Constraint database schema
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Constraint database schema
+:caption: One constraint record is one holder's whole requirement set — a model's, an application's, or a machine's, the three holders above it. The entries below are its keyed lists: tags, spaces, and zones, each one a thing the holder named or excluded. The holders and the space are other pages' records, shown for context.
+:alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Constraint is in the middle. Application constraint is above it (1 to 1), Model constraints is above and to its left (1 to 1), and Machine constraint is above and to its right (1 to 1); all three have an outlined arrow mark. Space entry is below Constraint (1 to m), Tag entry is below and to its left (1 to m), and Zone entry is below and to its right (1 to m). Space is below Space entry (m to 1) and has an outlined arrow mark.
+```
+
+The constraint database schema is the set of records that the {ref}`model database <database>` keeps about constraints. The records, with the rules that apply to each, are:
+
+- **Constraint:** One holder's set of requirements, with one column for each key below. Every column is optional: a key that the holder did not set is empty.
+  - *Rules:*
+    - The container type is one of the values of the lookup table `container_type`.
+- **Tag entry:** One machine tag that the holder named, either as an attribute the machine must have, or, when the entry is marked as excluded, as one it must not have.
+  - *Rules:*
+    - A constraint has each tag once.
+- **Space entry:** One {ref}`network space <space>` that the holder named. The entry is positive or excluded, as for a tag entry.
+  - *Rules:*
+    - A constraint has each space once.
+    - A space entry names a space that exists in the model.
+- **Zone entry:** One availability {ref}`zone <zone>` that the holder named.
+  - *Rules:*
+    - A constraint has each zone once.
+- **Model, application, and machine:** The holders, each with at most one constraint. Other pages own them: see {ref}`model <model>`, {ref}`application <application>`, and {ref}`machine <machine>`.
 
 (list-of-constraints)=
 ## List of constraints
 
+A client writes a constraint as `key=value` pairs separated by spaces, such as `mem=4G cores=2`, and the controller API takes the same keys. A key appears once in a constraint. An empty value clears the key. The keys, with the value each takes, are listed below. A cloud accepts only some of the keys and only some of the values; the page of each {ref}`cloud <list-of-supported-clouds>` records what it accepts. On Kubernetes the keys map onto the pod: `mem` and `cpu-power` become the pod's resource requests, `arch` its node selector, and `tags` its affinity rules.
+
 (constraint-allocate-public-ip)=
 ### `allocate-public-ip`
 
-Supplying this constraint will determine whether machines are issued an IP address accessible outside of the cloud's virtual network.  <p> **Valid values:** `true`, `false`. <p> **Note:** Applies to public clouds (GCE, EC2, Azure) and OpenStack. Public cloud instances are assigned a public IP by default.
+Whether the machine gets an address outside the cloud's virtual network. The value is `true` or `false`.
 
 (constraint-arch)=
 ### `arch`
 
-The architecture. <br> <br>**Valid values:** `amd64`, `arm64`, `ppc64el`, `s390x`, `riscv64`.
+The machine architecture. Valid values: `amd64`, `arm64`, `ppc64el`, `s390x`, `riscv64`.
 
 (constraint-container)=
 ### `container`
 
-If not nil, indicates that a machine must be the specified container type. <br> <br> **Valid values:** `lxd`.
+The container type the machine must be. Valid values: `lxd` and `none`. Kubernetes does not accept this key.
 
 (constraint-cores)=
 ### `cores`
 
-Number of effective CPU cores. <br> <br> **Type:** integer. <br> <br> **Alias:** `cpu-cores`.
+The number of CPU cores. The value is an integer. The key has the alias `cpu-cores`; setting both the key and the alias is refused.
 
 (constraint-cpu-power)=
 ### `cpu-power`
-Abstract CPU power. <br> <br> **Type:** integer, where 100 units is roughly equivalent to "a single 2007-era Xeon" as reflected by 1 Amazon vCPU. In a Kubernetes context a unit of "milli" is implied. <p> **Note:** Not supported by all providers. Use `cores` for portability.
+
+An abstract measure of CPU power. The value is an integer; on Kubernetes a unit is a millicore. Not every cloud accepts the key, so use `cores` where a charm must run anywhere.
 
 (constraint-image-id)=
 ### `image-id`
 
-The image ID. If not nil, indicates that a machine must use the specified image.
-
-**Note:** Not supported by all providers. Value is provider-specific.  Also, when applied during `juju deploy`, must be used in conjunction with the `--base` flag of the command -- the `image-id` will specify the image to be used for the provisioned machines and the `--base` will specify the operating system  used by the image to be deployed on those machines.
+The image the machine must use. The value is the cloud's identifier of an image, so it is cloud-specific.
 
 (constraint-instance-role)=
 ### `instance-role`
 
-Indicates that the specified role/profile for the given cloud should be used.  <p> **Note:** Only valid for clouds which support instance roles. Currently only for AWS with instance profiles and (starting with Juju 3.6) for Azure with managed identities.
+The cloud role the machine must run with: an EC2 instance profile, an Azure managed identity.
 
 (constraint-instance-type)=
 ### `instance-type`
 
-Cloud-specific instance-type name. Values vary by provider, and individual deployment in some cases. <p> **Note:** When compatibility between clouds is desired, use corresponding values for `cores`, `mem`, and `root-disk` instead.
+The cloud's name of an instance type. Which names exist is cloud-specific, so use the `cores`, `mem`, and `root-disk` keys where a charm must run anywhere.
 
 (constraint-ip-family)=
 ### `ip-family`
 
-```{versionadded} 4.1.0
-```
-
-The IP address family for the machine's network interfaces. <p> **Valid values:**
-`ipv4`, `ipv6`, `dual` (`ipv6`-only is not currently supported by any
-provider). <p> See the cloud-specific documentation for supported values
-and behavior.
+The IP address family for the machine's network interfaces. Valid values: `ipv4`, `ipv6`, `dual`. Azure accepts `ipv4` and `dual`.
 
 (constraint-mem)=
 ### `mem`
 
-Memory (MiB). An optional suffix of M/G/T/P indicates the value is mega-/giga-/tera-/peta- bytes.
+The memory, in MiB. A suffix `M`, `G`, `T`, or `P` multiplies the value by 1, 1024, 1024 squared, or 1024 cubed.
 
 (constraint-root-disk)=
 ### `root-disk`
 
-Disk space on the root drive (MiB). An optional suffix of M/G/T/P is used as per the `mem` constraint. Additional storage that may be attached separately does not count towards this value.
+The space on the root drive, in MiB, with the same suffixes as `mem`. Storage attached to the machine later does not count toward it.
 
 (constraint-root-disk-source)=
 ### `root-disk-source`
 
-Name of the storage pool or location the root disk is from. <p> **Note:** `root-disk-source` has different behaviour with each provider.
+The storage pool or location that the root disk comes from. The value and its effect are cloud-specific.
 
 (constraint-spaces)=
 ### `spaces`
 
-A comma-delimited list of Juju network space names that a unit or machine needs access to. Space names can be positive, listing an attribute of the space, or negative (prefixed with "^"), listing something the space does not have. <p> Example: `spaces=storage,db,^logging,^public` (meaning, select machines connected to the storage and db spaces, but NOT to logging or public spaces). <p> **Note:** EC2 and MAAS are the only providers that currently support the spaces constraint.
+The network spaces the machine must reach, as a list. A name with the prefix `^` excludes the space. A space must exist in the model. Kubernetes does not accept this key.
 
 (constraint-tags)=
 ### `tags`
 
-Comma-delimited tags assigned to the machine. Tags can be positive, denoting an attribute of the machine, or negative (prefixed with `^`), to denote something that the machine does not have. <p> Example: `tags=virtual,^dualnic` <p> **Note:** Supported by MAAS and by Kubernetes clouds (where it is used for pod affinity and anti-affinity).
+The tags of the machine, as a list. A tag with the prefix `^` excludes it.
 
 (constraint-virt-type)=
 ### `virt-type`
 
-Virtualisation type. <p> Only supported by {ref}`LXD <cloud-lxd>` and {ref}`OpenStack <cloud-openstack>`. **Valid values:** Cloud-dependent.
+The virtualization type. Which values exist is cloud-specific.
 
 (constraint-zones)=
 ### `zones`
 
-A list of availability zones.  Multiple values present a range of zones that a machine must be created within. <p> **Valid values:** Depending on the cloud provider. <p> **Example for the `aws` cloud:** `zones=us-east-1a,us-east-1c` <p> **Note:** A zone can also be used as a {ref}`placement directive <placement-directive>` (`--to zone= <name of zone>`).
+The availability zones, as a list; the machine is created in one of them.
+
+(constraint-merging)=
+## Constraint merging
+
+Constraint merging combines the constraints that apply to one machine into one set, at the moment Juju creates the machine:
+
+- For a unit, Juju starts with the model's constraints and lets the application's constraints replace them key by key. When the result has no `arch`, Juju sets `amd64`.
+- For a machine that a client adds, Juju starts with the model's constraints and lets the machine's constraints replace them key by key. The `container` key is dropped from both.
+- The cloud can register keys that conflict, such as `instance-type` with `arch`, `mem`, `cores`, and `cpu-power` on EC2. A key from the more specific holder removes the conflicting keys of the model.
+- A machine keeps the merged result. Changing a constraint afterwards affects only machines that Juju creates later.
+
+(constraint-calls)=
+## Constraint calls
+
+Constraint calls are the calls a {ref}`client <client>` can take on constraints through the controller API (the set of calls that clients and {ref}`agents <agent>` make to the controller): set the constraints of a model, get them, set those of an application, get them, give those of a machine, and read them. Each call acts on one holder. Deploying an application with constraints is described on the {ref}`application <application>` page.
+
+(constraint-model-setting)=
+### Setting model constraints
+
+```{ibnote}
+See also: {ref}`Juju | Manage constraints for a model <manage-constraints-for-a-model>`
+```
+
+Setting model constraints stores the constraints of a model, replacing the whole set. A client that bootstraps a controller sets the constraints of the controller model with the bootstrap constraints and those of the controller application with the bootstrap machine constraints.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Rules:*
+  - The old tags, spaces, and zones are removed and the request's are stored.
+  - A space the request names must exist in the model.
+  - The container type must be `lxd` or `none`.
+  - The cloud's list of unsupported or conflicting keys is not applied here, so a key that the cloud refuses surfaces when Juju merges.
+- *Errors:*
+  - **`space not found for model constraint "<model uuid>": <reason>`**: *Trigger:* A named space does not exist. The client receives it with the code `not found`. *Remediation:* {ref}`Add the space <add-a-space>` first.
+  - **`invalid container type for model constraint "<model uuid>"`**: *Trigger:* The container type is not `lxd` or `none`. The client receives it with the code `not valid`. *Remediation:* Use `lxd` or `none`.
+  - **`model "<model uuid>" not found`**: *Trigger:* The model does not exist. The client receives it with the code `model not found`. *Remediation:* Use an existing model.
+  - **`permission denied`**: *Trigger:* The caller lacks write access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* The change block is on. The client receives it with the code `operation is blocked`. *Remediation:* Ask the operator to lift the block.
+
+(constraint-model-getting)=
+### Getting model constraints
+
+Getting model constraints returns the constraints of a model. A model without constraints gets an empty result.
+
+The caller and the errors are:
+
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or {ref}`admin access <user-access-model-admin>`, or {ref}`superuser access <user-access-controller-superuser>` to the controller. No block applies.
+- *Errors:*
+  - **`model "<model uuid>" not found`**: *Trigger:* The model does not exist. The client receives it with the code `model not found`. *Remediation:* Use an existing model.
+  - **`permission denied`**: *Trigger:* The caller lacks the access above. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
+
+(constraint-application-setting)=
+### Setting application constraints
+
+```{ibnote}
+See also: {ref}`Juju | Manage constraints for an application <manage-constraints-for-an-application>`
+```
+
+Setting application constraints stores the constraints of one application, replacing the whole set: the tags, spaces, and zones of the old set are removed, and a key left unset loses its value.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) must not be on.
+- *Rules:*
+  - The application must exist.
+  - The container type must be `lxd` or `none`. A space the request names must exist in the model.
+  - The cloud checks the values and the conflicts between keys. A key that the cloud does not support is logged and stored, not refused.
+  - A subordinate application takes no constraints at deployment.
+- *Errors:*
+  - **`invalid application constraints`**: *Trigger:* The container type is not known, or a named space does not exist. The client receives it with no error code. *Remediation:* Use `lxd` or `none`, or {ref}`add the space <add-a-space>` first.
+  - **`invalid constraint value: <key>=<value>` followed by `valid values are: <values>`** and **`ambiguous constraints: "<key>" overlaps with "<key>"`**: *Trigger:* The cloud refuses a value, or two keys conflict. The client receives them with no error code. *Remediation:* Use a listed value, or drop one of the two keys.
+  - **`application <name> not found`**: *Trigger:* The application does not exist. The client receives it with the code `not found`. *Remediation:* Use an existing application.
+  - **`application is dead`**: *Trigger:* The application is dead. The client receives it with no error code. *Remediation:* Use an existing application.
+  - **`permission denied`**: *Trigger:* The caller lacks write access. The client receives it with the code `unauthorized access`. *Remediation:* Ask a model administrator.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* The change block is on. The client receives it with the code `operation is blocked`. *Remediation:* Ask the operator to lift the block.
+
+(constraint-application-getting)=
+### Getting application constraints
+
+Getting application constraints returns the constraints of one or more applications. An application without constraints gets an empty result.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. No block applies.
+- *Rules:*
+  - The call takes a list of applications. Each application in the list gets its own result.
+- *Errors:* A refused read fails the whole call with `permission denied` (code `unauthorized access`). The client receives the others in the result for the application:
+  - **`application <name> not found`**: *Trigger:* The application does not exist. The client receives it with the code `not found`. *Remediation:* Use an existing application.
+  - **`"<tag>" is not a valid tag`**: *Trigger:* The request's tag is malformed. The client receives it with no error code. *Remediation:* Tag an application.
+  - **`unexpected tag type, expected application, got <kind>`**: *Trigger:* The tag is of another kind. The client receives it with no error code. *Remediation:* Tag an application.
+
+(constraint-machine-setting)=
+### Setting machine constraints
+
+Setting machine constraints gives a machine its constraints when a client adds the machine (see {ref}`adding machines <machine-adding>`). No call changes them afterwards.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model. The change block must not be on.
+- *Rules:*
+  - Juju merges the request's constraints with the model's (see {ref}`constraint merging <constraint-merging>`) and stores the result with the machine.
+  - The cloud then prechecks the merged constraints.
+- *Errors:* The client receives each in the result for the machine:
+  - **`merging machine and model constraints: <reason>`**: *Trigger:* The cloud refuses a value, or two keys conflict. The client receives it with no error code. *Remediation:* Use a value that the cloud lists, or drop one of the conflicting keys.
+  - **`prechecking instance for create machine: <reason>`**: *Trigger:* The cloud refuses the merged constraints. The client receives it with no error code. *Remediation:* Follow the reason.
+
+(constraint-machine-getting)=
+### Getting machine constraints
+
+Getting machine constraints shows the constraints of each machine in the model's status.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model, or superuser access to the controller. A machine agent or the controller reads the constraints of a machine to provision it.

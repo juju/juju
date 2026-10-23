@@ -84,6 +84,7 @@ For a Kubernetes cloud, credential definitions are added automatically when you 
 See more: {ref}`add-a-kubernetes-cloud`
 ```
 
+(view-all-the-known-credentials)=
 ## View all the known credentials
 
 To see a list of all the known credentials, run the `credentials` command:
@@ -113,6 +114,7 @@ By passing various flags, you can also choose to view just the credentials known
 See more: {ref}`command-juju-credentials`
 ```
 
+(view-details-about-a-credential)=
 ## View details about a credential
 
 You can view details about all your credentials at once or just about a specific credential.
@@ -183,6 +185,7 @@ If the credential is only known to the client, this will first upload it to the 
 See more: {ref}`command-juju-set-credential`
 ```
 
+(update-a-credential)=
 ## Update a credential
 
 To update a credential, run the `update-credential` command followed by the name of the cloud and the name of the credential. For example:
@@ -200,6 +203,7 @@ See more: {ref}`command-juju-update-credential`
 ```
 
 
+(remove-a-credential)=
 ## Remove a credential
 
 To remove a credential, run the `remove-credential` command followed by the name of the cloud and the name of the credential. For example:
