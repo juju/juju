@@ -258,7 +258,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	if a.root.model != nil {
 		modelUUID = a.root.model.UUID()
 	}
-	if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
+	if err := a.maybeEmitRedirectError(modelUUID, req); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -349,10 +349,24 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	return result, nil
 }
 
-func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) error {
-	userTag, ok := authTag.(names.UserTag)
-	if !ok {
+func (a *admin) maybeEmitRedirectError(modelUUID string, req params.LoginRequest) error {
+	// Token logins have no auth tag. Their issuer is the authority for
+	// model access, so redirect them and let the target controller decide.
+	tokenLogin := req.AuthTag == "" && req.Token != ""
+	if req.AuthTag == "" && !tokenLogin {
 		return nil
+	}
+
+	var userTag names.UserTag
+	if !tokenLogin {
+		authTag, err := names.ParseTag(req.AuthTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ok bool
+		if userTag, ok = authTag.(names.UserTag); !ok {
+			return nil
+		}
 	}
 
 	st, err := a.root.shared.statePool.Get(modelUUID)
@@ -377,7 +391,10 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 	// granted access, do not return a redirect error.
 	// We need to return redirects if possible for anonymous logins in order
 	// to ensure post-migration operation of CMRs.
-	if mig == nil || (userTag.Id() != api.AnonymousUsername && mig.ModelUserAccess(userTag) == permission.NoAccess) {
+	// External users may hold access without a stored permission record, so
+	// they are always redirected and the target controller decides.
+	needsAccess := !tokenLogin && userTag.Id() != api.AnonymousUsername && userTag.IsLocal()
+	if mig == nil || (needsAccess && mig.ModelUserAccess(userTag) == permission.NoAccess) {
 		return nil
 	}
 
