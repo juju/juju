@@ -6,6 +6,8 @@ package ssh
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/ed25519"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
@@ -62,6 +65,144 @@ func (s *sshJumpSuite) setupMocks(c *tc.C) *gomock.Controller {
 	c.Assert(err, tc.ErrorIsNil)
 	s.hostKey = key
 	return ctrl
+}
+
+func (s *sshJumpSuite) TestPrintHostKeys(c *tc.C) {
+	s.setupMocks(c)
+
+	jumpKey, err := gossh.NewPublicKey(ed25519.PublicKey(bytes.Repeat([]byte{1}, ed25519.PublicKeySize)))
+	c.Assert(err, tc.ErrorIsNil)
+	targetKey, err := gossh.NewPublicKey(ed25519.PublicKey(bytes.Repeat([]byte{2}, ed25519.PublicKeySize)))
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "mysql/0", (*string)(nil)).Return("virtual-target", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "virtual-target").Return(
+		params.PublicSSHHostKeyResult{PublicKey: targetKey.Marshal()}, nil,
+	)
+	jump := sshJump{
+		target:               "someone@mysql/0",
+		jumpServerHostKey:    jumpKey.Marshal(),
+		sshClient:            s.sshAPIJump,
+		controllersAddresses: []string{"1.0.0.1", "2001:db8::1"},
+		jumpHostPort:         17022,
+	}
+	var out bytes.Buffer
+	c.Assert(jump.printHostKeys(c.Context(), &out), tc.ErrorIsNil)
+	c.Check(out.String(), tc.Equals, `Controller SSH jump server ([1.0.0.1]:17022, [2001:db8::1]:17022):
+ED25519 key fingerprint is SHA256:RXm/ruZ0eTzRXKwi1AQEDynB0VgHQ2ac9KPSFdf/YnA.
+
+Target virtual host (virtual-target):
+ED25519 key fingerprint is SHA256:baqJQcVDEweKmw1OiZxGooCG2MGxYtwsQQzzOstxmiA.
+`)
+	c.Check(jump.knownHostsPath, tc.Equals, "")
+}
+
+func (s *sshJumpSuite) TestPrintHostKeysResolvesLeaderAndContainer(c *tc.C) {
+	s.setupMocks(c)
+
+	for _, containerName := range []string{"", "redis"} {
+		container := containerName
+		if container == "" {
+			container = charmContainerName
+		}
+		leaderAPI := mocks.NewMockLeaderAPI(gomock.NewController(c))
+		leaderAPI.EXPECT().Leader(gomock.Any(), "mysql").Return("mysql/2", nil)
+		s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "mysql/2", &container).Return("virtual-target", nil)
+		s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "virtual-target").Return(
+			params.PublicSSHHostKeyResult{PublicKey: s.hostKey}, nil,
+		)
+		jump := sshJump{
+			leaderResolver:       leaderResolver{leaderAPI: leaderAPI},
+			modelType:            model.CAAS,
+			container:            containerName,
+			target:               "mysql/leader",
+			jumpServerHostKey:    s.hostKey,
+			sshClient:            s.sshAPIJump,
+			controllersAddresses: []string{"1.0.0.1"},
+			jumpHostPort:         17022,
+		}
+		c.Assert(jump.printHostKeys(c.Context(), io.Discard), tc.ErrorIsNil)
+	}
+}
+
+func (s *sshJumpSuite) TestPrintHostKeysInvalidKey(c *tc.C) {
+	s.setupMocks(c)
+
+	for _, invalidJumpKey := range []bool{true, false} {
+		jumpKey, targetKey := s.hostKey, s.hostKey
+		expected := `parsing SSH host key for "virtual-target": .*`
+		if invalidJumpKey {
+			jumpKey = []byte("invalid")
+			expected = "parsing controller SSH server host key: .*"
+		} else {
+			targetKey = []byte("invalid")
+		}
+		s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", (*string)(nil)).Return("virtual-target", nil)
+		s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "virtual-target").Return(
+			params.PublicSSHHostKeyResult{PublicKey: targetKey}, nil,
+		)
+		jump := sshJump{target: "0", jumpServerHostKey: jumpKey, sshClient: s.sshAPIJump}
+		var out bytes.Buffer
+		c.Check(jump.printHostKeys(c.Context(), &out), tc.ErrorMatches, expected)
+		c.Check(out.Len(), tc.Equals, 0)
+	}
+}
+
+func (s *sshJumpSuite) TestPrintHostKeysAPIErrors(c *tc.C) {
+	s.setupMocks(c)
+
+	jump := sshJump{target: "0", sshClient: s.sshAPIJump}
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", (*string)(nil)).Return("", io.ErrUnexpectedEOF)
+	c.Check(jump.printHostKeys(c.Context(), io.Discard), tc.ErrorIs, io.ErrUnexpectedEOF)
+
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", (*string)(nil)).Return("virtual-target", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "virtual-target").Return(
+		params.PublicSSHHostKeyResult{}, io.ErrUnexpectedEOF,
+	)
+	c.Check(jump.printHostKeys(c.Context(), io.Discard), tc.ErrorIs, io.ErrUnexpectedEOF)
+}
+
+func (s *sshJumpSuite) TestSSHCommandPrintKeysRun(c *tc.C) {
+	ctrl := s.setupMocks(c)
+
+	com := NewSSHCommandForTest(
+		nil, nil, nil, nil, nil,
+		baseTestingRetryStrategy, baseTestingRetryStrategy,
+	)
+
+	controllerAPI := mocks.NewMockSSHControllerAPI(ctrl)
+	controllerAPI.EXPECT().BestAPIVersion().Return(minSSHJumpControllerFacadeVersion)
+	controllerAPI.EXPECT().SSHServerPort(gomock.Any()).Return(17022, nil)
+	controllerAPI.EXPECT().SSHServerHostKey(gomock.Any()).Return(s.hostKey, nil)
+	leaderAPI := mocks.NewMockLeaderAPI(ctrl)
+	leaderAPI.EXPECT().Close().Return(nil)
+	s.sshAPIJump.EXPECT().BestAPIVersion().Return(minSSHJumpFacadeVersion)
+	s.sshAPIJump.EXPECT().VirtualHostname(gomock.Any(), "0", (*string)(nil)).Return("virtual-target", nil)
+	s.sshAPIJump.EXPECT().PublicHostKeyForTarget(gomock.Any(), "virtual-target").Return(
+		params.PublicSSHHostKeyResult{PublicKey: s.hostKey}, nil,
+	)
+	s.sshAPIJump.EXPECT().Close().Return(nil)
+
+	com.sshJump.sshClient = s.sshAPIJump
+	com.sshJump.controllerClient = controllerAPI
+	com.sshJump.leaderAPI = leaderAPI
+	hostChecker := mocks.NewMockReachableChecker(ctrl)
+	com.hostChecker = hostChecker
+
+	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(com), "--model", "arthur:admin/controller", "--print-keys", "0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cmdtesting.Stdout(ctx), tc.Contains, "Controller SSH jump server (")
+	c.Check(cmdtesting.Stdout(ctx), tc.Contains, "Target virtual host (virtual-target):")
+	c.Check(cmdtesting.Stdout(ctx), tc.Not(tc.Contains), "ProxyCommand")
+
+	// The fake ssh/scp executables create .args files when invoked. Ensure
+	// --print-keys exits without executing either command.
+	for _, command := range patchedCommands {
+		_, err := os.Stat(filepath.Join(s.binDir, command+".args"))
+		c.Check(os.IsNotExist(err), tc.IsTrue, tc.Commentf("%s was executed", command))
+	}
+	c.Check(com.sshJump.sshClient, tc.IsNil)
+	c.Check(com.sshJump.leaderAPI, tc.IsNil)
 }
 
 // TestResolveTarget exercises the jump target selection flow: the virtual
