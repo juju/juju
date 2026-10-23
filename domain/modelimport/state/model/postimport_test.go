@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -29,7 +29,7 @@ func (s *postImportSuite) TestMergeModelAgentPassword(c *tc.C) {
 	passwordHash := "hash"
 	passwordHashAlgorithmID := int64(0)
 	st := importstate.NewState(s.TxnRunnerFactory())
-	err := st.MergeModelAgentPassword(c.Context(), v4_1_0.ModelAgent{
+	err := st.MergeModelAgentPassword(c.Context(), v4_2_0.ModelAgent{
 		ModelUUID:               s.ModelUUID(),
 		PasswordHash:            &passwordHash,
 		PasswordHashAlgorithmID: &passwordHashAlgorithmID,
@@ -48,7 +48,7 @@ func (s *postImportSuite) TestMergeModelAgentPasswordAllowsEmptyPassword(c *tc.C
 	s.bootstrapModel(c)
 
 	st := importstate.NewState(s.TxnRunnerFactory())
-	err := st.MergeModelAgentPassword(c.Context(), v4_1_0.ModelAgent{ModelUUID: s.ModelUUID()})
+	err := st.MergeModelAgentPassword(c.Context(), v4_2_0.ModelAgent{ModelUUID: s.ModelUUID()})
 	c.Assert(err, tc.ErrorIsNil)
 
 	gotHash, gotAlgorithmID := s.modelAgentPassword(c)
@@ -58,7 +58,7 @@ func (s *postImportSuite) TestMergeModelAgentPasswordAllowsEmptyPassword(c *tc.C
 
 func (s *postImportSuite) TestMergeModelAgentPasswordNoMatchingRow(c *tc.C) {
 	st := importstate.NewState(s.TxnRunnerFactory())
-	err := st.MergeModelAgentPassword(c.Context(), v4_1_0.ModelAgent{ModelUUID: "does-not-exist"})
+	err := st.MergeModelAgentPassword(c.Context(), v4_2_0.ModelAgent{ModelUUID: "does-not-exist"})
 	c.Assert(err, tc.ErrorMatches, ".*affected 0 rows, expected 1.*")
 }
 

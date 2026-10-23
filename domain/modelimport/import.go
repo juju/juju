@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/export/types/latest"
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
 	"github.com/juju/juju/internal/errors"
 )
@@ -62,7 +62,7 @@ func sanitizeCharmBlobResidency(payload latest.ModelExport) latest.ModelExport {
 		return payload
 	}
 	notAvailable := false
-	charms := make([]v4_1_0.Charm, len(payload.Charm))
+	charms := make([]v4_2_0.Charm, len(payload.Charm))
 	copy(charms, payload.Charm)
 	for i := range charms {
 		charms[i].Available = &notAvailable

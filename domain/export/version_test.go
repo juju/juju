@@ -34,7 +34,7 @@ func (s *versionSuite) TestLatestSupportedPayloadVersionCurrent(c *tc.C) {
 	c.Check(
 		LatestSupportedPayloadVersion(),
 		tc.Equals,
-		semversion.MustParse("4.1.0"),
+		semversion.MustParse("4.2.0"),
 	)
 }
 
@@ -88,7 +88,7 @@ func (s *versionSuite) TestCheckPayloadVersionRejections(c *tc.C) {
 	}{{
 		summary: "newer than every format we hold: the target is behind",
 		version: "9.9.9",
-		expect:  `source payload version "9.9.9" is newer than target "4.1.0"; upgrade the target controller first.*`,
+		expect:  `source payload version "9.9.9" is newer than target "4.2.0"; upgrade the target controller first.*`,
 	}, {
 		summary: "older patch of a line we import: the source is behind",
 		version: "4.0.11",

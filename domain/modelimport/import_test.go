@@ -13,7 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	"github.com/juju/juju/domain/modelimport"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -35,12 +35,12 @@ func (s *importSuite) TestImporterPerformsModelDBImport(c *tc.C) {
 	passwordHash := "hash"
 	passwordHashAlgorithmID := int64(0)
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{{
+		ModelAgent: []v4_2_0.ModelAgent{{
 			ModelUUID:               s.ModelUUID(),
 			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
 			PasswordHash:            &passwordHash,
 		}},
-		Sequence: []v4_1_0.Sequence{{Namespace: "machine", Value: 5}},
+		Sequence: []v4_2_0.Sequence{{Namespace: "machine", Value: 5}},
 	}
 
 	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
@@ -70,7 +70,7 @@ func (s *importSuite) TestImportRejectsMultipleModelAgents(c *tc.C) {
 
 	passwordHash := "hash"
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{
+		ModelAgent: []v4_2_0.ModelAgent{
 			{ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash},
 			{ModelUUID: s.ModelUUID(), PasswordHash: &passwordHash},
 		},
@@ -100,7 +100,7 @@ func (s *importSuite) TestImportSanitizesCharmBlobResidency(c *tc.C) {
 	passwordHash := "hash"
 
 	payload := &latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{{
+		ModelAgent: []v4_2_0.ModelAgent{{
 			ModelUUID:    s.ModelUUID(),
 			PasswordHash: &passwordHash,
 		}},
@@ -108,13 +108,13 @@ func (s *importSuite) TestImportSanitizesCharmBlobResidency(c *tc.C) {
 		// charm's blob, but that table is excluded from import entirely: this
 		// deliberately leaves ObjectStoreUUID below dangling, matching what a
 		// real source payload looks like once the charm row is sanitized.
-		ObjectStoreMetadata: []v4_1_0.ObjectStoreMetadata{{
+		ObjectStoreMetadata: []v4_2_0.ObjectStoreMetadata{{
 			UUID:   objectStoreUUID,
 			Sha256: "sha256",
 			Sha384: "sha384",
 			Size:   1,
 		}},
-		Charm: []v4_1_0.Charm{{
+		Charm: []v4_2_0.Charm{{
 			UUID:            charmUUID,
 			ArchivePath:     &archivePath,
 			ObjectStoreUUID: &objectStoreUUID,
@@ -131,7 +131,7 @@ func (s *importSuite) TestImportSanitizesCharmBlobResidency(c *tc.C) {
 		// archive actually lands here. Were it imported, that phase's insert
 		// would collide (charm_hash is insert-only, see its "unmodifiable"
 		// trigger).
-		CharmHash: []v4_1_0.CharmHash{{
+		CharmHash: []v4_2_0.CharmHash{{
 			CharmUUID: charmUUID,
 			Hash:      "source-hash",
 		}},

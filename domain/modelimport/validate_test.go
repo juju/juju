@@ -10,7 +10,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/export/types/latest"
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	"github.com/juju/juju/domain/modelimport"
 )
 
@@ -23,7 +23,7 @@ func TestValidateSuite(t *testing.T) {
 func (s *validateSuite) TestValidatePayload(c *tc.C) {
 	passwordHash := "hash"
 	err := modelimport.ValidatePayload(latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{{PasswordHash: &passwordHash}},
+		ModelAgent: []v4_2_0.ModelAgent{{PasswordHash: &passwordHash}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -39,7 +39,7 @@ func (s *validateSuite) TestValidatePayloadMissingModelAgent(c *tc.C) {
 // passes validation rather than being rejected.
 func (s *validateSuite) TestValidatePayloadAllowsEmptyModelAgentPassword(c *tc.C) {
 	err := modelimport.ValidatePayload(latest.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{{}},
+		ModelAgent: []v4_2_0.ModelAgent{{}},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 }
