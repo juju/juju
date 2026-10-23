@@ -19,7 +19,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/actions"
@@ -630,54 +629,153 @@ func (m *Machine) DestroyWithContainers() error {
 // ForceDestroy queues the machine for complete removal, including the
 // destruction of all units and containers on the machine.
 func (m *Machine) ForceDestroy(maxWait time.Duration) error {
-	ops, err := m.forceDestroyOps(maxWait)
-	if err != nil {
-		return errors.Trace(err)
+	return errors.Trace(m.DestroyWithParams(true, true, maxWait))
+}
+
+// DestroyWithParams queues the machine for removal. When
+// destroyHostedUnitsAndContainers is true, hosted units and containers are
+// removed before the machine. Force allows cleanup to proceed despite errors,
+// and maxWait controls forced fallback timing.
+func (m *Machine) DestroyWithParams(force, destroyHostedUnitsAndContainers bool, maxWait time.Duration) error {
+	if !destroyHostedUnitsAndContainers {
+		return errors.Trace(m.advanceLifecycle(Dying, force, false, maxWait))
 	}
-	if err := m.st.db().RunTransaction(ops); err != txn.ErrAborted {
-		return errors.Annotatef(err, "failed to run transaction: %s", pretty.Sprint(ops))
+	machine := m
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt != 0 {
+			var err error
+			machine, err = machine.st.Machine(machine.Id())
+			if errors.IsNotFound(err) {
+				return nil, jujutxn.ErrNoOperations
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+		if machine.Life() != Alive {
+			if force {
+				var ops []txn.Op
+				if machine.IsManager() {
+					controllerOp, err := machine.controllerIDsOp()
+					if err != nil {
+						return nil, errors.Trace(err)
+					}
+					ops = append(ops, controllerOp)
+				}
+				return append(ops, newCleanupOp(
+					cleanupEvacuateMachine,
+					machine.doc.Id,
+					force,
+					maxWait,
+				)), nil
+			}
+			return nil, jujutxn.ErrNoOperations
+		}
+		if force {
+			return machine.forceDestroyOps(maxWait)
+		}
+		return machine.evacuateMachineOps(false, maxWait)
 	}
-	return nil
+	return m.st.db().Run(buildTxn)
 }
 
 func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
-	if m.IsManager() {
-		controllerIds, err := m.st.ControllerIds()
-		if err != nil {
-			return nil, errors.Annotatef(err, "reading controller info")
-		}
-		if len(controllerIds) <= 1 {
-			return nil, errors.Errorf("controller %s is the only controller", m.Id())
-		}
-		return []txn.Op{
-			{
-				C:  machinesC,
-				Id: m.doc.DocID,
-				Assert: bson.D{
-					{"life", Alive},
-					advanceLifecycleUnitAsserts(m.doc.Principals),
-				},
-				// To prevent race conditions, we remove the ability for new
-				// units to be deployed to the machine.
-				Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
-			},
-			{
-				C:      controllersC,
-				Id:     modelGlobalKey,
-				Assert: bson.D{{"controller-ids", controllerIds}},
-			},
-			setControllerWantsVoteOp(m.st, m.Id(), false),
-			newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
-		}, nil
-	} else {
-		// Make sure the machine doesn't become a manager while we're destroying it
-		return []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}}},
-		}, newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
-		}, nil
+	return m.evacuateMachineOps(true, maxWait)
+}
+
+func (m *Machine) evacuateMachineOps(force bool, maxWait time.Duration) ([]txn.Op, error) {
+	asserts := bson.D{
+		{"life", Alive},
+		advanceLifecycleUnitAsserts(m.doc.Principals),
 	}
+	if !m.IsManager() {
+		asserts = append(asserts, bson.DocElem{
+			Name: "jobs",
+			Value: bson.D{{
+				"$nin", []MachineJob{JobManageModel},
+			}},
+		})
+	}
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: asserts,
+		Update: bson.D{
+			{"$pull", bson.D{{"jobs", JobHostUnits}}},
+			{"$set", bson.D{{"life", Dying}}},
+		},
+	}}
+	if m.IsManager() {
+		controllerOp, err := m.controllerIDsOp()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		votingControllerOps, err := m.otherVotingControllerOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, controllerOp)
+		ops = append(ops, votingControllerOps...)
+		ops = append(ops, setControllerWantsVoteOp(m.st, m.Id(), false))
+	}
+	if !force {
+		// The machine's cleanup also removes its containers, so neither it
+		// nor any of them may be locked for series upgrade.
+		lockOps, err := m.upgradeSeriesLockOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, lockOps...)
+	}
+	return append(ops, newCleanupOp(
+		cleanupEvacuateMachine, m.doc.Id, force, maxWait,
+	)), nil
+}
+
+// upgradeSeriesLockOps returns ops asserting that neither the machine nor
+// any of its containers, at any depth, is locked for series upgrade. The
+// containers are asserted too, so that one added meanwhile is checked when
+// the transaction is retried.
+func (m *Machine) upgradeSeriesLockOps() ([]txn.Op, error) {
+	locked, err := m.IsLockedForSeriesUpgrade()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading machine %s upgrade-series lock", m.Id())
+	}
+	if locked {
+		return nil, errors.Errorf("machine %s is locked for series upgrade", m.Id())
+	}
+	ops := []txn.Op{{
+		C:      machineUpgradeSeriesLocksC,
+		Id:     m.doc.Id,
+		Assert: txn.DocMissing,
+	}}
+	containerIds, err := m.Containers()
+	if errors.IsNotFound(err) {
+		return ops, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(containerIds) == 0 {
+		return append(ops, m.noContainersOp()), nil
+	}
+	ops = append(ops, txn.Op{
+		C:      containerRefsC,
+		Id:     m.doc.DocID,
+		Assert: bson.D{{"children", containerIds}},
+	})
+	for _, containerId := range containerIds {
+		container, err := m.st.Machine(containerId)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		containerOps, err := container.upgradeSeriesLockOps()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, containerOps...)
+	}
+	return ops, nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
@@ -944,6 +1042,50 @@ func (m *Machine) controllerIDsOp() (txn.Op, error) {
 		Id:     modelGlobalKey,
 		Assert: bson.D{{"controller-ids", controllerIds}},
 	}, nil
+}
+
+// otherVotingControllerOps returns ops asserting that another controller
+// stays Alive with a vote. A Dying controller loses its vote, and the peer
+// grouper can neither keep a primary nor add new voters once no Alive
+// controller has one, so the replica set would never converge.
+func (m *Machine) otherVotingControllerOps() ([]txn.Op, error) {
+	controllerIds, err := m.st.ControllerIds()
+	if err != nil {
+		return nil, errors.Annotatef(err, "reading controller info")
+	}
+	for _, id := range controllerIds {
+		if id == m.Id() {
+			continue
+		}
+		controller, err := m.st.Machine(id)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if controller.Life() != Alive {
+			continue
+		}
+		node, err := m.st.ControllerNode(id)
+		if errors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !node.HasVote() {
+			continue
+		}
+		return []txn.Op{{
+			C:      machinesC,
+			Id:     controller.doc.DocID,
+			Assert: isAliveDoc,
+		}, {
+			C:      controllerNodesC,
+			Id:     m.st.docID(id),
+			Assert: bson.D{{"has-vote", true}},
+		}}, nil
+	}
+	return nil, errors.Errorf("controller %s cannot be removed as no other alive controller has a vote", m.Id())
 }
 
 // noContainersOp returns an Op to assert that the machine

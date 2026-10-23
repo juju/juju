@@ -79,12 +79,12 @@ type Machine interface {
 	Tag() names.Tag
 	SetPassword(string) error
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
-	Destroy() error
-	ForceDestroy(time.Duration) error
+	DestroyWithParams(force, destroyHostedUnitsAndContainers bool, maxWait time.Duration) error
 	Base() state.Base
 	Containers() ([]string, error)
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
+	KeepInstance() (bool, error)
 	CreateUpgradeSeriesLock([]string, state.Base) error
 	RemoveUpgradeSeriesLock() error
 	CompleteUpgradeSeries() error
