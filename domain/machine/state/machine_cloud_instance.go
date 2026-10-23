@@ -151,7 +151,7 @@ WHERE     v.machine_uuid = $instanceDataResult.machine_uuid`
 }
 
 // SetMachineCloudInstance sets an entry in the machine cloud instance table
-// along with the instance tags and the link to a lxd profile if any.
+// along with the instance tags.
 // This also includes the following fields:
 //   - machine nonce if it's not already set.
 //   - hardware characteristics such as architecture, memory, root disk,

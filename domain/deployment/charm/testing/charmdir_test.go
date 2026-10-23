@@ -50,21 +50,6 @@ func checkDummy(c *tc.C, f charm.Charm) {
 								"default":     "foo.bz2",
 							}},
 						"additionalProperties": false}}}})
-	lpc, ok := f.(charm.LXDProfiler)
-	c.Assert(ok, tc.IsTrue)
-	c.Assert(lpc.LXDProfile(), tc.DeepEquals, &charm.LXDProfile{
-		Config: map[string]string{
-			"security.nesting":    "true",
-			"security.privileged": "true",
-		},
-		Description: "sample lxdprofile for testing",
-		Devices: map[string]map[string]string{
-			"tun": {
-				"path": "/dev/net/tun",
-				"type": "unix-char",
-			},
-		},
-	})
 }
 
 func (s *CharmDirSuite) TestReadCharmDir(c *tc.C) {

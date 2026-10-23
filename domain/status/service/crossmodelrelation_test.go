@@ -203,3 +203,65 @@ func (s *serviceSuite) TestSetRemoteApplicationOffererStatusError(c *tc.C) {
 
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
+
+func (s *serviceSuite) TestSetRemoteApplicationOffererStatusByApplicationUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+
+	appUUID := tc.Must(c, application.NewUUID)
+	s.modelState.EXPECT().SetRemoteApplicationOffererStatusByApplicationUUID(gomock.Any(), appUUID.String(), status.StatusInfo[status.WorkloadStatusType]{
+		Status:  status.WorkloadStatusActive,
+		Message: "message",
+		Data:    []byte(`{"foo":"bar"}`),
+		Since:   &now,
+	}).Return("foo", nil)
+
+	err := s.modelService.SetRemoteApplicationOffererStatusByApplicationUUID(c.Context(), appUUID, corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "message",
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &now,
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.statusHistory.records, tc.DeepEquals, []statusHistoryRecord{{
+		ns: statushistory.Namespace{Kind: corestatus.KindSAAS, ID: "foo"},
+		s: corestatus.StatusInfo{
+			Status:  corestatus.Active,
+			Message: "message",
+			Data:    map[string]any{"foo": "bar"},
+			Since:   &now,
+		},
+	}})
+}
+
+func (s *serviceSuite) TestSetRemoteApplicationOffererStatusByApplicationUUIDNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	now := time.Now().UTC()
+
+	appUUID := tc.Must(c, application.NewUUID)
+	s.modelState.EXPECT().SetRemoteApplicationOffererStatusByApplicationUUID(gomock.Any(), appUUID.String(), gomock.Any()).
+		Return("", crossmodelrelationerrors.RemoteApplicationNotFound)
+
+	err := s.modelService.SetRemoteApplicationOffererStatusByApplicationUUID(c.Context(), appUUID, corestatus.StatusInfo{
+		Status:  corestatus.Active,
+		Message: "message",
+		Data:    map[string]any{"foo": "bar"},
+		Since:   &now,
+	})
+
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
+func (s *serviceSuite) TestSetRemoteApplicationOffererStatusByApplicationUUIDInvalidUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.modelService.SetRemoteApplicationOffererStatusByApplicationUUID(c.Context(), application.UUID("invalid"), corestatus.StatusInfo{
+		Status: corestatus.Active,
+	})
+
+	c.Assert(err, tc.ErrorMatches, `application UUID:.*`)
+}

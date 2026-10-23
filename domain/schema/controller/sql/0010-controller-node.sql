@@ -39,7 +39,7 @@ CREATE TABLE controller_api_address (
     -- Represents whether the API address is available for agents usage.
     is_agent BOOLEAN DEFAULT FALSE,
     -- Represents the context an address may apply to. E.g. public, private.
-    scope TXT NOT NULL,
+    scope TEXT NOT NULL,
     CONSTRAINT fk_controller_api_address_controller
     FOREIGN KEY (controller_id)
     REFERENCES controller_node (controller_id),

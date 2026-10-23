@@ -15,19 +15,24 @@ const minRetryDelay = 30 * time.Second
 // up to this ceiling.
 const maxRetryDelay = 30 * time.Minute
 
-// scheduleOperations schedules the given operations
-// by calculating the current time once, and then
-// adding each operation's delay to that time. By
-// calculating the current time once, we guarantee
-// that operations with the same delay will be
-// batched together.
+// scheduleOperations schedules the given operations by calculating the current
+// time once, and then adding each operation's delay to that time. By
+// calculating the current time once, we guarantee that operations with the same
+// delay will be batched together.
+//
+// scheduleOperations is first write wins. Any subsequent calls for the same
+// operation key will panic. It's up to the caller to check if an operation is
+// already scheduled before calling this function.
 func scheduleOperations(deps *dependencies, ops ...scheduleOp) {
 	if len(ops) == 0 {
 		return
 	}
+
 	now := deps.config.Clock.Now()
 	for _, op := range ops {
 		k := op.key()
+		// Work out the delay for the operation, and schedule it to run after
+		// that delay.
 		d := op.delay()
 		deps.schedule.Add(k, op, now.Add(d))
 	}

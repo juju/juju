@@ -14,7 +14,7 @@ operators called ‘charms’.
 [![snap](https://github.com/juju/juju/actions/workflows/snap.yml/badge.svg)](https://github.com/juju/juju/actions/workflows/snap.yml)
 [![build](https://github.com/juju/juju/actions/workflows/build.yml/badge.svg)](https://github.com/juju/juju/actions/workflows/build.yml)
 
-- [Give it a try!](https://documentation.ubuntu.com/juju/latest/tutorial/)
-- Read the [docs](https://documentation.ubuntu.com/juju/).
+- [Give it a try!](https://canonical.com/juju/docs/juju-cli/latest/tutorial/)
+- Read the [docs](https://canonical.com/juju/docs/).
 - Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and join our [chat](https://matrix.to/#/#charmhub-juju:ubuntu.com) and [forum](https://discourse.charmhub.io/) or [open an issue](https://github.com/juju/juju/issues).
 - Read our [CONTRIBUTING guide](./CONTRIBUTING.md) and contribute!

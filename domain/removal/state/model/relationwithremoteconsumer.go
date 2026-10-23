@@ -57,7 +57,9 @@ AND    cs.name = 'cmr'`, remoteRelationUUID)
 // EnsureRelationWithRemoteConsumerNotAliveCascade ensures that the relation identified
 // by the input UUID is not alive, and sets the synthetic units in scope
 // of this relation to dead. We do this because synthetic units do not have a
-// uniter, so we need to handle their life ourselves.
+// uniter, so we need to handle their life ourselves. It is safe to call this
+// after some synthetic relation units have been removed; only those still in
+// scope are returned.
 func (st *State) EnsureRelationWithRemoteConsumerNotAliveCascade(ctx context.Context, rUUID string) (internal.CascadedRelationWithRemoteConsumerLives, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -111,6 +113,8 @@ AND    application_uuid = $entityUUID.uuid
 
 	var synthRelationUnitUUIDs []entityUUID
 	err = errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		synthRelationUnitUUIDs = nil
+
 		err = tx.Query(ctx, updateRelationStmt, remoteRelationUUID).Run()
 		if err != nil {
 			return errors.Errorf("advancing remote relation life: %w", err)

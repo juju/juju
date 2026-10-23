@@ -191,7 +191,6 @@ type setCharmState struct {
 }
 
 // setCharmMetadata is used to set the metadata of a charm.
-// This includes the setting of the LXD profile.
 type setCharmMetadata struct {
 	CharmUUID   string `db:"charm_uuid"`
 	Name        string `db:"name"`

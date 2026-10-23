@@ -195,22 +195,6 @@ type machineParent struct {
 	ParentUUID  string `db:"parent_uuid"`
 }
 
-// lxdProfile represents the struct to be used for the sqlair statements on the
-// machine_lxd_profile table.
-type lxdProfile struct {
-	MachineUUID string `db:"machine_uuid"`
-	Name        string `db:"name"`
-	Index       int    `db:"array_index"`
-}
-
-// lxdProfileAndName represents data to construct a profile name
-// and the profile itself.
-type lxdProfileAndName struct {
-	AppName    string `db:"name"`
-	LXDProfile []byte `db:"lxd_profile"`
-	Revision   int    `db:"revision"`
-}
-
 type machineNonce struct {
 	MachineUUID string `db:"machine_uuid"`
 	Nonce       string `db:"nonce"`

@@ -154,7 +154,6 @@ type MockMachineService struct {
 // MockMachineServiceMockRecorder is the mock recorder for MockMachineService.
 type MockMachineServiceMockRecorder struct {
 	mock                                *MockMachineService
-	appliedLXDProfileNamesExpects       []*gomock.Call2_2[context.Context, machine.UUID, []string, error]
 	availabilityZoneExpects             []*gomock.Call2_2[context.Context, machine.UUID, string, error]
 	clearMachineRebootExpects           []*gomock.Call2_1[context.Context, machine.UUID, error]
 	getMachineUUIDExpects               []*gomock.Call2_2[context.Context, machine.Name, machine.UUID, error]
@@ -176,24 +175,6 @@ func NewMockMachineService(ctrl *gomock.Controller) *MockMachineService {
 func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 	return m.recorder
 }
-
-// AppliedLXDProfileNames mocks base method.
-func (m *MockMachineService) AppliedLXDProfileNames(ctx context.Context, mUUID machine.UUID) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.appliedLXDProfileNamesExpects, m.ctrl, m, "AppliedLXDProfileNames", ctx, mUUID)
-}
-
-// AppliedLXDProfileNames indicates an expected call of AppliedLXDProfileNames.
-func (mr *MockMachineServiceMockRecorder) AppliedLXDProfileNames(ctx, mUUID any) *MockMachineServiceAppliedLXDProfileNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, machine.UUID, []string, error](mr.mock.ctrl.T, mr.mock, "AppliedLXDProfileNames", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(mUUID))
-	mr.appliedLXDProfileNamesExpects = append(mr.appliedLXDProfileNamesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockMachineServiceAppliedLXDProfileNamesCall is the typed call wrapper for AppliedLXDProfileNames.
-type MockMachineServiceAppliedLXDProfileNamesCall = gomock.Call2_2[context.Context, machine.UUID, []string, error]
 
 // AvailabilityZone mocks base method.
 func (m *MockMachineService) AvailabilityZone(ctx context.Context, machineUUID machine.UUID) (string, error) {

@@ -184,7 +184,6 @@ type applicationStatusDetails struct {
 	UpdatedAt              *time.Time           `db:"updated_at"`
 	RelationUUID           sql.Null[string]     `db:"relation_uuid"`
 	CharmVersion           string               `db:"charm_version"`
-	LXDProfile             sql.Null[[]byte]     `db:"lxd_profile"`
 	Exposed                bool                 `db:"exposed"`
 	Scale                  sql.Null[int]        `db:"scale"`
 	WorkloadVersion        sql.Null[string]     `db:"workload_version"`
@@ -502,6 +501,14 @@ type remoteApplicationStatus struct {
 	Message               string     `db:"message"`
 	Data                  []byte     `db:"data"`
 	UpdatedAt             *time.Time `db:"updated_at"`
+}
+
+// remoteApplicationOffererStatusTarget identifies the remote application
+// offerer resolved from a synthetic application UUID, along with the
+// application name required for status history recording.
+type remoteApplicationOffererStatusTarget struct {
+	RemoteApplicationUUID string `db:"uuid"`
+	Name                  string `db:"name"`
 }
 
 type fullRemoteApplicationStatus struct {

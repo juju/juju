@@ -1665,7 +1665,6 @@ SELECT
   cs.name AS &applicationStatusDetails.charm_source,
   c.architecture_id AS &applicationStatusDetails.charm_architecture_id,
   c.version AS &applicationStatusDetails.charm_version,
-  c.lxd_profile AS &applicationStatusDetails.lxd_profile,
   aps.scale AS &applicationStatusDetails.scale,
   k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
   svc_addr.address_value AS &applicationStatusDetails.k8s_public_address,
@@ -1744,11 +1743,6 @@ ORDER BY a.name, re.relation_uuid;
 			return nil, errors.Errorf("decoding channel: %w", err)
 		}
 
-		var lxdProfile []byte
-		if s.LXDProfile.Valid {
-			lxdProfile = s.LXDProfile.V
-		}
-
 		var scale *int
 		if s.Scale.Valid {
 			scale = &s.Scale.V
@@ -1785,7 +1779,6 @@ ORDER BY a.name, re.relation_uuid;
 			Relations:        relations,
 			CharmLocator:     charmLocator,
 			CharmVersion:     s.CharmVersion,
-			LXDProfile:       lxdProfile,
 			Platform:         platform,
 			Channel:          channel,
 			Exposed:          s.Exposed,
