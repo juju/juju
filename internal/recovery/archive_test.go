@@ -119,3 +119,125 @@ func (s *validateSuite) TestReadArchiveRejectsOversizedModelDump(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(entries, tc.HasLen, 0)
 }
+
+func (s *validateSuite) TestUnpackObjectStore(c *tc.C) {
+	files := validFiles()
+	files["juju-backup/root.tar"] = rootTar(c)
+	archivePath, _ := writeArchive(c, files)
+
+	dest := c.MkDir()
+	n, err := recovery.UnpackObjectStore(c.Context(), archivePath, dest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+
+	content, err := os.ReadFile(filepath.Join(dest, "objectstore", "some-ns", "somehash"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "blob content")
+}
+
+func (s *validateSuite) TestUnpackObjectStoreOverwritesPresentBlob(c *tc.C) {
+	// The replacement's own bootstrap blobs are already on disk when
+	// recovery unpacks: identical content is keyed by the same hash, so
+	// unpacking overwrites rather than failing.
+	files := validFiles()
+	files["juju-backup/root.tar"] = rootTar(c)
+	archivePath, _ := writeArchive(c, files)
+
+	dest := c.MkDir()
+	existing := filepath.Join(dest, "objectstore", "some-ns", "somehash")
+	c.Assert(os.MkdirAll(filepath.Dir(existing), 0o700), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(existing, []byte("stale"), 0o600), tc.ErrorIsNil)
+
+	n, err := recovery.UnpackObjectStore(c.Context(), archivePath, dest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+
+	content, err := os.ReadFile(existing)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(content), tc.Equals, "blob content")
+}
+
+func (s *validateSuite) TestUnpackObjectStoreRejectsTraversal(c *tc.C) {
+	var inner bytes.Buffer
+	tw := tar.NewWriter(&inner)
+	content := []byte("x")
+	c.Assert(tw.WriteHeader(&tar.Header{
+		Name: "../escape", Mode: 0o600, Size: 1, Typeflag: tar.TypeReg,
+	}), tc.ErrorIsNil)
+	_, err := tw.Write(content)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tw.Close(), tc.ErrorIsNil)
+
+	files := validFiles()
+	files["juju-backup/root.tar"] = inner.Bytes()
+	archivePath, _ := writeArchive(c, files)
+
+	_, err = recovery.UnpackObjectStore(c.Context(), archivePath, c.MkDir())
+	c.Assert(err, tc.ErrorMatches, "object archive contains unsafe path .*")
+}
+
+func (s *validateSuite) TestUnpackObjectStoreSkipsNonObjectStoreEntries(c *tc.C) {
+	// Entries outside the object store subtree — k8s controllers archive
+	// their tools binaries as symlinks — are never unpacked. The symlink
+	// comes FIRST here: skipping must never stop the rest of the archive
+	// from being unpacked.
+	var inner bytes.Buffer
+	tw := tar.NewWriter(&inner)
+	c.Assert(tw.WriteHeader(&tar.Header{
+		Name:     "var/lib/juju/tools/controller-0/jujuagentd",
+		Typeflag: tar.TypeSymlink, Linkname: "/charm/bin/containeragent",
+	}), tc.ErrorIsNil)
+	content := []byte("blob content")
+	c.Assert(tw.WriteHeader(&tar.Header{
+		Name: "var/lib/juju/objectstore/ns/somehash", Mode: 0o600,
+		Size: int64(len(content)), Typeflag: tar.TypeReg,
+	}), tc.ErrorIsNil)
+	_, err := tw.Write(content)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tw.Close(), tc.ErrorIsNil)
+
+	files := validFiles()
+	files["juju-backup/root.tar"] = inner.Bytes()
+	archivePath, _ := writeArchive(c, files)
+
+	dest := c.MkDir()
+	n, err := recovery.UnpackObjectStore(c.Context(), archivePath, dest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+
+	got, err := os.ReadFile(filepath.Join(dest, "objectstore", "ns", "somehash"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(got), tc.Equals, "blob content")
+	entries, err := os.ReadDir(dest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(entries, tc.HasLen, 1)
+	c.Check(entries[0].Name(), tc.Equals, "objectstore")
+}
+
+func (s *validateSuite) TestUnpackObjectStoreAcceptsTypeRegA(c *tc.C) {
+	// Archives written by tars that do not set the typeflag carry
+	// regular files as TypeRegA; the archive must still be found.
+	var inner bytes.Buffer
+	tw := tar.NewWriter(&inner)
+	content := []byte("old-tar blob")
+	c.Assert(tw.WriteHeader(&tar.Header{
+		Name: "var/lib/juju/objectstore/ns/oldhash", Mode: 0o600,
+		Size: int64(len(content)), Typeflag: tar.TypeRegA,
+	}), tc.ErrorIsNil)
+	_, err := tw.Write(content)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tw.Close(), tc.ErrorIsNil)
+
+	files := validFiles()
+	files["juju-backup/root.tar"] = inner.Bytes()
+	archivePath, _ := writeArchive(c, files)
+
+	dest := c.MkDir()
+	n, err := recovery.UnpackObjectStore(c.Context(), archivePath, dest)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(n, tc.Equals, 1)
+
+	got, err := os.ReadFile(filepath.Join(dest, "objectstore", "ns", "oldhash"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(got), tc.Equals, "old-tar blob")
+}

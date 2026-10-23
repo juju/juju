@@ -120,6 +120,9 @@ func parseArchiveInfo(ctx context.Context, logger corelogger.Logger, contents *A
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	if meta.Finished != nil {
+		info.BackupFinished = *meta.Finished
+	}
 	return info, nil
 }
 
