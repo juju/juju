@@ -1294,7 +1294,7 @@ func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 	const numOperationEntries = 15 // At slightly > 500kB per entry
 	const tasksPerOperation = 2
 	const maxLogSize = 5 //MB
-	state.PrimeOperations(c, clock.Now(), unit, numOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, clock.Now(), unit, numOperationEntries, tasksPerOperation, 500*1000)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1321,6 +1321,39 @@ func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 	c.Assert(float64(len(ops)), gc.Equals, float64(len(actions))/2.0)
 }
 
+func (s *ActionPruningSuite) TestPruneOperationsBySizeMultipleBatches(c *gc.C) {
+	clock := testclock.NewClock(coretesting.NonZeroTime())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	// More than two batches must be removed to reach 5 MiB. The parent
+	// collection is already below that limit before pruning starts.
+	const count = 3000
+	const messageSize = 8 * 1024
+	const maxLogSize = 5 // MiB
+	state.PrimeOperations(c, clock.Now(), unit, count, 1, messageSize)
+
+	c.Assert(state.PruneOperations(nil, s.State, 0, maxLogSize), jc.ErrorIsNil)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(len(ops), jc.GreaterThan, 0)
+	// Each action is larger than its message, so fewer than this many
+	// operation/action pairs can fit within the size limit.
+	c.Check(len(ops), jc.LessThan, maxLogSize*1024*1024/messageSize)
+	actions, err := s.Model.AllActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actions, gc.HasLen, len(ops))
+	operationIDs := make(map[string]bool)
+	for _, op := range ops {
+		operationIDs[op.Id()] = true
+	}
+	for _, action := range actions {
+		c.Check(operationIDs[state.ActionOperationId(action)], jc.IsTrue)
+	}
+}
+
 func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
@@ -1337,8 +1370,8 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	olderTime := clock.Now().Add(-1 * time.Hour)
 	youngerTime := clock.Now()
 
-	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation)
-	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation)
+	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation, 500*1000)
+	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation, 500*1000)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1396,9 +1429,9 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeKeepsIncomplete(c *gc.C) {
 	olderTime := clock.Now().Add(-1 * time.Hour)
 	youngerTime := clock.Now()
 
-	state.PrimeOperations(c, time.Time{}, unit, numOperationEntriesIncomplete, tasksPerOperation)
-	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation)
-	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation)
+	state.PrimeOperations(c, time.Time{}, unit, numOperationEntriesIncomplete, tasksPerOperation, 500*1000)
+	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation, 500*1000)
+	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation, 500*1000)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1455,8 +1488,9 @@ func (s *ActionPruningSuite) TestPruneOperationsByAge(c *gc.C) {
 	const tasksPerOperation = 3
 	const ageOfExpired = 10 * time.Hour
 
-	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation)
-	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation, 500*1000)
+	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit,
+		numExpiredOperationEntries, tasksPerOperation, 500*1000)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1491,7 +1525,7 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteOperations(c *gc.C) {
 	// Completed times with the zero value are designated not complete
 	const numZeroValueEntries = 5
 	const tasksPerOperation = 3
-	state.PrimeOperations(c, time.Time{}, unit, numZeroValueEntries, tasksPerOperation)
+	state.PrimeOperations(c, time.Time{}, unit, numZeroValueEntries, tasksPerOperation, 500*1000)
 
 	_, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1523,8 +1557,9 @@ func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
 	const tasksPerOperation = 3
 	const ageOfExpired = 10 * time.Hour
 
-	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation)
-	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation, 500*1000)
+	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit,
+		numExpiredOperationEntries, tasksPerOperation, 500*1000)
 	state.PrimeLegacyActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries)
 
 	actions, err := unit.Actions()
@@ -1573,8 +1608,8 @@ func (s *ActionPruningSuite) TestPruneOperationsDoesNotRemoveOtherModelTasks(c *
 
 	// Both models allocate operation ids from their own sequence, so the
 	// local operation ids overlap.
-	state.PrimeOperations(c, expired, unit, numOperationEntries, tasksPerOperation)
-	state.PrimeOperations(c, expired, otherUnit, numOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, expired, unit, numOperationEntries, tasksPerOperation, 500*1000)
+	state.PrimeOperations(c, expired, otherUnit, numOperationEntries, tasksPerOperation, 500*1000)
 
 	ops, err := s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)

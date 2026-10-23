@@ -196,18 +196,13 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 	if p.maxSize == 0 {
 		return nil
 	}
-	var toDelete int
-	var err error
-	if p.childColl == nil {
-		// We are only operating on a single collection so calculate the number
-		// of items to delete based on the size of that collection.
-		toDelete, err = p.toDeleteCalculator(p.coll, p.maxSize, 1.0)
-	} else {
-		// We need to free up space in a child collection so calculate the number
-		// of parent items to delete based on the size of the child collection and
+	sizeColl, countRatio := p.coll, 1.0
+	if p.childColl != nil {
+		// Estimate parent deletions from the size of the child collection and
 		// the ratio of child items per parent item.
-		toDelete, err = p.toDeleteCalculator(p.childColl, p.maxSize, p.childCountRatio)
+		sizeColl, countRatio = p.childColl, p.childCountRatio
 	}
+	toDelete, err := p.toDeleteCalculator(sizeColl, p.maxSize, countRatio)
 	if err != nil {
 		return errors.Annotate(err, "calculating items to delete")
 	}
@@ -243,9 +238,9 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
 	deleted, err := deleteInBatches(stop, p.st.clock(), p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
 		// Check that we still need to delete more
-		collKB, err := getCollectionKB(p.coll)
+		collKB, err := getCollectionKB(sizeColl)
 		if err != nil {
-			return false, errors.Annotatef(err, "retrieving %s collection size", p.coll.Name)
+			return false, errors.Annotatef(err, "retrieving %s collection size", sizeColl.Name)
 		}
 		if collKB <= p.maxSize*humanize.KiByte {
 			return true, nil
