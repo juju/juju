@@ -80,7 +80,7 @@ JOIN model_constraint AS mc ON c.uuid = mc.constraint_uuid;
 -- of the model life.
 CREATE TABLE model_life (
     model_uuid TEXT NOT NULL PRIMARY KEY,
-    life_id TEXT NOT NULL,
+    life_id INT NOT NULL,
     CONSTRAINT fk_model_constraint_model
     FOREIGN KEY (model_uuid)
     REFERENCES model (uuid),

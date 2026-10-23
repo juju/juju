@@ -85,7 +85,7 @@ type Application struct {
 
 type ApplicationAgent struct {
 	ApplicationUUID         string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
-	PasswordHashAlgorithmID *string `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
+	PasswordHashAlgorithmID *int64  `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
 	PasswordHash            *string `db:"password_hash" json:"password_hash" yaml:"password_hash"`
 }
 
@@ -148,7 +148,7 @@ type ApplicationK8sResourcesManaged struct {
 
 type ApplicationPlatform struct {
 	ApplicationUUID string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
-	OsID            string  `db:"os_id" json:"os_id" yaml:"os_id"`
+	OsID            int64   `db:"os_id" json:"os_id" yaml:"os_id"`
 	Channel         *string `db:"channel" json:"channel" yaml:"channel"`
 	ArchitectureID  int64   `db:"architecture_id" json:"architecture_id" yaml:"architecture_id"`
 }
@@ -337,7 +337,7 @@ type CharmCategory struct {
 type CharmConfig struct {
 	CharmUUID    string  `db:"charm_uuid" json:"charm_uuid" yaml:"charm_uuid"`
 	Key          string  `db:"key" json:"key" yaml:"key"`
-	TypeID       *string `db:"type_id" json:"type_id" yaml:"type_id"`
+	TypeID       *int64  `db:"type_id" json:"type_id" yaml:"type_id"`
 	DefaultValue *string `db:"default_value" json:"default_value" yaml:"default_value"`
 	Description  *string `db:"description" json:"description" yaml:"description"`
 }
@@ -692,7 +692,7 @@ type Machine struct {
 	NetNodeUUID             string     `db:"net_node_uuid" json:"net_node_uuid" yaml:"net_node_uuid"`
 	LifeID                  int64      `db:"life_id" json:"life_id" yaml:"life_id"`
 	Nonce                   *string    `db:"nonce" json:"nonce" yaml:"nonce"`
-	PasswordHashAlgorithmID *string    `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
+	PasswordHashAlgorithmID *int64     `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
 	PasswordHash            *string    `db:"password_hash" json:"password_hash" yaml:"password_hash"`
 	ForceDestroyed          *bool      `db:"force_destroyed" json:"force_destroyed" yaml:"force_destroyed"`
 	AgentStartedAt          *time.Time `db:"agent_started_at" json:"agent_started_at" yaml:"agent_started_at"`
@@ -782,7 +782,7 @@ type MachinePlacementScope struct {
 
 type MachinePlatform struct {
 	MachineUUID    string  `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
-	OsID           string  `db:"os_id" json:"os_id" yaml:"os_id"`
+	OsID           int64   `db:"os_id" json:"os_id" yaml:"os_id"`
 	Channel        *string `db:"channel" json:"channel" yaml:"channel"`
 	ArchitectureID int64   `db:"architecture_id" json:"architecture_id" yaml:"architecture_id"`
 }
@@ -859,7 +859,7 @@ type ModelConstraint struct {
 
 type ModelLife struct {
 	ModelUUID string `db:"model_uuid" json:"model_uuid" yaml:"model_uuid"`
-	LifeID    string `db:"life_id" json:"life_id" yaml:"life_id"`
+	LifeID    int64  `db:"life_id" json:"life_id" yaml:"life_id"`
 }
 
 type ModelMigrating struct {
@@ -1270,7 +1270,7 @@ type SecretPermission struct {
 	SubjectUUID   string `db:"subject_uuid" json:"subject_uuid" yaml:"subject_uuid"`
 	SubjectTypeID int64  `db:"subject_type_id" json:"subject_type_id" yaml:"subject_type_id"`
 	ScopeUUID     string `db:"scope_uuid" json:"scope_uuid" yaml:"scope_uuid"`
-	ScopeTypeID   string `db:"scope_type_id" json:"scope_type_id" yaml:"scope_type_id"`
+	ScopeTypeID   int64  `db:"scope_type_id" json:"scope_type_id" yaml:"scope_type_id"`
 }
 
 type SecretReference struct {
@@ -1536,7 +1536,7 @@ type Unit struct {
 	ApplicationUUID         string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
 	NetNodeUUID             string  `db:"net_node_uuid" json:"net_node_uuid" yaml:"net_node_uuid"`
 	CharmUUID               string  `db:"charm_uuid" json:"charm_uuid" yaml:"charm_uuid"`
-	PasswordHashAlgorithmID *string `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
+	PasswordHashAlgorithmID *int64  `db:"password_hash_algorithm_id" json:"password_hash_algorithm_id" yaml:"password_hash_algorithm_id"`
 	PasswordHash            *string `db:"password_hash" json:"password_hash" yaml:"password_hash"`
 }
 

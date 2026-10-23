@@ -2,7 +2,7 @@ CREATE TABLE autocert_cache (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     data TEXT NOT NULL,
-    encoding TEXT NOT NULL,
+    encoding INT NOT NULL,
     CONSTRAINT fk_autocert_cache_encoding
     FOREIGN KEY (encoding)
     REFERENCES autocert_cache_encoding (id)

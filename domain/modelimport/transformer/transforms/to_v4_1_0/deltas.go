@@ -280,3 +280,186 @@ func (d deltas) SshKeyAlgorithmType(_ context.Context, _ *v4_0_12.ModelExport) (
 		{ID: &ed25519, Type: "ssh-ed25519"},
 	}, nil
 }
+
+// parseID converts a 4.0.12 TEXT identifier column to the INTEGER
+// representation used in 4.1.0. A non-numeric value indicates corruption,
+// so the transform halts rather than dropping the row.
+func parseID(column, value string) (int64, error) {
+	id, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, errors.Errorf("invalid %s %q: %w", column, value, err)
+	}
+	return id, nil
+}
+
+// parseOptionalID is the nullable form of parseID.
+func parseOptionalID(column string, value *string) (*int64, error) {
+	if value == nil {
+		return nil, nil
+	}
+	id, err := parseID(column, *value)
+	if err != nil {
+		return nil, err
+	}
+	return &id, nil
+}
+
+// ApplicationAgent parses the password_hash_algorithm_id column, which
+// changed from TEXT to INTEGER in 4.1.0.
+func (d deltas) ApplicationAgent(_ context.Context, src []v4_0_12.ApplicationAgent, _ *v4_0_12.ModelExport) ([]v4_1_0.ApplicationAgent, error) {
+	result := make([]v4_1_0.ApplicationAgent, len(src))
+	for i, a := range src {
+		algorithm, err := parseOptionalID("password_hash_algorithm_id", a.PasswordHashAlgorithmID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.ApplicationAgent{
+			ApplicationUUID:         a.ApplicationUUID,
+			PasswordHashAlgorithmID: algorithm,
+			PasswordHash:            a.PasswordHash,
+		}
+	}
+	return result, nil
+}
+
+// ApplicationPlatform parses the os_id column, which changed from TEXT to
+// INTEGER in 4.1.0.
+func (d deltas) ApplicationPlatform(_ context.Context, src []v4_0_12.ApplicationPlatform, _ *v4_0_12.ModelExport) ([]v4_1_0.ApplicationPlatform, error) {
+	result := make([]v4_1_0.ApplicationPlatform, len(src))
+	for i, p := range src {
+		os, err := parseID("os_id", p.OsID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.ApplicationPlatform{
+			ApplicationUUID: p.ApplicationUUID,
+			OsID:            os,
+			Channel:         p.Channel,
+			ArchitectureID:  p.ArchitectureID,
+		}
+	}
+	return result, nil
+}
+
+// CharmConfig parses the type_id column, which changed from TEXT to INTEGER
+// in 4.1.0.
+func (d deltas) CharmConfig(_ context.Context, src []v4_0_12.CharmConfig, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmConfig, error) {
+	result := make([]v4_1_0.CharmConfig, len(src))
+	for i, c := range src {
+		typeID, err := parseOptionalID("type_id", c.TypeID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.CharmConfig{
+			CharmUUID:    c.CharmUUID,
+			Key:          c.Key,
+			TypeID:       typeID,
+			DefaultValue: c.DefaultValue,
+			Description:  c.Description,
+		}
+	}
+	return result, nil
+}
+
+// Machine parses the password_hash_algorithm_id column, which changed from
+// TEXT to INTEGER in 4.1.0.
+func (d deltas) Machine(_ context.Context, src []v4_0_12.Machine, _ *v4_0_12.ModelExport) ([]v4_1_0.Machine, error) {
+	result := make([]v4_1_0.Machine, len(src))
+	for i, m := range src {
+		algorithm, err := parseOptionalID("password_hash_algorithm_id", m.PasswordHashAlgorithmID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.Machine{
+			UUID:                    m.UUID,
+			Name:                    m.Name,
+			NetNodeUUID:             m.NetNodeUUID,
+			LifeID:                  m.LifeID,
+			Nonce:                   m.Nonce,
+			PasswordHashAlgorithmID: algorithm,
+			PasswordHash:            m.PasswordHash,
+			ForceDestroyed:          m.ForceDestroyed,
+			AgentStartedAt:          m.AgentStartedAt,
+			Hostname:                m.Hostname,
+			KeepInstance:            m.KeepInstance,
+		}
+	}
+	return result, nil
+}
+
+// MachinePlatform parses the os_id column, which changed from TEXT to
+// INTEGER in 4.1.0.
+func (d deltas) MachinePlatform(_ context.Context, src []v4_0_12.MachinePlatform, _ *v4_0_12.ModelExport) ([]v4_1_0.MachinePlatform, error) {
+	result := make([]v4_1_0.MachinePlatform, len(src))
+	for i, p := range src {
+		os, err := parseID("os_id", p.OsID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.MachinePlatform{
+			MachineUUID:    p.MachineUUID,
+			OsID:           os,
+			Channel:        p.Channel,
+			ArchitectureID: p.ArchitectureID,
+		}
+	}
+	return result, nil
+}
+
+// ModelLife parses the life_id column, which changed from TEXT to INTEGER in
+// 4.1.0.
+func (d deltas) ModelLife(_ context.Context, src []v4_0_12.ModelLife, _ *v4_0_12.ModelExport) ([]v4_1_0.ModelLife, error) {
+	result := make([]v4_1_0.ModelLife, len(src))
+	for i, l := range src {
+		life, err := parseID("life_id", l.LifeID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.ModelLife{ModelUUID: l.ModelUUID, LifeID: life}
+	}
+	return result, nil
+}
+
+// SecretPermission parses the scope_type_id column, which changed from TEXT
+// to INTEGER in 4.1.0.
+func (d deltas) SecretPermission(_ context.Context, src []v4_0_12.SecretPermission, _ *v4_0_12.ModelExport) ([]v4_1_0.SecretPermission, error) {
+	result := make([]v4_1_0.SecretPermission, len(src))
+	for i, p := range src {
+		scope, err := parseID("scope_type_id", p.ScopeTypeID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.SecretPermission{
+			SecretID:      p.SecretID,
+			RoleID:        p.RoleID,
+			SubjectUUID:   p.SubjectUUID,
+			SubjectTypeID: p.SubjectTypeID,
+			ScopeUUID:     p.ScopeUUID,
+			ScopeTypeID:   scope,
+		}
+	}
+	return result, nil
+}
+
+// Unit parses the password_hash_algorithm_id column, which changed from TEXT
+// to INTEGER in 4.1.0.
+func (d deltas) Unit(_ context.Context, src []v4_0_12.Unit, _ *v4_0_12.ModelExport) ([]v4_1_0.Unit, error) {
+	result := make([]v4_1_0.Unit, len(src))
+	for i, u := range src {
+		algorithm, err := parseOptionalID("password_hash_algorithm_id", u.PasswordHashAlgorithmID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.Unit{
+			UUID:                    u.UUID,
+			Name:                    u.Name,
+			LifeID:                  u.LifeID,
+			ApplicationUUID:         u.ApplicationUUID,
+			NetNodeUUID:             u.NetNodeUUID,
+			CharmUUID:               u.CharmUUID,
+			PasswordHashAlgorithmID: algorithm,
+			PasswordHash:            u.PasswordHash,
+		}
+	}
+	return result, nil
+}
