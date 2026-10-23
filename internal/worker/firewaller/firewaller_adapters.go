@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -45,18 +44,6 @@ type ModelConfigDomainService interface {
 	Watch(ctx context.Context) (watcher.StringsWatcher, error)
 }
 
-// ControllerConfigDomainService provides access to controller configuration.
-type ControllerConfigDomainService interface {
-	ControllerConfig(ctx context.Context) (controller.Config, error)
-}
-
-// ControllerSSHDomainService provides access to the controller SSH server
-// port, which the controller charm can change at runtime.
-type ControllerSSHDomainService interface {
-	GetSSHServerPort(ctx context.Context) (int, error)
-	WatchSSHServerPort(ctx context.Context) (watcher.NotifyWatcher, error)
-}
-
 // NetworkDomainService provides access to network domain operations.
 type NetworkDomainService interface {
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
@@ -85,8 +72,6 @@ type ApplicationDomainService interface {
 type firewallerAPIAdapter struct {
 	machineSvc       MachineDomainService
 	modelConfigSvc   ModelConfigDomainService
-	ctrlConfigSvc    ControllerConfigDomainService
-	ctrlSSHSvc       ControllerSSHDomainService
 	networkSvc       NetworkDomainService
 	relationSvc      RelationDomainService
 	extControllerSvc ExternalControllerDomainService
@@ -119,33 +104,6 @@ func (a *firewallerAPIAdapter) ModelFirewallRules(ctx context.Context) (firewall
 		))
 	}
 	return rules, nil
-}
-
-// ControllerFirewallPorts implements FirewallerAPI.
-func (a *firewallerAPIAdapter) ControllerFirewallPorts(ctx context.Context) ([]network.PortRange, error) {
-	cfg, err := a.ctrlConfigSvc.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// The ssh server port comes from the ssh domain, not controller config,
-	// as the controller charm can change it after bootstrap.
-	sshServerPort, err := a.ctrlSSHSvc.GetSSHServerPort(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ports := []network.PortRange{
-		{Protocol: "tcp", FromPort: cfg.APIPort(), ToPort: cfg.APIPort()},
-		{Protocol: "tcp", FromPort: sshServerPort, ToPort: sshServerPort},
-	}
-	if cfg.AutocertDNSName() != "" {
-		ports = append(ports, network.MustParsePortRange("80/tcp"))
-	}
-	return ports, nil
-}
-
-// WatchControllerFirewallPorts implements FirewallerAPI.
-func (a *firewallerAPIAdapter) WatchControllerFirewallPorts(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return a.ctrlSSHSvc.WatchSSHServerPort(ctx)
 }
 
 // ModelConfig implements FirewallerAPI.

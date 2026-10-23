@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -121,12 +120,6 @@ func (fakeModelConfigDomainService) Watch(context.Context) (watcher.StringsWatch
 	return nil, nil
 }
 
-type fakeControllerConfigDomainService struct{}
-
-func (fakeControllerConfigDomainService) ControllerConfig(context.Context) (controller.Config, error) {
-	return controller.Config{}, nil
-}
-
 type fakeNetworkDomainService struct{}
 
 func (fakeNetworkDomainService) GetAllSpaces(context.Context) (network.SpaceInfos, error) {
@@ -147,6 +140,5 @@ var _ MachineDomainService = fakeMachineDomainService{}
 var _ ApplicationDomainService = fakeApplicationDomainService{}
 var _ RelationDomainService = fakeRelationDomainService{}
 var _ ModelConfigDomainService = fakeModelConfigDomainService{}
-var _ ControllerConfigDomainService = fakeControllerConfigDomainService{}
 var _ NetworkDomainService = fakeNetworkDomainService{}
 var _ ExternalControllerDomainService = fakeExternalControllerDomainService{}
