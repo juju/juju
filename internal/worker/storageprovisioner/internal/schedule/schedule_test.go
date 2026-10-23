@@ -59,6 +59,35 @@ func (*scheduleSuite) TestReadyNoEvents(c *tc.C) {
 	c.Assert(ready, tc.HasLen, 0)
 }
 
+func (*scheduleSuite) TestGet(c *tc.C) {
+	clock := testclock.NewClock(time.Time{})
+	s := schedule.NewSchedule(clock)
+
+	value, ok := s.Get("key")
+	c.Check(value, tc.IsNil)
+	c.Check(ok, tc.IsFalse)
+	s.Add("key", "value", clock.Now())
+	value, ok = s.Get("key")
+	c.Check(value, tc.Equals, "value")
+	c.Check(ok, tc.IsTrue)
+
+	s.Ready(clock.Now())
+	value, ok = s.Get("key")
+	c.Check(value, tc.IsNil)
+	c.Check(ok, tc.IsFalse)
+}
+
+func (*scheduleSuite) TestGetAfterRemove(c *tc.C) {
+	clock := testclock.NewClock(time.Time{})
+	s := schedule.NewSchedule(clock)
+	s.Add("key", "value", clock.Now())
+
+	s.Remove("key")
+	value, ok := s.Get("key")
+	c.Check(value, tc.IsNil)
+	c.Check(ok, tc.IsFalse)
+}
+
 func (*scheduleSuite) TestAdd(c *tc.C) {
 	clock := testclock.NewClock(time.Time{})
 	now := clock.Now()

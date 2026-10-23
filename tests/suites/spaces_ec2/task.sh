@@ -24,6 +24,14 @@ test_spaces_ec2() {
 	hotplug_nic_id=$(setup_nic_for_space_tests "${subnet_id}")
 	echo "[+] created secondary NIC with ID ${hotplug_nic_id}"
 
+	# The machines-in-spaces assertion relies on container space
+	# requirements being enforced, which only happens with the "provider"
+	# container networking method. With "local", the default LXD bridge
+	# satisfies any space constraint, regardless of the host's devices.
+	# The bind subtests deploy charms to machines only, so they are
+	# unaffected.
+	export CONTAINER_NETWORKING_METHOD=provider
+
 	file="${TEST_DIR}/test-spaces-ec2.log"
 
 	bootstrap "test-spaces-ec2" "${file}"

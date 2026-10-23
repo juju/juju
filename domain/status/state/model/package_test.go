@@ -436,16 +436,6 @@ func (s *baseSuite) setK8sServiceAddress(
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *baseSuite) setApplicationLXDProfile(c *tc.C, appUUID coreapplication.UUID, profile string) {
-	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-UPDATE charm SET lxd_profile = ? WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)
-`, profile, appUUID)
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
 func (s *baseSuite) setApplicationSubordinate(c *tc.C, principal coreunit.UUID, subordinate coreunit.UUID) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

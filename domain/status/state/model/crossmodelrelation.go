@@ -305,6 +305,92 @@ ON CONFLICT(application_remote_offerer_uuid) DO UPDATE SET
 	return nil
 }
 
+// SetRemoteApplicationOffererStatusByApplicationUUID sets the status of the
+// remote application offerer associated with the specified synthetic
+// application UUID. The application name of the resolved remote application
+// offerer is returned, for the purposes of status history recording.
+//
+// The existence check for the remote application offerer is performed in the
+// same transaction as the status write, so a status update can only ever
+// target the remote application offerer currently associated with the input
+// application UUID.
+//
+// The following error types can be expected to be returned:
+//   - [crossmodelrelationerrors.RemoteApplicationNotFound] if there is no
+//     remote application offerer for the input application UUID.
+func (st *ModelState) SetRemoteApplicationOffererStatusByApplicationUUID(
+	ctx context.Context,
+	appUUID string,
+	sts status.StatusInfo[status.WorkloadStatusType],
+) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	statusID, err := status.EncodeWorkloadStatus(sts.Status)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	ident := applicationUUID{UUID: appUUID}
+
+	resolveStmt, err := st.Prepare(`
+SELECT aro.uuid AS &remoteApplicationOffererStatusTarget.uuid,
+       a.name  AS &remoteApplicationOffererStatusTarget.name
+FROM   application AS a
+JOIN   application_remote_offerer AS aro ON a.uuid = aro.application_uuid
+WHERE  a.uuid = $applicationUUID.uuid
+`, remoteApplicationOffererStatusTarget{}, ident)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	upsertStmt, err := st.Prepare(`
+INSERT INTO application_remote_offerer_status (*) VALUES ($remoteApplicationStatus.*)
+ON CONFLICT(application_remote_offerer_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at,
+    data = excluded.data;
+`, remoteApplicationStatus{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var name string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		name = ""
+
+		var target remoteApplicationOffererStatusTarget
+		err := tx.Query(ctx, resolveStmt, ident).Get(&target)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return crossmodelrelationerrors.RemoteApplicationNotFound
+		} else if err != nil {
+			return errors.Capture(err)
+		}
+
+		statusInfo := remoteApplicationStatus{
+			RemoteApplicationUUID: target.RemoteApplicationUUID,
+			StatusID:              statusID,
+			Message:               sts.Message,
+			Data:                  sts.Data,
+			UpdatedAt:             sts.Since,
+		}
+		if err := tx.Query(ctx, upsertStmt, statusInfo).Run(); err != nil {
+			return errors.Capture(err)
+		}
+
+		name = target.Name
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return name, nil
+}
+
 func (st *ModelState) lookupRemoteApplicationOfferer(ctx context.Context, tx *sqlair.TX, name string) (coreremoteapplication.UUID, error) {
 	type remoteApplicationUUID struct {
 		RemoteApplicationUUID sql.Null[string] `db:"uuid"`

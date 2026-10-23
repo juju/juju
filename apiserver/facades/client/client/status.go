@@ -291,9 +291,6 @@ type applicationStatusInfo struct {
 
 	// latestCharms: charm locator (without revision) -> charm locator
 	latestCharms map[applicationcharm.CharmLocator]applicationcharm.CharmLocator
-
-	// lxdProfiles: lxd profile name -> lxd profile
-	lxdProfiles map[string]*charm.LXDProfile
 }
 
 type relationStatus struct {
@@ -670,7 +667,6 @@ func fetchAllApplicationsAndUnits(
 		}
 	}
 
-	lxdProfiles := make(map[string]*charm.LXDProfile)
 	for name, app := range applications {
 		apps[name] = app
 
@@ -710,7 +706,6 @@ func fetchAllApplicationsAndUnits(
 		applicationCharmURL: appCharmURL,
 		endpointBindings:    allBindingsByApp,
 		latestCharms:        latestCharms,
-		lxdProfiles:         lxdProfiles,
 	}, units, nil
 }
 

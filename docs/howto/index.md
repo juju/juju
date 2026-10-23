@@ -41,6 +41,9 @@ Create, inspect, update, and remove storage pools <manage-storage-pools>
 Manage spaces <manage-spaces>
 List or move subnets <manage-subnets>
 Define resource tags in a cloud <define-resource-tags-in-a-cloud>
+Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>
+Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>
+Write a worker <writing-workers>
 
 ```
 
@@ -95,3 +98,11 @@ Charmed applications are deployed, configured, integrated, scaled, and more. Dep
 - {ref}`Create, inspect, update, and remove storage pools <manage-storage-pools>`
 - {ref}`Manage spaces <manage-spaces>`
 - {ref}`List or move subnets <manage-subnets>`
+
+## Developing and debugging Juju
+
+Developing and debugging Juju covers writing a worker, debugging a Dqlite core dump on a controller, and building Juju agents for other architectures and upgrading a controller with them.
+
+- {ref}`Write a worker <writing-workers>`
+- {ref}`Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>`
+- {ref}`Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>`

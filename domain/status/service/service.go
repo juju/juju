@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/constraints"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/status"
 	statuserrors "github.com/juju/juju/domain/status/errors"
 	"github.com/juju/juju/internal/errors"
@@ -1210,11 +1208,6 @@ func (s *Service) decodeApplicationStatusDetails(appName string, app status.Appl
 		}
 	}
 
-	lxdProfile, err := s.decodeLXDProfile(app.LXDProfile)
-	if err != nil {
-		return Application{}, errors.Errorf("decoding LXD profile: %w", err)
-	}
-
 	units, err := s.decodeUnitsStatusDetails(app.Units)
 	if err != nil {
 		return Application{}, errors.Errorf("decoding unit statuses: %w", err)
@@ -1230,25 +1223,12 @@ func (s *Service) decodeApplicationStatusDetails(appName string, app status.Appl
 		Platform:         app.Platform,
 		Channel:          app.Channel,
 		Exposed:          app.Exposed,
-		LXDProfile:       lxdProfile,
 		Scale:            app.Scale,
 		WorkloadVersion:  app.WorkloadVersion,
 		K8sProviderID:    app.K8sProviderID,
 		K8sPublicAddress: app.K8sPublicAddress,
 		Units:            units,
 	}, nil
-}
-
-func (s *Service) decodeLXDProfile(lxdProfile []byte) (*internalcharm.LXDProfile, error) {
-	if len(lxdProfile) == 0 {
-		return nil, nil
-	}
-
-	var profile *internalcharm.LXDProfile
-	if err := json.Unmarshal(lxdProfile, &profile); err != nil {
-		return nil, errors.Errorf("decoding LXD profile: %w", err)
-	}
-	return profile, nil
 }
 
 func (s *Service) decodeUnitsStatusDetails(unitStatuses map[coreunit.Name]status.Unit) (map[coreunit.Name]Unit, error) {
@@ -1337,7 +1317,6 @@ func (s *Service) decodeMachineStatusDetails(machineName machine.Name, machine s
 		Platform:                machine.Platform,
 		Constraints:             constraints.EncodeConstraints(machine.Constraints),
 		HardwareCharacteristics: machine.HardwareCharacteristics,
-		LXDProfiles:             machine.LXDProfiles,
 		AgentVersion:            machine.AgentVersion,
 	}, nil
 }

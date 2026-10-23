@@ -73,8 +73,10 @@ func (s *Service) RemoveRelationWithRemoteConsumer(
 
 	// Depart the synthetic units here ourselves, since synthetic units don't
 	// have their own uniter.
+	// NOTE: LeaveScope is called outside the cascade transaction — see the
+	// identical note in relationwithremoteofferer.go for the full explanation.
 	for _, r := range res.SyntheticRelationUnitUUIDs {
-		if err := s.modelState.LeaveScope(ctx, r); err != nil {
+		if err := s.modelState.LeaveScope(ctx, r); err != nil && !errors.Is(err, relationerrors.RelationUnitNotFound) {
 			return "", errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
 		}
 	}
@@ -120,6 +122,24 @@ func (s *Service) processRelationWithRemoteConsumerRemovalJob(ctx context.Contex
 	// programming error if we've reached this point and we're still alive.
 	if l == life.Alive {
 		return errors.Errorf("remote relation %q is alive", job.EntityUUID).Add(removalerrors.EntityStillAlive)
+	}
+
+	// Synthetic units don't have a uniter of their own, so will never leave
+	// the relation scope by themselves. Depart them here, otherwise they
+	// would block the relation deletion below forever. Real units are
+	// departed by their uniters, or by the force handling below.
+	//
+	// LeaveScope is intentionally outside the cascade transaction. If a
+	// removal job only departs some synthetic relation units, the next
+	// scheduled job reruns the cascade and departs the units still in scope.
+	cascaded, err := s.modelState.EnsureRelationWithRemoteConsumerNotAliveCascade(ctx, job.EntityUUID)
+	if err != nil {
+		return errors.Errorf("setting remote relation %q synthetic units to dying: %w", job.EntityUUID, err)
+	}
+	for _, r := range cascaded.SyntheticRelationUnitUUIDs {
+		if err := s.modelState.LeaveScope(ctx, r); err != nil && !errors.Is(err, relationerrors.RelationUnitNotFound) {
+			return errors.Errorf("leaving scope for synthetic relation unit %q: %w", r, err)
+		}
 	}
 
 	inScope, err := s.modelState.UnitNamesInScope(ctx, job.EntityUUID)

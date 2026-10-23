@@ -17,7 +17,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -40,7 +42,16 @@ type portForwarder interface {
 	GetPorts() ([]portforward.ForwardedPort, error)
 }
 
-var newPortForwarder = func(
+type portForwarderFactory func(
+	dialer httpstream.Dialer,
+	addresses []string,
+	ports []string,
+	stopChan <-chan struct{},
+	readyChan chan struct{},
+	out, errOut io.Writer,
+) (portForwarder, error)
+
+func defaultPortForwarder(
 	dialer httpstream.Dialer,
 	addresses []string,
 	ports []string,
@@ -53,18 +64,19 @@ var newPortForwarder = func(
 
 // Tunnel represents an ssh like tunnel to a Kubernetes Pod or Service
 type Tunnel struct {
-	client     rest.Interface
-	config     *rest.Config
-	Kind       TunnelKind
-	errChan    chan error
-	LocalPort  string
-	Namespace  string
-	Out        io.Writer
-	closeOnce  sync.Once
-	readyChan  chan struct{}
-	RemotePort string
-	stopChan   chan struct{}
-	Target     string
+	client           rest.Interface
+	config           *rest.Config
+	Kind             TunnelKind
+	errChan          chan error
+	newPortForwarder portForwarderFactory
+	LocalPort        string
+	Namespace        string
+	Out              io.Writer
+	closeOnce        sync.Once
+	readyChan        chan struct{}
+	RemotePort       string
+	stopChan         chan struct{}
+	Target           string
 }
 
 type TunnelKind string
@@ -147,7 +159,7 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 		podName = pod.Name
 	}
 
-	err := t.waitForPodReady(ctx, podName)
+	podUID, err := t.waitForPodReady(ctx, podName)
 	if err != nil {
 		return errors.Annotatef(err, "waiting for pod %s to become ready for tunnel", podName)
 	}
@@ -164,12 +176,12 @@ func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	}
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, u)
 
-	return t.forwardPort(ctx, dialer)
+	return t.forwardPort(ctx, dialer, podName, podUID)
 }
 
-func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) error {
+func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer, podName string, podUID types.UID) error {
 	ports := []string{fmt.Sprintf("0:%s", t.RemotePort)}
-	pf, err := newPortForwarder(
+	pf, err := t.newPortForwarder(
 		dialer,
 		[]string{"127.0.0.1"},
 		ports,
@@ -185,7 +197,15 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) erro
 	t.errChan = make(chan error, 1)
 	go func() {
 		t.errChan <- pf.ForwardPorts()
+		// Forwarding may end without Close being called, for example when
+		// the connection to the pod is lost. Close the tunnel so that the
+		// pod health check also stops.
+		t.Close()
 	}()
+
+	// The SPDY connection to the API server may remain open after its target
+	// pod disappears, so independently watch that pod for tunnel health.
+	t.defaultPodHealthCheck(podName, podUID)
 
 	select {
 	case <-ctx.Done():
@@ -207,6 +227,105 @@ func (t *Tunnel) forwardPort(ctx context.Context, dialer httpstream.Dialer) erro
 		t.LocalPort = strconv.Itoa(int(forwardedPorts[0].Local))
 		return nil
 	}
+}
+
+const podHealthCheckResyncPeriod = 10 * time.Second
+
+// defaultPodHealthCheck closes the tunnel if its target pod is deleted,
+// replaced, or enters a terminal phase.
+func (t *Tunnel) defaultPodHealthCheck(podName string, podUID types.UID) {
+	if t.client == nil {
+		return
+	}
+	clientSet := kubernetes.New(t.client)
+	factory := informers.NewSharedInformerFactoryWithOptions(
+		clientSet,
+		podHealthCheckResyncPeriod,
+		informers.WithNamespace(t.Namespace),
+		informers.WithTweakListOptions(func(options *meta.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector("metadata.name", podName).String()
+		}),
+	)
+	informer := factory.Core().V1().Pods().Informer()
+
+	// ForwardPort's context ends once the local port is ready, whereas this
+	// check must run for the lifetime of the port-forward session.
+	healthCtx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-t.stopChan
+		cancel()
+	}()
+
+	reg, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			t.checkTunnelPod(healthCtx, podName, podUID, obj)
+		},
+		DeleteFunc: func(obj any) {
+			key, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err != nil {
+				logger.Errorf(healthCtx, "getting deleted tunnel pod key: %v", err)
+				return
+			}
+			if key == t.Namespace+"/"+podName {
+				logger.Debugf(healthCtx, "tunnel pod %s deleted, closing tunnel", podName)
+				t.Close()
+			}
+		},
+		UpdateFunc: func(_, newObj any) {
+			t.checkTunnelPod(healthCtx, podName, podUID, newObj)
+		},
+	})
+	if err != nil {
+		logger.Errorf(healthCtx, "adding pod health check handler: %v", err)
+		return
+	}
+
+	err = informer.SetWatchErrorHandler(func(_ *cache.Reflector, err error) {
+		if !errors.Is(err, context.Canceled) {
+			logger.Errorf(healthCtx, "pod health check watch error: %v", err)
+		}
+	})
+	if err != nil {
+		logger.Errorf(healthCtx, "setting pod health check error handler: %v", err)
+		return
+	}
+
+	go func() {
+		informer.RunWithContext(healthCtx)
+		_ = informer.RemoveEventHandler(reg)
+	}()
+
+	go func() {
+		if !cache.WaitForCacheSync(healthCtx.Done(), informer.HasSynced) {
+			return
+		}
+		_, exists, err := informer.GetStore().GetByKey(t.Namespace + "/" + podName)
+		if err != nil {
+			logger.Errorf(healthCtx, "checking tunnel pod %s health: %v", podName, err)
+			return
+		}
+		if !exists {
+			logger.Debugf(healthCtx, "tunnel pod %s deleted, closing tunnel", podName)
+			t.Close()
+		}
+	}()
+}
+
+func (t *Tunnel) checkTunnelPod(ctx context.Context, podName string, podUID types.UID, obj any) {
+	p, ok := obj.(*corev1.Pod)
+	if !ok {
+		return
+	}
+	if podUID != "" && p.UID != podUID {
+		logger.Debugf(ctx, "tunnel pod %s replaced, closing tunnel", podName)
+		t.Close()
+		return
+	}
+	if p.Status.Phase != corev1.PodSucceeded && p.Status.Phase != corev1.PodFailed {
+		return
+	}
+	logger.Debugf(ctx, "tunnel pod %s terminated, closing tunnel", podName)
+	t.Close()
 }
 
 // IsValidTunnelKind tests that the tunnel kind supplied to this tunnel is valid
@@ -252,22 +371,23 @@ func NewTunnel(
 	remotePort string) *Tunnel {
 
 	return &Tunnel{
-		client:     client,
-		config:     c,
-		Kind:       kind,
-		Namespace:  namespace,
-		Out:        io.Discard,
-		readyChan:  make(chan struct{}, 1),
-		RemotePort: remotePort,
-		stopChan:   make(chan struct{}, 1),
-		Target:     target,
+		client:           client,
+		config:           c,
+		Kind:             kind,
+		newPortForwarder: defaultPortForwarder,
+		Namespace:        namespace,
+		Out:              io.Discard,
+		readyChan:        make(chan struct{}, 1),
+		RemotePort:       remotePort,
+		stopChan:         make(chan struct{}, 1),
+		Target:           target,
 	}
 }
 
 // waitForPodReady waits for the provided pod name relative to this tunnels
 // namespace to become fully ready in the pod conditions. This func will block
 // until the pod is ready of the context dead line has fired.
-func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
+func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) (types.UID, error) {
 	clientSet := kubernetes.New(t.client)
 	factory := informers.NewSharedInformerFactoryWithOptions(
 		clientSet,
@@ -276,7 +396,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 	)
 	informer := factory.Core().V1().Pods().Informer()
 
-	eventChan := make(chan error)
+	eventChan := make(chan waitForPodReadyResult)
 	waitCtx, cancel := context.WithCancel(ctx)
 	defer func() {
 		cancel()
@@ -289,7 +409,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if !valid {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.New("expected valid pod for informer"):
+				case eventChan <- waitForPodReadyResult{err: errors.New("expected valid pod for informer")}:
 				}
 				return
 			}
@@ -297,7 +417,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if objPod.Name == podName && pod.IsPodRunning(objPod) {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- nil:
+				case eventChan <- waitForPodReadyResult{podUID: objPod.UID}:
 				}
 			}
 		},
@@ -306,7 +426,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if !valid {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.New("expected valid pod for informer"):
+				case eventChan <- waitForPodReadyResult{err: errors.New("expected valid pod for informer")}:
 				}
 				return
 			}
@@ -314,7 +434,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if objPod.Name == podName && pod.IsPodRunning(objPod) {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- nil:
+				case eventChan <- waitForPodReadyResult{podUID: objPod.UID}:
 				}
 			}
 		},
@@ -323,7 +443,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if !valid {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.New("expected valid pod for informer"):
+				case eventChan <- waitForPodReadyResult{err: errors.New("expected valid pod for informer")}:
 				}
 				return
 			}
@@ -331,13 +451,13 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			if pod.Name == podName {
 				select {
 				case <-waitCtx.Done():
-				case eventChan <- errors.Errorf("tunnel pod %s is being deleted", podName):
+				case eventChan <- waitForPodReadyResult{err: errors.Errorf("tunnel pod %s is being deleted", podName)}:
 				}
 			}
 		},
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer func() {
 		_ = informer.RemoveEventHandler(reg)
@@ -349,15 +469,20 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 		}
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	go informer.RunWithContext(waitCtx)
 
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
-	case err := <-eventChan:
-		return err
+		return "", ctx.Err()
+	case result := <-eventChan:
+		return result.podUID, result.err
 	}
+}
+
+type waitForPodReadyResult struct {
+	podUID types.UID
+	err    error
 }

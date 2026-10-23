@@ -349,6 +349,7 @@ type MockModelDBStateMockRecorder struct {
 	getMachineNetworkInterfacesExpects                      []*gomock.Call2_2[context.Context, string, []string, error]
 	getModelLifeExpects                                     []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getModelTypeExpects                                     []*gomock.Call1_2[context.Context, model.ModelType, error]
+	getRelationKindExpects                                  []*gomock.Call2_2[context.Context, string, internal.RelationKind, error]
 	getRelationLifeExpects                                  []*gomock.Call2_2[context.Context, string, life.Life, error]
 	getRelationUnitsForUnitExpects                          []*gomock.Call2_2[context.Context, string, []string, error]
 	getRemoteApplicationOffererLifeExpects                  []*gomock.Call2_2[context.Context, string, life.Life, error]
@@ -1549,6 +1550,24 @@ func (mr *MockModelDBStateMockRecorder) GetModelType(ctx any) *MockModelDBStateG
 
 // MockModelDBStateGetModelTypeCall is the typed call wrapper for GetModelType.
 type MockModelDBStateGetModelTypeCall = gomock.Call1_2[context.Context, model.ModelType, error]
+
+// GetRelationKind mocks base method.
+func (m *MockModelDBState) GetRelationKind(ctx context.Context, rUUID string) (internal.RelationKind, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getRelationKindExpects, m.ctrl, m, "GetRelationKind", ctx, rUUID)
+}
+
+// GetRelationKind indicates an expected call of GetRelationKind.
+func (mr *MockModelDBStateMockRecorder) GetRelationKind(ctx, rUUID any) *MockModelDBStateGetRelationKindCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, internal.RelationKind, error](mr.mock.ctrl.T, mr.mock, "GetRelationKind", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(rUUID))
+	mr.getRelationKindExpects = append(mr.getRelationKindExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateGetRelationKindCall is the typed call wrapper for GetRelationKind.
+type MockModelDBStateGetRelationKindCall = gomock.Call2_2[context.Context, string, internal.RelationKind, error]
 
 // GetRelationLife mocks base method.
 func (m *MockModelDBState) GetRelationLife(ctx context.Context, rUUID string) (life.Life, error) {
