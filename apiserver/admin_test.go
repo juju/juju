@@ -596,6 +596,12 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	_, err = api.Open(info, fastDialOpts)
 	_, ok = errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, jc.IsTrue)
+
+	// Token logins have no auth tag, but are still redirected.
+	conn := s.openAPIWithoutLogin(c, info)
+	var result params.LoginResult
+	err = conn.APICall("Admin", 3, "", "Login", &params.LoginRequest{Token: "a-jwt"}, &result)
+	c.Assert(params.IsRedirect(err), jc.IsTrue)
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
