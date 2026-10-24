@@ -11,9 +11,10 @@ import (
 
 	"github.com/juju/clock/testclock"
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/retry"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/juju/juju/caas/kubernetes"
 )
 
 func TestRetryProxyConnectionRetriesTransientError(t *testing.T) {
