@@ -37,8 +37,28 @@ const (
 	VirtualEthernetDevice LinkLayerDeviceType = "veth"
 )
 
+const (
+	// DefaultLXDBridge is the bridge that gets used for LXD containers.
+	DefaultLXDBridge = "lxdbr0"
+
+	// DefaultDockerBridge is the bridge that is set up by Docker.
+	DefaultDockerBridge = "docker0"
+)
+
 func (t LinkLayerDeviceType) String() string {
 	return string(t)
+}
+
+// IsHostLocalBridge returns true if the input device name is that of a bridge
+// that exists only to connect workloads local to the host, such as the default
+// LXD and Docker bridges. Addresses on these bridges are not reachable from
+// outside the host by default.
+func IsHostLocalBridge(name string) bool {
+	switch name {
+	case DefaultLXDBridge, DefaultDockerBridge:
+		return true
+	}
+	return false
 }
 
 // IsValidLinkLayerDeviceType returns whether the given value is a valid
