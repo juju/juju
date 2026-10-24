@@ -926,3 +926,48 @@ VALUES ("abc", "node2", "machine-1", "0");`)
 		"Cannot transition life for machine backwards",
 	)
 }
+
+func (s *modelSchemaSuite) TestRevisionUpdaterApplicationUnitCounts(c *tc.C) {
+	s.applyDDL(c, ModelDDL())
+	s.insertRevisionUpdaterFixtures(c)
+
+	s.assertRevisionUpdaterUnitCounts(c)
+}
+
+func (s *modelSchemaSuite) insertRevisionUpdaterFixtures(c *tc.C) {
+	s.assertExecSQL(c, `
+INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id)
+VALUES ('charm-uuid', 1, 'foo', 1, 0);
+INSERT INTO charm_metadata (charm_uuid, name) VALUES ('charm-uuid', 'foo');
+INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
+VALUES
+    ('app-none-a', 'charm-uuid', 'none-a', 0, '656b4a82-e28c-53d6-a014-f0dd53417eb6'),
+    ('app-two', 'charm-uuid', 'two', 0, '656b4a82-e28c-53d6-a014-f0dd53417eb6'),
+    ('app-none-b', 'charm-uuid', 'none-b', 0, '656b4a82-e28c-53d6-a014-f0dd53417eb6');
+INSERT INTO net_node (uuid) VALUES ('node-0'), ('node-1');
+INSERT INTO unit (uuid, name, application_uuid, charm_uuid, net_node_uuid, life_id)
+VALUES
+    ('unit-0', 'two/0', 'app-two', 'charm-uuid', 'node-0', 0),
+    ('unit-1', 'two/1', 'app-two', 'charm-uuid', 'node-1', 0);`)
+}
+
+func (s *modelSchemaSuite) assertRevisionUpdaterUnitCounts(c *tc.C) {
+	rows, err := s.DB().QueryContext(c.Context(),
+		`SELECT uuid, num_units FROM v_revision_updater_application_unit`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+
+	got := map[string]int{}
+	for rows.Next() {
+		var uuid string
+		var count int
+		c.Assert(rows.Scan(&uuid, &count), tc.ErrorIsNil)
+		got[uuid] = count
+	}
+	c.Assert(rows.Err(), tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, map[string]int{
+		"app-none-a": 0,
+		"app-two":    2,
+		"app-none-b": 0,
+	})
+}

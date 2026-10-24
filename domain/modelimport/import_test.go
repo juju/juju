@@ -7,12 +7,15 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/juju/tc"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/semversion"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
+	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -177,4 +180,96 @@ VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportTransformsLegacyTextIDs verifies that a 4.0.12 payload, whose
+// identifier columns were TEXT, is transformed, imported and stored as
+// INTEGER values in the model DB.
+func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
+	const (
+		charmUUID   = "22222222-2222-2222-2222-222222222222"
+		appUUID     = "33333333-3333-3333-3333-333333333333"
+		appNode     = "44444444-4444-4444-4444-444444444444"
+		unitUUID    = "55555555-5555-5555-5555-555555555555"
+		machineUUID = "66666666-6666-6666-6666-666666666666"
+		machineNode = "77777777-7777-7777-7777-777777777777"
+	)
+	s.bootstrapModel(c)
+
+	legacy := v4_0_12.ModelExport{
+		Charm: []v4_0_12.Charm{{
+			UUID: charmUUID, SourceID: 1, Revision: 1, ReferenceName: "test-charm",
+			CreateTime: time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+		}},
+		CharmConfig: []v4_0_12.CharmConfig{{
+			CharmUUID: charmUUID, Key: "opt", TypeID: new("1"),
+		}},
+		NetNode: []v4_0_12.NetNode{{UUID: appNode}, {UUID: machineNode}},
+		Application: []v4_0_12.Application{{
+			UUID: appUUID, Name: "test-app", CharmUUID: charmUUID,
+			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
+		}},
+		ApplicationAgent: []v4_0_12.ApplicationAgent{{
+			ApplicationUUID: appUUID, PasswordHashAlgorithmID: new("0"), PasswordHash: new("hash"),
+		}},
+		ApplicationPlatform: []v4_0_12.ApplicationPlatform{{
+			ApplicationUUID: appUUID, OsID: "0", ArchitectureID: 0,
+		}},
+		Unit: []v4_0_12.Unit{{
+			UUID: unitUUID, Name: "test-app/0", ApplicationUUID: appUUID,
+			NetNodeUUID: appNode, CharmUUID: charmUUID,
+			PasswordHashAlgorithmID: new("0"), PasswordHash: new("hash"),
+		}},
+		Machine: []v4_0_12.Machine{{
+			UUID: machineUUID, Name: "0", NetNodeUUID: machineNode,
+			PasswordHashAlgorithmID: new("0"), PasswordHash: new("hash"),
+		}},
+		MachinePlatform: []v4_0_12.MachinePlatform{{
+			MachineUUID: machineUUID, OsID: "0", ArchitectureID: 0,
+		}},
+		ModelAgent: []v4_0_12.ModelAgent{{
+			ModelUUID: s.ModelUUID(), PasswordHashAlgorithmID: new(int64(0)), PasswordHash: new("hash"),
+		}},
+	}
+
+	tr, err := modelimport.NewTransformer()
+	c.Assert(err, tc.ErrorIsNil)
+	result, err := tr.Transform(c.Context(), semversion.MustParse("4.0.12"), legacy)
+	c.Assert(err, tc.ErrorIsNil)
+	transformed, ok := result.(latest.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &transformed)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got.CharmConfig, tc.HasLen, 1)
+	c.Check(got.CharmConfig[0].TypeID, tc.DeepEquals, new(int64(1)))
+	c.Assert(got.Unit, tc.HasLen, 1)
+	c.Check(got.Unit[0].PasswordHashAlgorithmID, tc.DeepEquals, new(int64(0)))
+	c.Assert(got.Machine, tc.HasLen, 1)
+	c.Check(got.Machine[0].PasswordHashAlgorithmID, tc.DeepEquals, new(int64(0)))
+	c.Assert(got.ApplicationAgent, tc.HasLen, 1)
+	c.Check(got.ApplicationAgent[0].PasswordHashAlgorithmID, tc.DeepEquals, new(int64(0)))
+	c.Check(got.ApplicationPlatform[0].OsID, tc.Equals, int64(0))
+	c.Check(got.MachinePlatform[0].OsID, tc.Equals, int64(0))
+
+	// SQLite coerces by affinity, so also prove the stored values are
+	// integers rather than text that merely scans as one.
+	for _, q := range []string{
+		`SELECT typeof(type_id) FROM charm_config`,
+		`SELECT typeof(password_hash_algorithm_id) FROM unit`,
+		`SELECT typeof(password_hash_algorithm_id) FROM machine`,
+		`SELECT typeof(password_hash_algorithm_id) FROM application_agent`,
+		`SELECT typeof(os_id) FROM application_platform`,
+		`SELECT typeof(os_id) FROM machine_platform`,
+	} {
+		var typ string
+		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, q).Scan(&typ)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(typ, tc.Equals, "integer", tc.Commentf("query: %s", q))
+	}
 }

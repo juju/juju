@@ -19,10 +19,22 @@ import (
 // Engineers implement this interface in deltas.go; the package will not
 // compile until every method has a receiver.
 type Deltas interface {
+	// ApplicationAgent: struct shape changed in 4.1.0.
+	ApplicationAgent(ctx context.Context, src []v4_0_12.ApplicationAgent, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationAgent, error)
+	// ApplicationPlatform: struct shape changed in 4.1.0.
+	ApplicationPlatform(ctx context.Context, src []v4_0_12.ApplicationPlatform, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationPlatform, error)
 	// ApplicationScale: struct shape changed in 4.1.0.
 	ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationScale, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationScale, error)
+	// CharmConfig: struct shape changed in 4.1.0.
+	CharmConfig(ctx context.Context, src []v4_0_12.CharmConfig, model *v4_0_12.ModelExport) ([]v4_1_0.CharmConfig, error)
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint, model *v4_0_12.ModelExport) ([]v4_1_0.Constraint, error)
+	// Machine: struct shape changed in 4.1.0.
+	Machine(ctx context.Context, src []v4_0_12.Machine, model *v4_0_12.ModelExport) ([]v4_1_0.Machine, error)
+	// MachinePlatform: struct shape changed in 4.1.0.
+	MachinePlatform(ctx context.Context, src []v4_0_12.MachinePlatform, model *v4_0_12.ModelExport) ([]v4_1_0.MachinePlatform, error)
+	// ModelLife: struct shape changed in 4.1.0.
+	ModelLife(ctx context.Context, src []v4_0_12.ModelLife, model *v4_0_12.ModelExport) ([]v4_1_0.ModelLife, error)
 	// Offer: struct shape changed in 4.1.0.
 	Offer(ctx context.Context, src []v4_0_12.Offer, model *v4_0_12.ModelExport) ([]v4_1_0.Offer, error)
 	// Operation: struct shape changed in 4.1.0.
@@ -31,6 +43,10 @@ type Deltas interface {
 	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSetting, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
+	// SecretPermission: struct shape changed in 4.1.0.
+	SecretPermission(ctx context.Context, src []v4_0_12.SecretPermission, model *v4_0_12.ModelExport) ([]v4_1_0.SecretPermission, error)
+	// Unit: struct shape changed in 4.1.0.
+	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -116,11 +132,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.Application[i] = v4_1_0.Application(src.Application[i])
 		}
 
-		dst.ApplicationAgent = make([]v4_1_0.ApplicationAgent, len(src.ApplicationAgent))
-		for i := range src.ApplicationAgent {
-			dst.ApplicationAgent[i] = v4_1_0.ApplicationAgent(src.ApplicationAgent[i])
-		}
-
 		dst.ApplicationChannel = make([]v4_1_0.ApplicationChannel, len(src.ApplicationChannel))
 		for i := range src.ApplicationChannel {
 			dst.ApplicationChannel[i] = v4_1_0.ApplicationChannel(src.ApplicationChannel[i])
@@ -169,11 +180,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.ApplicationK8sResourcesManaged = make([]v4_1_0.ApplicationK8sResourcesManaged, len(src.ApplicationK8sResourcesManaged))
 		for i := range src.ApplicationK8sResourcesManaged {
 			dst.ApplicationK8sResourcesManaged[i] = v4_1_0.ApplicationK8sResourcesManaged(src.ApplicationK8sResourcesManaged[i])
-		}
-
-		dst.ApplicationPlatform = make([]v4_1_0.ApplicationPlatform, len(src.ApplicationPlatform))
-		for i := range src.ApplicationPlatform {
-			dst.ApplicationPlatform[i] = v4_1_0.ApplicationPlatform(src.ApplicationPlatform[i])
 		}
 
 		dst.ApplicationRemoteConsumer = make([]v4_1_0.ApplicationRemoteConsumer, len(src.ApplicationRemoteConsumer))
@@ -294,11 +300,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.CharmCategory = make([]v4_1_0.CharmCategory, len(src.CharmCategory))
 		for i := range src.CharmCategory {
 			dst.CharmCategory[i] = v4_1_0.CharmCategory(src.CharmCategory[i])
-		}
-
-		dst.CharmConfig = make([]v4_1_0.CharmConfig, len(src.CharmConfig))
-		for i := range src.CharmConfig {
-			dst.CharmConfig[i] = v4_1_0.CharmConfig(src.CharmConfig[i])
 		}
 
 		dst.CharmConfigType = make([]v4_1_0.CharmConfigType, len(src.CharmConfigType))
@@ -546,11 +547,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.LinkLayerDeviceType[i] = v4_1_0.LinkLayerDeviceType(src.LinkLayerDeviceType[i])
 		}
 
-		dst.Machine = make([]v4_1_0.Machine, len(src.Machine))
-		for i := range src.Machine {
-			dst.Machine[i] = v4_1_0.Machine(src.Machine[i])
-		}
-
 		dst.MachineAgentPresence = make([]v4_1_0.MachineAgentPresence, len(src.MachineAgentPresence))
 		for i := range src.MachineAgentPresence {
 			dst.MachineAgentPresence[i] = v4_1_0.MachineAgentPresence(src.MachineAgentPresence[i])
@@ -616,11 +612,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.MachinePlacementScope[i] = v4_1_0.MachinePlacementScope(src.MachinePlacementScope[i])
 		}
 
-		dst.MachinePlatform = make([]v4_1_0.MachinePlatform, len(src.MachinePlatform))
-		for i := range src.MachinePlatform {
-			dst.MachinePlatform[i] = v4_1_0.MachinePlatform(src.MachinePlatform[i])
-		}
-
 		dst.MachineRequiresReboot = make([]v4_1_0.MachineRequiresReboot, len(src.MachineRequiresReboot))
 		for i := range src.MachineRequiresReboot {
 			dst.MachineRequiresReboot[i] = v4_1_0.MachineRequiresReboot(src.MachineRequiresReboot[i])
@@ -664,11 +655,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.ModelConstraint = make([]v4_1_0.ModelConstraint, len(src.ModelConstraint))
 		for i := range src.ModelConstraint {
 			dst.ModelConstraint[i] = v4_1_0.ModelConstraint(src.ModelConstraint[i])
-		}
-
-		dst.ModelLife = make([]v4_1_0.ModelLife, len(src.ModelLife))
-		for i := range src.ModelLife {
-			dst.ModelLife[i] = v4_1_0.ModelLife(src.ModelLife[i])
 		}
 
 		dst.ModelMigrating = make([]v4_1_0.ModelMigrating, len(src.ModelMigrating))
@@ -981,11 +967,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.SecretModelOwner[i] = v4_1_0.SecretModelOwner(src.SecretModelOwner[i])
 		}
 
-		dst.SecretPermission = make([]v4_1_0.SecretPermission, len(src.SecretPermission))
-		for i := range src.SecretPermission {
-			dst.SecretPermission[i] = v4_1_0.SecretPermission(src.SecretPermission[i])
-		}
-
 		dst.SecretReference = make([]v4_1_0.SecretReference, len(src.SecretReference))
 		for i := range src.SecretReference {
 			dst.SecretReference[i] = v4_1_0.SecretReference(src.SecretReference[i])
@@ -1166,11 +1147,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.Subnet[i] = v4_1_0.Subnet(src.Subnet[i])
 		}
 
-		dst.Unit = make([]v4_1_0.Unit, len(src.Unit))
-		for i := range src.Unit {
-			dst.Unit[i] = v4_1_0.Unit(src.Unit[i])
-		}
-
 		dst.UnitAgentPresence = make([]v4_1_0.UnitAgentPresence, len(src.UnitAgentPresence))
 		for i := range src.UnitAgentPresence {
 			dst.UnitAgentPresence[i] = v4_1_0.UnitAgentPresence(src.UnitAgentPresence[i])
@@ -1241,12 +1217,36 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.WorkloadStatusValue[i] = v4_1_0.WorkloadStatusValue(src.WorkloadStatusValue[i])
 		}
 
+		if dst.ApplicationAgent, err = d.ApplicationAgent(ctx, src.ApplicationAgent, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationAgent delta: %w", err)
+		}
+
+		if dst.ApplicationPlatform, err = d.ApplicationPlatform(ctx, src.ApplicationPlatform, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationPlatform delta: %w", err)
+		}
+
 		if dst.ApplicationScale, err = d.ApplicationScale(ctx, src.ApplicationScale, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationScale delta: %w", err)
 		}
 
+		if dst.CharmConfig, err = d.CharmConfig(ctx, src.CharmConfig, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("CharmConfig delta: %w", err)
+		}
+
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
+		}
+
+		if dst.Machine, err = d.Machine(ctx, src.Machine, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Machine delta: %w", err)
+		}
+
+		if dst.MachinePlatform, err = d.MachinePlatform(ctx, src.MachinePlatform, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("MachinePlatform delta: %w", err)
+		}
+
+		if dst.ModelLife, err = d.ModelLife(ctx, src.ModelLife, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ModelLife delta: %w", err)
 		}
 
 		if dst.Offer, err = d.Offer(ctx, src.Offer, &src); err != nil {
@@ -1263,6 +1263,14 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.RelationUnitSetting, err = d.RelationUnitSetting(ctx, src.RelationUnitSetting, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitSetting delta: %w", err)
+		}
+
+		if dst.SecretPermission, err = d.SecretPermission(ctx, src.SecretPermission, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretPermission delta: %w", err)
+		}
+
+		if dst.Unit, err = d.Unit(ctx, src.Unit, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Unit delta: %w", err)
 		}
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {

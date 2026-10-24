@@ -109,7 +109,7 @@ ON controller_peer_address (controller_id, address);
 
 CREATE TABLE controller_node_password (
     controller_id TEXT NOT NULL PRIMARY KEY,
-    password_hash_algorithm_id TEXT,
+    password_hash_algorithm_id INT,
     password_hash TEXT,
     CONSTRAINT fk_controller_node_password_controller
     FOREIGN KEY (controller_id)
