@@ -5,11 +5,17 @@ package proxy
 
 import (
 	"context"
+	stderrors "errors"
 	"net"
 	"net/url"
+	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	"github.com/mitchellh/mapstructure"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
@@ -100,32 +106,91 @@ func (p *Proxier) Port() string {
 	return p.tunnel.LocalPort
 }
 
-func (p *Proxier) Start(ctx context.Context) (err error) {
-	tunnel, err := kubernetes.NewTunnelForConfig(
-		&p.restConfig,
-		kubernetes.TunnelKindServices,
-		p.config.Namespace,
-		p.config.Service,
-		p.config.RemotePort,
-	)
+const (
+	retryableProxyError        = "etcdserver: leader changed"
+	maxProxyConnectionAttempts = 3
+	proxyConnectionRetryDelay  = time.Second
+)
 
-	if err != nil {
-		return errors.Trace(err)
+// isRetryableProxyError matches the transient etcd leader-change error.
+// Kubernetes may return this as an internal server error or as an error
+// wrapped by the port-forwarding implementation.
+func isRetryableProxyError(err error) bool {
+	cause := errors.Cause(err)
+
+	if apierrors.IsInternalError(cause) {
+		return strings.Contains(cause.Error(), retryableProxyError)
 	}
-	p.tunnel = tunnel
 
+	var portForwardErr *kubernetes.PortForwardError
+	if stderrors.As(cause, &portForwardErr) {
+		return portForwardErr.Err != nil &&
+			strings.Contains(portForwardErr.Err.Error(), retryableProxyError)
+	}
+	return false
+}
+
+func (p *Proxier) Start(ctx context.Context) (err error) {
 	defer func() {
 		err = errors.Annotate(err, "connecting k8s proxy")
 	}()
-	err = p.tunnel.ForwardPort(ctx)
-	urlErr, ok := errors.Cause(err).(*url.Error)
-	if !ok {
-		return errors.Trace(err)
+	// The Kubernetes API can temporarily return an etcd leader-change error
+	// while establishing the port-forward connection. Retry these transient
+	// failures so the proxy can connect once the API server recovers, while
+	// returning non-retryable errors immediately.
+
+	err = retry.Call(retry.CallArgs{
+		Func: func() error {
+			tunnel, tunnelErr := kubernetes.NewTunnelForConfig(
+				&p.restConfig,
+				kubernetes.TunnelKindServices,
+				p.config.Namespace,
+				p.config.Service,
+				p.config.RemotePort,
+			)
+			if tunnelErr != nil {
+				return errors.Trace(tunnelErr)
+			}
+
+			if err := tunnel.ForwardPort(ctx); err != nil {
+				tunnel.Close()
+				return err
+			}
+
+			p.tunnel = tunnel
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !isRetryableProxyError(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("k8s proxy connection attempt %d failed: %v", attempt, err)
+		},
+		Attempts: maxProxyConnectionAttempts,
+		Delay:    proxyConnectionRetryDelay,
+		Clock:    clock.WallClock,
+		Stop:     ctx.Done(),
+	})
+
+	if err != nil {
+		if retry.IsRetryStopped(err) {
+			return errors.Trace(ctx.Err())
+		}
+		if retry.IsAttemptsExceeded(err) {
+			err = retry.LastError(err)
+		}
+
+		var urlErr *url.Error
+		if !stderrors.As(err, &urlErr) {
+			return errors.Trace(err)
+		}
+		if _, ok := urlErr.Err.(*net.OpError); !ok {
+			return errors.Trace(err)
+		}
+		return proxyerrors.NewProxyConnectError(err, p.Type())
 	}
-	if _, ok = urlErr.Err.(*net.OpError); !ok {
-		return errors.Trace(err)
-	}
-	return proxyerrors.NewProxyConnectError(err, p.Type())
+
+	return nil
 }
 
 func (p *Proxier) Stop() {
