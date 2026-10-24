@@ -26,7 +26,8 @@ INSERT INTO removal_type VALUES
 (16, 'user secret'),
 (17, 'obsolete user secret revisions'),
 (18, 'charm secret'),
-(19, 'resource');
+(19, 'resource'),
+(20, 'charm');
 
 
 CREATE TABLE removal (

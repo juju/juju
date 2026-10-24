@@ -1238,6 +1238,33 @@ func (s *applicationSuite) TestDeleteCharmReturnConstraintError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, ".*FOREIGN KEY constraint failed.*")
 }
 
+func (s *applicationSuite) TestDeleteCharmIfUnusedWithAnnotation(c *tc.C) {
+	// Arrange: One application with a charm that has an annotation.
+	appSvc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, appSvc, "some-app")
+	s.advanceApplicationLife(c, appUUID, life.Dead)
+	charmUUID := s.getCharmUUIDForApplication(c, appUUID.String())
+	_, err := s.DB().Exec(`
+INSERT INTO annotation_charm (uuid, key, value) VALUES (?, ?, ?)`,
+		charmUUID, "key", "value")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Act: Delete the application and delete the charm.
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteApplication(c.Context(), appUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteCharmIfUnused(c.Context(), charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: The charm and its annotation are deleted.
+	s.checkNoCharmsExist(c)
+	row := s.DB().QueryRow("SELECT COUNT(*) FROM annotation_charm WHERE uuid = ?", charmUUID)
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *applicationSuite) TestGetApplicationName(c *tc.C) {
 	appSvc := s.setupApplicationService(c)
 	appUUID := s.createIAASApplication(c, appSvc, "some-app")

@@ -37,6 +37,13 @@ type resourceRemovalJob struct {
 	RemovalTypeID uint64    `db:"removal_type_id"`
 }
 
+type charmRemovalJob struct {
+	UUID          string    `db:"uuid"`
+	CharmUUID     string    `db:"charm_uuid"`
+	ScheduledFor  time.Time `db:"scheduled_for"`
+	RemovalTypeID uint64    `db:"removal_type_id"`
+}
+
 // entityUUIDLife represents a UUID and life ID pair.
 type entityUUIDLife struct {
 	UUID   string `db:"uuid"`
