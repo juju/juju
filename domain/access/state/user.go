@@ -669,7 +669,7 @@ SELECT (*) AS (&dbActivationKey.*) FROM user_activation_key WHERE user_uuid = $u
 	if len(key.ActivationKey) == 0 {
 		return nil, errors.Errorf("activation key for %q: %w", name, accesserrors.ActivationKeyNotValid)
 	}
-	return []byte(key.ActivationKey), nil
+	return key.ActivationKey, nil
 }
 
 // SetPasswordHash removes any active activation keys and sets the user
