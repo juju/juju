@@ -1096,13 +1096,13 @@ type RelationNetworkIngress struct {
 
 type RelationStatus struct {
 	RelationUUID         string     `db:"relation_uuid" json:"relation_uuid" yaml:"relation_uuid"`
-	RelationStatusTypeID string     `db:"relation_status_type_id" json:"relation_status_type_id" yaml:"relation_status_type_id"`
+	RelationStatusTypeID int64      `db:"relation_status_type_id" json:"relation_status_type_id" yaml:"relation_status_type_id"`
 	Message              *string    `db:"message" json:"message" yaml:"message"`
 	UpdatedAt            *time.Time `db:"updated_at" json:"updated_at" yaml:"updated_at"`
 }
 
 type RelationStatusType struct {
-	ID   string `db:"id" json:"id" yaml:"id"`
+	ID   int64  `db:"id" json:"id" yaml:"id"`
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 

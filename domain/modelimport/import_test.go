@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v3"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/export"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
@@ -187,12 +189,13 @@ VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-
 // INTEGER values in the model DB.
 func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 	const (
-		charmUUID   = "22222222-2222-2222-2222-222222222222"
-		appUUID     = "33333333-3333-3333-3333-333333333333"
-		appNode     = "44444444-4444-4444-4444-444444444444"
-		unitUUID    = "55555555-5555-5555-5555-555555555555"
-		machineUUID = "66666666-6666-6666-6666-666666666666"
-		machineNode = "77777777-7777-7777-7777-777777777777"
+		charmUUID    = "22222222-2222-2222-2222-222222222222"
+		appUUID      = "33333333-3333-3333-3333-333333333333"
+		appNode      = "44444444-4444-4444-4444-444444444444"
+		unitUUID     = "55555555-5555-5555-5555-555555555555"
+		machineUUID  = "66666666-6666-6666-6666-666666666666"
+		machineNode  = "77777777-7777-7777-7777-777777777777"
+		relationUUID = "88888888-8888-8888-8888-888888888888"
 	)
 	s.bootstrapModel(c)
 
@@ -230,11 +233,23 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 		ModelAgent: []v4_0_12.ModelAgent{{
 			ModelUUID: s.ModelUUID(), PasswordHashAlgorithmID: new(int64(0)), PasswordHash: new("hash"),
 		}},
+		Relation: []v4_0_12.Relation{{
+			UUID: relationUUID, LifeID: 0, RelationID: 1, ScopeID: 0,
+		}},
+		RelationStatus: []v4_0_12.RelationStatus{{
+			RelationUUID: relationUUID, RelationStatusTypeID: "1",
+		}},
+		RelationStatusType: []v4_0_12.RelationStatusType{{ID: "1", Name: "joined"}},
 	}
 
+	// Exercise the same YAML decoding boundary as a legacy migration.
+	data, err := yaml.Marshal(legacy)
+	c.Assert(err, tc.ErrorIsNil)
+	decoded, err := export.DecodePayload(semversion.MustParse("4.0.12"), data)
+	c.Assert(err, tc.ErrorIsNil)
 	tr, err := modelimport.NewTransformer()
 	c.Assert(err, tc.ErrorIsNil)
-	result, err := tr.Transform(c.Context(), semversion.MustParse("4.0.12"), legacy)
+	result, err := tr.Transform(c.Context(), semversion.MustParse("4.0.12"), decoded)
 	c.Assert(err, tc.ErrorIsNil)
 	transformed, ok := result.(latest.ModelExport)
 	c.Assert(ok, tc.IsTrue)
@@ -254,6 +269,17 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 	c.Check(got.ApplicationAgent[0].PasswordHashAlgorithmID, tc.DeepEquals, new(int64(0)))
 	c.Check(got.ApplicationPlatform[0].OsID, tc.Equals, int64(0))
 	c.Check(got.MachinePlatform[0].OsID, tc.Equals, int64(0))
+	c.Check(got.RelationStatus, tc.DeepEquals, []v4_1_0.RelationStatus{{
+		RelationUUID: relationUUID, RelationStatusTypeID: 1,
+	}})
+	c.Check(got.RelationStatusType, tc.SameContents, []v4_1_0.RelationStatusType{
+		{ID: 0, Name: "joining"},
+		{ID: 1, Name: "joined"},
+		{ID: 2, Name: "broken"},
+		{ID: 3, Name: "suspending"},
+		{ID: 4, Name: "suspended"},
+		{ID: 5, Name: "error"},
+	})
 
 	// SQLite coerces by affinity, so also prove the stored values are
 	// integers rather than text that merely scans as one.
@@ -264,6 +290,8 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 		`SELECT typeof(password_hash_algorithm_id) FROM application_agent`,
 		`SELECT typeof(os_id) FROM application_platform`,
 		`SELECT typeof(os_id) FROM machine_platform`,
+		`SELECT typeof(relation_status_type_id) FROM relation_status`,
+		`SELECT group_concat(DISTINCT typeof(id)) FROM relation_status_type`,
 	} {
 		var typ string
 		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

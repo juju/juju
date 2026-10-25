@@ -87,6 +87,12 @@ VALUES ('machine1', '0', 'node1', 0, NULL),
 	execSQL(c, s.DB(), `INSERT INTO machine_status (machine_uuid, status_id, data, updated_at)
 VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?, ?)`,
 		[]byte{}, []byte{0, 128, 255}, updated)
+	// Integer status IDs and nullable metadata must survive recovery, not
+	// merely the migration importer.
+	execSQL(c, s.DB(), `INSERT INTO relation (uuid, relation_id, life_id, scope_id)
+VALUES ('joining', 0, 0, 0), ('joined', 1, 0, 0)`)
+	execSQL(c, s.DB(), `INSERT INTO relation_status (relation_uuid, relation_status_type_id, message, updated_at)
+VALUES ('joining', 0, NULL, NULL), ('joined', 1, 'joined', ?)`, updated)
 	exporter := exportmodel.NewState(s.TxnRunnerFactory())
 	before, err := exporter.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -95,6 +101,7 @@ VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?,
 	dump, err := service.DecodeModelDump(data)
 	c.Assert(err, tc.ErrorIsNil)
 	execSQL(c, s.DB(), `DELETE FROM sequence`)
+	execSQL(c, s.DB(), `DELETE FROM relation_status`)
 	// No placement exists on a fresh model database. The caller supplies its
 	// target explicitly, without needing a pre-existing blob to infer it.
 	execSQL(c, s.DB(), `DELETE FROM object_store_placement`)
@@ -110,6 +117,11 @@ VALUES ('machine1', 0, NULL, NULL), ('machine2', 1, ?, NULL), ('machine3', 2, ?,
 	c.Check(after.ObjectStoreMetadata, tc.DeepEquals, before.ObjectStoreMetadata)
 	c.Check(after.Machine, tc.SameContents, before.Machine)
 	c.Check(after.MachineStatus, tc.SameContents, before.MachineStatus)
+	c.Check(after.RelationStatus, tc.SameContents, before.RelationStatus)
+	c.Check(after.RelationStatusType, tc.SameContents, before.RelationStatusType)
+	checkString(c, s.DB(),
+		`SELECT group_concat(DISTINCT typeof(relation_status_type_id)) FROM relation_status`, "integer")
+	checkString(c, s.DB(), `SELECT group_concat(DISTINCT typeof(id)) FROM relation_status_type`, "integer")
 	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine1'`, "null")
 	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine2'`, "blob")
 	checkString(c, s.DB(), `SELECT typeof(data) FROM machine_status WHERE machine_uuid = 'machine3'`, "blob")

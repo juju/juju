@@ -4,6 +4,7 @@
 package to_v4_1_0
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -240,4 +241,58 @@ func (s *deltasSuite) TestTextIDsRejectNonNumeric(c *tc.C) {
 
 	_, err = deltas{}.Unit(c.Context(), []v4_0_12.Unit{{UUID: "u", PasswordHashAlgorithmID: new("x")}}, nil)
 	c.Check(err, tc.ErrorMatches, `invalid password_hash_algorithm_id "x".*`)
+}
+
+// TestRelationStatusParsesIDs verifies every seeded status ID is converted
+// without changing nullable messages or timestamps.
+func (s *deltasSuite) TestRelationStatusParsesIDs(c *tc.C) {
+	since := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	var statuses []v4_0_12.RelationStatus
+	var types []v4_0_12.RelationStatusType
+	var expectedStatuses []v4_1_0.RelationStatus
+	var expectedTypes []v4_1_0.RelationStatusType
+	for id, name := range []string{"joining", "joined", "broken", "suspending", "suspended", "error"} {
+		textID := strconv.Itoa(id)
+		var message *string
+		var updatedAt *time.Time
+		if id%2 != 0 {
+			message, updatedAt = &name, &since
+		}
+		statuses = append(statuses, v4_0_12.RelationStatus{
+			RelationUUID: textID, RelationStatusTypeID: textID,
+			Message: message, UpdatedAt: updatedAt,
+		})
+		types = append(types, v4_0_12.RelationStatusType{ID: textID, Name: name})
+		expectedStatuses = append(expectedStatuses, v4_1_0.RelationStatus{
+			RelationUUID: textID, RelationStatusTypeID: int64(id),
+			Message: message, UpdatedAt: updatedAt,
+		})
+		expectedTypes = append(expectedTypes, v4_1_0.RelationStatusType{ID: int64(id), Name: name})
+	}
+
+	gotStatuses, err := deltas{}.RelationStatus(c.Context(), statuses, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotStatuses, tc.DeepEquals, expectedStatuses)
+
+	gotTypes, err := deltas{}.RelationStatusType(c.Context(), types, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotTypes, tc.DeepEquals, expectedTypes)
+}
+
+// TestRelationStatusRejectsInvalidIDs checks that malformed or overflowing
+// identifiers halt the transform rather than silently becoming zero.
+func (s *deltasSuite) TestRelationStatusRejectsInvalidIDs(c *tc.C) {
+	transform := NewTransform(deltas{})
+	for _, id := range []string{"", "joined", "1.5", "9223372036854775808"} {
+		c.Logf("invalid ID %q", id)
+		_, err := transform(c.Context(), v4_0_12.ModelExport{
+			RelationStatus: []v4_0_12.RelationStatus{{RelationUUID: "r", RelationStatusTypeID: id}},
+		})
+		c.Check(err, tc.ErrorMatches, `RelationStatus delta: invalid relation_status_type_id .*`)
+
+		_, err = transform(c.Context(), v4_0_12.ModelExport{
+			RelationStatusType: []v4_0_12.RelationStatusType{{ID: id, Name: "joining"}},
+		})
+		c.Check(err, tc.ErrorMatches, `RelationStatusType delta: invalid relation_status_type.id .*`)
+	}
 }

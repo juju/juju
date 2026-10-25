@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v3"
 
+	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/export"
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
@@ -27,7 +30,7 @@ func TestRoundTripSuite(t *testing.T) {
 
 // TestImportExportRoundTrip imports a payload and re-exports it, asserting the
 // generated importer is a faithful write-mirror of the exporter. The payload
-// deliberately covers three cases:
+// deliberately covers the following cases:
 //   - sequence: an FK-free content table (exact round-trip).
 //   - provider_space -> space: a foreign key whose child table ("provider_space")
 //     sorts before its parent ("space"), so the child is inserted before the
@@ -39,6 +42,8 @@ func TestRoundTripSuite(t *testing.T) {
 //     inserted.
 //   - unit_resource: a row with a denormalized resource name and its complete
 //     foreign-key chain (exact round-trip).
+//   - relation_status: integer IDs and both NULL and non-NULL metadata survive
+//     YAML serialisation, import and export.
 func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	const (
 		userSpaceUUID = "11111111-1111-1111-1111-111111111111"
@@ -47,6 +52,8 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 		netNodeUUID   = "44444444-4444-4444-4444-444444444444"
 		unitUUID      = "55555555-5555-5555-5555-555555555555"
 		resourceUUID  = "66666666-6666-6666-6666-666666666666"
+		joiningUUID   = "77777777-7777-7777-7777-777777777777"
+		joinedUUID    = "88888888-8888-8888-8888-888888888888"
 		resourceName  = "foo"
 	)
 	s.bootstrapModel(c)
@@ -70,6 +77,14 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 			CharmResourceName: resourceName, OriginTypeID: 0,
 			StateID: 0, CreatedAt: now,
 		}},
+		Relation: []v4_1_0.Relation{
+			{UUID: joiningUUID, RelationID: 0},
+			{UUID: joinedUUID, RelationID: 1},
+		},
+		RelationStatus: []v4_1_0.RelationStatus{
+			{RelationUUID: joiningUUID, RelationStatusTypeID: 0},
+			{RelationUUID: joinedUUID, RelationStatusTypeID: 1, Message: new("joined"), UpdatedAt: &now},
+		},
 		Sequence: []v4_1_0.Sequence{
 			{Namespace: "machine", Value: 7},
 			{Namespace: "unit", Value: 3},
@@ -91,8 +106,15 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 		}},
 	}
 
+	data, err := yaml.Marshal(payload)
+	c.Assert(err, tc.ErrorIsNil)
+	decoded, err := export.DecodePayload(semversion.MustParse("4.1.0"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	decodedPayload, ok := decoded.(v4_1_0.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+
 	importSt := importstate.NewState(s.TxnRunnerFactory())
-	err := importSt.Import(c.Context(), payload)
+	err = importSt.Import(c.Context(), &decodedPayload)
 	c.Assert(err, tc.ErrorIsNil)
 
 	exportSt := exportstate.NewState(s.TxnRunnerFactory())
@@ -103,6 +125,16 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	c.Check(got.Sequence, tc.SameContents, payload.Sequence)
 	c.Check(got.ProviderSpace, tc.SameContents, payload.ProviderSpace)
 	c.Check(got.UnitResource, tc.DeepEquals, payload.UnitResource)
+	c.Check(got.RelationStatus, tc.SameContents, payload.RelationStatus)
+
+	data, err = yaml.Marshal(got)
+	c.Assert(err, tc.ErrorIsNil)
+	decoded, err = export.DecodePayload(semversion.MustParse("4.1.0"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	reexported, ok := decoded.(v4_1_0.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(reexported.RelationStatus, tc.SameContents, payload.RelationStatus)
+	c.Check(reexported.RelationStatusType, tc.SameContents, got.RelationStatusType)
 
 	// The user space was imported; the alpha seed row was preserved exactly once
 	// (skipped by ON CONFLICT DO NOTHING, not duplicated).

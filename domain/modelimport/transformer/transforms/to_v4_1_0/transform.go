@@ -41,6 +41,10 @@ type Deltas interface {
 	Operation(ctx context.Context, src []v4_0_12.Operation, model *v4_0_12.ModelExport) ([]v4_1_0.Operation, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
 	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSetting, error)
+	// RelationStatus: struct shape changed in 4.1.0.
+	RelationStatus(ctx context.Context, src []v4_0_12.RelationStatus, model *v4_0_12.ModelExport) ([]v4_1_0.RelationStatus, error)
+	// RelationStatusType: struct shape changed in 4.1.0.
+	RelationStatusType(ctx context.Context, src []v4_0_12.RelationStatusType, model *v4_0_12.ModelExport) ([]v4_1_0.RelationStatusType, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
 	// SecretPermission: struct shape changed in 4.1.0.
@@ -842,16 +846,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.RelationNetworkIngress[i] = v4_1_0.RelationNetworkIngress(src.RelationNetworkIngress[i])
 		}
 
-		dst.RelationStatus = make([]v4_1_0.RelationStatus, len(src.RelationStatus))
-		for i := range src.RelationStatus {
-			dst.RelationStatus[i] = v4_1_0.RelationStatus(src.RelationStatus[i])
-		}
-
-		dst.RelationStatusType = make([]v4_1_0.RelationStatusType, len(src.RelationStatusType))
-		for i := range src.RelationStatusType {
-			dst.RelationStatusType[i] = v4_1_0.RelationStatusType(src.RelationStatusType[i])
-		}
-
 		dst.RelationUnit = make([]v4_1_0.RelationUnit, len(src.RelationUnit))
 		for i := range src.RelationUnit {
 			dst.RelationUnit[i] = v4_1_0.RelationUnit(src.RelationUnit[i])
@@ -1259,6 +1253,14 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.RelationApplicationSetting, err = d.RelationApplicationSetting(ctx, src.RelationApplicationSetting, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationApplicationSetting delta: %w", err)
+		}
+
+		if dst.RelationStatus, err = d.RelationStatus(ctx, src.RelationStatus, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("RelationStatus delta: %w", err)
+		}
+
+		if dst.RelationStatusType, err = d.RelationStatusType(ctx, src.RelationStatusType, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("RelationStatusType delta: %w", err)
 		}
 
 		if dst.RelationUnitSetting, err = d.RelationUnitSetting(ctx, src.RelationUnitSetting, &src); err != nil {

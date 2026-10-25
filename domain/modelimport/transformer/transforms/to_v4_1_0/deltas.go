@@ -441,6 +441,39 @@ func (d deltas) SecretPermission(_ context.Context, src []v4_0_12.SecretPermissi
 	return result, nil
 }
 
+// RelationStatus parses the relation_status_type_id column, which changed from
+// TEXT to INTEGER in 4.1.0.
+func (d deltas) RelationStatus(_ context.Context, src []v4_0_12.RelationStatus, _ *v4_0_12.ModelExport) ([]v4_1_0.RelationStatus, error) {
+	result := make([]v4_1_0.RelationStatus, len(src))
+	for i, s := range src {
+		statusType, err := parseID("relation_status_type_id", s.RelationStatusTypeID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.RelationStatus{
+			RelationUUID:         s.RelationUUID,
+			RelationStatusTypeID: statusType,
+			Message:              s.Message,
+			UpdatedAt:            s.UpdatedAt,
+		}
+	}
+	return result, nil
+}
+
+// RelationStatusType parses the id column, which changed from TEXT to INTEGER
+// in 4.1.0.
+func (d deltas) RelationStatusType(_ context.Context, src []v4_0_12.RelationStatusType, _ *v4_0_12.ModelExport) ([]v4_1_0.RelationStatusType, error) {
+	result := make([]v4_1_0.RelationStatusType, len(src))
+	for i, t := range src {
+		id, err := parseID("relation_status_type.id", t.ID)
+		if err != nil {
+			return nil, err
+		}
+		result[i] = v4_1_0.RelationStatusType{ID: id, Name: t.Name}
+	}
+	return result, nil
+}
+
 // Unit parses the password_hash_algorithm_id column, which changed from TEXT
 // to INTEGER in 4.1.0.
 func (d deltas) Unit(_ context.Context, src []v4_0_12.Unit, _ *v4_0_12.ModelExport) ([]v4_1_0.Unit, error) {
