@@ -1141,7 +1141,7 @@ type Removal struct {
 	UUID          string    `db:"uuid" json:"uuid" yaml:"uuid"`
 	RemovalTypeID int64     `db:"removal_type_id" json:"removal_type_id" yaml:"removal_type_id"`
 	EntityUUID    string    `db:"entity_uuid" json:"entity_uuid" yaml:"entity_uuid"`
-	Force         int64     `db:"force" json:"force" yaml:"force"`
+	Force         bool      `db:"force" json:"force" yaml:"force"`
 	ScheduledFor  time.Time `db:"scheduled_for" json:"scheduled_for" yaml:"scheduled_for"`
 	Arg           *string   `db:"arg" json:"arg" yaml:"arg"`
 }
