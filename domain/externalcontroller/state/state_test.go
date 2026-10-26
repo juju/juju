@@ -30,13 +30,13 @@ func (s *stateSuite) TestRetrieveExternalController(c *tc.C) {
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", "my-controller", "test-cert")`)
+('ctrl1', 'my-controller', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr1", "ctrl1", "192.168.1.1")`)
+('addr1', 'ctrl1', '192.168.1.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr2", "ctrl1", "10.0.0.1")`)
+('addr2', 'ctrl1', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
@@ -55,7 +55,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *tc.C) {
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", "my-controller", "test-cert")`)
+('ctrl1', 'my-controller', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
@@ -74,7 +74,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *tc.C) {
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller(uuid,ca_cert) VALUES	
-("ctrl1", "test-cert")`)
+('ctrl1', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
@@ -102,17 +102,17 @@ func (s *stateSuite) TestRetrieveExternalControllerForModel(c *tc.C) {
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", "my-controller", "test-cert")`)
+('ctrl1', 'my-controller', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr1", "ctrl1", "192.168.1.1")`)
+('addr1', 'ctrl1', '192.168.1.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr2", "ctrl1", "10.0.0.1")`)
+('addr2', 'ctrl1', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	// Insert a model corresponding to that controller.
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
@@ -131,11 +131,11 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *t
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", "my-controller", "test-cert")`)
+('ctrl1', 'my-controller', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 	// Insert a model corresponding to that controller.
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
@@ -155,11 +155,11 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *tc.C)
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller(uuid,ca_cert) VALUES	
-("ctrl1", "test-cert")`)
+('ctrl1', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 	// Insert a model corresponding to that controller.
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the created external controller.
@@ -320,17 +320,17 @@ func (s *stateSuite) TestModelsForController(c *tc.C) {
 
 	// Insert a single external controller.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", "my-controller", "test-cert")`)
+('ctrl1', 'my-controller', 'test-cert')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr1", "ctrl1", "192.168.1.1")`)
+('addr1', 'ctrl1', '192.168.1.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr2", "ctrl1", "10.0.0.1")`)
+('addr2', 'ctrl1', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	// Insert a model corresponding to that controller.
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	models, err := st.ModelsForController(c.Context(), "ctrl1")
@@ -352,32 +352,32 @@ func (s *stateSuite) TestControllersForModels(c *tc.C) {
 
 	// Insert an external controller with one model.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", NULL, "test-cert1")`)
+('ctrl1', NULL, 'test-cert1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr1", "ctrl1", "192.168.1.1")`)
+('addr1', 'ctrl1', '192.168.1.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr2", "ctrl1", "10.0.0.1")`)
+('addr2', 'ctrl1', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr3", "ctrl1", "10.0.0.2")`)
+('addr3', 'ctrl1', '10.0.0.2')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	// Insert another external controller with two models.
 	_, err = db.Exec(`INSERT INTO external_controller VALUES
-("ctrl2", "my-controller2", "test-cert2")`)
+('ctrl2', 'my-controller2', 'test-cert2')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr4", "ctrl2", "10.0.0.1")`)
+('addr4', 'ctrl2', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model2", "ctrl2")`)
+('model2', 'ctrl2')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model3", "ctrl2")`)
+('model3', 'ctrl2')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllers, err := st.ControllersForModels(c.Context(), "model1", "model2", "model3", "model2", "model3")
@@ -415,25 +415,25 @@ func (s *stateSuite) TestControllersForModelsOneSingleModel(c *tc.C) {
 
 	// Insert an external controller with one model.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", NULL, "test-cert1")`)
+('ctrl1', NULL, 'test-cert1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr1", "ctrl1", "192.168.1.1")`)
+('addr1', 'ctrl1', '192.168.1.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr2", "ctrl1", "10.0.0.1")`)
+('addr2', 'ctrl1', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr3", "ctrl1", "10.0.0.2")`)
+('addr3', 'ctrl1', '10.0.0.2')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model2", "ctrl1")`)
+('model2', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model3", "ctrl1")`)
+('model3', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllers, err := st.ControllersForModels(c.Context(), "model1")
@@ -448,25 +448,25 @@ func (s *stateSuite) TestControllersForModelsWithoutModelUUIDs(c *tc.C) {
 
 	// Insert an external controller with one model.
 	_, err := db.Exec(`INSERT INTO external_controller VALUES
-("ctrl1", NULL, "test-cert1")`)
+('ctrl1', NULL, 'test-cert1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr1", "ctrl1", "192.168.1.1")`)
+('addr1', 'ctrl1', '192.168.1.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr2", "ctrl1", "10.0.0.1")`)
+('addr2', 'ctrl1', '10.0.0.1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
-("addr3", "ctrl1", "10.0.0.2")`)
+('addr3', 'ctrl1', '10.0.0.2')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model1", "ctrl1")`)
+('model1', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model2", "ctrl1")`)
+('model2', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec(`INSERT INTO external_model VALUES
-("model3", "ctrl1")`)
+('model3', 'ctrl1')`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	controllers, err := st.ControllersForModels(c.Context())

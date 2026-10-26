@@ -497,7 +497,7 @@ func (s *baseSuite) addRelationToApplication(c *tc.C, appUUID coreapplication.UU
 			return err
 		}
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO application_exposed_endpoint_cidr (application_uuid, application_endpoint_uuid, cidr) VALUES (?, ?, "10.0.0.0/24") ON CONFLICT DO NOTHING;`, appUUID, endpointUUID)
+		_, err = tx.ExecContext(ctx, `INSERT INTO application_exposed_endpoint_cidr (application_uuid, application_endpoint_uuid, cidr) VALUES (?, ?, '10.0.0.0/24') ON CONFLICT DO NOTHING;`, appUUID, endpointUUID)
 		if err != nil {
 			return err
 		}

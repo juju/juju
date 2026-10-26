@@ -212,7 +212,7 @@ func (s *baseSuite) addOfferConnection(c *tc.C, offerUUID offer.UUID, statusID s
 	connUUID := tc.Must(c, internaluuid.NewUUID).String()
 	s.query(c, `
 INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
-VALUES (?, ?, ?, "bob")`, connUUID, offerUUID, relUUID)
+VALUES (?, ?, ?, 'bob')`, connUUID, offerUUID, relUUID)
 
 	s.query(c, `
 INSERT INTO relation_status (relation_uuid, relation_status_type_id, updated_at)
