@@ -104,7 +104,7 @@ SELECT COUNT(*) AS &countResult.count
 FROM   application_endpoint AS ae
 JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 AND    ae.uuid IN ($uuids[:])
-AND    cr.scope_id == 1
+AND    cr.scope_id = 1
 `, uuids{}, countResult{})
 	if err != nil {
 		return "", errors.Errorf("preparing application and endpoint validation query: %w", err)
