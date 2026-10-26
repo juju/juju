@@ -3382,17 +3382,23 @@ WHERE  secret_id = $secretRevision.secret_id
 type dbrevisionUUIDs []revisionUUID
 
 // InitialWatchStatementForConsumedSecretsChange returns the initial watch
-// statement and the table name for watching consumed secrets.
+// statement and the table name for watching consumed secrets. The initial
+// query returns the UUID of the latest revision of each secret for which
+// the unit is behind that revision.
 func (st State) InitialWatchStatementForConsumedSecretsChange(unitName coreunit.Name) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
-SELECT   DISTINCT sr.uuid AS &revisionUUID.uuid
-FROM     secret_unit_consumer suc
-JOIN     unit u ON u.uuid = suc.unit_uuid
-JOIN     secret_revision sr ON sr.secret_id = suc.secret_id
-WHERE    u.name = $unit.name
-GROUP BY sr.secret_id
-HAVING   suc.current_revision < MAX(sr.revision)`
+SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
+FROM   secret_unit_consumer suc
+JOIN   unit u ON u.uuid = suc.unit_uuid
+JOIN   secret_revision sr ON sr.secret_id = suc.secret_id
+WHERE  u.name = $unit.name
+AND    suc.current_revision < sr.revision
+AND    sr.revision = (
+           SELECT MAX(latest.revision)
+           FROM   secret_revision AS latest
+           WHERE  latest.secret_id = sr.secret_id
+       )`
 
 		queryParams := []any{
 			unit{Name: unitName},
@@ -3426,7 +3432,8 @@ HAVING   suc.current_revision < MAX(sr.revision)`
 }
 
 // GetConsumedSecretURIsWithChanges returns the URIs of the secrets
-// consumed by the specified unit that has new revisions.
+// consumed by the specified unit that has new revisions. If revision UUIDs
+// are specified, only those revisions are considered.
 func (st State) GetConsumedSecretURIsWithChanges(
 	ctx context.Context, unitName coreunit.Name, revisionIDs ...string,
 ) ([]string, error) {
@@ -3440,7 +3447,8 @@ SELECT DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id
 FROM   secret_unit_consumer suc
 JOIN   unit u ON u.uuid = suc.unit_uuid
 JOIN   secret_revision sr ON sr.secret_id = suc.secret_id
-WHERE  u.name = $unit.name`
+WHERE  u.name = $unit.name
+AND    suc.current_revision < sr.revision`
 
 	queryParams := []any{
 		unit{Name: unitName},
@@ -3448,11 +3456,9 @@ WHERE  u.name = $unit.name`
 
 	if len(revisionIDs) > 0 {
 		queryParams = append(queryParams, revisionUUIDs(revisionIDs))
-		q += " AND sr.uuid IN ($revisionUUIDs[:])"
+		q += `
+AND    sr.uuid IN ($revisionUUIDs[:])`
 	}
-	q += `
-GROUP BY sr.secret_id
-HAVING suc.current_revision < MAX(sr.revision)`
 
 	stmt, err := st.Prepare(q, append(queryParams, secretUnitConsumer{})...)
 	if err != nil {
