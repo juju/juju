@@ -250,9 +250,9 @@ BEGIN
            NEW.net_node_uuid,
            DATETIME('now', 'utc')
     FROM   storage_%[1]s s
-    WHERE  1 == (SELECT COUNT(*)
-                 FROM   storage_%[1]s_attachment
-                 WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
+    WHERE  1 = (SELECT COUNT(*)
+                FROM   storage_%[1]s_attachment
+                WHERE  storage_%[1]s_uuid = NEW.storage_%[1]s_uuid)
     AND    s.uuid = NEW.storage_%[1]s_uuid
     AND    s.provision_scope_id = 1;
 END;
@@ -284,9 +284,9 @@ BEGIN
            			OLD.net_node_uuid,
            			DATETIME('now', 'utc')
     FROM   storage_%[1]s s
-    WHERE  0 == (SELECT COUNT(*)
-                 FROM   storage_%[1]s_attachment
-                 WHERE  storage_%[1]s_uuid = OLD.storage_%[1]s_uuid)
+    WHERE  0 = (SELECT COUNT(*)
+                FROM   storage_%[1]s_attachment
+                WHERE  storage_%[1]s_uuid = OLD.storage_%[1]s_uuid)
     AND    s.uuid = OLD.storage_%[1]s_uuid
     AND    s.provision_scope_id = 1;
 END;
