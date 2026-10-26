@@ -244,6 +244,262 @@ func (s *modelSecretsSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferi
 	})
 }
 
+// addOfferedApplication adds an application, which can be offered, with
+// the given name. It returns the application UUID.
+func (s *modelSecretsSuite) addOfferedApplication(c *tc.C, name string) string {
+	return s.addApplication(c, s.addCharm(c), name).String()
+}
+
+// addRemoteSecretConsumerApplication adds a synthetic application with the
+// given name, representing a consuming application connected to the
+// offered application through its own offer connection.
+func (s *modelSecretsSuite) addRemoteSecretConsumerApplication(c *tc.C, offeredAppUUID, name string) {
+	offerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.createOffer(c, offerUUID)
+	synthAppUUID := s.addApplication(c, s.addCharm(c), name)
+	relUUID := s.addRelation(c)
+
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'bob')`, synthAppUUID, offerUUID, relUUID)
+	s.query(c, `
+INSERT INTO application_remote_consumer (
+    offer_connection_uuid,
+    offerer_application_uuid,
+    consumer_application_uuid,
+    consumer_model_uuid,
+    life_id)
+VALUES (?, ?, ?, ?, 0)`,
+		synthAppUUID,
+		offeredAppUUID,
+		tc.Must(c, coreapplication.NewUUID),
+		tc.Must(c, coremodel.NewUUID),
+	)
+}
+
+// addSecretWithRevisions adds a secret with the given number of revisions.
+func (s *modelSecretsSuite) addSecretWithRevisions(c *tc.C, revisions int) *coresecrets.URI {
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
+	for i := 1; i < revisions; i++ {
+		s.addRevision(c, uri, map[string]string{"foo": "bar"})
+	}
+	uri.SourceUUID = s.ModelUUID()
+	return uri
+}
+
+// saveRemoteSecretConsumer records the revision of the secret currently
+// consumed by the given remote unit.
+func (s *modelSecretsSuite) saveRemoteSecretConsumer(c *tc.C, uri *coresecrets.URI, unitName string, revision int) {
+	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, unitName, coresecrets.SecretConsumerMetadata{
+		CurrentRevision: revision,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// assertRemoteConsumedSecretsChanges checks the revisions returned by the
+// initial watch statement and the secrets returned when no revisions are
+// filtered and when filtering by the initial revisions.
+func (s *modelSecretsSuite) assertRemoteConsumedSecretsChanges(
+	c *tc.C, offeredAppUUID string, expectedRevUUIDs []string, expectedURIs []string,
+) {
+	_, f := s.state.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(offeredAppUUID)
+	revUUIDs, err := f(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revUUIDs, tc.SameContents, expectedRevUUIDs)
+
+	uris, err := s.state.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(c.Context(), offeredAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uris, tc.SameContents, expectedURIs)
+
+	if len(revUUIDs) == 0 {
+		return
+	}
+	uris, err = s.state.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(c.Context(), offeredAppUUID, revUUIDs...)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uris, tc.SameContents, expectedURIs)
+}
+
+func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesNoConsumers(c *tc.C) {
+	offeredAppUUID := s.addOfferedApplication(c, "offered")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-consumer")
+	uri := s.addSecretWithRevisions(c, 2)
+
+	s.assertRemoteConsumedSecretsChanges(c, offeredAppUUID, nil, nil)
+
+	uris, err := s.state.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
+		c.Context(), offeredAppUUID, getRevUUID(c, s.DB(), uri, 2))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(uris, tc.HasLen, 0)
+}
+
+func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesSingleConsumer(c *tc.C) {
+	offeredAppUUID := s.addOfferedApplication(c, "offered")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-consumer")
+
+	current := s.addSecretWithRevisions(c, 2)
+	s.saveRemoteSecretConsumer(c, current, "remote-consumer/0", 2)
+	behind := s.addSecretWithRevisions(c, 2)
+	s.saveRemoteSecretConsumer(c, behind, "remote-consumer/0", 1)
+
+	s.assertRemoteConsumedSecretsChanges(c, offeredAppUUID,
+		[]string{getRevUUID(c, s.DB(), behind, 2)},
+		[]string{behind.String()},
+	)
+}
+
+// TestRemoteConsumedSecretsChangesMixedUnitRevisions checks that a secret
+// is reported when any consuming unit is behind the latest revision, even
+// if another unit already consumes the latest revision. The arrangements
+// vary which unit is behind and the order in which consumers are recorded,
+// so that the result cannot depend on which unit row is evaluated first.
+func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesMixedUnitRevisions(c *tc.C) {
+	offeredAppUUID := s.addOfferedApplication(c, "offered")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-consumer")
+
+	type consumer struct {
+		unitName string
+		revision int
+	}
+	arrangements := [][]consumer{
+		{{"remote-consumer/0", 2}, {"remote-consumer/1", 1}},
+		{{"remote-consumer/1", 1}, {"remote-consumer/0", 2}},
+		{{"remote-consumer/0", 1}, {"remote-consumer/1", 2}},
+		{{"remote-consumer/1", 2}, {"remote-consumer/0", 1}},
+	}
+
+	var (
+		expectedRevUUIDs []string
+		expectedURIs     []string
+	)
+	for _, consumers := range arrangements {
+		uri := s.addSecretWithRevisions(c, 2)
+		for _, consumer := range consumers {
+			s.saveRemoteSecretConsumer(c, uri, consumer.unitName, consumer.revision)
+		}
+		expectedRevUUIDs = append(expectedRevUUIDs, getRevUUID(c, s.DB(), uri, 2))
+		expectedURIs = append(expectedURIs, uri.String())
+	}
+
+	s.assertRemoteConsumedSecretsChanges(c, offeredAppUUID, expectedRevUUIDs, expectedURIs)
+}
+
+// TestRemoteConsumedSecretsChangesLatestRevisionOnce checks that the
+// initial watch statement returns only the latest revision of each secret,
+// once, however many consuming units are behind.
+func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesLatestRevisionOnce(c *tc.C) {
+	offeredAppUUID := s.addOfferedApplication(c, "offered")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-consumer")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-other")
+
+	allBehind := s.addSecretWithRevisions(c, 3)
+	s.saveRemoteSecretConsumer(c, allBehind, "remote-consumer/0", 1)
+	s.saveRemoteSecretConsumer(c, allBehind, "remote-consumer/1", 2)
+	s.saveRemoteSecretConsumer(c, allBehind, "remote-other/0", 1)
+
+	oneBehind := s.addSecretWithRevisions(c, 3)
+	s.saveRemoteSecretConsumer(c, oneBehind, "remote-consumer/0", 3)
+	s.saveRemoteSecretConsumer(c, oneBehind, "remote-other/0", 2)
+
+	allCurrent := s.addSecretWithRevisions(c, 3)
+	s.saveRemoteSecretConsumer(c, allCurrent, "remote-consumer/0", 3)
+	s.saveRemoteSecretConsumer(c, allCurrent, "remote-other/0", 3)
+
+	s.assertRemoteConsumedSecretsChanges(c, offeredAppUUID,
+		[]string{
+			getRevUUID(c, s.DB(), allBehind, 3),
+			getRevUUID(c, s.DB(), oneBehind, 3),
+		},
+		[]string{allBehind.String(), oneBehind.String()},
+	)
+}
+
+// TestRemoteConsumedSecretsChangesFilteredRevisions checks that, when
+// filtering by revisions, a secret is reported only if a filtered revision
+// is newer than the revision consumed by any consuming unit.
+func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesFilteredRevisions(c *tc.C) {
+	offeredAppUUID := s.addOfferedApplication(c, "offered")
+	s.addRemoteSecretConsumerApplication(c, offeredAppUUID, "remote-consumer")
+
+	mixed := s.addSecretWithRevisions(c, 3)
+	s.saveRemoteSecretConsumer(c, mixed, "remote-consumer/0", 3)
+	s.saveRemoteSecretConsumer(c, mixed, "remote-consumer/1", 1)
+
+	current := s.addSecretWithRevisions(c, 2)
+	s.saveRemoteSecretConsumer(c, current, "remote-consumer/0", 2)
+	s.saveRemoteSecretConsumer(c, current, "remote-consumer/1", 2)
+
+	unconsumed := s.addSecretWithRevisions(c, 2)
+
+	tests := []struct {
+		summary  string
+		revUUIDs []string
+		expected []string
+	}{{
+		summary:  "revision consumed by every unit",
+		revUUIDs: []string{getRevUUID(c, s.DB(), mixed, 1)},
+	}, {
+		summary:  "revision newer than one unit",
+		revUUIDs: []string{getRevUUID(c, s.DB(), mixed, 2)},
+		expected: []string{mixed.String()},
+	}, {
+		summary:  "latest revision",
+		revUUIDs: []string{getRevUUID(c, s.DB(), mixed, 3)},
+		expected: []string{mixed.String()},
+	}, {
+		summary: "every revision of each secret",
+		revUUIDs: []string{
+			getRevUUID(c, s.DB(), mixed, 1),
+			getRevUUID(c, s.DB(), mixed, 2),
+			getRevUUID(c, s.DB(), mixed, 3),
+			getRevUUID(c, s.DB(), current, 1),
+			getRevUUID(c, s.DB(), current, 2),
+			getRevUUID(c, s.DB(), unconsumed, 2),
+		},
+		expected: []string{mixed.String()},
+	}, {
+		summary: "revisions of secrets with no consumer behind",
+		revUUIDs: []string{
+			getRevUUID(c, s.DB(), current, 2),
+			getRevUUID(c, s.DB(), unconsumed, 2),
+		},
+	}}
+	for _, test := range tests {
+		c.Logf("test: %s", test.summary)
+		uris, err := s.state.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
+			c.Context(), offeredAppUUID, test.revUUIDs...)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(uris, tc.SameContents, test.expected)
+	}
+}
+
+// TestRemoteConsumedSecretsChangesApplicationNamePrefix checks that the
+// consuming units are matched to their own application, and not to an
+// application whose name is a prefix of theirs.
+func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesApplicationNamePrefix(c *tc.C) {
+	fooOfferedAppUUID := s.addOfferedApplication(c, "offered-foo")
+	s.addRemoteSecretConsumerApplication(c, fooOfferedAppUUID, "remote-foo")
+	fooBarOfferedAppUUID := s.addOfferedApplication(c, "offered-foo-bar")
+	s.addRemoteSecretConsumerApplication(c, fooBarOfferedAppUUID, "remote-foo-bar")
+
+	fooURI := s.addSecretWithRevisions(c, 2)
+	s.saveRemoteSecretConsumer(c, fooURI, "remote-foo/0", 1)
+	s.saveRemoteSecretConsumer(c, fooURI, "remote-foo-bar/0", 2)
+
+	fooBarURI := s.addSecretWithRevisions(c, 2)
+	s.saveRemoteSecretConsumer(c, fooBarURI, "remote-foo/0", 2)
+	s.saveRemoteSecretConsumer(c, fooBarURI, "remote-foo-bar/0", 1)
+
+	s.assertRemoteConsumedSecretsChanges(c, fooOfferedAppUUID,
+		[]string{getRevUUID(c, s.DB(), fooURI, 2)},
+		[]string{fooURI.String()},
+	)
+	s.assertRemoteConsumedSecretsChanges(c, fooBarOfferedAppUUID,
+		[]string{getRevUUID(c, s.DB(), fooBarURI, 2)},
+		[]string{fooBarURI.String()},
+	)
+}
+
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)

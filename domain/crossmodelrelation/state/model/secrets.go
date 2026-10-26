@@ -28,20 +28,29 @@ type (
 
 // InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide
 // returns the initial watch statement and the table name for watching
-// remote consumed secrets.
+// remote consumed secrets. The initial query returns the UUID of the latest
+// revision of each secret for which any remote consuming unit of the
+// application is behind that revision.
 func (st *State) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(
 	appUUID string,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		// A remote consuming unit is named after the synthetic application
+		// representing its offer connection, so a unit belongs to the
+		// application whose name, followed by "/", prefixes the unit name.
 		q := `
 SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
-FROM      secret_remote_unit_consumer sruc
-LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
-WHERE     arc.offerer_application_uuid = $applicationUUID.uuid
-GROUP BY  sruc.secret_id
-HAVING    sruc.current_revision < MAX(sr.revision)`
+FROM   secret_remote_unit_consumer AS sruc
+JOIN   secret_revision AS sr ON sr.secret_id = sruc.secret_id
+JOIN   application AS app ON substr(sruc.unit_name, 1, length(app.name) + 1) = app.name || '/'
+JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = app.uuid
+WHERE  arc.offerer_application_uuid = $applicationUUID.uuid
+AND    sruc.current_revision < sr.revision
+AND    sr.revision = (
+           SELECT MAX(latest.revision)
+           FROM   secret_revision AS latest
+           WHERE  latest.secret_id = sr.secret_id
+       )`
 		app := applicationUUID{UUID: appUUID}
 		stmt, err := st.Prepare(q, app, revisionUUID{})
 		if err != nil {
@@ -69,8 +78,9 @@ HAVING    sruc.current_revision < MAX(sr.revision)`
 }
 
 // GetRemoteConsumedSecretURIsWithChangesFromOfferingSide returns the URIs
-// of the secrets consumed by the specified remote application that has new
-// revisions.
+// of the secrets consumed by remote consuming units of the specified
+// application, where any of those units is behind a revision of the secret.
+// If revision UUIDs are specified, only those revisions are considered.
 func (st *State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	ctx context.Context, appUUID string, revUUIDs ...string,
 ) ([]string, error) {
@@ -80,21 +90,20 @@ func (st *State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	}
 	q := `
 SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
-FROM      secret_remote_unit_consumer sruc
-LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
-WHERE     arc.offerer_application_uuid = $applicationUUID.uuid`
+FROM   secret_remote_unit_consumer AS sruc
+JOIN   secret_revision AS sr ON sr.secret_id = sruc.secret_id
+JOIN   application AS app ON substr(sruc.unit_name, 1, length(app.name) + 1) = app.name || '/'
+JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = app.uuid
+WHERE  arc.offerer_application_uuid = $applicationUUID.uuid
+AND    sruc.current_revision < sr.revision`
 	queryParams := []any{
 		applicationUUID{UUID: appUUID},
 	}
 	if len(revUUIDs) > 0 {
 		queryParams = append(queryParams, revisionUUIDs(revUUIDs))
-		q += " AND sr.uuid IN ($revisionUUIDs[:])"
+		q += `
+AND    sr.uuid IN ($revisionUUIDs[:])`
 	}
-	q += `
-GROUP BY sruc.secret_id
-HAVING sruc.current_revision < MAX(sr.revision)`
 	stmt, err := st.Prepare(q, append(queryParams, secretRemoteUnitConsumer{})...)
 	if err != nil {
 		return nil, errors.Capture(err)
