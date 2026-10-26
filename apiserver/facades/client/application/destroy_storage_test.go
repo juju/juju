@@ -42,6 +42,43 @@ func (s *applicationSuite) newStorageInstance(c *tc.C, id string, detachable boo
 	}
 }
 
+// classificationError returns the error the storage service mocks must
+// yield to simulate a classification failure. The state layer wraps
+// classification errors with this context before they reach the facade,
+// so the mocks must return it already applied.
+func classificationError(msg string) error {
+	return errors.New("getting storage classification: " + msg)
+}
+
+// setupK8sApplicationDestroy wires the API and the mock expectations
+// shared by the K8s application destroy tests, and returns the unit UUID
+// used by the storage classification expectations.
+func (s *applicationSuite) setupK8sApplicationDestroy(c *tc.C) coreunit.UUID {
+	s.expectAuthClient()
+	s.expectAnyPermissions()
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
+	s.newCAASAPI(c)
+	s.expectDestroyCharm(c)
+	return tc.Must(c, coreunit.NewUUID)
+}
+
+// expectApplicationStorageClassification sets the expectations for
+// resolving the units of the "foo" application and classifying their
+// attached storage for removal.
+func (s *applicationSuite) expectApplicationStorageClassification(
+	units []domainapplication.UnitNameAndUUID,
+	destroyStorage bool,
+	classification domainstorage.StorageRemovalClassification,
+	err error,
+) {
+	unitUUIDs := make([]coreunit.UUID, len(units))
+	for i, unit := range units {
+		unitUUIDs[i] = unit.UUID
+	}
+	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(units, nil)
+	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), unitUUIDs, destroyStorage).Return(classification, err)
+}
+
 // TestDestroyUnitClassifiesStorage asserts that destroying an IAAS unit
 // reports its non-detachable storage as destroyed and its detachable storage
 // as detached.
@@ -166,15 +203,12 @@ func (s *applicationSuite) TestDestroyApplicationClassifiesStorage(c *tc.C) {
 	shared := s.newStorageInstance(c, "db-dir/0", true)
 	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
 
-	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
+	s.expectApplicationStorageClassification(
 		[]domainapplication.UnitNameAndUUID{
 			{Name: "foo/0", UUID: unitUUID1},
 			{Name: "foo/1", UUID: unitUUID2},
-		}, nil,
-	)
-	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(
-		gomock.Any(), []coreunit.UUID{unitUUID1, unitUUID2}, false,
-	).Return(
+		},
+		false,
 		domainstorage.StorageRemovalClassification{
 			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
 			Detached:  []domainstorage.StorageInstanceClassification{shared},
@@ -216,12 +250,9 @@ func (s *applicationSuite) TestDestroyApplicationDryRunClassifiesStorage(c *tc.C
 	unitUUID := tc.Must(c, coreunit.NewUUID)
 	nonDetachable := s.newStorageInstance(c, "single-fs/0", false)
 
-	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
-		[]domainapplication.UnitNameAndUUID{
-			{Name: "foo/0", UUID: unitUUID},
-		}, nil,
-	)
-	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		false,
 		domainstorage.StorageRemovalClassification{
 			Destroyed: []domainstorage.StorageInstanceClassification{nonDetachable},
 		}, nil,
@@ -242,22 +273,47 @@ func (s *applicationSuite) TestDestroyApplicationDryRunClassifiesStorage(c *tc.C
 	})
 }
 
-// TestDestroyApplicationCAASSkipsStorageClassification asserts that
-// destroying an application on a container model never reports storage
-// classification.
-func (s *applicationSuite) TestDestroyApplicationCAASSkipsStorageClassification(c *tc.C) {
+// TestDestroyApplicationStorageServiceError asserts that an error from the
+// storage service during classification is reported in the application
+// result error and prevents removal.
+func (s *applicationSuite) TestDestroyApplicationStorageServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAuthClient()
-	s.expectAnyPermissions()
-	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(nil)
-	s.newCAASAPI(c)
+	s.setupAPI(c)
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	s.applicationService.EXPECT().GetUnitNamesAndUUIDsForApplication(gomock.Any(), "foo").Return(
-		[]domainapplication.UnitNameAndUUID{
-			{Name: "foo/0", UUID: unitUUID},
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		false,
+		domainstorage.StorageRemovalClassification{}, classificationError("boom"),
+	)
+
+	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag("foo").String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.ErrorMatches, `.*getting storage classification: boom.*`)
+}
+
+// TestDestroyApplicationK8sClassifiesStorage asserts that destroying an
+// application on a container model reports the storage classification of
+// its units. K8s storage instances are model provisioned and outlive the
+// removed units, so they are reported as detached, matching the 3.6
+// destroy plan output. See https://github.com/juju/juju/issues/21503.
+func (s *applicationSuite) TestDestroyApplicationK8sClassifiesStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := s.setupK8sApplicationDestroy(c)
+	detachable := s.newStorageInstance(c, "pg-data/0", true)
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		false,
+		domainstorage.StorageRemovalClassification{
+			Detached: []domainstorage.StorageInstanceClassification{detachable},
 		}, nil,
 	)
 
@@ -275,8 +331,132 @@ func (s *applicationSuite) TestDestroyApplicationCAASSkipsStorageClassification(
 	c.Assert(res.Results, tc.HasLen, 1)
 	c.Check(res.Results[0].Error, tc.IsNil)
 	c.Check(res.Results[0].Info, tc.DeepEquals, &params.DestroyApplicationInfo{
-		DestroyedUnits: []params.Entity{{Tag: "unit-foo-0"}},
+		DestroyedUnits:  []params.Entity{{Tag: "unit-foo-0"}},
+		DetachedStorage: []params.Entity{{Tag: "storage-pg-data-0"}},
 	})
+}
+
+// TestDestroyApplicationK8sDryRunClassifiesStorage asserts that a dry run
+// of destroying a K8s application reports the storage classification
+// without removing the application. This is the path used by the
+// remove-application confirmation prompt.
+func (s *applicationSuite) TestDestroyApplicationK8sDryRunClassifiesStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := s.setupK8sApplicationDestroy(c)
+	detachable := s.newStorageInstance(c, "pg-data/0", true)
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		false,
+		domainstorage.StorageRemovalClassification{
+			Detached: []domainstorage.StorageInstanceClassification{detachable},
+		}, nil,
+	)
+
+	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag("foo").String(),
+			DryRun:         true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+	c.Check(res.Results[0].Info, tc.DeepEquals, &params.DestroyApplicationInfo{
+		DestroyedUnits:  []params.Entity{{Tag: "unit-foo-0"}},
+		DetachedStorage: []params.Entity{{Tag: "storage-pg-data-0"}},
+	})
+}
+
+// TestDestroyApplicationK8sDestroyStorage asserts that destroying a K8s
+// application with destroy storage reports every attached storage
+// instance as destroyed.
+func (s *applicationSuite) TestDestroyApplicationK8sDestroyStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := s.setupK8sApplicationDestroy(c)
+	detachable := s.newStorageInstance(c, "pg-data/0", true)
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		true,
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{detachable},
+		}, nil,
+	)
+
+	appUUID := tc.Must(c, application.NewUUID)
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+	removalUUID := tc.Must(c, removal.NewUUID)
+	s.removalService.EXPECT().RemoveApplication(gomock.Any(), appUUID, true, false, time.Duration(0)).Return(removalUUID, nil)
+
+	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag("foo").String(),
+			DestroyStorage: true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+	c.Check(res.Results[0].Info, tc.DeepEquals, &params.DestroyApplicationInfo{
+		DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
+		DestroyedStorage: []params.Entity{{Tag: "storage-pg-data-0"}},
+	})
+}
+
+// TestDestroyApplicationK8sDryRunDestroyStorage asserts that a dry run of
+// destroying a K8s application with destroy storage reports every
+// attached storage instance as destroyed without removing the application.
+func (s *applicationSuite) TestDestroyApplicationK8sDryRunDestroyStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := s.setupK8sApplicationDestroy(c)
+	detachable := s.newStorageInstance(c, "pg-data/0", true)
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		true,
+		domainstorage.StorageRemovalClassification{
+			Destroyed: []domainstorage.StorageInstanceClassification{detachable},
+		}, nil,
+	)
+
+	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag("foo").String(),
+			DestroyStorage: true,
+			DryRun:         true,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.IsNil)
+	c.Check(res.Results[0].Info, tc.DeepEquals, &params.DestroyApplicationInfo{
+		DestroyedUnits:   []params.Entity{{Tag: "unit-foo-0"}},
+		DestroyedStorage: []params.Entity{{Tag: "storage-pg-data-0"}},
+	})
+}
+
+// TestDestroyApplicationK8sStorageServiceError asserts that an error
+// from the storage service during classification of a K8s application is
+// reported in the application result error and prevents removal.
+func (s *applicationSuite) TestDestroyApplicationK8sStorageServiceError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitUUID := s.setupK8sApplicationDestroy(c)
+	s.expectApplicationStorageClassification(
+		[]domainapplication.UnitNameAndUUID{{Name: "foo/0", UUID: unitUUID}},
+		false,
+		domainstorage.StorageRemovalClassification{}, classificationError("boom"),
+	)
+
+	res, err := s.api.DestroyApplication(c.Context(), params.DestroyApplicationsParams{
+		Applications: []params.DestroyApplicationParams{{
+			ApplicationTag: names.NewApplicationTag("foo").String(),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Error, tc.ErrorMatches, `.*getting storage classification: boom.*`)
 }
 
 // TestDestroyUnitDryRunUnitNotFound asserts that DestroyUnit on dry run
@@ -313,14 +493,11 @@ func (s *applicationSuite) TestDestroyUnitStorageServiceError(c *tc.C) {
 	s.expectDestroyCharm(c)
 
 	unitUUID := tc.Must(c, coreunit.NewUUID)
-	// The state layer wraps classification errors with this context before
-	// they reach the facade, so the mock must return it already applied.
-	boom := errors.New("getting storage classification: boom")
 
 	s.applicationService.EXPECT().IsSubordinateApplicationByName(gomock.Any(), "foo").Return(false, nil)
 	s.applicationService.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("foo/0")).Return(unitUUID, nil)
 	s.storageService.EXPECT().ClassifyStorageForUnitRemoval(gomock.Any(), []coreunit.UUID{unitUUID}, false).Return(
-		domainstorage.StorageRemovalClassification{}, boom,
+		domainstorage.StorageRemovalClassification{}, classificationError("boom"),
 	)
 
 	res, err := s.api.DestroyUnit(c.Context(), params.DestroyUnitsParams{
