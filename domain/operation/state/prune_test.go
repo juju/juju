@@ -5,6 +5,9 @@ package state
 
 import (
 	"context"
+	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -414,6 +417,320 @@ func (s *pruneBySizeSuite) TestPruneOperationsToKeepUnderSizeMiBPrunesExpected(c
 	// Assert: exactly one operation should remain: the newer one (opNew). The older completed opOld is deleted first.
 	c.Check(storeUUIDs, tc.SameContents, []string{"/big"})
 	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{opNew})
+}
+
+// sizedTimestamp is a timestamp in text form, which is 20 bytes long.
+const sizedTimestamp = "2024-01-02T03:04:05Z"
+
+// TestComputeTableSizeByColumnType pins the number of bytes the estimate
+// measures for each kind of value stored in the columns it covers: integers
+// (zero, negative and large), booleans, timestamps stored as text, integers
+// and reals, text and NULL. NULL values are not counted.
+func (s *pruneBySizeSuite) TestComputeTableSizeByColumnType(c *tc.C) {
+	// Arrange
+	operationColumns := []string{"uuid", "operation_id", "summary", "enqueued_at", "started_at",
+		"completed_at", "parallel", "execution_group"}
+	s.insertSized(c, "operation", operationColumns,
+		"v1", 0, "", int64(1704164645), sizedTimestamp, 1704164645.5, true, "")
+	s.insertSized(c, "operation", operationColumns,
+		"v2", -42, "héllo", sizedTimestamp, nil, nil, false, "é")
+	s.insertSized(c, "operation", operationColumns,
+		"v3", int64(math.MaxInt64), nil, 1704164645.25, int64(1704164646), sizedTimestamp, nil, nil)
+	s.insertSized(c, "operation", operationColumns,
+		"v4", 1700000000, "x", 0, -1, nil, nil, "g")
+
+	taskColumns := []string{"uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at"}
+	s.insertSized(c, "operation_task", taskColumns,
+		"t1", "v1", "10", int64(1704164645), sizedTimestamp, 1704164645.5)
+	s.insertSized(c, "operation_task", taskColumns,
+		"t2", "v2", "11", sizedTimestamp, nil, 0)
+	s.insertSized(c, "operation_task", taskColumns,
+		"t3", "v3", "12", int64(1704164645), nil, nil)
+
+	statusColumns := []string{"task_uuid", "status_id", "message", "updated_at"}
+	s.insertSized(c, "operation_task_status", statusColumns, "t1", 0, "ok", sizedTimestamp)
+	s.insertSized(c, "operation_task_status", statusColumns, "t2", 7, nil, int64(1704164645))
+
+	logColumns := []string{"task_uuid", "content", "created_at"}
+	s.insertSized(c, "operation_task_log", logColumns, "t1", "héllo", sizedTimestamp)
+	s.insertSized(c, "operation_task_log", logColumns, "t1", "", 1704164645.25)
+	s.insertSized(c, "operation_task_log", logColumns, "t2", "x", int64(1704164645))
+
+	// Act and assert: each column is measured on its own, so a NULL only
+	// affects its own column.
+	for _, test := range []struct {
+		table   string
+		column  string
+		nonText bool
+		size    int
+	}{
+		{"operation", "uuid", false, 8},
+		{"operation", "operation_id", true, 1 + 3 + 19 + 10},
+		{"operation", "summary", false, 0 + 6 + 1},
+		{"operation", "enqueued_at", true, 10 + 20 + 13 + 1},
+		{"operation", "started_at", true, 20 + 10 + 2},
+		{"operation", "completed_at", true, 12 + 20},
+		{"operation", "parallel", true, 1 + 1},
+		{"operation", "execution_group", false, 0 + 2 + 1},
+
+		{"operation_task", "uuid", false, 6},
+		{"operation_task", "task_id", false, 6},
+		{"operation_task", "enqueued_at", true, 10 + 20 + 10},
+		{"operation_task", "started_at", true, 20},
+		{"operation_task", "completed_at", true, 12 + 1},
+
+		{"operation_task_status", "status_id", true, 1 + 1},
+		{"operation_task_status", "message", false, 2},
+		{"operation_task_status", "updated_at", true, 20 + 10},
+
+		{"operation_task_log", "content", false, 6 + 0 + 1},
+		{"operation_task_log", "created_at", true, 20 + 13 + 10},
+	} {
+		c.Check(s.columnSize(c, test.table, test.column, test.nonText), tc.Equals, test.size,
+			tc.Commentf("%s.%s", test.table, test.column))
+	}
+}
+
+// TestComputeObjectStoreSizeByValue pins the number of bytes measured for the
+// object store entries referenced by task outputs, for sizes of zero, negative
+// and larger than 32 bits.
+func (s *pruneBySizeSuite) TestComputeObjectStoreSizeByValue(c *tc.C) {
+	// Arrange
+	opUUID := s.addOperation(c)
+	var expected int
+	for i, size := range []int{0, -3, 3000000000} {
+		task := s.addOperationTask(c, opUUID)
+		path := fmt.Sprintf("/path/%d", i)
+		sha256 := fmt.Sprintf("sha256-%d", i)
+		sha384 := fmt.Sprintf("sha384-%d", i)
+		storeUUID := s.addOperationTaskOutputWithData(c, task, sha256, sha384, size, path)
+
+		// Size of the operation_task_output row and of the metadata path row.
+		expected += len(task) + 2*len(path) + len(storeUUID)
+		// Size of the metadata row: the content size, followed by the size of
+		// the text form of each column.
+		expected += size + len(storeUUID) + len(sha256) + len(sha384) + len(strconv.Itoa(size))
+	}
+
+	// Act
+	var obtained int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		obtained, err = s.state.computeObjectStoreSize(ctx, tx, humanize.Byte)
+		return err
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.Equals, expected)
+}
+
+// TestEstimateOperationSizeExactBytes verifies that the estimate follows the
+// exact number of bytes stored, by moving the stored size by a single byte
+// around multiples of one KiB.
+func (s *pruneBySizeSuite) TestEstimateOperationSizeExactBytes(c *tc.C) {
+	f := s.addSizedFixture(c)
+
+	for _, test := range []struct {
+		bytes int
+		total int
+		avg   int
+	}{
+		{bytes: 4095, total: 4, avg: 1},
+		{bytes: 4096, total: 4, avg: 2},
+		{bytes: 4097, total: 5, avg: 2},
+		{bytes: 6143, total: 6, avg: 2},
+		{bytes: 6144, total: 6, avg: 3},
+		{bytes: 6145, total: 7, avg: 3},
+	} {
+		f.setBytes(c, test.bytes)
+
+		var total, avg int
+		err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+			var err error
+			total, avg, err = s.state.estimateOperationSizeInKiB(ctx, tx)
+			return err
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(total, tc.Equals, test.total, tc.Commentf("total for %d bytes", test.bytes))
+		c.Check(avg, tc.Equals, test.avg, tc.Commentf("average for %d bytes", test.bytes))
+	}
+}
+
+// TestPruneBySizeAtThreshold verifies that nothing is pruned when the size is
+// one byte below the point where an operation needs to be pruned.
+func (s *pruneBySizeSuite) TestPruneBySizeAtThreshold(c *tc.C) {
+	// Arrange: 2046 KiB for a limit of 1 MiB, and two operations of 1023 KiB.
+	f := s.addSizedFixture(c)
+	f.setBytes(c, 2046*humanize.KiByte)
+
+	// Act
+	storePaths, err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storePaths, tc.HasLen, 0)
+	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{f.oldOperation, f.newOperation})
+}
+
+// TestPruneBySizeJustOverThreshold verifies that the oldest operation is pruned
+// when the size is one byte above the point where an operation needs to be
+// pruned.
+func (s *pruneBySizeSuite) TestPruneBySizeJustOverThreshold(c *tc.C) {
+	// Arrange: 2047 KiB for a limit of 1 MiB, and two operations of 1023 KiB.
+	f := s.addSizedFixture(c)
+	f.setBytes(c, 2046*humanize.KiByte+1)
+
+	// Act
+	storePaths, err := s.state.pruneOperationsToKeepUnderSizeMiB(c.Context(), 1)
+
+	// Assert: the operation completed first is pruned, with its output.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(storePaths, tc.SameContents, []string{f.storePath})
+	c.Check(s.selectDistinctValues(c, "uuid", "operation"), tc.SameContents, []string{f.newOperation})
+}
+
+// columnSize returns the size in bytes measured for a single column of a
+// table.
+func (s *pruneBySizeSuite) columnSize(c *tc.C, table, column string, nonText bool) int {
+	col := textColumn(column)
+	if nonText {
+		col = nonTextColumn(column)
+	}
+	var size int
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
+		size, err = s.state.computeTableSize(ctx, tx, humanize.Byte, table, col)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return size
+}
+
+// sizedFixture describes a set of rows of known size added by addSizedFixture.
+type sizedFixture struct {
+	s *pruneBySizeSuite
+	// oldOperation is completed, newOperation is not, so oldOperation is the
+	// first to be pruned.
+	oldOperation string
+	newOperation string
+	// storePath is the path of the object store entry of the old operation.
+	storePath string
+	// bytes is the size of the rows, without any padding.
+	bytes int
+}
+
+// addSizedFixture adds two operations with rows in each of the tables covered
+// by the size estimate, using the different kinds of values stored in them. The
+// operation which is not completed has NULL columns, so it is not counted in
+// the size of the operation table, but its other rows are.
+func (s *pruneBySizeSuite) addSizedFixture(c *tc.C) *sizedFixture {
+	f := &sizedFixture{
+		s:            s,
+		oldOperation: "op-old",
+		newOperation: "op-new",
+		storePath:    "/out/path",
+	}
+
+	operationColumns := []string{"uuid", "operation_id", "summary", "enqueued_at", "started_at",
+		"completed_at", "parallel", "execution_group"}
+	f.bytes += s.insertSized(c, "operation", operationColumns,
+		f.oldOperation, int64(math.MaxInt64), "old summary", sizedTimestamp, int64(1704164646),
+		sizedTimestamp, true, "é-group")
+	f.bytes += s.insertSized(c, "operation", operationColumns,
+		f.newOperation, -7, "", 1704164645.5, nil, nil, false, "")
+
+	taskColumns := []string{"uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at"}
+	f.bytes += s.insertSized(c, "operation_task", taskColumns,
+		"task-old", f.oldOperation, "100", sizedTimestamp, int64(1704164645), 1704164645.5)
+	f.bytes += s.insertSized(c, "operation_task", taskColumns,
+		"task-new", f.newOperation, "101", 1704164645.25, nil, nil)
+
+	statusColumns := []string{"task_uuid", "status_id", "message", "updated_at"}
+	f.bytes += s.insertSized(c, "operation_task_status", statusColumns, "task-old", 5, "done", sizedTimestamp)
+	f.bytes += s.insertSized(c, "operation_task_status", statusColumns, "task-new", 0, "", int64(1704164650))
+
+	logColumns := []string{"task_uuid", "content", "created_at"}
+	f.bytes += s.insertSized(c, "operation_task_log", logColumns, "task-old", "line", sizedTimestamp)
+	f.bytes += s.insertSized(c, "operation_task_log", logColumns, "task-old", "", int64(1704164651))
+	f.bytes += s.insertSized(c, "operation_task_log", logColumns, "task-new", "héllo", 1704164651.25)
+
+	charmUUID := s.addCharm(c)
+	s.query(c, `INSERT INTO charm_action (charm_uuid, "key") VALUES (?, ?)`, charmUUID, "act")
+	f.bytes += s.insertSized(c, "operation_action", []string{"operation_uuid", "charm_uuid", "charm_action_key"},
+		f.oldOperation, charmUUID, "act")
+
+	parameterColumns := []string{"operation_uuid", "key", "value"}
+	f.bytes += s.insertSized(c, "operation_parameter", parameterColumns, f.oldOperation, "key", "value")
+	f.bytes += s.insertSized(c, "operation_parameter", parameterColumns, f.oldOperation, "other", `"héllo"`)
+
+	// A unit and a machine task, and an output, are each counted as two UUIDs.
+	s.addOperationMachineTask(c, "task-old", s.addMachine(c, "0"))
+	s.addOperationUnitTask(c, "task-new", s.addUnit(c, charmUUID))
+	f.bytes += 3 * 2 * uuidSizeInB
+
+	const (
+		sha256 = "sha256-value"
+		sha384 = "sha384-value"
+		size   = 3000
+	)
+	storeUUID := s.addOperationTaskOutputWithData(c, "task-old", sha256, sha384, size, f.storePath)
+	f.bytes += len("task-old") + 2*len(f.storePath) + len(storeUUID)
+	f.bytes += size + len(storeUUID) + len(sha256) + len(sha384) + len(strconv.Itoa(size))
+	return f
+}
+
+// setBytes adds an operation parameter which brings the size of the rows to the
+// given number of bytes.
+func (f *sizedFixture) setBytes(c *tc.C, bytes int) {
+	const keyAndOperationSize = len("op-old") + len("pad")
+	padding := bytes - f.bytes - keyAndOperationSize
+	c.Assert(padding >= 0, tc.IsTrue, tc.Commentf("fixture of %d bytes is larger than %d", f.bytes, bytes))
+	f.s.query(c, `DELETE FROM operation_parameter WHERE "key" = 'pad'`)
+	f.s.insertSized(c, "operation_parameter", []string{"operation_uuid", "key", "value"},
+		f.oldOperation, "pad", strings.Repeat("p", padding))
+}
+
+// insertSized inserts a row with the given values, and returns the number of
+// bytes the row is expected to contribute to the size estimate.
+func (s *pruneBySizeSuite) insertSized(c *tc.C, table string, columns []string, values ...any) int {
+	c.Assert(values, tc.HasLen, len(columns))
+	quoted := make([]string, len(columns))
+	placeholders := make([]string, len(columns))
+	for i, column := range columns {
+		quoted[i] = strconv.Quote(column)
+		placeholders[i] = "?"
+	}
+	s.query(c, fmt.Sprintf(`INSERT INTO %q (%s) VALUES (%s)`,
+		table, strings.Join(quoted, ", "), strings.Join(placeholders, ", ")), values...)
+	return rowSize(c, values)
+}
+
+// rowSize returns the size of a row of values, which is the sum of the sizes of
+// the text form of each value. The size of a row with a NULL value is NULL,
+// which is not counted when summing the size of the rows of a table.
+func rowSize(c *tc.C, values []any) int {
+	var size int
+	for _, value := range values {
+		switch v := value.(type) {
+		case nil:
+			return 0
+		case string:
+			size += len(v)
+		case int:
+			size += len(strconv.Itoa(v))
+		case int64:
+			size += len(strconv.FormatInt(v, 10))
+		case float64:
+			size += len(strconv.FormatFloat(v, 'f', -1, 64))
+		case bool:
+			// Booleans are stored as 0 or 1.
+			size++
+		default:
+			c.Fatalf("unsupported value %v of type %T", value, value)
+		}
+	}
+	return size
 }
 
 // generateLongString creates and returns a long string containing the given

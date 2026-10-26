@@ -174,32 +174,36 @@ func (st *State) estimateOperationSizeInKiB(ctx context.Context, tx *sqlair.TX) 
 
 	// Table with variable content
 	opSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation",
-		"uuid", "operation_id", "summary", "enqueued_at", "started_at", "completed_at", "parallel", "execution_group")
+		textColumn("uuid"), nonTextColumn("operation_id"), textColumn("summary"),
+		nonTextColumn("enqueued_at"), nonTextColumn("started_at"), nonTextColumn("completed_at"),
+		nonTextColumn("parallel"), textColumn("execution_group"))
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
 	taskSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task",
-		"uuid", "operation_uuid", "task_id", "enqueued_at", "started_at", "completed_at")
+		textColumn("uuid"), textColumn("operation_uuid"), textColumn("task_id"),
+		nonTextColumn("enqueued_at"), nonTextColumn("started_at"), nonTextColumn("completed_at"))
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
 	logSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task_log",
-		"task_uuid", "content", "created_at")
+		textColumn("task_uuid"), textColumn("content"), nonTextColumn("created_at"))
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
 	actionSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_action",
-		"operation_uuid", "charm_uuid", "charm_action_key")
+		textColumn("operation_uuid"), textColumn("charm_uuid"), textColumn("charm_action_key"))
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
 	parameterSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_parameter",
-		"operation_uuid", "key", "value")
+		textColumn("operation_uuid"), textColumn("key"), textColumn("value"))
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
 	statusSizeB, err := st.computeTableSize(ctx, tx, humanize.Byte, "operation_task_status",
-		"task_uuid", "status_id", "message", "updated_at")
+		textColumn("task_uuid"), nonTextColumn("status_id"), textColumn("message"),
+		nonTextColumn("updated_at"))
 	if err != nil {
 		return 0, -1, errors.Capture(err)
 	}
@@ -278,7 +282,7 @@ SELECT COALESCE(SUM(
     octet_length(osm.uuid) +
     octet_length(osm.sha_256) +
     octet_length(osm.sha_384) +
-    octet_length(osm.size)), 0) AS &result.size
+    octet_length(CAST(osm.size AS TEXT))), 0) AS &result.size
 FROM   object_store_metadata AS osm 
 WHERE  uuid IN uuids`, result{})
 	if err != nil {
@@ -307,16 +311,45 @@ func roundDownNonZero(size int, sizeFactor int) int {
 	return 1
 }
 
+// sizeColumn is a column which contributes to the estimated size of a table.
+type sizeColumn struct {
+	name string
+	// nonText is true for columns which do not hold text or binary content,
+	// such as integers, booleans and timestamps.
+	nonText bool
+}
+
+// textColumn returns a column holding text, which is measured as is.
+func textColumn(name string) sizeColumn {
+	return sizeColumn{name: name}
+}
+
+// nonTextColumn returns a column which does not hold text, which is measured
+// by the size of its text form.
+func nonTextColumn(name string) sizeColumn {
+	return sizeColumn{name: name, nonText: true}
+}
+
+// octetLength returns the SQL expression for the size of the column in bytes.
+// octet_length is only defined for strings, so the text form of the other
+// values is made explicit.
+func (c sizeColumn) octetLength() string {
+	if c.nonText {
+		return fmt.Sprintf("octet_length(CAST(%q AS TEXT))", c.name)
+	}
+	return fmt.Sprintf("octet_length(%q)", c.name)
+}
+
 // computeTableSize computes the size of the table in the database.
 // The sizeFactor allows to convert the size in bytes to the size in another ratio.
+// The size of a row is the sum of the size of its columns, so a NULL column
+// makes the whole row ignored.
 func (st *State) computeTableSize(ctx context.Context, tx *sqlair.TX, sizeFactor int, table string,
-	columns ...string) (int, error) {
+	columns ...sizeColumn) (int, error) {
 	type result struct {
 		Size int `db:"size"`
 	}
-	octetLengths := transform.Slice(columns, func(col string) string {
-		return fmt.Sprintf("octet_length(%q)", col)
-	})
+	octetLengths := transform.Slice(columns, sizeColumn.octetLength)
 	sums := strings.Join(octetLengths, "+")
 	query := fmt.Sprintf(`
 SELECT COALESCE(SUM(
@@ -330,7 +363,8 @@ FROM %q
 	}
 	var res result
 	if err := tx.Query(ctx, stmt).Get(&res); err != nil {
-		return 0, errors.Errorf("compute table %q size with colums %v: %w", table, columns, err)
+		names := transform.Slice(columns, func(col sizeColumn) string { return col.name })
+		return 0, errors.Errorf("compute table %q size with colums %v: %w", table, names, err)
 	}
 	return (res.Size + sizeFactor - 1) / sizeFactor, nil
 }
