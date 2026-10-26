@@ -172,8 +172,9 @@ type queryParams struct {
 	Offset int `db:"offset"`
 }
 
-// queryFlags holds boolean flags (as ints for SQL) that indicate whether
-// optional filter clauses should be applied in the GetOperations query.
+// queryFlags holds boolean flags that indicate whether optional filter
+// clauses should be applied in the GetOperations query. The query compares
+// them with the boolean literals TRUE and FALSE, not with integers.
 type queryFlags struct {
 	HasActions      bool `db:"has_actions"`
 	HasStatus       bool `db:"has_status"`
