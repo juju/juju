@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -382,6 +383,29 @@ WHERE  upgrade_info_uuid = ?
 
 	_, err = s.st.ActiveUpgrade(c.Context())
 	c.Assert(err, tc.ErrorIs, upgradeerrors.NotFound)
+}
+
+// TestSetControllerDoneRecordsCompletedAt tests that the time a controller
+// node completed its upgrade is recorded as the current UTC time.
+func (s *stateSuite) TestSetControllerDoneRecordsCompletedAt(c *tc.C) {
+	uuid, err := s.st.CreateUpgrade(c.Context(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.st.SetControllerReady(c.Context(), uuid, "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	before := time.Now().UTC().Truncate(time.Second)
+	err = s.st.SetControllerDone(c.Context(), uuid, "0")
+	c.Assert(err, tc.ErrorIsNil)
+	after := time.Now().UTC()
+
+	nodeInfos := s.getUpgrade(c, s.st, uuid)
+	c.Assert(nodeInfos, tc.HasLen, 1)
+	completedAt := nodeInfos[0].NodeUpgradeCompletedAt
+	c.Assert(completedAt.Valid, tc.IsTrue)
+	recorded, err := time.Parse(time.RFC3339, completedAt.String)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(recorded.Before(before), tc.IsFalse, tc.Commentf("completed at %v before %v", recorded, before))
+	c.Check(recorded.After(after), tc.IsFalse, tc.Commentf("completed at %v after %v", recorded, after))
 }
 
 func (s *stateSuite) TestActiveUpgradesNoUpgrades(c *tc.C) {
