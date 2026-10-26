@@ -126,7 +126,7 @@ func (s *roundTripSuite) bootstrapModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+VALUES (?, ?, 'test-model', 'test-qualifier', 'iaas', 'test-cloud', 'test-cloud-type')
 `, s.ModelUUID(), "controller-uuid"); err != nil {
 			return err
 		}

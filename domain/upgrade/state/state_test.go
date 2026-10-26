@@ -465,7 +465,7 @@ func (s *stateSuite) TestGetAllModelUUIDs(c *tc.C) {
 		_, err := s.DB().Exec(
 			`
 INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-VALUES (?, ?, 1, "foo", false)
+VALUES (?, ?, 1, 'foo', false)
 `,
 			modelUUID, modelUUID,
 		)
@@ -500,7 +500,7 @@ func (s *stateSuite) TestGetAllModelUUIDsNotAliveIgnored(c *tc.C) {
 		_, err := s.DB().Exec(
 			`
 INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-VALUES (?, ?, 1, "foo", false)
+VALUES (?, ?, 1, 'foo', false)
 `,
 			modelUUID, modelUUID,
 		)
