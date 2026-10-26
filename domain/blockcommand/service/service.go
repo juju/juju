@@ -24,7 +24,8 @@ type State interface {
 	// RemoveAllBlocks removes all the blocks for the current model.
 	RemoveAllBlocks(ctx context.Context) error
 
-	// GetBlocks returns all the blocks for the current model.
+	// GetBlocks returns all the blocks for the current model, ordered by
+	// block type: destroy, remove, then change.
 	GetBlocks(ctx context.Context) ([]blockcommand.Block, error)
 
 	// GetBlockMessage returns the optional block message if it is switched on.
@@ -68,7 +69,8 @@ func (s *Service) SwitchBlockOn(ctx context.Context, t blockcommand.BlockType, m
 	return nil
 }
 
-// GetBlocks returns all the blocks for the current model.
+// GetBlocks returns all the blocks for the current model, ordered by block
+// type: destroy, remove, then change.
 func (s *Service) GetBlocks(ctx context.Context) ([]blockcommand.Block, error) {
 	return s.st.GetBlocks(ctx)
 }
