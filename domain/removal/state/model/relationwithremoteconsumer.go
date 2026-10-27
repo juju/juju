@@ -216,6 +216,14 @@ WHERE  relation_uuid = $entityUUID.uuid`, remoteRelationUUID)
 		return errors.Errorf("preparing relation network egress deletion: %w", err)
 	}
 
+	deleteSecretRemoteUnitConsumerStmt, err := st.Prepare(`
+DELETE FROM secret_remote_unit_consumer
+WHERE offer_connection_uuid = $entityUUID.uuid
+`, entityUUID{})
+	if err != nil {
+		return errors.Errorf("preparing delete secret remote unit consumer query: %w", err)
+	}
+
 	deleteRemoteApplicationConsumerStmt, err := st.Prepare(`
 DELETE FROM application_remote_consumer
 WHERE offer_connection_uuid = $entityUUID.uuid
@@ -241,6 +249,11 @@ WHERE remote_relation_uuid = $entityUUID.uuid
 	err = tx.Query(ctx, deleteRelationNetworkIngressStmt, remoteRelationUUID).Run()
 	if err != nil {
 		return errors.Errorf("running relation network egress deletion: %w", err)
+	}
+
+	err = tx.Query(ctx, deleteSecretRemoteUnitConsumerStmt, synthAppUUID).Run()
+	if err != nil {
+		return errors.Errorf("deleting secret remote unit consumers: %w", err)
 	}
 
 	err = tx.Query(ctx, deleteRemoteApplicationConsumerStmt, synthAppUUID).Run()

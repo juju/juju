@@ -35,15 +35,11 @@ func (st *State) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferin
 	appUUID string,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		// A remote consuming unit is named after the synthetic application
-		// representing its offer connection, so a unit belongs to the
-		// application whose name, followed by "/", prefixes the unit name.
 		q := `
 SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
-FROM   secret_remote_unit_consumer AS sruc
+FROM   application_remote_consumer AS arc
+JOIN   secret_remote_unit_consumer AS sruc ON sruc.offer_connection_uuid = arc.offer_connection_uuid
 JOIN   secret_revision AS sr ON sr.secret_id = sruc.secret_id
-JOIN   application AS app ON substr(sruc.unit_name, 1, length(app.name) + 1) = app.name || '/'
-JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = app.uuid
 WHERE  arc.offerer_application_uuid = $applicationUUID.uuid
 AND    sruc.current_revision < sr.revision
 AND    sr.revision = (
@@ -90,10 +86,9 @@ func (st *State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	}
 	q := `
 SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
-FROM   secret_remote_unit_consumer AS sruc
+FROM   application_remote_consumer AS arc
+JOIN   secret_remote_unit_consumer AS sruc ON sruc.offer_connection_uuid = arc.offer_connection_uuid
 JOIN   secret_revision AS sr ON sr.secret_id = sruc.secret_id
-JOIN   application AS app ON substr(sruc.unit_name, 1, length(app.name) + 1) = app.name || '/'
-JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = app.uuid
 WHERE  arc.offerer_application_uuid = $applicationUUID.uuid
 AND    sruc.current_revision < sr.revision`
 	queryParams := []any{
@@ -232,10 +227,29 @@ WHERE  rev.secret_id = $secretLatestRevision.secret_id`
 	return consumers[0], latestRevision, nil
 }
 
-// SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
+// SaveSecretRemoteConsumer saves the consumer metadata for the given secret
+// and unit of the synthetic application representing a consuming
+// application.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-func (st *State) SaveSecretRemoteConsumer(ctx context.Context, uri *coresecrets.URI, unitName string, md coresecrets.SecretConsumerMetadata) error {
+// If the application is not the synthetic application of an offer
+// connection, an error satisfying
+// [crossmodelrelationerrors.RemoteApplicationNotFound] is returned.
+func (st *State) SaveSecretRemoteConsumer(
+	ctx context.Context, uri *coresecrets.URI, appName, unitName string, md coresecrets.SecretConsumerMetadata,
+) error {
 	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	appNameArg := name{Name: appName}
+	offerConnectionQuery := `
+SELECT arc.offer_connection_uuid AS &offerConnectionUUID.offer_connection_uuid
+FROM   application AS app
+JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = app.uuid
+WHERE  app.name = $name.name`
+
+	offerConnectionStmt, err := st.Prepare(offerConnectionQuery, appNameArg, offerConnectionUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -251,14 +265,25 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	consumer := secretRemoteUnitConsumer{
-		SecretID:        uri.ID,
-		UnitName:        unitName,
-		CurrentRevision: md.CurrentRevision,
-	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkExists(ctx, tx, uri); err != nil {
 			return errors.Capture(err)
+		}
+
+		var connection offerConnectionUUID
+		err := tx.Query(ctx, offerConnectionStmt, appNameArg).Get(&connection)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("offer connection for application %q not found", appName).
+				Add(crossmodelrelationerrors.RemoteApplicationNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying offer connection for application %q: %w", appName, err)
+		}
+
+		consumer := secretRemoteUnitConsumer{
+			SecretID:            uri.ID,
+			OfferConnectionUUID: connection.UUID,
+			UnitName:            unitName,
+			CurrentRevision:     md.CurrentRevision,
 		}
 		if err := tx.Query(ctx, insertStmt, consumer).Run(); err != nil {
 			return errors.Capture(err)

@@ -1769,14 +1769,39 @@ ON CONFLICT(secret_id) DO UPDATE SET
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *stateSuite) saveSecretRemoteConsumer(c *tc.C, uri *coresecrets.URI, unitName string, currentRevision int) {
+// addRemoteConsumerConnection adds a synthetic application with the given
+// name, connected through an offer to the given offered application. It
+// returns the offer connection UUID.
+func (s *stateSuite) addRemoteConsumerConnection(c *tc.C, offeredAppUUID, synthAppName string) string {
+	synthAppUUID, _ := s.setupApplication(c, synthAppName)
+	relUUID := s.addRelation(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		offerUUID := uuid.MustNewUUID().String()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO offer (uuid, name) VALUES (?, ?)`, offerUUID, synthAppName); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'bob')`, synthAppUUID, offerUUID, relUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO application_remote_consumer (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, synthAppUUID, offeredAppUUID, uuid.MustNewUUID().String(), uuid.MustNewUUID().String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return synthAppUUID
+}
+
+func (s *stateSuite) saveSecretRemoteConsumer(c *tc.C, uri *coresecrets.URI, offerConnectionUUID, unitName string, currentRevision int) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO secret_remote_unit_consumer (secret_id, unit_name, current_revision) VALUES (?, ?, ?)
+INSERT INTO secret_remote_unit_consumer (secret_id, offer_connection_uuid, unit_name, current_revision) VALUES (?, ?, ?, ?)
 ON CONFLICT(secret_id, unit_name) DO UPDATE SET
     current_revision=excluded.current_revision
 `,
-			uri.ID, unitName, currentRevision)
+			uri.ID, offerConnectionUUID, unitName, currentRevision)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -2745,7 +2770,8 @@ SELECT count(*) FROM secret_rotation WHERE secret_id = ?
 
 func (s *stateSuite) TestAllSecretRemoteConsumers(c *tc.C) {
 
-	s.setupUnits(c, "mysql")
+	mysqlUUID, _ := s.setupUnits(c, "mysql")
+	connUUID := s.addRemoteConsumerConnection(c, mysqlUUID, "remote-app")
 
 	sp := domainsecret.UpsertSecretParams{
 		RevisionUUID: new(uuid.MustNewUUID().String()),
@@ -2764,9 +2790,9 @@ func (s *stateSuite) TestAllSecretRemoteConsumers(c *tc.C) {
 	err = s.createCharmUnitSecret(c, 1, uri2, "mysql/1", sp2)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.saveSecretRemoteConsumer(c, uri, "remote-app/0", 666)
-	s.saveSecretRemoteConsumer(c, uri2, "remote-app/1", 668)
-	s.saveSecretRemoteConsumer(c, uri, "remote-app/1", 667)
+	s.saveSecretRemoteConsumer(c, uri, connUUID, "remote-app/0", 666)
+	s.saveSecretRemoteConsumer(c, uri2, connUUID, "remote-app/1", 668)
+	s.saveSecretRemoteConsumer(c, uri, connUUID, "remote-app/1", 667)
 
 	got, err := s.state.AllSecretRemoteConsumers(ctx)
 	c.Assert(err, tc.ErrorIsNil)

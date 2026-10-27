@@ -138,6 +138,34 @@ ON application_remote_consumer (life_id);
 CREATE INDEX idx_application_remote_consumer_offerer
 ON application_remote_consumer (offerer_application_uuid);
 
+-- secret_remote_unit_consumer records the secret revisions tracked by units
+-- in a consuming model, for secrets consumed over a cross model relation.
+-- The units are referenced through their offer connection rather than the
+-- unit table, because a unit can read a secret before its synthetic unit
+-- exists in this model.
+CREATE TABLE secret_remote_unit_consumer (
+    secret_id TEXT NOT NULL,
+    -- offer_connection_uuid is the offer connection over which the unit
+    -- consumes the secret.
+    offer_connection_uuid TEXT NOT NULL,
+    -- unit_name is the name of the synthetic unit representing the unit
+    -- from the consuming model.
+    unit_name TEXT NOT NULL,
+    current_revision INT NOT NULL,
+    CONSTRAINT fk_secret_remote_unit_consumer_secret_metadata_id
+    FOREIGN KEY (secret_id)
+    REFERENCES secret_metadata (secret_id),
+    CONSTRAINT fk_secret_remote_unit_consumer_offer_connection_uuid
+    FOREIGN KEY (offer_connection_uuid)
+    REFERENCES application_remote_consumer (offer_connection_uuid)
+);
+
+CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_name
+ON secret_remote_unit_consumer (secret_id, unit_name);
+
+CREATE INDEX idx_secret_remote_unit_consumer_offer_connection_uuid
+ON secret_remote_unit_consumer (offer_connection_uuid);
+
 -- relation_network_ingress holds information about ingress CIDRs for a 
 -- relation.
 CREATE TABLE relation_network_ingress (

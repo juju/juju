@@ -243,3 +243,68 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
+
+// TestDeleteRelationWithRemoteConsumerSecretRemoteUnitConsumers checks that
+// the secret revisions tracked for a synthetic unit are deleted with the
+// unit, and that any others tracked through the offer connection are
+// deleted with the connection.
+func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerSecretRemoteUnitConsumers(c *tc.C) {
+	// Arrange
+	relUUID, synthAppUUID, _ := s.createRelationWithRemoteConsumer(c)
+
+	_, err := s.DB().Exec(`INSERT INTO secret (id) VALUES (?)`, "secret-id")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().Exec(`
+INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time)
+VALUES (?, ?, ?, ?, ?)`, "secret-id", 1, 0, s.now, s.now)
+	c.Assert(err, tc.ErrorIsNil)
+	// foo/3 has no synthetic unit, so it is only deleted with the
+	// offer connection.
+	for _, unitName := range []string{"foo/0", "foo/3"} {
+		_, err = s.DB().Exec(`
+INSERT INTO secret_remote_unit_consumer (secret_id, offer_connection_uuid, unit_name, current_revision)
+VALUES (?, ?, ?, 1)`, "secret-id", synthAppUUID.String(), unitName)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	s.advanceRelationLife(c, relUUID, life.Dying)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	remoteConsumers := func() []string {
+		rows, err := s.DB().Query(`SELECT unit_name FROM secret_remote_unit_consumer`)
+		c.Assert(err, tc.ErrorIsNil)
+		defer func() { _ = rows.Close() }()
+		var names []string
+		for rows.Next() {
+			var name string
+			c.Assert(rows.Scan(&name), tc.ErrorIsNil)
+			names = append(names, name)
+		}
+		c.Assert(rows.Err(), tc.ErrorIsNil)
+		return names
+	}
+
+	// Act
+	var relUnitUUID string
+	err = s.DB().QueryRow(`
+SELECT ru.uuid
+FROM   relation_unit AS ru
+JOIN   unit AS u ON u.uuid = ru.unit_uuid
+WHERE  u.name = 'foo/0'`).Scan(&relUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.LeaveScope(c.Context(), relUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	c.Check(remoteConsumers(), tc.DeepEquals, []string{"foo/3"})
+
+	// Act
+	err = st.DeleteRelationUnits(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.DeleteRelationWithRemoteConsumer(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert
+	c.Check(remoteConsumers(), tc.HasLen, 0)
+}

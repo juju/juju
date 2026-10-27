@@ -7,6 +7,7 @@ import (
 	"context"
 	"strconv"
 
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/internal/errors"
@@ -143,6 +144,48 @@ func (d deltas) ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationS
 		})
 	}
 	return scales, nil
+}
+
+// SecretRemoteUnitConsumer adds the offer connection over which each remote
+// unit consumes a secret. The unit is named after the synthetic application
+// of its offer connection, which has the connection's UUID. Rows whose
+// connection no longer exists were left behind when the connection was
+// removed; 4.1.0 deletes them with the connection, so they are dropped.
+func (d deltas) SecretRemoteUnitConsumer(
+	_ context.Context,
+	src []v4_0_12.SecretRemoteUnitConsumer,
+	model *v4_0_12.ModelExport,
+) ([]v4_1_0.SecretRemoteUnitConsumer, error) {
+	offerConnections := make(map[string]struct{}, len(model.ApplicationRemoteConsumer))
+	for _, consumer := range model.ApplicationRemoteConsumer {
+		offerConnections[consumer.OfferConnectionUUID] = struct{}{}
+	}
+	appUUIDs := make(map[string]string, len(model.Application))
+	for _, app := range model.Application {
+		appUUIDs[app.Name] = app.UUID
+	}
+
+	result := make([]v4_1_0.SecretRemoteUnitConsumer, 0, len(src))
+	for _, consumer := range src {
+		unitName := coreunit.Name(consumer.UnitName)
+		if err := unitName.Validate(); err != nil {
+			return nil, errors.Errorf("secret %q remote consumer: %w", consumer.SecretID, err)
+		}
+		appUUID, ok := appUUIDs[unitName.Application()]
+		if !ok {
+			continue
+		}
+		if _, ok := offerConnections[appUUID]; !ok {
+			continue
+		}
+		result = append(result, v4_1_0.SecretRemoteUnitConsumer{
+			SecretID:            consumer.SecretID,
+			OfferConnectionUUID: appUUID,
+			UnitName:            consumer.UnitName,
+			CurrentRevision:     consumer.CurrentRevision,
+		})
+	}
+	return result, nil
 }
 
 // UnitResource adds the resource name used by the new logical unit-resource

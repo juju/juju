@@ -1133,6 +1133,7 @@ func (s *migrationSuite) TestImportGrantedSecrets(c *tc.C) {
 	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
+			ApplicationName: unitName.Application(),
 			Unit:            unitName.String(),
 			CurrentRevision: 1,
 		},
@@ -1337,6 +1338,7 @@ func (s *migrationSuite) TestImportGrantedSecretsSkipsUnresolvedRelation(c *tc.C
 	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
+			ApplicationName: unitName.Application(),
 			Unit:            unitName.String(),
 			CurrentRevision: 1,
 		},
@@ -1520,6 +1522,7 @@ func (s *migrationSuite) TestImportGrantedSecretsByRelationToken(c *tc.C) {
 	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
+			ApplicationName: unitName.Application(),
 			Unit:            unitName.String(),
 			CurrentRevision: 1,
 		},
@@ -1587,6 +1590,7 @@ func (s *migrationSuite) TestImportGrantedSecretsRewritesConsumerOntoConnectionA
 	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
+			ApplicationName: synthAppName,
 			Unit:            synthAppName + "/0",
 			CurrentRevision: 1,
 		},
@@ -1676,6 +1680,7 @@ func (s *migrationSuite) TestImportGrantedSecretsConsumerFollowsFirstGrant(c *tc
 	s.modelMigrationState.EXPECT().ImportRemoteSecretConsumers(gomock.Any(), []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
+			ApplicationName: firstSynthName,
 			Unit:            firstSynthName + "/0",
 			CurrentRevision: 1,
 		},

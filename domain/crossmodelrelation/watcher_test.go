@@ -6,6 +6,7 @@ package crossmodelrelation_test
 import (
 	"context"
 	"database/sql"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -473,7 +474,10 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		// The synthetic application is named after its UUID, which is not a
+		// valid unit name prefix, so split the name directly.
+		appName, _, _ := strings.Cut(consumerID, "/")
+		err := st.SaveSecretRemoteConsumer(ctx, uri, appName, consumerID, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -575,7 +579,10 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChangesMixedUnitRevisions(c
 		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		// The synthetic application is named after its UUID, which is not a
+		// valid unit name prefix, so split the name directly.
+		appName, _, _ := strings.Cut(consumerID, "/")
+		err := st.SaveSecretRemoteConsumer(ctx, uri, appName, consumerID, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 

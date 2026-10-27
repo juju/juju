@@ -22,6 +22,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -184,11 +185,12 @@ VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?
 
 func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c *tc.C) (string, *coresecrets.URI, *coresecrets.URI) {
 	ctx := c.Context()
-	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+	// The synthetic application is named after its UUID.
+	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, appName string) {
 		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := s.state.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
+		err := s.state.SaveSecretRemoteConsumer(ctx, uri, appName, appName+"/0", consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -203,9 +205,9 @@ func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOffer
 	_, _, realApplicationUUID, syntheticApplicationUUID, _ := s.setupRemoteApplicationConsumer(c)
 
 	// The consumed revision 1.
-	saveRemoteConsumer(uri1, 1, syntheticApplicationUUID+"/0")
+	saveRemoteConsumer(uri1, 1, syntheticApplicationUUID)
 	// The consumed revision 1.
-	saveRemoteConsumer(uri2, 1, syntheticApplicationUUID+"/0")
+	saveRemoteConsumer(uri2, 1, syntheticApplicationUUID)
 
 	// create revision 2.
 	s.addRevision(c, uri1, map[string]string{"foo": "bar2"})
@@ -291,7 +293,7 @@ func (s *modelSecretsSuite) addSecretWithRevisions(c *tc.C, revisions int) *core
 // saveRemoteSecretConsumer records the revision of the secret currently
 // consumed by the given remote unit.
 func (s *modelSecretsSuite) saveRemoteSecretConsumer(c *tc.C, uri *coresecrets.URI, unitName string, revision int) {
-	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, unitName, coresecrets.SecretConsumerMetadata{
+	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, coreunit.Name(unitName).Application(), unitName, coresecrets.SecretConsumerMetadata{
 		CurrentRevision: revision,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -474,8 +476,8 @@ func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesFilteredRevisions(c 
 }
 
 // TestRemoteConsumedSecretsChangesApplicationNamePrefix checks that the
-// consuming units are matched to their own application, and not to an
-// application whose name is a prefix of theirs.
+// consuming units are matched through their own offer connection, and not
+// to an application whose name is a prefix of theirs.
 func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesApplicationNamePrefix(c *tc.C) {
 	fooOfferedAppUUID := s.addOfferedApplication(c, "offered-foo")
 	s.addRemoteSecretConsumerApplication(c, fooOfferedAppUUID, "remote-foo")
@@ -501,6 +503,7 @@ func (s *modelSecretsSuite) TestRemoteConsumedSecretsChangesApplicationNamePrefi
 }
 
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
+	s.addRemoteSecretConsumerApplication(c, s.addOfferedApplication(c, "offered"), "remote-app")
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
 
@@ -509,7 +512,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 	}
 
 	ctx := c.Context()
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", *consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := s.state.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
@@ -519,6 +522,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 }
 
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
+	s.addRemoteSecretConsumerApplication(c, s.addOfferedApplication(c, "offered"), "remote-app")
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar", "hello": "world"}, nil)
 	s.addRevision(c, uri, map[string]string{"foo": "bar2"})
@@ -528,11 +532,11 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
 	}
 
 	ctx := c.Context()
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	consumer.CurrentRevision = 2
-	err = s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
+	err = s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Revision 1 is obsolete.
@@ -553,8 +557,21 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *tc.C)
 		CurrentRevision: 666,
 	}
 
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+// TestSaveSecretRemoteConsumerNotRemoteConsumer checks that a consumer can
+// only be recorded for an application connected through an offer.
+func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerNotRemoteConsumer(c *tc.C) {
+	s.addOfferedApplication(c, "local-app")
+	uri := coresecrets.NewURI()
+	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
+
+	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, "local-app", "local-app/0", coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
 }
 
 func (s *modelSecretsSuite) TestGetSecretRemoteConsumerFirstTime(c *tc.C) {
@@ -773,10 +790,11 @@ func (s *modelSecretsSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	s.addRevision(c, uri, map[string]string{"foo": "bar4"})
 
 	// Add a consumer for revision 3.
+	s.addRemoteSecretConsumerApplication(c, s.addOfferedApplication(c, "offered"), "remote-app")
 	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 3,
 	}
-	err = s.state.SaveSecretRemoteConsumer(c.Context(), uri, "remote-app/0", consumer)
+	err = s.state.SaveSecretRemoteConsumer(c.Context(), uri, "remote-app", "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Update to latest revision 4.

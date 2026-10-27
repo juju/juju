@@ -96,6 +96,44 @@ func (s *deltasSuite) TestRelationUnitDepartureStartsEmpty(c *tc.C) {
 	c.Check(got, tc.HasLen, 0)
 }
 
+// TestSecretRemoteUnitConsumerAddsOfferConnection verifies that each remote
+// consumer is assigned the offer connection of the synthetic application it
+// is named after, and that consumers without an offer connection are
+// dropped.
+func (s *deltasSuite) TestSecretRemoteUnitConsumerAddsOfferConnection(c *tc.C) {
+	model := &v4_0_12.ModelExport{
+		Application: []v4_0_12.Application{
+			{UUID: "synth-uuid", Name: "remote-synth"},
+			{UUID: "local-uuid", Name: "local"},
+		},
+		ApplicationRemoteConsumer: []v4_0_12.ApplicationRemoteConsumer{
+			{OfferConnectionUUID: "synth-uuid"},
+		},
+	}
+	src := []v4_0_12.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", UnitName: "remote-synth/0", CurrentRevision: 1},
+		{SecretID: "secret-1", UnitName: "local/0", CurrentRevision: 2},
+		{SecretID: "secret-2", UnitName: "removed/0", CurrentRevision: 3},
+		{SecretID: "secret-2", UnitName: "remote-synth/1", CurrentRevision: 4},
+	}
+
+	got, err := deltas{}.SecretRemoteUnitConsumer(c.Context(), src, model)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", OfferConnectionUUID: "synth-uuid", UnitName: "remote-synth/0", CurrentRevision: 1},
+		{SecretID: "secret-2", OfferConnectionUUID: "synth-uuid", UnitName: "remote-synth/1", CurrentRevision: 4},
+	})
+}
+
+func (s *deltasSuite) TestSecretRemoteUnitConsumerInvalidUnitName(c *tc.C) {
+	src := []v4_0_12.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", UnitName: "not-a-unit"},
+	}
+
+	_, err := deltas{}.SecretRemoteUnitConsumer(c.Context(), src, &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorMatches, `secret "secret-1" remote consumer: .*`)
+}
+
 func (s *deltasSuite) TestUnitResourceAddsNameAndReconcilesDuplicates(c *tc.C) {
 	oldTime := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	newTime := oldTime.Add(time.Hour)

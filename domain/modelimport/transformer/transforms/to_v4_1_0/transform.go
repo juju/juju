@@ -31,6 +31,8 @@ type Deltas interface {
 	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationApplicationSetting, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
+	// SecretRemoteUnitConsumer: struct shape changed in 4.1.0.
+	SecretRemoteUnitConsumer(ctx context.Context, src []v4_0_12.SecretRemoteUnitConsumer, model *v4_0_12.ModelExport) ([]v4_1_0.SecretRemoteUnitConsumer, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -991,11 +993,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.SecretReference[i] = v4_1_0.SecretReference(src.SecretReference[i])
 		}
 
-		dst.SecretRemoteUnitConsumer = make([]v4_1_0.SecretRemoteUnitConsumer, len(src.SecretRemoteUnitConsumer))
-		for i := range src.SecretRemoteUnitConsumer {
-			dst.SecretRemoteUnitConsumer[i] = v4_1_0.SecretRemoteUnitConsumer(src.SecretRemoteUnitConsumer[i])
-		}
-
 		dst.SecretReservation = make([]v4_1_0.SecretReservation, len(src.SecretReservation))
 		for i := range src.SecretReservation {
 			dst.SecretReservation[i] = v4_1_0.SecretReservation(src.SecretReservation[i])
@@ -1263,6 +1260,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.RelationUnitSetting, err = d.RelationUnitSetting(ctx, src.RelationUnitSetting, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitSetting delta: %w", err)
+		}
+
+		if dst.SecretRemoteUnitConsumer, err = d.SecretRemoteUnitConsumer(ctx, src.SecretRemoteUnitConsumer, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SecretRemoteUnitConsumer delta: %w", err)
 		}
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {

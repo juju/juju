@@ -992,11 +992,14 @@ func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 	secretID := "secret-id"
 	// Ensure the secret exists with metadata and an initial revision.
 	s.createSecretWithMetadata(c, secretID)
+	// The synthetic application is named after its UUID.
+	_, _, _, synthAppUUID, _ := s.setupRemoteApplicationConsumer(c)
 
 	consumers := []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
-			Unit:            "app/0",
+			ApplicationName: synthAppUUID,
+			Unit:            synthAppUUID + "/0",
 			CurrentRevision: 1,
 		},
 	}
@@ -1009,19 +1012,21 @@ func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 
 	var (
 		obtainedSecretID   string
+		obtainedConnUUID   string
 		obtainedUnitName   string
 		obtainedCurrentRev int
 	)
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
-			SELECT secret_id, unit_name, current_revision
+			SELECT secret_id, offer_connection_uuid, unit_name, current_revision
 			FROM secret_remote_unit_consumer
 			WHERE secret_id = ?
-		`, secretID).Scan(&obtainedSecretID, &obtainedUnitName, &obtainedCurrentRev)
+		`, secretID).Scan(&obtainedSecretID, &obtainedConnUUID, &obtainedUnitName, &obtainedCurrentRev)
 	})
 	c.Assert(err, tc.IsNil)
 	c.Check(obtainedSecretID, tc.Equals, secretID)
-	c.Check(obtainedUnitName, tc.Equals, "app/0")
+	c.Check(obtainedConnUUID, tc.Equals, synthAppUUID)
+	c.Check(obtainedUnitName, tc.Equals, synthAppUUID+"/0")
 	c.Check(obtainedCurrentRev, tc.Equals, 1)
 }
 
