@@ -331,7 +331,7 @@ AND    controller_node_id = $ControllerNodeInfo.controller_node_id;
 
 	setNodeToDoneStmt, err := st.Prepare(`
 UPDATE  upgrade_info_controller_node
-SET     node_upgrade_completed_at = DATETIME("now")
+SET     node_upgrade_completed_at = DATETIME('now')
 WHERE   upgrade_info_uuid = $ControllerNodeInfo.upgrade_info_uuid
 AND     controller_node_id = $ControllerNodeInfo.controller_node_id
 AND     node_upgrade_completed_at IS NULL;
