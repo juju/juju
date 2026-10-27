@@ -3379,6 +3379,65 @@ func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModel(c *t
 	workertest.CleanKill(c, w)
 }
 
+// TestRelationRemovedNotifiesOfferingModelWithSavedMacaroon verifies that the
+// offering model is notified of a locally removed relation even when the
+// relation workers have already been stopped. The macaroon saved when the
+// relation was registered is used, as no worker is around to provide one.
+// Skipping the notification in that case would leave the offering model's
+// offer connection behind.
+func (s *localConsumerWorkerSuite) TestRelationRemovedNotifiesOfferingModelWithSavedMacaroon(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := s.expectWorkerStartup()
+	consumingRelationUUID := tc.Must(c, relation.NewUUID)
+
+	savedMacaroon := newMacaroon(c, "saved")
+	s.crossModelService.EXPECT().
+		GetMacaroonForRelation(gomock.Any(), consumingRelationUUID).
+		Return(savedMacaroon, nil)
+
+	publishDone := make(chan struct{})
+	s.remoteModelRelationClient.EXPECT().
+		PublishRelationChange(gomock.Any(), params.RemoteRelationChangeEvent{
+			RelationToken:           consumingRelationUUID.String(),
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: s.applicationUUID.String(),
+			Macaroons:               macaroon.Slice{savedMacaroon},
+			BakeryVersion:           bakery.LatestVersion,
+			ForceCleanup:            new(true),
+		}).DoAndReturn(func(ctx context.Context, evt params.RemoteRelationChangeEvent) error {
+		defer close(publishDone)
+		return nil
+	})
+
+	s.crossModelService.EXPECT().GetRelationDetails(gomock.Any(), consumingRelationUUID).Return(
+		domainrelation.RelationDetails{}, relationerrors.RelationNotFound,
+	)
+
+	w := s.newLocalConsumerWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for worker to be started")
+	}
+
+	select {
+	case s.relationLifeChanges <- []string{consumingRelationUUID.String()}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending relation change")
+	}
+
+	select {
+	case <-publishDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for PublishRelationChange to be called")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *localConsumerWorkerSuite) TestIsRelationWorkerDeadWhenRunnerDeadAndWorkerDying(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

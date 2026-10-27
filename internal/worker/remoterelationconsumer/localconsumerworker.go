@@ -600,10 +600,11 @@ func (w *localConsumerWorker) publishRelationDyingChange(
 func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context.Context, relationUUID corerelation.UUID) error {
 	offererUnitWorker, err := w.runner.Worker(offererUnitRelationWorkerName(relationUUID), ctx.Done())
 	if errors.Is(err, errors.NotFound) {
-		// If the worker doesn't exist, then it either hasn't been created yet,
-		// or has already been removed, in either case, we can skip sending the
-		// notification.
-		return nil
+		// The worker has already been removed, or was never created. Fall back
+		// to the macaroon saved when the relation was registered, so that the
+		// offering model is still told to clean up. Skipping the notification
+		// here would leave the offering model's offer connection behind.
+		return w.publishRelationDyingWithSavedMacaroon(ctx, relationUUID)
 	} else if err != nil {
 		return errors.Annotatef(err, "stopping offerer unit relation worker for %q", relationUUID)
 	}
@@ -619,6 +620,31 @@ func (w *localConsumerWorker) publishRelationDyingForRemovedRelation(ctx context
 		rw.ConsumerApplicationUUID(),
 		relationUUID,
 		rw.Macaroon(),
+		"relation %q removed locally, notifying offering model",
+		"removal",
+	)
+
+	return nil
+}
+
+// publishRelationDyingWithSavedMacaroon notifies the offering model that a
+// locally removed relation must be cleaned up, using the macaroon saved when
+// the relation was registered. If no macaroon was saved, the relation was
+// never registered on the offering model, so there is nothing to notify it
+// about.
+func (w *localConsumerWorker) publishRelationDyingWithSavedMacaroon(ctx context.Context, relationUUID corerelation.UUID) error {
+	mac, err := w.crossModelService.GetMacaroonForRelation(ctx, relationUUID)
+	if errors.Is(err, crossmodelrelationerrors.MacaroonNotFound) {
+		w.logger.Debugf(ctx, "no saved macaroon for removed relation %q, it was never registered on the offering model", relationUUID)
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "getting saved macaroon for relation %q", relationUUID)
+	}
+
+	w.publishRelationDyingChange(
+		w.applicationUUID,
+		relationUUID,
+		mac,
 		"relation %q removed locally, notifying offering model",
 		"removal",
 	)

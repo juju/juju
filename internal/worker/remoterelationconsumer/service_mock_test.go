@@ -322,6 +322,7 @@ type MockCrossModelServiceMockRecorder struct {
 	mock                                                      *MockCrossModelService
 	ensureUnitsExistExpects                                   []*gomock.Call3_1[context.Context, application.UUID, []unit.Name, error]
 	getApplicationUUIDByNameExpects                           []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	getMacaroonForRelationExpects                             []*gomock.Call2_2[context.Context, relation.UUID, *macaroon.Macaroon, error]
 	getRelationDetailsExpects                                 []*gomock.Call2_2[context.Context, relation.UUID, relation0.RelationDetails, error]
 	getRelationUnitUUIDExpects                                []*gomock.Call3_2[context.Context, relation.UUID, unit.Name, relation.UnitUUID, error]
 	getRelationUnitsExpects                                   []*gomock.Call3_2[context.Context, relation.UUID, application.UUID, relation0.RelationUnitChange, error]
@@ -387,6 +388,24 @@ func (mr *MockCrossModelServiceMockRecorder) GetApplicationUUIDByName(ctx, name 
 
 // MockCrossModelServiceGetApplicationUUIDByNameCall is the typed call wrapper for GetApplicationUUIDByName.
 type MockCrossModelServiceGetApplicationUUIDByNameCall = gomock.Call2_2[context.Context, string, application.UUID, error]
+
+// GetMacaroonForRelation mocks base method.
+func (m *MockCrossModelService) GetMacaroonForRelation(arg0 context.Context, arg1 relation.UUID) (*macaroon.Macaroon, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getMacaroonForRelationExpects, m.ctrl, m, "GetMacaroonForRelation", arg0, arg1)
+}
+
+// GetMacaroonForRelation indicates an expected call of GetMacaroonForRelation.
+func (mr *MockCrossModelServiceMockRecorder) GetMacaroonForRelation(arg0, arg1 any) *MockCrossModelServiceGetMacaroonForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, relation.UUID, *macaroon.Macaroon, error](mr.mock.ctrl.T, mr.mock, "GetMacaroonForRelation", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getMacaroonForRelationExpects = append(mr.getMacaroonForRelationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockCrossModelServiceGetMacaroonForRelationCall is the typed call wrapper for GetMacaroonForRelation.
+type MockCrossModelServiceGetMacaroonForRelationCall = gomock.Call2_2[context.Context, relation.UUID, *macaroon.Macaroon, error]
 
 // GetRelationDetails mocks base method.
 func (m *MockCrossModelService) GetRelationDetails(arg0 context.Context, arg1 relation.UUID) (relation0.RelationDetails, error) {
@@ -887,6 +906,7 @@ type MockCrossModelRelationService struct {
 type MockCrossModelRelationServiceMockRecorder struct {
 	mock                                  *MockCrossModelRelationService
 	ensureUnitsExistExpects               []*gomock.Call3_1[context.Context, application.UUID, []unit.Name, error]
+	getMacaroonForRelationExpects         []*gomock.Call2_2[context.Context, relation.UUID, *macaroon.Macaroon, error]
 	getRemoteApplicationOfferersExpects   []*gomock.Call1_2[context.Context, []crossmodelrelation.RemoteApplicationOfferer, error]
 	saveMacaroonForRelationExpects        []*gomock.Call3_1[context.Context, relation.UUID, *macaroon.Macaroon, error]
 	updateRemoteSecretRevisionExpects     []*gomock.Call4_1[context.Context, *secrets.URI, int, application.UUID, error]
@@ -923,6 +943,24 @@ func (mr *MockCrossModelRelationServiceMockRecorder) EnsureUnitsExist(ctx, appUU
 
 // MockCrossModelRelationServiceEnsureUnitsExistCall is the typed call wrapper for EnsureUnitsExist.
 type MockCrossModelRelationServiceEnsureUnitsExistCall = gomock.Call3_1[context.Context, application.UUID, []unit.Name, error]
+
+// GetMacaroonForRelation mocks base method.
+func (m *MockCrossModelRelationService) GetMacaroonForRelation(arg0 context.Context, arg1 relation.UUID) (*macaroon.Macaroon, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getMacaroonForRelationExpects, m.ctrl, m, "GetMacaroonForRelation", arg0, arg1)
+}
+
+// GetMacaroonForRelation indicates an expected call of GetMacaroonForRelation.
+func (mr *MockCrossModelRelationServiceMockRecorder) GetMacaroonForRelation(arg0, arg1 any) *MockCrossModelRelationServiceGetMacaroonForRelationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, relation.UUID, *macaroon.Macaroon, error](mr.mock.ctrl.T, mr.mock, "GetMacaroonForRelation", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getMacaroonForRelationExpects = append(mr.getMacaroonForRelationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockCrossModelRelationServiceGetMacaroonForRelationCall is the typed call wrapper for GetMacaroonForRelation.
+type MockCrossModelRelationServiceGetMacaroonForRelationCall = gomock.Call2_2[context.Context, relation.UUID, *macaroon.Macaroon, error]
 
 // GetRemoteApplicationOfferers mocks base method.
 func (m *MockCrossModelRelationService) GetRemoteApplicationOfferers(arg0 context.Context) ([]crossmodelrelation.RemoteApplicationOfferer, error) {
