@@ -398,6 +398,113 @@ func (s *apiclientSuite) TestOpen(c *tc.C) {
 	c.Assert(api.CookieURL(conn).String(), tc.Equals, "https://deadbeef-1bad-500d-9000-4b1d0d06f00d/")
 }
 
+// TestOpenBrokenWhenTunnelCloses checks that a connection made through a
+// tunnel proxier is reported as broken once the tunnel's local connections
+// are closed, as happens when a Kubernetes port-forward ends.
+func (s *apiclientSuite) TestOpenBrokenWhenTunnelCloses(c *tc.C) {
+	info := s.APIInfo()
+	host, _, err := net.SplitHostPort(info.Addrs[0])
+	c.Assert(err, tc.ErrorIsNil)
+
+	fwd := newTCPForwarder(c, info.Addrs[0])
+	defer fwd.close()
+	_, port, err := net.SplitHostPort(fwd.addr())
+	c.Assert(err, tc.ErrorIsNil)
+
+	proxier := proxytest.NewMockTunnelProxier()
+	proxier.HostFn = func() string { return host }
+	proxier.PortFn = func() string { return port }
+	info.Proxier = proxier
+
+	conn, err := api.Open(c.Context(), info, api.DialOpts{})
+	c.Assert(err, tc.ErrorIsNil)
+	defer conn.Close()
+
+	fwd.close()
+	select {
+	case <-conn.Broken():
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for broken connection")
+	}
+}
+
+// tcpForwarder forwards local TCP connections to a target address. Closing it
+// closes the listener and every forwarded connection.
+type tcpForwarder struct {
+	listener net.Listener
+	target   string
+
+	mu     sync.Mutex
+	conns  []net.Conn
+	closed bool
+}
+
+func newTCPForwarder(c *tc.C, target string) *tcpForwarder {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	c.Assert(err, tc.ErrorIsNil)
+	f := &tcpForwarder{
+		listener: listener,
+		target:   target,
+	}
+	go f.serve()
+	return f
+}
+
+func (f *tcpForwarder) addr() string {
+	return f.listener.Addr().String()
+}
+
+func (f *tcpForwarder) serve() {
+	for {
+		local, err := f.listener.Accept()
+		if err != nil {
+			return
+		}
+		remote, err := net.Dial("tcp", f.target)
+		if err != nil {
+			_ = local.Close()
+			continue
+		}
+		if !f.track(local, remote) {
+			return
+		}
+		go func() {
+			_, _ = io.Copy(remote, local)
+			_ = remote.Close()
+		}()
+		go func() {
+			_, _ = io.Copy(local, remote)
+			_ = local.Close()
+		}()
+	}
+}
+
+func (f *tcpForwarder) track(conns ...net.Conn) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		for _, conn := range conns {
+			_ = conn.Close()
+		}
+		return false
+	}
+	f.conns = append(f.conns, conns...)
+	return true
+}
+
+func (f *tcpForwarder) close() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.closed {
+		return
+	}
+	f.closed = true
+	_ = f.listener.Close()
+	for _, conn := range f.conns {
+		_ = conn.Close()
+	}
+}
+
 func (s *apiclientSuite) TestOpenCookieURLUsesSNIHost(c *tc.C) {
 	info := s.APIInfo()
 	info.SNIHostName = "somehost"

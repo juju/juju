@@ -39,6 +39,17 @@ type CrossModelRelationState interface {
 		remoteApplicationUUID string,
 		statusInfo status.StatusInfo[status.WorkloadStatusType],
 	) error
+
+	// SetRemoteApplicationOffererStatusByApplicationUUID sets the status of
+	// the remote application offerer associated with the specified synthetic
+	// application UUID. The application name of the resolved remote
+	// application offerer is returned, for the purposes of status history
+	// recording.
+	SetRemoteApplicationOffererStatusByApplicationUUID(
+		ctx context.Context,
+		applicationUUID string,
+		statusInfo status.StatusInfo[status.WorkloadStatusType],
+	) (string, error)
 }
 
 // GetOfferStatus returns the status of the specified offer. This status shadows
@@ -100,7 +111,13 @@ func (s *Service) GetRemoteApplicationOffererStatuses(ctx context.Context) (map[
 }
 
 // SetRemoteApplicationOffererStatus sets the status of the specified remote
-// application in the local model.
+// application in the local model, resolving the target by application name.
+//
+// This is used by migration import, which restores statuses by name into a
+// freshly imported model, where this import is the only writer and the
+// name-based resolution carries no risk. Callers that hold the synthetic
+// application UUID should use
+// [Service.SetRemoteApplicationOffererStatusByApplicationUUID] instead.
 func (s *Service) SetRemoteApplicationOffererStatus(
 	ctx context.Context,
 	appName string,
@@ -122,6 +139,52 @@ func (s *Service) SetRemoteApplicationOffererStatus(
 
 	if err := s.modelState.SetRemoteApplicationOffererStatus(ctx, remoteAppUUID.String(), encodedStatus); err != nil {
 		return errors.Capture(err)
+	}
+
+	if err := s.statusHistory.RecordStatus(ctx, status.RemoteApplication.WithID(appName), statusInfo); err != nil {
+		s.logger.Warningf(ctx, "recording setting remote application status history: %v", err)
+	}
+
+	return nil
+}
+
+// SetRemoteApplicationOffererStatusByApplicationUUID sets the status of the
+// remote application offerer associated with the specified synthetic
+// application UUID.
+//
+// Unlike [Service.SetRemoteApplicationOffererStatus], which resolves the
+// target by whatever application currently bears the name, this method
+// targets the remote application offerer by immutable application
+// identity. It should be used instead of the name-based method whenever
+// the caller holds the application UUID, as the remote relation consumer
+// worker does: a status update from a worker whose application has been
+// removed then fails, rather than being applied to a replacement
+// application that reuses the name.
+//
+// The following error types can be expected to be returned:
+//   - [crossmodelrelationerrors.RemoteApplicationNotFound] is returned if
+//     there is no remote application offerer for the input application UUID.
+func (s *Service) SetRemoteApplicationOffererStatusByApplicationUUID(
+	ctx context.Context,
+	appUUID coreapplication.UUID,
+	statusInfo corestatus.StatusInfo,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := appUUID.Validate(); err != nil {
+		return errors.Errorf("application UUID: %w", err)
+	}
+
+	// This will also verify that the status is valid.
+	encodedStatus, err := encodeWorkloadStatus(statusInfo)
+	if err != nil {
+		return errors.Errorf("encoding workload status: %w", err)
+	}
+
+	appName, err := s.modelState.SetRemoteApplicationOffererStatusByApplicationUUID(ctx, appUUID.String(), encodedStatus)
+	if err != nil {
+		return errors.Errorf("setting remote application offerer status for application %q: %w", appUUID, err)
 	}
 
 	if err := s.statusHistory.RecordStatus(ctx, status.RemoteApplication.WithID(appName), statusInfo); err != nil {

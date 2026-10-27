@@ -53,6 +53,15 @@ func (s *Schedule) Ready(now time.Time) []any {
 	return ready
 }
 
+// Get returns the item scheduled with the specified key.
+func (s *Schedule) Get(key any) (any, bool) {
+	item, ok := s.m[key]
+	if !ok {
+		return nil, false
+	}
+	return item.value, true
+}
+
 // Add adds an item with the specified value, with the corresponding key
 // and time to the schedule. Add will panic if there already exists an item
 // with the same key.

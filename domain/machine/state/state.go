@@ -756,64 +756,6 @@ WHERE  name = $machineName.name`
 	})
 }
 
-// AppliedLXDProfileNames returns the names of the LXD profiles on the machine.
-func (st *State) AppliedLXDProfileNames(ctx context.Context, mUUID string) ([]string, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	instanceDataQuery := instanceData{MachineUUID: mUUID}
-	isProvisionedStmt, err := st.Prepare(`
-SELECT   &instanceData.instance_id
-FROM     machine_cloud_instance
-WHERE    machine_uuid = $instanceData.machine_uuid`, instanceDataQuery)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	lxdProfileQuery := lxdProfile{MachineUUID: mUUID}
-	queryStmt, err := st.Prepare(`
-SELECT   &lxdProfile.name
-FROM     machine_lxd_profile
-WHERE    machine_uuid = $lxdProfile.machine_uuid
-ORDER BY array_index ASC`, lxdProfileQuery)
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var result []lxdProfile
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var instanceData instanceData
-		err := tx.Query(ctx, isProvisionedStmt, instanceDataQuery).Get(&instanceData)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
-		} else if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("checking machine cloud instance for machine %q: %w", mUUID, err)
-		}
-
-		// If the machine is not provisioned, return an error.
-		instanceID := instanceData.InstanceID
-		if !instanceID.Valid || instanceID.V == "" {
-			return errors.Errorf("machine %q: %w", mUUID, machineerrors.NotProvisioned)
-		}
-
-		err = tx.Query(ctx, queryStmt, lxdProfileQuery).GetAll(&result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("retrieving lxd profiles for machine %q: %w", mUUID, err)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	lxdProfiles := make([]string, len(result))
-	for i, lxdProfile := range result {
-		lxdProfiles[i] = lxdProfile.Name
-	}
-	return lxdProfiles, nil
-}
-
 // GetNamesForUUIDs returns a map of machine UUIDs to machine Names based
 // on the given machine UUIDs.
 // [machineerrors.MachineNotFound] will be returned if the machine does not

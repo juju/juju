@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
-	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/status"
@@ -1519,7 +1518,6 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 					Risk:   deployment.RiskCandidate,
 					Branch: "test",
 				},
-				LXDProfile:       []byte(`{}`),
 				Exposed:          true,
 				Scale:            new(2),
 				K8sProviderID:    new("k8s-provider-id"),
@@ -1595,7 +1593,6 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatuses(c *tc.C) {
 				Risk:   deployment.RiskCandidate,
 				Branch: "test",
 			},
-			LXDProfile:       &internalcharm.LXDProfile{},
 			Exposed:          true,
 			Scale:            new(2),
 			K8sProviderID:    new("k8s-provider-id"),
@@ -1676,7 +1673,6 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 					Risk:   deployment.RiskCandidate,
 					Branch: "test",
 				},
-				LXDProfile:       []byte(`{}`),
 				Exposed:          true,
 				Scale:            new(2),
 				K8sProviderID:    new("k8s-provider-id"),
@@ -1752,7 +1748,6 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatusesDeriveApplicationSt
 				Risk:   deployment.RiskCandidate,
 				Branch: "test",
 			},
-			LXDProfile:       &internalcharm.LXDProfile{},
 			Exposed:          true,
 			Scale:            new(2),
 			K8sProviderID:    new("k8s-provider-id"),
@@ -1813,25 +1808,6 @@ func (s *serviceSuite) TestGetApplicationAndUnitModelStatuses(c *tc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetApplicationAndUnitStatusesInvalidLXDProfile(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetApplicationAndUnitStatuses(gomock.Any()).Return(
-		map[string]status.Application{
-			"foo": {
-				ID: "deadbeef",
-				Status: status.StatusInfo[status.WorkloadStatusType]{
-					Status: status.WorkloadStatusActive,
-				},
-				LXDProfile: []byte(`{!!!}`),
-			},
-		}, nil,
-	)
-
-	_, err := s.modelService.GetApplicationAndUnitStatuses(c.Context())
-	c.Assert(err, tc.ErrorMatches, `.*decoding LXD profile.*`)
-}
-
 func (s *serviceSuite) TestGetApplicationAndUnitStatusesDeriveApplicationStatusWithLeader(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -1845,7 +1821,6 @@ func (s *serviceSuite) TestGetApplicationAndUnitStatusesDeriveApplicationStatusW
 				Status: status.StatusInfo[status.WorkloadStatusType]{
 					Status: status.WorkloadStatusUnset,
 				},
-				LXDProfile: []byte(`{}`),
 				Units: map[coreunit.Name]status.Unit{
 					"foo/0": {
 						Life: life.Alive,

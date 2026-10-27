@@ -101,23 +101,6 @@ func ReadCharmDirRevision(path string) (int, error) {
 	return revision, nil
 }
 
-func ReadCharmDirLXDProfile(path string) (*LXDProfile, error) {
-	reader, err := os.Open(filepath.Join(path, "lxd-profile.yaml"))
-	if _, ok := err.(*os.PathError); ok {
-		return nil, errors.Errorf("lxd-profile.yaml: %w", FileNotFound)
-	} else if err != nil {
-		return nil, errors.Errorf(`reading "lxd-profile.yaml" file: %w`, err)
-	}
-	defer reader.Close()
-
-	lxdProfile, err := ReadLXDProfile(reader)
-	if err != nil {
-		return nil, errors.Errorf(`parsing "lxd-profile.yaml" file: %w`, err)
-	}
-
-	return lxdProfile, nil
-}
-
 func ReadCharmDirVersion(path string) (string, error) {
 	reader, err := os.Open(filepath.Join(path, "version"))
 	if _, ok := err.(*os.PathError); ok {

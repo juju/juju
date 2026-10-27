@@ -291,45 +291,6 @@ func (s *stateSuite) TestSetKeepInstanceNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestAppliedLXDProfileNames(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Insert 2 lxd profiles.
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile1", 0)`, machineUUID.String())
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO machine_lxd_profile VALUES
-(?, "profile2", 1)`, machineUUID.String())
-		return err
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(profiles, tc.DeepEquals, []string{"profile1", "profile2"})
-}
-
-func (s *stateSuite) TestAppliedLXDProfileNamesNotProvisioned(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID.String())
-	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
-	c.Check(profiles, tc.HasLen, 0)
-}
-
-func (s *stateSuite) TestAppliedLXDProfileNamesNoErrorEmpty(c *tc.C) {
-	machineUUID, _ := s.addMachine(c)
-	err := s.state.SetMachineCloudInstance(c.Context(), machineUUID.String(), instance.Id("123"), "", "nonce", nil)
-	c.Assert(err, tc.ErrorIsNil)
-	profiles, err := s.state.AppliedLXDProfileNames(c.Context(), machineUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(profiles, tc.HasLen, 0)
-}
-
 func (s *stateSuite) TestGetNamesForUUIDs(c *tc.C) {
 	// Arrange
 	machineUUID0, machineName0 := s.addMachine(c)

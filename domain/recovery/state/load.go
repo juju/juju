@@ -1,0 +1,162 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/canonical/sqlair"
+
+	"github.com/juju/juju/internal/errors"
+)
+
+// replayTable holds only schema-generated statements and typed row slices.
+type replayTable struct {
+	name, deleteSQL, insertSQL string
+	sample                     any
+	insertRows                 func(context.Context, *sqlair.TX, *sqlair.Statement) error
+}
+
+const maxForeignKeyViolations = 10
+
+// loadTables deletes before inserting so replacing parent rows cannot collide
+// with the target's children. Foreign keys remain enabled; checks are deferred
+// for this transaction and verified before its commit. No connection PRAGMAs
+// need restoring after success, cancellation or rollback.
+// This uses the same deferral as the model import loader; it never switches
+// PRAGMA foreign_keys off. Invalid archives fail without changing the target.
+// All foreign key violations are read; only the error details are bounded.
+func (st *State) loadTables(ctx context.Context, tables []replayTable, nodeID string) error {
+	if nodeID == "" {
+		return errors.Errorf("target object store node ID is required")
+	}
+	type statements struct {
+		delete, insert *sqlair.Statement
+	}
+	prepared := make([]statements, len(tables))
+	for i, table := range tables {
+		var err error
+		prepared[i].delete, err = st.Prepare(table.deleteSQL)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		prepared[i].insert, err = st.Prepare(table.insertSQL, table.sample)
+		if err != nil {
+			return errors.Errorf("preparing table %q: %w", table.name, err)
+		}
+	}
+	deferFK, err := st.Prepare("PRAGMA defer_foreign_keys = 1")
+	if err != nil {
+		return errors.Capture(err)
+	}
+	type placement struct {
+		NodeID string `db:"node_id"`
+	}
+	deletePlacements, err := st.Prepare("DELETE FROM object_store_placement AS osp")
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertPlacements, err := st.Prepare(`
+INSERT INTO object_store_placement (uuid, node_id)
+SELECT osm.uuid AS uuid, $placement.node_id AS node_id
+FROM object_store_metadata AS osm`, placement{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	type violation struct {
+		Table      string `db:"table_name"`
+		RowID      *int64 `db:"row_id"`
+		Parent     string `db:"parent_name"`
+		ForeignKey int    `db:"foreign_key"`
+	}
+	checkFK, err := st.Prepare(`
+SELECT fkc."table" AS &violation.table_name,
+       fkc.rowid AS &violation.row_id,
+       fkc.parent AS &violation.parent_name,
+       fkc.fkid AS &violation.foreign_key
+FROM pragma_foreign_key_check AS fkc`, violation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deferFK).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		node := placement{NodeID: nodeID}
+		if err := tx.Query(ctx, deletePlacements).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		for i, table := range tables {
+			if err := tx.Query(ctx, prepared[i].delete).Run(); err != nil {
+				return errors.Errorf("deleting table %q: %w", table.name, err)
+			}
+		}
+		for i, table := range tables {
+			if err := table.insertRows(ctx, tx, prepared[i].insert); err != nil {
+				return errors.Errorf("inserting table %q: %w", table.name, err)
+			}
+		}
+		if err := tx.Query(ctx, insertPlacements, node).Run(); err != nil {
+			return errors.Capture(err)
+		}
+		var violations []violation
+		if err := tx.Query(ctx, checkFK).GetAll(&violations); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+		if len(violations) > 0 {
+			var descriptions []string
+			for _, v := range violations[:min(len(violations), maxForeignKeyViolations)] {
+				row := "row"
+				if v.RowID != nil {
+					row = fmt.Sprintf("row %d", *v.RowID)
+				}
+				descriptions = append(descriptions, fmt.Sprintf(
+					"%s %s referencing %s (foreign key %d)", v.Table, row, v.Parent, v.ForeignKey))
+			}
+			if len(violations) > maxForeignKeyViolations {
+				descriptions = append(descriptions, "and more")
+			}
+			return errors.Errorf("loaded database fails foreign key integrity: %s", strings.Join(descriptions, "; "))
+		}
+		return nil
+	}))
+}
+
+// insertRows binds native export rows, converting binary fields before they
+// reach the driver. Casting a string to BLOB in SQL is too late: dqlite TEXT
+// parameters cannot carry embedded NUL bytes. A nil byte slice must also become
+// an untyped nil so dqlite binds SQL NULL rather than an empty BLOB.
+func insertRows[T any](ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, rows []T, bind func(T) any) error {
+	for i, row := range rows {
+		var value any = row
+		if bind != nil {
+			value = bind(row)
+		}
+		if err := tx.Query(ctx, stmt, value).Run(); err != nil {
+			return errors.Errorf("inserting row %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func binaryValue[T ~string | ~[]byte](value T) any {
+	data := []byte(value)
+	if data == nil {
+		return nil
+	}
+	return data
+}
+
+func nullableBinaryValue[T ~string | ~[]byte](value *T) any {
+	if value == nil {
+		return nil
+	}
+	return binaryValue(*value)
+}

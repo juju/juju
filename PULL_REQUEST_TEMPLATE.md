@@ -2,7 +2,7 @@
 The PR title should match: <type>(optional <scope>): <description>.
 
 Please also ensure all commits in this PR comply with our conventional commits specification:
-https://github.com/juju/juju/blob/main/docs/contributor/reference/conventional-commits.md
+https://github.com/juju/juju/blob/main/.github/instructions/agent-commit.instructions.md
 -->
 
 <!-- Why this change is needed and what it does. -->

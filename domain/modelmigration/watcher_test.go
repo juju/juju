@@ -253,6 +253,38 @@ func (s *exportWatcherSuite) TestWatchModelDatabaseDeletion(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+// TestWatchMigrationActivityFiresOnImportClaim asserts that claim creation and
+// deletion both fire the migration activity watcher for this model only.
+func (s *exportWatcherSuite) TestWatchMigrationActivityFiresOnImportClaim(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_migration_import")
+	svc := s.setupService(c, factory)
+
+	s.AssertChangeStreamIdle(c, "before watcher start")
+	w, err := svc.WatchMigrationActivity(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.insertImportClaim(c, uuid.MustNewUUID().String())
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.insertImportClaim(c, s.modelUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteImportClaim(c, s.modelUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+	harness.Run(c, struct{}{})
+}
+
 // insertMinionReport records a minion sync row directly.
 func (s *exportWatcherSuite) insertMinionReport(c *tc.C, migrationUUID string, phaseID int, entityKey string, success bool) {
 	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -366,7 +398,7 @@ func (s *exportWatcherSuite) controllerDBFactory() coredatabase.TxnRunnerFactory
 	}
 }
 
-func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.Service {
+func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFactory) *service.WatchableService {
 	noopInstanceGetter := func(context.Context) (service.InstanceProvider, error) {
 		return nil, nil
 	}
@@ -375,7 +407,7 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 	}
 	noopCredentialValidator := stubCredentialValidator{}
 
-	return service.NewService(
+	return service.NewWatchableService(
 		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
 		nil,
 		s.modelUUID,

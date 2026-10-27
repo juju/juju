@@ -153,6 +153,13 @@ func updatePendingFilesystem(ctx context.Context, deps *dependencies, params sto
 	deps.config.Logger.Debugf(ctx,
 		"pending filesystem %v scheduled create", params.Tag)
 	delete(deps.incompleteFilesystemParams, params.Tag)
+
+	if pending, ok := deps.schedule.Get(params.Tag); ok {
+		if op, ok := pending.(*createFilesystemOp); ok {
+			op.args = params
+			return
+		}
+	}
 	scheduleOperations(deps, &createFilesystemOp{args: params})
 }
 
@@ -219,6 +226,17 @@ func updatePendingFilesystemAttachment(
 		return
 	}
 	delete(deps.incompleteFilesystemAttachmentParams, id)
+
+	// If the filesystem attachment is already scheduled, update its parameters.
+	// We do this to ensure that if the filesystem attachment was scheduled
+	// before the filesystem was provisioned, we now have the correct parameters
+	// to attach it.
+	if pending, ok := deps.schedule.Get(id); ok {
+		if op, ok := pending.(*attachFilesystemOp); ok {
+			op.args = params
+			return
+		}
+	}
 	scheduleOperations(deps, &attachFilesystemOp{args: params})
 }
 
@@ -513,12 +531,10 @@ func filesystemFromParams(in params.Filesystem) (storage.Filesystem, error) {
 		}
 	}
 	return storage.Filesystem{
-		filesystemTag,
-		volumeTag,
-		storage.FilesystemInfo{
-			in.Info.ProviderId,
-			in.Info.SizeMiB,
-		},
+		Tag:        filesystemTag,
+		Volume:     volumeTag,
+		ProviderId: in.Info.ProviderId,
+		Size:       in.Info.SizeMiB,
 	}, nil
 }
 

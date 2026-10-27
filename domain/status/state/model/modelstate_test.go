@@ -1935,68 +1935,6 @@ func (s *modelStateSuite) TestGetApplicationAndUnitStatusesSubordinate(c *tc.C) 
 	})
 }
 
-func (s *modelStateSuite) TestGetApplicationAndUnitStatusesLXDProfile(c *tc.C) {
-	now := time.Now()
-	appStatus := s.workloadStatus(now)
-	appUUID, _ := s.createIAASApplication(
-		c, "foo", life.Alive, appStatus,
-		s.createIAASUnitArg(c),
-		s.createIAASUnitArg(c),
-	)
-	s.setApplicationLXDProfile(c, appUUID, "{}")
-
-	statuses, err := s.state.GetApplicationAndUnitStatuses(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(statuses, tc.DeepEquals, map[string]status.Application{
-		"foo": {
-			ID:     appUUID,
-			Life:   life.Alive,
-			Status: *appStatus,
-			CharmLocator: charm.CharmLocator{
-				Name:         "foo",
-				Revision:     42,
-				Source:       "charmhub",
-				Architecture: architecture.ARM64,
-			},
-			Platform: deployment.Platform{
-				OSType:       deployment.Ubuntu,
-				Channel:      "22.04/stable",
-				Architecture: architecture.ARM64,
-			},
-			Channel: &deployment.Channel{
-				Track:  "track",
-				Risk:   "stable",
-				Branch: "branch",
-			},
-			LXDProfile: []byte("{}"),
-			Units: map[coreunit.Name]status.Unit{
-				"foo/0": {
-					Life:            life.Alive,
-					ApplicationName: "foo",
-					MachineName:     new(coremachine.Name("0")),
-					CharmLocator: charm.CharmLocator{
-						Name:         "foo",
-						Revision:     42,
-						Source:       "charmhub",
-						Architecture: architecture.ARM64,
-					},
-				},
-				"foo/1": {
-					Life:            life.Alive,
-					ApplicationName: "foo",
-					MachineName:     new(coremachine.Name("1")),
-					CharmLocator: charm.CharmLocator{
-						Name:         "foo",
-						Revision:     42,
-						Source:       "charmhub",
-						Architecture: architecture.ARM64,
-					},
-				},
-			},
-		},
-	})
-}
-
 func (s *modelStateSuite) TestGetApplicationAndUnitStatusesWorkloadVersion(c *tc.C) {
 	now := time.Now()
 	appStatus := s.workloadStatus(now)

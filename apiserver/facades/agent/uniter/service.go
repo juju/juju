@@ -434,10 +434,6 @@ type MachineService interface {
 	// It returns an errors.MachineNotFound if the machine does not exist.
 	GetMachineUUID(ctx context.Context, machineName coremachine.Name) (coremachine.UUID, error)
 
-	// AppliedLXDProfileNames returns the names of the LXD profiles on the
-	// machine.
-	AppliedLXDProfileNames(ctx context.Context, mUUID coremachine.UUID) ([]string, error)
-
 	// AvailabilityZone returns the hardware characteristics of the specified
 	// machine.
 	AvailabilityZone(ctx context.Context, machineUUID coremachine.UUID) (string, error)

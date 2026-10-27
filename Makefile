@@ -602,6 +602,7 @@ rebuild-export:
 	@echo "Generating exported schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/recovery
 
 # snap_stage copies a named snap definition from snaps/<name>/ into the
 # generated staging directory snap/ that snapcraft expects at the repo root.

@@ -6,13 +6,12 @@ package charm
 // charmBase implements the Charm interface with commonality between
 // a charm archive and directory.
 type charmBase struct {
-	meta       *Meta
-	config     *ConfigSpec
-	actions    *Actions
-	lxdProfile *LXDProfile
-	manifest   *Manifest
-	version    string
-	revision   int
+	meta     *Meta
+	config   *ConfigSpec
+	actions  *Actions
+	manifest *Manifest
+	version  string
+	revision int
 }
 
 // NewCharmBase creates a new charmBase with the given metadata, manifest,
@@ -53,12 +52,6 @@ func (c *charmBase) Config() *ConfigSpec {
 // for the charm expanded in dir.
 func (c *charmBase) Actions() *Actions {
 	return c.actions
-}
-
-// LXDProfile returns the LXDProfile representing the lxd-profile.yaml file
-// for the charm expanded in dir.
-func (c *charmBase) LXDProfile() *LXDProfile {
-	return c.lxdProfile
 }
 
 // Manifest returns the Manifest representing the manifest.yaml file
