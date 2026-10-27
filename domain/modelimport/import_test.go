@@ -6,6 +6,7 @@ package modelimport_test
 import (
 	"context"
 	"database/sql"
+	"slices"
 	"testing"
 
 	"github.com/juju/tc"
@@ -14,6 +15,7 @@ import (
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
+	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/domain/modelimport"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -50,6 +52,49 @@ func (s *importSuite) TestImporterPerformsModelDBImport(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.Sequence, tc.SameContents, payload.Sequence)
 	c.Check(got.ModelAgent, tc.DeepEquals, payload.ModelAgent)
+}
+
+// Agent config must not be persisted alongside the bootstrap-owned agent
+// version, even when the source carries stale competing values.
+func (s *importSuite) TestImportStripsAgentConfig(c *tc.C) {
+	s.bootstrapModel(c)
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO agent_version (stream_id, target_version, latest_version)
+VALUES (1, '4.1.5', '4.1.5')`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		AgentVersion: []v4_1_0.AgentVersion{{
+			StreamID: 1, TargetVersion: "4.1.5", LatestVersion: "4.1.6",
+		}},
+		ModelConfig: []v4_1_0.ModelConfig{
+			{Key: "agent-stream", Value: "devel"},
+			{Key: "other", Value: "value"},
+			{Key: "agent-version", Value: "99.0.0"},
+		},
+	}
+	originalConfig := slices.Clone(payload.ModelConfig)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(payload.ModelConfig, tc.DeepEquals, originalConfig)
+
+	got, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.ModelConfig, tc.DeepEquals, []v4_1_0.ModelConfig{{Key: "other", Value: "value"}})
+	c.Check(got.AgentVersion, tc.DeepEquals, []v4_1_0.AgentVersion{{
+		StreamID: 1, TargetVersion: "4.1.5", LatestVersion: "4.1.5",
+	}})
+
+	effective, err := modelconfigstate.NewState(s.TxnRunnerFactory()).ModelConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(effective, tc.DeepEquals, map[string]string{
+		"agent-stream": "proposed", "agent-version": "4.1.5", "other": "value",
+	})
 }
 
 // TestImportNilPayload verifies that importing a nil payload is a no-op.

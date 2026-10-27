@@ -138,6 +138,9 @@ func (s *v8Suite) validPayload() v4_0_12.ModelExport {
 	passwordHash := "hash"
 	passwordHashAlgorithmID := int64(0)
 	return v4_0_12.ModelExport{
+		AgentStream: []v4_0_12.AgentStream{{
+			ID: new(int64(0)), Name: "released",
+		}},
 		AgentVersion: []v4_0_12.AgentVersion{{
 			TargetVersion: "4.0.12",
 		}},
@@ -456,7 +459,13 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	envelope := s.makeEnvelope(c, s.validPayload())
+	payload := s.validPayload()
+	payload.AgentVersion[0].StreamID = 1
+	payload.AgentStream = append(payload.AgentStream, v4_0_12.AgentStream{
+		ID: new(int64(1)), Name: "proposed",
+	})
+	payload.ModelConfig = []v4_0_12.ModelConfig{{Key: "agent-stream", Value: "devel"}}
+	envelope := s.makeEnvelope(c, payload)
 	createdAt := time.Now().UTC().Truncate(time.Second)
 	lastLogin := createdAt.Add(time.Minute)
 	rootStorageSize := uint64(42)
@@ -574,8 +583,10 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModel(c *tc.C) {
 	}
 	var got migration.ImportModelArgs
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, args migration.ImportModelArgs, _ export.ProjectionView) error {
+		DoAndReturn(func(_ context.Context, args migration.ImportModelArgs, view export.ProjectionView) error {
 			got = args
+			c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.0.12"))
+			c.Check(view.AgentStream, tc.Equals, "proposed")
 			return nil
 		})
 

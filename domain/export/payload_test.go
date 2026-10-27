@@ -145,26 +145,72 @@ func (s *payloadSuite) TestControllerDecoderRegistryCompleteness(c *tc.C) {
 	}
 }
 
-// TestProjectionViewExtraction verifies the view projects the agent target
-// version from the transformed (latest) payload.
+// TestProjectionViewExtraction verifies agent tables take precedence over
+// competing model config in the transformed payload.
 func (s *payloadSuite) TestProjectionViewExtraction(c *tc.C) {
+	streamID := int64(1)
 	payload := v4_1_0.ModelExport{
 		AgentVersion: []v4_1_0.AgentVersion{{
+			StreamID:      streamID,
 			TargetVersion: "4.1.0",
 		}},
+		AgentStream: []v4_1_0.AgentStream{
+			{ID: new(int64(0)), Name: "released"},
+			{ID: &streamID, Name: "proposed"},
+		},
+		ModelConfig: []v4_1_0.ModelConfig{
+			{Key: "agent-stream", Value: "devel"},
+			{Key: "agent-version", Value: "99.0.0"},
+		},
 	}
 
 	view, err := ProjectionViewForPayload(payload)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.1.0"))
+	c.Check(view.AgentStream, tc.Equals, "proposed")
+}
+
+func (s *payloadSuite) TestProjectionViewStreamWithoutModelConfig(c *tc.C) {
+	streamID := int64(2)
+	view, err := ProjectionViewForPayload(v4_1_0.ModelExport{
+		AgentVersion: []v4_1_0.AgentVersion{{
+			StreamID:      streamID,
+			TargetVersion: "4.1.0",
+		}},
+		AgentStream: []v4_1_0.AgentStream{{ID: &streamID, Name: "testing"}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(view.AgentStream, tc.Equals, "testing")
+}
+
+func (s *payloadSuite) TestProjectionViewInvalidAgentStream(c *tc.C) {
+	for _, streams := range [][]v4_1_0.AgentStream{
+		nil,
+		{{Name: "proposed"}},
+		{{ID: new(int64(0)), Name: "released"}},
+		{{ID: new(int64(1))}},
+	} {
+		_, err := ProjectionViewForPayload(v4_1_0.ModelExport{
+			AgentVersion: []v4_1_0.AgentVersion{{
+				StreamID:      1,
+				TargetVersion: "4.1.0",
+			}},
+			AgentStream: streams,
+			ModelConfig: []v4_1_0.ModelConfig{{Key: "agent-stream", Value: "released"}},
+		})
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid, tc.Commentf("streams: %#v", streams))
+	}
 }
 
 // TestProjectionViewNoAgentVersion verifies that a payload without an
 // agent_version row leaves the view's agent target version zero.
 func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
-	view, err := ProjectionViewForPayload(v4_1_0.ModelExport{})
+	view, err := ProjectionViewForPayload(v4_1_0.ModelExport{
+		ModelConfig: []v4_1_0.ModelConfig{{Key: "agent-stream", Value: "devel"}},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.Number{})
+	c.Check(view.AgentStream, tc.Equals, "")
 }
 
 // TestProjectionViewMultipleAgentVersionRows verifies that a payload with
