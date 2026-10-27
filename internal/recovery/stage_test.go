@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"path/filepath"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -135,6 +136,71 @@ const emptyModelDumpYAML = `version: 4.1.0
 payload:
   net_node:
   - uuid: nn-x
+`
+
+// controllerModelDumpK8sYAML is the controller model's database dump from a
+// Kubernetes source: the controller application and unit with their address
+// observations, and no machines.
+const controllerModelDumpK8sYAML = `version: 4.1.0
+payload:
+  net_node:
+  - uuid: nn-0
+  link_layer_device:
+  - uuid: lld-0
+    net_node_uuid: nn-0
+    name: eth0
+    device_type_id: 2
+    virtual_port_type_id: 0
+    mtu: null
+    mac_address: null
+    is_auto_start: false
+    is_enabled: false
+    is_default_gateway: false
+    gateway_address: null
+    vlan_tag: 0
+  ip_address:
+  - uuid: ip-uuid-0
+    net_node_uuid: nn-0
+    device_uuid: lld-0
+    address_value: 10.0.0.5/24
+    type_id: 0
+    config_type_id: 0
+    origin_id: 0
+    scope_id: 0
+    subnet_uuid: null
+    is_secondary: null
+    is_shadow: null
+  charm:
+  - uuid: charm-uuid-0
+    reference_name: controller
+    revision: 1
+    source_id: 1
+    architecture_id: 0
+    archive_path: null
+    object_store_uuid: null
+    available: null
+    version: null
+    lxd_profile: null
+    create_time: 2026-09-30T12:00:00Z
+  application:
+  - uuid: app-uuid-0
+    name: controller
+    life_id: 0
+    charm_uuid: charm-uuid-0
+    space_uuid: 656b4a82-e28c-53d6-a014-f0dd53417eb6
+    charm_modified_version: 0
+    charm_upgrade_on_error: null
+  application_controller:
+  - application_uuid: app-uuid-0
+  unit:
+  - uuid: unit-uuid-0
+    name: controller/0
+    life_id: 0
+    application_uuid: app-uuid-0
+    net_node_uuid: nn-0
+    charm_uuid: charm-uuid-0
+    password_hash_algorithm_id: null
+    password_hash: null
 `
 
 // controllerModelDumpHAYAML is an HA controller model dump: machine "0"
@@ -472,6 +538,64 @@ func (s *loadSuite) TestLoadStageEndToEnd(c *tc.C) {
 
 }
 
+// TestLoadStageKubernetes drives the Kubernetes recovery path: there is no
+// machine to patch, so the replacement's controller-unit addresses replace
+// the archived observations and the summary is built without a patch target.
+func (s *loadSuite) TestLoadStageKubernetes(c *tc.C) {
+	files := map[string][]byte{
+		"juju-backup/metadata.json": []byte(metadataJSON("4.1.0")),
+		"juju-backup/dump/controller.yaml": []byte(controllerDump(
+			modelRow(testControllerModelUUID, "controller", "cloud-k8s"),
+			modelRow(testModelAUUID, "workload-a", "cloud-lxd"),
+		)),
+		"juju-backup/dump/models/" + testControllerModelUUID + ".yaml": []byte(controllerModelDumpK8sYAML),
+		"juju-backup/dump/models/" + testModelAUUID + ".yaml":          []byte(emptyModelDumpYAML),
+		"juju-backup/root.tar": rootTar(c),
+	}
+	archivePath, sum := writeArchive(c, files)
+
+	openModelDB := func(_ context.Context, modelUUID string) (*sql.DB, error) {
+		return s.openModelDB(c, modelUUID), nil
+	}
+	summary, err := recovery.Load(c.Context(), recovery.LoadParams{
+		Service:             s.recoveryService(c, openModelDB),
+		ArchivePath:         archivePath,
+		ExpectedSHA256:      sum,
+		DataDir:             c.MkDir(),
+		ControllerModelUUID: testControllerModelUUID,
+		ControllerUnitAddresses: []string{
+			"10.152.183.75",
+			"controller-0.controller-endpoint.juju.svc",
+		},
+		Logger: loggertesting.WrapCheckLog(c),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// No machine patch target: the summary reports both models and no dead
+	// controller machines.
+	c.Check(summary.Models, tc.Equals, 2)
+	c.Check(summary.DeadControllerMachines, tc.HasLen, 0)
+
+	// The unit's archived IP is replaced by the replacement's, and a DNS
+	// observation is recorded for the pod FQDN.
+	modelDB, err := openModelDB(c.Context(), testControllerModelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	defer modelDB.Close()
+	var address string
+	err = modelDB.QueryRow(
+		"SELECT address_value FROM ip_address WHERE net_node_uuid = ?",
+		"nn-0").Scan(&address)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(address, tc.Equals, "10.152.183.75")
+	var fqdn string
+	err = modelDB.QueryRow(`
+SELECT fa.address FROM fqdn_address AS fa
+JOIN net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+WHERE nnfa.net_node_uuid = ?`, "nn-0").Scan(&fqdn)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fqdn, tc.Equals, "controller-0.controller-endpoint.juju.svc")
+}
+
 func (s *loadSuite) TestLoadStageHAMachineSelection(c *tc.C) {
 	files := map[string][]byte{
 		"juju-backup/metadata.json": []byte(metadataJSON("4.1.0")),
@@ -587,6 +711,34 @@ func (s *loadSuite) TestLoadStageChecksumMismatch(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+// TestLoadStageValidatesParamsFirst checks that parameter validation runs
+// before the archive is read: a missing parameter reports itself even when
+// the archive path does not exist, so no archive error can mask it.
+func (s *loadSuite) TestLoadStageValidatesParamsFirst(c *tc.C) {
+	valid := recovery.LoadParams{
+		Service:             s.recoveryService(c, nil),
+		ArchivePath:         filepath.Join(c.MkDir(), "nonexistent.tar.gz"),
+		DataDir:             c.MkDir(),
+		ControllerModelUUID: testControllerModelUUID,
+		Logger:              loggertesting.WrapCheckLog(c),
+	}
+	for _, test := range []struct {
+		mutate func(*recovery.LoadParams)
+		want   string
+	}{
+		{func(p *recovery.LoadParams) { p.Service = nil }, "missing recovery service"},
+		{func(p *recovery.LoadParams) { p.Logger = nil }, "missing logger"},
+		{func(p *recovery.LoadParams) { p.ArchivePath = "" }, "missing archive path"},
+		{func(p *recovery.LoadParams) { p.DataDir = "" }, "missing data directory"},
+		{func(p *recovery.LoadParams) { p.ControllerModelUUID = "" }, "missing controller model UUID"},
+	} {
+		params := valid
+		test.mutate(&params)
+		_, err := recovery.Load(c.Context(), params)
+		c.Check(err, tc.ErrorMatches, test.want)
+	}
+}
+
 func (s *loadSuite) TestLoadStageCleansUpStagingOnFailure(c *tc.C) {
 	files := validFiles()
 	for _, model := range []string{testControllerModelUUID, testModelAUUID, testModelBUUID} {
@@ -604,6 +756,7 @@ func (s *loadSuite) TestLoadStageCleansUpStagingOnFailure(c *tc.C) {
 		}),
 		ArchivePath:         archivePath,
 		ExpectedSHA256:      sum,
+		DataDir:             c.MkDir(),
 		ControllerModelUUID: testControllerModelUUID,
 		Logger:              loggertesting.WrapCheckLog(c),
 	})
@@ -627,7 +780,7 @@ func (s *loadSuite) recoveryService(c *tc.C, open func(context.Context, string) 
 				}
 			}
 			return s.ModelTxnRunner(c, model), nil
-	}, "0")
+		}, "0")
 	c.Assert(err, tc.ErrorIsNil)
 	return svc
 }

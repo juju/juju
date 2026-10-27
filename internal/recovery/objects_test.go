@@ -72,6 +72,19 @@ func (s *loadSuite) TestCheckObjectStoreAggregatesMissingAcrossNamespaces(c *tc.
 		`recovered object metadata references blobs that are not in the archive: ns-a/charms/gone; ns-b/agent-binaries/4.0`)
 }
 
+func (s *loadSuite) TestCheckObjectStorePathlessRowReportsHash(c *tc.C) {
+	// A metadata row no path references is still reachable by hash: the
+	// completeness check covers it and reports the hash.
+	err := recovery.CheckObjectStore(c.Context(), []domainrecovery.ObjectInventory{{
+		Namespace: "controller",
+		Paths: []domainrecovery.ObjectMetadataPath{
+			{Path: "", SHA384: "missinghash"},
+		},
+	}}, c.MkDir())
+	c.Assert(err, tc.ErrorMatches,
+		`recovered object metadata references blobs that are not in the archive: controller/missinghash`)
+}
+
 func (s *loadSuite) TestCheckObjectStoreNoInventory(c *tc.C) {
 	// A controller whose metadata records no objects — fresh bootstrap
 	// archives — passes with an empty store.

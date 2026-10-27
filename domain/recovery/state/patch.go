@@ -45,7 +45,10 @@ WHERE m.life_id = 0 ORDER BY m.name LIMIT 1`, machine{})
 }
 
 // PatchControllerMachine updates the cloud instance without changing logical
-// identity. Zero optional observations leave the archived values in place.
+// identity. The instance ID and display name always take the replacement's
+// values: the record describes the physical replacement, and an empty display
+// name is a genuine observation on providers that do not set one. Zero arch,
+// memory, core and root-disk observations leave the archived values in place.
 func (st *State) PatchControllerMachine(ctx context.Context, patch domainrecovery.MachinePatch) error {
 	type machinePatch struct {
 		Name        string `db:"name"`

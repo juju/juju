@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// CheckObjectStore verifies that every object metadata path recorded in
+// CheckObjectStore verifies that every object metadata row recorded in
 // the recovered databases resolves to a blob in the replacement's object
 // store. Object metadata lives in the controller and model databases and
 // a complete local object set is a hard requirement for recovery: a
@@ -30,7 +30,13 @@ func CheckObjectStore(ctx context.Context, inventories []domainrecovery.ObjectIn
 		for _, p := range inventory.Paths {
 			blob := filepath.Join(dataDir, objectStoreDirName, inventory.Namespace, p.SHA384)
 			if _, err := os.Stat(blob); errors.Is(err, os.ErrNotExist) {
-				missing = append(missing, inventory.Namespace+"/"+p.Path)
+				// A metadata row without a path is still
+				// reachable by hash; report the hash.
+				name := p.Path
+				if name == "" {
+					name = p.SHA384
+				}
+				missing = append(missing, inventory.Namespace+"/"+name)
 			} else if err != nil {
 				return errors.Capture(err)
 			}

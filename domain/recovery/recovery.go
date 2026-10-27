@@ -123,10 +123,13 @@ type MachinePatch struct {
 	// recovery stage; the caller need not set it.
 	MachineName string
 
-	// InstanceID is the replacement's actual provider instance ID.
+	// InstanceID is the replacement's actual provider instance ID. It
+	// always overwrites the archived value.
 	InstanceID string
 
-	// DisplayName is the replacement's provider display name.
+	// DisplayName is the replacement's provider display name. It always
+	// overwrites the archived value; empty is a genuine value on providers
+	// that do not set one.
 	DisplayName string
 
 	// Arch is the replacement's architecture.

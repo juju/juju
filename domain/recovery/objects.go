@@ -3,7 +3,9 @@
 
 package recovery
 
-// ObjectMetadataPath pairs a logical object path with its blob hash.
+// ObjectMetadataPath pairs a logical object path with its blob hash. The
+// path is empty for metadata rows that no path references; such rows remain
+// reachable by hash, so the inventory covers them too.
 type ObjectMetadataPath struct {
 	Path   string
 	SHA384 string

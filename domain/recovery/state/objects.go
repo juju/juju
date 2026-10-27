@@ -12,16 +12,19 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// GetObjectMetadataPaths retrieves each path and its blob hash.
+// GetObjectMetadataPaths retrieves every metadata row's blob hash, with its
+// path where one is recorded. Metadata rows without a path remain reachable
+// by hash (the metadata view left-joins paths), so they are included with an
+// empty path: the completeness check must cover them too.
 func (st *State) GetObjectMetadataPaths(ctx context.Context) ([]domainrecovery.ObjectMetadataPath, error) {
 	type path struct {
 		Path   string `db:"path"`
 		SHA384 string `db:"sha_384"`
 	}
 	stmt, err := st.Prepare(`
-SELECT osmp.path AS &path.path, osm.sha_384 AS &path.sha_384
-FROM object_store_metadata_path AS osmp
-JOIN object_store_metadata AS osm ON osmp.metadata_uuid = osm.uuid
+SELECT COALESCE(osmp.path, '') AS &path.path, osm.sha_384 AS &path.sha_384
+FROM object_store_metadata AS osm
+LEFT JOIN object_store_metadata_path AS osmp ON osmp.metadata_uuid = osm.uuid
 ORDER BY osmp.path`, path{})
 	if err != nil {
 		return nil, errors.Capture(err)

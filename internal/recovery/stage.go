@@ -82,6 +82,25 @@ type LoadParams struct {
 // database and patch the replacement's physical facts in place. Any
 // failure fails bootstrap; the target is discarded and bootstrap re-run.
 func Load(ctx context.Context, params LoadParams) (*domainrecovery.Summary, error) {
+	// Validate before any side effect: ReadArchive streams,
+	// checksum-verifies and stages the whole archive to disk, and the
+	// logger is dereferenced by it.
+	if params.Service == nil {
+		return nil, errors.New("missing recovery service")
+	}
+	if params.Logger == nil {
+		return nil, errors.New("missing logger")
+	}
+	if params.ArchivePath == "" {
+		return nil, errors.New("missing archive path")
+	}
+	if params.DataDir == "" {
+		return nil, errors.New("missing data directory")
+	}
+	if params.ControllerModelUUID == "" {
+		return nil, errors.New("missing controller model UUID")
+	}
+
 	contents, info, err := ReadArchive(ctx, params.Logger, params.ArchivePath, params.ExpectedSHA256)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -90,9 +109,6 @@ func Load(ctx context.Context, params LoadParams) (*domainrecovery.Summary, erro
 	params.Logger.Infof(ctx, "recovering controller %q from backup finished at %s",
 		info.ControllerUUID, info.BackupFinished)
 
-	if params.Service == nil {
-		return nil, errors.New("missing recovery service")
-	}
 	if err := params.Service.LoadControllerDump(ctx, contents.ControllerDump); err != nil {
 		return nil, errors.Capture(err)
 	}

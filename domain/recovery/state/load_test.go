@@ -627,6 +627,44 @@ func (s *loadSuite) TestPatchControllerMachine(c *tc.C) {
 	c.Check(mem, tc.Equals, int64(8192))
 }
 
+func (s *loadSuite) TestPatchControllerMachineBlanksDisplayName(c *tc.C) {
+	db := s.openModelDB(c, sourceModelUUID)
+	defer db.Close()
+	c.Assert(s.recoveryService(c).LoadModelDump(c.Context(), coremodel.UUID(sourceModelUUID), dumpYAML(c, s.modelDump())), tc.ErrorIsNil)
+
+	// An empty display name is a genuine observation: providers without
+	// display names blank the archived value rather than keeping the
+	// source machine's name.
+	err := s.modelState(c).PatchControllerMachine(c.Context(), recovery.MachinePatch{
+		MachineName: "0",
+		InstanceID:  "replacement-instance",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var displayName string
+	err = db.QueryRow(
+		"SELECT display_name FROM machine_cloud_instance WHERE machine_uuid = ?",
+		"machine-uuid-0").Scan(&displayName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(displayName, tc.Equals, "")
+}
+
+func (s *loadSuite) TestGetObjectMetadataPathsIncludesPathlessRows(c *tc.C) {
+	// A metadata row no path references remains reachable by hash, so the
+	// inventory reports it with an empty path.
+	execSQL(c, s.DB(), `INSERT INTO object_store_metadata VALUES ('m1', 's256a', 's384a', 3)`)
+	execSQL(c, s.DB(), `INSERT INTO object_store_metadata VALUES ('m2', 's256b', 's384b', 4)`)
+	execSQL(c, s.DB(), `INSERT INTO object_store_metadata_path VALUES ('charms/foo', 'm2')`)
+
+	st := state.NewState(s.TxnRunnerFactory())
+	paths, err := st.GetObjectMetadataPaths(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(paths, tc.DeepEquals, []recovery.ObjectMetadataPath{
+		{Path: "", SHA384: "s384a"},
+		{Path: "charms/foo", SHA384: "s384b"},
+	})
+}
+
 func (s *loadSuite) TestPatchControllerMachineMissing(c *tc.C) {
 	db := s.openModelDB(c, sourceModelUUID)
 	defer db.Close()

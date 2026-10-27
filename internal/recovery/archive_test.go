@@ -176,6 +176,47 @@ func (s *validateSuite) TestUnpackObjectStoreRejectsTraversal(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "object archive contains unsafe path .*")
 }
 
+func (s *validateSuite) TestUnpackObjectStoreRejectsAbsolutePath(c *tc.C) {
+	var inner bytes.Buffer
+	tw := tar.NewWriter(&inner)
+	content := []byte("x")
+	c.Assert(tw.WriteHeader(&tar.Header{
+		Name: "/var/lib/juju/objectstore/ns/abs", Mode: 0o600, Size: 1, Typeflag: tar.TypeReg,
+	}), tc.ErrorIsNil)
+	_, err := tw.Write(content)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tw.Close(), tc.ErrorIsNil)
+
+	files := validFiles()
+	files["juju-backup/root.tar"] = inner.Bytes()
+	archivePath, _ := writeArchive(c, files)
+
+	_, err = recovery.UnpackObjectStore(c.Context(), archivePath, c.MkDir())
+	c.Assert(err, tc.ErrorMatches, "object archive contains unsafe path .*")
+}
+
+func (s *validateSuite) TestUnpackObjectStoreRejectsDuplicatePath(c *tc.C) {
+	var inner bytes.Buffer
+	tw := tar.NewWriter(&inner)
+	content := []byte("x")
+	for range 2 {
+		c.Assert(tw.WriteHeader(&tar.Header{
+			Name: "var/lib/juju/objectstore/ns/duplicate", Mode: 0o600,
+			Size: int64(len(content)), Typeflag: tar.TypeReg,
+		}), tc.ErrorIsNil)
+		_, err := tw.Write(content)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	c.Assert(tw.Close(), tc.ErrorIsNil)
+
+	files := validFiles()
+	files["juju-backup/root.tar"] = inner.Bytes()
+	archivePath, _ := writeArchive(c, files)
+
+	_, err := recovery.UnpackObjectStore(c.Context(), archivePath, c.MkDir())
+	c.Assert(err, tc.ErrorMatches, "object archive contains duplicate path .*")
+}
+
 func (s *validateSuite) TestUnpackObjectStoreSkipsNonObjectStoreEntries(c *tc.C) {
 	// Entries outside the object store subtree — k8s controllers archive
 	// their tools binaries as symlinks — are never unpacked. The symlink
