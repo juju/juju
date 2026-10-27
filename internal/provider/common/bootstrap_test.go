@@ -1000,6 +1000,28 @@ func (s *BootstrapSuite) TestWaitSSHRetriesInstanceNotVisible(c *tc.C) {
 	c.Check(refresher.calls > 2, tc.IsTrue)
 }
 
+func (s *BootstrapSuite) TestWaitSSHRetriesPartialInstances(c *tc.C) {
+	ctx := cmdtesting.Context(c)
+	// An instance refresh may report that only some of the requested
+	// instances were found (ErrPartialInstances). The instance may
+	// still become visible, so WaitSSH must retry rather than fail.
+	refresher := &refreshFailsThenAddress{
+		fails: 2,
+		err:   environs.ErrPartialInstances,
+		addr:  "0.1.2.3",
+	}
+	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, _, _ string, _ *ssh.Options) error {
+		return nil
+	})
+	addr, err := common.WaitSSH(
+		c.Context(), ctx.Stderr, ssh.DefaultClient, "", refresher,
+		testSSHTimeout, common.DefaultHostSSHOptions,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.Equals, "0.1.2.3")
+	c.Check(refresher.calls > 2, tc.IsTrue)
+}
+
 func (s *BootstrapSuite) TestWaitSSHTimesOutRetryingInstanceNotVisible(c *tc.C) {
 	ctx := cmdtesting.Context(c)
 	// The instance never becomes visible: the timeout error should
