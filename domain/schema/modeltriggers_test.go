@@ -726,6 +726,9 @@ func (s *modelStorageSuite) TestNewMachineFilesystemTriggerDouble(c *tc.C) {
 	s.assertChangeEvent(
 		c, "storage_filesystem_life_machine_provisioning", netnode1,
 	)
+	s.assertNoChangeEvent(
+		c, "storage_filesystem_life_machine_provisioning", netnode2,
+	)
 }
 
 // TestUpdateMachineFilesystemTrigger tests that updating the life of a
@@ -789,6 +792,36 @@ func (s *modelStorageSuite) TestDeleteMachineFilesystemTrigger(c *tc.C) {
 	s.deleteFilesystemAttachment(c, fsAttUUID)
 	s.assertChangeEvent(
 		c, "storage_filesystem_life_machine_provisioning", netnode,
+	)
+}
+
+// TestDeleteMachineFilesystemTriggerNotLastAttachment tests that deleting an
+// attachment of a filesystem which is machine provision scoped does not result
+// in a change event while the filesystem has other attachments. The change
+// event is only expected when the last attachment is deleted.
+func (s *modelStorageSuite) TestDeleteMachineFilesystemTriggerNotLastAttachment(c *tc.C) {
+	uuid, _ := s.newMachineFilesystem(c)
+	netnode1 := s.newNetNode(c)
+	netnode2 := s.newNetNode(c)
+	fsAttUUID1 := s.newMachineFilesystemAttachment(c, uuid, netnode1)
+	fsAttUUID2 := s.newMachineFilesystemAttachment(c, uuid, netnode2)
+
+	// Consume and check the initial insert event.
+	s.assertChangeEvent(
+		c, "storage_filesystem_life_machine_provisioning", netnode1,
+	)
+
+	s.deleteFilesystemAttachment(c, fsAttUUID1)
+	s.assertNoChangeEvent(
+		c, "storage_filesystem_life_machine_provisioning", netnode1,
+	)
+	s.assertNoChangeEvent(
+		c, "storage_filesystem_life_machine_provisioning", netnode2,
+	)
+
+	s.deleteFilesystemAttachment(c, fsAttUUID2)
+	s.assertChangeEvent(
+		c, "storage_filesystem_life_machine_provisioning", netnode2,
 	)
 }
 

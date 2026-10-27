@@ -395,6 +395,81 @@ func (s *stateSuite) TestDeleteSamePublicKeyByTwoMethods(c *tc.C) {
 	c.Check(testingPublicKeys[1:], tc.DeepEquals, keys)
 }
 
+// TestDeletePublicKeysForUserDeletesUnusedKeys asserts that deleting a user's
+// public keys from a model also deletes the user's key records that no model
+// uses any more, and keeps the records that a model still uses.
+func (s *stateSuite) TestDeletePublicKeysForUserDeletesUnusedKeys(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	// All of the keys are on the first model and only the first key is also
+	// on a second model.
+	err := state.AddPublicKeysForUser(c.Context(), s.modelId, s.userId, keysToAdd)
+	c.Assert(err, tc.ErrorIsNil)
+
+	secondModelId := statemodeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "second-model")
+	err = state.AddPublicKeysForUser(c.Context(), secondModelId, s.userId, keysToAdd[:1])
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = state.DeletePublicKeysForUser(c.Context(), s.modelId, s.userId, []string{
+		keysToAdd[0].Fingerprint,
+		keysToAdd[1].Fingerprint,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The second key is no longer used by any model so it is deleted. The
+	// first key is still used by the second model and the third key is still
+	// used by the first model, so both remain.
+	c.Check(s.getUserPublicKeyFingerprints(c), tc.SameContents, []string{
+		keysToAdd[0].Fingerprint,
+		keysToAdd[2].Fingerprint,
+	})
+	keys, err := state.GetPublicKeysDataForUser(c.Context(), secondModelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{keysToAdd[0].Key})
+	keys, err = state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, []string{keysToAdd[2].Key})
+
+	// Removing the first key from the last model that uses it deletes it too.
+	err = state.DeletePublicKeysForUser(c.Context(), secondModelId, s.userId, []string{
+		keysToAdd[0].Fingerprint,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.getUserPublicKeyFingerprints(c), tc.DeepEquals, []string{
+		keysToAdd[2].Fingerprint,
+	})
+}
+
+// getUserPublicKeyFingerprints returns the fingerprints of the test user's
+// stored public keys, whether or not any model uses them.
+func (s *stateSuite) getUserPublicKeyFingerprints(c *tc.C) []string {
+	var fingerprints []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		fingerprints = nil
+		rows, err := tx.QueryContext(ctx, `
+SELECT fingerprint
+FROM   user_public_ssh_key
+WHERE  user_uuid = ?
+`, s.userId)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rows.Close() }()
+
+		for rows.Next() {
+			var fingerprint string
+			if err := rows.Scan(&fingerprint); err != nil {
+				return err
+			}
+			fingerprints = append(fingerprints, fingerprint)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return fingerprints
+}
+
 // TestDeletePublicKeysForNonExistentModel is asserting the if we try and delete
 // user keys off of a model that doesn't exist we get back a
 // [modelerrors.NotFound] error.

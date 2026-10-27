@@ -651,7 +651,7 @@ AND id IN (SELECT id
            FROM user_public_ssh_key AS upsk
            LEFT JOIN model_authorized_keys AS mak ON upsk.id = mak.user_public_ssh_key_id
            GROUP BY (id)
-           HAVING count(user_public_ssh_key_id) == 0)
+           HAVING count(user_public_ssh_key_id) = 0)
 `, userUUIDVal)
 
 	if err != nil {
