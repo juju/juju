@@ -129,7 +129,7 @@ func (s *controllerStateSuite) TestGetControllerNodeIDs(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for i := 1; i < 3; i++ {
 			controllerID := strconv.Itoa(i)
-			nodeID := uint64(1523785546583723502 + i)
+			nodeID := strconv.FormatUint(uint64(1523785546583723502+i), 10)
 
 			_, err := tx.ExecContext(ctx, `
 INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)

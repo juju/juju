@@ -152,7 +152,7 @@ func (s *stateSuite) TestSetControllerReadyMultipleTimes(c *tc.C) {
 func (s *stateSuite) TestAllProvisionedControllersReadyTrue(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := s.st.CreateUpgrade(c.Context(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
@@ -170,7 +170,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyTrue(c *tc.C) {
 func (s *stateSuite) TestAllProvisionedControllersReadyFalse(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1), ('2', 2)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1'), ('2', '2')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := s.st.CreateUpgrade(c.Context(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
@@ -188,9 +188,9 @@ func (s *stateSuite) TestAllProvisionedControllersReadyFalse(c *tc.C) {
 func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllers(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1')")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', 2)")
+	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', '2')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := s.st.CreateUpgrade(c.Context(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
@@ -210,9 +210,9 @@ func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllers(c *tc
 func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllersWithoutAllBeingReady(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1')")
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', 2)")
+	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', '2')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid, err := s.st.CreateUpgrade(c.Context(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
@@ -230,7 +230,7 @@ func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllersWithou
 func (s *stateSuite) TestAllProvisionedControllersReadyUnprovisionedController(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1')")
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = db.Exec("INSERT INTO controller_node (controller_id) VALUES ('2')")
 	c.Assert(err, tc.ErrorIsNil)
@@ -285,7 +285,7 @@ func (s *stateSuite) TestStartUpgradeBeforeCreated(c *tc.C) {
 func (s *stateSuite) TestSetControllerDone(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1), ('2', 2)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1'), ('2', '2')")
 	c.Assert(err, tc.ErrorIsNil)
 	uuid, err := s.st.CreateUpgrade(c.Context(), semversion.MustParse("3.0.0"), semversion.MustParse("3.0.1"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -316,7 +316,7 @@ func (s *stateSuite) TestSetControllerDoneNotExists(c *tc.C) {
 func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Start the upgrade
@@ -353,7 +353,7 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *tc.C) {
 func (s *stateSuite) TestSetControllerDoneCompleteUpgradeEmptyCompletedAt(c *tc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', '1')")
 	c.Assert(err, tc.ErrorIsNil)
 
 	uuid := s.startUpgrade(c)
