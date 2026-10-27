@@ -841,13 +841,28 @@ func WaitSSH(
 	defer checker.Kill()
 
 	fmt.Fprintln(stdErr, "Waiting for address")
+	var lastRefreshErr error
 	for {
 		select {
 		case <-pollAddresses.C:
 			pollAddresses.Reset(opts.AddressesDelay)
 			if err := inst.Refresh(ctx); err != nil {
-				return "", fmt.Errorf("refreshing addresses: %v", err)
+				switch {
+				case ctx.Err() != nil:
+					return "", bootstrap.Cancelled()
+				case !isRetryableRefreshError(err):
+					return "", fmt.Errorf("refreshing addresses: %v", err)
+				}
+				// The instance is not yet visible to the provider,
+				// which is an eventual consistency effect seen
+				// shortly after an instance is started. Keep
+				// polling for addresses until the instance appears
+				// or the bootstrap timeout is reached.
+				lastRefreshErr = err
+				logger.Debugf(ctx, "instance addresses not available yet, will retry: %v", err)
+				continue
 			}
+			lastRefreshErr = nil
 			instanceStatus := inst.Status(ctx)
 			if instanceStatus.Status == status.ProvisioningError {
 				if instanceStatus.Message != "" {
@@ -867,6 +882,13 @@ func WaitSSH(
 			args := []any{opts.Timeout}
 			if len(checker.active) == 0 {
 				format += "without getting any addresses"
+				if lastRefreshErr != nil {
+					// No addresses were ever obtained; include the
+					// last error from refreshing the instance so
+					// the cause is visible.
+					format += ", last refresh error: %v"
+					args = append(args, lastRefreshErr)
+				}
 			} else {
 				format += "without being able to connect"
 			}
@@ -885,6 +907,17 @@ func WaitSSH(
 			return result.(*hostChecker).addr.Value, nil
 		}
 	}
+}
+
+// isRetryableRefreshError returns true if the error returned by
+// refreshing an instance is transient: the instance may become visible
+// to the provider later, which is an eventual consistency effect seen
+// shortly after an instance is started. Such errors are retried until
+// the refresh succeeds or the bootstrap timeout is reached. All other
+// errors, such as invalid credentials, must be returned to the caller.
+func isRetryableRefreshError(err error) bool {
+	return errors.Is(err, environs.ErrNoInstances) ||
+		errors.Is(err, environs.ErrPartialInstances)
 }
 
 func generateSSHHostKeys() (instancecfg.SSHHostKeys, error) {

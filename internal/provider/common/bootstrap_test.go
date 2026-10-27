@@ -944,6 +944,96 @@ func (s *BootstrapSuite) TestWaitSSHRefreshAddresses(c *tc.C) {
 			"(.|\n)*(Attempting to connect to 0.1.2.4:22\n)+(.|\n)*")
 }
 
+// refreshFailsThenAddress is an InstanceRefresher whose Refresh fails
+// the first fails times with the given error, after which the refresher
+// reports the given address.
+type refreshFailsThenAddress struct {
+	// fails is the number of Refresh calls that fail before Refresh
+	// starts succeeding.
+	fails int
+	// err is the error returned by the failing Refresh calls.
+	err error
+	// calls counts the Refresh calls made.
+	calls int
+	addr  string
+}
+
+func (r *refreshFailsThenAddress) Refresh(ctx context.Context) error {
+	r.calls++
+	if r.calls <= r.fails {
+		return r.err
+	}
+	return nil
+}
+
+func (*refreshFailsThenAddress) Status(ctx context.Context) instance.Status {
+	return instance.Status{}
+}
+
+func (r *refreshFailsThenAddress) Addresses(ctx context.Context) (network.ProviderAddresses, error) {
+	if r.calls <= r.fails {
+		return nil, nil
+	}
+	return network.NewMachineAddresses([]string{r.addr}).AsProviderAddresses(), nil
+}
+
+func (s *BootstrapSuite) TestWaitSSHRetriesInstanceNotVisible(c *tc.C) {
+	ctx := cmdtesting.Context(c)
+	// The instance is not visible to the provider for the first two
+	// refreshes, as can happen due to eventual consistency shortly
+	// after an instance is started. WaitSSH must keep retrying rather
+	// than fail.
+	refresher := &refreshFailsThenAddress{
+		fails: 2,
+		err:   environs.ErrNoInstances,
+		addr:  "0.1.2.3",
+	}
+	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, _, _ string, _ *ssh.Options) error {
+		return nil
+	})
+	addr, err := common.WaitSSH(
+		c.Context(), ctx.Stderr, ssh.DefaultClient, "", refresher,
+		testSSHTimeout, common.DefaultHostSSHOptions,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(addr, tc.Equals, "0.1.2.3")
+	c.Check(refresher.calls > 2, tc.IsTrue)
+}
+
+func (s *BootstrapSuite) TestWaitSSHTimesOutRetryingInstanceNotVisible(c *tc.C) {
+	ctx := cmdtesting.Context(c)
+	// The instance never becomes visible: the timeout error should
+	// surface the last refresh error so the cause is visible.
+	refresher := &refreshFailsThenAddress{
+		fails: 1000000,
+		err:   environs.ErrNoInstances,
+	}
+	_, err := common.WaitSSH(
+		c.Context(), ctx.Stderr, ssh.DefaultClient, "", refresher,
+		testSSHTimeout, common.DefaultHostSSHOptions,
+	)
+	c.Check(err, tc.ErrorMatches,
+		`waited for `+testSSHTimeout.Timeout.String()+
+			` without getting any addresses, last refresh error: instances not found`)
+	c.Check(refresher.calls > 1, tc.IsTrue)
+}
+
+func (s *BootstrapSuite) TestWaitSSHStopsOnPermanentRefreshError(c *tc.C) {
+	ctx := cmdtesting.Context(c)
+	// Errors other than the instance not being visible (yet), such as
+	// invalid credentials, are not retried.
+	refresher := &refreshFailsThenAddress{
+		fails: 1000000,
+		err:   errors.Errorf("some credential problem"),
+	}
+	_, err := common.WaitSSH(
+		c.Context(), ctx.Stderr, ssh.DefaultClient, "", refresher,
+		testSSHTimeout, common.DefaultHostSSHOptions,
+	)
+	c.Check(err, tc.ErrorMatches, "refreshing addresses: some credential problem")
+	c.Check(refresher.calls, tc.Equals, 1)
+}
+
 type FormatHardwareSuite struct{}
 
 func TestFormatHardwareSuite(t *testing.T) {
