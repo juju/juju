@@ -14,6 +14,7 @@ import (
 	ctrlv4_1_0 "github.com/juju/juju/domain/export/types/controller/v4_1_0"
 	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
+	v4_2_0 "github.com/juju/juju/domain/export/types/v4_2_0"
 )
 
 type payloadSuite struct{}
@@ -148,8 +149,8 @@ func (s *payloadSuite) TestControllerDecoderRegistryCompleteness(c *tc.C) {
 // TestProjectionViewExtraction verifies the view projects the agent target
 // version from the transformed (latest) payload.
 func (s *payloadSuite) TestProjectionViewExtraction(c *tc.C) {
-	payload := v4_1_0.ModelExport{
-		AgentVersion: []v4_1_0.AgentVersion{{
+	payload := v4_2_0.ModelExport{
+		AgentVersion: []v4_2_0.AgentVersion{{
 			TargetVersion: "4.1.0",
 		}},
 	}
@@ -162,7 +163,7 @@ func (s *payloadSuite) TestProjectionViewExtraction(c *tc.C) {
 // TestProjectionViewNoAgentVersion verifies that a payload without an
 // agent_version row leaves the view's agent target version zero.
 func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
-	view, err := ProjectionViewForPayload(v4_1_0.ModelExport{})
+	view, err := ProjectionViewForPayload(v4_2_0.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.Number{})
 }
@@ -170,8 +171,8 @@ func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
 // TestProjectionViewMultipleAgentVersionRows verifies that a payload with
 // more than one agent_version row is rejected as malformed.
 func (s *payloadSuite) TestProjectionViewMultipleAgentVersionRows(c *tc.C) {
-	_, err := ProjectionViewForPayload(v4_1_0.ModelExport{
-		AgentVersion: []v4_1_0.AgentVersion{
+	_, err := ProjectionViewForPayload(v4_2_0.ModelExport{
+		AgentVersion: []v4_2_0.AgentVersion{
 			{TargetVersion: "4.1.0"},
 			{TargetVersion: "4.0.7"},
 		},

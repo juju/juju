@@ -12,7 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	exportstate "github.com/juju/juju/domain/export/state/model"
-	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/domain/export/types/v4_2_0"
 	importstate "github.com/juju/juju/domain/modelimport/state/model"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -52,40 +52,40 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	s.bootstrapModel(c)
 	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
-	payload := &v4_1_0.ModelExport{
-		Application: []v4_1_0.Application{{
+	payload := &v4_2_0.ModelExport{
+		Application: []v4_2_0.Application{{
 			UUID: appUUID, Name: "test-app", LifeID: 0, CharmUUID: charmUUID,
 			SpaceUUID: "656b4a82-e28c-53d6-a014-f0dd53417eb6",
 		}},
-		Charm: []v4_1_0.Charm{{
+		Charm: []v4_2_0.Charm{{
 			UUID: charmUUID, SourceID: 1, Revision: 1,
 			ReferenceName: "test-charm", CreateTime: now,
 		}},
-		CharmResource: []v4_1_0.CharmResource{{
+		CharmResource: []v4_2_0.CharmResource{{
 			CharmUUID: charmUUID, Name: resourceName, KindID: 0,
 		}},
-		NetNode: []v4_1_0.NetNode{{UUID: netNodeUUID}},
-		Resource: []v4_1_0.Resource{{
+		NetNode: []v4_2_0.NetNode{{UUID: netNodeUUID}},
+		Resource: []v4_2_0.Resource{{
 			UUID: resourceUUID, CharmUUID: charmUUID,
 			CharmResourceName: resourceName, OriginTypeID: 0,
 			StateID: 0, CreatedAt: now,
 		}},
-		Sequence: []v4_1_0.Sequence{
+		Sequence: []v4_2_0.Sequence{
 			{Namespace: "machine", Value: 7},
 			{Namespace: "unit", Value: 3},
 		},
-		Space: []v4_1_0.Space{
+		Space: []v4_2_0.Space{
 			{UUID: userSpaceUUID, Name: "user-space"},
 		},
-		ProviderSpace: []v4_1_0.ProviderSpace{
+		ProviderSpace: []v4_2_0.ProviderSpace{
 			{ProviderID: "provider-1", SpaceUUID: userSpaceUUID},
 		},
-		Unit: []v4_1_0.Unit{{
+		Unit: []v4_2_0.Unit{{
 			UUID: unitUUID, Name: "test-app/0", LifeID: 0,
 			ApplicationUUID: appUUID, NetNodeUUID: netNodeUUID,
 			CharmUUID: charmUUID,
 		}},
-		UnitResource: []v4_1_0.UnitResource{{
+		UnitResource: []v4_2_0.UnitResource{{
 			ResourceUUID: resourceUUID, UnitUUID: unitUUID,
 			CharmResourceName: resourceName, AddedAt: now,
 		}},
