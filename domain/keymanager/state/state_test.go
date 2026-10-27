@@ -251,6 +251,69 @@ func (s *stateSuite) TestEnsurePublicKeysForUserForStrippedComments(c *tc.C) {
 	c.Check(keys, tc.DeepEquals, testingPublicKeys)
 }
 
+// TestEnsurePublicKeysForUserUnknownAlgorithm asserts that a key with an
+// unknown fingerprint hash algorithm processed after a successful insert is
+// rejected, and is not linked to the previously inserted key.
+func (s *stateSuite) TestEnsurePublicKeysForUserUnknownAlgorithm(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keys := generatePublicKeys(c, testingPublicKeys)
+
+	bad := keys[1]
+	bad.FingerprintHash = keymanager.FingerprintHashAlgorithm("unknown")
+
+	err := state.EnsurePublicKeysForUser(
+		c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keys[0], bad},
+	)
+	c.Check(err, tc.ErrorIs, keyerrors.InvalidPublicKey)
+
+	data, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.HasLen, 0)
+}
+
+// TestEnsurePublicKeysForUserUnknownAlgorithmKeepsExisting asserts that a
+// failed ensure leaves existing associations unchanged.
+func (s *stateSuite) TestEnsurePublicKeysForUserUnknownAlgorithmKeepsExisting(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keys := generatePublicKeys(c, testingPublicKeys)
+
+	err := state.EnsurePublicKeysForUser(
+		c.Context(), s.modelId, s.userId, keys[:1],
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	bad := keys[1]
+	bad.FingerprintHash = keymanager.FingerprintHashAlgorithm("unknown")
+	err = state.EnsurePublicKeysForUser(
+		c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keys[0], bad},
+	)
+	c.Check(err, tc.ErrorIs, keyerrors.InvalidPublicKey)
+
+	data, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.DeepEquals, []string{testingPublicKeys[0]})
+}
+
+// TestAddPublicKeyForUserUnknownAlgorithm asserts that adding a new key with
+// an unknown algorithm after a successful insert is rejected without linking
+// an unrelated key.
+func (s *stateSuite) TestAddPublicKeyForUserUnknownAlgorithm(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keys := generatePublicKeys(c, testingPublicKeys)
+
+	bad := keys[1]
+	bad.FingerprintHash = keymanager.FingerprintHashAlgorithm("unknown")
+
+	err := state.AddPublicKeysForUser(
+		c.Context(), s.modelId, s.userId, []keymanager.PublicKey{keys[0], bad},
+	)
+	c.Check(err, tc.ErrorIs, keyerrors.InvalidPublicKey)
+
+	data, err := state.GetPublicKeysDataForUser(c.Context(), s.modelId, s.userId)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(data, tc.HasLen, 0)
+}
+
 // TestEnsurePublicKeyForUserNotFound is asserting that if we attempt to add a
 // public key to a model for a user that doesn't exist we get back a
 // [accesserrors.UserNotFound] error.
