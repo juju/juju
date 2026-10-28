@@ -248,7 +248,7 @@ func (s *modelStateSuite) TestCannotHaveTwoModels(c *tc.C) {
 		c.Context(),
 		`
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+VALUES (?, ?, 'test-model', 'test-qualifier', 'iaas', 'test-cloud', 'test-cloud-type')
 `,
 		modelUUID1.String(), controllerUUID.String(),
 	)
@@ -258,7 +258,7 @@ VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-
 		c.Context(),
 		`
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+VALUES (?, ?, 'test-model', 'test-qualifier', 'iaas', 'test-cloud', 'test-cloud-type')
 `,
 		modelUUID2.String(), controllerUUID.String(),
 	)
@@ -622,7 +622,7 @@ func (s *modelStateSuite) createModel(c *tc.C) {
 		c.Context(),
 		`
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+VALUES (?, ?, 'test-model', 'test-qualifier', 'iaas', 'test-cloud', 'test-cloud-type')
 `,
 		modelUUID.String(), controllerUUID.String(),
 	)

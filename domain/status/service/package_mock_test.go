@@ -32,66 +32,67 @@ type MockModelState struct {
 
 // MockModelStateMockRecorder is the mock recorder for MockModelState.
 type MockModelStateMockRecorder struct {
-	mock                                         *MockModelState
-	deleteMachinePresenceExpects                 []*gomock.Call2_1[context.Context, machine.Name, error]
-	deleteUnitPresenceExpects                    []*gomock.Call2_1[context.Context, unit.Name, error]
-	getAllApplicationStatusesExpects             []*gomock.Call1_2[context.Context, map[string]status.StatusInfo[status.WorkloadStatusType], error]
-	getAllAttachedBlockDeviceLinksExpects        []*gomock.Call1_2[context.Context, map[blockdevice.BlockDeviceUUID][]string, error]
-	getAllFilesystemAttachmentsExpects           []*gomock.Call1_2[context.Context, []status.FilesystemAttachment, error]
-	getAllFilesystemsExpects                     []*gomock.Call1_2[context.Context, []status.Filesystem, error]
-	getAllFullUnitStatusesForApplicationExpects  []*gomock.Call2_2[context.Context, application.UUID, status.FullUnitStatuses, error]
-	getAllInstanceStatusesExpects                []*gomock.Call1_2[context.Context, map[string]status.StatusInfo[status.InstanceStatusType], error]
-	getAllMachineStatusesExpects                 []*gomock.Call1_2[context.Context, map[string]status.MachineStatusInfo[status.MachineStatusType], error]
-	getAllRelationStatusesExpects                []*gomock.Call1_2[context.Context, []status.RelationStatusInfo, error]
-	getAllStorageInstanceAttachmentsExpects      []*gomock.Call1_2[context.Context, []status.StorageAttachment, error]
-	getAllStorageInstancesExpects                []*gomock.Call1_2[context.Context, []status.StorageInstance, error]
-	getAllUnitWorkloadAgentStatusesExpects       []*gomock.Call1_2[context.Context, status.UnitWorkloadAgentStatuses, error]
-	getAllVolumeAttachmentsExpects               []*gomock.Call1_2[context.Context, []status.VolumeAttachment, error]
-	getAllVolumesExpects                         []*gomock.Call1_2[context.Context, []status.Volume, error]
-	getApplicationAndUnitModelStatusesExpects    []*gomock.Call1_2[context.Context, map[string]int, error]
-	getApplicationAndUnitStatusesExpects         []*gomock.Call1_2[context.Context, map[string]status.Application, error]
-	getApplicationStatusExpects                  []*gomock.Call2_2[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
-	getApplicationUUIDAndNameByUnitNameExpects   []*gomock.Call2_3[context.Context, unit.Name, application.UUID, string, error]
-	getApplicationUUIDByNameExpects              []*gomock.Call2_2[context.Context, string, application.UUID, error]
-	getApplicationUUIDForOfferExpects            []*gomock.Call2_2[context.Context, string, string, error]
-	getFilesystemAttachmentsExpects              []*gomock.Call2_2[context.Context, []storage.FilesystemUUID, []status.FilesystemAttachment, error]
-	getFilesystemUUIDByIDExpects                 []*gomock.Call2_2[context.Context, string, storage.FilesystemUUID, error]
-	getFilesystemsExpects                        []*gomock.Call2_2[context.Context, []storage.FilesystemUUID, []status.Filesystem, error]
-	getInstanceStatusExpects                     []*gomock.Call2_2[context.Context, string, status.StatusInfo[status.InstanceStatusType], error]
-	getMachineFullStatusesExpects                []*gomock.Call1_2[context.Context, map[machine.Name]status.Machine, error]
-	getMachineStatusExpects                      []*gomock.Call2_2[context.Context, string, status.MachineStatusInfo[status.MachineStatusType], error]
-	getModelStatusInfoExpects                    []*gomock.Call1_2[context.Context, status.ModelStatusInfo, error]
-	getModelStorageStatusesExpects               []*gomock.Call1_2[context.Context, status.ModelStorageStatus, error]
-	getRelationUUIDByIDExpects                   []*gomock.Call2_2[context.Context, int, relation.UUID, error]
-	getRemoteApplicationOffererStatusesExpects   []*gomock.Call1_2[context.Context, map[string]status.RemoteApplicationOfferer, error]
-	getRemoteApplicationOffererUUIDByNameExpects []*gomock.Call2_2[context.Context, string, remoteapplication.UUID, error]
-	getStorageInstanceAttachmentsExpects         []*gomock.Call2_2[context.Context, []storage.StorageInstanceUUID, []status.StorageAttachment, error]
-	getStorageInstancesExpects                   []*gomock.Call2_2[context.Context, []storage.StorageInstanceUUID, []status.StorageInstance, error]
-	getUnitAgentStatusExpects                    []*gomock.Call2_2[context.Context, unit.UUID, status.UnitStatusInfo[status.UnitAgentStatusType], error]
-	getUnitAgentStatusesForApplicationExpects    []*gomock.Call2_2[context.Context, application.UUID, status.UnitAgentStatuses, error]
-	getUnitK8sPodStatusExpects                   []*gomock.Call2_2[context.Context, unit.UUID, status.StatusInfo[status.K8sPodStatusType], error]
-	getUnitUUIDByNameExpects                     []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
-	getUnitWorkloadStatusExpects                 []*gomock.Call2_2[context.Context, unit.UUID, status.UnitStatusInfo[status.WorkloadStatusType], error]
-	getUnitWorkloadStatusesForApplicationExpects []*gomock.Call2_2[context.Context, application.UUID, status.UnitWorkloadStatuses, error]
-	getVolumeAttachmentsExpects                  []*gomock.Call2_2[context.Context, []storage.VolumeUUID, []status.VolumeAttachment, error]
-	getVolumeUUIDByIDExpects                     []*gomock.Call2_2[context.Context, string, storage.VolumeUUID, error]
-	getVolumesExpects                            []*gomock.Call2_2[context.Context, []storage.VolumeUUID, []status.Volume, error]
-	importRelationStatusExpects                  []*gomock.Call3_1[context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType], error]
-	isControllerModelExpects                     []*gomock.Call1_2[context.Context, bool, error]
-	namespacesForWatchOfferStatusExpects         []*gomock.Call0_5[string, string, string, string, string]
-	setApplicationStatusExpects                  []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
-	setFilesystemStatusExpects                   []*gomock.Call3_1[context.Context, storage.FilesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType], error]
-	setInstanceStatusExpects                     []*gomock.Call3_1[context.Context, string, status.StatusInfo[status.InstanceStatusType], error]
-	setMachinePresenceExpects                    []*gomock.Call2_1[context.Context, machine.Name, error]
-	setMachineStatusExpects                      []*gomock.Call3_1[context.Context, string, status.StatusInfo[status.MachineStatusType], error]
-	setOperatorStatusExpects                     []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
-	setRelationStatusExpects                     []*gomock.Call3_1[context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType], error]
-	setRemoteApplicationOffererStatusExpects     []*gomock.Call3_1[context.Context, string, status.StatusInfo[status.WorkloadStatusType], error]
-	setRemoteRelationStatusExpects               []*gomock.Call3_1[context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType], error]
-	setUnitAgentStatusExpects                    []*gomock.Call3_1[context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType], error]
-	setUnitPresenceExpects                       []*gomock.Call2_1[context.Context, unit.Name, error]
-	setUnitWorkloadStatusExpects                 []*gomock.Call3_1[context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType], error]
-	setVolumeStatusExpects                       []*gomock.Call3_1[context.Context, storage.VolumeUUID, status.StatusInfo[status.StorageVolumeStatusType], error]
+	mock                                                      *MockModelState
+	deleteMachinePresenceExpects                              []*gomock.Call2_1[context.Context, machine.Name, error]
+	deleteUnitPresenceExpects                                 []*gomock.Call2_1[context.Context, unit.Name, error]
+	getAllApplicationStatusesExpects                          []*gomock.Call1_2[context.Context, map[string]status.StatusInfo[status.WorkloadStatusType], error]
+	getAllAttachedBlockDeviceLinksExpects                     []*gomock.Call1_2[context.Context, map[blockdevice.BlockDeviceUUID][]string, error]
+	getAllFilesystemAttachmentsExpects                        []*gomock.Call1_2[context.Context, []status.FilesystemAttachment, error]
+	getAllFilesystemsExpects                                  []*gomock.Call1_2[context.Context, []status.Filesystem, error]
+	getAllFullUnitStatusesForApplicationExpects               []*gomock.Call2_2[context.Context, application.UUID, status.FullUnitStatuses, error]
+	getAllInstanceStatusesExpects                             []*gomock.Call1_2[context.Context, map[string]status.StatusInfo[status.InstanceStatusType], error]
+	getAllMachineStatusesExpects                              []*gomock.Call1_2[context.Context, map[string]status.MachineStatusInfo[status.MachineStatusType], error]
+	getAllRelationStatusesExpects                             []*gomock.Call1_2[context.Context, []status.RelationStatusInfo, error]
+	getAllStorageInstanceAttachmentsExpects                   []*gomock.Call1_2[context.Context, []status.StorageAttachment, error]
+	getAllStorageInstancesExpects                             []*gomock.Call1_2[context.Context, []status.StorageInstance, error]
+	getAllUnitWorkloadAgentStatusesExpects                    []*gomock.Call1_2[context.Context, status.UnitWorkloadAgentStatuses, error]
+	getAllVolumeAttachmentsExpects                            []*gomock.Call1_2[context.Context, []status.VolumeAttachment, error]
+	getAllVolumesExpects                                      []*gomock.Call1_2[context.Context, []status.Volume, error]
+	getApplicationAndUnitModelStatusesExpects                 []*gomock.Call1_2[context.Context, map[string]int, error]
+	getApplicationAndUnitStatusesExpects                      []*gomock.Call1_2[context.Context, map[string]status.Application, error]
+	getApplicationStatusExpects                               []*gomock.Call2_2[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
+	getApplicationUUIDAndNameByUnitNameExpects                []*gomock.Call2_3[context.Context, unit.Name, application.UUID, string, error]
+	getApplicationUUIDByNameExpects                           []*gomock.Call2_2[context.Context, string, application.UUID, error]
+	getApplicationUUIDForOfferExpects                         []*gomock.Call2_2[context.Context, string, string, error]
+	getFilesystemAttachmentsExpects                           []*gomock.Call2_2[context.Context, []storage.FilesystemUUID, []status.FilesystemAttachment, error]
+	getFilesystemUUIDByIDExpects                              []*gomock.Call2_2[context.Context, string, storage.FilesystemUUID, error]
+	getFilesystemsExpects                                     []*gomock.Call2_2[context.Context, []storage.FilesystemUUID, []status.Filesystem, error]
+	getInstanceStatusExpects                                  []*gomock.Call2_2[context.Context, string, status.StatusInfo[status.InstanceStatusType], error]
+	getMachineFullStatusesExpects                             []*gomock.Call1_2[context.Context, map[machine.Name]status.Machine, error]
+	getMachineStatusExpects                                   []*gomock.Call2_2[context.Context, string, status.MachineStatusInfo[status.MachineStatusType], error]
+	getModelStatusInfoExpects                                 []*gomock.Call1_2[context.Context, status.ModelStatusInfo, error]
+	getModelStorageStatusesExpects                            []*gomock.Call1_2[context.Context, status.ModelStorageStatus, error]
+	getRelationUUIDByIDExpects                                []*gomock.Call2_2[context.Context, int, relation.UUID, error]
+	getRemoteApplicationOffererStatusesExpects                []*gomock.Call1_2[context.Context, map[string]status.RemoteApplicationOfferer, error]
+	getRemoteApplicationOffererUUIDByNameExpects              []*gomock.Call2_2[context.Context, string, remoteapplication.UUID, error]
+	getStorageInstanceAttachmentsExpects                      []*gomock.Call2_2[context.Context, []storage.StorageInstanceUUID, []status.StorageAttachment, error]
+	getStorageInstancesExpects                                []*gomock.Call2_2[context.Context, []storage.StorageInstanceUUID, []status.StorageInstance, error]
+	getUnitAgentStatusExpects                                 []*gomock.Call2_2[context.Context, unit.UUID, status.UnitStatusInfo[status.UnitAgentStatusType], error]
+	getUnitAgentStatusesForApplicationExpects                 []*gomock.Call2_2[context.Context, application.UUID, status.UnitAgentStatuses, error]
+	getUnitK8sPodStatusExpects                                []*gomock.Call2_2[context.Context, unit.UUID, status.StatusInfo[status.K8sPodStatusType], error]
+	getUnitUUIDByNameExpects                                  []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
+	getUnitWorkloadStatusExpects                              []*gomock.Call2_2[context.Context, unit.UUID, status.UnitStatusInfo[status.WorkloadStatusType], error]
+	getUnitWorkloadStatusesForApplicationExpects              []*gomock.Call2_2[context.Context, application.UUID, status.UnitWorkloadStatuses, error]
+	getVolumeAttachmentsExpects                               []*gomock.Call2_2[context.Context, []storage.VolumeUUID, []status.VolumeAttachment, error]
+	getVolumeUUIDByIDExpects                                  []*gomock.Call2_2[context.Context, string, storage.VolumeUUID, error]
+	getVolumesExpects                                         []*gomock.Call2_2[context.Context, []storage.VolumeUUID, []status.Volume, error]
+	importRelationStatusExpects                               []*gomock.Call3_1[context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType], error]
+	isControllerModelExpects                                  []*gomock.Call1_2[context.Context, bool, error]
+	namespacesForWatchOfferStatusExpects                      []*gomock.Call0_5[string, string, string, string, string]
+	setApplicationStatusExpects                               []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
+	setFilesystemStatusExpects                                []*gomock.Call3_1[context.Context, storage.FilesystemUUID, status.StatusInfo[status.StorageFilesystemStatusType], error]
+	setInstanceStatusExpects                                  []*gomock.Call3_1[context.Context, string, status.StatusInfo[status.InstanceStatusType], error]
+	setMachinePresenceExpects                                 []*gomock.Call2_1[context.Context, machine.Name, error]
+	setMachineStatusExpects                                   []*gomock.Call3_1[context.Context, string, status.StatusInfo[status.MachineStatusType], error]
+	setOperatorStatusExpects                                  []*gomock.Call3_1[context.Context, application.UUID, status.StatusInfo[status.WorkloadStatusType], error]
+	setRelationStatusExpects                                  []*gomock.Call3_1[context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType], error]
+	setRemoteApplicationOffererStatusExpects                  []*gomock.Call3_1[context.Context, string, status.StatusInfo[status.WorkloadStatusType], error]
+	setRemoteApplicationOffererStatusByApplicationUUIDExpects []*gomock.Call3_2[context.Context, string, status.StatusInfo[status.WorkloadStatusType], string, error]
+	setRemoteRelationStatusExpects                            []*gomock.Call3_1[context.Context, relation.UUID, status.StatusInfo[status.RelationStatusType], error]
+	setUnitAgentStatusExpects                                 []*gomock.Call3_1[context.Context, unit.UUID, status.StatusInfo[status.UnitAgentStatusType], error]
+	setUnitPresenceExpects                                    []*gomock.Call2_1[context.Context, unit.Name, error]
+	setUnitWorkloadStatusExpects                              []*gomock.Call3_1[context.Context, unit.UUID, status.StatusInfo[status.WorkloadStatusType], error]
+	setVolumeStatusExpects                                    []*gomock.Call3_1[context.Context, storage.VolumeUUID, status.StatusInfo[status.StorageVolumeStatusType], error]
 }
 
 // NewMockModelState creates a new mock instance.
@@ -1077,6 +1078,24 @@ func (mr *MockModelStateMockRecorder) SetRemoteApplicationOffererStatus(ctx, rem
 
 // MockModelStateSetRemoteApplicationOffererStatusCall is the typed call wrapper for SetRemoteApplicationOffererStatus.
 type MockModelStateSetRemoteApplicationOffererStatusCall = gomock.Call3_1[context.Context, string, status.StatusInfo[status.WorkloadStatusType], error]
+
+// SetRemoteApplicationOffererStatusByApplicationUUID mocks base method.
+func (m *MockModelState) SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, applicationUUID string, statusInfo status.StatusInfo[status.WorkloadStatusType]) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.setRemoteApplicationOffererStatusByApplicationUUIDExpects, m.ctrl, m, "SetRemoteApplicationOffererStatusByApplicationUUID", ctx, applicationUUID, statusInfo)
+}
+
+// SetRemoteApplicationOffererStatusByApplicationUUID indicates an expected call of SetRemoteApplicationOffererStatusByApplicationUUID.
+func (mr *MockModelStateMockRecorder) SetRemoteApplicationOffererStatusByApplicationUUID(ctx, applicationUUID, statusInfo any) *MockModelStateSetRemoteApplicationOffererStatusByApplicationUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, status.StatusInfo[status.WorkloadStatusType], string, error](mr.mock.ctrl.T, mr.mock, "SetRemoteApplicationOffererStatusByApplicationUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationUUID), gomock.EnsureMatcher(statusInfo))
+	mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects = append(mr.setRemoteApplicationOffererStatusByApplicationUUIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateSetRemoteApplicationOffererStatusByApplicationUUIDCall is the typed call wrapper for SetRemoteApplicationOffererStatusByApplicationUUID.
+type MockModelStateSetRemoteApplicationOffererStatusByApplicationUUIDCall = gomock.Call3_2[context.Context, string, status.StatusInfo[status.WorkloadStatusType], string, error]
 
 // SetRemoteRelationStatus mocks base method.
 func (m *MockModelState) SetRemoteRelationStatus(ctx context.Context, relationUUID relation.UUID, sts status.StatusInfo[status.RelationStatusType]) error {

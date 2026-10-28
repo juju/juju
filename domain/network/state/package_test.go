@@ -269,7 +269,7 @@ INSERT INTO link_layer_device (
     is_auto_start, is_enabled, is_default_gateway, gateway_address, vlan_tag)
 VALUES (?, ?, ?, ?, ?,
        (SELECT id FROM link_layer_device_type WHERE name = ?),
-       (SELECT id FROM virtual_port_type WHERE name = ""),
+       (SELECT id FROM virtual_port_type WHERE name = ''),
        ?, ?, ?, ?, ?)
 	`, deviceUUID, netNodeUUID, name, mtu, macAddress, deviceType, true,
 		true, false, nil, 0)

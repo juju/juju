@@ -292,6 +292,12 @@ cleanup() {
 	cleanup_jujus
 	cleanup_funcs
 
+	# Migration controller cleanup still needs the 3.6 client. Restore the
+	# developer's snap only after every registered cleanup has finished.
+	if [[ -e "${TEST_DIR}/mig36-snap-was-installed" ]]; then
+		restore_juju36_channel
+	fi
+
 	echo ""
 	if [[ ${TEST_RESULT} != "success" ]]; then
 		echo "==> TESTS DONE: ${TEST_CURRENT_DESCRIPTION}"

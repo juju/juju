@@ -503,6 +503,14 @@ type remoteApplicationStatus struct {
 	UpdatedAt             *time.Time `db:"updated_at"`
 }
 
+// remoteApplicationOffererStatusTarget identifies the remote application
+// offerer resolved from a synthetic application UUID, along with the
+// application name required for status history recording.
+type remoteApplicationOffererStatusTarget struct {
+	RemoteApplicationUUID string `db:"uuid"`
+	Name                  string `db:"name"`
+}
+
 type fullRemoteApplicationStatus struct {
 	Name              string           `db:"name"`
 	LifeID            domainlife.Life  `db:"life_id"`
