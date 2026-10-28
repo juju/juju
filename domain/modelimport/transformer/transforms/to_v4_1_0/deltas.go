@@ -255,6 +255,28 @@ func (d deltas) UnitResource(
 	return result, nil
 }
 
+// CharmContainerMount converts v4_0_12 CharmContainerMount rows to v4_1_0. The
+// charm_container_key column is part of the primary key and became NOT NULL in
+// 4.1.0. Juju always writes the key, so a NULL key indicates data corruption
+// and the transform halts with an error rather than inventing a container.
+func (d deltas) CharmContainerMount(_ context.Context, src []v4_0_12.CharmContainerMount, _ *v4_0_12.ModelExport) ([]v4_1_0.CharmContainerMount, error) {
+	result := make([]v4_1_0.CharmContainerMount, 0, len(src))
+	for _, m := range src {
+		if m.CharmContainerKey == nil {
+			return nil, errors.Errorf("charm container mount %d for charm %q has no container key",
+				m.ArrayIndex, m.CharmUUID)
+		}
+		result = append(result, v4_1_0.CharmContainerMount{
+			ArrayIndex:        m.ArrayIndex,
+			CharmUUID:         m.CharmUUID,
+			CharmContainerKey: *m.CharmContainerKey,
+			Storage:           m.Storage,
+			Location:          m.Location,
+		})
+	}
+	return result, nil
+}
+
 // MachineReprovision returns no rows for 4.0.12 payloads. The source schema has
 // no machine reprovision table.
 func (d deltas) MachineReprovision(_ context.Context, _ *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error) {

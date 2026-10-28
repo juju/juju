@@ -249,6 +249,51 @@ func (s *importSuite) TestTransformLegacyRemovalForceInvalid(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+// TestImportLegacyCharmContainerMount takes a 4.0.12 payload, whose container
+// mount key is nullable, through transform, import and export, and checks the
+// mount is stored against its container.
+func (s *importSuite) TestImportLegacyCharmContainerMount(c *tc.C) {
+	s.bootstrapModel(c)
+
+	latestPayload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm: []v4_0_12.Charm{{
+			UUID: "charm-uuid", Revision: 1, ReferenceName: "foo",
+		}},
+		CharmContainer: []v4_0_12.CharmContainer{{
+			CharmUUID: "charm-uuid", Key: "c1",
+		}},
+		CharmContainerMount: []v4_0_12.CharmContainerMount{{
+			ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: new("c1"),
+			Storage: new("data"), Location: new("/data"),
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latestPayload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exported.CharmContainerMount, tc.DeepEquals, []v4_1_0.CharmContainerMount{{
+		ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: "c1",
+		Storage: new("data"), Location: new("/data"),
+	}})
+}
+
+// TestTransformLegacyCharmContainerMountNullKey verifies that a 4.0.12 mount
+// with no container key is refused, naming the mount and its charm.
+func (s *importSuite) TestTransformLegacyCharmContainerMountNullKey(c *tc.C) {
+	_, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		CharmContainerMount: []v4_0_12.CharmContainerMount{{
+			ArrayIndex: 3, CharmUUID: "charm-uuid",
+		}},
+	})
+	c.Check(err, tc.ErrorMatches,
+		`.*charm container mount 3 for charm "charm-uuid" has no container key`)
+}
+
 func (s *importSuite) bootstrapModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
@@ -379,4 +424,23 @@ func (s *importSuite) TestImportTransformsLegacyTextIDs(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(typ, tc.Equals, "integer", tc.Commentf("query: %s", q))
 	}
+}
+
+// transformLegacy encodes a 4.0.12 payload and takes it through decode and
+// transform to the latest export shape, as a migration from 4.0.12 does.
+func (s *importSuite) transformLegacy(c *tc.C, legacy v4_0_12.ModelExport) (latest.ModelExport, error) {
+	data, err := yaml.Marshal(legacy)
+	c.Assert(err, tc.ErrorIsNil)
+
+	payload, err := export.DecodePayload(semversion.MustParse("4.0.12"), data)
+	c.Assert(err, tc.ErrorIsNil)
+	transformer, err := modelimport.NewTransformer()
+	c.Assert(err, tc.ErrorIsNil)
+	transformed, err := transformer.Transform(c.Context(), semversion.MustParse("4.0.12"), payload)
+	if err != nil {
+		return latest.ModelExport{}, err
+	}
+	latestPayload, ok := transformed.(latest.ModelExport)
+	c.Assert(ok, tc.IsTrue)
+	return latestPayload, nil
 }

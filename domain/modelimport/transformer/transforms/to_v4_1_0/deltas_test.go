@@ -416,3 +416,44 @@ func (s *deltasSuite) TestRemovalEmpty(c *tc.C) {
 	c.Check(got, tc.NotNil)
 	c.Check(got, tc.HasLen, 0)
 }
+
+// TestCharmContainerMountCopiesKey verifies that every field is carried through
+// and the container key, now NOT NULL, is dereferenced.
+func (s *deltasSuite) TestCharmContainerMountCopiesKey(c *tc.C) {
+	src := []v4_0_12.CharmContainerMount{
+		{ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: new("c1"),
+			Storage: new("data"), Location: new("/data")},
+		{ArrayIndex: 1, CharmUUID: "charm-uuid", CharmContainerKey: new("c1")},
+	}
+
+	got, err := deltas{}.CharmContainerMount(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.CharmContainerMount{
+		{ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: "c1",
+			Storage: new("data"), Location: new("/data")},
+		{ArrayIndex: 1, CharmUUID: "charm-uuid", CharmContainerKey: "c1"},
+	})
+}
+
+// TestCharmContainerMountRejectsNullKey verifies that a mount without a
+// container key is rejected and that no partial result is returned.
+func (s *deltasSuite) TestCharmContainerMountRejectsNullKey(c *tc.C) {
+	src := []v4_0_12.CharmContainerMount{
+		{ArrayIndex: 0, CharmUUID: "charm-uuid", CharmContainerKey: new("c1")},
+		{ArrayIndex: 1, CharmUUID: "charm-uuid"},
+	}
+
+	got, err := deltas{}.CharmContainerMount(c.Context(), src, nil)
+	c.Check(err, tc.ErrorMatches,
+		`charm container mount 1 for charm "charm-uuid" has no container key`)
+	c.Check(got, tc.IsNil)
+}
+
+// TestCharmContainerMountEmpty verifies that a model without container mounts
+// produces an empty, non-nil slice, as the generated copy of other tables does.
+func (s *deltasSuite) TestCharmContainerMountEmpty(c *tc.C) {
+	got, err := deltas{}.CharmContainerMount(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.NotNil)
+	c.Check(got, tc.HasLen, 0)
+}
