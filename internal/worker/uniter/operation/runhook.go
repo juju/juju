@@ -107,11 +107,24 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	rh.name = name
 	rh.runner = rnr
 
-	return stateChange{
+	change := stateChange{
 		Kind: RunHook,
 		Step: Pending,
 		Hook: &rh.info,
-	}.apply(state), nil
+	}
+	if kind == hooks.UpdateStatus {
+		// The update-status hook is periodic and idempotent. If the
+		// unit agent is killed while the hook is in flight, the hook
+		// should be re-run on restart rather than be treated as a hook
+		// failure, so record it as queued rather than pending. The hook
+		// step is recorded too, so that a charm upgrade run in the
+		// meantime preserves the re-run intent (see deploy's Commit,
+		// which restores interrupted hooks at pending).
+		queued := Queued
+		change.Step = queued
+		change.HookStep = &queued
+	}
+	return change.apply(state), nil
 }
 
 // RunningHookMessage returns the info message to print when running a hook.
@@ -179,6 +192,19 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	default:
 		rh.logger.Errorf("hook %q (via %s) failed: %v", rh.name, handlerType, err)
 		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
+		if rh.info.Kind == hooks.UpdateStatus {
+			// The update-status hook is prepared as queued so that an
+			// interrupted hook is re-run rather than reported as an
+			// error; a genuine failure must therefore record pending
+			// itself to be treated as a hook error.
+			pending := Pending
+			return stateChange{
+				Kind:     RunHook,
+				Step:     pending,
+				Hook:     &rh.info,
+				HookStep: &pending,
+			}.apply(state), ErrHookFailed
+		}
 		return nil, ErrHookFailed
 	}
 
