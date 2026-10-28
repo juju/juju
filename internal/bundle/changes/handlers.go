@@ -180,7 +180,7 @@ func (r *resolver) handleApplications(ctx context.Context) (map[string]string, e
 			}
 		} else {
 			// Look for changes.
-			if ok, err := r.allowCharmUpgrade(ctx, existingApp, application, arch); err != nil {
+			if ok, err := r.allowCharmUpgrade(ctx, existingApp, application, arch, computedBase); err != nil {
 				return nil, errors.Trace(err)
 			} else if ok {
 				charmOrChange := application.Charm
@@ -275,7 +275,7 @@ func (r *resolver) handleApplications(ctx context.Context) (map[string]string, e
 	return addedApplications, nil
 }
 
-func (r *resolver) allowCharmUpgrade(ctx context.Context, existingApp *Application, bundleApp *charm.ApplicationSpec, bundleArch string) (bool, error) {
+func (r *resolver) allowCharmUpgrade(ctx context.Context, existingApp *Application, bundleApp *charm.ApplicationSpec, bundleArch string, computedBase corebase.Base) (bool, error) {
 	// This covers most of v1 charm URL changes, everything else below is to
 	// support channels. Charmstore charms allow channels, but bundles were not
 	// aware of them, with the introduction of Charmhub charms, then we do need
@@ -311,16 +311,17 @@ func (r *resolver) allowCharmUpgrade(ctx context.Context, existingApp *Applicati
 		if bundleApp.Revision != nil {
 			rev = *bundleApp.Revision
 		}
-		var (
-			err  error
-			base corebase.Base
-		)
-		if bundleApp.Base != "" {
-			base, err = corebase.ParseBaseFromString(bundleApp.Base)
-			if err != nil {
-				return false, errors.Trace(err)
-			}
+		base := computedBase
+		// If neither application.Base nor bundle.DefaultBase was specified,
+		// fall back to the existing application's base to preserve the workload.
+		// bundle.DefaultBase takes precedence over existingApp.Base because the
+		// incoming bundle specification represents the intended target state.
+		// Note: existingApp is guaranteed non-nil in production (called only in
+		// the else branch of existingApp == nil), but may be nil in direct unit tests.
+		if base == (corebase.Base{}) && existingApp != nil && existingApp.Base != (corebase.Base{}) {
+			base = existingApp.Base
 		}
+		var err error
 		resolvedChan, resolvedRev, err = r.charmResolver(ctx, bundleApp.Charm, base, bundleApp.Channel, bundleArch, rev)
 		if err != nil {
 			return false, errors.Trace(err)
