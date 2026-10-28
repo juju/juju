@@ -18,7 +18,10 @@ import (
 	crossmodelrelationstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/relation"
+	relationerrors "github.com/juju/juju/domain/relation/errors"
+	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	removalservice "github.com/juju/juju/domain/removal/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -41,6 +44,59 @@ func (s *remoteApplicationOffererSuite) TestGetRemoteApplicationOffererUUIDByApp
 
 	_, err = st.GetRemoteApplicationOffererUUIDByApplicationUUID(c.Context(), "not-today-henry")
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
+}
+
+func (s *remoteApplicationOffererSuite) TestRemoveRemoteApplicationOffererByApplicationUUIDDepartsSyntheticUnits(c *tc.C) {
+	relUUID, appUUID := s.createRelationWithRemoteOfferer(c)
+	logger := loggertesting.WrapCheckLog(c)
+	st := NewState(s.TxnRunnerFactory(), logger)
+	clock := testclock.NewClock(s.now)
+	svc := removalservice.NewWatchableService(
+		nil, st, nil, nil, nil, coremodel.UUID(s.ModelUUID()), clock, logger,
+	)
+
+	// Only synthetic units are in scope. UnitNamesInScope excludes them,
+	// but they still prevent the relation from being deleted.
+	inScope, err := st.UnitNamesInScope(c.Context(), relUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(inScope, tc.HasLen, 0)
+
+	// When the remote offer disappears, the consumer worker makes this
+	// request and terminates. Removal must finish without that worker
+	// departing the synthetic units on our behalf.
+	jobUUID, err := svc.RemoveRemoteApplicationOffererByApplicationUUID(
+		c.Context(), appUUID, true, time.Minute,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	clock.Advance(time.Minute)
+
+	jobs, err := svc.GetAllJobs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	var relationJobs, applicationJobs []removal.Job
+	for _, job := range jobs {
+		if job.EntityUUID == relUUID.String() && job.Force {
+			relationJobs = append(relationJobs, job)
+		}
+		if job.UUID == jobUUID {
+			applicationJobs = append(applicationJobs, job)
+		}
+	}
+	c.Assert(relationJobs, tc.HasLen, 1)
+	c.Assert(applicationJobs, tc.HasLen, 1)
+
+	// ExecuteJob returns nil for incomplete jobs too, so check that the
+	// relation and SAAS actually disappear from the database.
+	err = svc.ExecuteJob(c.Context(), relationJobs[0])
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = st.GetRelationLife(c.Context(), relUUID.String())
+	c.Check(err, tc.ErrorIs, relationerrors.RelationNotFound)
+
+	err = svc.ExecuteJob(c.Context(), applicationJobs[0])
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = st.GetRemoteApplicationOffererUUIDByApplicationUUID(
+		c.Context(), appUUID.String(),
+	)
+	c.Check(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
 }
 
 func (s *remoteApplicationOffererSuite) TestRemoteApplicationOffererExists(c *tc.C) {

@@ -263,6 +263,18 @@ func (st *State) addRelation(
 		return relUUID, errors.Errorf("relation %s %s: application %s is not alive", ep1, ep2, ep2.ApplicationName).
 			Add(applicationerrors.ApplicationNotAlive)
 	}
+	if alive, err := st.checkRemoteApplicationOffererAlive(ctx, tx, ep1.ApplicationUUID); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: cannot check remote application life: %w", ep1, ep2, err)
+	} else if !alive {
+		return relUUID, errors.Errorf("relation %s %s: remote application %s is not alive", ep1, ep2, ep1.ApplicationName).
+			Add(applicationerrors.ApplicationNotAlive)
+	}
+	if alive, err := st.checkRemoteApplicationOffererAlive(ctx, tx, ep2.ApplicationUUID); err != nil {
+		return relUUID, errors.Errorf("relation %s %s: cannot check remote application life: %w", ep1, ep2, err)
+	} else if !alive {
+		return relUUID, errors.Errorf("relation %s %s: remote application %s is not alive", ep1, ep2, ep2.ApplicationName).
+			Add(applicationerrors.ApplicationNotAlive)
+	}
 
 	// Check the application bases are compatible, if required
 	if err := st.checkCompatibleBases(ctx, tx, ep1, ep2); err != nil {
@@ -3318,6 +3330,45 @@ WHERE  main.uuid = $search.uuid
 		return false, errors.Errorf("query %q: %w", query, err)
 	}
 	return check(searched.Life), nil
+}
+
+// checkRemoteApplicationOffererAlive reports whether the remote application
+// offerer associated with the given application UUID is alive.
+//
+// If no application_remote_offerer row exists for the application UUID, the
+// function returns (true, nil). This is intentional: the call-site in
+// AddRelation invokes this check for both endpoints, one of which will always
+// be a local application with no offerer record. A missing row means the
+// application is not a SAAS, so the check does not apply and the relation
+// creation should proceed normally.
+func (st *State) checkRemoteApplicationOffererAlive(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID application.UUID,
+) (bool, error) {
+	type remoteApplicationOffererLife struct {
+		Life life.Value `db:"life"`
+	}
+
+	app := applicationUUID{UUID: appUUID.String()}
+	stmt, err := st.Prepare(`
+SELECT l.value AS &remoteApplicationOffererLife.life
+FROM   application_remote_offerer AS aro
+JOIN   life AS l ON aro.life_id = l.id
+WHERE  aro.application_uuid = $applicationUUID.application_uuid`, remoteApplicationOffererLife{}, app)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var remoteApp remoteApplicationOffererLife
+	err = tx.Query(ctx, stmt, app).Get(&remoteApp)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return true, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	return life.IsAlive(remoteApp.Life), nil
 }
 
 func (st *State) getAllNonSyntheticRelationsWithDetails(ctx context.Context, tx *sqlair.TX) ([]domainrelation.RelationDetailsResult, error) {

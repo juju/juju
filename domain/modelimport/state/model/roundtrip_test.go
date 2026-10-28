@@ -122,11 +122,65 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	c.Check(alphaSpaces, tc.Equals, 1)
 }
 
+// TestRemovalForceRoundTrip imports removal jobs with both force values and
+// asserts they are exported and stored as booleans.
+func (s *roundTripSuite) TestRemovalForceRoundTrip(c *tc.C) {
+	s.bootstrapModel(c)
+	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	payload := &v4_1_0.ModelExport{
+		Removal: []v4_1_0.Removal{
+			{UUID: "r-false", RemovalTypeID: 0, EntityUUID: "e1", Force: false, ScheduledFor: now},
+			{UUID: "r-true", RemovalTypeID: 0, EntityUUID: "e2", Force: true, ScheduledFor: now, Arg: new("{}")},
+		},
+	}
+
+	err := importstate.NewState(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.Removal, tc.SameContents, payload.Removal)
+
+	var stored map[string]bool
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx, `SELECT uuid, force FROM removal`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		stored = map[string]bool{}
+		for rows.Next() {
+			var uuid string
+			var force bool
+			if err := rows.Scan(&uuid, &force); err != nil {
+				return err
+			}
+			stored[uuid] = force
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(stored, tc.DeepEquals, map[string]bool{"r-false": false, "r-true": true})
+
+	// The booleans are persisted as the integers 0 and 1.
+	var raw int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM removal
+WHERE  (uuid = 'r-false' AND CAST(force AS TEXT) = '0' AND typeof(force) = 'integer')
+OR     (uuid = 'r-true'  AND CAST(force AS TEXT) = '1' AND typeof(force) = 'integer')
+`).Scan(&raw)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(raw, tc.Equals, 2)
+}
+
 func (s *roundTripSuite) bootstrapModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+VALUES (?, ?, 'test-model', 'test-qualifier', 'iaas', 'test-cloud', 'test-cloud-type')
 `, s.ModelUUID(), "controller-uuid"); err != nil {
 			return err
 		}

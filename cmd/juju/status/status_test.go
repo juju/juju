@@ -5,10 +5,11 @@ package status
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/api/client/client"
@@ -67,7 +68,8 @@ func (s *MinimalStatusSuite) runStatus(c *tc.C, args ...string) (*cmd.Context, e
 func (s *MinimalStatusSuite) TestGoodCall(c *tc.C) {
 	_, err := s.runStatus(c)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.clock.waits, tc.HasLen, 0)
+	c.Check(s.statusapi.calls, tc.Equals, 1)
+	c.Check(s.clock.waits, tc.HasLen, 0)
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *tc.C) {
@@ -79,7 +81,8 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *tc.C) {
 
 	context, err := s.runStatus(c, "--no-color", "--storage")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.clock.waits, tc.HasLen, 0)
+	c.Check(s.statusapi.calls, tc.Equals, 1)
+	c.Check(s.clock.waits, tc.HasLen, 0)
 
 	obtainedValid := cmdtesting.Stdout(context)
 	c.Assert(obtainedValid, tc.Equals, `
@@ -103,9 +106,9 @@ func (s *MinimalStatusSuite) TestRetryOnError(c *tc.C) {
 
 	_, err := s.runStatus(c, "--no-color")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.statusapi.calls, tc.Equals, 3)
 	delay := 100 * time.Millisecond
-	// Two delays of the default time.
-	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
+	c.Check(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
 }
 
 func (s *MinimalStatusSuite) TestRetryDelays(c *tc.C) {
@@ -116,8 +119,9 @@ func (s *MinimalStatusSuite) TestRetryDelays(c *tc.C) {
 
 	_, err := s.runStatus(c, "--no-color", "--retry-delay", "250ms")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.statusapi.calls, tc.Equals, 3)
 	delay := 250 * time.Millisecond
-	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
+	c.Check(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay})
 }
 
 func (s *MinimalStatusSuite) TestRetryCount(c *tc.C) {
@@ -132,23 +136,92 @@ func (s *MinimalStatusSuite) TestRetryCount(c *tc.C) {
 	}
 
 	_, err := s.runStatus(c, "--no-color", "--retry-count", "5")
-	c.Assert(err.Error(), tc.Equals, "error 6")
-	// We expect five waits of the default duration.
+	c.Assert(err, tc.ErrorMatches, "error 6")
+	c.Check(s.statusapi.calls, tc.Equals, 6)
 	delay := 100 * time.Millisecond
-	c.Assert(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay, delay, delay, delay})
+	c.Check(s.clock.waits, tc.DeepEquals, []time.Duration{delay, delay, delay, delay, delay})
 }
 
 func (s *MinimalStatusSuite) TestRetryCountOfZero(c *tc.C) {
 	s.statusapi.errors = []error{
 		errors.New("error 1"),
 		errors.New("error 2"),
-		errors.New("error 3"),
 	}
 
 	_, err := s.runStatus(c, "--no-color", "--retry-count", "0")
-	c.Assert(err.Error(), tc.Equals, "error 1")
-	// No delays.
-	c.Assert(s.clock.waits, tc.HasLen, 0)
+	c.Assert(err, tc.ErrorMatches, "error 1")
+	c.Check(s.statusapi.calls, tc.Equals, 1)
+	c.Check(s.clock.waits, tc.HasLen, 0)
+}
+
+func (s *MinimalStatusSuite) TestUnauthorizedErrorIsNotRetried(c *tc.C) {
+	rpcErr := &params.Error{Code: params.CodeUnauthorized, Message: "permission denied"}
+	loginErr := errors.Unauthorizedf("failed to authenticate request")
+	tests := []struct {
+		name          string
+		apiErrors     []error
+		expectedError error
+		expectedCalls int
+		expectedWaits []time.Duration
+	}{{
+		name:          "RPC unauthorized",
+		apiErrors:     []error{rpcErr},
+		expectedError: rpcErr,
+		expectedCalls: 1,
+	}, {
+		name:          "wrapped RPC unauthorized",
+		apiErrors:     []error{errors.Annotate(rpcErr, "getting status")},
+		expectedError: rpcErr,
+		expectedCalls: 1,
+	}, {
+		name:          "RPC unauthorized after transient error",
+		apiErrors:     []error{errors.New("boom"), rpcErr},
+		expectedError: rpcErr,
+		expectedCalls: 2,
+		expectedWaits: []time.Duration{100 * time.Millisecond},
+	}, {
+		name:          "login unauthorized",
+		apiErrors:     []error{loginErr, loginErr, loginErr, loginErr},
+		expectedError: loginErr,
+		expectedCalls: 1,
+	}, {
+		name:          "wrapped login unauthorized",
+		apiErrors:     []error{errors.Trace(errors.Annotate(loginErr, "getting status"))},
+		expectedError: loginErr,
+		expectedCalls: 1,
+	}, {
+		name:          "standard wrapped login unauthorized",
+		apiErrors:     []error{fmt.Errorf("getting status: %w", loginErr)},
+		expectedError: loginErr,
+		expectedCalls: 1,
+	}, {
+		name:          "login unauthorized after transient error",
+		apiErrors:     []error{errors.New("boom"), loginErr, loginErr, loginErr},
+		expectedError: loginErr,
+		expectedCalls: 2,
+		expectedWaits: []time.Duration{100 * time.Millisecond},
+	}}
+	for _, test := range tests {
+		s.statusapi.errors = test.apiErrors
+		s.statusapi.calls = 0
+		s.clock = &timeRecorder{}
+		comment := tc.Commentf("%s", test.name)
+
+		context, err := s.runStatus(c, "--no-color")
+		c.Check(err, tc.ErrorIs, test.expectedError, comment)
+		c.Check(s.statusapi.calls, tc.Equals, test.expectedCalls, comment)
+		c.Check(s.clock.waits, tc.DeepEquals, test.expectedWaits, comment)
+		c.Check(cmdtesting.Stdout(context), tc.Equals, "", comment)
+	}
+}
+
+func (s *MinimalStatusSuite) TestUnauthorizedMessageWithoutCodeIsRetried(c *tc.C) {
+	s.statusapi.errors = []error{errors.New(params.CodeUnauthorized)}
+
+	_, err := s.runStatus(c, "--no-color")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.statusapi.calls, tc.Equals, 2)
+	c.Check(s.clock.waits, tc.DeepEquals, []time.Duration{100 * time.Millisecond})
 }
 
 type fakeStatusAPI struct {
@@ -156,9 +229,11 @@ type fakeStatusAPI struct {
 	result               *params.FullStatus
 	patterns             []string
 	errors               []error
+	calls                int
 }
 
 func (f *fakeStatusAPI) Status(ctx context.Context, args *client.StatusArgs) (*params.FullStatus, error) {
+	f.calls++
 	if f.expectIncludeStorage != args.IncludeStorage {
 		return nil, errors.New("IncludeStorage arg mismatch")
 	}

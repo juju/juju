@@ -12,8 +12,10 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/api/controller/crossmodelrelations"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
@@ -163,6 +165,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+// setRemoteApplicationOffererStatusByUUIDService is the subset of the status
+// service consumed by GetCrossModelService to satisfy the
+// SetRemoteApplicationOffererStatusByApplicationUUID method on
+// CrossModelService.
+type setRemoteApplicationOffererStatusByUUIDService interface {
+	// SetRemoteApplicationOffererStatusByApplicationUUID uses immutable
+	// application identity to prevent a stale worker status update from being
+	// applied to a replacement application that reuses the same name.
+	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
+}
+
 // GetCrossModelService returns the cross-model relation services
 // from the dependency engine.
 func GetCrossModelService(getter dependency.Getter, domainServicesName string) (CrossModelService, error) {
@@ -176,13 +189,13 @@ func GetCrossModelService(getter dependency.Getter, domainServicesName string) (
 		CrossModelRelationService
 		RelationService
 		RemovalService
-		StatusService
+		setRemoteApplicationOffererStatusByUUIDService
 	}{
 		ApplicationService:        services.Application(),
 		CrossModelRelationService: services.CrossModelRelation(),
 		RelationService:           services.Relation(),
 		RemovalService:            services.Removal(),
-		StatusService:             services.Status(),
+		setRemoteApplicationOffererStatusByUUIDService: services.Status(),
 	}, nil
 }
 

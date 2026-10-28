@@ -45,7 +45,7 @@ Hn+GmxZA
 
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
-(?, "cert1", ?, 0)`, certUUID, x509Cert)
+(?, 'cert1', ?, 0)`, certUUID, x509Cert)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
@@ -67,7 +67,7 @@ abc123!?$*&()'-=@~;\|/"
 
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
-(?, "cert1", ?, 0)`, certUUID, specialCharsCert)
+(?, 'cert1', ?, 0)`, certUUID, specialCharsCert)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Retrieve the inserted cert.
@@ -165,7 +165,7 @@ Hn+GmxZA
 
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
-(?, "cert1", ?, 0)`, certUUID, x509Cert)
+(?, 'cert1', ?, 0)`, certUUID, x509Cert)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.
@@ -192,7 +192,7 @@ abc123!?$*&()'-=@~;\|/"
 
 	// Insert a cert.
 	_, err := db.Exec(`INSERT INTO autocert_cache VALUES
-(?, "cert1", ?, 0)`, certUUID, specialCharsCert)
+(?, 'cert1', ?, 0)`, certUUID, specialCharsCert)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Delete the inserted cert.

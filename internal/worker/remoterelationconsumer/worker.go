@@ -180,12 +180,13 @@ type CrossModelRelationService interface {
 	EnsureUnitsExist(ctx context.Context, appUUID application.UUID, units []unit.Name) error
 }
 
-// StatusService is an interface that defines the methods for
-// managing status directly on the local model database.
+// StatusService is the subset of the domain status service used by the remote
+// relation consumer worker to update remote application offerer status.
 type StatusService interface {
-	// SetRemoteApplicationOffererStatus sets the status of the specified remote
-	// application in the local model.
-	SetRemoteApplicationOffererStatus(ctx context.Context, appName string, sts status.StatusInfo) error
+	// SetRemoteApplicationOffererStatusByApplicationUUID uses the immutable
+	// application identity so a stale worker cannot apply a status update to a
+	// replacement application that reused the same name.
+	SetRemoteApplicationOffererStatusByApplicationUUID(ctx context.Context, appUUID application.UUID, sts status.StatusInfo) error
 }
 
 // RemovalService is an interface that defines the methods for
@@ -283,10 +284,10 @@ func NewWorker(config Config) (ReportableWorker, error) {
 		// Only restart if the worker has not indicated that it should not
 		// be restarted.
 		ShouldRestart: func(err error) bool {
-			if internalworker.ShouldRunnerRestart(err) {
-				return true
+			if errors.Is(err, RemoteApplicationOffererDeadErr) {
+				return false
 			}
-			return !errors.Is(err, RemoteApplicationOffererDeadErr)
+			return internalworker.ShouldRunnerRestart(err)
 		},
 
 		// For any failures, try again in 15 seconds.

@@ -33,7 +33,7 @@ CREATE TABLE removal (
     uuid TEXT NOT NULL PRIMARY KEY,
     removal_type_id INT NOT NULL,
     entity_uuid TEXT NOT NULL,
-    force INT NOT NULL DEFAULT 0,
+    force BOOLEAN NOT NULL DEFAULT FALSE,
     -- Indicates when the job should be actioned by the worker,
     -- allowing us to schedule removals in the future.
     scheduled_for DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),

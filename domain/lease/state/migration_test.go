@@ -36,13 +36,7 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModel(c *tc.C) {
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(`
-INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
-`, modelUUID)
-		return err
-	})
+	s.insertLease(c, "1", 1, modelUUID, "foo", "unit", "-1 hour", "+1 day")
 
 	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -56,20 +50,8 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelSingularControllerT
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(`
-INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-VALUES ('1', 1, ?, 'foo', 'unit', date('now'), date('now', '+1 day'))
-`, modelUUID)
-		if err != nil {
-			return err
-		}
-		_, err = tx.Exec(`
-INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-VALUES ('2', 0, ?, 'controller', 'abc', date('now'), date('now', '+1 day'))
-`, modelUUID)
-		return err
-	})
+	s.insertLease(c, "1", 1, modelUUID, "foo", "unit", "-1 hour", "+1 day")
+	s.insertLease(c, "2", 0, modelUUID, "controller", "abc", "-1 hour", "+1 day")
 
 	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -83,15 +65,45 @@ func (s *migrationSuite) TestGetApplicationLeadershipForModelExpired(c *tc.C) {
 
 	state := NewMigrationState(s.TxnRunnerFactory())
 
-	s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(`
-INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-VALUES ('1', 1, ?, 'foo', 'unit', date('now', '-2 day'), date('now', '-1 day'))
-`, modelUUID)
-		return err
-	})
+	s.insertLease(c, "1", 1, modelUUID, "foo", "unit", "-2 day", "-1 day")
 
 	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(leases, tc.HasLen, 0)
+}
+
+func (s *migrationSuite) TestGetApplicationLeadershipForModelHeldAndExpired(c *tc.C) {
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	otherUUID := tc.Must0(c, coremodel.NewUUID)
+
+	state := NewMigrationState(s.TxnRunnerFactory())
+
+	s.insertLease(c, "1", 1, modelUUID, "held", "held/0", "-1 hour", "+1 day")
+	s.insertLease(c, "2", 1, modelUUID, "expired", "expired/0", "-2 day", "-1 day")
+	s.insertLease(c, "3", 1, otherUUID, "other", "other/0", "-1 hour", "+1 day")
+
+	leases, err := state.GetApplicationLeadershipForModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(leases, tc.DeepEquals, map[string]string{
+		"held": "held/0",
+	})
+}
+
+// insertLease inserts a lease, with start and expiry given as SQLite
+// datetime modifiers relative to now.
+func (s *migrationSuite) insertLease(
+	c *tc.C,
+	uuid string,
+	leaseType int,
+	modelUUID coremodel.UUID,
+	name, holder, startOffset, expiryOffset string,
+) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
+VALUES (?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?))
+`, uuid, leaseType, modelUUID, name, holder, startOffset, expiryOffset)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }

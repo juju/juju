@@ -130,7 +130,8 @@ SELECT $userPublicKeyInsert.comment,
        s.id	
 FROM ssh_fingerprint_hash_algorithm s
 WHERE s.algorithm = $userPublicKeyInsert.algorithm
-`, userPublicKeyInsert{})
+RETURNING &userPublicKeyId.id
+`, userPublicKeyInsert{}, userPublicKeyId{})
 
 	if err != nil {
 		return 0, errors.Errorf(
@@ -167,24 +168,21 @@ AND fingerprint = $userPublicKeyInsert.fingerprint
 		)
 	}
 
-	outcome := sqlair.Outcome{}
-	err = tx.Query(ctx, insertStmt, key).Get(&outcome)
-	if err != nil {
+	inserted := userPublicKeyId{}
+	err = tx.Query(ctx, insertStmt, key).Get(&inserted)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		// No row was inserted because the fingerprint hash algorithm
+		// is not known.
+		return 0, errors.Errorf(
+			"unknown fingerprint hash algorithm %q for public key on user %q",
+			key.FingerprintHashAlgorithm, key.UserId,
+		).Add(keyerrors.InvalidPublicKey)
+	} else if err != nil {
 		return 0, errors.Errorf(
 			"inserting public key for user %q: %w", key.UserId, err,
 		)
 	}
-
-	var lastInsertId int64
-	lastInsertId, err = outcome.Result().LastInsertId()
-
-	if err != nil {
-		return 0, errors.Errorf(
-			"fetching id for newly inserted public key on user %q: %w",
-			key.UserId, err,
-		)
-	}
-	return lastInsertId, nil
+	return inserted.Id, nil
 }
 
 // AddPublicKeyForUser is responsible for adding one or more ssh public keys for
@@ -651,7 +649,7 @@ AND id IN (SELECT id
            FROM user_public_ssh_key AS upsk
            LEFT JOIN model_authorized_keys AS mak ON upsk.id = mak.user_public_ssh_key_id
            GROUP BY (id)
-           HAVING count(user_public_ssh_key_id) == 0)
+           HAVING count(user_public_ssh_key_id) = 0)
 `, userUUIDVal)
 
 	if err != nil {

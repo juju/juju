@@ -223,7 +223,7 @@ func (w *WatchableService) WatchDyingModel(ctx context.Context) (watcher.NotifyW
 	return w.watcherFactory.NewNotifyWatcher(
 		ctx,
 		"watch model dying",
-		eventsource.NamespaceFilter("model_life", changestream.All),
+		eventsource.NamespaceFilter(w.modelState.NamespaceModelLife(), changestream.All),
 	)
 }
 

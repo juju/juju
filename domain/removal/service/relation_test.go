@@ -4,6 +4,7 @@
 package service
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
+	"github.com/juju/juju/domain/removal/internal"
 )
 
 type relationSuite struct {
@@ -36,6 +38,7 @@ func (s *relationSuite) TestRemoveRelationNoForceSuccess(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.RelationExists(gomock.Any(), rUUID.String()).Return(true, nil)
 	exp.EnsureRelationNotAlive(gomock.Any(), rUUID.String()).Return(nil)
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindOrdinary, nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelation(c.Context(), rUUID, false, 0)
@@ -54,6 +57,7 @@ func (s *relationSuite) TestRemoveRelationForceNoWaitSuccess(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.RelationExists(gomock.Any(), rUUID.String()).Return(true, nil)
 	exp.EnsureRelationNotAlive(gomock.Any(), rUUID.String()).Return(nil)
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindOrdinary, nil)
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), true, when.UTC()).Return(nil)
 
 	jobUUID, err := s.newService(c).RemoveRelation(c.Context(), rUUID, true, 0)
@@ -72,6 +76,7 @@ func (s *relationSuite) TestRemoveRelationForceWaitSuccess(c *tc.C) {
 	exp := s.modelState.EXPECT()
 	exp.RelationExists(gomock.Any(), rUUID.String()).Return(true, nil)
 	exp.EnsureRelationNotAlive(gomock.Any(), rUUID.String()).Return(nil)
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindOrdinary, nil).Times(2)
 
 	// The first normal removal scheduled immediately.
 	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
@@ -92,6 +97,95 @@ func (s *relationSuite) TestRemoveRelationNotFound(c *tc.C) {
 
 	_, err := s.newService(c).RemoveRelation(c.Context(), rUUID, false, 0)
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+}
+
+func (s *relationSuite) TestRelationScheduleRemovalOrdinaryRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rUUID := relationtesting.GenRelationUUID(c)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	exp := s.modelState.EXPECT()
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindOrdinary, nil)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).relationScheduleRemoval(c.Context(), rUUID, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestRelationScheduleRemovalRelationWithRemoteOfferer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rUUID := relationtesting.GenRelationUUID(c)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	// Cross-model relations are routed to the remote offerer removal
+	// path: the plain relation removal job cannot delete their CMR
+	// children.
+	exp := s.modelState.EXPECT()
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindWithRemoteOfferer, nil)
+	exp.RelationWithRemoteOffererScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).relationScheduleRemoval(c.Context(), rUUID, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestRelationScheduleRemovalRelationWithRemoteConsumer(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rUUID := relationtesting.GenRelationUUID(c)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	// Cross-model relations are routed to the remote consumer removal
+	// path: the plain relation removal job cannot delete their CMR
+	// children.
+	exp := s.modelState.EXPECT()
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindWithRemoteConsumer, nil)
+	exp.RelationWithRemoteConsumerScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).relationScheduleRemoval(c.Context(), rUUID, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestRelationScheduleRemovalAlreadyRemovedRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rUUID := relationtesting.GenRelationUUID(c)
+
+	when := time.Now()
+	s.clock.EXPECT().Now().Return(when)
+
+	// A relation removed by another process is scheduled on the plain
+	// relation removal path anyway: the job executor sees the relation
+	// is gone and deletes the job.
+	exp := s.modelState.EXPECT()
+	exp.GetRelationKind(gomock.Any(), rUUID.String()).Return(internal.RelationKindOrdinary, relationerrors.RelationNotFound)
+	exp.RelationScheduleRemoval(gomock.Any(), gomock.Any(), rUUID.String(), false, when.UTC()).Return(nil)
+
+	jobUUID, err := s.newService(c).relationScheduleRemoval(c.Context(), rUUID, false, 0)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(jobUUID.Validate(), tc.ErrorIsNil)
+}
+
+func (s *relationSuite) TestRelationScheduleRemovalKindError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rUUID := relationtesting.GenRelationUUID(c)
+
+	s.modelState.EXPECT().GetRelationKind(gomock.Any(), rUUID.String()).Return(
+		internal.RelationKindOrdinary, errors.New("front fell off"))
+
+	_, err := s.newService(c).relationScheduleRemoval(c.Context(), rUUID, false, 0)
+	c.Assert(err, tc.ErrorMatches, ".*front fell off")
 }
 
 func (s *relationSuite) TestLeaveScope(c *tc.C) {
