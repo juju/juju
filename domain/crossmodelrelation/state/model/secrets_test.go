@@ -831,7 +831,7 @@ func (s *modelSecretsSuite) setupSecretAccess(c *tc.C, uri *coresecrets.URI, uni
 		modelUUID := tc.Must0(c, coremodel.NewUUID)
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid,  name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
+			VALUES (?, ?, 'test', 'prod', 'iaas', 'test-model', 'ec2')
 		`, modelUUID.String(), coretesting.ControllerTag.Id())
 		if err != nil {
 			return err

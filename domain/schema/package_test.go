@@ -138,6 +138,24 @@ AND    changed = ?`, nsID, changed)
 	s.clearChangeEvents(c, nsID, changed)
 }
 
+// assertNoChangeEvent asserts that no change event exists for the provided
+// namespace and changed value.
+func (s *schemaBaseSuite) assertNoChangeEvent(
+	c *tc.C, namespace string, changed string,
+) {
+	nsID := s.getNamespaceID(c, namespace)
+
+	row := s.DB().QueryRow(`
+SELECT COUNT(*)
+FROM   change_log
+WHERE  namespace_id = ?
+AND    changed = ?`, nsID, changed)
+	var count int
+	err := row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 // newNetNode creates a new net node in the model. The net node is not
 // associated with any machine or units.
 func (s *schemaBaseSuite) newNetNode(c *tc.C) string {

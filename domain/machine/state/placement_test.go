@@ -436,7 +436,7 @@ func (s *placementSuite) TestPlaceNetNodeMachinesContainerInvalidArch(c *tc.C) {
 	// Arrange: Mark the machine hw characteristics as arm64. This is needed
 	// since this is only filled in when the instance is created.
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `UPDATE machine_cloud_instance SET arch = "arm64"`)
+		_, err := tx.ExecContext(ctx, `UPDATE machine_cloud_instance SET arch = 'arm64'`)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

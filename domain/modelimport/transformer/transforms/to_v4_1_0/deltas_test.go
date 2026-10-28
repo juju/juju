@@ -4,6 +4,8 @@
 package to_v4_1_0
 
 import (
+	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -207,4 +209,48 @@ func (s *deltasSuite) TestUnitResourceBreaksEqualTimestampTieByUUID(c *tc.C) {
 			AddedAt:           addedAt,
 		}})
 	}
+}
+
+// TestRemovalConvertsForceToBoolean verifies that the legacy integer flag maps
+// 0 to false and 1 to true, and that every other field is carried unchanged.
+func (s *deltasSuite) TestRemovalConvertsForceToBoolean(c *tc.C) {
+	scheduled := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	src := []v4_0_12.Removal{
+		{UUID: "a", RemovalTypeID: 1, EntityUUID: "e1", Force: 0, ScheduledFor: scheduled},
+		{UUID: "b", RemovalTypeID: 2, EntityUUID: "e2", Force: 1, ScheduledFor: scheduled, Arg: new("{}")},
+	}
+
+	got, err := deltas{}.Removal(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.Removal{
+		{UUID: "a", RemovalTypeID: 1, EntityUUID: "e1", Force: false, ScheduledFor: scheduled},
+		{UUID: "b", RemovalTypeID: 2, EntityUUID: "e2", Force: true, ScheduledFor: scheduled, Arg: new("{}")},
+	})
+}
+
+// TestRemovalRejectsInvalidForce verifies that any value other than 0 or 1 is
+// rejected, naming the offending job, and that no partial result is returned
+// even when valid rows precede the invalid one.
+func (s *deltasSuite) TestRemovalRejectsInvalidForce(c *tc.C) {
+	for _, force := range []int64{-1, 2, 100, math.MinInt64, math.MaxInt64} {
+		src := []v4_0_12.Removal{
+			{UUID: "valid-false", Force: 0},
+			{UUID: "valid-true", Force: 1},
+			{UUID: "invalid", Force: force},
+		}
+
+		got, err := deltas{}.Removal(c.Context(), src, nil)
+		c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+			`invalid removal force value %d for "invalid": expected 0 or 1`, force))
+		c.Check(got, tc.IsNil)
+	}
+}
+
+// TestRemovalEmpty verifies that a model without removal jobs produces an
+// empty, non-nil slice, as the generated copy of other tables does.
+func (s *deltasSuite) TestRemovalEmpty(c *tc.C) {
+	got, err := deltas{}.Removal(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.NotNil)
+	c.Check(got, tc.HasLen, 0)
 }
