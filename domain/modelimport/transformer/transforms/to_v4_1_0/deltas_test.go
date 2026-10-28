@@ -498,3 +498,99 @@ func (s *deltasSuite) TestCharmContainerMountEmpty(c *tc.C) {
 	c.Check(got, tc.NotNil)
 	c.Check(got, tc.HasLen, 0)
 }
+
+// TestApplicationExposedEndpointSpaceKeepsEndpointRows verifies that only rows
+// exposing a specific endpoint are carried into the per-endpoint table.
+func (s *deltasSuite) TestApplicationExposedEndpointSpaceKeepsEndpointRows(c *tc.C) {
+	src := []v4_0_12.ApplicationExposedEndpointSpace{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), SpaceUUID: "space0"},
+		{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+	}
+
+	got, err := deltas{}.ApplicationExposedEndpointSpace(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointSpace{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "ep-uuid", SpaceUUID: "space0"},
+	})
+}
+
+// TestApplicationExposedEndpointCidrKeepsEndpointRows verifies that only rows
+// exposing a specific endpoint are carried into the per-endpoint table.
+func (s *deltasSuite) TestApplicationExposedEndpointCidrKeepsEndpointRows(c *tc.C) {
+	src := []v4_0_12.ApplicationExposedEndpointCidr{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), Cidr: "10.0.0.0/24"},
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+	}
+
+	got, err := deltas{}.ApplicationExposedEndpointCidr(c.Context(), src, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointCidr{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "ep-uuid", Cidr: "10.0.0.0/24"},
+	})
+}
+
+// TestApplicationExposedSpaceFromWildcardRows verifies that rows without an
+// endpoint become exposure on all endpoints, collapsing duplicates that the
+// 4.0.12 primary key permitted.
+func (s *deltasSuite) TestApplicationExposedSpaceFromWildcardRows(c *tc.C) {
+	src := &v4_0_12.ModelExport{
+		ApplicationExposedEndpointSpace: []v4_0_12.ApplicationExposedEndpointSpace{
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), SpaceUUID: "space0"},
+			{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+			{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+			{ApplicationUUID: "other-uuid", SpaceUUID: "space1"},
+		},
+	}
+
+	got, err := deltas{}.ApplicationExposedSpace(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedSpace{
+		{ApplicationUUID: "app-uuid", SpaceUUID: "space1"},
+		{ApplicationUUID: "other-uuid", SpaceUUID: "space1"},
+	})
+}
+
+// TestApplicationExposedCidrFromWildcardRows verifies that rows without an
+// endpoint become exposure on all endpoints, collapsing duplicates that the
+// 4.0.12 primary key permitted.
+func (s *deltasSuite) TestApplicationExposedCidrFromWildcardRows(c *tc.C) {
+	src := &v4_0_12.ModelExport{
+		ApplicationExposedEndpointCidr: []v4_0_12.ApplicationExposedEndpointCidr{
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("ep-uuid"), Cidr: "10.0.0.0/24"},
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.2.0/24"},
+		},
+	}
+
+	got, err := deltas{}.ApplicationExposedCidr(c.Context(), src)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.ApplicationExposedCidr{
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.1.0/24"},
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.2.0/24"},
+	})
+}
+
+// TestApplicationExposedEmpty verifies that a model without exposure produces
+// empty, non-nil slices for every exposure table.
+func (s *deltasSuite) TestApplicationExposedEmpty(c *tc.C) {
+	endpointSpaces, err := deltas{}.ApplicationExposedEndpointSpace(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpointSpaces, tc.NotNil)
+	c.Check(endpointSpaces, tc.HasLen, 0)
+
+	endpointCIDRs, err := deltas{}.ApplicationExposedEndpointCidr(c.Context(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(endpointCIDRs, tc.NotNil)
+	c.Check(endpointCIDRs, tc.HasLen, 0)
+
+	spaces, err := deltas{}.ApplicationExposedSpace(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(spaces, tc.NotNil)
+	c.Check(spaces, tc.HasLen, 0)
+
+	cidrs, err := deltas{}.ApplicationExposedCidr(c.Context(), &v4_0_12.ModelExport{})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cidrs, tc.NotNil)
+	c.Check(cidrs, tc.HasLen, 0)
+}

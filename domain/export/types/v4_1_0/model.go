@@ -124,16 +124,26 @@ type ApplicationEndpoint struct {
 	CharmRelationUUID string  `db:"charm_relation_uuid" json:"charm_relation_uuid" yaml:"charm_relation_uuid"`
 }
 
+type ApplicationExposedCidr struct {
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	Cidr            string `db:"cidr" json:"cidr" yaml:"cidr"`
+}
+
 type ApplicationExposedEndpointCidr struct {
-	ApplicationUUID         string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
-	ApplicationEndpointUUID *string `db:"application_endpoint_uuid" json:"application_endpoint_uuid" yaml:"application_endpoint_uuid"`
-	Cidr                    string  `db:"cidr" json:"cidr" yaml:"cidr"`
+	ApplicationUUID         string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	ApplicationEndpointUUID string `db:"application_endpoint_uuid" json:"application_endpoint_uuid" yaml:"application_endpoint_uuid"`
+	Cidr                    string `db:"cidr" json:"cidr" yaml:"cidr"`
 }
 
 type ApplicationExposedEndpointSpace struct {
-	ApplicationUUID         string  `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
-	ApplicationEndpointUUID *string `db:"application_endpoint_uuid" json:"application_endpoint_uuid" yaml:"application_endpoint_uuid"`
-	SpaceUUID               string  `db:"space_uuid" json:"space_uuid" yaml:"space_uuid"`
+	ApplicationUUID         string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	ApplicationEndpointUUID string `db:"application_endpoint_uuid" json:"application_endpoint_uuid" yaml:"application_endpoint_uuid"`
+	SpaceUUID               string `db:"space_uuid" json:"space_uuid" yaml:"space_uuid"`
+}
+
+type ApplicationExposedSpace struct {
+	ApplicationUUID string `db:"application_uuid" json:"application_uuid" yaml:"application_uuid"`
+	SpaceUUID       string `db:"space_uuid" json:"space_uuid" yaml:"space_uuid"`
 }
 
 type ApplicationExtraEndpoint struct {
@@ -1659,8 +1669,10 @@ type ModelExport struct {
 	ApplicationConstraint                    []ApplicationConstraint                    `json:"application_constraint" yaml:"application_constraint"`
 	ApplicationController                    []ApplicationController                    `json:"application_controller" yaml:"application_controller"`
 	ApplicationEndpoint                      []ApplicationEndpoint                      `json:"application_endpoint" yaml:"application_endpoint"`
+	ApplicationExposedCidr                   []ApplicationExposedCidr                   `json:"application_exposed_cidr" yaml:"application_exposed_cidr"`
 	ApplicationExposedEndpointCidr           []ApplicationExposedEndpointCidr           `json:"application_exposed_endpoint_cidr" yaml:"application_exposed_endpoint_cidr"`
 	ApplicationExposedEndpointSpace          []ApplicationExposedEndpointSpace          `json:"application_exposed_endpoint_space" yaml:"application_exposed_endpoint_space"`
+	ApplicationExposedSpace                  []ApplicationExposedSpace                  `json:"application_exposed_space" yaml:"application_exposed_space"`
 	ApplicationExtraEndpoint                 []ApplicationExtraEndpoint                 `json:"application_extra_endpoint" yaml:"application_extra_endpoint"`
 	ApplicationK8sResourcesManaged           []ApplicationK8sResourcesManaged           `json:"application_k8s_resources_managed" yaml:"application_k8s_resources_managed"`
 	ApplicationPlatform                      []ApplicationPlatform                      `json:"application_platform" yaml:"application_platform"`

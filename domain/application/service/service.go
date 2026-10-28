@@ -757,20 +757,23 @@ func (s *WatchableService) WatchApplicationExposed(ctx context.Context, name str
 		return nil, errors.Errorf("getting ID of application %s: %w", name, err)
 	}
 
-	exposedToSpaces, exposedToCIDRs := s.st.NamespaceForWatchApplicationExposed()
+	namespaces := s.st.NamespaceForWatchApplicationExposed()
+	filters := make([]eventsource.FilterOption, 0, len(namespaces))
+	for _, namespace := range namespaces {
+		filters = append(filters, eventsource.PredicateFilter(
+			namespace,
+			changestream.All,
+			eventsource.EqualsPredicate(uuid.String()),
+		))
+	}
+	if len(filters) == 0 {
+		return nil, errors.Errorf("no namespaces to watch for application %q exposed changes", name)
+	}
 	return s.watcherFactory.NewNotifyWatcher(
 		ctx,
 		fmt.Sprintf("application exposed watcher for %q", name),
-		eventsource.PredicateFilter(
-			exposedToSpaces,
-			changestream.All,
-			eventsource.EqualsPredicate(uuid.String()),
-		),
-		eventsource.PredicateFilter(
-			exposedToCIDRs,
-			changestream.All,
-			eventsource.EqualsPredicate(uuid.String()),
-		),
+		filters[0],
+		filters[1:]...,
 	)
 }
 

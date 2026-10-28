@@ -560,6 +560,104 @@ func (s *exposedStateSuite) TestMergeExposeSettingsDifferentEndpointsNotOverwrit
 	c.Check(exposedEndpoints["endpoint1"].ExposeToSpaceIDs.IsEmpty(), tc.IsTrue)
 }
 
+// TestMergeExposeSettingsStoredByScope verifies that exposure on all endpoints
+// is stored against the application, and exposure on a specific endpoint
+// against that endpoint.
+func (s *exposedStateSuite) TestMergeExposeSettingsStoredByScope(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+	s.setUpEndpoint(c, appID)
+
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+		},
+		"endpoint0": {
+			ExposeToCIDRs: set.NewStrings("10.0.0.0/24"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.countExposedRows(c, "application_exposed_cidr", appID), tc.Equals, 2)
+	c.Check(s.countExposedRows(c, "application_exposed_space", appID), tc.Equals, 1)
+	c.Check(s.countExposedRows(c, "application_exposed_endpoint_cidr", appID), tc.Equals, 1)
+	c.Check(s.countExposedRows(c, "application_exposed_endpoint_space", appID), tc.Equals, 0)
+
+	all, err := s.state.GetAllExposedEndpoints(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(all, tc.HasLen, 1)
+	c.Check(all["foo"], tc.HasLen, 2)
+	c.Check(all["foo"][""].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"192.168.0.0/24", "192.168.1.0/24"})
+	c.Check(all["foo"][""].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
+	c.Check(all["foo"]["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24"})
+	c.Check(all["foo"]["endpoint0"].ExposeToSpaceIDs.IsEmpty(), tc.IsTrue)
+}
+
+// TestUnsetExposeSettingsWildcardKeepsEndpoints verifies that unsetting
+// exposure on all endpoints leaves exposure on specific endpoints untouched.
+func (s *exposedStateSuite) TestUnsetExposeSettingsWildcardKeepsEndpoints(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+	s.setUpEndpoint(c, appID)
+	s.createExposedEndpointSpace(c, appID)
+	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
+
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings(""))
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.countExposedRows(c, "application_exposed_cidr", appID), tc.Equals, 0)
+	c.Check(s.countExposedRows(c, "application_exposed_space", appID), tc.Equals, 0)
+
+	exposedEndpoints, err := s.state.GetExposedEndpoints(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exposedEndpoints, tc.HasLen, 1)
+	c.Check(exposedEndpoints["endpoint0"].ExposeToCIDRs.SortedValues(), tc.DeepEquals, []string{"10.0.0.0/24"})
+	c.Check(exposedEndpoints["endpoint0"].ExposeToSpaceIDs.SortedValues(), tc.DeepEquals, []string{"space0-uuid"})
+}
+
+// TestUnsetExposeSettingsAllScopes verifies that unsetting all exposure
+// removes exposure on all endpoints as well as on specific endpoints.
+func (s *exposedStateSuite) TestUnsetExposeSettingsAllScopes(c *tc.C) {
+	appID := s.createIAASApplication(c, "foo", life.Alive)
+	s.setUpEndpoint(c, appID)
+	s.createExposedEndpointSpace(c, appID)
+	s.createExposedEndpointCIDR(c, appID, "10.0.0.0/24")
+
+	err := s.state.MergeExposeSettings(c.Context(), appID, map[string]application.ExposedEndpoint{
+		"": {
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("space0-uuid"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.UnsetExposeSettings(c.Context(), appID, set.NewStrings())
+	c.Assert(err, tc.ErrorIsNil)
+
+	isExposed, err := s.state.IsApplicationExposed(c.Context(), appID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(isExposed, tc.IsFalse)
+	c.Check(s.countExposedRows(c, "application_exposed_cidr", appID), tc.Equals, 0)
+	c.Check(s.countExposedRows(c, "application_exposed_space", appID), tc.Equals, 0)
+}
+
+func (s *exposedStateSuite) countExposedRows(c *tc.C, table string, appID coreapplication.UUID) int {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		query := fmt.Sprintf(`SELECT COUNT(*) FROM %s WHERE application_uuid = ?`, table)
+		return tx.QueryRowContext(ctx, query, appID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return count
+}
+
 func (s *exposedStateSuite) setUpEndpoint(c *tc.C, appID coreapplication.UUID) {
 	s.setUpEndpointWithSuffix(c, appID, "0")
 }

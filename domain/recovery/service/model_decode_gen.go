@@ -141,6 +141,12 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.ApplicationEndpoint = decoded
+		case "application_exposed_cidr":
+			decoded, err := decodeRows[exporttypes.ApplicationExposedCidr](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ApplicationExposedCidr = decoded
 		case "application_exposed_endpoint_cidr":
 			decoded, err := decodeRows[exporttypes.ApplicationExposedEndpointCidr](rows)
 			if err != nil {
@@ -153,6 +159,12 @@ func decodeModelDump(dump *dump) (*recovery.ModelDump, error) {
 				return nil, errors.Errorf("table %q: %w", table, err)
 			}
 			out.ApplicationExposedEndpointSpace = decoded
+		case "application_exposed_space":
+			decoded, err := decodeRows[exporttypes.ApplicationExposedSpace](rows)
+			if err != nil {
+				return nil, errors.Errorf("table %q: %w", table, err)
+			}
+			out.ApplicationExposedSpace = decoded
 		case "application_extra_endpoint":
 			decoded, err := decodeRows[exporttypes.ApplicationExtraEndpoint](rows)
 			if err != nil {

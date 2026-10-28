@@ -75,7 +75,8 @@ func (st *State) checkRemoveSpace(ctx context.Context,
 // - if any application have a space constraint on it, they will be removed
 // - if any application is bound to the space, it will be set to the alpha space
 // - if any application endpoint is bound to space, binding will be removed
-// - if any application exposed endpoint is bound to the space, it will be set to the alpha space
+// - if any application or application endpoint is exposed to the space, it
+// will be exposed to the alpha space instead
 // - Any subnets belonging to the space will be moved to alpha space.
 // - Any provider id for the space will be removed
 func (st *State) deleteSpace(ctx context.Context,
@@ -102,7 +103,7 @@ func (st *State) deleteSpace(ctx context.Context,
 	}
 
 	// Update application exposed endpoints to use the alpha space
-	if err := st.resetSpaceReference(ctx, tx, "application_exposed_endpoint_space", toDelete); err != nil {
+	if err := st.resetExposedSpaceReferences(ctx, tx, toDelete); err != nil {
 		return errors.Errorf("updating application exposed endpoints: %w", err)
 	}
 
@@ -169,6 +170,47 @@ WHERE space = $space.name`, spaceToDelete)
 		return errors.Capture(err)
 	}
 
+	return nil
+}
+
+// resetExposedSpaceReferences exposes applications and application endpoints
+// exposed to the given space to the alpha space instead. Exposure to the given
+// space that is already matched by exposure to the alpha space is removed
+// first, as moving it would duplicate a primary key.
+func (st *State) resetExposedSpaceReferences(ctx context.Context, tx *sqlair.TX, spaceToDelete space) error {
+	alphaUUID := entityUUID{UUID: network.AlphaSpaceId.String()}
+
+	dedupeQueries := []string{`
+DELETE FROM application_exposed_space
+WHERE space_uuid = $space.uuid
+AND EXISTS (
+    SELECT 1 FROM application_exposed_space AS a
+    WHERE a.application_uuid = application_exposed_space.application_uuid
+    AND a.space_uuid = $entityUUID.uuid
+)`, `
+DELETE FROM application_exposed_endpoint_space
+WHERE space_uuid = $space.uuid
+AND EXISTS (
+    SELECT 1 FROM application_exposed_endpoint_space AS a
+    WHERE a.application_uuid = application_exposed_endpoint_space.application_uuid
+    AND a.application_endpoint_uuid = application_exposed_endpoint_space.application_endpoint_uuid
+    AND a.space_uuid = $entityUUID.uuid
+)`}
+	for _, query := range dedupeQueries {
+		stmt, err := st.Prepare(query, spaceToDelete, alphaUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if err := tx.Query(ctx, stmt, spaceToDelete, alphaUUID).Run(); err != nil {
+			return errors.Capture(err)
+		}
+	}
+
+	for _, table := range []string{"application_exposed_space", "application_exposed_endpoint_space"} {
+		if err := st.resetSpaceReference(ctx, tx, table, spaceToDelete); err != nil {
+			return errors.Capture(err)
+		}
+	}
 	return nil
 }
 
@@ -307,6 +349,8 @@ bindings AS (
     SELECT application_uuid, space_uuid FROM application_endpoint
     UNION ALL
     SELECT application_uuid, space_uuid FROM application_extra_endpoint
+    UNION ALL
+    SELECT application_uuid, space_uuid FROM application_exposed_space
     UNION ALL
     SELECT application_uuid, space_uuid FROM application_exposed_endpoint_space
 )

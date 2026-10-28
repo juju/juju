@@ -21,6 +21,10 @@ import (
 type Deltas interface {
 	// ApplicationAgent: struct shape changed in 4.1.0.
 	ApplicationAgent(ctx context.Context, src []v4_0_12.ApplicationAgent, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationAgent, error)
+	// ApplicationExposedEndpointCidr: struct shape changed in 4.1.0.
+	ApplicationExposedEndpointCidr(ctx context.Context, src []v4_0_12.ApplicationExposedEndpointCidr, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationExposedEndpointCidr, error)
+	// ApplicationExposedEndpointSpace: struct shape changed in 4.1.0.
+	ApplicationExposedEndpointSpace(ctx context.Context, src []v4_0_12.ApplicationExposedEndpointSpace, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationExposedEndpointSpace, error)
 	// ApplicationPlatform: struct shape changed in 4.1.0.
 	ApplicationPlatform(ctx context.Context, src []v4_0_12.ApplicationPlatform, model *v4_0_12.ModelExport) ([]v4_1_0.ApplicationPlatform, error)
 	// ApplicationScale: struct shape changed in 4.1.0.
@@ -59,6 +63,10 @@ type Deltas interface {
 	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
+	// ApplicationExposedCidr: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	ApplicationExposedCidr(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.ApplicationExposedCidr, error)
+	// ApplicationExposedSpace: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	ApplicationExposedSpace(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.ApplicationExposedSpace, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
 	MachineReprovision(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineReprovision, error)
 	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -170,16 +178,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 		dst.ApplicationEndpoint = make([]v4_1_0.ApplicationEndpoint, len(src.ApplicationEndpoint))
 		for i := range src.ApplicationEndpoint {
 			dst.ApplicationEndpoint[i] = v4_1_0.ApplicationEndpoint(src.ApplicationEndpoint[i])
-		}
-
-		dst.ApplicationExposedEndpointCidr = make([]v4_1_0.ApplicationExposedEndpointCidr, len(src.ApplicationExposedEndpointCidr))
-		for i := range src.ApplicationExposedEndpointCidr {
-			dst.ApplicationExposedEndpointCidr[i] = v4_1_0.ApplicationExposedEndpointCidr(src.ApplicationExposedEndpointCidr[i])
-		}
-
-		dst.ApplicationExposedEndpointSpace = make([]v4_1_0.ApplicationExposedEndpointSpace, len(src.ApplicationExposedEndpointSpace))
-		for i := range src.ApplicationExposedEndpointSpace {
-			dst.ApplicationExposedEndpointSpace[i] = v4_1_0.ApplicationExposedEndpointSpace(src.ApplicationExposedEndpointSpace[i])
 		}
 
 		dst.ApplicationExtraEndpoint = make([]v4_1_0.ApplicationExtraEndpoint, len(src.ApplicationExtraEndpoint))
@@ -1206,6 +1204,14 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationAgent delta: %w", err)
 		}
 
+		if dst.ApplicationExposedEndpointCidr, err = d.ApplicationExposedEndpointCidr(ctx, src.ApplicationExposedEndpointCidr, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationExposedEndpointCidr delta: %w", err)
+		}
+
+		if dst.ApplicationExposedEndpointSpace, err = d.ApplicationExposedEndpointSpace(ctx, src.ApplicationExposedEndpointSpace, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationExposedEndpointSpace delta: %w", err)
+		}
+
 		if dst.ApplicationPlatform, err = d.ApplicationPlatform(ctx, src.ApplicationPlatform, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationPlatform delta: %w", err)
 		}
@@ -1280,6 +1286,14 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("UnitResource delta: %w", err)
+		}
+
+		if dst.ApplicationExposedCidr, err = d.ApplicationExposedCidr(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationExposedCidr delta: %w", err)
+		}
+
+		if dst.ApplicationExposedSpace, err = d.ApplicationExposedSpace(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("ApplicationExposedSpace delta: %w", err)
 		}
 
 		if dst.MachineReprovision, err = d.MachineReprovision(ctx, &src); err != nil {

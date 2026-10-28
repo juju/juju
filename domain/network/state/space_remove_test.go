@@ -186,6 +186,64 @@ func (s *spaceDeleteSuite) TestDeleteSpaceResetExposedEndpoints(c *tc.C) {
 	c.Assert(obtained, tc.SameContents, []string{otherUUID, network.AlphaSpaceId.String()})
 }
 
+// TestDeleteSpaceResetApplicationExposedSpaces verifies that applications
+// exposed on all endpoints to a deleted space are exposed to the alpha space
+// instead.
+func (s *spaceDeleteSuite) TestDeleteSpaceResetApplicationExposedSpaces(c *tc.C) {
+	// Arrange
+	toDeleteUUID := s.addSpaceWithName(c, "toDelete")
+	otherUUID := s.addSpaceWithName(c, "other")
+
+	charmUUID := s.addCharm(c)
+	appUUID1 := s.addApplication(c, charmUUID, network.AlphaSpaceId.String())
+	appUUID2 := s.addApplication(c, charmUUID, network.AlphaSpaceId.String())
+
+	s.addApplicationExposedSpace(c, appUUID1, toDeleteUUID)
+	s.addApplicationExposedSpace(c, appUUID2, otherUUID)
+
+	// Act
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.deleteSpace(ctx, tx, "toDelete")
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	obtained := s.selectDistinctValues(c, "space_uuid", "application_exposed_space")
+	c.Assert(obtained, tc.SameContents, []string{otherUUID, network.AlphaSpaceId.String()})
+}
+
+// TestDeleteSpaceResetExposedSpacesAlreadyExposedToAlpha verifies that
+// deleting a space succeeds when an application, or one of its endpoints, is
+// exposed to both the deleted space and the alpha space.
+func (s *spaceDeleteSuite) TestDeleteSpaceResetExposedSpacesAlreadyExposedToAlpha(c *tc.C) {
+	// Arrange
+	toDeleteUUID := s.addSpaceWithName(c, "toDelete")
+	alphaUUID := network.AlphaSpaceId.String()
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, alphaUUID)
+	charmRelationUUID := s.addCharmRelation(c, corecharm.ID(charmUUID),
+		charm.Relation{Name: "ep1", Role: charm.RoleProvider, Scope: charm.ScopeGlobal})
+	epUUID := s.addApplicationEndpoint(c, application.UUID(appUUID), charmRelationUUID, "")
+
+	s.addApplicationExposedSpace(c, appUUID, toDeleteUUID)
+	s.addApplicationExposedSpace(c, appUUID, alphaUUID)
+	s.addApplicationExposedEndpoint(c, appUUID, epUUID, toDeleteUUID)
+	s.addApplicationExposedEndpoint(c, appUUID, epUUID, alphaUUID)
+
+	// Act
+	err := s.txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.deleteSpace(ctx, tx, "toDelete")
+	})
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.selectDistinctValues(c, "space_uuid", "application_exposed_space"),
+		tc.SameContents, []string{alphaUUID})
+	c.Check(s.selectDistinctValues(c, "space_uuid", "application_exposed_endpoint_space"),
+		tc.SameContents, []string{alphaUUID})
+}
+
 // TestDeleteSpaceMoveSubnets tests that subnets associated with a deleted space
 // are moved to the alpha space.
 func (s *spaceDeleteSuite) TestDeleteSpaceMoveSubnets(c *tc.C) {
@@ -356,6 +414,10 @@ func (s *spaceDeleteSuite) TestGetApplicationBoundToSpace(c *tc.C) {
 	// No binding (shouldn't be found at all)
 	appUUID6 := s.addApplication(c, charmUUID, anotherSpaceUUID)
 
+	// exposed on all endpoints
+	appUUID7 := s.addApplication(c, charmUUID, network.AlphaSpaceId.String())
+	s.addApplicationExposedSpace(c, appUUID7, spaceUUID)
+
 	// Act
 	var err error
 	var result []string
@@ -366,7 +428,7 @@ func (s *spaceDeleteSuite) TestGetApplicationBoundToSpace(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.SameContents, []string{appUUID1, appUUID2, appUUID3, appUUID4, appUUID5},
+	c.Assert(result, tc.SameContents, []string{appUUID1, appUUID2, appUUID3, appUUID4, appUUID5, appUUID7},
 		tc.Commentf("infos: %v", map[string]string{
 			"appUUID1": appUUID1,
 			"appUUID2": appUUID2,
@@ -374,6 +436,7 @@ func (s *spaceDeleteSuite) TestGetApplicationBoundToSpace(c *tc.C) {
 			"appUUID4": appUUID4,
 			"appUUID5": appUUID5,
 			"appUUID6": appUUID6,
+			"appUUID7": appUUID7,
 		}))
 }
 

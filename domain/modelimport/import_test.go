@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
 	exportstate "github.com/juju/juju/domain/export/state/model"
@@ -332,6 +333,98 @@ func (s *importSuite) TestTransformLegacyCharmManifestBaseDuplicatePosition(c *t
 		})
 		c.Check(err, tc.ErrorMatches, `.*duplicate charm manifest base position \(2, 3\) for charm "charm-uuid"`)
 	}
+}
+
+// TestImportLegacyApplicationExposed takes a 4.0.12 payload, whose exposure
+// rows use a NULL endpoint to mean all endpoints, through transform, import
+// and export. Rows with no endpoint land in the application-wide tables, and
+// the exposure view still reports them with no endpoint.
+func (s *importSuite) TestImportLegacyApplicationExposed(c *tc.C) {
+	s.bootstrapModel(c)
+	alpha := corenetwork.AlphaSpaceId.String()
+
+	latestPayload, err := s.transformLegacy(c, v4_0_12.ModelExport{
+		ModelAgent: []v4_0_12.ModelAgent{{ModelUUID: s.ModelUUID()}},
+		Charm: []v4_0_12.Charm{{
+			UUID: "charm-uuid", Revision: 1, ReferenceName: "foo",
+		}},
+		CharmRelation: []v4_0_12.CharmRelation{{
+			UUID: "relation-uuid", CharmUUID: "charm-uuid", Name: "db",
+		}},
+		Application: []v4_0_12.Application{{
+			UUID: "app-uuid", Name: "foo", CharmUUID: "charm-uuid", SpaceUUID: alpha,
+		}},
+		ApplicationEndpoint: []v4_0_12.ApplicationEndpoint{{
+			UUID: "endpoint-uuid", ApplicationUUID: "app-uuid", CharmRelationUUID: "relation-uuid",
+		}},
+		ApplicationExposedEndpointSpace: []v4_0_12.ApplicationExposedEndpointSpace{
+			{ApplicationUUID: "app-uuid", SpaceUUID: alpha},
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("endpoint-uuid"), SpaceUUID: alpha},
+		},
+		ApplicationExposedEndpointCidr: []v4_0_12.ApplicationExposedEndpointCidr{
+			{ApplicationUUID: "app-uuid", Cidr: "10.0.0.0/24"},
+			{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: new("endpoint-uuid"), Cidr: "10.0.1.0/24"},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), &latestPayload)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exported, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exported.ApplicationExposedSpace, tc.DeepEquals, []v4_1_0.ApplicationExposedSpace{
+		{ApplicationUUID: "app-uuid", SpaceUUID: alpha},
+	})
+	c.Check(exported.ApplicationExposedCidr, tc.DeepEquals, []v4_1_0.ApplicationExposedCidr{
+		{ApplicationUUID: "app-uuid", Cidr: "10.0.0.0/24"},
+	})
+	c.Check(exported.ApplicationExposedEndpointSpace, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointSpace{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "endpoint-uuid", SpaceUUID: alpha},
+	})
+	c.Check(exported.ApplicationExposedEndpointCidr, tc.DeepEquals, []v4_1_0.ApplicationExposedEndpointCidr{
+		{ApplicationUUID: "app-uuid", ApplicationEndpointUUID: "endpoint-uuid", Cidr: "10.0.1.0/24"},
+	})
+
+	type viewRow struct {
+		endpoint  sql.NullString
+		spaceUUID sql.NullString
+		cidr      sql.NullString
+	}
+	var rows []viewRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows = nil
+		result, err := tx.QueryContext(ctx, `
+SELECT application_endpoint_uuid, space_uuid, cidr
+FROM   v_application_exposed_endpoint
+WHERE  application_uuid = 'app-uuid'
+`)
+		if err != nil {
+			return err
+		}
+		defer result.Close()
+		for result.Next() {
+			var row viewRow
+			if err := result.Scan(&row.endpoint, &row.spaceUUID, &row.cidr); err != nil {
+				return err
+			}
+			rows = append(rows, row)
+		}
+		return result.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rows, tc.SameContents, []viewRow{
+		{spaceUUID: sql.NullString{String: alpha, Valid: true}},
+		{cidr: sql.NullString{String: "10.0.0.0/24", Valid: true}},
+		{
+			endpoint:  sql.NullString{String: "endpoint-uuid", Valid: true},
+			spaceUUID: sql.NullString{String: alpha, Valid: true},
+		},
+		{
+			endpoint: sql.NullString{String: "endpoint-uuid", Valid: true},
+			cidr:     sql.NullString{String: "10.0.1.0/24", Valid: true},
+		},
+	})
 }
 
 func (s *importSuite) bootstrapModel(c *tc.C) {
