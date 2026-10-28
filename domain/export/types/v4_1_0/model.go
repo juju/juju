@@ -358,7 +358,7 @@ type CharmContainer struct {
 type CharmContainerMount struct {
 	ArrayIndex        int64   `db:"array_index" json:"array_index" yaml:"array_index"`
 	CharmUUID         string  `db:"charm_uuid" json:"charm_uuid" yaml:"charm_uuid"`
-	CharmContainerKey *string `db:"charm_container_key" json:"charm_container_key" yaml:"charm_container_key"`
+	CharmContainerKey string  `db:"charm_container_key" json:"charm_container_key" yaml:"charm_container_key"`
 	Storage           *string `db:"storage" json:"storage" yaml:"storage"`
 	Location          *string `db:"location" json:"location" yaml:"location"`
 }
