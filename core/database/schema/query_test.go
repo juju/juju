@@ -151,7 +151,7 @@ func readTableNames(c *tc.C, db *sql.DB) []string {
 	tx, err := db.BeginTx(ctx, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	rows, err := tx.QueryContext(ctx, "SELECT tbl_name FROM sqlite_master")
+	rows, err := tx.QueryContext(ctx, "SELECT tbl_name FROM sqlite_master WHERE tbl_name NOT LIKE 'sqlite_%'")
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 

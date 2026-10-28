@@ -46,7 +46,7 @@ func (s *stateSuite) TestStateBasePrepare(c *tc.C) {
 	c.Assert(db, tc.NotNil)
 
 	// Prepare new query.
-	stmt1, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
+	stmt1, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'", sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 	// Validate prepared statement works as expected.
 	var name any
@@ -63,7 +63,7 @@ func (s *stateSuite) TestStateBasePrepare(c *tc.C) {
 	c.Assert(name, tc.Equals, "schema")
 
 	// Retrieve previous statement.
-	stmt2, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema", sqlair.M{})
+	stmt2, err := base.Prepare("SELECT name AS &M.* FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'", sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(stmt1, tc.Equals, stmt2)
 }
@@ -80,7 +80,7 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *tc.C) {
 		type TestType struct {
 			WrongName string `db:"type"`
 		}
-		_, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema", TestType{})
+		_, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'", TestType{})
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -89,7 +89,7 @@ func (s *stateSuite) TestStateBasePrepareKeyClash(c *tc.C) {
 	type TestType struct {
 		Name string `db:"name"`
 	}
-	stmt, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema", TestType{})
+	stmt, err := base.Prepare("SELECT &TestType.* FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'", TestType{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Try and run a query.

@@ -35,6 +35,17 @@ const (
 	// PollInterval is the amount of time to wait between polling the database.
 	PollInterval = time.Second * 10
 
+	// OptimizeInterval is the amount of time to wait between refreshing the
+	// query planner statistics of the database.
+	OptimizeInterval = time.Hour
+
+	// optimizeTimeout is the maximum amount of time that a single refresh of
+	// the query planner statistics is allowed to take. The refresh holds the
+	// Dqlite writer slot for its duration and shares a loop with the database
+	// health poll, so we would rather abandon it and pick the work up on the
+	// next tick than hold either of them up.
+	optimizeTimeout = time.Second * 30
+
 	// DefaultVerifyAttempts is the number of attempts to verify the database,
 	// by opening a new database on verification failure.
 	DefaultVerifyAttempts = 3
@@ -155,10 +166,10 @@ func (w *trackedDBWorker) openDatabase(ctx context.Context) (*sql.DB, error) {
 	// controller completely if it's stuck on the controller database, but
 	// it will eventually timeout and return an error. Allowing another
 	// attempt later on.
-	ctx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
+	openCtx, cancel := context.WithTimeout(ctx, dbOpenTimeout)
 	defer cancel()
 
-	db, err := w.dbApp.Open(ctx, w.namespace)
+	db, err := w.dbApp.Open(openCtx, w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -167,9 +178,17 @@ func (w *trackedDBWorker) openDatabase(ctx context.Context) (*sql.DB, error) {
 
 	// Ensure that foreign keys are enabled, as we rely on them for referential
 	// integrity.
-	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+	if err := pragma.SetPragma(openCtx, db, pragma.ForeignKeysPragma, true); err != nil {
 		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
+
+	// SQLite recommends refreshing the query planner statistics when a
+	// long-lived connection is first opened, and then periodically after
+	// that. The periodic half of that is driven by the worker loop.
+	//
+	// This is deliberately not covered by the open timeout above: it is
+	// best-effort maintenance that must not be able to fail the open.
+	w.optimize(ctx, db)
 
 	return db, nil
 }
@@ -352,10 +371,16 @@ func (w *trackedDBWorker) loop() error {
 	timer := w.clock.NewTimer(PollInterval)
 	defer timer.Stop()
 
+	optimizeTimer := w.clock.NewTimer(OptimizeInterval)
+	defer optimizeTimer.Stop()
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		case <-optimizeTimer.Chan():
+			w.optimizeTrackedDB(ctx)
+			optimizeTimer.Reset(jitter(OptimizeInterval, 0.1))
 		case <-timer.Chan():
 			// Any retryable errors are handled at the txn level. If we get an
 			// error returning here, we've either exhausted the number of
@@ -408,6 +433,79 @@ func (w *trackedDBWorker) loop() error {
 			timer.Reset(jitter(PollInterval, 0.1))
 		}
 	}
+}
+
+// optimizeTrackedDB refreshes the query planner statistics of the database
+// that the worker is currently tracking.
+func (w *trackedDBWorker) optimizeTrackedDB(ctx context.Context) {
+	w.mutex.RLock()
+	db := w.db
+	w.mutex.RUnlock()
+
+	// The database can be swapped out from underneath us if it goes stale.
+	if db == nil {
+		return
+	}
+
+	w.optimize(ctx, db.PlainDB())
+}
+
+// optimize refreshes the query planner statistics of the database, so that
+// the planner keeps choosing good plans as the shape of the data changes.
+//
+// This is best-effort maintenance. The statistics are an optimisation and not
+// a correctness requirement, so any failure is logged and left for the next
+// attempt rather than being treated as fatal.
+func (w *trackedDBWorker) optimize(ctx context.Context, db *sql.DB) {
+	// Every node routes its writes to the Dqlite leader, so without this
+	// check each controller node would optimize the same database, for every
+	// namespace it tracks. Only do the work on the node hosting the leader.
+	leader, err := w.isDqliteLeader(ctx)
+	if err != nil {
+		w.logger.Debugf(ctx, "determining Dqlite leader before optimizing %q: %v", w.namespace, err)
+		return
+	}
+	if !leader {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, optimizeTimeout)
+	defer cancel()
+
+	begin := w.clock.Now()
+	if err := pragma.Optimize(ctx, db); err != nil {
+		w.logger.Infof(ctx, "optimizing %q: %v", w.namespace, err)
+		return
+	}
+
+	duration := w.clock.Now().Sub(begin)
+	w.logger.Debugf(ctx, "optimized %q in %v", w.namespace, duration)
+
+	w.report.Set(func(r *report) {
+		r.optimizations++
+		r.lastOptimizeDuration = duration
+	})
+}
+
+// isDqliteLeader reports whether this node is the one currently hosting the
+// Dqlite leader.
+func (w *trackedDBWorker) isDqliteLeader(ctx context.Context) (bool, error) {
+	client, err := w.dbApp.Client(ctx)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer func() { _ = client.Close() }()
+
+	leader, err := client.Leader(ctx)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	// There may be no leader at all, if an election is in flight.
+	if leader == nil {
+		return false, nil
+	}
+	return leader.ID == w.dbApp.ID(), nil
 }
 
 // ensureDBAliveAndOpenNewIfRequired is a bit long-winded, but it is a way to
@@ -513,6 +611,12 @@ type report struct {
 	// dbReplacements is the number of times the database has been replaced
 	// due to a failed ping.
 	dbReplacements uint32
+	// optimizations is the number of times the query planner statistics of
+	// the database have been refreshed.
+	optimizations uint32
+	// lastOptimizeDuration is the duration of the last refresh of the query
+	// planner statistics.
+	lastOptimizeDuration time.Duration
 }
 
 // Report provides information for the engine report.
@@ -521,10 +625,12 @@ func (r *report) Report(_ context.Context) map[string]any {
 	defer r.Unlock()
 
 	return map[string]any{
-		"last-ping-duration": r.pingDuration.String(),
-		"last-ping-attempts": r.pingAttempts,
-		"max-ping-duration":  r.maxPingDuration.String(),
-		"db-replacements":    r.dbReplacements,
+		"last-ping-duration":     r.pingDuration.String(),
+		"last-ping-attempts":     r.pingAttempts,
+		"max-ping-duration":      r.maxPingDuration.String(),
+		"db-replacements":        r.dbReplacements,
+		"optimizations":          r.optimizations,
+		"last-optimize-duration": r.lastOptimizeDuration.String(),
 	}
 }
 

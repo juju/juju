@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/dqlite"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -24,12 +25,21 @@ import (
 //go:generate go run github.com/canonical/gomock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run github.com/canonical/gomock/mockgen -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
 
+const (
+	// dqliteNodeID is the Dqlite ID of the node under test.
+	dqliteNodeID = uint64(666)
+
+	// otherDqliteNodeID is the Dqlite ID of another node in the cluster.
+	otherDqliteNodeID = uint64(42)
+)
+
 type baseSuite struct {
 	logger logger.Logger
 
 	clock                   clock.Clock
 	mockClock               *MockClock
 	timer                   *MockTimer
+	optimizeTimer           *MockTimer
 	dbApp                   *MockDBApp
 	client                  *MockClient
 	prometheusRegisterer    *MockRegisterer
@@ -44,6 +54,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.mockClock = NewMockClock(ctrl)
 	s.clock = s.mockClock
 	s.timer = NewMockTimer(ctrl)
+	s.optimizeTimer = NewMockTimer(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
 	s.client.EXPECT().Close().Return(nil).AnyTimes()
@@ -71,8 +82,21 @@ func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
 	return ch
 }
 
+// setupOptimizeTimer sets up the expectations for the timer that drives the
+// refresh of the query planner statistics, returning its tick channel.
+func (s *baseSuite) setupOptimizeTimer() chan time.Time {
+	s.optimizeTimer.EXPECT().Stop().MinTimes(1)
+	s.mockClock.EXPECT().NewTimer(OptimizeInterval).Return(s.optimizeTimer)
+
+	ch := make(chan time.Time)
+	s.optimizeTimer.EXPECT().Chan().Return(ch).AnyTimes()
+	return ch
+}
+
 func (s *baseSuite) expectTimer(ticks int) func() {
 	done := make(chan struct{})
+
+	s.setupOptimizeTimer()
 
 	ch := s.setupTimer(PollInterval)
 	go func() {
@@ -88,6 +112,24 @@ func (s *baseSuite) expectTimer(ticks int) func() {
 	return func() {
 		close(done)
 	}
+}
+
+// expectLeader sets up this node as the host of the Dqlite leader, which is
+// the node that refreshes the query planner statistics.
+func (s *baseSuite) expectLeader() {
+	s.expectLeaderNode(dqliteNodeID)
+}
+
+// expectNotLeader sets up the Dqlite leader as living on another node, so
+// that this node leaves the query planner statistics alone.
+func (s *baseSuite) expectNotLeader() {
+	s.expectLeaderNode(otherDqliteNodeID)
+}
+
+func (s *baseSuite) expectLeaderNode(id uint64) {
+	s.dbApp.EXPECT().Client(gomock.Any()).Return(s.client, nil).AnyTimes()
+	s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{ID: id}, nil).AnyTimes()
+	s.dbApp.EXPECT().ID().Return(dqliteNodeID).AnyTimes()
 }
 
 func (s *baseSuite) expectNoConfigChanges() {
