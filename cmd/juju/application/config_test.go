@@ -192,6 +192,33 @@ func (s *configCommandSuite) TestGetConfig(c *gc.C) {
 	}
 }
 
+func (s *configCommandSuite) TestGetConfigTrimsDescriptionTrailingWhitespace(c *gc.C) {
+	s.fake.descriptions = map[string]string{
+		"title":                  "First line. \nSecond line.\t \n\nThird line.  \n",
+		"juju-external-hostname": "Hostname. \nMore text. ",
+	}
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+
+	out := cmdtesting.Stdout(ctx)
+	c.Logf("output:\n%s", out)
+	// The descriptions must be rendered as readable literal blocks rather
+	// than double-quoted strings with escaped newlines.
+	c.Check(out, gc.Not(jc.Contains), `\n`)
+	c.Check(out, jc.Contains, "description: |")
+
+	var actual struct {
+		Settings          map[string]map[string]interface{} `yaml:"settings"`
+		ApplicationConfig map[string]map[string]interface{} `yaml:"application-config"`
+	}
+	err := goyaml.Unmarshal([]byte(out), &actual)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(actual.Settings["title"]["description"], gc.Equals, "First line.\nSecond line.\n\nThird line.\n")
+	c.Check(actual.ApplicationConfig["juju-external-hostname"]["description"], gc.Equals, "Hostname.\nMore text.")
+}
+
 func (s *configCommandSuite) TestGetCharmConfigKey(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(application.NewConfigCommandForTest(s.fake, s.store), ctx, []string{"dummy-application", "title"})
