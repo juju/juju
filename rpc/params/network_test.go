@@ -4,12 +4,13 @@
 package params_test
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"testing"
 
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -93,7 +94,7 @@ func (s *NetworkSuite) TestPortsResults(c *tc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		output, err := json.Marshal(test.results)
+		output, err := json.Marshal(test.results, jsoncodec.Options())
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
@@ -169,7 +170,7 @@ func (s *NetworkSuite) TestHostPort(c *tc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		output, err := json.Marshal(test.hostPort)
+		output, err := json.Marshal(test.hostPort, jsoncodec.Options())
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}
@@ -240,7 +241,7 @@ func (s *NetworkSuite) TestMachinePortRange(c *tc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		output, err := json.Marshal(test.machinePortRange)
+		output, err := json.Marshal(test.machinePortRange, jsoncodec.Options())
 		if !c.Check(err, tc.ErrorIsNil) {
 			continue
 		}

@@ -58,7 +58,7 @@ type ModelStatusLegacy struct {
 	Machines           []ModelMachineInfo     `json:"machines,omitempty"`
 	Volumes            []ModelVolumeInfo      `json:"volumes,omitempty"`
 	Filesystems        []ModelFilesystemInfo  `json:"filesystems,omitempty"`
-	Error              *Error                 `json:"error,omitempty"`
+	Error              *Error                 `json:"error,omitzero"`
 }
 
 // ModelStatusResultsLegacy holds status information about a group of models.
@@ -157,8 +157,8 @@ type HostedModelConfigLegacy struct {
 	Name      string         `json:"name"`
 	OwnerTag  string         `json:"owner"`
 	Config    map[string]any `json:"config,omitempty"`
-	CloudSpec *CloudSpec     `json:"cloud-spec,omitempty"`
-	Error     *Error         `json:"error,omitempty"`
+	CloudSpec *CloudSpec     `json:"cloud-spec,omitzero"`
+	Error     *Error         `json:"error,omitzero"`
 }
 
 // HostedModelConfigsResultsLegacy contains an entry for each hosted model
@@ -182,14 +182,14 @@ type ModelInfoLegacy struct {
 	CloudTag                string                `json:"cloud-tag"`
 	CloudRegion             string                `json:"cloud-region,omitempty"`
 	CloudCredentialTag      string                `json:"cloud-credential-tag,omitempty"`
-	CloudCredentialValidity *bool                 `json:"cloud-credential-validity,omitempty"`
+	CloudCredentialValidity *bool                 `json:"cloud-credential-validity,omitzero"`
 	OwnerTag                string                `json:"owner-tag"`
 	Life                    life.Value            `json:"life"`
 	Status                  EntityStatus          `json:"status,omitempty"`
 	Users                   []ModelUserInfo       `json:"users"`
 	Machines                []ModelMachineInfo    `json:"machines"`
 	SecretBackends          []SecretBackendResult `json:"secret-backends"`
-	Migration               *ModelMigrationStatus `json:"migration,omitempty"`
+	Migration               *ModelMigrationStatus `json:"migration,omitzero"`
 	AgentVersion            *semversion.Number    `json:"agent-version"`
 	SupportedFeatures       []SupportedFeature    `json:"supported-features,omitempty"`
 }
@@ -213,7 +213,7 @@ type ModelSummaryLegacy struct {
 	UserAccess         UserAccessPermission  `json:"user-access"`
 	UserLastConnection *time.Time            `json:"last-connection"`
 	Counts             []ModelEntityCount    `json:"counts"`
-	Migration          *ModelMigrationStatus `json:"migration,omitempty"`
+	Migration          *ModelMigrationStatus `json:"migration,omitzero"`
 	AgentVersion       *semversion.Number    `json:"agent-version"`
 }
 
@@ -221,8 +221,8 @@ type ModelSummaryLegacy struct {
 // It caters for old APIs which use model owner tag
 // rather than model qualifier.
 type ModelSummaryResultLegacy struct {
-	Result *ModelSummaryLegacy `json:"result,omitempty"`
-	Error  *Error              `json:"error,omitempty"`
+	Result *ModelSummaryLegacy `json:"result,omitzero"`
+	Error  *Error              `json:"error,omitzero"`
 }
 
 // ModelSummaryResultsLegacy holds the result of a bulk ListModelsWithInfo call.
@@ -236,8 +236,8 @@ type ModelSummaryResultsLegacy struct {
 // It caters for old APIs which use model owner tag
 // rather than model qualifier.
 type ModelInfoResultLegacy struct {
-	Result *ModelInfoLegacy `json:"result,omitempty"`
-	Error  *Error           `json:"error,omitempty"`
+	Result *ModelInfoLegacy `json:"result,omitzero"`
+	Error  *Error           `json:"error,omitzero"`
 }
 
 // ModelInfoResultsLegacy holds the result of a bulk ModelInfo call.

@@ -50,8 +50,8 @@ type Action struct {
 	Receiver       string         `json:"receiver"`
 	Name           string         `json:"name"`
 	Parameters     map[string]any `json:"parameters,omitempty"`
-	Parallel       *bool          `json:"parallel,omitempty"`
-	ExecutionGroup *string        `json:"execution-group,omitempty"`
+	Parallel       *bool          `json:"parallel,omitzero"`
+	ExecutionGroup *string        `json:"execution-group,omitzero"`
 }
 
 // EnqueuedActions represents the result of enqueuing actions to run.
@@ -78,7 +78,7 @@ type ActionMessage struct {
 
 // ActionResult describes an Action that will be or has been completed.
 type ActionResult struct {
-	Action    *Action         `json:"action,omitempty"`
+	Action    *Action         `json:"action,omitzero"`
 	Enqueued  time.Time       `json:"enqueued,omitempty"`
 	Started   time.Time       `json:"started,omitempty"`
 	Completed time.Time       `json:"completed,omitempty"`
@@ -86,7 +86,7 @@ type ActionResult struct {
 	Message   string          `json:"message,omitempty"`
 	Log       []ActionMessage `json:"log,omitempty"`
 	Output    map[string]any  `json:"output,omitempty"`
-	Error     *Error          `json:"error,omitempty"`
+	Error     *Error          `json:"error,omitzero"`
 }
 
 // ActionsByReceivers wrap a slice of Actions for API calls.
@@ -99,7 +99,7 @@ type ActionsByReceivers struct {
 type ActionsByReceiver struct {
 	Receiver string         `json:"receiver,omitempty"`
 	Actions  []ActionResult `json:"actions,omitempty"`
-	Error    *Error         `json:"error,omitempty"`
+	Error    *Error         `json:"error,omitzero"`
 }
 
 // ActionsQueryResults holds a slice of responses from the Actions
@@ -112,7 +112,7 @@ type ActionsQueryResults struct {
 type ActionsQueryResult struct {
 	Receiver string       `json:"receiver,omitempty"`
 	Action   ActionResult `json:"action,omitempty"`
-	Error    *Error       `json:"error,omitempty"`
+	Error    *Error       `json:"error,omitzero"`
 }
 
 // OperationQueryArgs holds args for listing operations.
@@ -125,14 +125,14 @@ type OperationQueryArgs struct {
 
 	// These attributes are used to support client side
 	// batching of results.
-	Offset *int `json:"offset,omitempty"`
-	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitzero"`
+	Limit  *int `json:"limit,omitzero"`
 }
 
 // OperationResults is a slice of OperationResult for bulk requests.
 type OperationResults struct {
 	Results   []OperationResult `json:"results,omitempty"`
-	Truncated bool              `json:"truncated,omitempty"`
+	Truncated bool              `json:"truncated,omitzero"`
 }
 
 // OperationResult describes an Operation that will be or has been completed.
@@ -145,7 +145,7 @@ type OperationResult struct {
 	Completed    time.Time      `json:"completed,omitempty"`
 	Status       string         `json:"status,omitempty"`
 	Actions      []ActionResult `json:"actions,omitempty"`
-	Error        *Error         `json:"error,omitempty"`
+	Error        *Error         `json:"error,omitzero"`
 }
 
 // ActionExecutionResults holds a slice of ActionExecutionResult for a
@@ -175,7 +175,7 @@ type ApplicationsCharmActionsResults struct {
 type ApplicationCharmActionsResult struct {
 	ApplicationTag string                `json:"application-tag,omitempty"`
 	Actions        map[string]ActionSpec `json:"actions,omitempty"`
-	Error          *Error                `json:"error,omitempty"`
+	Error          *Error                `json:"error,omitzero"`
 }
 
 // ActionSpec is a definition of the parameters and traits of an Action.
