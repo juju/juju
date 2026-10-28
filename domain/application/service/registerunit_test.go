@@ -241,6 +241,20 @@ func (s *registerCAASUnitSuite) TestRegisterCAASUnitMissingProviderID(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "provider id not valid")
 }
 
+func (s *registerCAASUnitSuite) TestRegisterCAASUnitOrdinalAboveKubernetesMaximum(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	s.state.EXPECT().GetApplicationUUIDByName(gomock.Any(), "foo").Return(appUUID, nil)
+
+	_, _, err := s.service.RegisterCAASUnit(c.Context(), application.RegisterCAASUnitParams{
+		ApplicationName: "foo",
+		ProviderID:      "foo-2147483648",
+	})
+	c.Check(err, tc.ErrorMatches,
+		`unit ordinal 2147483648 from pod name "foo-2147483648" is not valid`)
+}
+
 // TestRegisterCAASUnitApplicationNoPods tests the case where a caas unit is
 // attempting registration but the provider informs us that the container does
 // not exist anymore.

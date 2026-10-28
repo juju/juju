@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -656,12 +657,29 @@ func reconcileDeadUnitScale(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := validateScalingState(ps, unitNamesAndLives); err != nil {
+		return fmt.Errorf("invalid scaling state for application %q: %w", appName, err)
+	}
 	if !ps.Scaling {
 		return nil
 	}
 
 	desiredScale := ps.ScaleTarget
-	threshold := unitRemovalThreshold(unitNamesAndLives, desiredScale)
+	if desiredScale > len(unitNamesAndLives) {
+		return nil
+	}
+	targetEnd, err := targetOrdinalWindowEnd(
+		unitNamesAndLives, ps.StartOrdinal, ps.EndOrdinal, desiredScale,
+	)
+	if err != nil {
+		return fmt.Errorf("invalid scaling state for application %q: %w", appName, err)
+	}
+	if targetEnd > ps.EndOrdinal {
+		// Unit rows at or beyond the committed end belong to an in-flight
+		// scale-up. ensureScale commits that extension once all units arrive.
+		return nil
+	}
+	threshold := ps.StartOrdinal
 
 	unitsToRemove := 0
 	var deadUnits []coreunit.Name
@@ -694,19 +712,17 @@ func reconcileDeadUnitScale(
 		return tryAgain
 	}
 
-	if ps.StartOrdinal == 0 || len(unitNamesAndLives) > desiredScale {
-		return nil
-	}
+	replicaCount := ps.EndOrdinal - ps.StartOrdinal
 
 	storageUniqueID := getStorageUniqueID(appUUID)
 	err = ensureScaleWithFsAttachments(
-		ctx, appName, app, desiredScale, ps.StartOrdinal,
+		ctx, appName, app, replicaCount, ps.StartOrdinal,
 		facade, logger, storageUniqueID)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf(
-			"scaling application %q to scale %d: %w",
+			"scaling application %q to %d replicas: %w",
 			appName,
-			desiredScale,
+			replicaCount,
 			err,
 		)
 	}
@@ -716,11 +732,13 @@ func reconcileDeadUnitScale(
 		return err
 	}
 	// TODO: stop k8s things from mutating the statefulset.
-	if len(appState.Replicas) > desiredScale {
+	if len(appState.Replicas) > replicaCount {
 		return tryAgain
 	}
 
-	return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
+	return updateProvisioningState(
+		ctx, appName, false, 0, ps.StartOrdinal, ps.EndOrdinal,
+		applicationService)
 }
 
 // ensureScale determines how and when to scale up or down based on
@@ -752,50 +770,81 @@ func ensureScale(
 		return errors.Trace(err)
 	}
 
+	units, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
+	if err != nil {
+		return err
+	}
+	if desiredScale < 0 || desiredScale > math.MaxInt32 {
+		return fmt.Errorf("invalid desired scale %d for application %q", desiredScale, appName)
+	}
+	if ps.ScaleTarget < 0 || ps.StartOrdinal < 0 {
+		return fmt.Errorf(
+			"invalid scaling state for application %q: target %d, start ordinal %d",
+			appName, ps.ScaleTarget, ps.StartOrdinal)
+	}
+	if ps.Scaling && ((ps.EndOrdinal == 0 && ps.StartOrdinal > 0) ||
+		(ps.ScaleTarget < len(units) &&
+			unitsAtOrAboveOrdinal(units, ps.StartOrdinal) > ps.ScaleTarget)) {
+		// Older state did not persist the selected scale-down range. Rebuild it
+		// from the current unit set before taking any destructive action.
+		ps.EndOrdinal = ordinalWindowEnd(units, ps.StartOrdinal, ps.EndOrdinal)
+		if ps.ScaleTarget == 0 {
+			ps.StartOrdinal = ps.EndOrdinal
+		} else {
+			ps.StartOrdinal = unitRemovalThreshold(units, ps.ScaleTarget)
+		}
+		if err := updateProvisioningState(
+			ctx, appName, true, ps.ScaleTarget, ps.StartOrdinal, ps.EndOrdinal,
+			applicationService,
+		); err != nil {
+			return err
+		}
+	}
+	if err := validateScalingState(ps, units); err != nil {
+		return fmt.Errorf("invalid scaling state for application %q: %w", appName, err)
+	}
+
 	logger.Debugf(ctx, "updating application %q scale to %d", appName, desiredScale)
-	startedScaling := !ps.Scaling || appLife != life.Alive
-	if startedScaling {
-		err := updateProvisioningState(ctx, appName, true, desiredScale, ps.StartOrdinal, applicationService)
-		if err != nil {
+	if !ps.Scaling {
+		// Existing databases predate end_ordinal. Recover the committed end
+		// before opening a new scaling operation so historical holes cannot be
+		// allocated again.
+		ps.EndOrdinal = ordinalWindowEnd(units, ps.StartOrdinal, ps.EndOrdinal)
+		if desiredScale < len(units) {
+			if desiredScale == 0 {
+				ps.StartOrdinal = ps.EndOrdinal
+			} else {
+				ps.StartOrdinal = unitRemovalThreshold(units, desiredScale)
+			}
+		}
+		if err := updateProvisioningState(
+			ctx, appName, true, desiredScale, ps.StartOrdinal, ps.EndOrdinal,
+			applicationService,
+		); err != nil {
 			return err
 		}
 		ps.Scaling = true
 		ps.ScaleTarget = desiredScale
 	}
-
-	units, err := applicationService.GetAllUnitLifeForApplication(ctx, appUUID)
+	targetEnd, err := targetOrdinalWindowEnd(
+		units, ps.StartOrdinal, ps.EndOrdinal, ps.ScaleTarget)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid scaling state for application %q: %w", appName, err)
 	}
-	// Determine whether we need to select which units to remove for scale-down.
-	// This triggers when:
-	//   - The app is alive and we're scaling down (desiredScale < len(units))
-	//   - AND either we just started scaling (startedScaling) OR the
-	//     startOrdinal hasn't been advanced yet (ps.StartOrdinal == 0)
-	//
-	// On first detection, we compute the new startOrdinal to shift the
-	// StatefulSet range past the units being removed, preventing stale
-	// ordinals from being reused on subsequent scale-ups.
-	if appLife == life.Alive && desiredScale < len(units) && (startedScaling || ps.StartOrdinal == 0) {
-		startOrdinal := unitRemovalThreshold(units, desiredScale)
-		if err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, desiredScale, startOrdinal, true); err != nil {
-			return errors.Trace(err)
-		}
-		ps.StartOrdinal = startOrdinal
-	}
+	replicaCount := targetEnd - ps.StartOrdinal
 
 	if ps.ScaleTarget >= len(units) {
 		// Reconcile every desired controller ordinal rather than only the
 		// apparent scale-up range. Unit rows can be temporarily missing or
-		// sparse after a failed introduction, while StatefulSet ordinals are
-		// always the contiguous range [startOrdinal, startOrdinal+scaleTarget).
+		// sparse after a failed introduction, while StatefulSet ordinals cover
+		// the contiguous target window.
 		// The persisted nonce is immutable, so this is safe to repeat during
 		// recovery.
 		if ps.ScaleTarget > 0 && appLife == life.Alive {
 			if isController, err := applicationService.IsControllerApplication(ctx, appUUID); err != nil {
 				return errors.Annotate(err, "checking if controller application")
 			} else if isController {
-				if err := ensureControllerNonces(ctx, ps.StartOrdinal, ps.ScaleTarget, app, agentPasswordService, logger); err != nil {
+				if err := ensureControllerNonces(ctx, ps.StartOrdinal, replicaCount, app, agentPasswordService, logger); err != nil {
 					return errors.Annotate(err, "ensuring controller nonces")
 				}
 			}
@@ -806,7 +855,7 @@ func ensureScale(
 			ctx,
 			appName,
 			app,
-			ps.ScaleTarget,
+			replicaCount,
 			ps.StartOrdinal,
 			facade,
 			logger,
@@ -815,7 +864,9 @@ func ensureScale(
 
 		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
 			logger.Infof(ctx, "dying application %q is already removed from k8s", appName)
-			return updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
+			return updateProvisioningState(
+				ctx, appName, false, 0, ps.StartOrdinal, targetEnd,
+				applicationService)
 		} else if err != nil {
 			return err
 		}
@@ -823,7 +874,9 @@ func ensureScale(
 			// Scaling up must see units created.
 			return tryAgain
 		}
-		err = updateProvisioningState(ctx, appName, false, 0, ps.StartOrdinal, applicationService)
+		err = updateProvisioningState(
+			ctx, appName, false, 0, ps.StartOrdinal, targetEnd,
+			applicationService)
 		if err != nil {
 			return err
 		}
@@ -836,10 +889,9 @@ func ensureScale(
 		return nil
 	}
 
-	threshold := unitRemovalThreshold(units, ps.ScaleTarget)
 	var unitsToDestroy []string
 	for unitName, unitLife := range units {
-		if unitName.Number() >= threshold {
+		if unitName.Number() >= ps.StartOrdinal {
 			continue
 		}
 		if unitLife == life.Alive {
@@ -887,6 +939,110 @@ func unitRemovalThreshold(units map[coreunit.Name]life.Value, targetScale int) i
 	return ordinals[len(ordinals)-targetScale]
 }
 
+func ordinalWindowEnd(units map[coreunit.Name]life.Value, startOrdinal, endOrdinal int) int {
+	endOrdinal = max(endOrdinal, startOrdinal)
+	for unitName := range units {
+		endOrdinal = max(endOrdinal, unitName.Number()+1)
+	}
+	return endOrdinal
+}
+
+func targetOrdinalWindowEnd(
+	units map[coreunit.Name]life.Value, startOrdinal, endOrdinal, targetScale int,
+) (int, error) {
+	unitsInWindow := 0
+	for unitName := range units {
+		ordinal := unitName.Number()
+		if ordinal >= startOrdinal && ordinal < endOrdinal {
+			unitsInWindow++
+		}
+	}
+	missing := max(0, targetScale-unitsInWindow)
+	if missing > math.MaxInt32-endOrdinal {
+		return 0, fmt.Errorf(
+			"target ordinal window end exceeds Kubernetes maximum %d",
+			math.MaxInt32)
+	}
+	return endOrdinal + missing, nil
+}
+
+func validateScalingStateShape(state applicationservice.ScalingState) error {
+	if state.ScaleTarget < 0 {
+		return fmt.Errorf("negative scale target %d", state.ScaleTarget)
+	}
+	if state.ScaleTarget > math.MaxInt32 {
+		return fmt.Errorf(
+			"scale target %d exceeds Kubernetes maximum %d",
+			state.ScaleTarget, math.MaxInt32)
+	}
+	if state.StartOrdinal < 0 || state.EndOrdinal < state.StartOrdinal {
+		return fmt.Errorf(
+			"invalid ordinal window [%d,%d)",
+			state.StartOrdinal, state.EndOrdinal)
+	}
+	if state.StartOrdinal > math.MaxInt32 || state.EndOrdinal > math.MaxInt32 {
+		return fmt.Errorf(
+			"ordinal window [%d,%d) exceeds Kubernetes maximum %d",
+			state.StartOrdinal, state.EndOrdinal, math.MaxInt32)
+	}
+	if state.Scaling && state.ScaleTarget == 0 &&
+		state.StartOrdinal != state.EndOrdinal {
+		return fmt.Errorf(
+			"non-empty ordinal window [%d,%d) for zero scale target",
+			state.StartOrdinal, state.EndOrdinal)
+	}
+	return nil
+}
+
+func validateScalingState(
+	state applicationservice.ScalingState,
+	units map[coreunit.Name]life.Value,
+) error {
+	if err := validateScalingStateShape(state); err != nil {
+		return err
+	}
+	if !state.Scaling {
+		return nil
+	}
+
+	targetEnd, err := targetOrdinalWindowEnd(
+		units, state.StartOrdinal, state.EndOrdinal, state.ScaleTarget)
+	if err != nil {
+		return err
+	}
+	unitsInTarget := 0
+	for unitName := range units {
+		ordinal := unitName.Number()
+		if ordinal < state.StartOrdinal {
+			continue
+		}
+		unitsInTarget++
+		if ordinal >= targetEnd {
+			return fmt.Errorf(
+				"unit %q is outside target ordinal window [%d,%d)",
+				unitName, state.StartOrdinal, targetEnd)
+		}
+	}
+	if unitsInTarget > state.ScaleTarget {
+		return fmt.Errorf(
+			"%d units in target ordinal window exceeds scale target %d",
+			unitsInTarget, state.ScaleTarget)
+	}
+	return nil
+}
+
+func unitsAtOrAboveOrdinal(
+	units map[coreunit.Name]life.Value, startOrdinal int,
+) int {
+	count := 0
+	for unitName := range units {
+		if unitName.Number() >= startOrdinal {
+			count++
+		}
+	}
+	return count
+}
+
 func setOperatorStatus(
 	ctx context.Context,
 	appName string, s status.Status, reason string, data map[string]any,
@@ -905,10 +1061,11 @@ func setOperatorStatus(
 
 func updateProvisioningState(
 	ctx context.Context,
-	appName string, scaling bool, scaleTarget, startOrdinal int,
+	appName string, scaling bool, scaleTarget, startOrdinal, endOrdinal int,
 	applicationService ApplicationService,
 ) error {
-	err := applicationService.SetApplicationScalingStateWithStart(ctx, appName, scaleTarget, startOrdinal, scaling)
+	err := applicationService.SetApplicationScalingStateWithRange(
+		ctx, appName, scaleTarget, startOrdinal, endOrdinal, scaling)
 	if errors.Is(err, applicationerrors.ScalingStateInconsistent) {
 		return tryAgain
 	} else if err != nil {
