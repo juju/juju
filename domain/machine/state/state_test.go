@@ -833,12 +833,12 @@ func (s *stateSuite) TestCountMachinesInSpace(c *tc.C) {
 	networkState := networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := networkState.AddSpace(c.Context(), spaceUUID, "test-space", "provider-space-id", []string{})
 	c.Assert(err, tc.ErrorIsNil)
-	subnetID := network.Id(uuid.MustNewUUID().String())
-	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:      subnetID,
+	subnetUUID := tc.Must(c, domainnetwork.NewSubnetUUID)
+	err = networkState.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:    subnetUUID,
 		SpaceID: spaceUUID,
 		CIDR:    "10.0.0.0/24",
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
 
 	mUUID, _ := s.addMachine(c)
@@ -858,7 +858,7 @@ func (s *stateSuite) TestCountMachinesInSpace(c *tc.C) {
 			ConfigType:       network.ConfigDHCP,
 			Origin:           network.OriginMachine,
 			Scope:            network.ScopeCloudLocal,
-			ProviderSubnetID: &subnetID,
+			ProviderSubnetID: new(network.Id(subnetUUID.String())),
 		}},
 	}}, false)
 	c.Assert(err, tc.ErrorIsNil)
@@ -874,12 +874,12 @@ func (s *stateSuite) TestCountMachinesInSpaceDoubleAddressSameMachine(c *tc.C) {
 	networkState := networkstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := networkState.AddSpace(c.Context(), spaceUUID, "test-space", "provider-space-id", []string{})
 	c.Assert(err, tc.ErrorIsNil)
-	subnetID := network.Id(uuid.MustNewUUID().String())
-	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:      subnetID,
+	subnetUUID := tc.Must(c, domainnetwork.NewSubnetUUID)
+	err = networkState.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:    subnetUUID,
 		SpaceID: spaceUUID,
 		CIDR:    "10.0.0.0/24",
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
 
 	mUUID, _ := s.addMachine(c)
@@ -900,7 +900,7 @@ func (s *stateSuite) TestCountMachinesInSpaceDoubleAddressSameMachine(c *tc.C) {
 				ConfigType:       network.ConfigDHCP,
 				Origin:           network.OriginMachine,
 				Scope:            network.ScopeCloudLocal,
-				ProviderSubnetID: &subnetID,
+				ProviderSubnetID: new(network.Id(subnetUUID.String())),
 			},
 			{
 				InterfaceName:    devName,
@@ -909,7 +909,7 @@ func (s *stateSuite) TestCountMachinesInSpaceDoubleAddressSameMachine(c *tc.C) {
 				ConfigType:       network.ConfigDHCP,
 				Origin:           network.OriginMachine,
 				Scope:            network.ScopeCloudLocal,
-				ProviderSubnetID: &subnetID,
+				ProviderSubnetID: new(network.Id(subnetUUID.String())),
 			},
 		},
 	}}, false)
@@ -927,23 +927,23 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 	err := networkState.AddSpace(c.Context(), spaceUUID, "multi-subnet-space", "provider-space-id", []string{})
 	c.Assert(err, tc.ErrorIsNil)
 
-	subnetUUID0 := network.Id(uuid.MustNewUUID().String())
-	subnetUUID1 := network.Id(uuid.MustNewUUID().String())
-	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:         subnetUUID0,
+	subnetUUID0 := tc.Must(c, domainnetwork.NewSubnetUUID)
+	subnetUUID1 := tc.Must(c, domainnetwork.NewSubnetUUID)
+	err = networkState.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:       subnetUUID0,
 		SpaceID:    spaceUUID,
 		ProviderId: network.Id(uuid.MustNewUUID().String()),
 		CIDR:       "10.0.0.0/24",
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
 	// Second subnet, not in the same CIDR as the IP address we are going to
 	// add later.
-	err = networkState.AddSubnet(c.Context(), network.SubnetInfo{
-		ID:         subnetUUID1,
+	err = networkState.ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{{
+		UUID:       subnetUUID1,
 		SpaceID:    spaceUUID,
 		ProviderId: network.Id(uuid.MustNewUUID().String()),
 		CIDR:       "192.168.0.0/24",
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Create machines and assign them to different subnets
@@ -971,7 +971,7 @@ func (s *stateSuite) TestCountMachinesInSpaceMultipleSubnets(c *tc.C) {
 				ConfigType:       network.ConfigDHCP,
 				Origin:           network.OriginMachine,
 				Scope:            network.ScopeCloudLocal,
-				ProviderSubnetID: &subnetUUID0,
+				ProviderSubnetID: new(network.Id(subnetUUID0.String())),
 			}},
 		}}, false)
 		c.Assert(err, tc.ErrorIsNil)
