@@ -27,6 +27,10 @@ func checkTemplates(root string) []TemplateNote {
 	}
 
 	var notes []TemplateNote
+	// One repo-wide scan of the generated Go output feeds every
+	// template check; scanning per template would be
+	// O(templates × repository size).
+	genFiles := generatedGoFiles(root)
 	// Best-effort: a walk failure yields no notes, which surfaces as a
 	// template-coverage warning rather than a hard error.
 	_ = filepath.WalkDir(genDir, func(path string, d fs.DirEntry, err error) error {
@@ -44,7 +48,7 @@ func checkTemplates(root string) []TemplateNote {
 		if !templateLooksLikeSQL(string(data)) {
 			return nil
 		}
-		if templateOutputCommitted(root, data) {
+		if templateOutputCommitted(genFiles, data) {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
@@ -121,12 +125,12 @@ func pathMayCover(isDir bool, path, target string) bool {
 // templateOutputCommitted reports whether any generated Go file contains
 // SQL matching one of the template's distinctive SQL lines. Template
 // variables are treated as wildcards when matching.
-func templateOutputCommitted(root string, tmpl []byte) bool {
+func templateOutputCommitted(genFiles []goFile, tmpl []byte) bool {
 	pats := templateSQLPatterns(tmpl)
 	if len(pats) == 0 {
 		return false
 	}
-	for _, gf := range generatedGoFiles(root) {
+	for _, gf := range genFiles {
 		for _, p := range pats {
 			if p.Match(gf.Src) {
 				return true
