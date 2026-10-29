@@ -600,6 +600,32 @@ run_cmr_offer_removed_remotely() {
 	destroy_model "model-consume-gone"
 }
 
+test_cmr_integrity_relation_removal() {
+	if [ "$(skip 'test_cmr_integrity_relation_removal')" ]; then
+		echo "==> TEST SKIPPED: CMR integrity relation removal tests"
+		return
+	fi
+
+	set_verbosity
+
+	echo "==> Checking for dependencies"
+	check_dependencies juju go
+
+	file="${TEST_DIR}/test-cmr-integrity-relation-removal.log"
+
+	bootstrap "test-cmr-integrity-relation-removal" "${file}"
+
+	(
+		cd .. || exit
+
+		run "run_cmr_clean_teardown"
+		run "run_cmr_force_remove_relation"
+		run "run_cmr_force_remove_relation_offer_side"
+	)
+
+	destroy_controller "test-cmr-integrity-relation-removal"
+}
+
 test_cmr_integrity() {
 	if [ "$(skip 'test_cmr_integrity')" ]; then
 		echo "==> TEST SKIPPED: CMR integrity tests"
@@ -618,9 +644,6 @@ test_cmr_integrity() {
 	(
 		cd .. || exit
 
-		run "run_cmr_clean_teardown"
-		run "run_cmr_force_remove_relation"
-		run "run_cmr_force_remove_relation_offer_side"
 		run "run_cmr_consume_remove_reconsume"
 		run "run_cmr_destroy_consuming_model"
 		run "run_cmr_goal_state_missing_saas"
