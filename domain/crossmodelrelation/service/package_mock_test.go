@@ -13,8 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	macaroon "gopkg.in/macaroon.v2"
-
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	offer "github.com/juju/juju/core/offer"
@@ -26,6 +24,7 @@ import (
 	internal "github.com/juju/juju/domain/crossmodelrelation/internal"
 	secret "github.com/juju/juju/domain/secret"
 	uuid "github.com/juju/juju/internal/uuid"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 // MockControllerState is a mock of ControllerState interface.
@@ -226,7 +225,7 @@ type MockModelStateMockRecorder struct {
 	namespacesForRelationEgressNetworksWatcherExpects                           []*gomock.Call0_3[string, string, string]
 	saveMacaroonForRelationExpects                                              []*gomock.Call3_1[context.Context, string, []byte, error]
 	saveRemoteSecretConsumerExpects                                             []*gomock.Call6_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, string, string, error]
-	saveSecretRemoteConsumerExpects                                             []*gomock.Call5_1[context.Context, *secrets.URI, string, string, secrets.SecretConsumerMetadata, error]
+	saveSecretRemoteConsumerExpects                                             []*gomock.Call4_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, error]
 	setOffererControllerForOffererModelExpects                                  []*gomock.Call3_1[context.Context, string, string, error]
 	setOffererControllerForOffererModelsExpects                                 []*gomock.Call3_1[context.Context, []string, string, error]
 	suspendOfferConnectionsForUserExpects                                       []*gomock.Call4_1[context.Context, string, string, string, error]
@@ -1150,22 +1149,22 @@ func (mr *MockModelStateMockRecorder) SaveRemoteSecretConsumer(ctx, uri, unitNam
 type MockModelStateSaveRemoteSecretConsumerCall = gomock.Call6_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, string, string, error]
 
 // SaveSecretRemoteConsumer mocks base method.
-func (m *MockModelState) SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, appName, unitName string, md secrets.SecretConsumerMetadata) error {
+func (m *MockModelState) SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md secrets.SecretConsumerMetadata) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch5_1(&m.recorder.saveSecretRemoteConsumerExpects, m.ctrl, m, "SaveSecretRemoteConsumer", ctx, uri, appName, unitName, md)
+	return gomock.Dispatch4_1(&m.recorder.saveSecretRemoteConsumerExpects, m.ctrl, m, "SaveSecretRemoteConsumer", ctx, uri, unitName, md)
 }
 
 // SaveSecretRemoteConsumer indicates an expected call of SaveSecretRemoteConsumer.
-func (mr *MockModelStateMockRecorder) SaveSecretRemoteConsumer(ctx, uri, appName, unitName, md any) *MockModelStateSaveSecretRemoteConsumerCall {
+func (mr *MockModelStateMockRecorder) SaveSecretRemoteConsumer(ctx, uri, unitName, md any) *MockModelStateSaveSecretRemoteConsumerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall5_1[context.Context, *secrets.URI, string, string, secrets.SecretConsumerMetadata, error](mr.mock.ctrl.T, mr.mock, "SaveSecretRemoteConsumer", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(appName), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(md))
+	call := gomock.NewCall4_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, error](mr.mock.ctrl.T, mr.mock, "SaveSecretRemoteConsumer", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(md))
 	mr.saveSecretRemoteConsumerExpects = append(mr.saveSecretRemoteConsumerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockModelStateSaveSecretRemoteConsumerCall is the typed call wrapper for SaveSecretRemoteConsumer.
-type MockModelStateSaveSecretRemoteConsumerCall = gomock.Call5_1[context.Context, *secrets.URI, string, string, secrets.SecretConsumerMetadata, error]
+type MockModelStateSaveSecretRemoteConsumerCall = gomock.Call4_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, error]
 
 // SetOffererControllerForOffererModel mocks base method.
 func (m *MockModelState) SetOffererControllerForOffererModel(ctx context.Context, offererModelUUID, controllerUUID string) error {

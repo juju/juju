@@ -6,7 +6,6 @@ package crossmodelrelation_test
 import (
 	"context"
 	"database/sql"
-	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -233,7 +232,7 @@ func (s *watcherSuite) createApplication(c *tc.C, db database.TxnRunner, applica
 		_, err := tx.Exec(`
 INSERT INTO application (uuid, name, charm_uuid, life_id, space_uuid)
 VALUES (?, ?, ?, ?, ?)
-`, applicationUUID, applicationUUID, charmUUID, 0, network.AlphaSpaceId)
+`, applicationUUID, application.RemoteApplicationNameFromUUID(applicationUUID), charmUUID, 0, network.AlphaSpaceId)
 		if err != nil {
 			return err
 		}
@@ -474,10 +473,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		// The synthetic application is named after its UUID, which is not a
-		// valid unit name prefix, so split the name directly.
-		appName, _, _ := strings.Cut(consumerID, "/")
-		err := st.SaveSecretRemoteConsumer(ctx, uri, appName, consumerID, consumer)
+		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -499,9 +495,9 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 		s.createSecret(c, db, uri2, map[string]string{"foo": "bar"})
 
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri1, 1, syntheticApplicationUUID+"/0")
+		saveRemoteConsumer(uri1, 1, application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))+"/0")
 		// The consumed revision 1 is the initial revision - will be ignored.
-		saveRemoteConsumer(uri2, 1, syntheticApplicationUUID+"/0")
+		saveRemoteConsumer(uri2, 1, application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))+"/0")
 
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
@@ -540,7 +536,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 
 	harness1.AddTest(c, func(c *tc.C) {
 		// The consumed revision 2 is the updated current_revision.
-		saveRemoteConsumer(uri1, 2, syntheticApplicationUUID+"/0")
+		saveRemoteConsumer(uri1, 2, application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))+"/0")
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
 	})
@@ -579,10 +575,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChangesMixedUnitRevisions(c
 		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		// The synthetic application is named after its UUID, which is not a
-		// valid unit name prefix, so split the name directly.
-		appName, _, _ := strings.Cut(consumerID, "/")
-		err := st.SaveSecretRemoteConsumer(ctx, uri, appName, consumerID, consumer)
+		err := st.SaveSecretRemoteConsumer(ctx, uri, consumerID, consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -594,8 +587,9 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChangesMixedUnitRevisions(c
 	s.addRevision(c, db, uri, map[string]string{"foo": "bar2"})
 	// The first unit consumes the latest revision, the second unit is
 	// behind.
-	saveRemoteConsumer(uri, 2, syntheticApplicationUUID+"/0")
-	saveRemoteConsumer(uri, 1, syntheticApplicationUUID+"/1")
+	syntheticApplicationName := application.RemoteApplicationNameFromUUID(application.UUID(syntheticApplicationUUID))
+	saveRemoteConsumer(uri, 2, syntheticApplicationName+"/0")
+	saveRemoteConsumer(uri, 1, syntheticApplicationName+"/1")
 
 	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))

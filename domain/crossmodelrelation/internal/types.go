@@ -34,10 +34,6 @@ type RemoteUnitConsumer struct {
 	// SecretID is the ID of the secret being consumed
 	SecretID string
 
-	// ApplicationName is the name of the synthetic application of the
-	// offer connection over which the unit consumes the secret.
-	ApplicationName string
-
 	// Unit is the unit name of the consuming unit.
 	Unit string
 

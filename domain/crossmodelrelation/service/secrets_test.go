@@ -84,7 +84,7 @@ func (s *secretsServiceSuite) TestUpdateRemoteConsumedRevisionRefresh(c *tc.C) {
 	uri := coresecrets.NewURI()
 	s.modelState.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
 		Return(&coresecrets.SecretConsumerMetadata{}, 666, nil)
-	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app", "remote-app/0", consumer)
+	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0", consumer)
 
 	service := s.service(c)
 
@@ -102,7 +102,7 @@ func (s *secretsServiceSuite) TestUpdateRemoteConsumedRevisionFirstTimeRefresh(c
 	uri := coresecrets.NewURI()
 	s.modelState.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0").
 		Return(nil, 666, secreterrors.SecretConsumerNotFound)
-	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app", "remote-app/0", consumer)
+	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, "remote-app/0", consumer)
 
 	service := s.service(c)
 
@@ -180,7 +180,7 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretRefresh(c *tc.C)
 			Label:           "foo",
 		}, 666, nil)
 	s.modelState.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(data, nil, nil)
-	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, consumer.Application(), consumer.String(), coresecrets.SecretConsumerMetadata{
+	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, consumer.String(), coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 		Label:           "foo",
 	})
@@ -213,7 +213,7 @@ func (s *secretsServiceSuite) TestProcessRemoteConsumerGetSecretNoConsumerExists
 	s.modelState.EXPECT().GetSecretRemoteConsumer(gomock.Any(), uri, consumer.String()).
 		Return(nil, 666, secreterrors.SecretConsumerNotFound)
 	s.modelState.EXPECT().GetSecretValue(gomock.Any(), uri, 666).Return(nil, ref, nil)
-	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, consumer.Application(), consumer.String(), coresecrets.SecretConsumerMetadata{
+	s.modelState.EXPECT().SaveSecretRemoteConsumer(gomock.Any(), uri, consumer.String(), coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 666,
 	})
 

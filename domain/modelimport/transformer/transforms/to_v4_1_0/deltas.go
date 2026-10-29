@@ -7,22 +7,28 @@ import (
 	"context"
 	"strconv"
 
+	corelogger "github.com/juju/juju/core/logger"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/logger"
 )
 
 // deltas is the engineer-owned implementation of the Deltas interface
 // declared in transform.go. When Deltas has methods, add receivers on
 // this type or the package will not compile.
-type deltas struct{}
+type deltas struct {
+	logger corelogger.Logger
+}
 
 var _ Deltas = deltas{}
 
 // NewDeltas returns the engineer-written delta implementation for the
 // 4.0.12 -> 4.1.0 transform.
-func NewDeltas() Deltas { return deltas{} }
+func NewDeltas() Deltas {
+	return deltas{logger: logger.GetLogger("juju.domain.modelimport.transformer")}
+}
 
 // Offer copies all v4_0_12 fields and leaves Description nil. Offers exported
 // from a 4.0.12 model carry no offer description; on import the offer falls
@@ -169,12 +175,20 @@ func (d deltas) ApplicationScale(ctx context.Context, src []v4_0_12.ApplicationS
 }
 
 // SecretRemoteUnitConsumer adds the offer connection over which each remote
-// unit consumes a secret. The unit is named after the synthetic application
-// of its offer connection, which has the connection's UUID. Rows whose
+// unit consumes a secret. The unit uses the synthetic application's name;
+// that application's UUID is the offer connection UUID. Rows whose
 // connection no longer exists were left behind when the connection was
 // removed; 4.1.0 deletes them with the connection, so they are dropped.
+//
+// Explicit migration policy: these rows memoise consumed revisions, not
+// secret content, grants or core model structure. Missing tracking is
+// recreated at the latest revision on the consumer's next normal secret
+// read. Unresolvable rows, including malformed unit names, are therefore
+// dropped with individual warnings rather than blocking an upgrade that
+// could fix the source bug. This does not itself emit a watcher event.
+// Valid consumers retain their tracked revision.
 func (d deltas) SecretRemoteUnitConsumer(
-	_ context.Context,
+	ctx context.Context,
 	src []v4_0_12.SecretRemoteUnitConsumer,
 	model *v4_0_12.ModelExport,
 ) ([]v4_1_0.SecretRemoteUnitConsumer, error) {
@@ -191,13 +205,19 @@ func (d deltas) SecretRemoteUnitConsumer(
 	for _, consumer := range src {
 		unitName := coreunit.Name(consumer.UnitName)
 		if err := unitName.Validate(); err != nil {
-			return nil, errors.Errorf("secret %q remote consumer: %w", consumer.SecretID, err)
+			d.logger.Warningf(ctx, "dropping remote consumer %q of secret %q: invalid unit name: %v",
+				consumer.UnitName, consumer.SecretID, err)
+			continue
 		}
 		appUUID, ok := appUUIDs[unitName.Application()]
 		if !ok {
+			d.logger.Warningf(ctx, "dropping remote consumer %q of secret %q: application not found",
+				consumer.UnitName, consumer.SecretID)
 			continue
 		}
 		if _, ok := offerConnections[appUUID]; !ok {
+			d.logger.Warningf(ctx, "dropping remote consumer %q of secret %q: offer connection not found",
+				consumer.UnitName, consumer.SecretID)
 			continue
 		}
 		result = append(result, v4_1_0.SecretRemoteUnitConsumer{

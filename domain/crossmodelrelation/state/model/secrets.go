@@ -12,6 +12,7 @@ import (
 	coreoffer "github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -229,19 +230,29 @@ WHERE  rev.secret_id = $secretLatestRevision.secret_id`
 
 // SaveSecretRemoteConsumer saves the consumer metadata for the given secret
 // and unit of the synthetic application representing a consuming
-// application.
+// application. The application is derived from the validated unit name.
+// Its UUID is the offer connection UUID; its production name is "remote-"
+// followed by that UUID without hyphens, not the raw UUID.
+// If the unit name is invalid, an error satisfying
+// [coreunit.InvalidUnitName] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
 // If the application is not the synthetic application of an offer
 // connection, an error satisfying
 // [crossmodelrelationerrors.RemoteApplicationNotFound] is returned.
 func (st *State) SaveSecretRemoteConsumer(
-	ctx context.Context, uri *coresecrets.URI, appName, unitName string, md coresecrets.SecretConsumerMetadata,
+	ctx context.Context, uri *coresecrets.URI, unitName string, md coresecrets.SecretConsumerMetadata,
 ) error {
+	consumerName := coreunit.Name(unitName)
+	if err := consumerName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
+	appName := consumerName.Application()
 	appNameArg := name{Name: appName}
 	offerConnectionQuery := `
 SELECT arc.offer_connection_uuid AS &offerConnectionUUID.offer_connection_uuid

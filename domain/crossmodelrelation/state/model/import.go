@@ -473,7 +473,6 @@ func (st *State) ImportRemoteSecretConsumers(ctx context.Context,
 		if err := st.SaveSecretRemoteConsumer(
 			ctx,
 			&coresecrets.URI{ID: consumer.SecretID},
-			consumer.ApplicationName,
 			consumer.Unit,
 			coresecrets.SecretConsumerMetadata{
 				CurrentRevision: consumer.CurrentRevision,

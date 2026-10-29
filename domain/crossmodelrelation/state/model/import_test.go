@@ -992,14 +992,13 @@ func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 	secretID := "secret-id"
 	// Ensure the secret exists with metadata and an initial revision.
 	s.createSecretWithMetadata(c, secretID)
-	// The synthetic application is named after its UUID.
 	_, _, _, synthAppUUID, _ := s.setupRemoteApplicationConsumer(c)
+	synthAppName := coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(synthAppUUID))
 
 	consumers := []internal.RemoteUnitConsumer{
 		{
 			SecretID:        secretID,
-			ApplicationName: synthAppUUID,
-			Unit:            synthAppUUID + "/0",
+			Unit:            synthAppName + "/0",
 			CurrentRevision: 1,
 		},
 	}
@@ -1026,7 +1025,7 @@ func (s *importSecretSuite) TestImportRemoteSecretConsumers(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Check(obtainedSecretID, tc.Equals, secretID)
 	c.Check(obtainedConnUUID, tc.Equals, synthAppUUID)
-	c.Check(obtainedUnitName, tc.Equals, synthAppUUID+"/0")
+	c.Check(obtainedUnitName, tc.Equals, synthAppName+"/0")
 	c.Check(obtainedCurrentRev, tc.Equals, 1)
 }
 

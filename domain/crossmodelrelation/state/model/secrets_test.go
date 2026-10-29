@@ -185,12 +185,11 @@ VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?
 
 func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c *tc.C) (string, *coresecrets.URI, *coresecrets.URI) {
 	ctx := c.Context()
-	// The synthetic application is named after its UUID.
 	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, appName string) {
 		consumer := coresecrets.SecretConsumerMetadata{
 			CurrentRevision: revision,
 		}
-		err := s.state.SaveSecretRemoteConsumer(ctx, uri, appName, appName+"/0", consumer)
+		err := s.state.SaveSecretRemoteConsumer(ctx, uri, appName+"/0", consumer)
 		c.Assert(err, tc.ErrorIsNil)
 	}
 
@@ -204,10 +203,11 @@ func (s *modelSecretsSuite) prepareWatchForRemoteConsumedSecretsChangesFromOffer
 
 	_, _, realApplicationUUID, syntheticApplicationUUID, _ := s.setupRemoteApplicationConsumer(c)
 
+	syntheticApplicationName := coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(syntheticApplicationUUID))
 	// The consumed revision 1.
-	saveRemoteConsumer(uri1, 1, syntheticApplicationUUID)
+	saveRemoteConsumer(uri1, 1, syntheticApplicationName)
 	// The consumed revision 1.
-	saveRemoteConsumer(uri2, 1, syntheticApplicationUUID)
+	saveRemoteConsumer(uri2, 1, syntheticApplicationName)
 
 	// create revision 2.
 	s.addRevision(c, uri1, map[string]string{"foo": "bar2"})
@@ -293,7 +293,7 @@ func (s *modelSecretsSuite) addSecretWithRevisions(c *tc.C, revisions int) *core
 // saveRemoteSecretConsumer records the revision of the secret currently
 // consumed by the given remote unit.
 func (s *modelSecretsSuite) saveRemoteSecretConsumer(c *tc.C, uri *coresecrets.URI, unitName string, revision int) {
-	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, coreunit.Name(unitName).Application(), unitName, coresecrets.SecretConsumerMetadata{
+	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, unitName, coresecrets.SecretConsumerMetadata{
 		CurrentRevision: revision,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -512,13 +512,21 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumer(c *tc.C) {
 	}
 
 	ctx := c.Context()
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", *consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", *consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, latest, err := s.state.GetSecretRemoteConsumer(ctx, uri, "remote-app/0")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.DeepEquals, consumer)
 	c.Assert(latest, tc.Equals, 1)
+}
+
+func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerInvalidUnitName(c *tc.C) {
+	uri := s.addSecretWithRevisions(c, 1)
+	for _, unitName := range []string{"not-a-unit", "/0", "remote-app/-1", "remote-app/01", "12345678-1234-1234-1234-123456789abc/0"} {
+		err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, unitName, coresecrets.SecretConsumerMetadata{CurrentRevision: 1})
+		c.Assert(err, tc.ErrorIs, coreunit.InvalidUnitName)
+	}
 }
 
 func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
@@ -532,11 +540,11 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *tc.C) {
 	}
 
 	ctx := c.Context()
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	consumer.CurrentRevision = 2
-	err = s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", consumer)
+	err = s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Revision 1 is obsolete.
@@ -557,7 +565,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerSecretNotExists(c *tc.C)
 		CurrentRevision: 666,
 	}
 
-	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app", "remote-app/0", consumer)
+	err := s.state.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
 }
 
@@ -568,7 +576,7 @@ func (s *modelSecretsSuite) TestSaveSecretRemoteConsumerNotRemoteConsumer(c *tc.
 	uri := coresecrets.NewURI()
 	s.createSecret(c, uri, map[string]string{"foo": "bar"}, nil)
 
-	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, "local-app", "local-app/0", coresecrets.SecretConsumerMetadata{
+	err := s.state.SaveSecretRemoteConsumer(c.Context(), uri, "local-app/0", coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 1,
 	})
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RemoteApplicationNotFound)
@@ -794,7 +802,7 @@ func (s *modelSecretsSuite) TestUpdateRemoteSecretRevision(c *tc.C) {
 	consumer := coresecrets.SecretConsumerMetadata{
 		CurrentRevision: 3,
 	}
-	err = s.state.SaveSecretRemoteConsumer(c.Context(), uri, "remote-app", "remote-app/0", consumer)
+	err = s.state.SaveSecretRemoteConsumer(c.Context(), uri, "remote-app/0", consumer)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Update to latest revision 4.
@@ -982,8 +990,7 @@ func (s *modelSecretsSuite) TestGetRemoteConsumerSecretGrants(c *tc.C) {
 	grants, err := s.state.GetRemoteConsumerSecretGrants(c.Context(), uri, consumeAppUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(grants, tc.DeepEquals, []crossmodelrelation.RemoteConsumerSecretGrant{{
-		// The helper names the synthetic application by its UUID.
-		ApplicationName: synthAppUUID,
+		ApplicationName: coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(synthAppUUID)),
 		RelationUUID:    tc.Must1(c, corerelation.ParseUUID, relUUID),
 		OfferUUID:       tc.Must1(c, coreoffer.ParseUUID, offerUUID),
 	}})

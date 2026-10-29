@@ -34,7 +34,7 @@ type ModelSecretsState interface {
 	// SaveSecretRemoteConsumer saves the consumer metadata for the given
 	// secret and unit of the synthetic application representing a consuming
 	// application.
-	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, appName, unitName string, md secrets.SecretConsumerMetadata) error
+	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md secrets.SecretConsumerMetadata) error
 	// UpdateRemoteSecretRevision records the latest revision of the specified cross model secret.
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID string) error
 
@@ -88,7 +88,7 @@ func (s *Service) UpdateRemoteConsumedRevision(ctx context.Context, uri *secrets
 		consumerInfo = &secrets.SecretConsumerMetadata{}
 	}
 	consumerInfo.CurrentRevision = latestRevision
-	if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, unitName.Application(), unitName.String(), *consumerInfo); err != nil {
+	if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, unitName.String(), *consumerInfo); err != nil {
 		return 0, errors.Capture(err)
 	}
 	return latestRevision, nil
@@ -230,7 +230,7 @@ func (s *Service) updateConsumedRevision(ctx context.Context, consumer unit.Name
 			consumerInfo = &secrets.SecretConsumerMetadata{}
 		}
 		consumerInfo.CurrentRevision = latestRevision
-		if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, consumer.Application(), consumer.String(), *consumerInfo); err != nil {
+		if err := s.modelState.SaveSecretRemoteConsumer(ctx, uri, consumer.String(), *consumerInfo); err != nil {
 			return 0, errors.Capture(err)
 		}
 	}

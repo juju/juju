@@ -890,7 +890,6 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 		}
 		grantedConsumers = append(grantedConsumers, internal.RemoteUnitConsumer{
 			SecretID:        secret.SecretID,
-			ApplicationName: appName,
 			Unit:            unitName,
 			CurrentRevision: consumer.CurrentRevision,
 		})

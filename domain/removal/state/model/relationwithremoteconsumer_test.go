@@ -244,6 +244,69 @@ func (s *relationWithRemoteConsumer) TestDeleteRelationWithRemoteConsumerUnits(c
 	c.Check(count, tc.Equals, 0)
 }
 
+func (s *relationWithRemoteConsumer) TestLeaveScopeSecretRemoteUnitConsumersIsolationAndRollback(c *tc.C) {
+	_, synthAppUUID, _ := s.createRelationWithRemoteConsumer(c)
+	otherOfferUUID := s.createOffer(c, "other-offer")
+	otherAppUUID, _ := s.createRemoteApplicationConsumer(c, "other", otherOfferUUID)
+	consumers := []secretRemoteUnitConsumerRow{
+		{"secret-1", synthAppUUID.String(), "foo/0", 1},
+		{"secret-2", synthAppUUID.String(), "foo/0", 2},
+		{"secret-1", synthAppUUID.String(), "foo/1", 3},
+		{"secret-1", otherAppUUID.String(), "other/0", 4},
+	}
+	s.addSecretRemoteUnitConsumers(c, consumers...)
+
+	var relUnitUUID, unitUUID, netNodeUUID string
+	err := s.DB().QueryRowContext(c.Context(), `
+SELECT ru.uuid, u.uuid, u.net_node_uuid
+FROM relation_unit AS ru
+JOIN unit AS u ON u.uuid = ru.unit_uuid
+WHERE u.name = 'foo/0'`).Scan(&relUnitUUID, &unitUUID, &netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+CREATE TRIGGER fail_departing_synthetic_unit BEFORE DELETE ON unit
+WHEN OLD.name = 'foo/0'
+BEGIN
+    SELECT RAISE(ABORT, 'departing synthetic unit deletion failed');
+END`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.LeaveScope(c.Context(), relUnitUUID)
+	c.Assert(err, tc.ErrorMatches, ".*departing synthetic unit deletion failed.*")
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers)
+	for _, query := range []struct {
+		SQL  string
+		UUID string
+	}{
+		{"SELECT COUNT(*) FROM unit WHERE uuid = ?", unitUUID},
+		{"SELECT COUNT(*) FROM net_node WHERE uuid = ?", netNodeUUID},
+		{"SELECT COUNT(*) FROM relation_unit WHERE uuid = ?", relUnitUUID},
+		{"SELECT COUNT(*) FROM relation_unit_setting WHERE relation_unit_uuid = ?", relUnitUUID},
+		{"SELECT COUNT(*) FROM relation_unit_settings_hash WHERE relation_unit_uuid = ?", relUnitUUID},
+	} {
+		var count int
+		err = s.DB().QueryRowContext(c.Context(), query.SQL, query.UUID).Scan(&count)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 1)
+	}
+	var archived int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM relation_unit_setting_archive WHERE unit_name = 'foo/0'`).Scan(&archived)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archived, tc.Equals, 0)
+
+	_, err = s.DB().ExecContext(c.Context(), "DROP TRIGGER fail_departing_synthetic_unit")
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.LeaveScope(c.Context(), relUnitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers[2:])
+	var remaining int
+	err = s.DB().QueryRowContext(c.Context(), `SELECT COUNT(*) FROM unit WHERE uuid = ?`, unitUUID).Scan(&remaining)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(remaining, tc.Equals, 0)
+}
+
 // TestDeleteRelationWithRemoteConsumerSecretRemoteUnitConsumers checks that
 // the secret revisions tracked for a synthetic unit are deleted with the
 // unit, and that any others tracked through the offer connection are
