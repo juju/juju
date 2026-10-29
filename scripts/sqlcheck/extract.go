@@ -276,7 +276,18 @@ func looksLikeContext(expr ast.Expr) bool {
 		return n == "ctx" || n == "context" || strings.HasSuffix(n, "ctx")
 	case *ast.CallExpr:
 		n := callName(e.Fun)
-		return n == "Background" || n == "TODO"
+		if n == "Background" || n == "TODO" {
+			return true
+		}
+		// Any call qualified by the context package yields a context
+		// value: context.WithTimeout, context.WithValue, and friends.
+		// A context argument is never the SQL itself.
+		if sel, ok := e.Fun.(*ast.SelectorExpr); ok {
+			if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "context" {
+				return true
+			}
+		}
+		return false
 	case *ast.SelectorExpr:
 		return looksLikeContext(e.Sel)
 	}

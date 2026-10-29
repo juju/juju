@@ -59,6 +59,43 @@ WHERE  id = $Bar.id
 	c.Check(strings.Contains(stmts[0].Eval.Content, "id = 1"), tc.IsTrue)
 }
 
+func (s *extractSuite) TestExecWrappedContextArg(c *tc.C) {
+	// A context wrapped in context.WithTimeout is still recognised as
+	// the context argument, so the SQL in the next argument is
+	// extracted instead of being dropped.
+	stmts, skips := extractSrc(c, `
+package p
+
+import "context"
+
+func f(ctx context.Context) {
+	db.Exec(context.WithTimeout(ctx, fiveSeconds), "SELECT id FROM t")
+}
+`)
+	c.Assert(skips, tc.HasLen, 0)
+	c.Assert(stmts, tc.HasLen, 1)
+	c.Check(strings.Contains(stmts[0].Eval.Content, "SELECT id FROM t"), tc.IsTrue)
+}
+
+func (s *extractSuite) TestExecWrappedContextStatementObject(c *tc.C) {
+	// A statement object passed behind a wrapped context is not lost
+	// SQL: its text is linted at the Prepare site that built it.
+	_, skips := extractSrc(c, `
+package p
+
+import (
+	"context"
+
+	"github.com/canonical/sqlair"
+)
+
+func f(ctx context.Context, stmt *sqlair.Statement) {
+	db.Exec(context.WithTimeout(ctx, fiveSeconds), stmt)
+}
+`)
+	c.Check(skips, tc.HasLen, 0)
+}
+
 func (s *extractSuite) TestPrepareLocalVar(c *tc.C) {
 	stmts, skips := extractSrc(c, `
 package p
