@@ -484,7 +484,6 @@ func (p *scn) parseOutput() ([]replacement, bool) {
 		return []replacement{{start: start, end: p.pos, token: "c"}}, true
 	}
 	p.pos = start
-	colStart := p.pos
 	star, paren, ok := p.parseColumnList()
 	if !ok {
 		p.pos = start
@@ -501,7 +500,6 @@ func (p *scn) parseOutput() ([]replacement, bool) {
 		p.pos = start
 		return nil, false
 	}
-	_ = colStart
 	// Parenthesized column lists such as `(a, b) AS &M.*` are not
 	// valid SQLite once rewritten as `(a, b) AS c`. Replace the
 	// whole output expression with a dummy identifier.
