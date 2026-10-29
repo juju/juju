@@ -9,7 +9,8 @@
 # ~/.local/share/juju, so a 3.6 client and the 4.0 client see the same
 # controllers and credentials.
 #
-# NOTE: 3.6/edge is temporary until a 3.6.30/stable patch release ships
+# NOTE: 3.6/edge is temporary until a 3.6.30 patch is released
+# on the 3.6/stable channel.
 # (it must carry juju/juju#23494 and publish the jujud-operator image).
 
 JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju}"
@@ -461,8 +462,7 @@ ensure_juju36_client() {
 	if [[ ${JUJU_36} != "/snap/bin/juju" ]]; then
 		return
 	fi
-	# TODO: switch back to 3.6/stable once a 3.6.30/stable release
-	# carries the fix.
+	# TODO: switch back to 3.6/stable once 3.6.30 is released.
 	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]] &&
 		[[ "$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')" == "3.6/edge" ]]; then
 		return
@@ -500,23 +500,22 @@ ensure_juju36_client() {
 		# Re-evaluate install vs refresh on every attempt: a failed
 		# attempt may leave the snap listed but unusable, and retrying
 		# install against a listed snap fails deterministically.
-		local action opts
+		local action
 		if snap list juju >/dev/null 2>&1; then
 			action="refresh"
-			opts=""
-			if (( attempts > 0 )); then
-				# Like the upgrade suite: a channel-changing
-				# refresh is rejected without --amend, so a
-				# byte-identical retry cannot succeed.
-				opts=" --amend"
-			fi
 		else
 			action="install"
-			opts=""
 		fi
 		# All 3.6/stable and 3.6/edge revisions are strictly confined,
 		# so no --classic here.
-		sudo snap "${action}" juju --channel "3.6/edge${opts}" 2>&1 && break || sleep 10
+		local -a snap_args=("${action}" juju --channel 3.6/edge)
+		if [[ ${action} == "refresh" ]] && (( attempts > 0 )); then
+			# Like the upgrade suite: a channel-changing refresh
+			# is rejected without --amend, so a byte-identical
+			# retry cannot succeed.
+			snap_args+=(--amend)
+		fi
+		sudo snap "${snap_args[@]}" 2>&1 && break || sleep 10
 		attempts=$((attempts + 1))
 	done
 }
