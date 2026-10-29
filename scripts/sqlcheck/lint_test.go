@@ -6,7 +6,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/juju/tc"
@@ -52,9 +54,66 @@ func (s *lintSuite) TestLookSQLFluffNotFound(c *tc.C) {
 	empty := c.MkDir()
 	s.PatchEnvironment("PATH", empty)
 
-	_, err := lookSQLFluff()
+	_, err := lookSQLFluff(c.MkDir())
 	c.Check(err, tc.ErrorMatches, "sqlfluff not found in PATH; install the repository-pinned version: .*")
 	c.Check(errors.Is(err, exec.ErrNotFound), tc.IsTrue)
+}
+
+// pinRepo returns a directory whose .github/sqlfluff-version holds the
+// given pinned version.
+func (s *lintSuite) pinRepo(c *tc.C, version string) string {
+	c.Helper()
+	root := c.MkDir()
+	c.Assert(os.MkdirAll(filepath.Join(root, ".github"), 0o755), tc.ErrorIsNil)
+	c.Assert(os.WriteFile(
+		filepath.Join(root, ".github", "sqlfluff-version"),
+		[]byte(version+"\n"), 0o644), tc.ErrorIsNil)
+	return root
+}
+
+// versionStub returns the path of an executable that answers any
+// invocation with the given version output.
+func (s *lintSuite) versionStub(c *tc.C, out string) string {
+	c.Helper()
+	bin := filepath.Join(c.MkDir(), "sqlfluff")
+	script := fmt.Sprintf("#!/bin/sh\nprintf '%s\\n'\n", out)
+	c.Assert(os.WriteFile(bin, []byte(script), 0o755), tc.ErrorIsNil)
+	return bin
+}
+
+func (s *lintSuite) TestCheckSQLFluffVersionNoPin(c *tc.C) {
+	// Without a pin file the check is skipped: the tool can run
+	// outside a full checkout.
+	bin := s.versionStub(c, "sqlfluff, version 9.9.9")
+	c.Check(checkSQLFluffVersion(bin, c.MkDir()), tc.ErrorIsNil)
+}
+
+func (s *lintSuite) TestCheckSQLFluffVersionMatch(c *tc.C) {
+	root := s.pinRepo(c, "3.4.2")
+
+	bin := s.versionStub(c, "sqlfluff, version 3.4.2")
+	c.Check(checkSQLFluffVersion(bin, root), tc.ErrorIsNil)
+
+	// Newer sqlfluff prints the bare version.
+	bin = s.versionStub(c, "3.4.2")
+	c.Check(checkSQLFluffVersion(bin, root), tc.ErrorIsNil)
+}
+
+func (s *lintSuite) TestCheckSQLFluffVersionMismatch(c *tc.C) {
+	root := s.pinRepo(c, "3.4.2")
+	bin := s.versionStub(c, "sqlfluff, version 9.9.9")
+
+	err := checkSQLFluffVersion(bin, root)
+	c.Check(err, tc.ErrorMatches,
+		"sqlfluff version 9.9.9 does not match the repository pin 3.4.2: install sqlfluff==3.4.2")
+}
+
+func (s *lintSuite) TestCheckSQLFluffVersionUnparseable(c *tc.C) {
+	root := s.pinRepo(c, "3.4.2")
+	bin := s.versionStub(c, "not-a-version")
+
+	err := checkSQLFluffVersion(bin, root)
+	c.Check(err, tc.ErrorMatches, "could not parse sqlfluff version from .*; the repository pins 3.4.2")
 }
 
 func (s *lintSuite) TestTruncate(c *tc.C) {

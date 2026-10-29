@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"os/exec"
@@ -119,14 +120,61 @@ func isFluffLintExit(err error) bool {
 	return ex.ExitCode() == 1
 }
 
-func lookSQLFluff() (string, error) {
+func lookSQLFluff(root string) (string, error) {
 	bin, err := exec.LookPath("sqlfluff")
 	if err != nil {
 		return "", fmt.Errorf(
 			"sqlfluff not found in PATH; install the repository-pinned version: %w",
 			err)
 	}
+	if err := checkSQLFluffVersion(bin, root); err != nil {
+		return "", err
+	}
 	return bin, nil
+}
+
+// checkSQLFluffVersion verifies that the sqlfluff on PATH reports the
+// version pinned in .github/sqlfluff-version. The fix matchers are
+// coupled to the pinned version's violation wording, so a mismatch
+// must fail loudly instead of silently never matching. When the pin
+// file is absent the check is skipped.
+func checkSQLFluffVersion(bin, root string) error {
+	pin, err := os.ReadFile(filepath.Join(root, ".github", "sqlfluff-version"))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("reading pinned sqlfluff version: %w", err)
+	}
+	want := strings.TrimSpace(string(pin))
+	out, err := exec.Command(bin, "--version").Output()
+	if err != nil {
+		return fmt.Errorf("sqlfluff --version failed: %w", err)
+	}
+	got := parseVersionOutput(string(out))
+	if got == "" {
+		return fmt.Errorf(
+			"could not parse sqlfluff version from %q; the repository pins %s",
+			strings.TrimSpace(string(out)), want)
+	}
+	if got != want {
+		return fmt.Errorf(
+			"sqlfluff version %s does not match the repository pin %s: install sqlfluff==%s",
+			got, want, want)
+	}
+	return nil
+}
+
+// parseVersionOutput extracts the version token from sqlfluff --version
+// output, which may be a bare "3.4.2" or the older
+// "sqlfluff, version 3.4.2" form.
+func parseVersionOutput(out string) string {
+	for f := range strings.FieldsSeq(out) {
+		if f[0] >= '0' && f[0] <= '9' {
+			return f
+		}
+	}
+	return ""
 }
 
 // matchSynth maps a sqlfluff-reported path back to its FileRender.

@@ -73,7 +73,7 @@ func run(args []string) int {
 		return 2
 	}
 
-	bin, err := lookSQLFluff()
+	bin, err := lookSQLFluff(root)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sqlcheck: %v\n", err)
 		return 2

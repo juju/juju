@@ -31,7 +31,13 @@ func TestIntegrationSuite(t *testing.T) {
 // coverage. Other CI systems and local runs skip when it is unavailable.
 func sqlfluffBinary(c *tc.C) string {
 	c.Helper()
-	bin, err := lookSQLFluff()
+	root, err := findRepoRoot(".")
+	if err != nil {
+		// Outside a checkout there is no pin file; the version
+		// check is skipped by lookSQLFluff.
+		root = ""
+	}
+	bin, err := lookSQLFluff(root)
 	if err == nil {
 		return bin
 	}
