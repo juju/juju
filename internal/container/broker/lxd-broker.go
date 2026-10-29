@@ -150,14 +150,3 @@ func (broker *lxdBroker) AllInstances(ctx context.Context) (result []instances.I
 func (broker *lxdBroker) AllRunningInstances(ctx context.Context) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }
-
-// LXDProfileNames returns all the profiles for a container that the broker
-// currently is aware of.
-// LXDProfileNames implements environs.LXDProfiler.
-func (broker *lxdBroker) LXDProfileNames(containerName string) ([]string, error) {
-	nameRetriever, ok := broker.manager.(container.LXDProfileNameRetriever)
-	if !ok {
-		return make([]string, 0), nil
-	}
-	return nameRetriever.LXDProfileNames(containerName)
-}

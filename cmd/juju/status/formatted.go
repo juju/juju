@@ -60,23 +60,21 @@ type networkInterface struct {
 }
 
 type machineStatus struct {
-	Err                error                         `json:"-" yaml:",omitempty"`
-	JujuStatus         statusInfoContents            `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
-	Hostname           string                        `json:"hostname,omitempty" yaml:"hostname,omitempty"`
-	DNSName            string                        `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	IPAddresses        []string                      `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
-	InstanceId         instance.Id                   `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	DisplayName        string                        `json:"display-name,omitempty" yaml:"display-name,omitempty"`
-	MachineStatus      statusInfoContents            `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
-	ModificationStatus statusInfoContents            `json:"modification-status,omitempty" yaml:"modification-status,omitempty"`
-	Base               *formattedBase                `json:"base,omitempty" yaml:"base,omitempty"`
-	Id                 string                        `json:"-" yaml:"-"`
-	NetworkInterfaces  map[string]networkInterface   `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
-	Containers         map[string]machineStatus      `json:"containers,omitempty" yaml:"containers,omitempty"`
-	Constraints        string                        `json:"constraints,omitempty" yaml:"constraints,omitempty"`
-	Hardware           string                        `json:"hardware,omitempty" yaml:"hardware,omitempty"`
-	LXDProfiles        map[string]lxdProfileContents `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
-	HAClusterRole      *string                       `json:"controller-cluster-role,omitempty" yaml:"controller-cluster-role,omitempty"`
+	Err               error                       `json:"-" yaml:",omitempty"`
+	JujuStatus        statusInfoContents          `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
+	Hostname          string                      `json:"hostname,omitempty" yaml:"hostname,omitempty"`
+	DNSName           string                      `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	IPAddresses       []string                    `json:"ip-addresses,omitempty" yaml:"ip-addresses,omitempty"`
+	InstanceId        instance.Id                 `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	DisplayName       string                      `json:"display-name,omitempty" yaml:"display-name,omitempty"`
+	MachineStatus     statusInfoContents          `json:"machine-status,omitempty" yaml:"machine-status,omitempty"`
+	Base              *formattedBase              `json:"base,omitempty" yaml:"base,omitempty"`
+	Id                string                      `json:"-" yaml:"-"`
+	NetworkInterfaces map[string]networkInterface `json:"network-interfaces,omitempty" yaml:"network-interfaces,omitempty"`
+	Containers        map[string]machineStatus    `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Constraints       string                      `json:"constraints,omitempty" yaml:"constraints,omitempty"`
+	Hardware          string                      `json:"hardware,omitempty" yaml:"hardware,omitempty"`
+	HAClusterRole     *string                     `json:"controller-cluster-role,omitempty" yaml:"controller-cluster-role,omitempty"`
 
 	// These fields should be deprecated in favour of HAClusterRole. Remove
 	// them in the next version of the API client version.
@@ -110,13 +108,6 @@ func (s machineStatus) machineName() string {
 	return s.DisplayName
 }
 
-// LXDProfile holds status info about a LXDProfile
-type lxdProfileContents struct {
-	Config      map[string]string            `json:"config" yaml:"config"`
-	Description string                       `json:"description" yaml:"description"`
-	Devices     map[string]map[string]string `json:"devices" yaml:"devices"`
-}
-
 type applicationStatus struct {
 	Err              error                                  `json:"-" yaml:",omitempty"`
 	Charm            string                                 `json:"charm" yaml:"charm"`
@@ -126,7 +117,6 @@ type applicationStatus struct {
 	CharmRev         int                                    `json:"charm-rev" yaml:"charm-rev"`
 	CharmChannel     string                                 `json:"charm-channel,omitempty" yaml:"charm-channel,omitempty"`
 	CharmVersion     string                                 `json:"charm-version,omitempty" yaml:"charm-version,omitempty"`
-	CharmProfile     string                                 `json:"charm-profile,omitempty" yaml:"charm-profile,omitempty"`
 	CanUpgradeTo     string                                 `json:"can-upgrade-to,omitempty" yaml:"can-upgrade-to,omitempty"`
 	Scale            int                                    `json:"scale,omitempty" yaml:"scale,omitempty"`
 	ProviderId       string                                 `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`

@@ -38,12 +38,6 @@ type StatusGetter interface {
 	Status() (StatusInfo, error)
 }
 
-// ModificationStatusGetter represents a type whose modification status can be
-// read.
-type ModificationStatusGetter interface {
-	ModificationStatus() (StatusInfo, error)
-}
-
 const (
 	// Status values common to machine and unit agents, and tasks.
 
@@ -280,19 +274,6 @@ const (
 	MessageInitializingAgent = "agent initialising"
 	MessageInstallingCharm   = "installing charm software"
 )
-
-// KnownModificationStatus returns true if the status has a known value for
-// a modification of an instance.
-func (s Status) KnownModificationStatus() bool {
-	switch s {
-	case
-		Idle,
-		Error,
-		Unknown:
-		return true
-	}
-	return false
-}
 
 // KnownInstanceStatus returns true if status has a known value for a machine
 // cloud  instance.

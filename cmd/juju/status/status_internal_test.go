@@ -192,10 +192,6 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"modification-status": M{
-			"current": "idle",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
 		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
@@ -220,10 +216,6 @@ var (
 			"current": "pending",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"modification-status": M{
-			"current": "idle",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
 		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
@@ -245,10 +237,6 @@ var (
 		"instance-id":  "controller-2",
 		"machine-status": M{
 			"current": "pending",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"modification-status": M{
-			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"base": M{"name": "ubuntu", "channel": "12.10"},
@@ -275,10 +263,6 @@ var (
 			"message": "I am number three",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"modification-status": M{
-			"current": "idle",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
 		"base": M{"name": "ubuntu", "channel": "12.10"},
 		"network-interfaces": M{
 			"eth0": M{
@@ -300,10 +284,6 @@ var (
 		"instance-id":  "controller-4",
 		"machine-status": M{
 			"current": "pending",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"modification-status": M{
-			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"base": M{"name": "ubuntu", "channel": "12.10"},
@@ -340,10 +320,6 @@ var (
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
@@ -359,10 +335,6 @@ var (
 				"instance-id":  "controller-3",
 				"machine-status": M{
 					"current": "pending",
-					"since":   "01 Apr 15 01:23+10:00",
-				},
-				"modification-status": M{
-					"current": "idle",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
 				"base": M{"name": "ubuntu", "channel": "12.10"},
@@ -384,10 +356,6 @@ var (
 					"current": "pending",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"modification-status": M{
-					"current": "idle",
-					"since":   "01 Apr 15 01:23+10:00",
-				},
 				"base": M{"name": "ubuntu", "channel": "12.10"},
 			},
 		},
@@ -397,10 +365,6 @@ var (
 		"instance-id":  "controller-1",
 		"machine-status": M{
 			"current": "pending",
-			"since":   "01 Apr 15 01:23+10:00",
-		},
-		"modification-status": M{
-			"current": "idle",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
 		"base": M{"name": "ubuntu", "channel": "12.10"},
@@ -502,10 +466,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"controller-member-status": "adding-vote",
 					},
@@ -538,10 +498,6 @@ var statusTests = []testCase{
 						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"modification-status": M{
-							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
@@ -587,10 +543,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
@@ -628,10 +580,6 @@ var statusTests = []testCase{
 						"instance-id":  "controller-0",
 						"machine-status": M{
 							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"modification-status": M{
-							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"juju-status": M{
@@ -690,10 +638,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
@@ -740,10 +684,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"constraints":              "cores=2 mem=8192M root-disk=8192M",
 						"hardware":                 "arch=amd64 cores=2 mem=8192M root-disk=8192M",
@@ -776,10 +716,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base":                     M{"name": "ubuntu", "channel": "12.10"},
 						"controller-member-status": "adding-vote",
 					},
@@ -806,10 +742,6 @@ var statusTests = []testCase{
 						"machine-status": M{
 							"current": "unknown",
 							"message": "missing",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"modification-status": M{
-							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"base":                     M{"name": "ubuntu", "channel": "12.10"},
@@ -1015,10 +947,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"juju-status": M{
 							"current": "stopped",
 							"message": "Really?",
@@ -1041,10 +969,6 @@ var statusTests = []testCase{
 						"instance-id":  "controller-4",
 						"machine-status": M{
 							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"modification-status": M{
-							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"juju-status": M{
@@ -1071,10 +995,6 @@ var statusTests = []testCase{
 						"instance-id": "pending",
 						"machine-status": M{
 							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"modification-status": M{
-							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
@@ -1403,10 +1323,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
 					},
 				},
@@ -1462,10 +1378,6 @@ var statusTests = []testCase{
 						"instance-id": "controller-0",
 						"machine-status": M{
 							"current": "pending",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"modification-status": M{
-							"current": "idle",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
 						"base":     M{"name": "ubuntu", "channel": "12.10"},
@@ -2659,10 +2571,6 @@ var statusTests = []testCase{
 							"current": "pending",
 							"since":   "01 Apr 15 01:23+10:00",
 						},
-						"modification-status": M{
-							"current": "idle",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
 						"base": M{"name": "ubuntu", "channel": "12.10"},
 						"network-interfaces": M{
 							"eth0": M{
@@ -2919,7 +2827,6 @@ func (am addMachine) step(c *tc.C, ctx *ctx) {
 		WantsVote:         true,
 		Containers:        make(map[string]params.MachineStatus),
 		Jobs:              []coremodel.MachineJob{am.job},
-		LXDProfiles:       make(map[string]params.LXDProfile),
 		NetworkInterfaces: make(map[string]params.NetworkInterface),
 		AgentStatus: params.DetailedStatus{
 			Status: status.Pending.String(),
@@ -2927,10 +2834,6 @@ func (am addMachine) step(c *tc.C, ctx *ctx) {
 		},
 		InstanceStatus: params.DetailedStatus{
 			Status: status.Pending.String(),
-			Since:  &now,
-		},
-		ModificationStatus: params.DetailedStatus{
-			Status: status.Idle.String(),
 			Since:  &now,
 		},
 	}
@@ -2979,10 +2882,6 @@ func (ac addContainer) step(c *tc.C, ctx *ctx) {
 		},
 		InstanceStatus: params.DetailedStatus{
 			Status: status.Pending.String(),
-			Since:  &now,
-		},
-		ModificationStatus: params.DetailedStatus{
-			Status: status.Idle.String(),
 			Since:  &now,
 		},
 	}
@@ -4439,6 +4338,8 @@ func (s *StatusSuite) prepareTabularData(c *tc.C) *ctx {
 		startAliveMachine{"4", ""},
 		setMachineStatus{"4", status.Started, ""},
 		setMachineInstanceStatus{"4", status.Started, "I am number four"},
+		// Modification status remains on the RPC response for compatibility,
+		// but is no longer presented by the client.
 		setMachineModificationStatus{"4", status.Error, "I am an error"},
 	}
 	for _, s := range steps {
@@ -4471,7 +4372,7 @@ Machine  State    Address   Inst id       Base          AZ          Message
 1        started  10.0.1.1  snowflake     ubuntu@12.10              
 2        started  10.0.2.1  controller-2  ubuntu@12.10              
 3        started  10.0.3.1  controller-3  ubuntu@12.10              I am number three
-4        error    10.0.3.1  controller-4  ubuntu@12.10              I am an error
+4        started  10.0.3.1  controller-4  ubuntu@12.10              I am number four
 
 Offer         Application  Charm  Rev  Connected  Endpoint  Interface  Role
 hosted-mysql  mysql        mysql  1    1/1        server    mysql      provider
@@ -4894,9 +4795,8 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *tc.C) {
 					Name:    "ubuntu",
 					Channel: "22.04",
 				},
-				JujuStatus:         longStatusInfo,
-				MachineStatus:      longStatusInfo,
-				ModificationStatus: longStatusInfo,
+				JujuStatus:    longStatusInfo,
+				MachineStatus: longStatusInfo,
 				Containers: map[string]machineStatus{
 					"0": {
 						Id:      "0/lxd/0",
@@ -4905,9 +4805,8 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *tc.C) {
 							Name:    "ubuntu",
 							Channel: "22.04",
 						},
-						JujuStatus:         longStatusInfo,
-						MachineStatus:      longStatusInfo,
-						ModificationStatus: longStatusInfo,
+						JujuStatus:    longStatusInfo,
+						MachineStatus: longStatusInfo,
 					},
 				},
 			},
@@ -5208,7 +5107,6 @@ func (s *StatusSuite) TestFormatProvisioningError(c *tc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
-				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5259,7 +5157,6 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *tc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
-				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
@@ -5310,7 +5207,6 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *tc.C) {
 				Id:                "1",
 				Containers:        map[string]machineStatus{},
 				NetworkInterfaces: map[string]networkInterface{},
-				LXDProfiles:       map[string]lxdProfileContents{},
 			},
 		},
 		Applications:       map[string]applicationStatus{},
