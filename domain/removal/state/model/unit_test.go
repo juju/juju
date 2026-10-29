@@ -1351,8 +1351,9 @@ func (s *unitSuite) TestDeleteUnitWithRelationUnitReturnsIncomplete(c *tc.C) {
 	c.Check(exists, tc.Equals, false)
 }
 
-// TestDeleteCAASUnitWithDyingFilesystemAttachmentReturnsIncomplete verifies that a Kubernetes unit
-// is not deleted while a filesystem attachment on its net node is dying.
+// TestDeleteCAASUnitWithDyingFilesystemAttachmentReturnsIncomplete verifies
+// that a Kubernetes unit is not deleted while a filesystem attachment on its
+// net node is dying.
 func (s *unitSuite) TestDeleteCAASUnitWithDyingFilesystemAttachmentReturnsIncomplete(c *tc.C) {
 	svc := s.setupApplicationService(c)
 	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})

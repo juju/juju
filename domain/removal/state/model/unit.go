@@ -714,8 +714,9 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 			Add(removalerrors.RemovalJobIncomplete)
 	}
 
-	// Ensure that the storage provisioner has finished detaching any dying filesystem attachments,
-	// otherwise those attachments may be stuck in a dying state.
+	// Ensure that the storage provisioner has finished detaching any dying
+	// filesystem attachments otherwise those attachments may be stuck in a dying
+	// state.
 	if !force {
 		var numDyingAttachments entityAssociationCount
 		err = tx.Query(ctx, dyingFilesystemAttachmentCountStmt, unitUUIDCount).Get(&numDyingAttachments)
