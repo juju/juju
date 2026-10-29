@@ -401,7 +401,7 @@ WHERE  osm.uuid = $dbMetadata.uuid`, metadata)
 	} else if err != nil {
 		return errors.Errorf("selecting metadata uuid: %w", err)
 	}
-	return errors.New("metadata uuid already exists with different hashes or size")
+	return objectstoreerrors.ErrMetadataUUIDAlreadyExists
 }
 
 // AddControllerIDHint adds a controller ID hint for the specified SHA384. This

@@ -510,7 +510,7 @@ func (s *stateSuite) TestPutMetadataWithSameUUIDDifferentHashes(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadata(c.Context(), uuid, metadata2)
-	c.Assert(err, tc.ErrorMatches, `.*metadata uuid already exists with different hashes or size`)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
 	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
 
 	got, err := st.GetMetadata(c.Context(), metadata1.Path)
@@ -520,6 +520,35 @@ func (s *stateSuite) TestPutMetadataWithSameUUIDDifferentHashes(c *tc.C) {
 	_, err = st.GetMetadata(c.Context(), metadata2.Path)
 	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithSameUUIDDifferentSize(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "original",
+		Size:   666,
+	}
+	_, err := st.PutMetadata(c.Context(), uuid, metadata)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A size-only UUID conflict is a caller bug, not deduplication.
+	conflicting := metadata
+	conflicting.Path = "rejected"
+	conflicting.Size = 42
+	_, err = st.PutMetadata(c.Context(), uuid, conflicting)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	got, err := st.GetMetadata(c.Context(), metadata.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata)
+	_, err = st.GetMetadata(c.Context(), conflicting.Path)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
 	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
 	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
 }
@@ -592,7 +621,7 @@ func (s *stateSuite) TestPutMetadataWithControllerIDHintSameUUIDDifferentHashes(
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata2, "2")
-	c.Assert(err, tc.ErrorMatches, `.*metadata uuid already exists with different hashes or size`)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
 	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
 
 	got, err := st.GetMetadata(c.Context(), metadata1.Path)
@@ -606,6 +635,38 @@ func (s *stateSuite) TestPutMetadataWithControllerIDHintSameUUIDDifferentHashes(
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(hints, tc.DeepEquals, []string{"1"})
 
+	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
+	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
+}
+
+func (s *stateSuite) TestPutMetadataWithControllerIDHintSameUUIDDifferentSize(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+	uuid := tc.Must(c, coreobjectstore.NewUUID).String()
+	metadata := coreobjectstore.Metadata{
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Path:   "original",
+		Size:   666,
+	}
+	_, err := st.PutMetadataWithControllerIDHint(c.Context(), uuid, metadata, "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A size-only UUID conflict must not record the rejected placement hint.
+	conflicting := metadata
+	conflicting.Path = "rejected"
+	conflicting.Size = 42
+	_, err = st.PutMetadataWithControllerIDHint(c.Context(), uuid, conflicting, "2")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+
+	got, err := st.GetMetadata(c.Context(), metadata.Path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, metadata)
+	_, err = st.GetMetadata(c.Context(), conflicting.Path)
+	c.Check(err, tc.ErrorIs, objectstoreerrors.ErrNotFound)
+	hints, err := st.GetControllerIDHints(c.Context(), metadata.SHA384)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(hints, tc.DeepEquals, []string{"1"})
 	c.Check(s.countRows(c, "object_store_metadata"), tc.Equals, 1)
 	c.Check(s.countRows(c, "object_store_metadata_path"), tc.Equals, 1)
 }
