@@ -32,7 +32,8 @@ SELECT
     mc.value
 FROM model_config AS mc
 -- agent_version is authoritative for these keys, so any competing
--- model_config rows are excluded.
+-- model_config rows are excluded. Keep these key literals in sync with
+-- environs/config.AgentStreamKey and environs/config.AgentVersionKey.
 WHERE mc."key" NOT IN ('agent-stream', 'agent-version')
 UNION ALL
 SELECT

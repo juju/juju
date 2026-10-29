@@ -189,6 +189,7 @@ func setAgentTargetVersion(view *ProjectionView, rows int, targetVersion func(in
 
 // setAgentStream resolves the agent_version foreign key instead of trusting
 // potentially stale model config. A missing reference is a malformed payload.
+// setAgentTargetVersion must establish the single-row invariant first.
 func setAgentStream(view *ProjectionView, payload latest.ModelExport) error {
 	if len(payload.AgentVersion) == 0 {
 		return nil
