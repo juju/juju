@@ -778,7 +778,7 @@ local-operator-update: check-k8s-model operator-image
 STATIC_ANALYSIS_JOB ?=
 
 SQLCHECK_FLAGS ?=
-SQLFLUFF_VERSION := $(shell cat .github/sqlfluff-version)
+SQLFLUFF_VERSION = $(shell cat .github/sqlfluff-version)
 
 .PHONY: lint-sql
 lint-sql:
