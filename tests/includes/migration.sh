@@ -4,10 +4,13 @@
 # into a controller built from this branch (4.0). The source controllers
 # are bootstrapped with a juju 3.6 client binary (set JUJU_MIGRATION_36_BIN
 # to override the /snap/bin/juju default, which the suite pins to the
-# 3.6/stable snap channel itself); the migration target is the suite's
+# 3.6/edge snap channel itself); the migration target is the suite's
 # own 4.0 controller. All clients share
 # ~/.local/share/juju, so a 3.6 client and the 4.0 client see the same
 # controllers and credentials.
+#
+# NOTE: 3.6/edge is temporary until a 3.6.30/stable patch release ships
+# (it must carry juju/juju#23494 and publish the jujud-operator image).
 
 JUJU_36="${JUJU_MIGRATION_36_BIN:-/snap/bin/juju}"
 
@@ -30,7 +33,11 @@ bootstrap_controller_36() {
 		cloud_region="aws/${BOOTSTRAP_REGION:-us-east-1}"
 		;;
 	"k8s")
-		cloud_region="${BOOTSTRAP_CLOUD}"
+		cloud_region="${BOOTSTRAP_CLOUD:-$(default_k8s)}"
+		if [[ -z ${cloud_region} ]]; then
+			red "must specify k8s cloud to bootstrap"
+			exit 1
+		fi
 		;;
 	*)
 		red "juju 3.6 migration tests are not supported on provider ${BOOTSTRAP_PROVIDER}"
@@ -440,12 +447,13 @@ cleanup_wrench_die_in_export_36() {
 		'sudo mkdir -p /var/lib/juju/wrench && : | sudo tee /var/lib/juju/wrench/migrationmaster >/dev/null' >/dev/null 2>&1 || true
 }
 
-# ensure_juju36_client pins the regular juju snap to the 3.6/stable
-# channel when the default /snap/bin/juju location is in use, mirroring
-# the upgrade suite's prior-stable install (tests/suites/upgrade/
-# streams.sh). A custom JUJU_MIGRATION_36_BIN is used as-is. Call this
-# un-captured from the wrapper path (like run_migration_*); never from
-# inside a $( ...) capture, or sudo's password prompt has no terminal.
+# ensure_juju36_client pins the regular juju snap to the
+# 3.6/edge channel when the default /snap/bin/juju
+# location is in use, mirroring the upgrade suite's prior-stable install
+# (tests/suites/upgrade/streams.sh). A custom JUJU_MIGRATION_36_BIN is
+# used as-is. Call this un-captured from the wrapper path (like
+# run_migration_*); never from inside a $( ...) capture, or sudo's
+# password prompt has no terminal.
 # The channel the snap tracked before pinning is captured so the
 # framework cleanup can restore it (restore_juju36_channel): a local
 # run must not leave the developer's juju pinned to 3.6.
@@ -453,7 +461,10 @@ ensure_juju36_client() {
 	if [[ ${JUJU_36} != "/snap/bin/juju" ]]; then
 		return
 	fi
-	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]]; then
+	# TODO: switch back to 3.6/stable once a 3.6.30/stable release
+	# carries the fix.
+	if [[ $(${JUJU_36} version 2>/dev/null || true) == 3.6* ]] &&
+		[[ "$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')" == "3.6/edge" ]]; then
 		return
 	fi
 
@@ -479,7 +490,8 @@ ensure_juju36_client() {
 	fi
 
 	local attempts=0
-	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]]; do
+	while [[ $(${JUJU_36} version 2>/dev/null || true) != 3.6* ]] ||
+		[[ "$(snap info juju 2>/dev/null | awk '/^tracking:/{print $2}')" != "3.6/edge" ]]; do
 		if (( attempts >= 3 )); then
 			echo "failed to install the juju 3.6 snap after ${attempts} attempts" >&2
 			return 1
@@ -502,14 +514,16 @@ ensure_juju36_client() {
 			action="install"
 			opts=""
 		fi
-		sudo snap "${action}" juju --classic --channel 3.6/stable${opts} 2>&1 && break || sleep 10
+		# All 3.6/stable and 3.6/edge revisions are strictly confined,
+		# so no --classic here.
+		sudo snap "${action}" juju --channel "3.6/edge${opts}" 2>&1 && break || sleep 10
 		attempts=$((attempts + 1))
 	done
 }
 
 # restore_juju36_channel returns the regular juju snap to the state it
-# was in before ensure_juju36_client pinned it to 3.6/stable: refreshed
-# back to its previously tracked channel, or removed again when the
+# was in before ensure_juju36_client pinned it to the migration channel:
+# refreshed back to its previously tracked channel, or removed again when the
 # suite installed it in the first place. The runner calls this after all
 # controller cleanup, not through the ordered cleanup callback list.
 restore_juju36_channel() {

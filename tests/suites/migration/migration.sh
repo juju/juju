@@ -678,7 +678,7 @@ run_migration_36_cmr_secrets_consumer() {
 	# Secret-watch continuity across the mixed-version cross-model relation
 	# (juju/juju#23341): rotate the relation secret on the still-3.6
 	# offerer; the migrated consumer must keep writing.
-	${JUJU_36} run -m "mig36-db-src-12345:mig-db36-12345" postgresql-k8s/leader set-password
+	${JUJU_36} run -m "mig36-db-src-12345:mig-db36-12345" postgresql-k8s/leader set-password username=operator
 	wait_for "postgresql-test-app" "$(active_idle_condition "postgresql-test-app")"
 	consumer_post2=$(mig_writes_get "juju" "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345")
 	mig_assert_writes_increase "${consumer_post}" "${consumer_post2}" "${consumer_pre}" "migrated consumer after secret rotation"
@@ -818,7 +818,7 @@ run_migration_36_cmr_secrets_offerer() {
 
 	# Rotate the relation secret with everything on 4.0: the third-party
 	# consumer must stay healthy (juju/juju#23341).
-	juju run -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-db36-12345" postgresql-k8s/leader set-password
+	juju run -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-db36-12345" postgresql-k8s/leader set-password username=operator
 	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s")"
 	hub_post3=$(mig_writes_get "juju" "mig36-hub40-12345:mig-hub40-12345") \
 		|| { red "mig_writes_get failed for mig-hub40-12345 (rc=$?)"; exit 1; }
