@@ -5,15 +5,25 @@ test_ssh_machine() {
 	fi
 
 	local model_name local_file remote_file copied_file output key_file
+	local machine_hostname
 	model_name="test-ssh-machine"
 	add_model "${model_name}"
 	juju deploy juju-qa-test ssh-test --base ubuntu@22.04
 	wait_for "ssh-test" "$(idle_condition "ssh-test")"
 
-	# Verify command execution on the machine hosting the unit.
+	# Verify command execution on the machine hosting the unit. The
+	# hostname must match the one Juju recorded for the machine at agent
+	# start, which proves the command ran on the machine hosting the unit
+	# regardless of the hostname conventions of the cloud.
 	# shellcheck disable=SC2016
 	output=$(juju ssh ssh-test/0 -- printf 'ssh-machine:%s $(hostname)')
-	check_contains "${output}" "ssh-machine:juju-"
+	machine_hostname=$(juju show-machine 0 --format json |
+		yq -r '.machines["0"]["hostname"]')
+	if [[ -z ${machine_hostname} ]]; then
+		echo "ERROR: machine 0 has no hostname"
+		return 1
+	fi
+	check_contains "${output}" "ssh-machine:${machine_hostname}"
 
 	# Verify command execution using the machine target syntax.
 	output=$(juju ssh 0 -- printf machine-target)
