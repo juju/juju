@@ -265,7 +265,7 @@ func (conf configArgsConverter) asCommandLineArguments() string {
 func (conf configArgsConverter) asMongoDbConfigurationFileFormat() string {
 	pathArgs := set.NewStrings(
 		"dbpath", "logpath", "tlsCAFile", "tlsCertificateKeyFile", "keyFile",
-		"sslPEMKeyFile", // drop in 3.x, for compatibility with mongo 4.0
+		"sslCAFile", "sslPEMKeyFile", // drop in 3.x, for compatibility with mongo 4.0
 	)
 	command := make([]string, 0, len(conf))
 	for key, value := range conf {
