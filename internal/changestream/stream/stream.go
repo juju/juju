@@ -478,8 +478,6 @@ const (
 WITH latest AS (
 	SELECT MAX(c.id) AS id
 	FROM change_log c
-		JOIN change_log_edit_type t ON c.edit_type_id = t.id
-		JOIN change_log_namespace n ON c.namespace_id = n.id
 	WHERE c.id > ?
 	GROUP BY c.namespace_id, c.changed
 )
