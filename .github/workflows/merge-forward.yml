@@ -1,0 +1,116 @@
+name: Merge forward
+
+# Runs the merge-forward skill (.agents/skills/merge-forward) for each
+# branch pair in the matrix below, daily. If a merge-forward PR for
+# a pair is already open, that pair's job logs it and exits.
+#
+# Scheduled workflows only run from the default branch (main), so this file
+# must be merged there to take effect. It checks out the target branch and
+# merges the source branch regardless of where the file lives.
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 02:00 UTC, daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  OPENCODE_MODEL: "openrouter/moonshotai/kimi-k3"
+
+jobs:
+  merge-forward:
+    name: Merge ${{ matrix.source }} into ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      # One pair's failure must not cancel the other pair.
+      fail-fast: false
+      matrix:
+        include:
+          - { source: "4.0", target: "4.1" }
+          - { source: "4.1", target: "main" }
+    concurrency:
+      group: merge-forward-${{ matrix.source }}-${{ matrix.target }}
+      cancel-in-progress: false
+    env:
+      SOURCE_BRANCH: ${{ matrix.source }}
+      TARGET_BRANCH: ${{ matrix.target }}
+    steps:
+      # The PAT needs "Contents" and "Pull requests" read/write on
+      # juju/juju. A PAT (not GITHUB_TOKEN) is used so that checks are
+      # triggered on the pull request this workflow opens.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.target }}
+          fetch-depth: 0
+          token: ${{ secrets.MERGE_FORWARD_TOKEN }}
+
+      - name: Check whether a merge forward is needed
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.MERGE_FORWARD_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git remote rename origin upstream
+          git config user.name "jujubot"
+          git config user.email "jujubot@users.noreply.github.com"
+          # Never open an editor (e.g. for git merge --continue).
+          git config core.editor true
+          # main is fetched as well: the skill file is extracted from it below.
+          git fetch upstream "${SOURCE_BRANCH}" "${TARGET_BRANCH}" main
+
+          if git merge-base --is-ancestor \
+            "upstream/${SOURCE_BRANCH}" "upstream/${TARGET_BRANCH}"; then
+            echo "Nothing to merge: ${SOURCE_BRANCH} is already contained in ${TARGET_BRANCH}."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          existing_pr=$(gh pr list \
+            --state open \
+            --base "${TARGET_BRANCH}" \
+            --json number,headRefName \
+            --jq "map(select(.headRefName | startswith(\"merge/${SOURCE_BRANCH}-${TARGET_BRANCH}-\"))) | first | .number // empty")
+          if [ -n "$existing_pr" ]; then
+            echo "Merge-forward PR #${existing_pr} already exists; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the agent
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          npm install -g opencode-ai
+          mkdir -p "$HOME/.config/opencode" "$HOME/.agents/skills/merge-forward"
+          # The checked-out target branch does not contain the skill file,
+          # so install it from main into the agent's global skills
+          # directory; this also keeps the working tree clean.
+          git show "upstream/main:.agents/skills/merge-forward/SKILL.md" \
+            > "$HOME/.agents/skills/merge-forward/SKILL.md"
+          cat > "$HOME/.config/opencode/opencode.json" <<'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "model": "{env:OPENCODE_MODEL}",
+            "permissions": [
+              { "action": "*", "resource": "*", "effect": "allow" },
+              { "action": "shell", "resource": "git push upstream 4.0*", "effect": "deny" },
+              { "action": "shell", "resource": "git push upstream 4.1*", "effect": "deny" },
+              { "action": "shell", "resource": "git push upstream main*", "effect": "deny" },
+              { "action": "question", "resource": "*", "effect": "deny" }
+            ]
+          }
+          EOF
+
+      - name: Run the merge forward agent
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.MERGE_FORWARD_TOKEN }}
+          # Provider API key for OPENCODE_MODEL. Change both together.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          opencode run "You are running in GitHub Actions CI. Perform the merge forward from ${SOURCE_BRANCH} into ${TARGET_BRANCH} in this repository, following the @merge-forward skill with SOURCE=${SOURCE_BRANCH} and TARGET=${TARGET_BRANCH}."
