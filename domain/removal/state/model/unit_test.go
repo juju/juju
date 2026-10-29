@@ -448,7 +448,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 	aes := []string{"some-app-ep1", "some-app-ep2", "some-app-ep3"}
 	for i, ae := range aes {
 		_, err = s.DB().ExecContext(ctx, `
-INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid) 
+INSERT INTO application_endpoint (uuid, application_uuid, space_uuid, charm_relation_uuid)
 VALUES (?, ?, ?, ?)`,
 			ae, app, network.AlphaSpaceId, crs[i],
 		)
@@ -773,7 +773,7 @@ func (s *unitSuite) TestDeleteIAASUnitConsumingSecret(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	q := `
-INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision) 
+INSERT INTO secret_unit_consumer(secret_id, source_model_uuid, unit_uuid, current_revision)
 VALUES (?, 'some-model', ?, 0)`
 	_, err = s.DB().ExecContext(ctx, q, sID, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -1349,6 +1349,143 @@ func (s *unitSuite) TestDeleteUnitWithRelationUnitReturnsIncomplete(c *tc.C) {
 	exists, err = st.UnitExists(c.Context(), unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(exists, tc.Equals, false)
+}
+
+// TestDeleteCAASUnitWithDyingFilesystemAttachmentReturnsIncomplete verifies that a Kubernetes unit
+// is not deleted while a filesystem attachment on its net node is dying.
+func (s *unitSuite) TestDeleteCAASUnitWithDyingFilesystemAttachmentReturnsIncomplete(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	fsaUUID := s.addUnitNetNodeFilesystemAttachment(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
+
+	// Simulate the storage provisioner detaching the filesystem.
+	_, err = s.DB().ExecContext(c.Context(),
+		"UPDATE storage_filesystem_attachment SET life_id = 2 WHERE uuid = ?", fsaUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err = st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+// TestDeleteCAASUnitWithAliveFilesystemAttachment verifies that only dying
+// filesystem attachments block deletion. Nothing advances an alive
+// attachment on behalf of a dead unit, so waiting for one would never end.
+func (s *unitSuite) TestDeleteCAASUnitWithAliveFilesystemAttachment(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.addUnitNetNodeFilesystemAttachment(c, unitUUID, life.Alive)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+// TestDeleteCAASUnitWithDyingFilesystemAttachmentForce verifies that a forced
+// deletion does not wait for dying filesystem attachments.
+func (s *unitSuite) TestDeleteCAASUnitWithDyingFilesystemAttachmentForce(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createCAASApplication(c, svc, "some-app", applicationservice.AddUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.addUnitNetNodeFilesystemAttachment(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+// TestDeleteIAASUnitWithDyingMachineFilesystemAttachment verifies that a
+// unit on a machine is not blocked by dying filesystem attachments on the
+// machine's net node, which it shares but which belong to the machine.
+func (s *unitSuite) TestDeleteIAASUnitWithDyingMachineFilesystemAttachment(c *tc.C) {
+	svc := s.setupApplicationService(c)
+	appUUID := s.createIAASApplication(c, svc, "some-app", applicationservice.AddIAASUnitArg{})
+
+	unitUUIDs := s.getAllUnitUUIDs(c, appUUID)
+	c.Assert(len(unitUUIDs), tc.Equals, 1)
+	unitUUID := unitUUIDs[0]
+
+	s.addUnitNetNodeFilesystemAttachment(c, unitUUID, life.Dying)
+	s.advanceUnitLife(c, unitUUID, life.Dead)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := st.DeleteUnit(c.Context(), unitUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	exists, err := st.UnitExists(c.Context(), unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+}
+
+// addUnitNetNodeFilesystemAttachment adds a filesystem with an attachment of
+// the given life on the unit's net node, returning the attachment UUID.
+func (s *unitSuite) addUnitNetNodeFilesystemAttachment(
+	c *tc.C, unitUUID unit.UUID, attachmentLife life.Life,
+) string {
+	fsUUID := tc.Must(c, domainstorage.NewFilesystemUUID).String()
+	fsaUUID := tc.Must(c, domainstorage.NewFilesystemAttachmentUUID).String()
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO storage_filesystem (uuid, filesystem_id, life_id, provision_scope_id)
+VALUES (?, ?, ?, ?)`, fsUUID, "fs-"+fsUUID[:8], 0, 0,
+		); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO storage_filesystem_attachment (uuid, storage_filesystem_uuid,
+                                           net_node_uuid, life_id,
+                                           provision_scope_id)
+SELECT ?, ?, u.net_node_uuid, ?, ?
+FROM   unit AS u
+WHERE  u.uuid = ?`, fsaUUID, fsUUID, int(attachmentLife), 0, unitUUID.String(),
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	return fsaUUID
 }
 
 func (s *unitSuite) getCharmUUIDForUnit(c *tc.C, unitUUID string) string {
