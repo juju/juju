@@ -40,9 +40,6 @@ type CloudService interface {
 
 // CloudAccessService provides access to cloud permissions.
 type CloudAccessService interface {
-	// ReadUserAccessLevelForTarget returns the access level for the provided
-	// subject (user) for the given target (cloud).
-	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error)
 	// ReadAllUserAccessForTarget  returns the user access for all users for
 	// the given target (cloud).
 	ReadAllUserAccessForTarget(ctx context.Context, target corepermission.ID) ([]corepermission.UserAccess, error)
