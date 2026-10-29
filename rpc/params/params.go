@@ -990,10 +990,6 @@ type FindToolsParams struct {
 	// Number will be used to match tools versions exactly if non-zero.
 	Number semversion.Number `json:"number"`
 
-	// MajorVersion will be used to match the major version if non-zero.
-	// TODO(juju 3.1) - remove
-	MajorVersion int `json:"major"`
-
 	// Arch will be used to match tools by architecture if non-empty.
 	Arch string `json:"arch"`
 

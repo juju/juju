@@ -5541,9 +5541,6 @@
                         "arch": {
                             "type": "string"
                         },
-                        "major": {
-                            "type": "integer"
-                        },
                         "number": {
                             "$ref": "#/definitions/Number"
                         },
@@ -5554,7 +5551,6 @@
                     "additionalProperties": false,
                     "required": [
                         "number",
-                        "major",
                         "arch",
                         "os-type",
                         "agentstream"

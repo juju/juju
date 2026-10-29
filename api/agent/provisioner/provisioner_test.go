@@ -231,10 +231,9 @@ func (s *provisionerSuite) TestFindTools(c *tc.C) {
 
 	vers := semversion.MustParse("6.6.6")
 	args := params.FindToolsParams{
-		Number:       vers,
-		MajorVersion: 0,
-		Arch:         "arm64",
-		OSType:       "ubuntu",
+		Number: vers,
+		Arch:   "arm64",
+		OSType: "ubuntu",
 	}
 	results := params.FindToolsResult{
 		List: tools.List{{
