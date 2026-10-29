@@ -72,7 +72,7 @@ func (s *modelStateSuite) TestGetModelStatusInfo(c *tc.C) {
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner)
-VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner")
+VALUES (?, ?, 'test', 'prod', 'iaas', 'test-model', 'ec2', 'owner')
 		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
@@ -98,7 +98,7 @@ func (s *modelStateSuite) TestIsControllerModelNotControllerModel(c *tc.C) {
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner)
-VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner")
+VALUES (?, ?, 'test', 'prod', 'iaas', 'test-model', 'ec2', 'owner')
 		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})
@@ -117,7 +117,7 @@ func (s *modelStateSuite) TestIsControllerModel(c *tc.C) {
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type, credential_owner, is_controller_model)
-VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2", "owner", true)
+VALUES (?, ?, 'test', 'prod', 'iaas', 'test-model', 'ec2', 'owner', true)
 		`, modelUUID.String(), controllerUUID.String())
 		return err
 	})

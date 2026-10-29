@@ -24,7 +24,10 @@ test_deploy_attach_storage() {
 	PV=$(juju storage --format json | yq -r '.filesystems["0"]."provider-id"')
 
 	# Clean up: remove the application and associated storage (retain PV).
-	juju remove-application dummy-k8s-storage --no-prompt
+	# Container-model storage is model provisioned and outlives the removed
+	# units, so the destroy plan reports it as detached, mirroring 3.6 behaviour.
+	removal_msg=$(juju remove-application dummy-k8s-storage --no-prompt 2>&1)
+	echo "${removal_msg}" | grep -cE "will detach storage data/0" | check 1
 	wait_for "{}" ".applications"
 	juju remove-storage data/0 --no-destroy
 	wait_for "{}" ".storage"

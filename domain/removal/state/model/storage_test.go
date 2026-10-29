@@ -1468,6 +1468,34 @@ func (s *storageSuite) TestGetDetachInfoForStorageAttachmentExcludeDeadAttachmen
 	})
 }
 
+// TestGetDetachInfoForStorageAttachmentNoAliveAttachments tests that the
+// detach information is still reported, with a fulfilment of zero, when the
+// requested attachment is no longer alive and no other attachment of the unit
+// for the same charm storage is alive either.
+func (s *storageSuite) TestGetDetachInfoForStorageAttachmentNoAliveAttachments(c *tc.C) {
+	unitUUID, attachments := s.addAppUnitWithCharmStorage(
+		c, map[string]charmStorage{
+			"data": {CharmMin: 1, Fulfilment: 2},
+		},
+	)
+	s.setStorageAttachmentLife(c, attachments["data"][0].StorageAttachmentUUID, 1)
+	s.setStorageAttachmentDead(c, attachments["data"][1].StorageAttachmentUUID)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	info, err := st.GetDetachInfoForStorageAttachment(
+		c.Context(), attachments["data"][0].StorageAttachmentUUID,
+	)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(info, tc.Equals, internal.StorageAttachmentDetachInfo{
+		CharmStorageName: "data",
+		CountFulfilment:  0,
+		RequiredCountMin: 1,
+		Life:             1,
+		UnitUUID:         unitUUID,
+		UnitLife:         0,
+	})
+}
+
 // TestEnsureStorageAttachmentNotAliveWithFulfilment tests the happy path of
 // removing a single storage attachment off a unit with a correct fulfilment.
 func (s *storageSuite) TestEnsureStorageAttachmentNotAliveWithFulfilment(c *tc.C) {

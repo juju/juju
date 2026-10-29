@@ -63,6 +63,28 @@ func (d deltas) Operation(_ context.Context, src []v4_0_12.Operation, _ *v4_0_12
 	return result, nil
 }
 
+// Removal converts v4_0_12 Removal rows to v4_1_0. The force column changed
+// from INTEGER to BOOLEAN in 4.1.0; 0 maps to false and 1 to true. Any other
+// value is not a valid flag, so the transform halts with an error rather than
+// coercing it.
+func (d deltas) Removal(_ context.Context, src []v4_0_12.Removal, _ *v4_0_12.ModelExport) ([]v4_1_0.Removal, error) {
+	result := make([]v4_1_0.Removal, 0, len(src))
+	for _, r := range src {
+		if r.Force != 0 && r.Force != 1 {
+			return nil, errors.Errorf("invalid removal force value %d for %q: expected 0 or 1", r.Force, r.UUID)
+		}
+		result = append(result, v4_1_0.Removal{
+			UUID:          r.UUID,
+			RemovalTypeID: r.RemovalTypeID,
+			EntityUUID:    r.EntityUUID,
+			Force:         r.Force == 1,
+			ScheduledFor:  r.ScheduledFor,
+			Arg:           r.Arg,
+		})
+	}
+	return result, nil
+}
+
 // Constraint copies all v4_0_12 fields and leaves IpFamily nil. Constraints
 // exported from a 4.0.12 model carry no IP family information.
 func (d deltas) Constraint(_ context.Context, src []v4_0_12.Constraint, _ *v4_0_12.ModelExport) ([]v4_1_0.Constraint, error) {

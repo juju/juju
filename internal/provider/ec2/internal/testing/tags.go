@@ -16,6 +16,12 @@ import (
 func (srv *Server) CreateTags(ctx context.Context, in *ec2.CreateTagsInput, opts ...func(*ec2.Options)) (*ec2.CreateTagsOutput, error) {
 	srv.tagsMutatingCalls.next()
 
+	// The EC2 service rejects a request without resources, matching
+	// "The request must contain the parameter resourceIdSet".
+	if len(in.Resources) == 0 {
+		return nil, apiError("MissingParameter", "The request must contain the parameter resourceIdSet")
+	}
+
 	if err, ok := srv.apiCallErrors["CreateTags"]; ok {
 		return nil, err
 	}

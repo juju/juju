@@ -88,7 +88,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 	harness.AddTest(c, func(c *tc.C) {
 		err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 			var applicationUUID string
-			err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = "foo"`).Scan(&applicationUUID)
+			err := tx.QueryRowContext(ctx, `SELECT uuid FROM application WHERE name = 'foo'`).Scan(&applicationUUID)
 			if err != nil {
 				return err
 			}
@@ -381,7 +381,7 @@ func (s *watcherSuite) initModel(c *tc.C, db database.TxnRunner) {
 	err := db.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-VALUES (?, ?, "test", "prod", "iaas", "fluffy", "ec2")
+VALUES (?, ?, 'test', 'prod', 'iaas', 'fluffy', 'ec2')
 		`, s.modelUUID, coretesting.ControllerTag.Id())
 		return err
 	})

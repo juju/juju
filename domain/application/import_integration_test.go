@@ -1319,7 +1319,7 @@ func (s *importSuite) setModel(c *tc.C, cloudType, modelType string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
-			VALUES (?, ?, "test", "prod",  ?, "test-model", ?)
+			VALUES (?, ?, 'test', 'prod',  ?, 'test-model', ?)
 		`, s.ModelUUID(), "controller-uuid", modelType, cloudType)
 		return err
 	})

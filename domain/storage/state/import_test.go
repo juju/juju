@@ -956,7 +956,7 @@ func (s *importSuite) newApplication(c *tc.C, name string) (string, string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO application (uuid, charm_uuid, name, life_id, space_uuid)
-VALUES (?, ?, ?, "0", ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
+VALUES (?, ?, ?, '0', ?)`, appUUID.String(), charmUUID, name, network.AlphaSpaceId)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -1159,7 +1159,7 @@ func (s *importSuite) newStorageInstance(c *tc.C, name, id string, poolUUID stor
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO storage_instance (uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id, storage_pool_uuid, requested_size_mib)
-VALUES (?, "foo", ?, 1, ?, 0, ?, 4048)`, siUUID, name, fullID, poolUUID)
+VALUES (?, 'foo', ?, 1, ?, 0, ?, 4048)`, siUUID, name, fullID, poolUUID)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

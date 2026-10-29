@@ -81,7 +81,7 @@ func (u dbUser) toCoreUser() (coreuser.User, error) {
 // dbActivationKey represents an activation key in the state layer with the
 // associated fields in the database.
 type dbActivationKey struct {
-	ActivationKey string `db:"activation_key"`
+	ActivationKey []byte `db:"activation_key"`
 }
 
 // dbPermissionUser represents a user in the system where the values overlap

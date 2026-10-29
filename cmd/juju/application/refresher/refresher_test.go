@@ -480,6 +480,89 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `charm "meshuggah", revision 1: already up-to-date`)
 }
 
+// TestRefreshPinnedSameRevisionReusesID checks that refreshing to a new
+// channel with the same pinned revision keeps the deployed charm's ID.
+func (s *charmHubCharmRefresherSuite) TestRefreshPinnedSameRevisionReusesID(c *tc.C) {
+	ctrl := gomock.NewController(c)
+
+	curl := charm.MustParseURL("ch:meshuggah-1")
+	base := corebase.MakeDefaultBase("ubuntu", "22.04")
+	requested := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: "amd64",
+		Revision:     &curl.Revision,
+		Risk:         "candidate",
+		Base:         base,
+	}
+	resolved := requested
+	resolved.Hash = "resolved-hash"
+
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(gomock.Any(), curl, requested, true).
+		Return(curl, resolved, []corebase.Base{base}, nil)
+
+	cfg := refresherConfigWithOrigin(curl, curl.String(), corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
+	cfg.Switch = true
+	cfg.Channel = charm.Channel{Risk: charm.Candidate}
+	cfg.CharmOrigin.ID = "deployed-id"
+	cfg.CharmOrigin.Hash = "deployed-hash"
+	cfg.CharmOrigin.Channel = &charm.Channel{Risk: charm.Edge}
+
+	task, err := (&factory{}).maybeCharmHub(charmAdder, charmResolver)(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	charmID, err := task.Refresh(c.Context())
+	c.Assert(err, tc.ErrorIs, ErrAlreadyUpToDate)
+	c.Assert(charmID, tc.NotNil)
+	resolved.ID = "deployed-id"
+	c.Check(charmID.URL, tc.DeepEquals, curl)
+	c.Check(charmID.Origin, tc.DeepEquals, resolved.CoreCharmOrigin())
+}
+
+// TestRefreshPinnedDifferentRevisionDoesNotReuseID verifies that switching to
+// a different pinned revision adds the resolved charm and returns its origin,
+// including the ID supplied by AddCharm rather than the deployed charm's ID.
+func (s *charmHubCharmRefresherSuite) TestRefreshPinnedDifferentRevisionDoesNotReuseID(c *tc.C) {
+	ctrl := gomock.NewController(c)
+
+	currentURL := charm.MustParseURL("ch:meshuggah-1")
+	requestedURL := charm.MustParseURL("ch:meshuggah-2")
+	base := corebase.MakeDefaultBase("ubuntu", "22.04")
+	requested := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: "amd64",
+		Revision:     &requestedURL.Revision,
+		Risk:         "candidate",
+		Base:         base,
+	}
+	resolved := requested
+	resolved.Hash = "resolved-hash"
+	added := resolved
+	added.ID = "added-id"
+
+	charmResolver := NewMockCharmResolver(ctrl)
+	charmResolver.EXPECT().ResolveCharm(gomock.Any(), requestedURL, requested, true).
+		Return(requestedURL, resolved, []corebase.Base{base}, nil)
+	charmAdder := NewMockCharmAdder(ctrl)
+	charmAdder.EXPECT().AddCharm(gomock.Any(), requestedURL, resolved, false).
+		Return(added, nil)
+
+	cfg := refresherConfigWithOrigin(currentURL, requestedURL.String(), corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
+	cfg.Switch = true
+	cfg.Channel = charm.Channel{Risk: charm.Candidate}
+	cfg.CharmOrigin.ID = "deployed-id"
+	cfg.CharmOrigin.Hash = "deployed-hash"
+	cfg.CharmOrigin.Channel = &charm.Channel{Risk: charm.Edge}
+
+	task, err := (&factory{}).maybeCharmHub(charmAdder, charmResolver)(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	charmID, err := task.Refresh(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(charmID, tc.NotNil)
+	c.Check(charmID.URL, tc.DeepEquals, requestedURL)
+	c.Check(charmID.Origin, tc.DeepEquals, added.CoreCharmOrigin())
+}
+
 func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
