@@ -1186,7 +1186,7 @@ func (s *permissionStateSuite) TestUpdatePermissionRevokeLastAdmin(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO model (uuid, name, qualifier, model_type_id, life_id, cloud_uuid)
-			VALUES (?, "test", "prod", 0, 0, 987)
+			VALUES (?, 'test', 'prod', 0, 0, 987)
 		`, modelUUID)
 		return err
 	})
@@ -1580,7 +1580,7 @@ func (s *permissionStateSuite) ensureCloud(c *tc.C, cloudUUID, cloudName, credUU
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
-			VALUES (?, ?, 7, "test-endpoint", true)
+			VALUES (?, ?, 7, 'test-endpoint', true)
 		`, cloudUUID, cloudName)
 		if err != nil {
 			return err
@@ -1595,7 +1595,7 @@ func (s *permissionStateSuite) ensureCloud(c *tc.C, cloudUUID, cloudName, credUU
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud_credential (uuid, cloud_uuid, auth_type_id, owner_uuid, name, revoked, invalid)
-			VALUES (?, ?, ?, ?, "foobar", false, false)
+			VALUES (?, ?, ?, ?, 'foobar', false, false)
 		`, credUUID, cloudUUID, 0, ownerUUID)
 		return err
 	})

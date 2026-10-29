@@ -128,9 +128,8 @@ func newAPIRequester(httpClient HTTPClient, logger corelogger.Logger) *apiReques
 
 // Do performs the *http.Request and returns a *http.Response or an error.
 //
-// Handle empty response (io.EOF) errors specially and retry. The reason for
-// this is we get these errors from Charmhub fairly regularly (they're not
-// valid HTTP responses as there are no headers; they're empty responses).
+// Retry empty responses (io.EOF) and transport timeouts, including TLS
+// handshake timeouts.
 func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 	// To retry requests with a body, we need to read the entire body in
 	// up-front, otherwise it'll be empty on retries.
@@ -159,7 +158,7 @@ func (t *apiRequester) Do(req *http.Request) (*http.Response, error) {
 			return err
 		},
 		IsFatalError: func(err error) bool {
-			return !errors.Is(err, io.EOF)
+			return !errors.Is(err, io.EOF) && !errors.Is(err, jujuhttp.ErrTransportTimeout)
 		},
 		NotifyFunc: func(lastError error, attempt int) {
 			t.logger.Errorf(req.Context(), "Charmhub API error (attempt %d): %v", attempt, lastError)

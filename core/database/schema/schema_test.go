@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
@@ -192,6 +193,54 @@ func (s *schemaSuite) TestEnsureHashBreaks(c *tc.C) {
 
 	_, err = schema.Ensure(c.Context(), s.TxnRunner())
 	c.Assert(err, tc.ErrorMatches, `querying current schema version: hash mismatch for version 2`)
+}
+
+// TestEnsureRecordsUpdatedAt tests that each applied patch is recorded with
+// the time it was applied, stored as an integer Unix timestamp in seconds.
+func (s *schemaSuite) TestEnsureRecordsUpdatedAt(c *tc.C) {
+	schema := New(
+		MakePatch("CREATE TEMP TABLE foo (id INTEGER PRIMARY KEY);"),
+		MakePatch("CREATE TEMP TABLE bar (id INTEGER PRIMARY KEY);"),
+	)
+	before := time.Now().Unix()
+	_, err := schema.Ensure(c.Context(), s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+	after := time.Now().Unix()
+
+	type versionRow struct {
+		version   int
+		valueType string
+		updatedAt int64
+	}
+	var rows []versionRow
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows = nil
+		// The cast stops the driver from converting the DATETIME column.
+		rs, err := tx.QueryContext(ctx, `
+SELECT version, typeof(updated_at), CAST(updated_at AS INTEGER)
+FROM   schema
+ORDER BY version`)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = rs.Close() }()
+		for rs.Next() {
+			var r versionRow
+			if err := rs.Scan(&r.version, &r.valueType, &r.updatedAt); err != nil {
+				return err
+			}
+			rows = append(rows, r)
+		}
+		return rs.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(rows, tc.HasLen, 2)
+	for i, r := range rows {
+		c.Check(r.version, tc.Equals, i+1)
+		c.Check(r.valueType, tc.Equals, "integer")
+		c.Check(r.updatedAt >= before, tc.IsTrue, tc.Commentf("updated_at %d before %d", r.updatedAt, before))
+		c.Check(r.updatedAt <= after, tc.IsTrue, tc.Commentf("updated_at %d after %d", r.updatedAt, after))
+	}
 }
 
 func (s *schemaSuite) TestHookIsApplied(c *tc.C) {

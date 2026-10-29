@@ -1104,7 +1104,7 @@ func volumeAttachmentsZone(ctx context.Context, e Client, attachments []storage.
 // with the given tags. tagResources will retry for a short period of time
 // if it receives a *.NotFound error response from EC2.
 func tagResources(ctx context.Context, e Client, tags map[string]string, resourceIds ...string) error {
-	if len(tags) == 0 {
+	if len(tags) == 0 || len(resourceIds) == 0 {
 		return nil
 	}
 	ec2Tags := make([]types.Tag, 0, len(tags))

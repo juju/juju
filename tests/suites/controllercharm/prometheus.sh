@@ -156,11 +156,19 @@ check_prometheus_no_target() {
 
 # Check the controller charm is healthy in the controller model. Relation
 # teardown hooks may still be settling, so callers should use retry.
+# Dumps the controller status and recent controller logs on failure, so
+# a failed check states which hook put the unit in error, and not only
+# that the charm stopped being active.
 #   usage: check_controller_charm_active
 check_controller_charm_active() {
 	set -uo pipefail
 	juju status -m controller --format json |
-		yq -r "$(active_condition "controller")" | check "controller"
+		yq -r "$(active_condition "controller")" | check "controller" || {
+		echo "==> controller charm not active"
+		juju status -m controller --format yaml || true
+		juju debug-log -m controller --lines 100 --no-tail || true
+		return 1
+	}
 }
 
 # Check the given application is healthy in the current model. Relation

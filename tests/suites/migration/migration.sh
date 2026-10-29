@@ -359,7 +359,9 @@ run_migration_36_cmr_spaces() {
 	${JUJU_36} add-space mig-space "${cidr}"
 	${JUJU_36} set-model-constraints "spaces=mig-space"
 
-	${JUJU_36} deploy juju-qa-dummy-source --base ubuntu@22.04
+	# Endpoint bindings must agree with the model's space constraint.
+	# Otherwise the default alpha binding prevents EC2 provisioning.
+	${JUJU_36} deploy juju-qa-dummy-source --base ubuntu@22.04 --bind mig-space
 	wait_for_36 "mig36-aws-src-12345:mig-aws-off36-12345" "dummy-source" "$(idle_condition "dummy-source")"
 	${JUJU_36} offer dummy-source:sink db-src
 
@@ -437,6 +439,7 @@ run_migration_36_cmr_spaces() {
 
 	# End-to-end flow after both sides moved.
 	juju config -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-off36-12345" dummy-source token=yeah-boi
+	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-aws-cons36-12345"
 	wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
 
 	# The egress override must survive the offering-side migration too
