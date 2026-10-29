@@ -958,13 +958,20 @@ func (s *modelSchemaSuite) assertRevisionUpdaterUnitCounts(c *tc.C) {
 	defer func() { _ = rows.Close() }()
 
 	got := map[string]int{}
+	rowCount := 0
 	for rows.Next() {
 		var uuid string
 		var count int
 		c.Assert(rows.Scan(&uuid, &count), tc.ErrorIsNil)
 		got[uuid] = count
+		rowCount++
 	}
 	c.Assert(rows.Err(), tc.ErrorIsNil)
+
+	var applicationCount int
+	c.Assert(s.DB().QueryRowContext(c.Context(),
+		`SELECT COUNT(*) FROM application`).Scan(&applicationCount), tc.ErrorIsNil)
+	c.Check(rowCount, tc.Equals, applicationCount)
 	c.Check(got, tc.DeepEquals, map[string]int{
 		"app-none-a": 0,
 		"app-two":    2,

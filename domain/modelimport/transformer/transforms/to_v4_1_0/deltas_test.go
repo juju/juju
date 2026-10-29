@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 )
@@ -175,74 +176,145 @@ func (s *deltasSuite) TestUnitResourceBreaksEqualTimestampTieByUUID(c *tc.C) {
 }
 
 // TestTextIDsParsedToIntegers verifies that identifier columns that changed
-// from TEXT to INTEGER are parsed, including NULL values.
+// from TEXT to INTEGER are parsed while every other field, including NULL
+// values, survives the hand-written conversions.
 func (s *deltasSuite) TestTextIDsParsedToIntegers(c *tc.C) {
 	ctx := c.Context()
+	startedAt := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	agents, err := deltas{}.ApplicationAgent(ctx, []v4_0_12.ApplicationAgent{
-		{ApplicationUUID: "a", PasswordHashAlgorithmID: new("0")},
+		{ApplicationUUID: "a", PasswordHashAlgorithmID: new("0"), PasswordHash: new("app-hash")},
 		{ApplicationUUID: "b"},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agents, tc.DeepEquals, []v4_1_0.ApplicationAgent{
-		{ApplicationUUID: "a", PasswordHashAlgorithmID: new(int64(0))},
+		{ApplicationUUID: "a", PasswordHashAlgorithmID: new(int64(0)), PasswordHash: new("app-hash")},
 		{ApplicationUUID: "b"},
 	})
 
 	machines, err := deltas{}.Machine(ctx, []v4_0_12.Machine{
-		{UUID: "m", LifeID: 1, PasswordHashAlgorithmID: new("2")},
+		{
+			UUID:                    "m",
+			Name:                    "0",
+			NetNodeUUID:             "machine-node",
+			LifeID:                  1,
+			Nonce:                   new("nonce"),
+			PasswordHashAlgorithmID: new("2"),
+			PasswordHash:            new("machine-hash"),
+			ForceDestroyed:          new(true),
+			AgentStartedAt:          &startedAt,
+			Hostname:                new("host"),
+			KeepInstance:            new(true),
+		},
+		{UUID: "m-null", Name: "1", NetNodeUUID: "machine-node-null", LifeID: 2},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(machines[0].PasswordHashAlgorithmID, tc.DeepEquals, new(int64(2)))
-	c.Check(machines[0].LifeID, tc.Equals, int64(1))
+	c.Check(machines, tc.DeepEquals, []v4_1_0.Machine{
+		{
+			UUID:                    "m",
+			Name:                    "0",
+			NetNodeUUID:             "machine-node",
+			LifeID:                  1,
+			Nonce:                   new("nonce"),
+			PasswordHashAlgorithmID: new(int64(2)),
+			PasswordHash:            new("machine-hash"),
+			ForceDestroyed:          new(true),
+			AgentStartedAt:          &startedAt,
+			Hostname:                new("host"),
+			KeepInstance:            new(true),
+		},
+		{UUID: "m-null", Name: "1", NetNodeUUID: "machine-node-null", LifeID: 2},
+	})
 
 	units, err := deltas{}.Unit(ctx, []v4_0_12.Unit{
-		{UUID: "u", PasswordHashAlgorithmID: new("3")},
+		{
+			UUID:                    "u",
+			Name:                    "app/0",
+			LifeID:                  2,
+			ApplicationUUID:         "a",
+			NetNodeUUID:             "unit-node",
+			CharmUUID:               "c",
+			PasswordHashAlgorithmID: new("3"),
+			PasswordHash:            new("unit-hash"),
+		},
+		{UUID: "u-null", Name: "app/1", LifeID: 1, ApplicationUUID: "a", NetNodeUUID: "unit-node-null", CharmUUID: "c"},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(units[0].PasswordHashAlgorithmID, tc.DeepEquals, new(int64(3)))
+	c.Check(units, tc.DeepEquals, []v4_1_0.Unit{
+		{
+			UUID:                    "u",
+			Name:                    "app/0",
+			LifeID:                  2,
+			ApplicationUUID:         "a",
+			NetNodeUUID:             "unit-node",
+			CharmUUID:               "c",
+			PasswordHashAlgorithmID: new(int64(3)),
+			PasswordHash:            new("unit-hash"),
+		},
+		{UUID: "u-null", Name: "app/1", LifeID: 1, ApplicationUUID: "a", NetNodeUUID: "unit-node-null", CharmUUID: "c"},
+	})
 
 	appPlatforms, err := deltas{}.ApplicationPlatform(ctx, []v4_0_12.ApplicationPlatform{
-		{ApplicationUUID: "a", OsID: "1", ArchitectureID: 2},
+		{ApplicationUUID: "a", OsID: "1", Channel: new("24.04"), ArchitectureID: 2},
+		{ApplicationUUID: "b", OsID: "0", ArchitectureID: 1},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(appPlatforms[0].OsID, tc.Equals, int64(1))
-	c.Check(appPlatforms[0].ArchitectureID, tc.Equals, int64(2))
+	c.Check(appPlatforms, tc.DeepEquals, []v4_1_0.ApplicationPlatform{
+		{ApplicationUUID: "a", OsID: 1, Channel: new("24.04"), ArchitectureID: 2},
+		{ApplicationUUID: "b", OsID: 0, ArchitectureID: 1},
+	})
 
 	machinePlatforms, err := deltas{}.MachinePlatform(ctx, []v4_0_12.MachinePlatform{
-		{MachineUUID: "m", OsID: "1", ArchitectureID: 2},
+		{MachineUUID: "m", OsID: "1", Channel: new("24.04"), ArchitectureID: 2},
+		{MachineUUID: "m-null", OsID: "0", ArchitectureID: 1},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(machinePlatforms[0].OsID, tc.Equals, int64(1))
+	c.Check(machinePlatforms, tc.DeepEquals, []v4_1_0.MachinePlatform{
+		{MachineUUID: "m", OsID: 1, Channel: new("24.04"), ArchitectureID: 2},
+		{MachineUUID: "m-null", OsID: 0, ArchitectureID: 1},
+	})
 
 	configs, err := deltas{}.CharmConfig(ctx, []v4_0_12.CharmConfig{
-		{CharmUUID: "c", Key: "k", TypeID: new("4")},
+		{CharmUUID: "c", Key: "k", TypeID: new("4"), DefaultValue: new("default"), Description: new("description")},
 		{CharmUUID: "c", Key: "nil"},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(configs[0].TypeID, tc.DeepEquals, new(int64(4)))
-	c.Check(configs[1].TypeID, tc.IsNil)
+	c.Check(configs, tc.DeepEquals, []v4_1_0.CharmConfig{
+		{CharmUUID: "c", Key: "k", TypeID: new(int64(4)), DefaultValue: new("default"), Description: new("description")},
+		{CharmUUID: "c", Key: "nil"},
+	})
 
 	lives, err := deltas{}.ModelLife(ctx, []v4_0_12.ModelLife{{ModelUUID: "m", LifeID: "1"}}, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(lives, tc.DeepEquals, []v4_1_0.ModelLife{{ModelUUID: "m", LifeID: 1}})
 
 	perms, err := deltas{}.SecretPermission(ctx, []v4_0_12.SecretPermission{
-		{SecretID: "s", RoleID: 1, SubjectTypeID: 2, ScopeTypeID: "3"},
+		{SecretID: "s", RoleID: 1, SubjectUUID: "subject", SubjectTypeID: 2, ScopeUUID: "scope", ScopeTypeID: "3"},
 	}, nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(perms[0].ScopeTypeID, tc.Equals, int64(3))
-	c.Check(perms[0].SubjectTypeID, tc.Equals, int64(2))
+	c.Check(perms, tc.DeepEquals, []v4_1_0.SecretPermission{
+		{SecretID: "s", RoleID: 1, SubjectUUID: "subject", SubjectTypeID: 2, ScopeUUID: "scope", ScopeTypeID: 3},
+	})
 }
 
-// TestTextIDsRejectNonNumeric verifies that non-numeric values halt the
-// transform rather than being dropped.
-func (s *deltasSuite) TestTextIDsRejectNonNumeric(c *tc.C) {
-	_, err := deltas{}.ModelLife(c.Context(), []v4_0_12.ModelLife{{ModelUUID: "m", LifeID: "alive"}}, nil)
-	c.Check(err, tc.ErrorMatches, `invalid life_id "alive".*`)
+// TestTextIDsRejectInvalid verifies that malformed required and optional IDs
+// halt the transform and retain their NotValid classification through wrapping.
+func (s *deltasSuite) TestTextIDsRejectInvalid(c *tc.C) {
+	transform := NewTransform(deltas{})
+	for _, id := range []string{"", "alive", "1.5", "9223372036854775808"} {
+		c.Logf("invalid ID %q", id)
+		_, err := transform(c.Context(), v4_0_12.ModelExport{
+			ModelLife: []v4_0_12.ModelLife{{ModelUUID: "m", LifeID: id}},
+		})
+		c.Check(err, tc.ErrorMatches, `ModelLife delta: invalid life_id .*`)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 
-	_, err = deltas{}.Unit(c.Context(), []v4_0_12.Unit{{UUID: "u", PasswordHashAlgorithmID: new("x")}}, nil)
-	c.Check(err, tc.ErrorMatches, `invalid password_hash_algorithm_id "x".*`)
+		_, err = transform(c.Context(), v4_0_12.ModelExport{
+			Unit: []v4_0_12.Unit{{UUID: "u", PasswordHashAlgorithmID: &id}},
+		})
+		c.Check(err, tc.ErrorMatches, `Unit delta: invalid password_hash_algorithm_id .*`)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
+	}
 }
 
 // TestRelationStatusParsesIDs verifies every seeded status ID is converted
@@ -291,11 +363,13 @@ func (s *deltasSuite) TestRelationStatusRejectsInvalidIDs(c *tc.C) {
 			RelationStatus: []v4_0_12.RelationStatus{{RelationUUID: "r", RelationStatusTypeID: id}},
 		})
 		c.Check(err, tc.ErrorMatches, `RelationStatus delta: invalid relation_status_type_id .*`)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 
 		_, err = transform(c.Context(), v4_0_12.ModelExport{
 			RelationStatusType: []v4_0_12.RelationStatusType{{ID: id, Name: "joining"}},
 		})
 		c.Check(err, tc.ErrorMatches, `RelationStatusType delta: invalid relation_status_type.id .*`)
+		c.Check(err, tc.ErrorIs, coreerrors.NotValid)
 	}
 }
 

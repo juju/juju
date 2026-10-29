@@ -7,6 +7,7 @@ import (
 	"context"
 	"strconv"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/internal/errors"
@@ -309,7 +310,7 @@ func (d deltas) SshKeyAlgorithmType(_ context.Context, _ *v4_0_12.ModelExport) (
 func parseID(column, value string) (int64, error) {
 	id, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
-		return 0, errors.Errorf("invalid %s %q: %w", column, value, err)
+		return 0, errors.Errorf("invalid %s %q: %w", column, value, err).Add(coreerrors.NotValid)
 	}
 	return id, nil
 }
