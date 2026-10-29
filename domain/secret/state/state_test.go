@@ -4168,6 +4168,100 @@ func (s *stateSuite) TestGetConsumedSecretURIsWithChanges(c *tc.C) {
 	})
 }
 
+// TestConsumedSecretsChangesMultipleUnitsAndRevisions checks that only the
+// revision consumed by the given unit is compared, that the initial watch
+// statement returns the latest revision once per secret, and that, when
+// filtering by revisions, a secret is reported only if a filtered revision
+// is newer than the revision consumed by the unit.
+func (s *stateSuite) TestConsumedSecretsChangesMultipleUnitsAndRevisions(c *tc.C) {
+	ctx := c.Context()
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	createSecret := func(revisions int) *coresecrets.URI {
+		uri := coresecrets.NewURI()
+		sp := domainsecret.UpsertSecretParams{
+			RevisionUUID: new(uuid.MustNewUUID().String()),
+			Data:         coresecrets.SecretData{"foo": "bar"},
+		}
+		err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
+		c.Assert(err, tc.ErrorIsNil)
+		for i := 1; i < revisions; i++ {
+			updateSecretContent(c, s.state, uri)
+		}
+		return uri
+	}
+	saveConsumer := func(uri *coresecrets.URI, revision int, unitName string) {
+		err := s.state.SaveSecretConsumer(ctx, uri, unittesting.GenNewName(c, unitName),
+			coresecrets.SecretConsumerMetadata{CurrentRevision: revision})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	uri1 := createSecret(3)
+	saveConsumer(uri1, 1, "mediawiki/0")
+	saveConsumer(uri1, 3, "mediawiki/1")
+	uri2 := createSecret(2)
+	saveConsumer(uri2, 2, "mediawiki/0")
+	saveConsumer(uri2, 1, "mediawiki/1")
+	unconsumed := createSecret(2)
+
+	_, f := s.state.InitialWatchStatementForConsumedSecretsChange("mediawiki/0")
+	revUUIDs, err := f(ctx, s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revUUIDs, tc.SameContents, []string{getRevUUID(c, s.DB(), uri1, 3)})
+
+	_, f = s.state.InitialWatchStatementForConsumedSecretsChange("mediawiki/1")
+	revUUIDs, err = f(ctx, s.TxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revUUIDs, tc.SameContents, []string{getRevUUID(c, s.DB(), uri2, 2)})
+
+	tests := []struct {
+		summary  string
+		unitName coreunit.Name
+		revUUIDs []string
+		expected []string
+	}{{
+		summary:  "no revision filter",
+		unitName: "mediawiki/0",
+		expected: []string{uri1.String()},
+	}, {
+		summary:  "revision consumed by the unit",
+		unitName: "mediawiki/0",
+		revUUIDs: []string{getRevUUID(c, s.DB(), uri1, 1)},
+	}, {
+		summary:  "revision newer than the unit's revision",
+		unitName: "mediawiki/0",
+		revUUIDs: []string{getRevUUID(c, s.DB(), uri1, 2)},
+		expected: []string{uri1.String()},
+	}, {
+		summary:  "every revision of each secret",
+		unitName: "mediawiki/0",
+		revUUIDs: []string{
+			getRevUUID(c, s.DB(), uri1, 1),
+			getRevUUID(c, s.DB(), uri1, 2),
+			getRevUUID(c, s.DB(), uri1, 3),
+			getRevUUID(c, s.DB(), uri2, 1),
+			getRevUUID(c, s.DB(), uri2, 2),
+			getRevUUID(c, s.DB(), unconsumed, 2),
+		},
+		expected: []string{uri1.String()},
+	}, {
+		summary:  "other unit",
+		unitName: "mediawiki/1",
+		revUUIDs: []string{
+			getRevUUID(c, s.DB(), uri1, 3),
+			getRevUUID(c, s.DB(), uri2, 2),
+		},
+		expected: []string{uri2.String()},
+	}}
+	for _, test := range tests {
+		c.Logf("test: %s", test.summary)
+		uris, err := s.state.GetConsumedSecretURIsWithChanges(ctx, test.unitName, test.revUUIDs...)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(uris, tc.SameContents, test.expected)
+	}
+}
+
 func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *tc.C) (*coresecrets.URI, *coresecrets.URI) {
 	appUUID, unitUUIDs := s.setupUnits(c, "mediawiki")
 
