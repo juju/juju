@@ -267,7 +267,7 @@ func (st *State) ensureUnitOwnedStorageInstancesNotAlive(
 
 	stmt, err := st.Prepare(`
 SELECT si.uuid AS &entityUUID.uuid
-FROM   storage_unit_owner so 
+FROM   storage_unit_owner so
 JOIN   storage_instance si ON so.storage_instance_uuid = si.uuid
 WHERE  so.unit_uuid = $entityUUID.uuid
 AND    si.life_id < 2`, entityUUID{})
@@ -668,6 +668,19 @@ WHERE unit_uuid = $entityAssociationCount.uuid
 		return errors.Capture(err)
 	}
 
+	dyingFilesystemAttachmentCountStmt, err := st.Prepare(`
+SELECT    count(*) AS &entityAssociationCount.count
+FROM      unit AS u
+JOIN      storage_filesystem_attachment AS sfa ON sfa.net_node_uuid = u.net_node_uuid
+LEFT JOIN machine AS m ON m.net_node_uuid = u.net_node_uuid
+WHERE     u.uuid = $entityAssociationCount.uuid
+AND       m.uuid IS NULL
+AND       sfa.life_id = 1
+`, unitUUIDCount)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	unitUUIDRec := entityUUID{UUID: unitUUID}
 	deleteUnitStmt, err := st.Prepare(`
 DELETE FROM unit
@@ -699,6 +712,20 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("unit %q still has %d relation(s) in scope, waiting for relation removal",
 			unitUUID, numRelationUnits.Count).
 			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// Ensure that the storage provisioner has finished detaching any dying filesystem attachments,
+	// otherwise those attachments may be stuck in a dying state.
+	if !force {
+		var numDyingAttachments entityAssociationCount
+		err = tx.Query(ctx, dyingFilesystemAttachmentCountStmt, unitUUIDCount).Get(&numDyingAttachments)
+		if err != nil {
+			return errors.Errorf("getting dying filesystem attachment count: %w", err)
+		} else if numDyingAttachments.Count > 0 {
+			return errors.Errorf("unit still has %d dying filesystem attachment(s), waiting for detach",
+				numDyingAttachments.Count).
+				Add(removalerrors.RemovalJobIncomplete)
+		}
 	}
 
 	// Delete all tasks related to the unit, and eventually removes
