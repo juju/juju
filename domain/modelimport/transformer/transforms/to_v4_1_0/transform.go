@@ -47,12 +47,12 @@ type Deltas interface {
 	RelationStatusType(ctx context.Context, src []v4_0_12.RelationStatusType, model *v4_0_12.ModelExport) ([]v4_1_0.RelationStatusType, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
 	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting, model *v4_0_12.ModelExport) ([]v4_1_0.RelationUnitSetting, error)
+	// Removal: struct shape changed in 4.1.0.
+	Removal(ctx context.Context, src []v4_0_12.Removal, model *v4_0_12.ModelExport) ([]v4_1_0.Removal, error)
 	// SecretPermission: struct shape changed in 4.1.0.
 	SecretPermission(ctx context.Context, src []v4_0_12.SecretPermission, model *v4_0_12.ModelExport) ([]v4_1_0.SecretPermission, error)
 	// Unit: struct shape changed in 4.1.0.
 	Unit(ctx context.Context, src []v4_0_12.Unit, model *v4_0_12.ModelExport) ([]v4_1_0.Unit, error)
-	// Removal: struct shape changed in 4.1.0.
-	Removal(ctx context.Context, src []v4_0_12.Removal, model *v4_0_12.ModelExport) ([]v4_1_0.Removal, error)
 	// UnitResource: struct shape changed in 4.1.0.
 	UnitResource(ctx context.Context, src []v4_0_12.UnitResource, model *v4_0_12.ModelExport) ([]v4_1_0.UnitResource, error)
 	// MachineReprovision: new table in 4.1.0; derive from *v4_0_12.ModelExport.
@@ -1264,16 +1264,16 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			return v4_1_0.ModelExport{}, errors.Errorf("RelationUnitSetting delta: %w", err)
 		}
 
+		if dst.Removal, err = d.Removal(ctx, src.Removal, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Removal delta: %w", err)
+		}
+
 		if dst.SecretPermission, err = d.SecretPermission(ctx, src.SecretPermission, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("SecretPermission delta: %w", err)
 		}
 
 		if dst.Unit, err = d.Unit(ctx, src.Unit, &src); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Unit delta: %w", err)
-		}
-
-		if dst.Removal, err = d.Removal(ctx, src.Removal, &src); err != nil {
-			return v4_1_0.ModelExport{}, errors.Errorf("Removal delta: %w", err)
 		}
 
 		if dst.UnitResource, err = d.UnitResource(ctx, src.UnitResource, &src); err != nil {
