@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-var _ = Register
-
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ResourcesHookContext", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
