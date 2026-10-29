@@ -70,10 +70,39 @@ jobs:
           python-version: "3.9"
 
       - name: Install SQLFluff
-        run: "pip install sqlfluff==3.0.7"
+        run: 'pip install "sqlfluff==$(cat .github/sqlfluff-version)"'
 
       - name: Lint SQL
         run: "sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql"
+
+  sql-embedded:
+    name: Embedded SQL
+    runs-on: [self-hosted, linux, x64, aws, large]
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: "go.mod"
+
+      - name: Set up Python
+        uses: "actions/setup-python@v7"
+        with:
+          python-version: "3.9"
+
+      - name: Install SQLFluff
+        run: 'pip install "sqlfluff==$(cat .github/sqlfluff-version)"'
+
+      - name: Test sqlcheck
+        run: go test ./scripts/sqlcheck/...
+        env:
+          SQLCHECK_REQUIRE_SQLFLUFF: "1"
+
+      - name: Lint embedded SQL
+        run: make lint-sql SQLCHECK_FLAGS='--report-only --github'
 
   conventional-commits:
     name: Check conventional commits
