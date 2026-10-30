@@ -15,6 +15,8 @@ import (
 	sequenceerrors "github.com/juju/juju/domain/sequence/errors"
 )
 
+// These SQLite/Dqlite fixtures check persistence and allocation behaviour,
+// not SQL acceptance or execution on PostgreSQL.
 type stateSuite struct {
 	schematesting.ModelSuite
 }

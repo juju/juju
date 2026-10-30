@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// These SQLite/Dqlite fixtures check the allocation contract, not SQL
+// acceptance or execution on PostgreSQL.
 type sequenceSuite struct {
 	schematesting.ModelSuite
 
@@ -149,15 +151,21 @@ func (s *sequenceSuite) TestSequenceConcurrentMixedAllocation(c *tc.C) {
 			err := s.TxnRunner().Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 				if i%2 == 0 {
 					next, err := NextValue(ctx, s.state, tx, domainsequence.StaticNamespace("foo"))
+					if err != nil {
+						return err
+					}
 					values = []uint64{next}
-					return err
+					return nil
 				}
 				var err error
 				values, err = NextNValues(ctx, s.state, tx, 3, domainsequence.StaticNamespace("foo"))
 				return err
 			})
+			if err != nil {
+				return err
+			}
 			buf <- values
-			return err
+			return nil
 		})
 	}
 	c.Assert(eg.Wait(), tc.ErrorIsNil)

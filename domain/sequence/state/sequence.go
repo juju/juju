@@ -25,6 +25,9 @@ func NextValue(ctx context.Context, preparer domain.Preparer, tx *sqlair.TX, nam
 	seq := sequence{
 		Namespace: namespace.String(),
 	}
+	// Create the namespace on first use or increment its stored value in one
+	// statement. The allocation remains part of the caller's transaction, so
+	// it rolls back if the caller's other writes fail.
 	updateStmt, err := preparer.Prepare(`
 INSERT INTO sequence (namespace, value) VALUES ($sequence.namespace, 0)
 ON CONFLICT (namespace) DO UPDATE SET value = sequence.value + 1
