@@ -145,6 +145,66 @@ INSERT INTO model_config (key, value)
 	})
 }
 
+// TestModelConfigAgentKeysAuthoritative tests that agent_version is the sole
+// source of the agent-stream and agent-version keys, whatever competing values
+// sort before or after the authoritative ones, and that the view yields
+// exactly one row for each key.
+func (s *stateSuite) TestModelConfigAgentKeysAuthoritative(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO agent_version (stream_id, target_version, latest_version)
+VALUES (1, '4.1.5', '4.1.5')`)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO model_config (key, value) VALUES
+	('agent-stream', 'a-before'),
+	('agent-version', '0.0.1'),
+	('other', 'value')`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := state.NewState(s.TxnRunnerFactory())
+	modelConfig, err := st.ModelConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelConfig, tc.DeepEquals, map[string]string{
+		"agent-stream":  "proposed",
+		"agent-version": "4.1.5",
+		"other":         "value",
+	})
+
+	// Repeat with competing values that sort after the authoritative ones.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE model_config SET value = 'z-after' WHERE key = 'agent-stream'`)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `
+UPDATE model_config SET value = '99.0.0' WHERE key = 'agent-version'`)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelConfig, err = st.ModelConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelConfig, tc.DeepEquals, map[string]string{
+		"agent-stream":  "proposed",
+		"agent-version": "4.1.5",
+		"other":         "value",
+	})
+
+	var count int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT count(*) FROM v_model_config WHERE key IN ('agent-stream', 'agent-version')`).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+}
+
 func (s *stateSuite) TestModelConfigHasAttributesNil(c *tc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	rval, err := st.ModelConfigHasAttributes(c.Context(), nil)
