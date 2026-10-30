@@ -222,6 +222,25 @@ func (s *serviceSuite) TestPutMetadata(c *tc.C) {
 	c.Check(result, tc.Equals, objectstore.UUID(rUUID))
 }
 
+func (s *serviceSuite) TestPutMetadataUUIDAlreadyExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	metadata := objectstore.Metadata{
+		Path:   "path",
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Size:   666,
+	}
+	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.Any(), metadata).
+		Return("", errors.Errorf("adding path: %w", objectstoreerrors.ErrMetadataUUIDAlreadyExists))
+
+	// State and service wrapping must preserve the distinct UUID conflict.
+	result, err := NewService(s.state).PutMetadata(c.Context(), metadata)
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	c.Check(result, tc.Equals, objectstore.UUID(""))
+}
+
 func (s *serviceSuite) TestPutMetadataMissingSHA384(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -286,6 +305,25 @@ func (s *serviceSuite) TestPutMetadataWithControllerIDHint(c *tc.C) {
 	result, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, controllerID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.Equals, objectstore.UUID(rUUID))
+}
+
+func (s *serviceSuite) TestPutMetadataWithControllerIDHintUUIDAlreadyExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	metadata := objectstore.Metadata{
+		Path:   "path",
+		SHA256: "sha256",
+		SHA384: "sha384",
+		Size:   666,
+	}
+	s.state.EXPECT().PutMetadataWithControllerIDHint(gomock.Any(), gomock.Any(), metadata, "1").
+		Return("", errors.Errorf("adding path: %w", objectstoreerrors.ErrMetadataUUIDAlreadyExists))
+
+	// The controller-hint service must preserve the wrapped sentinel too.
+	result, err := NewService(s.state).PutMetadataWithControllerIDHint(c.Context(), metadata, "1")
+	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrMetadataUUIDAlreadyExists)
+	c.Check(err, tc.Not(tc.ErrorIs), objectstoreerrors.ErrHashAndSizeAlreadyExists)
+	c.Check(result, tc.Equals, objectstore.UUID(""))
 }
 
 func (s *serviceSuite) TestPutMetadataWithControllerIDHintMissingSHA384(c *tc.C) {

@@ -15,6 +15,11 @@ const (
 	// ErrHashAndSizeAlreadyExists is returned when a hash already exists.
 	ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists already exists")
 
+	// ErrMetadataUUIDAlreadyExists is returned when a metadata UUID already
+	// exists with different hashes or size. Reusing a UUID this way is a caller
+	// bug, not a hash-and-size deduplication conflict.
+	ErrMetadataUUIDAlreadyExists = errors.ConstError("metadata uuid already exists with different hashes or size")
+
 	// ErrPathAlreadyExistsDifferentHash is returned when a path already exists
 	// with a different hash.
 	ErrPathAlreadyExistsDifferentHash = errors.ConstError("path already exists with different hash")
