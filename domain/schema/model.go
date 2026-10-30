@@ -21,7 +21,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/controller-network-triggers.gen.go -package=triggers -tables=link_layer_device,space
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile,machine_cloud_instance,machine_requires_reboot,machine_reprovision,machine_ssh_host_key
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr,application_exposed_space,application_exposed_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/cleanup-triggers.gen.go -package=triggers -tables=removal
@@ -124,6 +124,8 @@ const (
 	tableK8sService
 	tableLinkLayerDevice
 	tableSpace
+	tableApplicationExposedSpace
+	tableApplicationExposedCIDR
 )
 
 // modelPostPatchFilesByVersion is used to categorise the post patch files
@@ -187,6 +189,10 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 			tableApplicationExposedEndpointSpace),
 		triggers.ChangeLogTriggersForApplicationExposedEndpointCidr("application_uuid",
 			tableApplicationExposedEndpointCIDR),
+		triggers.ChangeLogTriggersForApplicationExposedSpace("application_uuid",
+			tableApplicationExposedSpace),
+		triggers.ChangeLogTriggersForApplicationExposedCidr("application_uuid",
+			tableApplicationExposedCIDR),
 		triggers.ChangeLogTriggersForSecretDeletedValueRef("revision_uuid", tableSecretDeletedValueRef),
 		triggers.ChangeLogTriggersForApplication("uuid", tableApplication),
 		triggers.ChangeLogTriggersForRemoval("uuid", tableRemoval),

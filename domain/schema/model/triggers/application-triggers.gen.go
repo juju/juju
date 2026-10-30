@@ -86,6 +86,42 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForApplicationExposedCidr generates the triggers for the
+// application_exposed_cidr table.
+func ChangeLogTriggersForApplicationExposedCidr(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationExposedCidr
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_exposed_cidr', 'ApplicationExposedCidr changes based on %[1]s');
+
+-- insert trigger for ApplicationExposedCidr
+CREATE TRIGGER trg_log_application_exposed_cidr_insert
+AFTER INSERT ON application_exposed_cidr FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ApplicationExposedCidr
+CREATE TRIGGER trg_log_application_exposed_cidr_update
+AFTER UPDATE ON application_exposed_cidr FOR EACH ROW
+WHEN 
+	NEW.application_uuid != OLD.application_uuid OR
+	NEW.cidr != OLD.cidr
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ApplicationExposedCidr
+CREATE TRIGGER trg_log_application_exposed_cidr_delete
+AFTER DELETE ON application_exposed_cidr FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForApplicationExposedEndpointCidr generates the triggers for the
 // application_exposed_endpoint_cidr table.
 func ChangeLogTriggersForApplicationExposedEndpointCidr(columnName string, namespaceID int) func() schema.Patch {
@@ -107,7 +143,7 @@ CREATE TRIGGER trg_log_application_exposed_endpoint_cidr_update
 AFTER UPDATE ON application_exposed_endpoint_cidr FOR EACH ROW
 WHEN 
 	NEW.application_uuid != OLD.application_uuid OR
-	(NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR (NEW.application_endpoint_uuid IS NOT NULL AND OLD.application_endpoint_uuid IS NULL) OR (NEW.application_endpoint_uuid IS NULL AND OLD.application_endpoint_uuid IS NOT NULL)) OR
+	NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR
 	NEW.cidr != OLD.cidr
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -144,7 +180,7 @@ CREATE TRIGGER trg_log_application_exposed_endpoint_space_update
 AFTER UPDATE ON application_exposed_endpoint_space FOR EACH ROW
 WHEN 
 	NEW.application_uuid != OLD.application_uuid OR
-	(NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR (NEW.application_endpoint_uuid IS NOT NULL AND OLD.application_endpoint_uuid IS NULL) OR (NEW.application_endpoint_uuid IS NULL AND OLD.application_endpoint_uuid IS NOT NULL)) OR
+	NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR
 	NEW.space_uuid != OLD.space_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
@@ -153,6 +189,42 @@ END;
 -- delete trigger for ApplicationExposedEndpointSpace
 CREATE TRIGGER trg_log_application_exposed_endpoint_space_delete
 AFTER DELETE ON application_exposed_endpoint_space FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;`, columnName, namespaceID))
+	}
+}
+
+// ChangeLogTriggersForApplicationExposedSpace generates the triggers for the
+// application_exposed_space table.
+func ChangeLogTriggersForApplicationExposedSpace(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert namespace for ApplicationExposedSpace
+INSERT INTO change_log_namespace VALUES (%[2]d, 'application_exposed_space', 'ApplicationExposedSpace changes based on %[1]s');
+
+-- insert trigger for ApplicationExposedSpace
+CREATE TRIGGER trg_log_application_exposed_space_insert
+AFTER INSERT ON application_exposed_space FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now', 'utc'));
+END;
+
+-- update trigger for ApplicationExposedSpace
+CREATE TRIGGER trg_log_application_exposed_space_update
+AFTER UPDATE ON application_exposed_space FOR EACH ROW
+WHEN 
+	NEW.application_uuid != OLD.application_uuid OR
+	NEW.space_uuid != OLD.space_uuid
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
+END;
+-- delete trigger for ApplicationExposedSpace
+CREATE TRIGGER trg_log_application_exposed_space_delete
+AFTER DELETE ON application_exposed_space FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

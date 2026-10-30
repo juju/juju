@@ -44,7 +44,12 @@ func generateTransformPair(from, to string) error {
 		return fmt.Errorf("parsing target types: %w", err)
 	}
 
-	c := classifyFields(srcStructs, tgtStructs)
+	// Constraint changes need a delta even when the exported shape is unchanged.
+	var constraintChanges []string
+	if from == "4.0.12" && to == "4.1.0" {
+		constraintChanges = []string{"CharmManifestBase"}
+	}
+	c := classifyFields(srcStructs, tgtStructs, constraintChanges...)
 
 	if err := writeTransformFile(from, to, c); err != nil {
 		return fmt.Errorf("writing transform.go: %w", err)
@@ -160,8 +165,8 @@ type classified struct {
 	Unchanged []string
 
 	// Changed names fields that exist in both versions but whose element
-	// struct shape changed. The engineer must implement a Deltas method
-	// for each.
+	// struct shape or constraints changed. The engineer must implement a
+	// Deltas method for each.
 	Changed []changedField
 
 	// New names fields that exist only in the target. The engineer must
@@ -176,9 +181,10 @@ type classified struct {
 
 type changedField struct {
 	// Name is the field name in ModelExport (== element type name).
-	Name    string
-	SrcType string // element type name in source package
-	DstType string // element type name in target package
+	Name              string
+	SrcType           string // element type name in source package
+	DstType           string // element type name in target package
+	ConstraintChanged bool
 }
 
 type newField struct {
@@ -186,7 +192,7 @@ type newField struct {
 	DstType string
 }
 
-func classifyFields(src, tgt structMap) classified {
+func classifyFields(src, tgt structMap, constraintChanges ...string) classified {
 	var c classified
 	srcMx := src["ModelExport"]
 	tgtMx := tgt["ModelExport"]
@@ -206,17 +212,23 @@ func classifyFields(src, tgt structMap) classified {
 		tgtByName[f.name] = true
 	}
 
+	constraintsChanged := make(map[string]bool, len(constraintChanges))
+	for _, name := range constraintChanges {
+		constraintsChanged[name] = true
+	}
+
 	for _, tf := range tgtFields {
 		srcElem, inSource := srcByName[tf.name]
 		if !inSource {
 			c.New = append(c.New, newField{Name: tf.name, DstType: tf.elem})
 			continue
 		}
-		if structSignature(src[srcElem]) == structSignature(tgt[tf.elem]) {
+		if !constraintsChanged[tf.name] && structSignature(src[srcElem]) == structSignature(tgt[tf.elem]) {
 			c.Unchanged = append(c.Unchanged, tf.name)
 		} else {
 			c.Changed = append(c.Changed, changedField{
 				Name: tf.name, SrcType: srcElem, DstType: tf.elem,
+				ConstraintChanged: constraintsChanged[tf.name],
 			})
 		}
 	}
