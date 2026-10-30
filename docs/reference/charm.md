@@ -19,7 +19,7 @@ A **charm** is the packaged operations code of an {ref}`application <application
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Charm database schema
-:caption: One row per revision: the charm record is the anchor, and the author's declaration is spread around it — metadata, relations, manifest bases, config options, actions, containers, and resources each as their own records. An application points at one revision, so one charm can serve many applications. The application is another page's record, shown for context.
+:caption: One row per revision: the charm record is the anchor, and the author's declaration is spread around it -- metadata, relations, manifest bases, config options, actions, containers, and resources each as their own records. An application points at one revision, so one charm can serve many applications. The application is another page's record, shown for context.
 :alt: Nine boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Charm is in the middle. Metadata is above it (1 to 1). Manifest base is below it (m to 1). Application is to its left (m to 1) and has an outlined arrow mark for a record that another page describes. Relation is to its right (m to 1). Config option is above and to the left of Charm and Action is above and to the right (each m to 1). Container is below and to the left and Charm resource is below and to the right (each m to 1).
 ```
 

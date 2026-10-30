@@ -19,7 +19,7 @@ An **offer** is a set of the {ref}`endpoints <application-endpoint>` of one {ref
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Offer database schema
-:caption: The offer record is the offer's door: each connection row is one relation that consumes it, made by one user. The permission lives in the controller database, apart from the offer — the two databases join only on the offer's UUID. The relation and the user are other pages' records, shown for context.
+:caption: The offer record is the offer's door: each connection row is one relation that consumes it, made by one user. The permission lives in the controller database, apart from the offer -- the two databases join only on the offer's UUID. The relation and the user are other pages' records, shown for context.
 :alt: Five boxes of the same size, each with a filled table mark in the corner. In a group named Model database, Offer is on the left, Offer connection is in the middle, and Relation is on the right. An offer has many offer connections (1 to m). Many offer connections belong to one relation (m to 1). In a group named Controller database beside it, Permission is on the left and User is on the right. Many permissions belong to one user (m to 1). No line joins Permission to Offer. Relation and User have an outlined arrow mark for records that other pages describe.
 ```
 

@@ -129,7 +129,7 @@ The records of the endpoints and bindings, with the rules that apply to each, ar
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Application exposure database schema
-:caption: Exposure comes as two kinds of record — a space, and a network range as text — each of which can name one endpoint. A record with no endpoint stands for every endpoint of the application.
+:caption: Exposure comes as two kinds of record -- a space, and a network range as text -- each of which can name one endpoint. A record with no endpoint stands for every endpoint of the application.
 :alt: Four boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Application is on the left, and Endpoint is to its right (m to 1). Exposed space is above Endpoint, and Exposed CIDR is below it. Each of them joins Application (m to 1) and joins Endpoint (m to at most 1, with a dashed line).
 ```
 

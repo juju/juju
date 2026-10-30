@@ -7,10 +7,6 @@ myst:
 (juju-db-repl)=
 # `juju-db-repl`
 
-
-```{versionadded} 4.0
-```
-
 ```{ibnote}
 See also: {ref}`database`, {ref}`manage-the-databases`
 ```

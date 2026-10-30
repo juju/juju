@@ -80,7 +80,7 @@ Reading the logging configuration returns the model's logging configuration, the
 
 The caller, the rules, and the errors are:
 
-- *Caller:* An agent — a {ref}`machine agent <machine-agent>`, a {ref}`unit agent <unit-agent>`, an application agent, or a model agent — for its own tag. No model access level applies.
+- *Caller:* An agent -- a {ref}`machine agent <machine-agent>`, a {ref}`unit agent <unit-agent>`, an application agent, or a model agent -- for its own tag. No model access level applies.
 - *Rules:*
   - The call takes a list of tags. Each tag in the list gets its own result.
   - The answer is the same for every tag: the model's `logging-config` value.
@@ -95,7 +95,7 @@ Reading the log forwarding endpoint returns the [Loki](https://grafana.com/oss/l
 
 The caller, the rules, and the errors are:
 
-- *Caller:* An agent — machine, unit, application, or model — for its own tag. No model access level applies.
+- *Caller:* An agent -- machine, unit, application, or model -- for its own tag. No model access level applies.
 - *Rules:*
   - The call takes one tag.
   - The answer names the endpoint, whether to skip verifying the certificate, and the organization ID, and carries the CA certificate when one is set.

@@ -20,7 +20,7 @@ See also: {ref}`Juju | Manage metadata <manage-metadata>`
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Image metadata database schema
-:caption: One row per cached image, keyed by the whole combination — source, stream, region, operating system version, architecture, virtualisation type, and root storage type. The priority is the tie-breaker: when several images match a machine, the highest priority wins.
+:caption: One row per cached image, keyed by the whole combination -- source, stream, region, operating system version, architecture, virtualisation type, and root storage type. The priority is the tie-breaker: when several images match a machine, the highest priority wins.
 :alt: Two boxes of the same size in a row inside a group named Controller database, each with a filled table mark in the corner. Image is on the left and Architecture is on the right (m to 1). Architecture has a second, outlined arrow mark in the corner for a record that belongs to no page.
 ```
 
@@ -83,4 +83,4 @@ The caller, the rules, and the errors are:
 (image-metadata-and-model-migration)=
 ## Image metadata and model migration
 
-A migration carries the model's custom image metadata — the entries whose source is `custom` — to the target controller, so that machines of the model can start there unchanged. Entries from other sources are not carried: they expire from the cache five minutes after they were cached. See {ref}`Migrating models <model-migrating>`.
+A migration carries the model's custom image metadata -- the entries whose source is `custom` -- to the target controller, so that machines of the model can start there unchanged. Entries from other sources are not carried: they expire from the cache five minutes after they were cached. See {ref}`Migrating models <model-migrating>`.

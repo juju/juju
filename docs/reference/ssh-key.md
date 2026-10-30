@@ -23,7 +23,7 @@ A session opened through the controller lands as the `ubuntu` account on the mac
 ```{ggarch}
 :file: ../juju.ggarch
 :view: SSH key database schema
-:caption: Read the key record first: a key belongs to one user and does nothing until a model authorizes it. Each authorization row is one key on one model — the bridge from the user's keys to the models that honor them. The user and the model are other pages' records, shown for context.
+:caption: Read the key record first: a key belongs to one user and does nothing until a model authorizes it. Each authorization row is one key on one model -- the bridge from the user's keys to the models that honor them. The user and the model are other pages' records, shown for context.
 :alt: Five boxes of the same size, each with a filled table mark in the corner, and two of them (user and model) also with an outlined arrow mark for records that other pages describe. A user has many SSH keys (1 to m). Each SSH key names one fingerprint hash algorithm (m to 1) and is linked to models through model authorizations (1 to m). Each model has many model authorizations, so a key can be authorized on many models and a model can authorize many keys.
 ```
 

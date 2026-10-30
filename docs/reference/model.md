@@ -19,7 +19,7 @@ A **model** is the workspace on a {ref}`controller <controller>` that holds a de
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Model database schema
-:caption: A model lives in two databases. The controller database holds the model itself: its name and qualifier, its type, its life, and what it is deployed into (a cloud, with an optional region and an optional credential). The model database holds read-only copies — identity, constraints, and life — so the model's own processes need not reach the controller database. The outlined marks name the records that other pages own.
+:caption: A model lives in two databases. The controller database holds the model itself: its name and qualifier, its type, its life, and what it is deployed into (a cloud, with an optional region and an optional credential). The model database holds read-only copies -- identity, constraints, and life -- so the model's own processes need not reach the controller database. The outlined marks name the records that other pages own.
 :alt: Two groups of boxes of the same size, each with a filled table mark in the corner. The Controller database group has Model in the middle. Above it is Model type (1 to m), to its left is Cloud (1 to m), with Region above and Credential below it, each with an outlined arrow mark, and the Model also points at Region and Credential through dashed lines because both are optional. The Model database group has Model identity copy in the middle, with Model constraints above it and Model life copy below it, each 1 to 1.
 ```
 
@@ -225,7 +225,7 @@ The caller, the rules, and the errors are:
   - **`<step>, timed out waiting for agents to report`** and **`<step>, some agents reported failure`**: *Trigger:* Agents did not report in time or reported an error. *Remediation:* Raise `migration-agent-wait-time`, or read the agents' logs.
   - **`removing exported model failed: <reason>`**: *Trigger:* The source copy could not be removed after the model went live on the target. *Remediation:* Use the model on the target controller, where it is already live; only the source's copy remains.
 
-The phases of a migration — what happens in each, who drives them, and the records the move leaves behind — are described on the {ref}`model migration <model-migration>` page.
+The phases of a migration -- what happens in each, who drives them, and the records the move leaves behind -- are described on the {ref}`model migration <model-migration>` page.
 
 (model-destroying)=
 ### Destroying models

@@ -19,7 +19,7 @@ A **secret** is a set of named values (such as a password, a token, or a certifi
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Secret database schema
-:caption: Read the secret first: its owners sit to the left — a model owner, an application owner, or a unit owner — its revisions to the right, and its grants below. A consumer row joins one unit to the secret it reads. The application and the unit are other pages' records, shown for context.
+:caption: Read the secret first: its owners sit to the left -- a model owner, an application owner, or a unit owner -- its revisions to the right, and its grants below. A consumer row joins one unit to the secret it reads. The application and the unit are other pages' records, shown for context.
 :alt: Fourteen boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Secret is in the middle. Rotation is above it (1 to at most 1) and Grant is below it (1 to m). Model owner is to its left (1 to at most 1). Application owner is above Model owner and Unit owner is below it (each 1 to m). Application is to the left of Application owner (1 to m), and Unit is to the left of Unit owner (1 to m). Consumer is below Unit (Unit to Consumer 1 to m) and is joined to Secret by a long line (1 to m). Revision is to the right of Secret (1 to m). Content item is above Revision (1 to m). Backend reference is below Revision, and Revision expiry is to the right of Revision (each 1 to at most 1). Obsolete mark is to the right of Backend reference and is joined to Revision by a bent line (1 to at most 1). Application and Unit have an outlined arrow mark for records that other pages describe.
 ```
 

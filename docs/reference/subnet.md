@@ -19,7 +19,7 @@ A **subnet** is a range of IP addresses in CIDR notation, such as `10.0.0.0/24`,
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Subnet database schema
-:caption: Read the subnet first: the rows around it say where it came from — the provider-subnet row is the cloud's ID for it, the provider network is the cloud network that contains it, and the optional space is where Juju groups it. The space is another page's record, shown for context.
+:caption: Read the subnet first: the rows around it say where it came from -- the provider-subnet row is the cloud's ID for it, the provider network is the cloud network that contains it, and the optional space is where Juju groups it. The space is another page's record, shown for context.
 :alt: Five boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Subnet is in the middle. Space is to its left, joined by a dashed line (optional, one space to many subnets), with an outlined arrow mark for a record that another page describes. Provider subnet is above Subnet (1 to 1). Subnet's provider network is below Subnet (1 to 1), and Provider network is to its right (1 to m).
 ```
 

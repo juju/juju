@@ -32,7 +32,7 @@ The external controller database schema is the set of records that the controlle
 - **External controller address:** One address, in the form `host:port`, of an API server of the external controller.
   - *Rules:*
     - The record of a controller holds each of its addresses once.
-- **External model:** The UUID of a model that lives on the external controller and that a model of this controller reaches over a {ref}`cross-model relation <cross-model-relation>` — normally the model that hosts an offer that a model of this controller consumes.
+- **External model:** The UUID of a model that lives on the external controller and that a model of this controller reaches over a {ref}`cross-model relation <cross-model-relation>` -- normally the model that hosts an offer that a model of this controller consumes.
   - *Rules:*
     - A model appears once. It belongs to one external controller.
 

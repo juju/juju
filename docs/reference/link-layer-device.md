@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
-A **link-layer device** is a network interface — an Ethernet port, a bridge, a bond, or a loopback — that the {ref}`model database <database>` records for a machine, a unit, or a Kubernetes service, with the IP addresses on it. The devices, addresses, and DNS names of one entity hang from its **network node**. The {ref}`machine agent <machine-agent>` reports what it observes on its machine; a worker on the {ref}`controller <controller>` merges what the cloud reports.
+A **link-layer device** is a network interface -- an Ethernet port, a bridge, a bond, or a loopback -- that the {ref}`model database <database>` records for a machine, a unit, or a Kubernetes service, with the IP addresses on it. The devices, addresses, and DNS names of one entity hang from its **network node**. The {ref}`machine agent <machine-agent>` reports what it observes on its machine; a worker on the {ref}`controller <controller>` merges what the cloud reports.
 
 (link-layer-device-database-schema)=
 ## Link-layer device database schema

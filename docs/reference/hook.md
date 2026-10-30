@@ -606,9 +606,6 @@ Workload hooks operate in an environment with additional environment variables a
 Kubernetes sidecar charms only.
 ```
 
-```{versionadded} 3.6
-```
-
 *What triggers it?*
 
 A Pebble check passing the failure threshold.
@@ -628,9 +625,6 @@ The charm responsible for the container to which the hook pertains.
 #### `<container>-pebble-check-recovered`
 ```{important}
 Kubernetes sidecar charms only.
-```
-
-```{versionadded} 3.6
 ```
 
 *What triggers it?*

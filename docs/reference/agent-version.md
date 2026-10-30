@@ -19,7 +19,7 @@ The **agent version** of a {ref}`model <model>` is the version of Juju that the 
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Agent version database schema
-:caption: Read the version record first: it says what the model's agents should run, and the stream decides which binaries arrive. The catalogues hold one binary per version and architecture — the controller's for every model to read, each model's for its own agents. The architecture and the stored object are records that other pages own.
+:caption: Read the version record first: it says what the model's agents should run, and the stream decides which binaries arrive. The catalogues hold one binary per version and architecture -- the controller's for every model to read, each model's for its own agents. The architecture and the stored object are records that other pages own.
 :alt: Two groups of boxes of the same size, each box with a filled table mark in the corner. The group named Model database holds Agent version and Agent stream in a row, joined 1 to 1. The group named Controller database and model databases holds Agent binary, Architecture, and Stored object in a row; Agent binary joins Architecture (m to 1) and Stored object (m to 1). Architecture and Stored object have an outlined arrow mark for records described elsewhere.
 ```
 

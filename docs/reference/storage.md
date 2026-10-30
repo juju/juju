@@ -84,7 +84,7 @@ A unit owns the storages that its charm asked for. The records are:
 
 A volume and a filesystem are one design twice: the first is a block device, the second a mount. Each record below exists for both kinds, with the same rules:
 
-- **Volume and filesystem:** What backs a storage: its own ID, its life (alive, dying, or dead), its provision scope (`model` or `machine`), the provider ID under which the provider knows it, its size, and whether to obliterate it — destroy it on the cloud — when it is cleaned up. A volume also carries its hardware ID and worldwide name, and whether it is persistent, so that it can outlive its machine. A filesystem is created by a provider (as EBS plus a mount) or by a charm's `rootfs` pool, which makes a directory.
+- **Volume and filesystem:** What backs a storage: its own ID, its life (alive, dying, or dead), its provision scope (`model` or `machine`), the provider ID under which the provider knows it, its size, and whether to obliterate it -- destroy it on the cloud -- when it is cleaned up. A volume also carries its hardware ID and worldwide name, and whether it is persistent, so that it can outlive its machine. A filesystem is created by a provider (as EBS plus a mount) or by a charm's `rootfs` pool, which makes a directory.
   - *Rules:*
     - A volume or filesystem ID appears once in the model.
     - A provider ID of a filesystem appears once.
@@ -372,7 +372,7 @@ The caller, the rules, and the errors are:
   - `VolumeAttachmentParams` and `FilesystemAttachmentParams` return what the provider needs to attach each one to a machine, including the machine's instance ID and the provider ID of the volume.
   - `SetVolumeAttachmentInfo` records whether the attachment is read-only. It also records the device name, the device link, or the bus address under which the machine sees the volume. The same call records the plan's outcome when one exists.
   - `SetFilesystemAttachmentInfo` records the mount point of a filesystem attachment.
-  - `CreateVolumeAttachmentPlans` plans a volume attachment before the volume is on the machine. The plan names the device type — `local` or `iscsi` — plus free-form attributes for the provider, such as an iSCSI target.
+  - `CreateVolumeAttachmentPlans` plans a volume attachment before the volume is on the machine. The plan names the device type -- `local` or `iscsi` -- plus free-form attributes for the provider, such as an iSCSI target.
   - `SetVolumeAttachmentPlanBlockInfo` records the block device that the plan found on the machine, and `RemoveVolumeAttachmentPlan` drops a plan.
 - *Errors:* The agent receives each in the result for the entity:
   - **`permission denied`** (code `unauthorized access`): *Trigger:* The agent acts for a machine that is not its own. *Remediation:* Use the machines of the agent.

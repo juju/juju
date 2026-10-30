@@ -19,7 +19,7 @@ A **constraint** is a set of requirements on the {ref}`compute resources <resour
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Constraint database schema
-:caption: One constraint record is one holder's whole requirement set — a model's, an application's, or a machine's, the three holders above it. The entries below are its keyed lists: tags, spaces, and zones, each one a thing the holder named or excluded. The holders and the space are other pages' records, shown for context.
+:caption: One constraint record is one holder's whole requirement set -- a model's, an application's, or a machine's, the three holders above it. The entries below are its keyed lists: tags, spaces, and zones, each one a thing the holder named or excluded. The holders and the space are other pages' records, shown for context.
 :alt: Eight boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Constraint is in the middle. Application constraint is above it (1 to 1), Model constraints is above and to its left (1 to 1), and Machine constraint is above and to its right (1 to 1); all three have an outlined arrow mark. Space entry is below Constraint (1 to m), Tag entry is below and to its left (1 to m), and Zone entry is below and to its right (1 to m). Space is below Space entry (m to 1) and has an outlined arrow mark.
 ```
 

@@ -11,7 +11,7 @@ myst:
 See also: {ref}`Juju | Bootstrap a controller <bootstrap-a-controller>`, {ref}`Juju | Manage machines <manage-machines>`
 ```
 
-An **agent** is a `jujuagentd` or `containeragent` process — or an engine inside one — that works to realize the state that a {ref}`user <user>` declares with a {ref}`client <client>`: it logs in to the {ref}`controller <controller>` API, follows what changes, and runs the {ref}`workers <agent-workers>` that make the {ref}`cloud <cloud>` match the declared state. An agent acts for one entity (a {ref}`machine <machine>`, a {ref}`unit <unit>`, a {ref}`model <model>`, or a controller) and lives where that entity lives. An agent starts when {ref}`bootstrap <bootstrap-a-controller>` or provisioning creates its entity, and stops when the entity is removed.
+An **agent** is a `jujuagentd` or `containeragent` process -- or an engine inside one -- that works to realize the state that a {ref}`user <user>` declares with a {ref}`client <client>`: it logs in to the {ref}`controller <controller>` API, follows what changes, and runs the {ref}`workers <agent-workers>` that make the {ref}`cloud <cloud>` match the declared state. An agent acts for one entity (a {ref}`machine <machine>`, a {ref}`unit <unit>`, a {ref}`model <model>`, or a controller) and lives where that entity lives. An agent starts when {ref}`bootstrap <bootstrap-a-controller>` or provisioning creates its entity, and stops when the entity is removed.
 
 (agent-kinds)=
 ## Agent kinds

@@ -11,9 +11,6 @@ myst:
 See also: {ref}`Juju | Manage the databases <manage-the-databases>`
 ```
 
-```{versionadded} 4.0
-```
-
 The **database** of a {ref}`controller <controller>` is the embedded [Dqlite](https://canonical.com/dqlite) SQL database in which the controller keeps its records. A controller has one database for itself and one for each of its {ref}`models <model>`. Every controller node runs one node of the Dqlite cluster, and in a {ref}`high-availability <high-availability>` setup the nodes replicate the data between them.
 
 (database-schema)=
@@ -22,7 +19,7 @@ The **database** of a {ref}`controller <controller>` is the embedded [Dqlite](ht
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Change log database schema
-:caption: One row per change: for every change, the log says what kind of edit it was, in which namespace it ran, and nothing else — read it as the databases' own history.
+:caption: One row per change: for every change, the log says what kind of edit it was, in which namespace it ran, and nothing else -- read it as the databases' own history.
 :alt: Three boxes of the same size inside a group named Model database and controller database, each with a filled table mark in the corner. Change is in the middle. Edit type is to its left (m to 1). Change namespace is to its right (m to 1).
 ```
 

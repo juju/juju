@@ -15,7 +15,7 @@ The **object store** is the storage of files that a {ref}`controller <controller
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Object store database schema
-:caption: Two databases, one anchor: the stored object. The controller's records keep the backends — each with a life and a type, `file` or `s3` — and where files are placed; each model's records keep its own files' paths, one row per file store and one per task output. A drain moves files from one backend to another through its phases.
+:caption: Two databases, one anchor: the stored object. The controller's records keep the backends -- each with a life and a type, `file` or `s3` -- and where files are placed; each model's records keep its own files' paths, one row per file store and one per task output. A drain moves files from one backend to another through its phases.
 :alt: Three groups of boxes of the same size. The group named Controller database and model databases holds Stored object in the middle, with Path above it (m to 1), Placement below it (m to 1), and Agent binary to its left (m to 1). The group named Model databases holds File store, to the right of Stored object (m to 1), and Task output above File store, joined to Path by a line that crosses the group border (m to 1). The group named Controller database holds Backend in the middle, with Life above it (m to 1), S3 config below it (1 to 1), Drain to its left (m to 1), and Drain phase type above Drain (m to 1). Agent binary, File store, Task output, and Life have an outlined arrow mark for records described elsewhere.
 ```
 

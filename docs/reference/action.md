@@ -23,7 +23,7 @@ See examples: [Charmhub | `kafka` > Actions](https://charmhub.io/kafka/actions),
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Action database schema
-:caption: Read the operation first: its parameters, its tasks, and, when it runs an action, the declared action all hang off it. A task owns one status, and the status names one value from the fixed list — read the value's bullet for what a task may become. A task's output is a file in the model's object store, reached by its path. The unit, the machine, and the action are other pages' records, shown for context.
+:caption: Read the operation first: its parameters, its tasks, and, when it runs an action, the declared action all hang off it. A task owns one status, and the status names one value from the fixed list -- read the value's bullet for what a task may become. A task's output is a file in the model's object store, reached by its path. The unit, the machine, and the action are other pages' records, shown for context.
 :alt: Nine boxes of the same size inside a group named Model database. Six of them (Operation, Operation parameter, Task, Task status, Task status value, and Task log message) have a filled table mark in the corner. Operation is on the left. Operation parameter is above it (1 to m), Action is below it (m to 1, optional), and Task is to its right (1 to m). Task status is above Task (1 to 1) and Task status value is to the right of Task status (m to 1). Task log message is below Task (1 to m). Unit is to the right of Task and Machine is below Unit; each is joined to Task (1 to m, one of the two for each task). Unit, Machine, and Action have an outlined arrow mark for records that other pages describe.
 ```
 

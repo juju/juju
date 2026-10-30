@@ -19,7 +19,7 @@ A **charm resource** is a named piece of content, a file or an [OCI image](https
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Resource database schema
-:caption: Read the resource first: a charm resource declares it, and the application link, the pending-application link, and the unit links say who uses it. The stores point at the content — a file store at a stored object, an image store at an image metadata record — and both can be shared by many resources. The application, the unit, and the charm resource are other pages' records, shown for context.
+:caption: Read the resource first: a charm resource declares it, and the application link, the pending-application link, and the unit links say who uses it. The stores point at the content -- a file store at a stored object, an image store at an image metadata record -- and both can be shared by many resources. The application, the unit, and the charm resource are other pages' records, shown for context.
 :alt: Twelve boxes of the same size inside a group named Model database, each with a filled table mark in the corner. Resource is in the middle. Charm resource is to its left (1 to m). Application resource is above it (1 to 1), with Application to the left of Application resource (1 to m) and Pending resource to its right (1 to 1). Retrieved by is to the right of Resource (1 to 1). Unit resource is below Resource (m to 1), with Unit to its left (1 to m). File store is to the right of Unit resource (1 to 1) and Stored object to the right of File store (m to 1). Image store is below File store (1 to 1) and Image metadata to the right of Image store (m to 1).
 ```
 
