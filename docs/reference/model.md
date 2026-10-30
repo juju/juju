@@ -19,13 +19,13 @@ A **model** is the workspace on a {ref}`controller <controller>` that holds a de
 ```{ggarch}
 :file: ../juju.ggarch
 :view: Model database schema
-:caption: A model lives in two databases. The controller database holds the model itself: its name and qualifier, its type, its life, what it is deployed into (a cloud, with an optional region and an optional credential), and each attempt to migrate it. The model database holds read-only copies — identity, constraints, life, and a marker that exists while it migrates — so the model's own processes need not reach the controller database. The outlined marks name the records that other pages own.
-:alt: Two groups of boxes of the same size, each with a filled table mark in the corner. The Controller database group has Model in the middle. Above it is Model type (1 to m), to its left is Cloud (1 to m), with Region above and Credential below it, each with an outlined arrow mark, and the Model also points at Region and Credential through dashed lines because both are optional. Below it is Export (1 to m), and to the right of Export is Migration phase (m to 1). The Model database group has Model identity copy in the middle, with Model constraints above it, Model life copy below it, and Migrating marker to its right, each 1 to 1.
+:caption: A model lives in two databases. The controller database holds the model itself: its name and qualifier, its type, its life, and what it is deployed into (a cloud, with an optional region and an optional credential). The model database holds read-only copies — identity, constraints, and life — so the model's own processes need not reach the controller database. The outlined marks name the records that other pages own.
+:alt: Two groups of boxes of the same size, each with a filled table mark in the corner. The Controller database group has Model in the middle. Above it is Model type (1 to m), to its left is Cloud (1 to m), with Region above and Credential below it, each with an outlined arrow mark, and the Model also points at Region and Credential through dashed lines because both are optional. The Model database group has Model identity copy in the middle, with Model constraints above it and Model life copy below it, each 1 to 1.
 ```
 
 The model database schema is the set of records that describe a model in the {ref}`controller database <database>` and in the model's own {ref}`model database <database>`. The records, with the rules that apply to each, are:
 
-- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, and {ref}`credential <credential>`, its life, and whether it is active (a model is active once its creation or import has finished). The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name.
+- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, {ref}`credential <credential>`, and its life. The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name.
   - *Rules:*
     - A model's name and qualifier together are unique, so two users can each have a model with the same name.
     - A model has a life: alive, dying, or dead. See {ref}`Destroying models <model-destroying>`.
@@ -34,19 +34,14 @@ The model database schema is the set of records that describe a model in the {re
   - **Model identity copy:** A read-only copy of the model's identity (its UUID, controller, name, qualifier, type, cloud, region, credential, and whether it is the controller model), so that processes of the model need not reach the controller database.
   - **Model constraints:** The model's {ref}`constraints <constraint>`: one record, or none when no constraints are set.
   - **Model life copy:** A copy of the model's life. The controller database record is the authority. The copy can lag it.
-  - **Migrating marker:** A record that exists while the model is migrating.
 - **Cloud, region, and credential:** The records a model points at. Other pages own them: see {ref}`cloud <cloud>`, which also describes regions, and {ref}`credential <credential>`. The region and the credential are optional.
 - **Secret backend:** The backend that stores the model's {ref}`secrets <secret>`, chosen from the controller's secret backends. See {ref}`secret backend <secret-backend>`.
 - **Last login:** The last time each user connected to the model, which listings show as the user's last connection.
-- **Export and migration phase:** A record of each attempt to migrate the model to another controller, with the migration phase the attempt is in (one of a fixed list, see {ref}`Migrating models <model-migrating>`), the history of its phases, its latest status message, the reports of the model's {ref}`agents <agent>`, and the credentials for the target controller.
-  - *Rules:*
-    - A model has at most one active migration. A migration is active until it reaches `done`, `reap-failed`, or `abort-done`.
-    - A model has at most one import record on the target controller. The record is in one of three phases: `importing`, `activating`, or `aborting`.
 
 (model-change-streams)=
 ## Model change streams
 
-Model change streams are the notifications that tell a worker (a process of the {ref}`controller <controller>` that does its work for a model) or an {ref}`agent <agent>` that something about a model has changed, delivered through a {ref}`watcher <watcher>`. Clients read model state through the controller API (the set of calls that clients and agents make to the controller), so the streams reach only the controller's workers and the model's agents, and they carry the set of active models, the phase of a migration, the model's credential, its target agent version, and its configuration:
+Model change streams are the changes that the {ref}`workers <agent-workers>` of the {ref}`controller <controller>` and the {ref}`agents <agent>` of the model follow, delivered through a {ref}`watcher <watcher>`. The streams carry the set of active models, the phase of a migration, the model's credential, its target agent version, and its configuration:
 
 - **Active models:** The controller starts the processes of each model that joins the set of active models.
 - **Migration phase:** Every agent of a model (machine and unit agents) follows the phase of the model's migration. The agents act on each phase and report success or failure back, as {ref}`Migrating models <model-migrating>` describes.
