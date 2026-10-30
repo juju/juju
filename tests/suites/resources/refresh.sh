@@ -99,7 +99,7 @@ run_resource_refresh_no_new_charm_rev_supply_res_rev() {
 	charm_revision=$(juju status --format json | yq -r '.applications."juju-qa-test"."charm-rev"')
 	juju config juju-qa-test foo-file=false
 
-	juju refresh juju-qa-test --resource foo-file=3
+	juju refresh juju-qa-test --revision "${charm_revision}" --resource foo-file=3
 
 	juju config juju-qa-test foo-file=true
 	wait_for "resource line one: testing one plus one." "$(workload_status juju-qa-test 0).message"
