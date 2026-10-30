@@ -5,6 +5,7 @@ package export
 
 import (
 	"slices"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -31,7 +32,117 @@ type PayloadDecodeFunc func(data []byte) (any, error)
 // does not need a per-version entry: it runs on the transformed latest payload.
 var payloadDecoders = map[semversion.Number]PayloadDecodeFunc{
 	semversion.MustParse("4.0.12"): decodePayload[v4_0_12.ModelExport],
-	semversion.MustParse("4.1.0"):  decodePayload[v4_1_0.ModelExport],
+	semversion.MustParse("4.1.0"):  decodeLookupPayload[v4_1_0.ModelExport](modelLookupIDTablesV410),
+}
+
+// These are the single-column INT lookup keys made NOT NULL in 4.1.0.
+// Model changestream lookups are target-local and not consumed by import.
+// Keep the lists version-specific: other scalar keys retain their wire contract.
+const modelLookupIDTablesV410 = `
+agent_stream
+architecture
+block_command_type
+block_device_provenance
+charm_config_type
+charm_provenance
+charm_relation_role
+charm_relation_scope
+charm_resource_kind
+charm_run_as_kind
+charm_source
+charm_storage_kind
+container_type
+hash_kind
+ip_address_config_type
+ip_address_origin
+ip_address_scope
+ip_address_type
+k8s_pod_status_value
+life
+link_layer_device_type
+machine_cloud_instance_status_value
+machine_placement_scope
+machine_status_value
+network_address_scope
+operation_task_status_value
+os
+password_hash_algorithm
+protocol
+resolve_mode
+resource_origin_type
+resource_retrieved_by_type
+resource_state
+secret_grant_scope_type
+secret_grant_subject_type
+secret_role
+secret_rotate_policy
+ssh_key_algorithm_type
+storage_filesystem_status_value
+storage_kind
+storage_provision_scope
+storage_volume_device_type
+storage_volume_status_value
+unit_agent_status_value
+virtual_port_type
+workload_status_value
+`
+
+const controllerLookupIDTablesV410 = `
+architecture
+auth_type
+change_log_edit_type
+change_log_namespace
+cloud_type
+lease_type
+life
+model_type
+object_store_drain_phase_type
+password_hash_algorithm
+permission_access_type
+permission_object_access
+permission_object_type
+secret_backend_type
+ssh_fingerprint_hash_algorithm
+ssh_key_algorithm_type
+upgrade_state_type
+`
+
+// decodeLookupPayload validates raw lookup IDs before scalar decoding turns
+// omitted or NULL IDs into zero. Decoding through yaml.Node preserves YAML
+// aliases and merge keys in both validation and the concrete payload.
+func decodeLookupPayload[T any](lookupTables string) PayloadDecodeFunc {
+	return func(data []byte) (any, error) {
+		var document yaml.Node
+		if err := yaml.Unmarshal(data, &document); err != nil {
+			return nil, errors.Capture(err)
+		}
+		var tables map[string]yaml.Node
+		if err := document.Decode(&tables); err != nil {
+			return nil, errors.Capture(err)
+		}
+		for table := range strings.FieldsSeq(lookupTables) {
+			node, ok := tables[table]
+			if !ok {
+				continue
+			}
+			var rows []*struct {
+				ID *int64 `yaml:"id"`
+			}
+			if err := node.Decode(&rows); err != nil {
+				return nil, errors.Errorf("decoding table %q: %w", table, err)
+			}
+			for i, row := range rows {
+				if row == nil || row.ID == nil {
+					return nil, errors.Errorf("table %q row %d: id must be present and non-NULL", table, i)
+				}
+			}
+		}
+		var out T
+		if err := document.Decode(&out); err != nil {
+			return nil, errors.Capture(err)
+		}
+		return out, nil
+	}
 }
 
 func decodePayload[T any](data []byte) (any, error) {
@@ -58,7 +169,9 @@ func decodeInto[T any](data []byte) (T, error) {
 // vX_Y_Z.ModelExport payload type for the given export version. It returns an
 // error satisfying [coreerrors.NotSupported] when the version is not a known
 // export payload version, and an error satisfying [coreerrors.NotValid] when
-// the bytes cannot be decoded as that version's payload.
+// the bytes cannot be decoded as that version's payload. In 4.1.0, consumed
+// lookup rows must carry non-NULL IDs; zero is a valid ID. Target-local model
+// changestream lookups are not validated.
 //
 // An unknown version is reported through [CheckPayloadVersionSupported] so the
 // operator is told which controller to upgrade rather than only which version
@@ -87,13 +200,14 @@ func DecodePayload(version semversion.Number, data []byte) (any, error) {
 // [ControllerExportVersions] must have a decoder here; completeness is
 // asserted by tests.
 var controllerPayloadDecoders = map[semversion.Number]PayloadDecodeFunc{
-	semversion.MustParse("4.1.0"): decodePayload[ctrlv4_1_0.ControllerExport],
+	semversion.MustParse("4.1.0"): decodeLookupPayload[ctrlv4_1_0.ControllerExport](controllerLookupIDTablesV410),
 }
 
 // DecodeControllerPayload decodes YAML into the concrete controller payload
 // type for the given version. Errors mirror DecodePayload semantics:
 // [coreerrors.NotSupported] for an unknown version and [coreerrors.NotValid]
-// for undecodable bytes.
+// for undecodable bytes or 4.1.0 lookup rows without non-NULL IDs. Zero is a
+// valid lookup ID.
 func DecodeControllerPayload(version semversion.Number, data []byte) (any, error) {
 	decode, ok := controllerPayloadDecoders[version]
 	if !ok {

@@ -1,5 +1,5 @@
 CREATE TABLE resource_origin_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -11,7 +11,7 @@ INSERT INTO resource_origin_type VALUES
 (1, 'store');
 
 CREATE TABLE resource_state (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -88,7 +88,7 @@ CREATE TABLE pending_application_resource (
 );
 
 CREATE TABLE resource_retrieved_by_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 

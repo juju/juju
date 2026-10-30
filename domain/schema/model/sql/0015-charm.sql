@@ -1,5 +1,5 @@
 CREATE TABLE charm_run_as_kind (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -13,7 +13,7 @@ INSERT INTO charm_run_as_kind VALUES
 (3, 'non-root');
 
 CREATE TABLE charm_source (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -102,7 +102,7 @@ CREATE INDEX idx_charm_reference_revision
 ON charm (reference_name, revision);
 
 CREATE TABLE charm_provenance (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -209,7 +209,7 @@ FROM charm AS c
 LEFT JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid;
 
 CREATE TABLE hash_kind (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -233,7 +233,7 @@ CREATE TABLE charm_hash (
 );
 
 CREATE TABLE charm_relation_role (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -246,7 +246,7 @@ INSERT INTO charm_relation_role VALUES
 (2, 'peer');
 
 CREATE TABLE charm_relation_scope (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -344,7 +344,7 @@ CREATE INDEX idx_charm_tag_charm
 ON charm_tag (charm_uuid);
 
 CREATE TABLE charm_storage_kind (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     kind TEXT NOT NULL
 );
 
@@ -431,7 +431,7 @@ CREATE INDEX idx_charm_device_charm
 ON charm_device (charm_uuid);
 
 CREATE TABLE charm_resource_kind (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
@@ -580,7 +580,7 @@ LEFT JOIN os ON cmb.os_id = os.id
 LEFT JOIN architecture ON cmb.architecture_id = architecture.id;
 
 CREATE TABLE charm_config_type (
-    id INT PRIMARY KEY,
+    id INT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL
 );
 
