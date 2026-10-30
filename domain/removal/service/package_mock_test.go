@@ -288,6 +288,7 @@ type MockModelDBStateMockRecorder struct {
 	mock                                                    *MockModelDBState
 	applicationExistsExpects                                []*gomock.Call2_2[context.Context, string, bool, error]
 	applicationScheduleRemovalExpects                       []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+	checkStorageAttachmentHasNoDyingChildrenExpects         []*gomock.Call2_2[context.Context, string, bool, error]
 	checkStorageInstanceHasNoChildrenExpects                []*gomock.Call2_2[context.Context, string, bool, error]
 	checkVolumeBackedFilesystemCrossProvisionedExpects      []*gomock.Call2_2[context.Context, string, bool, error]
 	controllerModelScheduleRemovalExpects                   []*gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
@@ -452,6 +453,24 @@ func (mr *MockModelDBStateMockRecorder) ApplicationScheduleRemoval(ctx, removalU
 
 // MockModelDBStateApplicationScheduleRemovalCall is the typed call wrapper for ApplicationScheduleRemoval.
 type MockModelDBStateApplicationScheduleRemovalCall = gomock.Call5_1[context.Context, string, string, bool, time.Time, error]
+
+// CheckStorageAttachmentHasNoDyingChildren mocks base method.
+func (m *MockModelDBState) CheckStorageAttachmentHasNoDyingChildren(ctx context.Context, saUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.checkStorageAttachmentHasNoDyingChildrenExpects, m.ctrl, m, "CheckStorageAttachmentHasNoDyingChildren", ctx, saUUID)
+}
+
+// CheckStorageAttachmentHasNoDyingChildren indicates an expected call of CheckStorageAttachmentHasNoDyingChildren.
+func (mr *MockModelDBStateMockRecorder) CheckStorageAttachmentHasNoDyingChildren(ctx, saUUID any) *MockModelDBStateCheckStorageAttachmentHasNoDyingChildrenCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "CheckStorageAttachmentHasNoDyingChildren", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(saUUID))
+	mr.checkStorageAttachmentHasNoDyingChildrenExpects = append(mr.checkStorageAttachmentHasNoDyingChildrenExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDBStateCheckStorageAttachmentHasNoDyingChildrenCall is the typed call wrapper for CheckStorageAttachmentHasNoDyingChildren.
+type MockModelDBStateCheckStorageAttachmentHasNoDyingChildrenCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // CheckStorageInstanceHasNoChildren mocks base method.
 func (m *MockModelDBState) CheckStorageInstanceHasNoChildren(ctx context.Context, siUUID string) (bool, error) {
