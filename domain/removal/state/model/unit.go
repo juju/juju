@@ -676,6 +676,15 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("preparing unit delete: %w", err)
 	}
 
+	countUnitsOnCharmStmt, err := st.Prepare(`
+SELECT COUNT(*) AS &charmUUIDCount.count
+FROM   unit
+WHERE  charm_uuid = $charmUUIDCount.charm_uuid
+`, charmUUIDCount{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// We only prevent deletion if the unit is alive.
 	// This method is only called by the unit removal job, which will invoke
 	// it for a dying (not dead) unit only if the job is forced.
@@ -745,8 +754,29 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
 	}
 
+	// Get the charm UUID for the unit before deletion, so its removal can be
+	// scheduled once no unit runs it any more.
+	unitCharmUUID, err := st.getCharmUUIDForUnit(ctx, tx, unitUUID)
+	if err != nil {
+		return errors.Errorf("getting charm for unit %q: %w", unitUUID, err)
+	}
+
 	if err := tx.Query(ctx, deleteUnitStmt, unitUUIDRec).Run(); err != nil {
 		return errors.Errorf("deleting unit for unit %q: %w", unitUUID, err)
+	}
+
+	if unitCharmUUID != "" {
+		// Schedule the removal of the departed unit's charm once no unit
+		// runs it any more; the last unit to be removed orphans the charm.
+		var numUnitsOnCharm charmUUIDCount
+		if err := tx.Query(ctx, countUnitsOnCharmStmt, charmUUIDCount{CharmUUID: unitCharmUUID}).Get(&numUnitsOnCharm); err != nil {
+			return errors.Errorf("counting units on charm %q: %w", unitCharmUUID, err)
+		}
+		if numUnitsOnCharm.Count == 0 {
+			if err := st.scheduleCharmRemoval(ctx, tx, unitCharmUUID); err != nil {
+				return errors.Errorf("scheduling removal of charm %q: %w", unitCharmUUID, err)
+			}
+		}
 	}
 
 	return nil

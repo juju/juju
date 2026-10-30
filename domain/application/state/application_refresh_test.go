@@ -15,6 +15,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
 	coreunit "github.com/juju/juju/core/unit"
@@ -24,6 +25,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/deployment"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/removal"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
@@ -72,6 +74,65 @@ func (s *applicationRefreshSuite) TestSetApplicationCharm(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(newCharmUUID, tc.Equals, charmUUID.String())
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmSchedulesRemovalForUnitlessApplication(c *tc.C) {
+	// Arrange: an application without units, running an initial charm.
+	appID := s.createApplication(c, createApplicationArgs{})
+	var oldCharmUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT charm_uuid FROM application WHERE uuid = ?", appID).Scan(&oldCharmUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	charmUUID := s.createCharm(c, createCharmArgs{name: "new-charm"})
+
+	// Act: refresh the unitless application.
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: the application's only unit reference was itself, so the
+	// switch orphaned the initial charm and its removal job is scheduled,
+	// atomically with the switch.
+	row := s.DB().QueryRowContext(c.Context(), `
+SELECT t.name, r.entity_uuid
+FROM   removal r JOIN removal_type t ON r.removal_type_id = t.id
+WHERE  r.entity_uuid = ?`, oldCharmUUID,
+	)
+	var (
+		removalType string
+		entityUUID  string
+	)
+	err = row.Scan(&removalType, &entityUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removalType, tc.Equals, "charm")
+	c.Check(entityUUID, tc.Equals, oldCharmUUID)
+}
+
+func (s *applicationRefreshSuite) TestSetApplicationCharmSchedulesNoRemovalForUnitsStillRunningPreviousCharm(c *tc.C) {
+	// Arrange: an application with a unit still running the application's
+	// charm.
+	appID := s.createApplication(c, createApplicationArgs{})
+	netNodeUUID := tc.Must(c, domainnetwork.NewNetNodeUUID)
+	_, _, err := s.state.AddIAASUnits(c.Context(), appID, application.AddIAASUnitArg{
+		MachineNetNodeUUID: netNodeUUID,
+		MachineUUID:        tc.Must(c, coremachine.NewUUID),
+		AddUnitArg: application.AddUnitArg{
+			NetNodeUUID: netNodeUUID,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	charmUUID := s.createCharm(c, createCharmArgs{name: "new-charm"})
+
+	// Act: refresh the application; the unit still runs the previous charm.
+	err = s.state.SetApplicationCharm(c.Context(), appID, charmUUID, application.SetCharmStateParams{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: the previous charm is still run by a unit, so no removal job
+	// is scheduled; the last unit to converge schedules it instead.
+	var count int
+	err = s.DB().QueryRowContext(c.Context(), "SELECT COUNT(*) FROM removal").Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 func (s *applicationRefreshSuite) TestSetApplicationCharmCreatesImmutableResourceForNewCharm(c *tc.C) {
