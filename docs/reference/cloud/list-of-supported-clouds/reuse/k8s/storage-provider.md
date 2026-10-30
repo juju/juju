@@ -1,5 +1,5 @@
 ```{ibnote}
-See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`; {ref}`storage-provider`
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`; {ref}`storage provider <storage-provider>`
 ```
 
 ### Storage providers

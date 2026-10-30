@@ -27,6 +27,7 @@ added space "db-space" with subnets 172.31.0.0/20
 See more: {ref}`command-juju-add-space`
 ```
 
+(reload-spaces)=
 ## Reload spaces
 
 To reload spaces, along with their subnets, use the `reload-spaces` command:
@@ -45,6 +46,7 @@ See more: {ref}`command-juju-reload-spaces`
 This command is especially relevant for a MAAS cloud. There, you cannot add a space via `juju add-space`. Rather, you must add it directly using the MAAS UI/CLI and then run `juju reload-spaces` to make it known to Juju.
 ```
 
+(view-available-spaces)=
 ## View  available spaces
 
 To view the available spaces, including their associated subnets, run the `spaces` command:
@@ -78,6 +80,7 @@ The command also has flags that make it possible to filter by model or trim the 
 See more: {ref}`command-juju-spaces`
 ```
 
+(view-details-about-a-space)=
 ## View details about a space
 
 To view details about a space, run the `show-space` command:
@@ -92,6 +95,7 @@ The command also allows you to specify a model to operate in, an output format, 
 See more: {ref}`command-juju-show-space`
 ```
 
+(rename-a-space)=
 ## Rename a space
 
 To rename a space `db-space` to `public-space`, do:
@@ -109,6 +113,7 @@ Spaces can also be renamed during controller configuration, via the `juju-mgmt-s
 See more: {ref}`command-juju-rename-space`
 ```
 
+(remove-a-space)=
 ## Remove a space
 
 You can delete a space using the `remove-space` command.

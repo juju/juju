@@ -31,12 +31,17 @@ Clients connect to a controller -- the central management service that coordinat
 
 - {ref}`controller`
 - {ref}`database`
+- {ref}`juju-ssh`
+- {ref}`controller-upgrade`
+- {ref}`external-controller`
+- {ref}`watcher`
 
 ### Agents and charm runtime
 
 On each machine, agents (`jujuagentd` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
 
 - {ref}`agent`
+- {ref}`agent-version`
 - {ref}`jujuagentd`
 - {ref}`containeragent`
 - {ref}`hook`
@@ -57,12 +62,14 @@ Clouds provide the compute resources for your infrastructure, and Juju needs cre
 - {ref}`cloud`
 - {ref}`credential`
 - {ref}`metadata`
+- {ref}`image-metadata`
 
 ## Models and applications
 
 Within a controller, deployments are organized into models -- logical containers for applications, infrastructure, and their supporting components. Each model draws resources from a single cloud. Models contain applications deployed from charms or bundles and composed of units. Applications connect to each other through relations, and offers enable cross-model relations. Applications are configured through configuration, secrets, actions, and scripts, and charms may require resources.
 
 - {ref}`model`
+- {ref}`model-defaults`
 - {ref}`charm`
 - {ref}`bundle`
 - {ref}`application`
@@ -70,8 +77,10 @@ Within a controller, deployments are organized into models -- logical containers
 - {ref}`relation`
 - {ref}`offer`
 - {ref}`configuration`
+- {ref}`annotation`
 - {ref}`charm-resource`
 - {ref}`secret`
+- {ref}`secret-backend`
 - {ref}`action`
 - {ref}`script`
 
@@ -82,8 +91,10 @@ Supporting infrastructure -- machines and other compute resources, storage volum
 - {ref}`machine`
 - {ref}`resource-compute`
 - {ref}`storage`
+- {ref}`object-store`
 - {ref}`space`
 - {ref}`subnet`
+- {ref}`link-layer-device`
 - {ref}`zone`
 - {ref}`constraint`
 - {ref}`placement-directive`
@@ -103,8 +114,10 @@ Some operations apply across many kinds of resource -- from individual units and
 
 - {ref}`scaling`
 - {ref}`high-availability`
+- {ref}`lease`
 - {ref}`removing-things`
 - {ref}`upgrade-your-deployment`
+- {ref}`model-migration`
 
 ```{toctree}
 :titlesonly:

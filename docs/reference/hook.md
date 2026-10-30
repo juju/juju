@@ -148,13 +148,13 @@ information or advice before signalling the error.
 
 This section gives the complete list of hooks.
 
-Where hooks belong to a kind, we nest them under that kind; otherwise, under "other". Thus:
+Where hooks belong to a kind, we nest them under that kind; otherwise, under the unit hooks. Thus:
 
 * {ref}`relation-hooks`
 * {ref}`secret-hooks`
 * {ref}`storage-hooks`
 * {ref}`workload-hooks`
-* {ref}`other-hooks`
+* {ref}`unit-hooks`
 
 In all cases we cover
 - What triggers the hook?
@@ -382,7 +382,7 @@ By the time this event is emitted, the only available data concerning the relati
  - the name of the joining unit.
  - the `private-address` of the joining unit.
 
-In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation databag. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
+In other words, when this event is emitted the remote unit has not yet had an opportunity to write any data to the relation settings. For that, you're going to have to wait for the first {ref}`relation-changed hook <hook-relation-changed>`.
 
 From the perspective of an application called `foo`, which can relate to an application called `bar`:
 
@@ -606,9 +606,6 @@ Workload hooks operate in an environment with additional environment variables a
 Kubernetes sidecar charms only.
 ```
 
-```{versionadded} 3.6
-```
-
 *What triggers it?*
 
 A Pebble check passing the failure threshold.
@@ -628,9 +625,6 @@ The charm responsible for the container to which the hook pertains.
 #### `<container>-pebble-check-recovered`
 ```{important}
 Kubernetes sidecar charms only.
-```
-
-```{versionadded} 3.6
 ```
 
 *What triggers it?*
@@ -694,8 +688,10 @@ This feature of `pebble-ready` events make them especially suitable for a [holis
 
 The charm responsible for the container to which the hook pertains.
 
-(other-hooks)=
-### Other hooks
+(unit-hooks)=
+### Unit hooks
+
+The unit hooks are the hooks of the unit itself: `leader-elected` and `leader-deposed` for the leadership of its application; the other unit hooks have a subsection below.
 
 (hook-config-changed)=
 #### `config-changed`
@@ -890,3 +886,4 @@ See the documentation for the relevant hook or action.
 * `JUJU_CHARM_HTTPS_PROXY` holds the value of the `juju-https-proxy` model config attribute.
 * `JUJU_CHARM_FTP_PROXY` holds the value of the `juju-ftp-proxy` model config attribute.
 * `JUJU_CHARM_NO_PROXY` holds the value of the `juju-no-proxy` model config attribute.
+* `JUJU_CHARM_TRACE_CONFIG_HTTP`, `JUJU_CHARM_TRACE_CONFIG_GRPC`, and `JUJU_CHARM_TRACE_CONFIG_CA_CERT` hold the charm tracing configuration the unit agent reads when it builds the context of its unit; see {ref}`telemetry change streams <telemetry-change-streams>`.

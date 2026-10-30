@@ -1,35 +1,255 @@
 ---
 myst:
   html_meta:
-    description: "Juju model reference: logical workspaces for applications, resources, and configuration. Learn controller and workload model types."
+    description: "Juju model reference: what a model is, the data the controller keeps about it, the change streams that agents and workers follow, and the calls that add, list, show, configure, upgrade, migrate, and destroy models."
 ---
 
 (model)=
 # Model
-```{ibnote}
-See also: {ref}`manage-models`
-```
-
-In Juju, a **model**  is an abstraction that holds {ref}`applications <application>` and application supporting components -- {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, etc.
-
-A model is created by a {ref}`user <user>`, and owned in perpetuity by that user (or a new user with the same name), though it may also be used by any other user with model access level, within the limits of their level.
-
-A model is created on a {ref}`controller <controller>`.  Both the model and the controller are associated with a {ref}`cloud <cloud>` (and a cloud {ref}`credential <credential>`), though they do not both have to be on the same cloud (this is a scenario where you have a 'multicloud controller' and where you may have 'cross-model relations'). Any entities added to the model will use resources from that cloud.
-
-One can deploy multiple applications to the same model. Thus, models allow the logical grouping of applications and infrastructure that work together to deliver a service or product.  Moreover, one can apply common {ref}`configurations <configuration>` to a whole model. As such, models allow the low-level storage, compute, network and software components to be reasoned about as a single entity as well.
-
-## Model taxonomy
-
-Models are of two types:
-
-1. **The controller model (`controller`).** This is your Juju management model. A Juju deployment will have just one controller model, which is created by default when you create a controller (`juju bootstrap`). It typically contains a single machine, for the controller (the `controller` application). If controller {ref}`high availability <high-availability>` is enabled, then the controller model would contain multiple instances. The `controller` model may also contain certain applications which it makes sense to deploy near the controller -- e.g., starting with Juju `3.0`, the `juju-dashboard` application.
-
-2. **Regular model.** This is your Juju workload model. A Juju deployment may have many different workload models, which you create manually (`juju add-model`). It is the model where you typically deploy your applications.
-
-## Model configuration
-
-A model configuration is a rule or a set of rules that define the behavior of a model -- including the `controller` model.
 
 ```{ibnote}
-See more: {ref}`list-of-model-configuration-keys`,  {ref}`configure-a-model`
+See also: {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
 ```
+
+A **model** is the workspace on a {ref}`controller <controller>` that holds a deployment: its {ref}`applications <application>` and what they run on and use, such as {ref}`machines <machine>`, {ref}`storage <storage>`, {ref}`network spaces <space>`, {ref}`relations <relation>`, and {ref}`secrets <secret>`. A model is deployed into one {ref}`cloud <cloud>`, optionally with one {ref}`credential <credential>`, has its own {ref}`configuration <model-configuration>`, and is shared with other {ref}`users <user>` at an access level of read, write, or admin. Every controller has one **controller model**, named `controller`, which Juju creates at {ref}`bootstrap <bootstrap-a-controller>` to hold the controller's own machines; every other model is a **workload model**.
+
+(model-database-schema)=
+## Model database schema
+
+```{ggarch}
+:file: ../juju.ggarch
+:view: Model database schema
+:caption: A model lives in two databases. The controller database holds the model itself: its name and qualifier, its type, its life, and what it is deployed into (a cloud, with an optional region and an optional credential). The model database holds read-only copies -- identity, constraints, and life -- so the model's own processes need not reach the controller database. The outlined marks name the records that other pages own.
+:alt: Two groups of boxes of the same size, each with a filled table mark in the corner. The Controller database group has Model in the middle. Above it is Model type (1 to m), to its left is Cloud (1 to m), with Region above and Credential below it, each with an outlined arrow mark, and the Model also points at Region and Credential through dashed lines because both are optional. The Model database group has Model identity copy in the middle, with Model constraints above it and Model life copy below it, each 1 to 1.
+```
+
+The model database schema is the set of records that describe a model in the {ref}`controller database <database>` and in the model's own {ref}`model database <database>`. The records, with the rules that apply to each, are:
+
+- **Model:** The model's name, its qualifier, its type, its {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, {ref}`credential <credential>`, and its life. The qualifier is a {ref}`user <user>` name, such as `admin` or `alice@external`, that distinguishes models with the same name.
+  - *Rules:*
+    - A model's name and qualifier together are unique, so two users can each have a model with the same name.
+    - A model has a life: alive, dying, or dead. See {ref}`Destroying models <model-destroying>`.
+- **Model type:** One of `iaas` or `caas`. The type decides whether the model's {ref}`applications <application>` scale in pods or on {ref}`machines <machine>`.
+- **Model database:** The model database holds the model's {ref}`machines <machine>`, {ref}`applications <application>`, {ref}`units <unit>`, {ref}`relations <relation>`, and the rest of its contents. It also holds the model's configuration (a set of key and value pairs), its default {ref}`storage <storage>` pools, its target agent version (the version its {ref}`agents <agent>` should run, with the latest version known and the agent stream), and these records about the model itself:
+  - **Model identity copy:** A read-only copy of the model's identity (its UUID, controller, name, qualifier, type, cloud, region, credential, and whether it is the controller model), so that processes of the model need not reach the controller database.
+  - **Model constraints:** The model's {ref}`constraints <constraint>`: one record, or none when no constraints are set.
+  - **Model life copy:** A copy of the model's life. The controller database record is the authority. The copy can lag it.
+- **Cloud, region, and credential:** The records a model points at. Other pages own them: see {ref}`cloud <cloud>`, which also describes regions, and {ref}`credential <credential>`. The region and the credential are optional.
+- **Secret backend:** The backend that stores the model's {ref}`secrets <secret>`, chosen from the controller's secret backends. See {ref}`secret backend <secret-backend>`.
+- **Last login:** The last time each user connected to the model, which listings show as the user's last connection.
+
+(model-change-streams)=
+## Model change streams
+
+Model change streams are the changes that the {ref}`workers <agent-workers>` of the {ref}`controller <controller>` and the {ref}`agents <agent>` of the model follow, delivered through a {ref}`watcher <watcher>`. The streams carry the set of active models, the phase of a migration, the model's credential, its target agent version, and its configuration:
+
+- **Active models:** The controller starts the processes of each model that joins the set of active models.
+- **Migration phase:** Every agent of a model (machine and unit agents) follows the phase of the model's migration. The agents act on each phase and report success or failure back, as {ref}`Migrating models <model-migrating>` describes.
+- **Credential:** An agent can follow the {ref}`credential <credential>` of the model's {ref}`cloud <cloud>` and learns when it changes or becomes invalid.
+- **Target agent version:** Every machine and unit agent follows the model's target agent version and upgrades itself to it when it changes. See {ref}`Upgrading models <model-upgrading>`.
+- **Model configuration:** Agents follow changes to the model's configuration, including its `logging-config` key.
+
+(model-calls)=
+## Model calls
+
+Model calls are the calls a {ref}`client <client>` can take on models through the {ref}`controller <controller>` API (the set of calls that clients and {ref}`agents <agent>` make to the controller): add, list, show, configure, change the {ref}`credential <credential>`, upgrade, migrate, and destroy. Granting and revoking a user's access to a model is described on the {ref}`user <user>` page.
+
+(model-adding)=
+### Adding models
+
+```{ibnote}
+See also: {ref}`Juju | Add a model <add-a-model>`
+```
+
+Adding models creates a model on the {ref}`controller <controller>`. When the call returns, the model's records exist and its workers (the processes that do the controller's work for the model) are running.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`add-model access <user-access-cloud-add-model>` to the {ref}`cloud <cloud>`, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Rules:*
+  - A request that names no cloud uses the controller's default cloud.
+  - A request that names no {ref}`region <cloud-database-schema>` uses the default region when the cloud is the default cloud.
+  - A request that names no {ref}`credential <credential>` uses the caller's default credential for that cloud. If the caller has none, the model is added without a credential, which only some clouds accept.
+  - The name cannot be empty and the qualifier must be a valid user name. A caller who is not a superuser can add models only with their own name as the qualifier.
+  - The name and qualifier together must be new, except that a model that is still inactive, because an earlier creation did not finish, is replaced by the new one.
+  - The model type is `caas` when the cloud is a {ref}`Kubernetes cloud <kubernetes-cloud>` and `iaas` for any other cloud.
+  - The model stays inactive until every step of its creation has finished.
+  - The controller opens a provider (the part of Juju that talks to the cloud's API) for the cloud with the credential before it writes anything, and refuses the request if the provider cannot be opened.
+  - The model's {ref}`agent <agent>` version defaults to the controller's version. A requested version cannot be higher than the controller's. A lower one needs agent binaries for it on the controller. The agent stream defaults to the model default for the cloud or region, then to `released`.
+  - The controller discovers the cloud's {ref}`spaces <space>` for the new model.
+  - The creator receives {ref}`admin access <user-access-model-admin>` to the new model.
+- *Errors:*
+  - **`model <qualifier>/<name> already exists`**: *Trigger:* A model with the same name and qualifier exists. The {ref}`client <client>` receives it with the code for an existing entity. *Remediation:* Use another name or qualifier.
+  - **`cloud credential for new model is not valid`**: *Trigger:* The credential is marked invalid, or the request names no credential, the caller has no default one, and the cloud does not accept an empty credential. The {ref}`client <client>` receives it with the code for a missing entity. *Remediation:* Name a valid credential, or update the invalid one.
+  - **`cannot create model with invalid qualifier`** or **`cannot create model with qualifier "<qualifier>"`**: *Trigger:* The qualifier is not a valid user name, or the caller is not a superuser and named another user. *Remediation:* Use your own user name as the qualifier.
+  - **`supplied agent version for new model "<name>" is not supported: <reason>`**: *Trigger:* The requested agent version is higher than the controller's or has no binaries on the controller. The client receives it with the code for an invalid argument. *Remediation:* Request a supported version.
+  - **`creating information records for new model "<name>": agent stream %q is not a valid agent stream identifier for a model`**: *Trigger:* The requested agent stream is not `released`, `proposed`, `testing`, or `devel`. The message carries the literal `%q`. *Remediation:* Request one of those streams.
+  - **`name cannot be empty`**: *Trigger:* The request carries no model name. *Remediation:* Give the model a name.
+  - **`creator "<user>" for model does not exist`**: *Trigger:* The calling user is not known to the controller. *Remediation:* Log in as an existing user.
+  - **`opening provider for new model <qualifier>/<name>: <reason>`**: *Trigger:* The controller cannot open the cloud's provider with the credential. *Remediation:* Correct the credential or the cloud.
+  - **`cannot find default model cloud and credential`**: *Trigger:* The controller cannot report a default cloud, even when the request names a cloud. *Remediation:* Ask a controller superuser to check the controller's default cloud.
+
+(model-listing)=
+### Listing models
+
+```{ibnote}
+See also: {ref}`Juju | View all the models available on a controller <view-all-the-models-available-on-a-controller>`
+```
+
+Listing models returns the models a {ref}`user <user>` can see, either as a plain list or as summaries with a model's status, counts of {ref}`machines <machine>`, cores, and {ref}`units <unit>`, and the user's access and last connection.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user that is logged in, when the caller asks about themselves. A superuser can ask about any user.
+- *Rules:*
+  - A superuser's plain list contains every model on the {ref}`controller <controller>`. For any other caller, a list holds the models they have access to.
+  - Summaries cover the models of the named user. Only a superuser can ask for the summaries of every model on the controller.
+  - A model that is removed while the summaries of all models are compiled is left out of them.
+- *Errors:*
+  - **`permission denied`** or **`permission denied: cannot list all models as non-admin user`**: *Trigger:* Asking for another user's models without superuser access, or for the summaries of every model as a non-superuser. *Remediation:* Ask a superuser, or list your own models.
+  - **`user "<name>" does not exist`**: *Trigger:* Asking for summaries of a user that the controller does not know. *Remediation:* Check the name.
+
+(model-showing)=
+### Showing a model
+
+```{ibnote}
+See also: {ref}`Juju | View details about a model <view-details-about-a-model>`
+```
+
+Showing a model returns a model's details: its name, UUID, type, qualifier, life, {ref}`cloud <cloud>`, {ref}`region <cloud-database-schema>`, and {ref}`credential <credential>` (with whether the credential is valid), its {ref}`agent <agent>` version, its status, its {ref}`users <user>`, and its supported features.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`read access <user-access-model-read>` to the model. A caller with {ref}`write <user-access-model-write>` or {ref}`admin <user-access-model-admin>` access, or a superuser, also receives the model's {ref}`machines <machine>` and its {ref}`secret <secret>` backends.
+- *Rules:*
+  - A superuser sees every user with access to the model, and any other caller sees only themselves.
+  - While the model's status is busy, the details include the latest migration status message and its start time.
+- *Errors:*
+  - **`permission denied`**: *Trigger:* The caller has no access to the model. *Remediation:* Ask a model administrator for access.
+  - **An error with the code for a missing entity**: *Trigger:* The model does not exist or was removed while the call ran. *Remediation:* Use the UUID of an existing model.
+
+(model-configuring)=
+### Configuring models
+
+```{ibnote}
+See also: {ref}`Juju | Configure a model <configure-a-model>`
+```
+
+Configuring models changes the settings of a model: its configuration keys, its {ref}`constraints <constraint>`, the defaults that new models start with, its {ref}`secret <secret>` backend, and its {ref}`credential <credential>`. The keys a model accepts are listed in the {ref}`list of model configuration keys <list-of-model-configuration-keys>`.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model for configuration keys, constraints, and the secret backend; {ref}`read access <user-access-model-read>` to read them. Setting a key that the model configuration schema marks as secret needs {ref}`admin access <user-access-model-admin>`. Setting or reading model defaults, which apply to new models of a {ref}`cloud <cloud>` or {ref}`region <cloud-database-schema>`, needs {ref}`superuser access <user-access-controller-superuser>`. Changing the credential needs admin access to the model or superuser access.
+- *Rules:*
+  - A change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses changes to configuration keys, constraints, and the credential. A change block on the {ref}`controller <controller>` model refuses changes to the defaults.
+  - Only a superuser can set a logging configuration that includes the `TRACE` level.
+  - The {ref}`agent <agent>` stream must be one of `released`, `proposed`, `testing`, or `devel`.
+  - A model's constraints can name only spaces that exist in the model and a valid container type.
+  - A model's secret backend must exist and must be valid.
+- *Errors:*
+  - **`config key ["<key>"] not valid: <reason>`**: *Trigger:* A key is unknown or its value fails validation. *Remediation:* Correct the key or value.
+  - **`removing config key ["<key>"] not valid: <reason>`**: *Trigger:* Unsetting a key that is unknown or whose removal fails validation. *Remediation:* Correct the key.
+  - **`config key ["logging-config"] not valid: only controller admins can set a model's logging level to TRACE`**: *Trigger:* A caller without superuser access sets a logging configuration that includes `TRACE`. *Remediation:* Ask a superuser, or choose a lower level.
+  - **`agent stream "<stream>" is not a valid value`**: *Trigger:* The stream is not a valid agent stream. *Remediation:* Use a valid stream.
+  - **`space not found for model constraint "<uuid>": <reason>`**: *Trigger:* A constraint names a space that does not exist. *Remediation:* Name an existing space.
+  - **`invalid container type for model constraint "<uuid>"`**: *Trigger:* A constraint names an unknown container type. *Remediation:* Use a supported container type.
+  - **`secret backend "<name>" not found`** and **`secret backend "<name>" not valid`**: *Trigger:* The named backend does not exist, or cannot back this model. *Remediation:* Name an existing backend that suits the model.
+  - **`missing cloud name`**, **`cloud tag "<tag>" not valid`**, **`cloud "<cloud>" not found`**, and **`cloud "<cloud>" region "<region>" not found`**: *Trigger:* A request for model defaults names no cloud, a malformed cloud, or a cloud or region that does not exist. *Remediation:* Name an existing cloud and region.
+  - **`permission denied`**: *Trigger:* The caller lacks the access above. *Remediation:* Ask a model administrator or a superuser.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
+
+(model-upgrading)=
+### Upgrading models
+
+```{ibnote}
+See also: {ref}`Juju | Upgrade a model <upgrade-a-model>`
+```
+
+Upgrading models raises the target agent version of a model, which makes the model's machine and unit {ref}`agents <agent>` upgrade themselves to it. A request for the controller model upgrades the controller together with its model.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`write access <user-access-model-write>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Rules:*
+  - A change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses the request.
+  - A request that names no version upgrades a workload model to the highest version that runs on the controller's nodes. The same request upgrades the controller model to the highest patch version for which the controller holds agent binaries. A request can also change the agent stream or ask for a dry run, which runs the checks, reports the version it would choose, and changes nothing.
+  - The version cannot be lower than the model's current target version or higher than the controller's version. The controller must also hold agent binaries for it.
+  - A workload model with machines on a base that is not a supported workload base cannot be upgraded.
+  - When the call returns, the model's target agent version is set, and its agents upgrade afterwards.
+  - A model upgrade cannot be aborted or reversed.
+  - The controller model upgrades to a patch version only. Every controller node must already run the controller's current version. The controller must also hold binaries for the architecture of each node.
+- *Errors:*
+  - **`unauthorized to upgrade model`**: *Trigger:* The caller lacks the access above, or named another model. *Remediation:* Ask a model administrator or a superuser.
+  - **`model agent binaries are not available for version "<version>"`** and **`controller agent binaries are not available for version "<version>"`**: *Trigger:* The controller holds no binaries for the version, or for a node's architecture. *Remediation:* Choose a version whose binaries are available.
+  - **`model upgrading is blocked for reason: <reason>`**: *Trigger:* A machine uses an unsupported base; the reason reads `model has <n> machines using unsupported bases, the supported bases are: [<bases>]`. *Remediation:* Replace the machines with ones on a supported base.
+  - **`controller upgrading is blocked for reason: controller nodes [<ids>] are not running controller version "<version>"`**: *Trigger:* A controller node has not yet reached the controller's current version. *Remediation:* Wait for the nodes to finish upgrading.
+  - **`cannot upgrade the model agent to version "<version>" because it is lower than the current running version`** and **`cannot upgrade the controller to version "<version>" because it is lower than the current running version`**: *Trigger:* The version is lower than the current one. *Remediation:* Choose a higher version.
+  - **`cannot upgrade the model to a version that is more than a patch version increase`**: *Trigger:* The version is higher than the controller's, or is not a valid version. The message names a patch increase, but the check compares the version with the controller's. *Remediation:* Upgrade the controller first, or choose a lower version.
+  - **`cannot upgrade the controller to a version that is more than a patch version increase`**: *Trigger:* The version differs from the controller's in the major or minor number. *Remediation:* Choose a patch version, or {ref}`migrate <model-migrating>` the model to a controller of the newer version.
+  - **`agent stream "<stream>" is not a recognised valid value`** and **`agent stream "<stream>" is not recognised as a valid value`**: *Trigger:* The stream is not a valid agent stream. *Remediation:* Use a valid stream.
+  - **`aborting model upgrades is not supported`**: *Trigger:* A request to abort an upgrade. *Remediation:* Let the upgrade finish, then upgrade again to the version you want.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.
+
+(model-migrating)=
+### Migrating models
+
+```{ibnote}
+See also: {ref}`Juju | Migrate a model <migrate-a-model>`, {ref}`Terraform Provider for Juju | Migrate a model <tfjuju:migrate-a-model>`
+```
+
+Migrating models moves a model from one {ref}`controller <controller>`, the source, to another, the target, through the phases of a {ref}`model migration <model-migration>`. When the call returns, the migration has an ID and the rest runs without the client.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`superuser access <user-access-controller-superuser>` to the source controller, plus the address, the certificate, and a {ref}`user's <user>` credentials for the target controller.
+- *Rules:*
+  - The source and the target both run prechecks (checks that a model can be migrated, such as that every machine is alive) before the model is quiesced and again when the model is stable. A request can ask for the prechecks only.
+  - Every user with access to the model must exist on the target, unless the request skips the user checks. When external users (those with an `@` in their name) have access, the two controllers must also use the same identity provider URL (the address of the service that authenticates external users).
+  - The target must run Juju 4.1 or later, because an older controller cannot import a model in the format that the source sends.
+  - The import records which controller hosts each model whose offers the migrating model consumes ({ref}`external controllers <external-controller-and-model-migration>`). If the target already records one of those models under a different controller, the migration fails with `external model "<uuid>" already registered to a different controller: external controller details do not match`.
+- *Errors:* A precheck that fails when the migration is requested is returned as the call's error, with a prefix such as `source prechecks failed:`. A failure after that becomes the migration's status, `aborted, removing model from target controller: <reason>`, where the reason is one of the messages below. An error raised while the target imports the model has the prefix `model data transfer failed, failed to import model into target controller`, followed by a colon and the message. The messages are:
+  - **`model is <life>`**, **`model is being imported as part of another migration`**, and **`model has revoked credentials`**: *Trigger:* The model is dying or dead, is itself being imported, or has a {ref}`credential <credential>` that was revoked. *Remediation:* Wait for the removal or import to finish, or set a valid credential.
+  - **`cannot initiate migration as the users granted access to the model do not exist on the destination controller…`** and **`cannot initiate migration as external users have been granted access to the model and the two controllers have different identity provider configurations…`**: *Trigger:* A user of the model is missing on the target, or external users have access and the identity providers differ. Both messages list the users involved. *Remediation:* Add the users to the target, or remove them from the model.
+  - **`machine <id> is <life>`** and **`unit <name> hasn't joined relation "<key>" yet`**: *Trigger:* A machine is not alive, or a {ref}`unit <unit>` has not joined a {ref}`relation <relation>` of the model. *Remediation:* Wait, then retry.
+  - **`fan networking not supported, remove fan-config "<value>" from migrating model config`**: *Trigger:* The model sets `fan-config` or `container-networking-method`. *Remediation:* Remove the key.
+  - **`all charms now require a manifest.yaml file, this model hosts charm(s) with no manifest.yaml file: <list>`**: *Trigger:* The model runs a charm revision without a manifest. *Remediation:* Refresh the listed {ref}`applications <application>`.
+  - **`controller: upgrade in progress`**: *Trigger:* The source controller is upgrading. *Remediation:* Wait for the upgrade.
+  - **`model has higher version than target controller (<model> > <target>)`** and **`source controller has higher version than target controller (<source> > <target>)`**: *Trigger:* The target runs an older version than the model or the source. *Remediation:* Upgrade the target first.
+  - **`model's secret backend "<name>" not found on target controller`**: *Trigger:* The target does not know the model's {ref}`secret backend <secret-backend>`. *Remediation:* Add the secret backend to the target.
+  - **`model's cloud "<cloud>" not found on target controller`**: *Trigger:* The target does not know the model's cloud. *Remediation:* Add the cloud to the target.
+  - **`model named "<name>" already exists`**, **`model with same UUID already exists (<uuid>)`**, **`model "<uuid>" already exists on this controller`**, **`model "<uuid>" already exists on this controller (currently importing)`**, and **`model is being migrated out of target controller`**: *Trigger:* The target holds a clashing model. *Remediation:* Rename or remove it, or wait.
+  - **`target controller does not support the model migration format; upgrade the target controller to Juju 4.1 or later`**: *Trigger:* The target is older than 4.1. *Remediation:* Upgrade the target.
+  - **`importing model "<name>" with uuid "<uuid>", user not found for name "<qualifier>"`**: *Trigger:* The user named by the model's qualifier does not exist on the target. *Remediation:* Add the user to the target controller.
+  - **`setting cloud credential for model "<uuid>": not found cloud credential "<key>"`**: *Trigger:* The target has no {ref}`credential <credential>` with the cloud, owner, and name that the model uses. *Remediation:* Add that credential to the target, or give the model a credential that exists on both controllers.
+  - **`machine sanity check failed, <n> error(s) found`**: *Trigger:* After the transfer, the target's machines differ from what the cloud reports. *Remediation:* Reconcile the cloud and Juju, then retry.
+  - **`<step>, timed out waiting for agents to report`** and **`<step>, some agents reported failure`**: *Trigger:* Agents did not report in time or reported an error. *Remediation:* Raise `migration-agent-wait-time`, or read the agents' logs.
+  - **`removing exported model failed: <reason>`**: *Trigger:* The source copy could not be removed after the model went live on the target. *Remediation:* Use the model on the target controller, where it is already live; only the source's copy remains.
+
+The phases of a migration -- what happens in each, who drives them, and the records the move leaves behind -- are described on the {ref}`model migration <model-migration>` page.
+
+(model-destroying)=
+### Destroying models
+
+```{ibnote}
+See also: {ref}`Juju | Destroy a model <destroy-a-model>`
+```
+
+Destroying models removes a model and everything in it, including the {ref}`cloud <cloud>` resources behind its machines. The {ref}`controller <controller>` marks the model dying and schedules the removal of its {ref}`relations <relation>`, {ref}`units <unit>`, {ref}`machines <machine>`, {ref}`applications <application>`, and {ref}`storage <storage>`; when all of it is gone, the model is dead and the controller deletes its database.
+
+The caller, the rules, and the errors are:
+
+- *Caller:* A client, for a user with {ref}`admin access <user-access-model-admin>` to the model, or with {ref}`superuser access <user-access-controller-superuser>` to the controller.
+- *Rules:*
+  - A destroy block, a remove block, or a change block on the model (see {ref}`restricting commands on a model <restrict-commands-on-a-model>`) refuses the request.
+  - The controller model is destroyed only with the force option.
+  - A model that holds persistent storage is destroyed only when the request says whether to destroy or release the storage.
+  - A request with the force option removes what the normal removal cannot, after waiting for the maximum wait time the request names.
+  - A model that is being imported by a {ref}`migration <model-migrating>` is removed through the migration's abort, not through this call.
+  - A model stays dying until every one of its machines is gone. A machine that hosts containers is removed after its containers.
+  - The model's database is deleted last, after the rest of the model is removed.
+- *Errors:*
+  - **`model "<uuid>" has persistent storage`**: *Trigger:* The model holds persistent storage and the request does not say what to do with it. The {ref}`client <client>` receives it with the code for persistent storage. *Remediation:* Destroy or release the storage in the request.
+  - **`removing model "<uuid>": cannot remove controller model "<uuid>" without force`**: *Trigger:* Destroying the controller model without the force option. *Remediation:* Request the destruction with the force option.
+  - **`removing model "<uuid>": …model "<uuid>" is being migrated: model has an active migration import claim`**: *Trigger:* A normal removal targets a model that is being imported. *Remediation:* Abort the migration.
+  - **`permission denied`**: *Trigger:* The caller is not an administrator of the model. *Remediation:* Ask a model administrator or a superuser.
+  - **`the operation has been blocked`** (or the message that the block carries): *Trigger:* A {ref}`block <restrict-commands-on-a-model>` that this call checks is on. The client receives it with the code `operation is blocked`. *Remediation:* Remove the block.

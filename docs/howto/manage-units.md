@@ -124,6 +124,19 @@ juju resolved myapp/0
 See more: {ref}`command-juju-resolved`
 ```
 
+(access-a-unit-via-ssh)=
+## Access a unit via SSH
+
+To open a shell in a Kubernetes unit's container, make sure you have `admin` access to the model and your public SSH key has been added to the model (see {ref}`access-a-machine-via-ssh` for the requirements), then use the `juju ssh` command followed by the unit name. By default the session opens in the `charm` container. To choose another container of the unit's pod, use the `--container` flag. For example, the code below opens a shell in the `concourse-worker` container of unit 0 of the `concourse-worker` application:
+
+```text
+juju ssh --container=concourse-worker concourse-worker/0
+```
+
+```{ibnote}
+See more: {ref}`command-juju-ssh`, {ref}`juju-ssh`
+```
+
 (remove-a-unit)=
 ## Remove a unit
 

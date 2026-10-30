@@ -11,6 +11,7 @@ myst:
 See also: {ref}`relation`
 ```
 
+(add-a-relation)=
 ## Add a relation
 
 The procedure differs slightly depending on whether the applications that you want to integrate are on the same model or rather on different models.
@@ -59,7 +60,7 @@ See more: {ref}`command-juju-integrate`
 ### Add a cross-model relation
 
 ```{ibnote}
-See also: {ref}`cross-model-relation`
+See also: {ref}`Juju | Cross-model relation <cross-model-relation>`
 ```
 
 In a cross-model relation there is also an 'offering' model and a 'consuming' model. The admin of the 'offering' model 'offers' an application for consumption outside of the model and grants an external user access to it. The user on the 'consuming' model can then find an offer to use, consume the offer, and integrate an application on their model with the 'offer' via the same `integrate` command as in the same-model case (just that the offer must be specified in terms of its offer URL or its consume alias). This creates a local proxy for the offer in the consuming model, and the application is subsequently treated as any other application in the model.
@@ -68,6 +69,7 @@ In a cross-model relation there is also an 'offering' model and a 'consuming' mo
 See more: {ref}`integrate-with-an-offer`
 ```
 
+(view-all-the-current-relations)=
 ## View all the current relations
 
 To view the current relations in the model, run `juju status --relations`. The example below shows a peer relation and a regular relation:
@@ -91,6 +93,7 @@ mysql:db           mediawiki:db   mysql      regular
 See more: {ref}`command-juju-status`
 ```
 
+(get-the-relation-id)=
 ## Get the relation ID
 
 To get the ID of a relation, for any unit participating in the relation, run the `show-unit` command -- the output will also include the relation ID. For example:
@@ -110,6 +113,7 @@ $ juju show-unit synapse/0
 
 
 
+(remove-a-relation)=
 ## Remove a relation
 
 Regardless of whether the relation is same-model or cross-model, to remove a relation, run the `remove-relation` command followed by the names of the two applications involved in the relation:

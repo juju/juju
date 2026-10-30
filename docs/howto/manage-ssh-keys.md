@@ -42,6 +42,7 @@ juju add-ssh-key "$(cat ~/mykey.pub)"
 See more: {ref}`command-juju-add-ssh-key`
 ```
 
+(import-an-ssh-key)=
 ## Import an SSH key
 
 To import a public SSH key from Launchpad / Github to a model, use the `import-ssh-key` command followed by `lp:` / `gh:` and the name of the user account. For example, the code below imports all the public keys associated with the Github user account ‘phamilton’:
@@ -54,6 +55,7 @@ juju import-ssh-key gh:phamilton
 See more: {ref}`command-juju-import-ssh-key`
 ```
 
+(view-the-available-ssh-keys)=
 ## View the available SSH keys
 
 To list the SSH keys known in the current model, use the `ssh-keys` command.
@@ -107,6 +109,7 @@ sudo snap connect juju:u2f-devices
 ```
 ````
 
+(remove-an-ssh-key)=
 ## Remove an SSH key
 
 To remove an SSH key, use the `remove-ssh-key` command followed by the key / a space-separated list of keys. The keys may be specified by either their fingerprint or the text label associated with them. The example below illustrates both:

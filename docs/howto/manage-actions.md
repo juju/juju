@@ -14,6 +14,7 @@ See also: {ref}`action`
 This document demonstrates how to manage actions.
 
 
+(list-all-actions)=
 ## List all actions
 
 To list the actions defined for a deployed application, use the `actions` command followed by the deployed charm's name. For example, assuming you've already deployed the `git` charm, you can find out the actions it supports as below:
@@ -71,6 +72,7 @@ The full schema is under the `properties` key of the root action. Actions rely o
 See more: {ref}`command-juju-actions`
 ```
 
+(show-details-about-an-action)=
 ## Show details about an action
 
 To see detailed information about an application action, use the `show-action` command followed by the name of the charm and the name of the action. For example, the code below will show detailed information about the `backup` action of the `postgresql` application.
@@ -83,6 +85,7 @@ juju show-action postgresql backup
 See more: {ref}`command-juju-show-action`
 ```
 
+(run-an-action)=
 ## Run an action
 
 ```{important}
@@ -113,6 +116,7 @@ See more: {ref}`command-juju-run`
 See also: {ref}`task`
 ```
 
+(show-details-about-a-task)=
 ### Show details about a task
 
 To drill down to the result of running an action on a specific unit (the stdout, stderror, log messages, etc.), use the `show-task` command followed by the task ID (returned by the `run` command). For example,
@@ -125,6 +129,7 @@ juju show-task 1
 See more: {ref}`command-juju-show-task`
 ```
 
+(cancel-a-task)=
 ### Cancel a task
 
 
@@ -144,6 +149,7 @@ See more: {ref}`command-juju-cancel-task`
 ```{ibnote}
 See also: {ref}`operation`
 ```
+(view-the-pending-running-or-completed-operations)=
 ### View the pending, running, or completed operations
 
 
@@ -159,6 +165,7 @@ This will show the operations corresponding to the actions for all the applicati
 See more: {ref}`command-juju-operations`
 ```
 
+(show-details-about-an-operation)=
 ### Show details about an operation
 
 To see the status of the individual tasks belonging to a given operation,  run the `show-operation` command followed by the operation ID.

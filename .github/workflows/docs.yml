@@ -36,6 +36,13 @@ jobs:
         run: |
           make docs-verify-docs
 
+      - name: Check the reference error contract
+        run: |
+          # check_error_contract.py reads the pinned github.com/juju/*
+          # dependencies from the module cache; make sure they are present.
+          go mod download
+          make docs-verify-error-contract
+
   html:
     # Heavy full build (Sphinx + Playwright/excalidraw + whole-tree diff).
     # Runs on every PR that triggers the docs workflow (any generator-input or

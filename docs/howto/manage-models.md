@@ -26,6 +26,7 @@ You can also pass various options to choose a different controller or credential
 See more: {ref}`command-juju-add-model`
 ```
 
+(view-all-the-models-available-on-a-controller)=
 ## View all the models available on a controller
 
 To get a list of all the models in the current controller, use the `models` command:
@@ -114,6 +115,7 @@ By passing various options you can also specify a model, see the output in color
 See more: {ref}`command-juju-status`
 ```
 
+(view-details-about-a-model)=
 ## View details about a model
 
 To view detailed information about a specific model, use the `show-model`  command followed by the model name. For example:
@@ -402,21 +404,9 @@ See more: {ref}`migrate-a-model`
 
 When you're done, verify that the model has been succesful by running the `status` command. If the output looks wrong, you will have to do some investigation.
 
+**If the upgrade fails.** The error message says why. The reference lists every upgrade error with its trigger and remediation: see {ref}`Upgrading models <model-upgrading>`.
+
 `````{dropdown} Troubleshooting
-
-````{dropdown} Error: some agents have not upgraded to the current model version
-
-When the running agent software that is more than 1 patch point behind the targeted upgrade version the upgrade process will abort.
-
-One very common reason for "agent version skew" is that during a previous upgrade the agent could not be contacted and, therefore, was not upgraded along with the rest of the agents.
-
-To overcome this situation you may force the upgrade by ignoring the agent version check:
-
-``` text
-juju upgrade-model --ignore-agent-versions
-```
-
-````
 
 ````{dropdown} Unit agent has not restarted after upgrade
 
@@ -551,29 +541,9 @@ juju status -m <destination-controller>:<model>
 See more: {ref}`command-juju-migrate`
 ```
 
-````{dropdown} Troubleshooting
+**If the migration fails.** The status message of the migration says what went wrong, in the form `aborted, removing model from target controller: <reason>`. The reference lists every precheck and import error with its trigger and remediation: see {ref}`Migrating models <model-migrating>`.
 
-```{dropdown} Error: migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: granting admin permission to the owner: user "<user>" is permanently deleted'
-
-This error occurs when the model owner does not exist on the target controller. The solution is to create a user with that name on the target controller.
-
-**Note:** The underlying cause is because a model is tightly coupled with the user who has created it. Starting with Juju 4, it will be possible to identify models independently of the user.
-
-```
-
-```{dropdown} Error:migration: 'aborted, removing model from target controller: model data transfer failed, failed to import model into target controller: credential "<credential>" not found (not found)'
-
-This error occurs when the model owner does not own the credential associated with the model. The solution is to change the credential to a credential the user owns (via `juju set-credential`).
-
-```
-
-```{dropdown} Error: migration: 'aborted, removing model from target controller: machine sanity check failed, 1 error found'
-
-This error occurs when the machines known by Juju differ from the ones the underlying cloud reports (e.g., a LXD cloud still sees a container that has been removed from Juju). The solution is to check the cloud and resolve the difference (i.e., continuing with the previous example, to delete the container from the LXD cloud as well).
-
-```
-````
-
+(destroy-a-model)=
 ## Destroy a model
 
 ```{ibnote}

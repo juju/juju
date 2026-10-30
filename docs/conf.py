@@ -453,8 +453,8 @@ intersphinx_mapping = {
     ),
     "pyjuju": ("https://pythonlibjuju.readthedocs.io/en/latest/", None),
     "jaas": ("https://documentation.ubuntu.com/jaas/latest/", None),
-    "charmcraft": ("https://documentation.ubuntu.com/charmcraft/stable/", None),
-    "ops": ("https://documentation.ubuntu.com/ops/latest/", None),
+    "charmcraft": ("https://canonical.com/juju/docs/charmcraft/stable/", None),
+    "ops": ("https://canonical.com/juju/docs/ops/latest/", None),
 }
 
 new_tab_link_show_external_link_icon = True
