@@ -317,19 +317,14 @@ SELECT $LeasePin.uuid, l.uuid, $LeasePin.entity_id
 FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
 WHERE  t.type = $Lease.type
 AND    l.model_uuid = $Lease.model_uuid
-AND    l.name = $Lease.name;`, leasePin, lease)
+AND    l.name = $Lease.name
+ON CONFLICT (lease_uuid, entity_id) DO NOTHING;`, leasePin, lease)
 	if err != nil {
 		return errors.Errorf("preparing insert lease pin statement: %w", err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, leasePin, lease).Run()
-		if database.IsErrConstraintUnique(err) {
-			return nil
-		} else if err != nil {
-			return errors.Capture(err)
-		}
-		return nil
+		return errors.Capture(tx.Query(ctx, stmt, leasePin, lease).Run())
 	})
 
 	return errors.Capture(err)
