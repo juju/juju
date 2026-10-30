@@ -516,7 +516,7 @@ ON charm_container (charm_uuid);
 CREATE TABLE charm_container_mount (
     array_index INT NOT NULL,
     charm_uuid TEXT NOT NULL,
-    charm_container_key TEXT,
+    charm_container_key TEXT NOT NULL,
     storage TEXT,
     location TEXT,
     CONSTRAINT fk_charm_container_mount_charm
@@ -562,7 +562,10 @@ CREATE TABLE charm_manifest_base (
     CONSTRAINT fk_charm_manifest_base_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
-    PRIMARY KEY (charm_uuid, array_index, nested_array_index, os_id, track, risk, branch, architecture_id)
+    -- A row is the nested_array_index'th architecture of the
+    -- array_index'th base in the charm manifest; the remaining columns
+    -- describe that base and are not part of its identity.
+    PRIMARY KEY (charm_uuid, array_index, nested_array_index)
 );
 
 CREATE VIEW v_charm_manifest AS
