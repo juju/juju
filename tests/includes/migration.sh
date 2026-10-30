@@ -54,11 +54,14 @@ bootstrap_controller_36() {
 	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
 		bootstrap_args+=(--bootstrap-constraints "arch=${BOOTSTRAP_ARCH}")
 	fi
-	# Match .github/workflows/migrate.yml: migration logging on every model
-	# and no OS upgrade noise in the controller model.
+	# Migration logging on every model (as .github/workflows/migrate.yml)
+	# and no OS upgrade noise in the controller model. <root>=INFO is
+	# explicit: without it the root level drops to WARNING, and 4.0 records
+	# status history through an INFO logger, so the migrated model's
+	# show-status-log would stop updating.
 	if ! ${JUJU_36} bootstrap "${cloud_region}" "${name}" \
 		"${bootstrap_args[@]}" \
-		--model-default logging-config="#migration=TRACE" \
+		--model-default logging-config="<root>=INFO;#migration=TRACE" \
 		--model-default enable-os-upgrade=false \
 		>"${file}" 2>&1; then
 		red "Failed: bootstrapping juju 3.6 controller ${name}"
@@ -69,7 +72,7 @@ bootstrap_controller_36() {
 
 	# Keep the migration logging explicit: --model-default only guarantees
 	# defaults for hosted models.
-	${JUJU_36} model-config -m "${name}:controller" "logging-config=#migration=TRACE" >/dev/null
+	${JUJU_36} model-config -m "${name}:controller" "logging-config=<root>=INFO;#migration=TRACE" >/dev/null
 
 	# Tail the controller model logs like the framework does for its own
 	# controllers, so failures can be introspected from ${TEST_DIR}.
@@ -111,7 +114,7 @@ add_model_36() {
 
 	${JUJU_36} add-model -c "${controller}" "${model}"
 	${JUJU_36} switch "${controller}:${model}"
-	${JUJU_36} model-config -m "${controller}:${model}" "logging-config=#migration=TRACE" >/dev/null
+	${JUJU_36} model-config -m "${controller}:${model}" "logging-config=<root>=INFO;#migration=TRACE" >/dev/null
 
 	if [[ -n ${MODEL_ARCH:-} ]]; then
 		${JUJU_36} set-model-constraints -m "${controller}:${model}" "arch=${MODEL_ARCH}"

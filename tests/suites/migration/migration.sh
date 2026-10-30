@@ -618,8 +618,9 @@ run_migration_36_users_permissions() {
 
 # PostgreSQL cross-model relation migration on k8s, consuming side: the
 # consumer model migrates to 4.0 while the offerer stays on 3.6. Covers
-# write continuity after the move and relation-secret rotation on the
-# 3.6 offerer (juju/juju#23341).
+# write continuity after the move and secret-changed notification of the
+# 4.0 consumer for new revisions of a relation-granted offerer secret
+# (juju/juju#23341).
 run_migration_36_cmr_secrets_consumer() {
 	# Echo out to ensure nice output to the test suite.
 	echo
@@ -675,13 +676,49 @@ run_migration_36_cmr_secrets_consumer() {
 	consumer_post=$(mig_writes_get "juju" "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345")
 	mig_assert_writes_increase "${consumer_pre}" "${consumer_post}" "${consumer_pre}" "migrated consumer ${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345"
 
-	# Secret-watch continuity across the mixed-version cross-model relation
-	# (juju/juju#23341): rotate the relation secret on the still-3.6
-	# offerer; the migrated consumer must keep writing.
+	# Rotate the PostgreSQL operator password: the consumer's continuous
+	# writes must not regress (database continuity, not #23341).
 	${JUJU_36} run -m "mig36-db-src-12345:mig-db36-12345" postgresql-k8s/leader set-password username=operator
 	wait_for "postgresql-test-app" "$(active_idle_condition "postgresql-test-app")"
 	consumer_post2=$(mig_writes_get "juju" "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345")
 	mig_assert_writes_increase "${consumer_post}" "${consumer_post2}" "${consumer_pre}" "migrated consumer after secret rotation"
+
+	# Consumed-secret watch across the mixed-version cross-model relation
+	# (juju/juju#23341): a new revision of a charm-owned secret on the 3.6
+	# offerer, granted over the offer relation, must notify the migrated
+	# 4.0 consumer through a secret-changed hook. Only a relation-scoped
+	# grant crosses models, so the secret is created and granted from the
+	# offerer leader unit.
+	cmr_secret_uri=$(juju36_exec_output -m "mig36-db-src-12345:mig-db36-12345" --unit postgresql-k8s/leader -- secret-add marker=pre-update)
+	cmr_secret_id=${cmr_secret_uri##*[:/]}
+	# The offerer's database endpoint carries both the in-model relation
+	# and the offer relation; the latter has remote-<token> units.
+	cmr_rel_id=""
+	for rel_id in $(juju36_exec_output -m "mig36-db-src-12345:mig-db36-12345" --unit postgresql-k8s/leader -- relation-ids database); do
+		rel_units=$(juju36_exec_output -m "mig36-db-src-12345:mig-db36-12345" --unit postgresql-k8s/leader -- relation-list -r "${rel_id}")
+		echo "[+] checking postgresql-k8s relation ${rel_id} => units: ${rel_units//$'\n'/ }"
+		if grep -q '^remote-' <<<"${rel_units}"; then
+			cmr_rel_id="${rel_id}"
+			break
+		fi
+	done
+	if [[ -z ${cmr_rel_id} ]]; then
+		red "Failed: no offer relation found on postgresql-k8s:database"
+		exit 1
+	fi
+	juju36_exec_output -m "mig36-db-src-12345:mig-db36-12345" --unit postgresql-k8s/leader -- secret-grant "${cmr_secret_uri}" -r "${cmr_rel_id}"
+	# The first read registers the unit as a consumer of the secret on
+	# both controllers; without it no secret-changed hook can fire.
+	check_contains "$(juju_exec_output -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345" --unit postgresql-test-app/0 -- secret-get "${cmr_secret_uri}")" "marker: pre-update"
+
+	# secret-get always fetches content live from the offerer controller,
+	# so only the secret-changed hook proves the consumed-secret watch is
+	# running.
+	wait_for_hook_count_stable "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345" postgresql-test-app/0 "${cmr_secret_id}"
+	hooks_before=$(count_secret_changed_hooks "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345" postgresql-test-app/0 "${cmr_secret_id}")
+	juju36_exec_output -m "mig36-db-src-12345:mig-db36-12345" --unit postgresql-k8s/leader -- secret-set "${cmr_secret_uri}" marker=post-update
+	echo "[+] juju/juju#23341: waiting for the migrated consumer to run secret-changed for ${cmr_secret_id}"
+	wait_for_secret_changed_hooks "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-cons36-12345" postgresql-test-app/0 "$((hooks_before + 1))" "${cmr_secret_id}"
 
 	# The offer must be removed before model/controller destruction will
 	# work. See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
@@ -816,8 +853,8 @@ run_migration_36_cmr_secrets_offerer() {
 	ns=$(juju models -c "${BOOTSTRAPPED_JUJU_CTRL_NAME}" --format=json 2>/dev/null | yq -r ".models[] | select(.[\"short-name\"] == \"mig-db36-12345\") | .[\"model-uuid\"]")
 	check_contains "$(kubectl -n "${ns}" get pvc 2>&1 || true)" "Bound"
 
-	# Rotate the relation secret with everything on 4.0: the third-party
-	# consumer must stay healthy (juju/juju#23341).
+	# Rotate the PostgreSQL operator password: the third-party consumer's
+	# writes must not regress (database continuity, not #23341).
 	juju run -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:mig-db36-12345" postgresql-k8s/leader set-password username=operator
 	wait_for "postgresql-k8s" "$(active_idle_condition "postgresql-k8s")"
 	hub_post3=$(mig_writes_get "juju" "mig36-hub40-12345:mig-hub40-12345") \
