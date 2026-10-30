@@ -5,6 +5,8 @@ package state_test
 
 import (
 	"context"
+	"database/sql"
+	"sync"
 	"testing"
 	"time"
 
@@ -234,6 +236,113 @@ func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(pins, tc.HasLen, 1)
 	c.Check(pins[pgKey], tc.SameContents, []string{"machine/6"})
+}
+
+func (s *stateSuite) TestPinLeaseRepeatedKeepsExistingPin(c *tc.C) {
+	key := corelease.Key{
+		Namespace: "application-leadership",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), key, corelease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.store.PinLease(c.Context(), key, "machine/6")
+	c.Assert(err, tc.ErrorIsNil)
+	original := s.pinUUIDs(c, "machine/6")
+	c.Assert(original, tc.HasLen, 1)
+
+	err = s.store.PinLease(c.Context(), key, "machine/6")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.pinUUIDs(c, "machine/6"), tc.DeepEquals, original)
+
+	// The store remains usable for pin operations after the conflict.
+	err = s.store.PinLease(c.Context(), key, "machine/7")
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.store.UnpinLease(c.Context(), key, "machine/6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	pins, err := s.store.Pinned(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pins, tc.DeepEquals, map[corelease.Key][]string{
+		key: {"machine/7"},
+	})
+}
+
+func (s *stateSuite) TestPinLeaseCompeting(c *tc.C) {
+	key := corelease.Key{
+		Namespace: "application-leadership",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+	err := s.store.ClaimLease(c.Context(), uuid.MustNewUUID(), key, corelease.Request{
+		Holder:   "postgresql/0",
+		Duration: time.Minute,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	const pinners = 10
+	errs := make(chan error, pinners*2)
+	var wg sync.WaitGroup
+	for range pinners {
+		for _, entity := range []string{"machine/6", "machine/7"} {
+			wg.Go(func() {
+				errs <- s.store.PinLease(c.Context(), key, entity)
+			})
+		}
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		c.Check(err, tc.ErrorIsNil)
+	}
+
+	c.Check(s.pinUUIDs(c, "machine/6"), tc.HasLen, 1)
+	c.Check(s.pinUUIDs(c, "machine/7"), tc.HasLen, 1)
+	pins, err := s.store.Pinned(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(pins, tc.HasLen, 1)
+	c.Check(pins[key], tc.SameContents, []string{"machine/6", "machine/7"})
+}
+
+func (s *stateSuite) TestPinLeaseMissingLeaseNoOp(c *tc.C) {
+	key := corelease.Key{
+		Namespace: "application-leadership",
+		ModelUUID: "model-uuid",
+		Lease:     "postgresql",
+	}
+
+	err := s.store.PinLease(c.Context(), key, "machine/6")
+	c.Assert(err, tc.ErrorIsNil)
+
+	pins, err := s.store.Pinned(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pins, tc.HasLen, 0)
+}
+
+func (s *stateSuite) pinUUIDs(c *tc.C, entity string) []string {
+	var uuids []string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		rows, err := tx.QueryContext(ctx,
+			"SELECT uuid FROM lease_pin WHERE entity_id = ? ORDER BY uuid", entity)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var uuid string
+			if err := rows.Scan(&uuid); err != nil {
+				return err
+			}
+			uuids = append(uuids, uuid)
+		}
+		return rows.Err()
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return uuids
 }
 
 func (s *stateSuite) TestLeaseOperationCancellation(c *tc.C) {
