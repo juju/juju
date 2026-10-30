@@ -4,6 +4,7 @@
 package to_v4_1_0
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 )
@@ -96,6 +99,79 @@ func (s *deltasSuite) TestRelationUnitDepartureStartsEmpty(c *tc.C) {
 	got, err := deltas{}.RelationUnitDeparture(c.Context(), &v4_0_12.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.HasLen, 0)
+}
+
+// TestSecretRemoteUnitConsumerAddsOfferConnection verifies that each remote
+// consumer is assigned the offer connection of the synthetic application it
+// is named after, and that consumers without an offer connection are
+// dropped.
+func (s *deltasSuite) TestSecretRemoteUnitConsumerAddsOfferConnection(c *tc.C) {
+	model := &v4_0_12.ModelExport{
+		Application: []v4_0_12.Application{
+			{UUID: "synth-uuid", Name: "remote-synth"},
+			{UUID: "local-uuid", Name: "local"},
+		},
+		ApplicationRemoteConsumer: []v4_0_12.ApplicationRemoteConsumer{
+			{OfferConnectionUUID: "synth-uuid"},
+		},
+	}
+	src := []v4_0_12.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", UnitName: "remote-synth/0", CurrentRevision: 1},
+		{SecretID: "secret-1", UnitName: "local/0", CurrentRevision: 2},
+		{SecretID: "secret-2", UnitName: "removed/0", CurrentRevision: 3},
+		{SecretID: "secret-2", UnitName: "remote-synth/1", CurrentRevision: 4},
+	}
+
+	log := &deltaWarningLogger{}
+	got, err := (deltas{logger: log}).SecretRemoteUnitConsumer(c.Context(), src, model)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(log.warnings, tc.DeepEquals, []string{
+		`dropping remote consumer "local/0" of secret "secret-1": offer connection not found`,
+		`dropping remote consumer "removed/0" of secret "secret-2": application not found`,
+	})
+	c.Check(got, tc.DeepEquals, []v4_1_0.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", OfferConnectionUUID: "synth-uuid", UnitName: "remote-synth/0", CurrentRevision: 1},
+		{SecretID: "secret-2", OfferConnectionUUID: "synth-uuid", UnitName: "remote-synth/1", CurrentRevision: 4},
+	})
+}
+
+func (s *deltasSuite) TestSecretRemoteUnitConsumerDropsInvalidNamesAndPreservesValidConsumers(c *tc.C) {
+	appUUID := "12345678-1234-1234-1234-123456789abc"
+	appName := coreapplication.RemoteApplicationNameFromUUID(coreapplication.UUID(appUUID))
+	model := &v4_0_12.ModelExport{
+		Application:               []v4_0_12.Application{{UUID: appUUID, Name: appName}},
+		ApplicationRemoteConsumer: []v4_0_12.ApplicationRemoteConsumer{{OfferConnectionUUID: appUUID}},
+	}
+	invalidNames := []string{"not-a-unit", "/0", appName + "/-1", appName + "/01", appUUID + "/0"}
+	src := []v4_0_12.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", UnitName: appName + "/0", CurrentRevision: 1},
+	}
+	for _, unitName := range invalidNames {
+		src = append(src, v4_0_12.SecretRemoteUnitConsumer{SecretID: "secret-1", UnitName: unitName, CurrentRevision: 2})
+	}
+	src = append(src, v4_0_12.SecretRemoteUnitConsumer{SecretID: "secret-2", UnitName: appName + "/1", CurrentRevision: 3})
+
+	log := &deltaWarningLogger{}
+	got, err := (deltas{logger: log}).SecretRemoteUnitConsumer(c.Context(), src, model)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []v4_1_0.SecretRemoteUnitConsumer{
+		{SecretID: "secret-1", OfferConnectionUUID: appUUID, UnitName: appName + "/0", CurrentRevision: 1},
+		{SecretID: "secret-2", OfferConnectionUUID: appUUID, UnitName: appName + "/1", CurrentRevision: 3},
+	})
+	c.Assert(log.warnings, tc.HasLen, len(invalidNames))
+	for i, unitName := range invalidNames {
+		c.Check(log.warnings[i], tc.Contains,
+			fmt.Sprintf("dropping remote consumer %q of secret %q: invalid unit name:", unitName, "secret-1"))
+	}
+}
+
+type deltaWarningLogger struct {
+	corelogger.Logger
+	warnings []string
+}
+
+func (l *deltaWarningLogger) Warningf(_ context.Context, message string, args ...any) {
+	l.warnings = append(l.warnings, fmt.Sprintf(message, args...))
 }
 
 func (s *deltasSuite) TestUnitResourceAddsNameAndReconcilesDuplicates(c *tc.C) {

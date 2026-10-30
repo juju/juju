@@ -31,7 +31,9 @@ type ModelSecretsState interface {
 	// GetSecretRemoteConsumer returns the secret consumer info from a cross model consumer
 	// for the specified unit and secret.
 	GetSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
-	// SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
+	// SaveSecretRemoteConsumer saves the consumer metadata for the given
+	// secret and unit of the synthetic application representing a consuming
+	// application.
 	SaveSecretRemoteConsumer(ctx context.Context, uri *secrets.URI, unitName string, md secrets.SecretConsumerMetadata) error
 	// UpdateRemoteSecretRevision records the latest revision of the specified cross model secret.
 	UpdateRemoteSecretRevision(ctx context.Context, uri *secrets.URI, latestRevision int, applicationUUID string) error

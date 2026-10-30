@@ -12,6 +12,7 @@ import (
 	coreoffer "github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -28,20 +29,25 @@ type (
 
 // InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide
 // returns the initial watch statement and the table name for watching
-// remote consumed secrets.
+// remote consumed secrets. The initial query returns the UUID of the latest
+// revision of each secret for which any remote consuming unit of the
+// application is behind that revision.
 func (st *State) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(
 	appUUID string,
 ) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
 SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
-FROM      secret_remote_unit_consumer sruc
-LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
-WHERE     arc.offerer_application_uuid = $applicationUUID.uuid
-GROUP BY  sruc.secret_id
-HAVING    sruc.current_revision < MAX(sr.revision)`
+FROM   application_remote_consumer AS arc
+JOIN   secret_remote_unit_consumer AS sruc ON sruc.offer_connection_uuid = arc.offer_connection_uuid
+JOIN   secret_revision AS sr ON sr.secret_id = sruc.secret_id
+WHERE  arc.offerer_application_uuid = $applicationUUID.uuid
+AND    sruc.current_revision < sr.revision
+AND    sr.revision = (
+           SELECT MAX(latest.revision)
+           FROM   secret_revision AS latest
+           WHERE  latest.secret_id = sr.secret_id
+       )`
 		app := applicationUUID{UUID: appUUID}
 		stmt, err := st.Prepare(q, app, revisionUUID{})
 		if err != nil {
@@ -69,8 +75,9 @@ HAVING    sruc.current_revision < MAX(sr.revision)`
 }
 
 // GetRemoteConsumedSecretURIsWithChangesFromOfferingSide returns the URIs
-// of the secrets consumed by the specified remote application that has new
-// revisions.
+// of the secrets consumed by remote consuming units of the specified
+// application, where any of those units is behind a revision of the secret.
+// If revision UUIDs are specified, only those revisions are considered.
 func (st *State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	ctx context.Context, appUUID string, revUUIDs ...string,
 ) ([]string, error) {
@@ -80,21 +87,19 @@ func (st *State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	}
 	q := `
 SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
-FROM      secret_remote_unit_consumer sruc
-LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
-WHERE     arc.offerer_application_uuid = $applicationUUID.uuid`
+FROM   application_remote_consumer AS arc
+JOIN   secret_remote_unit_consumer AS sruc ON sruc.offer_connection_uuid = arc.offer_connection_uuid
+JOIN   secret_revision AS sr ON sr.secret_id = sruc.secret_id
+WHERE  arc.offerer_application_uuid = $applicationUUID.uuid
+AND    sruc.current_revision < sr.revision`
 	queryParams := []any{
 		applicationUUID{UUID: appUUID},
 	}
 	if len(revUUIDs) > 0 {
 		queryParams = append(queryParams, revisionUUIDs(revUUIDs))
-		q += " AND sr.uuid IN ($revisionUUIDs[:])"
+		q += `
+AND    sr.uuid IN ($revisionUUIDs[:])`
 	}
-	q += `
-GROUP BY sruc.secret_id
-HAVING sruc.current_revision < MAX(sr.revision)`
 	stmt, err := st.Prepare(q, append(queryParams, secretRemoteUnitConsumer{})...)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -223,10 +228,39 @@ WHERE  rev.secret_id = $secretLatestRevision.secret_id`
 	return consumers[0], latestRevision, nil
 }
 
-// SaveSecretRemoteConsumer saves the consumer metadata for the given secret and unit.
+// SaveSecretRemoteConsumer saves the consumer metadata for the given secret
+// and unit of the synthetic application representing a consuming
+// application. The application is derived from the validated unit name.
+// Its UUID is the offer connection UUID; its production name is "remote-"
+// followed by that UUID without hyphens, not the raw UUID.
+// If the unit name is invalid, an error satisfying
+// [coreunit.InvalidUnitName] is returned.
 // If the secret does not exist, an error satisfying [secreterrors.SecretNotFound] is returned.
-func (st *State) SaveSecretRemoteConsumer(ctx context.Context, uri *coresecrets.URI, unitName string, md coresecrets.SecretConsumerMetadata) error {
+// If the application is not the synthetic application of an offer
+// connection, an error satisfying
+// [crossmodelrelationerrors.RemoteApplicationNotFound] is returned.
+func (st *State) SaveSecretRemoteConsumer(
+	ctx context.Context, uri *coresecrets.URI, unitName string, md coresecrets.SecretConsumerMetadata,
+) error {
+	consumerName := coreunit.Name(unitName)
+	if err := consumerName.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+
 	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	appName := consumerName.Application()
+	appNameArg := name{Name: appName}
+	offerConnectionQuery := `
+SELECT arc.offer_connection_uuid AS &offerConnectionUUID.offer_connection_uuid
+FROM   application AS app
+JOIN   application_remote_consumer AS arc ON arc.offer_connection_uuid = app.uuid
+WHERE  app.name = $name.name`
+
+	offerConnectionStmt, err := st.Prepare(offerConnectionQuery, appNameArg, offerConnectionUUID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -242,14 +276,25 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	consumer := secretRemoteUnitConsumer{
-		SecretID:        uri.ID,
-		UnitName:        unitName,
-		CurrentRevision: md.CurrentRevision,
-	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.checkExists(ctx, tx, uri); err != nil {
 			return errors.Capture(err)
+		}
+
+		var connection offerConnectionUUID
+		err := tx.Query(ctx, offerConnectionStmt, appNameArg).Get(&connection)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("offer connection for application %q not found", appName).
+				Add(crossmodelrelationerrors.RemoteApplicationNotFound)
+		} else if err != nil {
+			return errors.Errorf("querying offer connection for application %q: %w", appName, err)
+		}
+
+		consumer := secretRemoteUnitConsumer{
+			SecretID:            uri.ID,
+			OfferConnectionUUID: connection.UUID,
+			UnitName:            unitName,
+			CurrentRevision:     md.CurrentRevision,
 		}
 		if err := tx.Query(ctx, insertStmt, consumer).Run(); err != nil {
 			return errors.Capture(err)

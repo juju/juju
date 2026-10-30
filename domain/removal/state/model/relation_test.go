@@ -542,9 +542,35 @@ WHERE u.name = ?`, "foo/0").Scan(&relUnitUUID)
 
 func (s *relationSuite) TestLeaveScopeSyntheticUnitsInMultipleRelations(c *tc.C) {
 	synthAppUUID, rel1UUID, rel2UUID := s.createSharedRemoteOffererRelations(c)
+	offerUUID := s.createOffer(c, "tracking-offer")
+	otherAppUUID, _ := s.createRemoteApplicationConsumer(c, "tracking-consumer", offerUUID)
+
+	// Remote offerers normally have no local consumer tracking. Attach a
+	// schema-valid connection to exercise the shared synthetic-unit cleanup
+	// defensively, with all offer, application and relation parents present.
+	_, err := s.DB().ExecContext(c.Context(), `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+SELECT ?, offer_uuid, ?, username
+FROM offer_connection WHERE uuid = ?`, synthAppUUID.String(), rel1UUID.String(), otherAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO application_remote_consumer
+    (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+SELECT ?, offerer_application_uuid, ?, ?, life_id
+FROM application_remote_consumer WHERE offer_connection_uuid = ?`,
+		synthAppUUID.String(), tc.Must(c, coreapplication.NewUUID).String(),
+		tc.Must(c, coremodel.NewUUID).String(), otherAppUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	consumers := []secretRemoteUnitConsumerRow{
+		{"secret-1", synthAppUUID.String(), "foo/0", 1},
+		{"secret-2", synthAppUUID.String(), "foo/0", 2},
+		{"secret-1", synthAppUUID.String(), "foo/1", 3},
+		{"secret-1", otherAppUUID.String(), "tracking-consumer/0", 4},
+	}
+	s.addSecretRemoteUnitConsumers(c, consumers...)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), rel1UUID.String())
+	err = st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), rel1UUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	err = s.setupRelationService(c).SetRelationRemoteApplicationAndUnitSettings(
 		c.Context(), synthAppUUID, rel1UUID, nil,
@@ -582,6 +608,7 @@ JOIN relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
 WHERE re.relation_uuid = ? AND rus.key = 'da' AND rus.value = 'do'`, rel2UUID.String()).Scan(&settings)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(settings, tc.Equals, 3)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers)
 
 	err = st.EnsureRelationWithRemoteOffererNotAliveCascade(c.Context(), rel2UUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -590,6 +617,7 @@ WHERE re.relation_uuid = ? AND rus.key = 'da' AND rus.value = 'do'`, rel2UUID.St
 SELECT COUNT(*) FROM unit WHERE application_uuid = ?`, synthAppUUID.String()).Scan(&units)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(units, tc.Equals, 0)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers[3:])
 }
 
 func (s *relationSuite) TestRemoveSharedRemoteOffererRelationsConcurrentRecreated(c *tc.C) {

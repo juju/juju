@@ -77,11 +77,27 @@ func (s *offerSuite) TestDeleteOfferFailsWithRelations(c *tc.C) {
 }
 
 func (s *offerSuite) TestDeleteOfferForceWithRelations(c *tc.C) {
-	_, _, offerUUID := s.createRelationWithRemoteConsumer(c)
+	_, synthAppUUID, offerUUID := s.createRelationWithRemoteConsumer(c)
+	secondAppUUID, _ := s.createRemoteApplicationConsumer(c, "second", offerUUID)
+	otherOfferUUID := s.createOffer(c, "other-offer")
+	otherAppUUID, _ := s.createRemoteApplicationConsumer(c, "other", otherOfferUUID)
+	consumers := []secretRemoteUnitConsumerRow{
+		{"secret-1", synthAppUUID.String(), "foo/0", 1},
+		// Tracking does not require a corresponding synthetic unit.
+		{"secret-1", synthAppUUID.String(), "foo/99", 2},
+		{"secret-2", secondAppUUID.String(), "second/99", 3},
+		{"secret-1", otherAppUUID.String(), "other/0", 4},
+	}
+	s.addSecretRemoteUnitConsumers(c, consumers...)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	err := st.DeleteOffer(c.Context(), offerUUID.String(), true)
+	err := st.DeleteOffer(c.Context(), offerUUID.String(), false)
+	c.Assert(err, tc.ErrorIs, removalerrors.OfferHasRelations)
+	c.Check(err, tc.ErrorIs, removalerrors.ForceRequired)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers)
+
+	err = st.DeleteOffer(c.Context(), offerUUID.String(), true)
 	c.Assert(err, tc.ErrorIsNil)
 
 	exists, err := st.OfferExists(c.Context(), offerUUID.String())
@@ -104,6 +120,19 @@ func (s *offerSuite) TestDeleteOfferForceWithRelations(c *tc.C) {
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(relCount, tc.Equals, 0)
-	c.Check(remoteAppCount, tc.Equals, 0)
+	c.Check(relCount, tc.Equals, 1)
+	c.Check(remoteAppCount, tc.Equals, 1)
+	c.Check(s.secretRemoteUnitConsumers(c), tc.SameContents, consumers[3:])
+	var connections int
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM offer_connection WHERE offer_uuid = ?`, offerUUID.String()).Scan(&connections)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connections, tc.Equals, 0)
+	err = s.DB().QueryRowContext(c.Context(), `
+SELECT COUNT(*) FROM offer_connection WHERE uuid = ?`, otherAppUUID.String()).Scan(&connections)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(connections, tc.Equals, 1)
+	exists, err = st.OfferExists(c.Context(), otherOfferUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }

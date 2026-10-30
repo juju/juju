@@ -876,15 +876,14 @@ SELECT uuid, name FROM application WHERE name LIKE 'remote-%' AND name != ?`, of
 	c.Check(subjectUUID, tc.Equals, syntheticUUID)
 
 	// The consumer of the secret is recorded for the synthetic unit of the
-	// application holding the grant, not for the legacy proxy unit, so the
-	// offering side resolves it to the offer connection of the grant.
+	// application holding the grant, not for the legacy proxy unit, and
+	// against the offer connection of the grant.
 	var consumerUnit string
 	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx, `
-SELECT sruc.unit_name
-FROM   secret_remote_unit_consumer AS sruc
-JOIN   application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
-WHERE  sruc.secret_id = ? AND app.uuid = ?`, secretID, syntheticUUID).Scan(&consumerUnit)
+SELECT unit_name
+FROM   secret_remote_unit_consumer
+WHERE  secret_id = ? AND offer_connection_uuid = ?`, secretID, syntheticUUID).Scan(&consumerUnit)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(consumerUnit, tc.Equals, syntheticName+"/0")

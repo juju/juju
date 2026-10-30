@@ -866,10 +866,10 @@ func (s *MigrationService) importGrantedSecret(ctx context.Context, secret Grant
 
 	// Verify that every consumer has a grant for the application, and
 	// record the consumers for the application holding the grant: the
-	// offering side resolves the consumers by the application of their unit
-	// name, so the legacy proxy unit names are rewritten onto the synthetic
-	// application of the offer connection holding the grant, like the
-	// synthetic units are imported.
+	// offering side records the consumers against the offer connection of
+	// that synthetic application, so the legacy proxy unit names are
+	// rewritten onto the synthetic application of the offer connection
+	// holding the grant, like the synthetic units are imported.
 	var grantedConsumers []internal.RemoteUnitConsumer
 	for _, consumer := range secret.Consumers {
 		appName, granted := grantSubjectByApplications[consumer.Unit.Application()]

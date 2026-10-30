@@ -417,6 +417,31 @@ WHERE application_uuid = $entityUUID.uuid`, synthApp)
 }
 
 func (st *State) deleteSynthUnit(ctx context.Context, tx *sqlair.TX, synthUnit entityUUID) error {
+	type synthUnitConsumer struct {
+		OfferConnectionUUID string `db:"offer_connection_uuid"`
+		UnitName            string `db:"unit_name"`
+	}
+
+	getSynthUnitConsumerStmt, err := st.Prepare(`
+SELECT application_uuid AS &synthUnitConsumer.offer_connection_uuid,
+       name AS &synthUnitConsumer.unit_name
+FROM   unit
+WHERE  uuid = $entityUUID.uuid`, synthUnitConsumer{}, synthUnit)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// The tracked secret revisions belong to the unit in the consuming
+	// model that the synthetic unit represents, so they are deleted with
+	// it, like those of a local unit.
+	deleteSecretRemoteUnitConsumerStmt, err := st.Prepare(`
+DELETE FROM secret_remote_unit_consumer
+WHERE  offer_connection_uuid = $synthUnitConsumer.offer_connection_uuid
+AND    unit_name = $synthUnitConsumer.unit_name`, synthUnitConsumer{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	getNetNodeUUIDStmt, err := st.Prepare(`
 SELECT net_node_uuid AS &entityUUID.uuid
 FROM   unit
@@ -444,6 +469,15 @@ DELETE FROM net_node
 WHERE uuid = $entityUUID.uuid`, entityUUID{})
 	if err != nil {
 		return errors.Capture(err)
+	}
+
+	var consumer synthUnitConsumer
+	err = tx.Query(ctx, getSynthUnitConsumerStmt, synthUnit).Get(&consumer)
+	if err != nil {
+		return errors.Errorf("getting synthetic unit name: %w", err)
+	}
+	if err := tx.Query(ctx, deleteSecretRemoteUnitConsumerStmt, consumer).Run(); err != nil {
+		return errors.Errorf("deleting secret remote unit consumers for synthetic unit: %w", err)
 	}
 
 	var netNode entityUUID
