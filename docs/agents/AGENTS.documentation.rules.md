@@ -428,13 +428,31 @@ Reference docs (in `docs/reference/`) define **what things are** in Juju -- enti
 
 **Example:** The database entity reference defines what a database is in Juju, its types (controller database, model databases), and technical characteristics. The explanation would cover broader architectural implications and design decisions.
 
+### What Goes On a Reference Page
+
+**Key principle:** A fact earns a place only if all three hold:
+
+1. **It is true.** Checked against the code as it is now, and re-checked whenever the page is touched. Truth is a standing duty, not a one-time gate.
+2. **A reader can meet it.** It appears where a reader looks: a command's output, an API call's reply, a status, a log line, or the database through the supported tools (`juju dump-db`, `juju-db-repl`, backups).
+3. **Someone is asking, and this page owns the answer.** Reference readers: people running Juju; people building tools that talk to its API; people writing charms; people debugging a controller with direct database access. AI assistants read too, but they change how we write -- every term linked or defined, one home per fact -- never what goes in. Not Juju developers; the code is their documentation.
+
+**When the tests disagree:**
+
+- **Meetable, but this page's reader is not asking:** move the fact to the page whose reader is, or cut it.
+- **Someone asks, but they cannot meet it:** write only what they can meet.
+- **Neither:** it stays in the code.
+
+**Ownership:** every fact has exactly one owning page; every other page links. Big machinery -- how a model moves between controllers, how watchers work -- also has one owning page, and it is not exempt: it must itself answer a reader's question, told as what happens, who drives it, in what order, and where each step surfaces, in names a reader can trace to a command, an API, or a log line.
+
+This governs `docs/reference/`. How-to guides may keep a labeled corner for Juju developers (for example, the Dqlite core-dump guide) -- labeled, so no one mistakes it for operator guidance.
+
 ### Section Ordering
 
 Reference docs should progress from **broad to specific**:
 
 1. Brief intro defining what the entity is
 2. High-level structure or organization (e.g., database architecture)
-3. Technical implementation details (e.g., what technology it uses)
+3. Technical implementation details (e.g., what technology it uses) -- only on the page that owns the mechanism
 
 This allows readers to understand the big picture before diving into specifics.
 
